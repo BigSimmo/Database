@@ -1,7 +1,8 @@
-# Ward Flow — the complete ledger, Phases 1 to 3
+# Ward Flow — the complete ledger, Phases 1 to 5
 
-The single cross-session record of everything built on branch `codex/ward-management-design`,
-assembled 2026-08-21 and refreshed 2026-08-22 after the branch was pushed. Ward Flow has run across many chat sessions on
+The single cross-session record of everything built. Assembled 2026-08-21 on branch
+`codex/ward-management-design`, refreshed 2026-08-22, and extended on 2026-08-26 with Phase 4, the
+sandbox and sidebar work, and the Phase 5 design. Ward Flow has run across many chat sessions on
 several different tools, and no single conversation holds the whole picture. This file does.
 
 **It is a map, not a replacement.** Each phase's own ledger holds the detail; this file records
@@ -149,7 +150,7 @@ and refusals surface with the reducer's own reason.
 labelled "not clinical severity" that partly was is why the previous score was deleted rather than
 migrated.
 
-## 6. Three questions still open with the clinician
+## 6. Three questions raised with the clinician — two still open
 
 None blocking; all stated rather than buried.
 
@@ -158,8 +159,11 @@ None blocking; all stated rather than buried.
 2. **Should being detained and examined confer priority of its own?** Today such a patient ranks
    purely on elapsed time, exactly as described — so patients still awaiting examination tend to
    rank above them.
-3. **Is four hours the right ED access target for WA metro?** It is the national figure, not
-   confirmed for this context.
+3. **Is four hours the right ED access target for WA metro?** **Answered 2026-08-22 — no.** Four
+   hours is the national figure and was never confirmed for this context; the product owner set
+   the target to 24 hours (1440 minutes) for this prototype, because mental health patients breach
+   four hours so routinely that it stops discriminating. `ED_ACCESS_TARGET_MINUTES` in
+   `ward-model.ts` carries the current value (ruling R65(a)).
 
 Plus one raised but undecided: **the demo now leads with an accident.** The top of the coordinator
 queue is `WF-303`, a _generated_ movement whose breach comes from
@@ -220,20 +224,107 @@ The practice that follows: mutation-test every test, print the edited line back 
 before trusting the run, re-run every subagent's gates independently, and read counts rather than
 the word "passed".
 
+## 5b. Phase 4 — specialist boards (2026-08-25)
+
+Branch `claude/ward-flow-phase-4-spec`, PR #2373. Eleven of twelve planned items delivered; item
+twelve, a statutory clock board, was deliberately **held** because building it requires stating
+figures from the Mental Health Act, and no agent may state, paraphrase or infer one.
+
+Delivered: the handover board, the escalation board, patient search, the role switcher that walks
+one movement through all four roles without a reload, the demo clock and scenario reset, capacity
+columns for sex mix / specialling / authorisation, bed releases with a fixed blocker list, the
+change audit, and the effectiveness numbers with the third measure explicitly dropped and said so
+on the page.
+
+Two of the phase's own claims were **corrected in the spec after the fact**, both wrong in the same
+direction — a measurement taken from a function that truncates its input. The eligible-ward
+distribution is `{0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9}` over 337 eligible pairs, with WF-009 and
+WF-308 stranded. A subagent's test contradicted the original figure and was right.
+
+Binding spec: `docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md`.
+Plan: `docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md`. Note that
+Prettier never converges on that plan file — two `--write` passes leave thirty lines differing — so
+a format guard on it is expected to need `SKIP_FORMAT_GUARD=1`, and that is documented rather than
+worked around.
+
+## 5c. The sandbox move and the sidebar (2026-08-26)
+
+**Ward Flow became a genuine sandbox.** It now lives at `/mockups/ward-flow`, behind the
+administrator-only developer gate, following the pattern Caring Contacts and Care Plan already use.
+Nine links out of it into the clinical application were removed — and then a tenth, the logo, which
+pointed at the site root and which no amount of source reading had caught. It was found by looking
+at a screenshot. The header also read "Clinical KB / Source-backed clinical search" on every board
+of a prototype that does no searching and is not source-backed; it now reads "Ward Flow / Synthetic
+patient-flow prototype". `tests/ward-nav.test.ts` guards both, and its forbidden-exit list includes
+`/` for exactly this reason.
+
+**The sidebar was rebuilt to the repository's house pattern.** Before this it had one state:
+`ward-management.module.css` held four media queries, of which two were `prefers-reduced-motion` and
+`forced-colors` and two named `.workspaceGrid` and `.patientWorkspace`. Not one touched the rail, so
+a 390px phone rendered the full 4.5rem desktop icon column — 18% of the viewport — on every screen,
+through 38 test files and 428 passing tests, because nothing was structurally wrong.
+
+It now has the three shapes `ClinicalSidebar.tsx` uses: a drawer below 40rem, the icon rail from
+40rem, and an optional 17rem labelled panel from 64rem whose collapsed state persists per browser.
+Nine of the ten Ward Flow shells are a bare rail-plus-main grid with **no header row at all**, so
+unlike the clinical application there was nowhere for a drawer trigger to live — the sidebar brings
+its own fixed phone bar, which is also the first phone chrome those nine screens have ever had.
+
+The eight mode views moved out of eight hand-written link blocks into `WARD_VIEWS` in `ward-nav.ts`.
+A labelled panel cannot read a rail's icon-only JSX, and copying them would have re-created the
+two-lists-drifting defect (D8/D9) that file exists to prevent.
+
+**Three lessons from that day, recorded because they cost real time:**
+
+1. A phone-contract check passed with the very rule it guarded deleted, because its assertion
+   substring also matched a qualified selector further down the same stylesheet. Found by mutation,
+   not by reading.
+2. Two sessions worked the identical task in one worktree folder: a merge with conflicts, and an
+   edit to a test that broke it in a way only a browser run could find. **One session per folder,
+   and no two sessions aimed at the same pull request.**
+3. `node scripts/run-playwright.mjs` exits `0` when tests fail and when it refuses to run at all.
+   Read the `N passed` line; never the exit code.
+
+## 5d. Phase 5 — designed 2026-08-26, not yet built
+
+Direction settled across one long conversation: Ward Flow becomes a bed-flow hub covering the whole
+pipe, from the community mental health team's decision to admit through to discharge — not the
+ED-to-ward segment it models today.
+
+Sixteen decisions are recorded in `docs/ward-flow-roadmap.md`, which is the durable statement of
+direction and should not be re-litigated without instruction. Phase 5 itself is bed availability and
+nothing else: a lifecycle for a bed release, leave beds, a discharge board, predicted capacity for
+today in four bands ending at 22:00, and a freshness stamp on every screen.
+
+Binding spec: `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`.
+Plan: `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`.
+Cold-start handover: `docs/ward-flow-phase-5-handover.md`.
+
+**The assumption most likely to be wrong**, recorded as spec D14: predicted, confirmed, blocked,
+released is a software model of how a bed comes free, and no ward clinician has checked it. A bed
+may be confirmed and blocked simultaneously in reality. It is cheap to change while synthetic.
+
 ## 8. Where everything is
 
-| Need                                    | File                                                                         |
-| --------------------------------------- | ---------------------------------------------------------------------------- |
-| Project orientation, Phases 1–3         | `docs/ward-flow-context.md`                                                  |
-| **Phase 3 state and how to resume**     | `docs/ward-flow-phase-3-handover.md`                                         |
-| Phase 3 execution record, every ruling  | `docs/ward-flow-phase-3-ledger.md`                                           |
-| Phase 3 briefs, reports, reviews        | `docs/ward-flow-phase-3-workspace/`                                          |
-| Phase 3 binding authority               | `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md` |
-| Phase 3 plan, 12 tasks                  | `docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md`        |
-| Phase 1 handoff                         | `docs/ward-flow-phase-handoff.md`                                            |
-| Phase 2 kickoff                         | `docs/ward-flow-phase-2-kickoff.md`                                          |
-| Design decisions across ward management | `docs/ward-management-decisions.md`                                          |
-| Route and mode map                      | `docs/ward-management-mode-map.md`                                           |
+| Need                                    | File                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| Project orientation, Phases 1–3         | `docs/ward-flow-context.md`                                                       |
+| **Phase 3 state and how to resume**     | `docs/ward-flow-phase-3-handover.md`                                              |
+| Phase 3 execution record, every ruling  | `docs/ward-flow-phase-3-ledger.md`                                                |
+| Phase 3 briefs, reports, reviews        | `docs/ward-flow-phase-3-workspace/`                                               |
+| Phase 3 binding authority               | `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md`      |
+| Phase 3 plan, 12 tasks                  | `docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md`             |
+| Phase 1 handoff                         | `docs/ward-flow-phase-handoff.md`                                                 |
+| Phase 2 kickoff                         | `docs/ward-flow-phase-2-kickoff.md`                                               |
+| Phase 4 binding authority               | `docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md` |
+| Phase 4 plan, 11 delivered + 1 held     | `docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md`        |
+| Sandbox and sidebar plan                | `docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md`            |
+| **Direction and settled decisions**     | `docs/ward-flow-roadmap.md`                                                       |
+| **Phase 5 binding authority**           | `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`  |
+| **Phase 5 plan, 8 tasks**               | `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`         |
+| **Phase 5 cold-start handover**         | `docs/ward-flow-phase-5-handover.md`                                              |
+| Design decisions across ward management | `docs/ward-management-decisions.md`                                               |
+| Route and mode map                      | `docs/ward-management-mode-map.md`                                                |
 
 The live superpowers workspace is `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/`
 and is **gitignored** — a continuing session appends there, and refreshes

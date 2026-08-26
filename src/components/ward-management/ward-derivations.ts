@@ -16,17 +16,26 @@ import {
   minutesUntil,
   type Instant,
 } from "@/components/ward-management/ward-clock";
-import { eligibility, type EligibilityVerdict } from "@/components/ward-management/ward-eligibility";
+import {
+  eligibility,
+  requiresAuthorisedDestination,
+  type EligibilityVerdict,
+} from "@/components/ward-management/ward-eligibility";
+import {
+  changeReasonLabels,
+  type CancelTransportReason,
+  type ReleaseHoldReason,
+} from "@/components/ward-management/ward-change-reasons";
 import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
+  type BedRelease,
   type HealthService,
   type Movement,
   type MovementStage,
   type TransportJob,
   type Unit,
 } from "@/components/ward-management/ward-model";
-import { bedReleases } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
@@ -97,6 +106,27 @@ export function elapsedLabel(movement: Movement, now: Instant) {
  */
 export function isOpen(movement: Movement): boolean {
   return !movement.closure && movement.stage !== "arrived";
+}
+
+/**
+ * A movement whose CURRENT legal status requires an authorised destination, but whose already
+ * accepted unit is not authorised. This is a real situation created by a mid-flight status
+ * change, and it is surfaced as an exception for a human to resolve. It NEVER re-sorts,
+ * re-suggests or un-accepts the patient: nothing in this prototype auto-allocates, and that
+ * rule does not bend because the trigger was a status change.
+ */
+export function destinationNoLongerLawful(movement: Movement, units: Unit[]): Unit | undefined {
+  if (!isOpen(movement)) return undefined;
+  if (!requiresAuthorisedDestination(movement.legalStatus)) return undefined;
+  // Redundant by behaviour, kept for readability: the `find` below would return `undefined` for an
+  // undefined id anyway, so removing this line is behaviour-preserving and no test can observe it.
+  // Recorded rather than deleted so a future reader does not mistake it for load-bearing — and
+  // recorded rather than left silent because mutating it is the one mutation in this function that
+  // does not kill its test, which is a property of the line, not a gap in the test.
+  if (movement.acceptedUnitId === undefined) return undefined;
+  const unit = units.find((candidate) => candidate.id === movement.acceptedUnitId);
+  if (unit === undefined) return undefined;
+  return unit.authorised ? undefined : unit;
 }
 
 /**
@@ -188,8 +218,14 @@ export function transportLeg(transport: TransportJob | undefined): TransportLeg 
  * are clamped so authored data that already over- or under-counts (e.g. a stale `unit.held`
  * literal that no longer fits once `available` is subtracted) can never push the total past
  * `unit.beds` or leave a bed unaccounted for.
+ *
+ * `bedReleases` is now a parameter rather than a module-level import (Task 11, spec item 9):
+ * releases live in `WardFlowState.bedReleases` so a ward's own `FLAG_BED_RELEASE` actually moves
+ * `potential`, and every caller passes whichever collection it currently holds — the live
+ * reducer state where one is available, or the raw fixture for a check that has no reducer state
+ * at all (`tests/ward-capacity-reconciliation.test.ts`, `tests/ward-model.test.ts`).
  */
-export function unitCapacity(unit: Unit) {
+export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
   const available = Math.min(unit.allocatable.value, unit.empty.value);
   const held = Math.max(unit.empty.value - available, 0);
   const notEmpty = Math.max(unit.beds - unit.empty.value, 0);
@@ -279,7 +315,7 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
   // than one combined sort. A single combined sort could pull in a unit that was previously
   // outside the top `limit` (a candidate ranked 4th purely because it is restrictive would climb
   // into a 3-slot shortlist ahead of one that was already in it) — a real membership change, not
-  // just a reorder, and `/ward-management/network` shows this same shortlist. Truncating on
+  // just a reorder, and `/mockups/ward-flow/network` shows this same shortlist. Truncating on
   // eligibility alone first keeps the returned SET identical to before this ordering rule
   // existed; only the ORDER within that set can move.
   const eligibleFirst = units
@@ -349,8 +385,26 @@ export type InboxItem = {
  * legitimately carries a deadline falls due. This is the coordinator's work list, not a report:
  * every qualifying movement gets its own row.
  */
-export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
+export function buildActionInbox(movements: Movement[], now: Instant, units: Unit[]): InboxItem[] {
   const items: InboxItem[] = [];
+
+  // A legal status change can make an already-accepted destination unlawful — see
+  // `destinationNoLongerLawful`'s own doc comment. This never re-sorts or un-accepts the
+  // patient; it only surfaces the fact for a human, exactly like every other category here.
+  const noLongerLawful = movements
+    .map((movement) => ({ movement, unit: destinationNoLongerLawful(movement, units) }))
+    .filter((entry): entry is { movement: Movement; unit: Unit } => entry.unit !== undefined);
+  for (const { movement, unit } of noLongerLawful) {
+    items.push({
+      id: `destination-unlawful-${movement.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "Accepted destination no longer lawful",
+      detail: `${movement.id} · ${unit.name} is not authorised under the Mental Health Act for ${movement.legalStatus}`,
+      owner: movement.owner,
+      movementId: movement.id,
+    });
+  }
 
   // A form with no `dueAt` is never breached and contributes nothing here; `undefined` must never
   // reach `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction that is every
@@ -437,6 +491,178 @@ export function buildActionInbox(movements: Movement[], now: Instant): InboxItem
   return items;
 }
 
+/**
+ * Task 4 (spec item 1): the shift handover — a point-in-time, printable summary a coordinator
+ * hands to the incoming coordinator, built from four fixed sections in a product-owner-approved
+ * order. This function is a pure derivation, exactly like every other one in this module — `now`
+ * arrives as a parameter, nothing here reads the wall clock — but the FREEZE that makes it a
+ * handover rather than a live view is the caller's responsibility, not this function's: a page
+ * must call this exactly once, in a `useState` initialiser, so what a coordinator reads never
+ * changes under them while the shift clock keeps ticking in the background. Calling this
+ * function itself is always safe and always pure; only the page can break the freeze.
+ *
+ * Every section is scoped to OPEN movements (`isOpen`) — a shift handover is about the live
+ * caseload being handed over, not movements that have already arrived or otherwise closed.
+ *
+ * `longestWaits` carries every open movement, ranked by wait, with deliberately NO threshold:
+ * measured against the real fixture at NOW_ANCHOR, zero of the open movements are past the
+ * 24-hour departmental access target, so a breach-led ranking would render this section empty.
+ * Ranking by wait alone always has something to hand over.
+ *
+ * `placementGoneWrong` names exactly two situations, neither of them a legal claim:
+ * - `"escalated"` — the movement carries a recorded `escalation`: a human already declared the
+ *   referral network exhausted and rang the state bed coordination desk.
+ * - `"declined_by_all"` — the movement has a decline on record and nothing still pending
+ *   (`referredUnitIds` empty, `declines` non-empty). `ward-flow-reducer.ts`'s own `case
+ *   "DECLINE"` only ever removes a unit from `referredUnitIds` in the same update that adds the
+ *   matching `declines` entry, so this condition is exactly "every unit this movement was ever
+ *   referred to has since said no, and none of them are still deciding".
+ * A movement can satisfy both at once; the escalation check runs first, so it is listed once,
+ * as `"escalated"`, never twice.
+ */
+export type HandoverSnapshot = {
+  frozenAt: Instant;
+  longestWaits: { movement: Movement; unit: Unit | undefined }[];
+  heldBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
+  inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
+  placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
+};
+
+export function handoverSnapshot(movements: Movement[], units: Unit[], now: Instant): HandoverSnapshot {
+  const open = movements.filter(isOpen);
+
+  const longestWaits = [...open]
+    .sort((a, b) => now - b.openedAt - (now - a.openedAt))
+    .map((movement) => ({ movement, unit: destinationUnit(movement, units) }));
+
+  const heldBeds = open
+    .filter((movement) => movement.bedHeldUntil !== undefined)
+    .map((movement) => {
+      const bedHeldUntil = movement.bedHeldUntil as Instant;
+      return { movement, unit: destinationUnit(movement, units), expired: bedHeldUntil <= now };
+    });
+
+  const inTransit = open
+    .filter((movement) => movement.transport !== undefined)
+    .map((movement) => ({ movement, leg: transportLeg(movement.transport) }));
+
+  const escalated = open
+    .filter((movement) => movement.escalation !== undefined)
+    .map((movement) => ({ movement, kind: "escalated" as const }));
+  const escalatedIds = new Set(escalated.map((entry) => entry.movement.id));
+  const declinedByAll = open
+    .filter((movement) => !escalatedIds.has(movement.id))
+    .filter((movement) => movement.referredUnitIds.length === 0 && movement.declines.length > 0)
+    .map((movement) => ({ movement, kind: "declined_by_all" as const }));
+
+  return {
+    frozenAt: now,
+    longestWaits,
+    heldBeds,
+    inTransit,
+    placementGoneWrong: [...escalated, ...declinedByAll],
+  };
+}
+
+/**
+ * Task 5 (spec item 4): the escalation board — one place showing every patient whose placement
+ * has gone wrong. Two groups, computed independently, and a movement can genuinely appear in
+ * both: `escalated` is a fact about the RECORD (a human already declared the network exhausted
+ * and rang a contact); `nowhereEligible` is a fact about the LIVE network right now
+ * (`eligibleCandidatesAmong`, evaluated against every unit so nothing is truncated). WF-009
+ * satisfies both at once in the real fixture — it has a recorded escalation and, independently,
+ * still has zero eligible wards — and that overlap is correct, not a bug: the two lists answer
+ * different questions and neither implies or excludes the other.
+ *
+ * THIS BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING (spec D4). No "least-bad options", no
+ * ranking of wards the patient does not fit, no statement of what would need to change for a
+ * ward to work. `nowhereEligible` names WHICH movements have nowhere eligible; it never names
+ * which ward almost fit, or what gate is closest to passing — that would be exactly the
+ * near-miss computation item 4 explicitly prohibits. `escalated` shows `triedUnitIds` resolved
+ * to real `Unit` objects purely as a record of what was already tried, never as live candidates.
+ *
+ * Scoped to OPEN movements only (`isOpen`) — a closed movement's placement cannot still be
+ * "going wrong" in a way this board exists to surface.
+ */
+export type EscalationBoard = {
+  escalated: { movement: Movement; triedUnits: Unit[] }[];
+  nowhereEligible: Movement[];
+};
+
+export function escalationBoard(movements: Movement[], units: Unit[], now: Instant): EscalationBoard {
+  const open = movements.filter(isOpen);
+
+  const escalated = open
+    .filter((movement) => movement.escalation !== undefined)
+    .map((movement) => {
+      const triedUnitIds = movement.escalation?.triedUnitIds ?? [];
+      const triedUnits = triedUnitIds
+        .map((unitId) => units.find((unit) => unit.id === unitId))
+        .filter((unit): unit is Unit => unit !== undefined);
+      return { movement, triedUnits };
+    });
+
+  // A large, explicit limit — never the default of 3 — so this counts every unit in the
+  // network rather than reading a truncated shortlist length as an eligibility count. That
+  // exact mistake (counting `eligibleCandidatesAmong(...).length` instead of filtering to
+  // `.verdict.eligible`) produced a false "nowhereEligible is empty on the standard night" claim
+  // in an earlier draft of this task's own brief — see tests/ward-scenarios.test.ts's comment.
+  const nowhereEligible = open.filter(
+    (movement) =>
+      eligibleCandidatesAmong(movement, units, now, units.length).filter((candidate) => candidate.verdict.eligible)
+        .length === 0,
+  );
+
+  return { escalated, nowhereEligible };
+}
+
+/**
+ * Task 7 (spec item 5): patient search — a plain, pure, case-insensitive filter over the OPEN
+ * caseload. Pure and synchronous: no clock read, no debounce, no fetch — the page component owns
+ * the query state and calls this on every keystroke/select change.
+ *
+ * `stage` and `edId` are exact-value filters (a coordinator picking a stage or a department wants
+ * that stage or that department, not a substring of it); `text` is the only substring match, and
+ * it is checked against five real fields: the movement id, `originEdId`, the resolved destination
+ * unit's `id` and `name` (via `destinationUnit`, so this reads the same "actual destination" every
+ * other screen does — never a mere shortlist candidate), the stage's own display label (via
+ * `stageCopy`, so a coordinator can type what the results table actually shows, e.g. "Bed held",
+ * rather than the raw enum `bed_held`), and `owner`. An empty (or whitespace-only) `text` matches
+ * every open movement, so the stage/department selects can filter alone with no text typed.
+ *
+ * ABSOLUTE RULE, enforced first and unconditionally: `isOpen` is applied before anything else.
+ * A closed movement can never reach the result set, even when every other field of the query
+ * — including the movement's own id typed verbatim — would otherwise match it. Search existing
+ * for a patient who has already left the system must read as "not found", not as a stale hit.
+ */
+export type MovementSearchQuery = {
+  text: string;
+  stage?: MovementStage;
+  edId?: string;
+};
+
+export function searchMovements(movements: Movement[], units: Unit[], query: MovementSearchQuery): Movement[] {
+  const needle = query.text.trim().toLowerCase();
+
+  return movements
+    .filter(isOpen)
+    .filter((movement) => query.stage === undefined || movement.stage === query.stage)
+    .filter((movement) => query.edId === undefined || movement.originEdId === query.edId)
+    .filter((movement) => {
+      if (needle === "") return true;
+      const destination = destinationUnit(movement, units);
+      const haystack = [
+        movement.id,
+        movement.originEdId,
+        destination?.id,
+        destination?.name,
+        stageCopy[movement.stage].label,
+        movement.owner,
+      ].filter((value): value is string => value !== undefined);
+      return haystack.some((value) => value.toLowerCase().includes(needle));
+    });
+}
+
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
 export function movementTimeline(movement: Movement) {
   const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
@@ -462,4 +688,162 @@ export function movementTimeline(movement: Movement) {
     events.push({ at: movement.closure.at, label: movement.closure.reason });
   }
   return events.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Task 9 (spec item 7): the governance board's audit of changes — every urgency change, legal
+ * status change, hold release and transport cancellation across ALL movements, not one patient's
+ * own timeline (`movementTimeline` above stays scoped to a single movement; this is the
+ * statewide counterpart). Newest first, so the most recent decision is the one a reviewer sees
+ * without scrolling.
+ */
+export type ChangeAuditEntry = {
+  at: Instant;
+  movementId: string;
+  kind: "urgency" | "legal_status" | "hold_released" | "transport_cancelled";
+  by: string;
+  detail: string;
+};
+
+export function changeAudit(movements: Movement[]): ChangeAuditEntry[] {
+  const entries: ChangeAuditEntry[] = [];
+  for (const movement of movements) {
+    for (const change of movement.statusChanges) {
+      entries.push({
+        at: change.at,
+        movementId: movement.id,
+        kind: "legal_status",
+        by: change.by,
+        detail: `${change.from} → ${change.to} · ${changeReasonLabels[change.reason]}`,
+      });
+    }
+    for (const change of movement.urgencyChanges) {
+      entries.push({
+        at: change.at,
+        movementId: movement.id,
+        kind: "urgency",
+        by: change.by,
+        detail: `Tier ${change.from} → Tier ${change.to} · ${changeReasonLabels[change.reason]}`,
+      });
+    }
+    for (const unwind of movement.unwinds) {
+      // `UnwindRecord.reason` is typed as a plain `string` on `Movement` (ward-model.ts) because
+      // `RELEASE_HOLD` and `CANCEL_TRANSPORT` share one record shape for two different fixed
+      // reason lists. The reducer only ever writes a `ReleaseHoldReason` into a "hold_released"
+      // entry and a `CancelTransportReason` into a "transport_cancelled" one (ward-flow-reducer.ts),
+      // so this assertion narrows back to that guarantee rather than inventing one — it does not
+      // widen what values can reach the screen. Never render `unwind.reason` unlabelled: that is
+      // the raw snake_case defect this file's own doc comment on `changeReasonLabels` exists to
+      // prevent.
+      const reason = unwind.reason as ReleaseHoldReason | CancelTransportReason;
+      entries.push({
+        at: unwind.at,
+        movementId: movement.id,
+        kind: unwind.kind,
+        by: unwind.by,
+        detail: changeReasonLabels[reason],
+      });
+    }
+  }
+  return entries.sort((a, b) => b.at - a.at);
+}
+
+function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+/**
+ * Minutes from referral to a ward accepting, for one movement — `undefined` when that duration
+ * cannot be recovered from this record.
+ *
+ * `Movement.acceptedAt` (added fix round 1, Task 9) is the direct, reliable source: it is
+ * stamped by `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) the instant a unit is accepted, for
+ * every acceptance reached from now on. It is preferred whenever present. Before that field
+ * existed, the only place an acceptance instant survived was `withdrawnReferrals` — the same
+ * reducer branch withdraws every OTHER referred unit in the same update, stamping each
+ * withdrawal with `event.now`, so a movement accepted while more than one unit held a live
+ * referral leaves the acceptance instant behind as a side effect. That fallback still applies to
+ * the hand-authored seed fixture (`ward-movements.ts`), which sets `acceptedUnitId` directly
+ * rather than via a dispatched event and so never carries `acceptedAt` — its one recoverable
+ * acceptance (WF-006) is only found this way, and the fixture is deliberately never backfilled
+ * with an invented `acceptedAt` to manufacture a bigger sample. A movement accepted with only one
+ * referred unit and no `acceptedAt` withdraws nothing and leaves no timestamp anywhere in this
+ * model — that movement reached acceptance but genuinely has no recoverable "when", so it is
+ * excluded here rather than guessed.
+ */
+function acceptanceDurationMinutes(movement: Movement): number | undefined {
+  if (movement.acceptedUnitId === undefined) return undefined;
+  if (movement.acceptedAt !== undefined) return movement.acceptedAt - movement.openedAt;
+  if (movement.withdrawnReferrals.length === 0) return undefined;
+  return movement.withdrawnReferrals[0].at - movement.openedAt;
+}
+
+/** Distinct units this movement has ever referred to: currently referred, declined, withdrawn on
+ *  acceptance, and the accepted unit itself. `undefined` when the movement has never referred to
+ *  any unit, so it never contributes a fabricated zero to an average. */
+function unitsContactedCount(movement: Movement): number | undefined {
+  const contacted = new Set<string>([
+    ...movement.referredUnitIds,
+    ...movement.declines.map((decline) => decline.unitId),
+    ...movement.withdrawnReferrals.map((withdrawn) => withdrawn.unitId),
+  ]);
+  if (movement.acceptedUnitId !== undefined) contacted.add(movement.acceptedUnitId);
+  return contacted.size === 0 ? undefined : contacted.size;
+}
+
+/**
+ * Fix round 1 (Task 9): a computed figure alone is not honest without the basis it was drawn
+ * from. `sampleSize` is how many movements actually contributed an observation; `population` is
+ * how many movements COULD have — every acceptance for the acceptance measure, every movement
+ * passed in for the units-contacted measure. A median or average over a small `sampleSize`
+ * against a much larger `population` (this fixture: 1 of 27 acceptances) is a guess wearing the
+ * clothes of a measurement unless that gap renders next to the number.
+ */
+export type EffectivenessMeasure = {
+  value: number | undefined;
+  sampleSize: number;
+  population: number;
+};
+
+/**
+ * Task 9 (spec item 7), D7: the governance board's two live effectiveness numbers. Conservative
+ * failure applies to each independently — a measure this cannot compute returns `undefined`,
+ * never `0`, because zero minutes to acceptance or zero units contacted both read as a real
+ * result rather than as "unknown". Both describe the current synthetic scenario only; nothing
+ * here is a claim about the prototype's real-world effectiveness. Both carry their own basis
+ * (`EffectivenessMeasure`) so a thin sample is never presented bare.
+ */
+export function effectivenessNumbers(movements: Movement[]): {
+  medianMinutesToAcceptance: EffectivenessMeasure;
+  averageUnitsContacted: EffectivenessMeasure;
+} {
+  const totalAcceptances = movements.filter((movement) => movement.acceptedUnitId !== undefined).length;
+  const acceptanceDurations = movements
+    .map((movement) => acceptanceDurationMinutes(movement))
+    .filter((minutes): minutes is number => minutes !== undefined);
+
+  const contactedCounts = movements
+    .map((movement) => unitsContactedCount(movement))
+    .filter((count): count is number => count !== undefined);
+
+  const averageUnitsContacted =
+    contactedCounts.length === 0
+      ? undefined
+      : contactedCounts.reduce((total, count) => total + count, 0) / contactedCounts.length;
+
+  return {
+    medianMinutesToAcceptance: {
+      value: median(acceptanceDurations),
+      sampleSize: acceptanceDurations.length,
+      population: totalAcceptances,
+    },
+    averageUnitsContacted: {
+      value: averageUnitsContacted,
+      sampleSize: contactedCounts.length,
+      population: movements.length,
+    },
+  };
 }

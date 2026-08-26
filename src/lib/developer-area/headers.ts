@@ -27,4 +27,5 @@ export const DEVELOPER_GATED_PATH_PREFIXES = [
   "/mockups/development",
   "/mockups/caring-contacts",
   "/mockups/care-plan",
+  "/mockups/ward-flow",
 ] as const;

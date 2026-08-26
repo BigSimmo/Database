@@ -1,16 +1,26 @@
 "use client";
 
-import { memo, useState } from "react";
+import { Fragment, memo, useState } from "react";
 import { CircleAlert, ChevronDown, Copy, ShieldCheck } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
-import { comparableAnswerText, sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
+import {
+  cleanDisplayTitle,
+  comparableAnswerText,
+  sanitizeAnswerDisplayText,
+} from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
-import { buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
+import { AnswerSourceMark, AnswerSourceMarkOverflow } from "@/components/clinical-dashboard/answer-source-mark";
+import {
+  type AnswerSourceRow,
+  buildAnswerSourceRows,
+  sourceSpokenLabel,
+} from "@/components/clinical-dashboard/answer-source-rows";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
+import { type ClaimMarkCluster, resolveClaimMarks } from "@/lib/answer-claim-marks";
 import { type SourceLink } from "@/lib/answer-render-policy";
 import type {
   AnswerSection,
@@ -18,6 +28,7 @@ import type {
   BestSourceRecommendation,
   RagAnswer,
   SearchResult,
+  SupportedClaim,
   VisualEvidenceCard,
 } from "@/lib/types";
 
@@ -114,15 +125,58 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
  * @returns The display-ready answer text
  */
 export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
+  return primaryAnswerDisplayFragments(value, options)
+    .map((fragment) => fragment.display)
+    .join(" ");
+}
+
+/**
+ * One displayed sentence of the primary answer.
+ *
+ * `raw` exists because the two texts a source mark has to reconcile took
+ * different routes: the server split its claims from the answer *before* the
+ * prose-usefulness pass rewrote a sentence for display. Matching on `raw` is
+ * what lets a mark restate an attribution the pipeline already made, rather
+ * than re-deriving one from the rewritten text.
+ */
+export type AnswerDisplayFragment = {
+  /** What the reader sees. */
+  display: string;
+  /** The same sentence before the usefulness pass — the text `splitClaims` saw. */
+  raw: string;
+  /** True when the word budget cut this sentence short. A cut sentence is not the claim. */
+  truncated: boolean;
+};
+
+/**
+ * Selects and compacts the primary answer, sentence by sentence, preserving
+ * safety-critical guidance.
+ *
+ * `primaryAnswerDisplayText` is `fragments.map(display).join(" ")` and nothing
+ * else, so splitting the prose for marks cannot change a single character of
+ * what is displayed. `tests/answer-content.test.ts` pins that equivalence.
+ *
+ * @param value - The answer text to prepare for display
+ * @param options - Formatting options, including preformatted mode
+ * @returns The display-ready sentences, in order
+ */
+export function primaryAnswerDisplayFragments(
+  value: string,
+  options: AnswerDisplayTextOptions = {},
+): AnswerDisplayFragment[] {
   // Deterministic preformatted answers are already concise and display-ready;
   // the fragment-level usefulness pass below would re-strip the very names/codes
-  // the preformatted path just preserved, so return them as-is.
-  if (options.preformatted) return plainAnswerText(value, options);
+  // the preformatted path just preserved, so return them as-is — one fragment,
+  // whitespace and all, which is also why they carry no marks.
+  if (options.preformatted) {
+    const text = plainAnswerText(value, options);
+    return text ? [{ display: text, raw: text, truncated: false }] : [];
+  }
   // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
   // safety sentences ("Stop lithium.") before the fragment-level safety
   // bypass below can rescue them.
   const cleaned = sanitizeAndStripSyntheticNotice(value, { preformatted: false, preserveBold: options.preserveBold });
-  const fragments = cleaned
+  const prepared = cleaned
     .split(/\r?\n+/)
     .flatMap((line: string) =>
       line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
@@ -139,41 +193,156 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
     // Safety-bearing fragments pass through untouched and are never dropped by
     // the usefulness/length gate — a short caveat like "Contraindicated in
     // pregnancy" (under the 8-word floor) must still reach the display.
-    .map((fragment: string) =>
-      isPrimaryAnswerSafetyFragment(fragment) ? fragment : clinicalProseUsefulness(fragment).text || fragment,
-    )
-    .filter((fragment: string) => {
-      if (!fragment) return false;
-      if (isPrimaryAnswerSafetyFragment(fragment)) return true;
-      const useful = clinicalProseUsefulness(fragment);
-      return useful.useful || fragment.split(/\s+/).length >= 8;
+    .map((raw: string) => ({
+      raw,
+      display: isPrimaryAnswerSafetyFragment(raw) ? raw : clinicalProseUsefulness(raw).text || raw,
+    }))
+    .filter(({ display }) => {
+      if (!display) return false;
+      if (isPrimaryAnswerSafetyFragment(display)) return true;
+      const useful = clinicalProseUsefulness(display);
+      return useful.useful || display.split(/\s+/).length >= 8;
     });
-  const uniqueFragments = Array.from(new Set(fragments));
-  const selected: string[] = [];
+  const uniqueFragments: AnswerDisplayFragment[] = [];
+  const seenDisplay = new Set<string>();
+  for (const fragment of prepared) {
+    if (seenDisplay.has(fragment.display)) continue;
+    seenDisplay.add(fragment.display);
+    uniqueFragments.push({ ...fragment, truncated: false });
+  }
+  const selected: AnswerDisplayFragment[] = [];
   let nonSafetyKept = 0;
   let wordBudget = 85;
   for (const fragment of uniqueFragments) {
-    if (isPrimaryAnswerSafetyFragment(fragment)) {
+    if (isPrimaryAnswerSafetyFragment(fragment.display)) {
       selected.push(fragment);
       continue;
     }
     if (nonSafetyKept >= 3 || wordBudget <= 0) continue;
     nonSafetyKept += 1;
-    const words = fragment.split(/\s+/).filter(Boolean);
+    const words = fragment.display.split(/\s+/).filter(Boolean);
     if (words.length <= wordBudget) {
       selected.push(fragment);
       wordBudget -= words.length;
     } else {
-      selected.push(
-        `${words
+      selected.push({
+        ...fragment,
+        display: `${words
           .slice(0, wordBudget)
           .join(" ")
           .replace(/[;,:-]\s*$/, "")}...`,
-      );
+        truncated: true,
+      });
       wordBudget = 0;
     }
   }
-  return selected.join(" ") || cleaned;
+  if (selected.length) return selected;
+  return cleaned ? [{ display: cleaned, raw: cleaned, truncated: false }] : [];
+}
+
+/**
+ * Splits a sentence at its last word so the word and the whole mark cluster can
+ * be wrapped together — a number stranded alone on the next line reads as a
+ * footnote to nothing.
+ *
+ * Returns `null` when the split is unsafe. Production prose carries server bold,
+ * and the last word can sit inside a `**…**` run that a string split would cut
+ * in half; an odd number of markers in the head is exactly that case, and the
+ * sentence is then rendered whole rather than mangled.
+ */
+export function splitTrailingWord(text: string): { head: string; tail: string } | null {
+  const lastSpace = text.lastIndexOf(" ");
+  if (lastSpace <= 0) return null;
+  const head = text.slice(0, lastSpace);
+  const tail = text.slice(lastSpace + 1);
+  if (!tail) return null;
+  if ((head.match(/\*\*/g)?.length ?? 0) % 2 !== 0) return null;
+  return { head, tail };
+}
+
+/** The accessible name of a mark. Distinct from the drawer pager's "Show source N…". */
+function markLabel(row: AnswerSourceRow | undefined, index: number, support: ClaimMarkCluster["support"]) {
+  const strength = support === "partial" ? "partial support" : "direct support";
+  if (!row) return `${sourceSpokenLabel(index)} — ${strength}`;
+  return `${sourceSpokenLabel(index)}: ${cleanDisplayTitle(row.title)}, page ${row.pageNumber ?? "not available"} — ${strength}`;
+}
+
+/**
+ * The sentence that owns the open source is washed while the drawer is up. The
+ * drawer covers the lower third of a phone, and this is what stops a clinician
+ * losing the sentence they were checking.
+ *
+ * The left rule is not decoration. Backgrounds are remapped under forced-colors,
+ * so colour alone would erase the wash for the readers who most need to keep
+ * their place; the border is painted. `-ml-1`/`pl-1` cancel out, so lighting a
+ * sentence does not move the text.
+ */
+const litClaimClass =
+  "-ml-1 rounded-[var(--radius-xs)] border-l-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] pl-1";
+
+function AnswerProseSentence({
+  fragment,
+  cluster,
+  rows,
+  openSourceIndex,
+  onOpenSource,
+}: {
+  fragment: AnswerDisplayFragment;
+  cluster: ClaimMarkCluster | null;
+  rows: AnswerSourceRow[];
+  openSourceIndex: number | null;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
+}) {
+  if (!cluster || !onOpenSource) return <SafeBoldText text={fragment.display} />;
+
+  const lit = openSourceIndex !== null && cluster.marks.some((mark) => mark.index === openSourceIndex);
+  const marks = (
+    <>
+      {cluster.marks.map((mark, position) => (
+        <AnswerSourceMark
+          key={`${mark.sourceId}:${mark.index}`}
+          index={mark.index}
+          leading={position === 0}
+          active={openSourceIndex === mark.index}
+          partial={cluster.support === "partial"}
+          label={markLabel(rows[mark.index], mark.index, cluster.support)}
+          onOpen={(index) => onOpenSource(index, cluster.support)}
+        />
+      ))}
+      <AnswerSourceMarkOverflow count={cluster.overflow} />
+    </>
+  );
+  const split = splitTrailingWord(fragment.display);
+
+  return (
+    <span
+      data-testid="answer-claim"
+      data-claim-lit={lit ? "true" : undefined}
+      className={cn("transition-colors", lit && litClaimClass)}
+    >
+      {split ? (
+        <>
+          <SafeBoldText text={split.head} />{" "}
+          {/* The last word and the whole cluster travel together, so a number
+              cannot fall alone onto the next line as a footnote to nothing. */}
+          <span className="whitespace-nowrap">
+            <SafeBoldText text={split.tail} />
+            {marks}
+          </span>
+        </>
+      ) : (
+        <>
+          {/* The split was refused because a bold run crosses the last space.
+              Only the cluster is held together here — never the whole sentence.
+              An unbreakable sentence is a horizontal-overflow bug on a phone,
+              which is a far worse outcome than a mark that occasionally starts
+              the next line. */}
+          <SafeBoldText text={fragment.display} />
+          <span className="whitespace-nowrap">{marks}</span>
+        </>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -203,6 +372,8 @@ export {
  * @param sourceLinks - Source links and snippets associated with the answer.
  * @param copied - Whether the answer has been copied.
  * @param onCopy - Callback invoked to copy the answer with source status.
+ * @param claims - Server-assessed per-sentence support, used to place the numbered source marks.
+ * @param openSourceIndex - Rail row the drawer is currently showing, or `null` while it is closed.
  * @returns The rendered answer section, or `null` when the answer has no displayable text.
  */
 export function NaturalLanguageAnswer({
@@ -213,9 +384,13 @@ export function NaturalLanguageAnswer({
   bestSource,
   sources,
   sourceLinks,
+  claims,
+  railRows,
   copied,
   onCopy,
   onOpenSource,
+  onOpenRailSource,
+  openSourceIndex = null,
 }: {
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
@@ -226,6 +401,19 @@ export function NaturalLanguageAnswer({
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
   sourceLinks: SourceLink[];
+  /**
+   * `answer.supportedClaims`. Absent on a historical turn and on any answer the
+   * pipeline did not assess, which is the degrade case: prose with no marks and
+   * the rail still carrying every source.
+   */
+  claims?: readonly SupportedClaim[];
+  /**
+   * Pre-built rail rows. The answer surface already derives these (annotated
+   * with which sources carry a table or an image), so it passes them down rather
+   * than leaving this component to derive a second, subtly different list from
+   * the same three inputs.
+   */
+  railRows?: AnswerSourceRow[];
   copied: boolean;
   onCopy: () => void;
   /**
@@ -233,13 +421,42 @@ export function NaturalLanguageAnswer({
    * answer surface rather than here, so the rail reports the row and the surface
    * owns which one is open.
    */
-  onOpenSource?: (index: number) => void;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
+  /**
+   * Opens the drawer from a rail card rather than from a claim. Separate from
+   * `onOpenSource` because the drawer says something different in each case —
+   * a card is a document, a mark is a claim about a document — and defaulting
+   * to `onOpenSource` would have every rail tap assert a claim nobody made.
+   */
+  onOpenRailSource?: (index: number) => void;
+  /** Which rail row the drawer is showing, so the mark and its sentence can light up. */
+  openSourceIndex?: number | null;
 }) {
   const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
   const { preferences } = useAppPreferences();
-  const cleaned = primaryAnswerDisplayText(text, { preformatted, preserveBold: true });
-  if (!cleaned) return null;
-  const railSources = buildAnswerSourceRows(bestSource, sources, sourceLinks);
+  const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
+  if (!fragments.length) return null;
+  const railSources = railRows ?? buildAnswerSourceRows(bestSource, sources, sourceLinks);
+  /**
+   * Marks may only point at CITED rows: an uncited card carries a dashed em-dash
+   * badge rather than a number, so a mark leading to one would show a number the
+   * rail does not.
+   *
+   * Masked to an empty id rather than filtered out. Filtering would renumber
+   * every row after an uncited one, which is the silent wrong-page attribution
+   * this whole surface exists to prevent — and it would depend on cited rows
+   * happening to sort first, which is true today and is not a contract.
+   */
+  const markableSourceIds = railSources.map((row) => (row.cited === false ? "" : row.id));
+  // A historical turn mounts no drawer, so a mark there would advertise a panel
+  // that never opens. Those turns render the prose unmarked.
+  const clusters = onOpenSource
+    ? resolveClaimMarks({
+        fragments: fragments.map((fragment) => ({ text: fragment.raw, truncated: fragment.truncated })),
+        claims,
+        sourceIds: markableSourceIds,
+      })
+    : fragments.map(() => null);
   return (
     <section
       data-testid="plain-answer-response"
@@ -255,11 +472,27 @@ export function NaturalLanguageAnswer({
       </span>
       <div className="min-w-0 space-y-1">
         <p className={chatAnswerText}>
+          {/* One span per sentence, joined by a single space, so the prose's
+              textContent is byte-identical to the un-marked rendering. */}
           <span data-testid="plain-answer-prose">
-            <SafeBoldText text={cleaned} />
+            {fragments.map((fragment, index) => (
+              <Fragment key={`${index}:${fragment.display}`}>
+                {index > 0 ? " " : null}
+                <AnswerProseSentence
+                  fragment={fragment}
+                  cluster={clusters[index]}
+                  rows={railSources}
+                  openSourceIndex={openSourceIndex}
+                  onOpenSource={onOpenSource}
+                />
+              </Fragment>
+            ))}
           </span>
         </p>
-        <div className="space-y-1 -mb-2">
+        {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
+            heading used to carry a top border — the two collided and drew a rule
+            straight through the Source-only pill. */}
+        <div className="space-y-1">
           {sourceOnly ? (
             <section
               data-testid="source-only-disclosure"
@@ -306,7 +539,8 @@ export function NaturalLanguageAnswer({
         <AnswerSourceRail
           sources={railSources}
           query={query}
-          onOpenSource={onOpenSource}
+          onOpenSource={onOpenRailSource ?? onOpenSource}
+          activeIndex={openSourceIndex}
           compact={preferences.compactCitations}
         />
         <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
@@ -335,7 +569,14 @@ export function UserQuestionBubble({ query }: { query: string }) {
         data-testid="user-question-bubble"
         className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
-        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">
+          {/* Carried over from AnswerCardQueryEcho when the current turn's
+              question moved out of the card header and into this bubble: without
+              it a screen reader reads the question as an unlabelled sentence
+              immediately before the answer. */}
+          <span className="sr-only">Question: </span>
+          {cleaned}
+        </p>
       </div>
     </section>
   );

@@ -5,6 +5,7 @@ import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
@@ -94,46 +95,21 @@ export function SheetsScreen() {
                   Toggle what appears on the sheet.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipAbout)}
-                    onClick={b.toggleAbout}
-                    aria-pressed={b.secAbout}
-                  >
+                  <ChoiceChip pressed={b.secAbout} onPressedChange={b.toggleAbout}>
                     About this therapy
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipSteps)}
-                    onClick={b.toggleSteps}
-                    aria-pressed={b.secSteps}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secSteps} onPressedChange={b.toggleSteps}>
                     Your plan
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipPractice)}
-                    onClick={b.togglePractice}
-                    aria-pressed={b.secPractice}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secPractice} onPressedChange={b.togglePractice}>
                     Practice at home
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipCoping)}
-                    onClick={b.toggleCoping}
-                    aria-pressed={b.secCoping}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secCoping} onPressedChange={b.toggleCoping}>
                     If things get hard
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipContacts)}
-                    onClick={b.toggleContacts}
-                    aria-pressed={b.secContacts}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secContacts} onPressedChange={b.toggleContacts}>
                     Support contacts
-                  </button>
+                  </ChoiceChip>
                 </div>
               </div>
 

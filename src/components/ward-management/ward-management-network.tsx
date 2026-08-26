@@ -21,7 +21,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
-import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
@@ -88,8 +88,8 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-function BedStateChips({ unit, showTime }: { unit: Unit; showTime?: boolean }) {
-  const capacity = unitCapacity(unit);
+function BedStateChips({ unit, bedReleases, showTime }: { unit: Unit; bedReleases: BedRelease[]; showTime?: boolean }) {
+  const capacity = unitCapacity(unit, bedReleases);
   return (
     <span className={styles.bedChips}>
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
@@ -104,18 +104,20 @@ function BedStateChips({ unit, showTime }: { unit: Unit; showTime?: boolean }) {
 
 function ServiceCard({
   unit,
+  bedReleases,
   routed,
   selected,
   onSelect,
   registerRef,
 }: {
   unit: Unit;
+  bedReleases: BedRelease[];
   routed: boolean;
   selected: boolean;
   onSelect: () => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
   return (
     <button
       type="button"
@@ -129,13 +131,13 @@ function ServiceCard({
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
-      <BedStateChips unit={unit} showTime />
+      <BedStateChips unit={unit} bedReleases={bedReleases} showTime />
     </button>
   );
 }
 
 export function WardNetworkWorkspace() {
-  const { movements, units, now } = useWardFlow();
+  const { movements, units, bedReleases, now } = useWardFlow();
   const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
@@ -360,6 +362,7 @@ export function WardNetworkWorkspace() {
                           <ServiceCard
                             key={unit.id}
                             unit={unit}
+                            bedReleases={bedReleases}
                             routed={routedIds.has(unit.id)}
                             selected={detail?.id === unit.id}
                             onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
@@ -462,7 +465,7 @@ export function WardNetworkWorkspace() {
                   <th scope="row">Current bed state</th>
                   {candidates.map((candidate) => (
                     <td key={candidate.unit.id}>
-                      <BedStateChips unit={candidate.unit} />
+                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} />
                     </td>
                   ))}
                 </tr>
@@ -516,7 +519,7 @@ export function WardNetworkWorkspace() {
             <span>Next action: {patient.blocker}</span>
           </div>
 
-          <Link className={styles.primaryLink} href={`/ward-management/patients/${patient.id}`}>
+          <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
             Open movement workspace
           </Link>
           <p className={styles.assurance}>System suggests, you decide. No automatic allocation.</p>
@@ -528,10 +531,10 @@ export function WardNetworkWorkspace() {
                 {siteByCode(detail.siteCode)?.service ?? "Unknown service"} · {capabilityLabel(detail)} · confirmed{" "}
                 {formatInstant(detail.allocatable.confirmedAt)}
               </p>
-              <BedStateChips unit={detail} />
+              <BedStateChips unit={detail} bedReleases={bedReleases} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail).occupied} occupied of {detail.beds} beds. Potential beds are a subset of occupied
-                and are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Potential beds are not
+                allocatable yet.
               </p>
             </section>
           ) : null}

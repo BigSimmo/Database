@@ -3,6 +3,19 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { useMemo, useState, type Dispatch, type FormEvent } from "react";
 
+import {
+  CANCEL_TRANSPORT_REASONS,
+  changeReasonLabels,
+  ESCALATION_CONTACTS,
+  LEGAL_STATUS_CHANGE_REASONS,
+  RELEASE_HOLD_REASONS,
+  URGENCY_CHANGE_REASONS,
+  type CancelTransportReason,
+  type EscalationContact,
+  type LegalStatusChangeReason,
+  type ReleaseHoldReason,
+  type UrgencyChangeReason,
+} from "@/components/ward-management/ward-change-reasons";
 import { clockState, formatInstant, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
@@ -16,7 +29,13 @@ import {
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { legalFormName } from "@/components/ward-management/ward-legal-forms";
-import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import {
+  PARALLEL_REFERRAL_CAP,
+  type BedRelease,
+  type LegalStatus,
+  type Movement,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { operationalScore } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
@@ -27,6 +46,7 @@ type ShortlistPanelProps = {
   movement: Movement | undefined;
   now: Instant;
   units: Unit[];
+  bedReleases: BedRelease[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -62,8 +82,19 @@ const GATE_LABELS: Record<string, string> = {
   allocatable_bed: "Allocatable bed",
 };
 
-function capacityLine(unit: Unit) {
-  const capacity = unitCapacity(unit);
+/** Every `LegalStatus` value — the same hand-listed shape `ed-screen.tsx`'s own intake picker
+ *  keeps, since `ward-model.ts` exports the type but no runtime list of its members. */
+const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
+  "Voluntary",
+  "Referred for psychiatric examination",
+  "Detained awaiting examination",
+  "Involuntary inpatient",
+];
+
+const URGENCY_OPTIONS = [1, 2, 3] as const;
+
+function capacityLine(unit: Unit, bedReleases: BedRelease[]) {
+  const capacity = unitCapacity(unit, bedReleases);
   return `Ready ${capacity.available} · Held ${capacity.held} · Blocked ${capacity.blocked} · Occupied ${capacity.occupied}`;
 }
 
@@ -105,7 +136,15 @@ function legalFormLine(movement: Movement, now: Instant) {
  * driven by something other than the gate's own `pass` boolean. Every icon below reads directly
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
-export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
+export function ShortlistPanel({
+  movement,
+  now,
+  units,
+  bedReleases,
+  selectedUnitId,
+  onSelectUnit,
+  dispatch,
+}: ShortlistPanelProps) {
   const shortlist = useMemo(
     () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
     [movement, units, now],
@@ -155,7 +194,32 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   // the recorded fact itself, which lives on `movement.escalation` and is read fresh on every
   // render, the same discipline `overrideSucceeded` already holds to for the override record.
   const [escalationOpen, setEscalationOpen] = useState(false);
-  const [escalationContact, setEscalationContact] = useState("");
+  // Task 6 (spec item 11): chosen, never typed — the free-text `escalationContact` string state
+  // this replaces is gone. Defaults to the list's first entry, the same pattern every other fixed
+  // picker in this panel already uses (`urgencyDraft.reason`, `releaseHoldReason`, and so on).
+  const [escalationContact, setEscalationContact] = useState<EscalationContact>(ESCALATION_CONTACTS[0]);
+  // Task 2: urgency and legal status can change mid-flight. Both a coordinator and the referring
+  // ED clinician may make either change (`EVENT_ROLE.CHANGE_URGENCY`/`CHANGE_LEGAL_STATUS`), so
+  // this panel dispatches as role "coordinator" — the ED screen's own controls dispatch as "ed".
+  const [urgencyChangeOpen, setUrgencyChangeOpen] = useState(false);
+  const [urgencyDraft, setUrgencyDraft] = useState<{ urgency: 1 | 2 | 3; reason: UrgencyChangeReason }>({
+    urgency: movement?.urgency ?? 1,
+    reason: URGENCY_CHANGE_REASONS[0],
+  });
+  const [legalStatusChangeOpen, setLegalStatusChangeOpen] = useState(false);
+  const [legalStatusDraft, setLegalStatusDraft] = useState<{
+    legalStatus: LegalStatus;
+    reason: LegalStatusChangeReason;
+  }>({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+  // Task 3: the undo the prototype has never had. Both forms only ever OPEN when the reducer
+  // would actually accept the event — see `canReleaseHold`/`canCancelTransport` below — so
+  // neither control can advertise an action the reducer would silently refuse.
+  const [releaseHoldOpen, setReleaseHoldOpen] = useState(false);
+  const [releaseHoldReason, setReleaseHoldReason] = useState<ReleaseHoldReason>(RELEASE_HOLD_REASONS[0]);
+  const [cancelTransportOpen, setCancelTransportOpen] = useState(false);
+  const [cancelTransportReason, setCancelTransportReason] = useState<CancelTransportReason>(
+    CANCEL_TRANSPORT_REASONS[0],
+  );
 
   // A confirmation, an open override form, or a referral selection all belong to the movement
   // they were made against — moving to a different movement must never leave a stale "Referred"
@@ -170,7 +234,15 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     setOverrideReason("");
     setReferTargets([]);
     setEscalationOpen(false);
-    setEscalationContact("");
+    setEscalationContact(ESCALATION_CONTACTS[0]);
+    setUrgencyChangeOpen(false);
+    setUrgencyDraft({ urgency: movement?.urgency ?? 1, reason: URGENCY_CHANGE_REASONS[0] });
+    setLegalStatusChangeOpen(false);
+    setLegalStatusDraft({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+    setReleaseHoldOpen(false);
+    setReleaseHoldReason(RELEASE_HOLD_REASONS[0]);
+    setCancelTransportOpen(false);
+    setCancelTransportReason(CANCEL_TRANSPORT_REASONS[0]);
   }
 
   if (!movement) {
@@ -184,6 +256,17 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   // values are what they close over instead of re-checking `movement` themselves.
   const movementId = movement.id;
   const declinedUnitIds = movement.declines.map((decline) => decline.unitId);
+
+  // Task 3: each control renders ONLY when the reducer would accept it — never dispatched
+  // optimistically and left for the reducer to refuse silently (the defect Task 5's `canRefer`
+  // exists to prevent, applied here to the undo path). Mirrors `RELEASE_HOLD`/`CANCEL_TRANSPORT`'s
+  // own preconditions in `ward-flow-reducer.ts` exactly.
+  const canReleaseHold = movement.stage === "bed_held";
+  const canCancelTransport =
+    movement.transport !== undefined &&
+    movement.transport.cancelledAt === undefined &&
+    movement.transport.collectedAt === undefined &&
+    movement.transport.arrivedAt === undefined;
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
   // Neutral "currently at" language, never framed as an authorisation requirement — authorisation
@@ -307,24 +390,85 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
    * eligibility scan, not a record of what was actually attempted — using it would let a
    * genuinely untried unit (never referred, only eligibility-checked) be named as "tried".
    * WF-009's own pre-authored fixture escalation (`ward-movements.ts`) uses exactly this shape:
-   * its five `triedUnitIds` are its five `declines`, unit for unit. Only `contact` (a role or
-   * service, never a person — synthetic data only, the same rule every other free-text field in
-   * this prototype follows) is typed.
+   * its five `triedUnitIds` are its five `declines`, unit for unit. `contact` (a role or service,
+   * never a person) is Task 6's fixed `ESCALATION_CONTACTS` picker, not typed text — see the
+   * comment above `ward-change-reasons.ts`'s `ESCALATION_CONTACTS`.
    */
   function submitEscalation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const contact = escalationContact.trim();
-    if (contact.length === 0) return;
+    // Task 6: `escalationContact` is now always one of `ESCALATION_CONTACTS` — a `<select>` can
+    // never submit an empty or arbitrary value, so the old trim-and-check-length guard this
+    // replaced is gone along with the free-text state it protected.
     dispatch({
       type: "RECORD_ESCALATION",
       role: "coordinator",
       now,
       movementId,
       triedUnitIds: declinedUnitIds,
-      contact,
+      contact: escalationContact,
     });
     setEscalationOpen(false);
-    setEscalationContact("");
+    setEscalationContact(ESCALATION_CONTACTS[0]);
+  }
+
+  /**
+   * Records who changed the tier, when and why — and nothing else. Nothing auto-allocates: this
+   * never re-sorts, re-suggests, un-accepts or re-refers the patient (Global Constraint 3).
+   */
+  function submitUrgencyChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    dispatch({
+      type: "CHANGE_URGENCY",
+      role: "coordinator",
+      now,
+      movementId,
+      urgency: urgencyDraft.urgency,
+      reason: urgencyDraft.reason,
+    });
+    setUrgencyChangeOpen(false);
+  }
+
+  /**
+   * Records the legal status change and nothing else. A status change can make an already
+   * accepted destination unlawful (`destinationNoLongerLawful`, surfaced on the Exceptions
+   * drawer) — this handler never reacts to that itself.
+   */
+  function submitLegalStatusChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    dispatch({
+      type: "CHANGE_LEGAL_STATUS",
+      role: "coordinator",
+      now,
+      movementId,
+      legalStatus: legalStatusDraft.legalStatus,
+      reason: legalStatusDraft.reason,
+    });
+    setLegalStatusChangeOpen(false);
+  }
+
+  /**
+   * Releases a held bed back to allocatable WITHOUT closing the movement, clearing `legalForm`,
+   * or touching `referredUnitIds` — the patient survives and keeps their acceptance; only the
+   * hold itself unwinds. Dispatched as role "coordinator", so no `actingUnitId` is needed — a
+   * coordinator may release a hold at any unit.
+   */
+  function submitReleaseHold(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canReleaseHold) return;
+    dispatch({ type: "RELEASE_HOLD", role: "coordinator", now, movementId, reason: releaseHoldReason });
+    setReleaseHoldOpen(false);
+  }
+
+  /**
+   * Cancels the transport job WITHOUT closing the movement — the bed itself (held or already
+   * occupied) is untouched by this handler. Dispatched as role "coordinator", so no
+   * `actingUnitId` is needed.
+   */
+  function submitCancelTransport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canCancelTransport) return;
+    dispatch({ type: "CANCEL_TRANSPORT", role: "coordinator", now, movementId, reason: cancelTransportReason });
+    setCancelTransportOpen(false);
   }
 
   // Structurally incapable of claiming an override succeeded when it did not: this checks the
@@ -418,6 +562,217 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
         )}
       </header>
 
+      {/* Task 2: urgency and legal status can change mid-flight, each change recorded with who
+          made it and when. Nothing here auto-allocates — see `submitUrgencyChange` and
+          `submitLegalStatusChange` above; a status change that makes the accepted destination
+          unlawful surfaces on the Exceptions drawer instead (`destinationNoLongerLawful`). */}
+      <section aria-label="Change urgency or legal status">
+        <h4 className={styles.shortlistSectionHeading}>Change urgency or legal status</h4>
+        <div className={styles.shortlistActionRow}>
+          <button
+            type="button"
+            data-testid="ward-change-urgency-toggle"
+            aria-expanded={urgencyChangeOpen}
+            className={styles.shortlistOverrideButton}
+            onClick={() => setUrgencyChangeOpen((open) => !open)}
+          >
+            Change urgency
+          </button>
+          <button
+            type="button"
+            data-testid="ward-change-legal-status-toggle"
+            aria-expanded={legalStatusChangeOpen}
+            className={styles.shortlistOverrideButton}
+            onClick={() => setLegalStatusChangeOpen((open) => !open)}
+          >
+            Change legal status
+          </button>
+        </div>
+
+        {urgencyChangeOpen ? (
+          <form
+            className={styles.shortlistOverrideForm}
+            onSubmit={submitUrgencyChange}
+            data-testid="ward-change-urgency"
+          >
+            <label className={styles.shortlistOverrideLabel} htmlFor="ward-change-urgency-tier">
+              Urgency tier for {movement.id}
+            </label>
+            <select
+              id="ward-change-urgency-tier"
+              className={styles.shortlistOverrideSelect}
+              value={urgencyDraft.urgency}
+              onChange={(event) =>
+                setUrgencyDraft((current) => ({ ...current, urgency: Number(event.target.value) as 1 | 2 | 3 }))
+              }
+            >
+              {URGENCY_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <label className={styles.shortlistOverrideLabel} htmlFor="ward-change-urgency-reason">
+              Reason
+            </label>
+            <select
+              id="ward-change-urgency-reason"
+              required
+              className={styles.shortlistOverrideSelect}
+              value={urgencyDraft.reason}
+              onChange={(event) =>
+                setUrgencyDraft((current) => ({ ...current, reason: event.target.value as UrgencyChangeReason }))
+              }
+            >
+              {URGENCY_CHANGE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {changeReasonLabels[reason]}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={styles.shortlistOverrideSubmit}>
+              Record urgency change
+            </button>
+          </form>
+        ) : null}
+
+        {legalStatusChangeOpen ? (
+          <form
+            className={styles.shortlistOverrideForm}
+            onSubmit={submitLegalStatusChange}
+            data-testid="ward-change-legal-status"
+          >
+            <label className={styles.shortlistOverrideLabel} htmlFor="ward-change-legal-status-value">
+              Legal status for {movement.id}
+            </label>
+            <select
+              id="ward-change-legal-status-value"
+              className={styles.shortlistOverrideSelect}
+              value={legalStatusDraft.legalStatus}
+              onChange={(event) =>
+                setLegalStatusDraft((current) => ({ ...current, legalStatus: event.target.value as LegalStatus }))
+              }
+            >
+              {LEGAL_STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <label className={styles.shortlistOverrideLabel} htmlFor="ward-change-legal-status-reason">
+              Reason
+            </label>
+            <select
+              id="ward-change-legal-status-reason"
+              required
+              className={styles.shortlistOverrideSelect}
+              value={legalStatusDraft.reason}
+              onChange={(event) =>
+                setLegalStatusDraft((current) => ({
+                  ...current,
+                  reason: event.target.value as LegalStatusChangeReason,
+                }))
+              }
+            >
+              {LEGAL_STATUS_CHANGE_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {changeReasonLabels[reason]}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={styles.shortlistOverrideSubmit}>
+              Record legal status change
+            </button>
+          </form>
+        ) : null}
+      </section>
+
+      {/* Task 3: the undo the prototype has never had. Before this, the only path that released a
+          held bed or cancelled a transport job was closing the movement outright, by recording an
+          examination with outcome community_order or revoked. Each control renders only while the
+          reducer would actually accept it — see `canReleaseHold`/`canCancelTransport` above. */}
+      {canReleaseHold || canCancelTransport ? (
+        <section aria-label="Release or cancel">
+          <h4 className={styles.shortlistSectionHeading}>Release hold or cancel transport</h4>
+          <div className={styles.shortlistActionRow}>
+            {canReleaseHold ? (
+              <button
+                type="button"
+                data-testid="ward-release-hold-toggle"
+                aria-expanded={releaseHoldOpen}
+                className={styles.shortlistOverrideButton}
+                onClick={() => setReleaseHoldOpen((open) => !open)}
+              >
+                Release the held bed
+              </button>
+            ) : null}
+            {canCancelTransport ? (
+              <button
+                type="button"
+                data-testid="ward-cancel-transport-toggle"
+                aria-expanded={cancelTransportOpen}
+                className={styles.shortlistOverrideButton}
+                onClick={() => setCancelTransportOpen((open) => !open)}
+              >
+                Cancel transport
+              </button>
+            ) : null}
+          </div>
+
+          {canReleaseHold && releaseHoldOpen ? (
+            <form className={styles.shortlistOverrideForm} onSubmit={submitReleaseHold} data-testid="ward-release-hold">
+              <label className={styles.shortlistOverrideLabel} htmlFor="ward-release-hold-reason">
+                Reason for releasing the held bed for {movement.id}
+              </label>
+              <select
+                id="ward-release-hold-reason"
+                required
+                className={styles.shortlistOverrideSelect}
+                value={releaseHoldReason}
+                onChange={(event) => setReleaseHoldReason(event.target.value as ReleaseHoldReason)}
+              >
+                {RELEASE_HOLD_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {changeReasonLabels[reason]}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={styles.shortlistOverrideSubmit}>
+                Release the held bed
+              </button>
+            </form>
+          ) : null}
+
+          {canCancelTransport && cancelTransportOpen ? (
+            <form
+              className={styles.shortlistOverrideForm}
+              onSubmit={submitCancelTransport}
+              data-testid="ward-cancel-transport"
+            >
+              <label className={styles.shortlistOverrideLabel} htmlFor="ward-cancel-transport-reason">
+                Reason for cancelling transport for {movement.id}
+              </label>
+              <select
+                id="ward-cancel-transport-reason"
+                required
+                className={styles.shortlistOverrideSelect}
+                value={cancelTransportReason}
+                onChange={(event) => setCancelTransportReason(event.target.value as CancelTransportReason)}
+              >
+                {CANCEL_TRANSPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {changeReasonLabels[reason]}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={styles.shortlistOverrideSubmit}>
+                Cancel transport
+              </button>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
+
       <section aria-label="Candidate units">
         {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity
             claim the model cannot support — `Unit` has no distance, geo, locality or catchment
@@ -461,7 +816,9 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
                     }}
                   >
                     <span className={styles.shortlistCandidateName}>{candidate.unit.name}</span>
-                    <span className={styles.shortlistCandidateCapacity}>{capacityLine(candidate.unit)}</span>
+                    <span className={styles.shortlistCandidateCapacity}>
+                      {capacityLine(candidate.unit, bedReleases)}
+                    </span>
                     <span
                       className={
                         candidate.verdict.eligible
@@ -614,14 +971,20 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
                   Role or service being contacted next — a role or service only, never a person&apos;s name (synthetic
                   data only)
                 </label>
-                <textarea
+                <select
                   id="ward-shortlist-escalation-contact"
                   required
                   data-testid="ward-shortlist-escalation-contact"
-                  className={styles.shortlistOverrideTextarea}
+                  className={styles.shortlistOverrideSelect}
                   value={escalationContact}
-                  onChange={(event) => setEscalationContact(event.target.value)}
-                />
+                  onChange={(event) => setEscalationContact(event.target.value as EscalationContact)}
+                >
+                  {ESCALATION_CONTACTS.map((contact) => (
+                    <option key={contact} value={contact}>
+                      {contact}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="submit"
                   data-testid="ward-shortlist-escalation-submit"
