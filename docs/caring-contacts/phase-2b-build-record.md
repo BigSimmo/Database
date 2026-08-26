@@ -2739,3 +2739,40 @@ reason. That is a better trigger than a screen boundary.
 its wording. Ruling [46]'s wording said add a member. Its reasoning said make the question askable. When
 those two point in opposite directions, the reasoning is the ruling. The implementer read the reasoning and
 I had read the wording.
+
+### Task 14 — ACCEPTED at round 5
+
+Five rounds, twenty-one commits, on `claude/caring-contacts-schedule`. Nothing pushed.
+
+**Rounds 1–4** built the delivery exception and the Group 2 overlays and closed the review's findings; the
+round-4 re-review confirmed all five independently, deriving the counts from the diff rather than repeating
+the implementer's, and found nothing new that round 4 introduced.
+
+**Round 5 came from that re-review, not from a failure.** It found a comment describing a stronger guarantee
+than the code gave: the shared request schema claimed the client that builds a body and the boundary that
+refuses one share one definition, but the production component still hand-built its body and only the route
+and the **test double** imported the schema. The implementer took the substantive fix rather than correcting
+the comment — a type-only import of `z.infer` of the schema, annotating the body — **two lines**, dragging
+in no `server-only` and leaving the sealed domain still free of Zod.
+
+**And it proved it the way this phase requires.** Renaming a field in the schema now fails to compile **at
+the client**:
+
+```
+src/components/caring-contacts/workspace/contact-time-adjustment.tsx(383,7): error TS2561: Object literal
+may only specify known properties, but 'expectedContactVersion' does not exist in type '{ action:
+"moveWithinDay"; ... expectedVersion: number; idempotencyKey: string; }'.
+```
+
+The same run names the route and the mirror too, so all three callers are bound to one definition — and the
+comment now names them individually rather than claiming a pair.
+
+**Final gates:** `Test Files 27 passed (27)`, `Tests 532 passed (532)`; `tsc --noEmit` exit 0 with zero
+`error TS`; `eslint --no-cache` over fifteen changed files, `errorCount: 0 warningCount: 0`;
+`prettier --check` over the whole diff, `All matched files use Prettier code style!` No lease refusal.
+
+**Three residuals recorded, none blocking:** the annotation binds the body's shape, not its values, so a
+well-shaped body carrying the wrong version still compiles — that is what the stale-version case is for;
+only this route has a shared body schema, so the same divergence remains available to any client
+hand-building one of the others; and deleting the annotation itself would compile, caught today only by its
+own control.

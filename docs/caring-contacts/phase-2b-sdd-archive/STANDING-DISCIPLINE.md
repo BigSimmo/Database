@@ -232,6 +232,20 @@ expected app router to be mounted`, thrown at render. Every narrowed row was gre
   gate that omits a suite does not merely skip it — **it hides the precedent**, and the next person rebuilds
   or defers something that was already settled.
 
+- **A type derived from a value is still a value at runtime — a "type-only" mutation is not one.** Task 14
+  predicted GREEN for a control that renamed a field in a Zod schema and ran the **suite** rather than
+  `tsc`, reasoning that the change was type-level. It came back **RED, 6 failed / 11 passed**: the test
+  double validates with that same schema, so the mismatched body was refused at runtime too. **This was the
+  second identical wrong prediction in one task** — the same shape had already been called wrong in round 2.
+
+  `z.infer` and its relatives make a **runtime object** look like a type-level relationship. When you mutate
+  one, ask which callers read the _object_ and which read the _type_, and predict per gate — `tsc` red and
+  the suite green is a real and common outcome, but so is both red, and asserting one without checking is
+  guessing dressed as a control.
+
+  **A wrong prediction that is reported is worth more than a right one that was never at risk.** The value of
+  this entry is that the implementer volunteered the miss rather than relabelling the control after the fact.
+
 ## Writing that does not decay
 
 - **Do not restate a count in prose.** State the invariant. A count sitting **directly on top of the list
