@@ -220,7 +220,7 @@ both stores and the shared contract suite, so it is reported rather than done he
 | The four suites this task can move (`GATE_RECEIPTS=refresh`), later | `Test Files  4 passed (4)` and `Tests  63 passed (63)`     |
 | `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), FINAL TREE      | `Test Files  27 passed (27)` and `Tests  525 passed (525)` |
 | `npx tsc --noEmit`, final tree                                      | exit 0, zero `error TS` lines emitted                      |
-| `npx eslint --no-cache`, the 13 changed TypeScript files            | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON) |
+| `npx eslint --no-cache`, every changed TypeScript file              | `files linted: 15`, `errorCount: 0 warningCount: 0` (JSON) |
 | `prettier --check`, every file this task changed                    | `All matched files use Prettier code style!`               |
 
 `typecheck` prints nothing on success, so its row is an exit code and an absence of diagnostics
@@ -594,7 +594,7 @@ block should assert against it, stated now so it does not have to be re-derived:
 | `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  525 passed (525)`   |
 | The 21 mutation selections, all coordinated                    | every row above carries its own `N passed` / `N failed` line |
 | `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                        |
-| `npx eslint --no-cache`, the 13 changed TypeScript files       | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)   |
+| `npx eslint --no-cache`, every changed TypeScript file         | `files linted: 15`, `errorCount: 0 warningCount: 0` (JSON)   |
 | `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`                 |
 
 **No tracked source file changed in this round.** The full-gate run above is the one taken on the
@@ -787,7 +787,7 @@ round; the wide run at the end is what makes it safe.
 | `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  532 passed (532)`   |
 | The 7 round-3 mutation selections                              | every row above carries its own `N passed` / `N failed` line |
 | `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                        |
-| `npx eslint --no-cache`, the 13 changed TypeScript files       | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)   |
+| `npx eslint --no-cache`, every changed TypeScript file         | `files linted: 15`, `errorCount: 0 warningCount: 0` (JSON)   |
 | `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`                 |
 
 The `532` is round 2's `525` plus seven: three cases for the move fix, one for a version the service
@@ -807,3 +807,160 @@ never confirmed, and three walking the exports that had promised a test and had 
    there is no such write today, since every reschedule advances the version — would not reset a
    standing guard. Stated because it is a real edge of the pattern rather than an assumption I can
    prove away.
+
+---
+
+# Round 4 — after review, and the last one
+
+Five items, all addressed. The branch merges next.
+
+## Commits
+
+| SHA          | What                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| `25c1fabcb`  | One body schema for the client and the route; the two inert assertions; the two comment fixes. |
+| `a6a0710d0`  | The route case that pins `.strict()`.                                                          |
+| _(this one)_ | This round.                                                                                    |
+
+Every SHA in all four rounds was re-checked with `git cat-file -e <sha>^{commit}` after the last
+commit of this round.
+
+## 1 — the body the client sends is now the body the route defines
+
+The review found the sharpest remaining member of the mirror-divergence family, and it was worse than
+the one caught in round 3. **The mirror never read `action` at all**: it `JSON.parse`d the body and
+took four fields off the result, while the real route's union is `.strict()`, so a missing, renamed or
+extra field is a 400. And the route's own suite builds its request from a fixture rather than from the
+client. **A client-side body-shape regression was therefore invisible to both suites** — the same shape
+as the `{ value: null }` divergence, one field along.
+
+`contactMoveRequestSchema` now lives in `src/lib/caring-contacts-contact-move-request.ts`, which both
+the route and the DOM mirror import. It could not live in either of the obvious places: the route
+reaches `server-only` and `next/headers`, which no jsdom test can load, and nothing under
+`src/lib/caring-contacts/` may import anything non-relative, which rules out Zod. That file is plain
+validation with one import of the sealed domain's own id-shape predicate.
+
+**Three mutations prove it**, and T28 is the one that could not have gone red before this round:
+
+- **T27** renames `expectedContactVersion` in the client's body — six cases red.
+- **T28** removes the `action` discriminant entirely — six cases red. Under the old hand-parsing
+  mirror this mutation was invisible, because nothing on that path ever looked at the field.
+- **T30** turns the shared schema's `.strict()` into `.passthrough()`. Nothing exercised strictness —
+  the route suite's date-change case fails on the DISCRIMINANT, not on an extra field — so that case
+  was added first, and T30 reddens it.
+
+**The other divergences, named and not fixed**, because each is a property neither suite claims:
+
+- **Path segments are ignored by the mirror**, so `contactEndpoint()`'s `encodeURIComponent` is proved
+  by neither suite. The real route holds both segments to `isAccessObjectIdShape`, and the route suite
+  covers a segment that is not identifier-shaped; what is unproved is the client's escaping of one
+  that is.
+- **The refusal-to-status map is collapsed** to 403/422 in the mirror where the real route answers 409
+  for a stale version, 404 for not-found and 423 for a service stop. The wordings are keyed off the
+  refusal NAME rather than the status, so the screen is unaffected — but a client that ever branched on
+  status would be tested against the wrong numbers.
+- **No `Cache-Control: no-store`, no production demo-404, no access-denial audit event, no 413.** All
+  four belong to the real boundary, all four are covered by the route suite or by the handler's own,
+  and none is visible through the mirror.
+
+## 2 — the two assertions that could not go red
+
+- **The headline case's own sentence.** In "takes a second move from the same screen, and says nothing
+  about anybody else", the `not.toContain("This contact changed after this screen read it")` sat BEHIND
+  the record assertions: a refused second move fails the record check first and never reaches it; a
+  successful one satisfies it trivially. **There was no execution in which it could fail**, and it was
+  the assertion carrying the case's name. The two `outcomeText()` checks now come first, and **T20
+  re-run against the reordered case reddens on the sentence itself**:
+  `expected 'This contact changed after this scree…' not to contain 'This contact changed after this scree…'`.
+- **The overlay walk's negative half.** `expect(SCHEDULE_MOVE_OVERLAYS).toEqual([...])` determines the
+  array completely, so any further claim about its contents cannot fail — and the comment's rationale
+  was wrong, not merely redundant: it said the line proved the loop above was not satisfied by every id
+  in the table, which the `toEqual` had already made impossible. The assertion now makes that claim
+  about the thing that can actually change:
+  `expect(MUTATING_OVERLAY_IDS).not.toContain("delivery-detail")`.
+
+## 3 — the three counts, stated as the diff rather than as counts
+
+`git diff --name-only <task base> HEAD` is the authority for all of this, and it says:
+
+- **Fifteen TypeScript files changed**, not thirteen. The stale row carried a figure from before
+  `caring-contacts-schedule-page.dom.test.tsx` and `caring-contacts-contact-move-request.ts` existed.
+  The gate rows now read fifteen, and `prettier --check`'s "every file this task changed" is run from
+  that same `git diff --name-only` list rather than from a hand-kept one.
+- **`schedule-view.ts`: eighteen added lines**, two functional and sixteen of comment — not the
+  "seventeen and nineteen" round 3 wrote while correcting round 1's "one line". Correcting a count with
+  a count is where this rule keeps failing, and the fix is the one the rule already prescribes: name
+  the source rather than the number. It is
+  `git diff eafe033a2 HEAD -- src/lib/caring-contacts/schedule-view.ts`, and nothing is removed.
+
+## 4 — the two observations, both acted on
+
+- **The reseed leaves `outcome` alone deliberately, and now says so at the site.** The commonest render
+  arriving there is the one this control asked for — `router.refresh()` after its own successful move —
+  and clearing the statement then would wipe a coordinator's confirmation at the exact moment the row
+  caught up with it. **The residual is recorded in the code, not only here**: after a successful move,
+  an EXTERNAL move plus a refresh leaves "Recorded on the plan: this contact now sends at 11:30 AWST"
+  standing beside a field and a row both reading the newer time. Same family as the defect round 3
+  fixed, narrower trigger, and at least in the past tense — it says what this screen recorded, which
+  stays true.
+- **"Check again" no longer clears a version guard, and the comment is true again.** `recheckAtCommit`
+  covers connectivity and the acting role; **only a server render carries a version**, so the button
+  could remove the refusal while the condition still stood and the next confirm would refuse
+  identically. Nothing was ever written either way, so it was an affordance defect — but the file's own
+  sentence claimed a guard clears ONLY if the recheck passes, and a comment left false is a comment
+  that stops being read. **The behaviour changed rather than the comment**: a version guard survives
+  "Check again", and the statement names reloading the day as the thing that clears it. T29 reddens it.
+
+## 5 — the T25 nit, fixed where it was wrong
+
+The test's own comment credited "the null-prototype record plus `Object.hasOwn`" for refusing an
+inherited key. **T25 showed the first half is inert**: `Object.hasOwn({}, "constructor")` is false
+either way, so removing `Object.create(null)` leaves every assertion green. The comment now says
+`Object.hasOwn` is what stops it, on its own, and that the null prototype stays as belt-and-braces for
+a lookup somebody later rewrites as `map[key] ?? fallback` — which is a different claim, and not one
+this case proves.
+
+## The mutation ledger, round 4
+
+Same driver, same four guards, same narrowed selection; `CTRL_NOOP` was re-run after the driver gained
+the new allowlisted file and threw on its own line. `git status --porcelain` empty before and after
+every row.
+
+| #       | Selection | Mutation                                                         | Predicted                                                           | Result | The line it printed                                                                                                                       |
+| ------- | --------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| T27     | move UI   | the client renames a field the route's strict schema requires    | every case that reaches a write is refused as a bad request         | RED    | `expected 'The service refused the move and name…' to contain '11:30 AWST'` — `6 failed / 11 passed (17)`                                 |
+| T28     | move UI   | the client omits the `action` discriminant the mirror never read | the same six — **and invisible before this round**                  | RED    | `expected 'The service refused the move and name…' to contain '11:30 AWST'` — `6 failed / 11 passed (17)`                                 |
+| T29     | move UI   | "Check again" clears a version guard it cannot recheck           | the new guard case loses its statement                              | RED    | `expected '' to contain 'checking again cannot tell it'` — `1 failed / 16 passed (17)`                                                    |
+| T30     | route     | the shared schema stops being strict                             | the extra-field case is accepted                                    | RED    | `expected 200 to be 400` — `1 failed / 6 passed (7)`                                                                                      |
+| T20 (2) | move UI   | re-run of round 3's row against the REORDERED headline case      | it now reddens on the case's own sentence rather than on the record | RED    | `expected 'This contact changed after this scree…' not to contain 'This contact changed after this scree…'` — `1 failed / 16 passed (17)` |
+
+Every prediction was exact this round, including T28's six.
+
+## Gates, after the final edit of this round
+
+| Gate                                                           | Evidence                                                   |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  532 passed (532)` |
+| The 5 round-4 mutation selections                              | every row above carries its own `N failed / N passed` line |
+| `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                      |
+| `npx eslint --no-cache`, every changed TypeScript file         | `files linted: 15`, `errorCount: 0 warningCount: 0` (JSON) |
+| `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`               |
+
+**`532` is unchanged from round 3 and that is correct**: this round added assertions inside existing
+cases rather than new cases — the strictness check joined the route suite's bad-request case, and the
+"Check again" check joined the unconfirmed-version case. Both of those files were run and pasted before
+the wide set.
+
+## Concerns from round 4
+
+1. **The mirror is closer to the route but is still a mirror.** Body shape and the success envelope are
+   now pinned; status codes, cache headers, the demo lock and the access-denial event are not, and are
+   listed above so the next reader does not have to re-derive which. A shared response type would close
+   the envelope half properly and is a contract change.
+2. **`src/lib/caring-contacts-contact-move-request.ts` is a new file at a level with one neighbour**
+   (`caring-contacts-routes.ts`). If a later task adds a second route schema, that is the moment to
+   make it a directory rather than accumulating siblings.
+3. **The residual in item 4 is unfixed by design and is a real, if narrow, divergence.** An external
+   move plus a refresh leaves this screen's own past-tense confirmation beside a newer time. Clearing
+   `outcome` on every reseed would remove it and cost the confirmation of one's own move; a fix keeping
+   both would need to know WHICH render it is looking at, which the props do not say.
