@@ -764,12 +764,13 @@ floating element: it portals into a slot rendered _inside_ the dock's `<form>`
 z-index, safe-area padding and scroll-hide transform. There is no bottom-offset
 arithmetic and no second scroll listener anywhere in an addon.
 
-Two claimants exist, and they are mutually exclusive by surface:
+Three claimants exist, and they are mutually exclusive by surface:
 
-| Addon kind              | Slot id                                   | Claimed by                                                  |
-| ----------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses` |
-| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)              |
+| Addon kind              | Slot id                                   | Claimed by                                                                    |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses`                   |
+| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)                                |
+| `therapy-compare`       | `therapy-compare-addon-slot`              | Therapy Compass dock routes, **and only while the URL carries a compare set** |
 
 Rules:
 
@@ -788,13 +789,27 @@ Rules:
   opens a blank band at the bottom. `/medications` is a standalone mode home with
   the composer in the hero and no dock at all; `/medications/[slug]` already opens
   the patient sheet from its own nav header, so neither claims the addon.
+- **An addon that can be empty must gate its claim on being non-empty.** The
+  therapy compare tray renders nothing until something is in the comparison, so
+  claiming the slot on every therapy route would reserve a tray-sized band under
+  a row that is not there. The shell therefore reads the set out of the URL
+  (`readTherapyCompareSlugCount`) and claims only when it is non-empty — the
+  claim and the render have to agree, in both directions.
+- **Keep an addon exactly one row tall.** The clearance is a static token, so a
+  dock that grows covers page content by exactly its own growth. Anything that
+  needs more room opens a bottom `Sheet` instead of a taller bar; that is why
+  the compare tray's expanded state is a sheet and the Patient details panel is
+  one too.
 - **Gate the portal at 639px**, matching `.phone-footer-layer`'s `sm:fixed`. The two
   Compare bars gate at 1023px, which between 640–1023px portals into a slot on a
   form that is not fixed. Do not copy that.
 
 Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/TS
-value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
-breakpoint, sheet wiring).
+value parity, therapy route/claim gating), `tests/patient-details-dock-action.dom.test.tsx`
+(portal target, breakpoint, sheet wiring), `tests/therapy-compare-tray.dom.test.tsx`
+(portal target, breakpoint, empty-set silence, sheet wiring),
+`tests/ui-therapy-nav-scroll.spec.ts` (the tray hides with the composer and
+releases its reserve to `0rem`).
 
 ## Motion & Animation Preferences (#S4K1GA)
 

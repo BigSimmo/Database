@@ -314,6 +314,24 @@ describe("Care Plan route registration", () => {
 });
 
 describe("Care Plan synthetic, memory-only boundary", () => {
+  /**
+   * A quantity, in either of the two ways English writes one.
+   *
+   * The absence of an approved numeric threshold is a clinical-governance
+   * boundary of this prototype rather than a house style: local governance has
+   * not decided who is offered a Management Plan, and until it does, nothing
+   * here may encode an answer. A guard for that boundary that reads only digits
+   * is a guard a sentence walks straight past — `Refer for review after four
+   * presentations in three months` survived every check in this file, and reads
+   * to a clinician exactly as `after 4 presentations in 3 months` would.
+   *
+   * This is the mirror image of the deferred minor recorded against Task 1's
+   * count guard, which matched spelled numbers only and let a digit-form claim
+   * through. One form is never enough on its own.
+   */
+  const COUNT =
+    "(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty)";
+
   const banned: readonly { label: string; pattern: RegExp }[] = [
     { label: "network fetch", pattern: /\bfetch\s*\(/ },
     { label: "XMLHttpRequest", pattern: /\bXMLHttpRequest\b/ },
@@ -339,7 +357,31 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       pattern: /frequent flyer|high utili[sz]er|problem patient|frequent[- ]presenter|frequent[- ]attender/i,
     },
     { label: "quantified risk or severity verdict", pattern: /risk score|severity score|acuity score/i },
-    { label: "numeric identification threshold", pattern: /identification threshold|threshold\s*[:=]\s*\d/i },
+    {
+      label: "identification threshold",
+      pattern: new RegExp(`identification threshold|threshold\\s*[:=]\\s*${COUNT}`, "i"),
+    },
+    {
+      label: "identification threshold written as a count over a lookback window",
+      pattern: new RegExp(
+        `${COUNT}\\s+(?:or more\\s+)?(?:ed\\s+)?presentations?\\s+(?:in|within|over|across)\\s+${COUNT}\\s+(?:day|week|month|year)s?`,
+        "i",
+      ),
+    },
+    {
+      label: "identification threshold written as a rule with a count",
+      pattern: new RegExp(
+        `\\b(?:refer|refers|referred|eligib\\w*|enrol\\w*|includ\\w*|identif\\w*|flag|flags|flagged|qualif\\w*|trigger|triggers)\\b[^.\\n]{0,40}?${COUNT}\\s+(?:or more\\s+)?(?:ed\\s+)?presentations?`,
+        "i",
+      ),
+    },
+    {
+      label: "identification threshold written as an at-least count",
+      pattern: new RegExp(
+        `(?:at least|more than|no fewer than|${COUNT}\\s+or more)\\s+(?:${COUNT}\\s+)?(?:or more\\s+)?(?:ed\\s+)?presentations?`,
+        "i",
+      ),
+    },
     ...BANNED_ADMISSION_CONSTRUCTIONS.map((phrase) => ({
       label: `prohibitive admission construction ("${phrase}")`,
       pattern: new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
@@ -388,7 +430,6 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     `${COMPONENT_ROOT}/patient-plan-fixtures.ts`,
     `${COMPONENT_ROOT}/patient-plan-pages.tsx`,
     `${COMPONENT_ROOT}/patient-plan-form.tsx`,
-    `${COMPONENT_ROOT}/fixtures.ts`,
   ] as const;
 
   it("keeps the Patient Plan transformation offline, deterministic, and free of any model", () => {
@@ -696,7 +737,24 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       ).toBeGreaterThanOrEqual(11);
     }
 
-    for (const className of ["safetySection", "crisisEntry", "patientPlanSection", "patientPlanResource"]) {
+    // `patientPlanPaperStale` is the line that stops a months-old sheet lying by
+    // omission, and it was the one printed element this guard never named. Split
+    // across a page break it can lose the clause saying the copy is still theirs
+    // to keep, leaving a fragment that says only that it may be wrong.
+    // `pinnedBoundaryLines` is the clinician sheet's copy of the safety
+    // boundary's own lines, printed at the top so a reader never meets a count
+    // whose referent is forty lines below. Split from its label it becomes the
+    // same defect in a shorter form: a heading on one sheet, its lines on the
+    // next. Vitest runs with `css: false`, so the stylesheet is the only place
+    // this is visible.
+    for (const className of [
+      "safetySection",
+      "crisisEntry",
+      "patientPlanSection",
+      "patientPlanResource",
+      "patientPlanPaperStale",
+      "pinnedBoundaryLines",
+    ]) {
       expect(
         declarationsFor(className, printRules).get("break-inside"),
         `.${className} may be split across a page break, so half of it can be lost on the previous sheet`,
@@ -765,67 +823,456 @@ describe("Care Plan synthetic, memory-only boundary", () => {
    * silent rebinding hides nothing. The `.appRoot` scoping guard splits the
    * selector list on `,` and both halves still started with `.appRoot`.
    *
-   * So this asserts the affordance itself: the two link classes must each resolve
-   * to a rule that still declares a colour, a weight, and an underline. It fails
-   * closed when a class is renamed or stops matching any rule at all.
+   * So this asserts the affordance itself: a link class must resolve to a rule
+   * that still declares a colour, a weight, and an underline. It fails closed
+   * when a class is renamed or stops matching any rule at all.
+   *
+   * It happened a second time on 2026-08-24, and the guard was structurally
+   * unable to see it. `.specimenLink` shipped declaring only layout — no colour,
+   * no weight, no underline — so the sole control on every System-states card
+   * rendered as plain body text under Tailwind preflight's `a { color: inherit;
+   * text-decoration: inherit }`. The guard read a **hard-coded list of four
+   * class names**, and the two classes that task added were not on it. A guard
+   * that can only see the classes somebody remembered to add is not a guard.
+   *
+   * So the list is now derived from the classes actually applied to `<Link>` and
+   * `<a>` elements in the mockups, and a class added tomorrow is covered without
+   * anyone remembering anything. Two exemptions from the *underline* rule, both
+   * derived rather than listed, because both are real affordance shapes this
+   * stylesheet already uses:
+   *
+   *   - the link is rendered inside a `<nav>`, where the surrounding landmark
+   *     and the `aria-current` treatment carry the affordance; or
+   *   - it paints a filled chip — a visible `border` and a visible `background`
+   *     — so it reads as a control rather than as a word inside a sentence.
+   *
+   * Neither exemption excuses colour and weight, which every link must resolve
+   * to: those are exactly what preflight takes away.
+   *
+   * A third repair on 2026-08-24, after four working probes got regressions
+   * past the second one. Each is guarded above where it is fixed: the cascade
+   * is resolved in stylesheet order rather than className order; the tag walker
+   * fails closed instead of running into its neighbour; the floor counts tags
+   * as well as classes, and a link the scan cannot read at all is an explicit
+   * failure; the chip test states what a chip must have rather than listing
+   * ways to say nothing; and at-rule bodies no longer merge into the base
+   * cascade.
    */
-  it("keeps the pinned boundary's jump link, and every inline link, looking like a link", () => {
+  it("keeps every link the mockups render looking like a link", () => {
     const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
       /\/\*[\s\S]*?\*\//g,
       "",
     );
 
-    const rules = css
-      .replace(/@[^{]*\{/g, "")
-      .split("}")
-      .flatMap((chunk) => {
-        const [head, body] = chunk.split("{");
-        if (head === undefined || body === undefined) return [];
-        return [
-          {
-            selectors: head
+    /**
+     * The stylesheet as an ordered list of style rules, with at-rule blocks kept
+     * **separate** rather than flattened into the base cascade.
+     *
+     * The previous parser stripped `@media (…) {` and let its body merge into the
+     * base rules, so a `background` or `border` declared only under
+     * `forced-colors` counted as an unconditional filled chip and silently
+     * cancelled that link's underline requirement. Declaring one there is an
+     * ordinary thing for an author to do.
+     */
+    type StyleRule = { selectors: string[]; declarations: [string, string][]; conditional: boolean };
+
+    function parseRules(source: string, conditional: boolean): StyleRule[] {
+      const parsed: StyleRule[] = [];
+      let index = 0;
+      let preludeStart = 0;
+      while (index < source.length) {
+        const character = source[index];
+        if (character === "}") {
+          index += 1;
+          preludeStart = index;
+          continue;
+        }
+        if (character !== "{") {
+          index += 1;
+          continue;
+        }
+
+        let depth = 1;
+        let end = index + 1;
+        while (end < source.length && depth > 0) {
+          if (source[end] === "{") depth += 1;
+          else if (source[end] === "}") depth -= 1;
+          end += 1;
+        }
+        const body = source.slice(index + 1, end - 1);
+        // Statement at-rules (`@import …;`) leave text before the prelude.
+        const preamble = source.slice(preludeStart, index);
+        const prelude = preamble.slice(preamble.lastIndexOf(";") + 1).trim();
+
+        if (prelude.startsWith("@")) {
+          parsed.push(...parseRules(body, true));
+        } else {
+          parsed.push({
+            selectors: prelude
               .split(",")
               .map((part) => part.trim())
               .filter((part) => part.length > 0),
-            body,
-          },
-        ];
-      });
-
-    function declaredPropertiesFor(className: string): Map<string, string> {
-      const declared = new Map<string, string>();
-      for (const rule of rules) {
-        if (!rule.selectors.includes(`.appRoot .${className}`)) continue;
-        for (const declaration of rule.body.split(";")) {
-          const separator = declaration.indexOf(":");
-          if (separator === -1) continue;
-          declared.set(
-            declaration.slice(0, separator).trim().toLowerCase(),
-            declaration
-              .slice(separator + 1)
-              .trim()
-              .toLowerCase(),
-          );
+            declarations: body.split(";").flatMap((declaration) => {
+              const separator = declaration.indexOf(":");
+              if (separator === -1) return [];
+              return [
+                [
+                  declaration.slice(0, separator).trim().toLowerCase(),
+                  declaration
+                    .slice(separator + 1)
+                    .trim()
+                    .toLowerCase(),
+                ] as [string, string],
+              ];
+            }),
+            conditional,
+          });
         }
+
+        index = end;
+        preludeStart = end;
       }
-      return declared;
+      return parsed;
     }
 
-    // Task 7 added the two episode links. `timelineLink` shares the rule above,
-    // which is exactly the arrangement that broke once — so it is on the list.
-    for (const className of ["pinnedBoundaryLink", "inlineLink", "timelineLink", "timelineRecordLink"]) {
-      const declared = declaredPropertiesFor(className);
-      expect(declared.size, `.${className} matched no rule at all — has it been renamed or rebound?`).toBeGreaterThan(
-        0,
-      );
-      expect(declared.has("color"), `.${className} declares no colour, so it does not read as a link`).toBe(true);
-      expect(declared.has("font-weight"), `.${className} declares no font weight, so it does not read as a link`).toBe(
+    const rules = parseRules(css, false);
+
+    /**
+     * The declarations that actually apply to an element carrying `classes`, in
+     * **stylesheet order**.
+     *
+     * Order is the whole point. These rules are all equal specificity
+     * (`.appRoot .x`), so the last one written wins — not the last one named in
+     * the className. Merging per class in class-list order scored a modifier
+     * backwards: `cn(styles.probeKill, styles.timelineLink)` with `probeKill`
+     * appended last in the stylesheet renders as plain body text in a browser,
+     * and the old merge reported it as a healthy link because `timelineLink` was
+     * written second in the call.
+     *
+     * Conditional rules are excluded: a declaration that only applies under a
+     * media query cannot be what makes a link readable in the ordinary case.
+     */
+    /**
+     * A selector that targets this class in its **resting** state.
+     *
+     * Exact equality on `.appRoot .x` was not enough: an adversarial probe
+     * written against this very repair got a regression past it with a later,
+     * higher-specificity `.appRoot a.specimenLink { text-decoration: none }`,
+     * which removes the underline in a browser and was invisible here. An
+     * optional element name is therefore allowed.
+     *
+     * `:hover`, `[aria-current]` and descendant contexts are deliberately not
+     * matched — those are states, and a link must read as a link before anyone
+     * points at it.
+     */
+    function targetsClass(selector: string, className: string): boolean {
+      return new RegExp(`^\\.appRoot [a-z]*\\.${className.replace(/\$/g, "\\$")}$`).test(selector);
+    }
+
+    function appliedProperties(classes: readonly string[]): Map<string, string> {
+      const applied = new Map<string, string>();
+      for (const rule of rules) {
+        if (rule.conditional) continue;
+        if (!rule.selectors.some((selector) => classes.some((className) => targetsClass(selector, className)))) {
+          continue;
+        }
+        for (const [property, value] of rule.declarations) {
+          applied.set(property, value);
+          // `text-decoration` and `text-decoration-line` are two keys for one
+          // rendered result, and reading them as `a ?? b` always prefers the
+          // shorthand whichever was written later. A trailing
+          // `text-decoration-line: none` removes the underline in a browser
+          // while that read-out still found the earlier shorthand. Recording
+          // the last-written of the pair under one key leaves no stale value to
+          // pick.
+          if (property === "text-decoration" || property === "text-decoration-line") {
+            applied.set("text-decoration-resolved", value);
+          }
+          // The shorthand resets every longhand it does not name, so a later
+          // `text-decoration: underline` restores a visible line over an
+          // earlier `text-decoration-color: transparent`. Without this the
+          // guard called that pair a defect, which it is not — a lie in the
+          // safe direction is still a lie, and this one would bite whoever
+          // wrote the pair.
+          if (property === "text-decoration") {
+            const colour =
+              /\btransparent\b|\bcurrentcolor\b|#[0-9a-f]{3,8}\b|(?:rgba?|hsla?)\([^)]*\)|var\([^)]*\)/.exec(
+                value,
+              )?.[0];
+            applied.set("text-decoration-color", colour ?? "currentcolor");
+          }
+        }
+      }
+      return applied;
+    }
+
+    /** Rename detection only, so an at-rule-only definition still counts as a
+     *  rule existing. */
+    function matchesAnyRule(className: string): boolean {
+      return rules.some((rule) => rule.selectors.some((selector) => targetsClass(selector, className)));
+    }
+
+    /** The `<nav>` spans of one source, so a link's own position decides whether
+     *  it is navigation rather than a hand-maintained list of nav components. */
+    function navRanges(source: string): [number, number][] {
+      const ranges: [number, number][] = [];
+      let depth = 0;
+      let opened = 0;
+      for (const match of source.matchAll(/<nav[\s>]|<\/nav>/g)) {
+        const at = match.index ?? 0;
+        if (match[0] === "</nav>") {
+          depth = Math.max(0, depth - 1);
+          if (depth === 0) ranges.push([opened, at]);
+          continue;
+        }
+        if (depth === 0) opened = at;
+        depth += 1;
+      }
+      return ranges;
+    }
+
+    /**
+     * The whole opening tag of every `<Link>`/`<a>`, so that **every** class it
+     * carries is seen however the className was written.
+     *
+     * The previous shape required the literal `className={styles.X}` and was
+     * therefore blind to a composed className. `patient-navigation.tsx` already
+     * had one — `cn(styles.patientNavItem, styles.patientNavSecondary)` — so
+     * `patientNavSecondary` was underived and unguarded, and a probe class with
+     * no colour, weight or underline added to that same call passed this test
+     * 24/24. That is the hard-coded list of four in a new costume: it stopped
+     * naming the classes but still only saw links written one way.
+     *
+     * The end of the tag is found by scanning rather than by a lazy `>`, because
+     * a `>` occurs inside `=>` and inside attribute expressions. Brace depth
+     * tracks attribute expressions; the `=` check catches a stray arrow at
+     * depth zero.
+     *
+     * It **fails closed**. The brace tracker cannot see string boundaries, so a
+     * `}` inside an attribute string drove depth negative, the walker never
+     * recognised the tag's `>`, and it ran 408 characters into the *next* link
+     * and merged that link's colour, weight and underline into the broken
+     * element — laundering a passing neighbour's styling onto a failing one,
+     * which is worse than not seeing the tag at all. So the scan now stops at
+     * any `<` after the tag name, and a tag whose end was never found is
+     * reported rather than guessed at.
+     */
+    function openingTags(source: string): { at: number; text: string | null }[] {
+      const tags: { at: number; text: string | null }[] = [];
+      for (const match of source.matchAll(/<(?:Link|a)[\s>]/g)) {
+        const at = match.index ?? 0;
+        let index = at + 1;
+        let depth = 0;
+        let end = -1;
+        while (index < source.length) {
+          const character = source[index];
+          if (character === "{") depth += 1;
+          else if (character === "}") depth -= 1;
+          else if (character === "<") break;
+          else if (character === ">" && depth === 0 && source[index - 1] !== "=") {
+            end = index;
+            break;
+          }
+          index += 1;
+        }
+        tags.push({ at, text: end === -1 ? null : source.slice(at, end + 1) });
+      }
+      return tags;
+    }
+
+    /**
+     * The affordance belongs to the **element a reader sees**, not to each class
+     * in isolation. A composed className may pair a base class with a modifier
+     * that legitimately declares only what it overrides —
+     * `patientNavSecondary` sets a margin and a colour and takes its weight from
+     * `patientNavItem` — and demanding colour and weight of the modifier on its
+     * own would force meaningless declarations. So the classes on one tag are
+     * resolved together, in **stylesheet** order, and the result is what must
+     * read as a link. A sole-class link is just the one-element case of that, so
+     * the defect this guard was repaired for is unaffected.
+     */
+    const linkElements: { file: string; classes: string[]; inNav: boolean }[] = [];
+    const linkClasses = new Map<string, Set<string>>();
+    const unparsedTags: string[] = [];
+    const opaqueTags: string[] = [];
+    let tagCount = 0;
+    for (const { path, source } of readNamespaceSources()) {
+      if (!/\.tsx$/.test(path)) continue;
+      const ranges = navRanges(source);
+      for (const { at, text } of openingTags(source)) {
+        tagCount += 1;
+        if (text === null) {
+          unparsedTags.push(`${path} at offset ${at}`);
+          continue;
+        }
+        const classes = [...text.matchAll(/\bstyles\.([A-Za-z][\w$]*)/g)].map((match) => match[1]);
+        if (classes.length === 0) {
+          // A link styled with literal Tailwind utilities is out of this
+          // guard's scope by design. A link whose className is neither is a
+          // link this scan cannot see at all.
+          if (!/className="[^"]+"/.test(text)) opaqueTags.push(`${path} at offset ${at}: ${text.replace(/\s+/g, " ")}`);
+          continue;
+        }
+        linkElements.push({ file: path, classes, inNav: ranges.some(([from, to]) => at > from && at < to) });
+        for (const className of classes) {
+          linkClasses.set(className, (linkClasses.get(className) ?? new Set<string>()).add(path));
+        }
+      }
+    }
+
+    // A derived list that derives nothing is the failure this guard exists for.
+    // Eleven classes on fifty tags when this was written; if either count falls,
+    // the scan has stopped seeing links and every assertion below is vacuous.
+    // The named five are the shapes that have each broken once: the 2026-08-22
+    // rebinding, the two repaired links, a bordered control, and the composed
+    // className.
+    expect(
+      linkClasses.size,
+      "no styles.… class was found on any <Link>/<a> opening tag — the scan has stopped seeing links",
+    ).toBeGreaterThanOrEqual(11);
+    expect(tagCount, "the <Link>/<a> scan is finding fewer tags than the mockups contain").toBeGreaterThanOrEqual(50);
+    for (const inherited of [
+      "pinnedBoundaryLink",
+      "inlineLink",
+      "specimenLink",
+      "queueAction",
+      "patientNavSecondary",
+    ]) {
+      expect(
+        [...linkClasses.keys()],
+        `.${inherited} is applied to a link in the mockups but the scan did not derive it`,
+      ).toContain(inherited);
+    }
+
+    // Counting classes cannot canary a link the walker never sees at all. A
+    // className hoisted into a variable — `<a className={probeClass}>` — carries
+    // no `styles.` token inside the tag, so it vanished silently while the class
+    // count held steady.
+    expect(
+      opaqueTags,
+      "a <Link>/<a> carries neither a styles.* class nor a literal className, so nothing here can check it",
+    ).toEqual([]);
+    expect(
+      unparsedTags,
+      "a <Link>/<a> opening tag could not be read to its end — its styling is unchecked, and guessing would merge a neighbour's",
+    ).toEqual([]);
+
+    // Fails closed on a rename: a class that matches no rule is invisible once
+    // the cascade is resolved, so it is checked on its own first.
+    for (const [className, files] of [...linkClasses].sort()) {
+      expect(
+        matchesAnyRule(className),
+        `.${className} (used by ${[...files].sort().join(", ")}) matched no rule at all — has it been renamed or rebound?`,
+      ).toBe(true);
+    }
+
+    /**
+     * A value that resolves to no paint at all, however it is spelled.
+     *
+     * Successive probes have each found a new spelling: `border: 0` and
+     * `background: rgba(0, 0, 0, 0)` leaked past a denylist of keywords;
+     * `border: 1px solid transparent` leaked past a width-only border test;
+     * `rgb(0 0 0 / 0)` leaked past an alpha test anchored to the literal
+     * `rgba(`/`hsla(` forms; and `rgb(0 0 0 / 0.0%)` leaked past an alternation
+     * that could express a decimal **or** a percent but not both at once.
+     *
+     * The alpha is therefore matched as one shape — optional leading zeros, an
+     * optional point, at least one zero, an optional percent — rather than as a
+     * list of the ways it has been written so far. CSS Color 4 lets every
+     * colour function carry an alpha in comma or slash form, so all four spell
+     * it.
+     */
+    const paintsNothing = (value: string) =>
+      /\btransparent\b/.test(value) ||
+      /\b(?:rgba?|hsla?)\([^)]*[,/]\s*0*\.?0+\s*%?\s*\)/.test(value) ||
+      /^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value);
+
+    /**
+     * Controls on the helper itself. A check that rejected everything would
+     * pass every invisibility probe ever written against this guard and be
+     * worse than the hole it closed, so the opaque list is the load-bearing
+     * half: it is what stops a future tightening from quietly condemning every
+     * chip in the stylesheet.
+     */
+    for (const invisible of [
+      "transparent",
+      "1px solid transparent",
+      "rgb(0 0 0 / 0)",
+      "rgb(0 0 0 / 0.0%)",
+      "rgb(0 0 0 / .0%)",
+      "rgba(0, 0, 0, 0)",
+      "rgba(0,0,0,.00)",
+      "hsl(0 0% 0% / 0%)",
+      "hsla(0, 0%, 0%, 0.0)",
+      "#00000000",
+    ]) {
+      expect(paintsNothing(invisible), `"${invisible}" paints nothing but the check did not say so`).toBe(true);
+    }
+    for (const opaque of [
+      "1px solid var(--border-strong)",
+      "var(--surface)",
+      "#0b3d2e",
+      "rgb(0 0 0 / 100%)",
+      "rgb(0 0 0 / 1)",
+      "rgba(0, 0, 0, 1)",
+      "rgba(0, 0, 0, 0.5)",
+      "hsl(0 0% 0% / 0.5)",
+      "hsl(200, 50%, 40%)",
+      "canvas",
+    ]) {
+      expect(paintsNothing(opaque), `"${opaque}" paints something but the check called it invisible`).toBe(false);
+    }
+
+    for (const { file, classes, inNav } of linkElements) {
+      const where = `${classes.map((name) => `.${name}`).join(" + ")} in ${file}`;
+      const declared = appliedProperties(classes);
+
+      expect(declared.has("color"), `${where} declares no colour, so the link renders as body text`).toBe(true);
+      expect(declared.has("font-weight"), `${where} declares no font weight, so the link renders at body weight`).toBe(
         true,
       );
-      const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
-      expect(underline, `.${className} is not underlined, so it carries no affordance beyond colour`).toContain(
-        "underline",
-      );
+
+      // A filled chip carries its own edges. Navigation carries the landmark.
+      //
+      // Both tests are stated as what a chip **must have**, not as a list of
+      // ways to say nothing. A denylist of `none`/`transparent` leaked
+      // immediately: `border: 0` with `background: rgba(0, 0, 0, 0)` paints
+      // exactly as little and bought the exemption anyway. There are unbounded
+      // ways to write invisible; there are few ways to write a visible edge.
+      const hasVisibleBorder = (value: string | undefined) =>
+        value !== undefined &&
+        !/\bnone\b/.test(value) &&
+        !paintsNothing(value) &&
+        // a non-zero width, so `0`, `0px` and `0 solid` do not qualify
+        /(?:^|\s)(?:[1-9]\d*|\d*\.\d*[1-9]\d*)(?:px|rem|em|pt)(?:\s|$)/.test(value);
+
+      const hasVisibleBackground = (value: string | undefined) => {
+        if (value === undefined) return false;
+        if (paintsNothing(value)) return false;
+        // a custom property whose own fallback paints nothing is not proof of
+        // paint — found by probing this repair with
+        // `background: var(--nothing-at-all, transparent)`
+        if (/^var\([^)]*,\s*(?:transparent|none)\s*\)$/.test(value)) return false;
+        // and then it must actually name a paint
+        return /var\(|^#[0-9a-f]{3,8}$|rgba?\(|hsla?\(|\bcanvas\b|\bbuttonface\b|\bhighlight\b/.test(value);
+      };
+
+      const isChip =
+        hasVisibleBorder(declared.get("border")) &&
+        (hasVisibleBackground(declared.get("background")) || hasVisibleBackground(declared.get("background-color")));
+      if (isChip || inNav) continue;
+
+      // An underline painted in nothing is not an underline. Found by probing
+      // this repair with `text-decoration-color: transparent`, which leaves the
+      // declaration standing and the line invisible; the shorthand can carry
+      // the same colour, so both are checked.
+      const decoration = declared.get("text-decoration-resolved") ?? "";
+      const invisible = paintsNothing(decoration) || paintsNothing(declared.get("text-decoration-color") ?? "");
+      const underline = invisible ? "" : decoration;
+      expect(
+        underline,
+        `${where} sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
+      ).toContain("underline");
     }
   });
 
