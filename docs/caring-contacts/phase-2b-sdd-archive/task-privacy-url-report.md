@@ -439,20 +439,57 @@ already performs static route redirects with the query string intact. A `/caring
 there, reusing `canonicalCaringContactsQuery`, would give all four routes the caseload's property in
 one place and would make the caseload's own `redirect()` a backstop rather than the mechanism.
 
-**I did not do it, and the reason is verification rather than difficulty.** `src/proxy.ts` also owns
-the CSP nonce and the Supabase session refresh for _every route in the application_, and nothing in
-`test:cc-guards` — the only gate I am authorised to run — covers it. Changing a file with that blast
-radius while unable to run a gate that would notice the damage is the wrong trade, and I would rather
-report it than ship it unverified. **It needs your scoping and a wider gate.**
+**I did not do it. The refusal was right; the REASONING I gave for it was wrong, and the correction
+matters more than the refusal does.**
+
+Round 3 said "nothing in `test:cc-guards` — the only gate I am authorised to run — covers it". That
+sentence is literally true and materially incomplete, and read on its own it tells the next person
+that proxy work means writing coverage from scratch. It does not. **Three dedicated offline proxy
+suites already exist**, and they cover exactly the two blast-radius concerns I named:
+
+- `tests/proxy.test.ts` — the per-request CSP nonce and the `strict-dynamic` policy shape, among
+  others; both terms verified present in the file rather than taken on trust.
+- `tests/proxy-auth.test.ts` — the proxy auth header path.
+- `tests/proxy-session-refresh.test.ts` — SSR cookie refresh on API routes and page navigations, the
+  no-`sb-`-cookie case, the public-PWA path allowlist, and the clinical-API-is-not-public case.
+
+Verified by reading the files: all three exist, and **none of the three is named in any `package.json`
+script**, so none runs in `cc-guards` or in any other selection this task could have made. The cost of
+the proxy work is therefore **one extra narrow suite selection**, not a coverage-writing project. I did
+not look for these before writing a sentence whose only load-bearing word was "nothing", and I should
+have.
+
+**Case counts are deliberately not given, and one in the brief I was handed was wrong.** The brief said
+`proxy-session-refresh.test.ts` holds 4 cases; it holds 5 `it` blocks, one of which is an `it.each`
+over 6 paths, so the suite reports 10 tests at runtime. No single number is right for that file, which
+is exactly why the set is named here instead of counted — a count that has to be re-derived to be
+believed is not evidence. The point that survives is structural and stable: the coverage already
+exists, and it covers the two concerns I named.
+
+**The residual is also smaller than I stated, and this correction cuts the other way.** Every producer
+of a query parameter on the other three routes was traced: only `plan` and `referral` are ever
+written, both synthetic ids from named builders. The only mechanism that has ever put a NAME into a
+Caring Contacts address was the caseload's `method="get"` form, and it posted to
+`/caring-contacts/patients` alone — while `overlayUrl()` preserves the pathname, so the copy could
+never have carried a `q` across to another route. **The arrival-address gap therefore has no known
+producer**: reaching it takes a hand-typed or externally supplied URL.
+
+So the honest classification is **hardening with no known trigger, cheap to verify** — not an open
+leak. What survives from the refusal is only the part that was a scoping judgement rather than a
+coverage claim: `src/proxy.ts` owns the CSP nonce and the Supabase session refresh for every route in
+the application, and pointing it at one workspace's parameter policy is the owner's call.
 
 Two residuals, stated rather than left to be discovered:
 
 - **The hash is carried through unchanged**, as it always was. Nothing in this workspace writes one
   and a hash is never sent to a server, so this is a browser-history exposure only and narrower than
   the query string — but a bookmarked `#<name>` survives `overlayUrl()`. Stripping it would break any
-  in-page anchor, so it is a decision rather than an oversight.
+  in-page anchor, so it is a decision rather than an oversight. **The same correction applies here as
+  to the proxy gap above**: with no in-app producer of a hash either, this is if anything under-stated
+  — hardening against a hand-typed address, not a live exposure.
 - **The arrival entry on the other three routes keeps the name until the first overlay interaction**
-  rewrites it. That is the proxy-shaped gap above, restated where it bites.
+  rewrites it. That is the proxy-shaped gap above, restated where it bites — and, per the correction,
+  reachable only by an address no part of this application produces.
 
 ## Round 3 verification
 
@@ -470,7 +507,14 @@ M18 and M17 had already run against the full set before the instruction arrived 
 (`expect(window.location.search).toContain("Jordan")`) before the overlay opens; the pushed entry is
 **proved to exist** (`toContain("overlay=…")`) so the absence is over a rewritten entry rather than a
 no-op; and each route's own parameter is proved to have **survived**, so the rewrite is shown to
-narrow rather than erase. All three routes are exercised independently.
+narrow rather than erase.
+
+Each of the three routes gets its own case rather than one standing in for the others — but the claim
+is worth stating precisely, because "all three routes are exercised independently" was generous. The
+cases call `openWorkspaceOverlay` with three different pathname strings; that is **one function with
+three inputs, not three mounted routes**. The mount is real and is verified elsewhere (the shell is
+imported by exactly the four `/caring-contacts` pages), so the composed claim holds — the test alone
+does not establish it.
 
 | id      | mutation                                                          | selection             | predicted                                                                | observed                                                                                                                | verdict                                       |
 | ------- | ----------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
@@ -482,6 +526,31 @@ narrow rather than erase. All three routes are exercised independently.
 
 M17 reddening the fixed-point case and M18 not is the difference between the two: copying is still
 idempotent when the copy happens inside the canonicaliser, and is not when it happens in the caller.
+
+**Two coverage gaps this round did NOT close, and my round-3 text implied it had.**
+
+- `tests/caring-contacts-overlay-host.dom.test.tsx` and
+  `tests/caring-contacts-overlay-trigger.dom.test.tsx` are the existing behavioural suites for
+  `openWorkspaceOverlay` and `closeWorkspaceOverlay` — the two functions this round changed — and
+  **neither is in `cc-guards`**. So they ran in neither the narrowed mutation runs nor the "full"
+  gate. Putting the new assertions in the shell suite closed the hole for the NEW tests and did
+  nothing for the old ones, which is not what my write-up said. The reviewer read overlay-host's seeds
+  and judges breakage very unlikely — every address it stages carries only `overlay` — but that is a
+  mitigation, not coverage. Both suites are being added to `cc-guards` at the merge. This is the
+  second time in this task that a suite missing from that gate has mattered.
+- **Assertions in this round that nothing mutated**, itemised because round 2 itemised its one and
+  round 3 did not:
+  - `expect(window.location.pathname).toBe(route.path)` — no mutation changed the pathname;
+    `overlayUrl` preserves it in the fixed and the copying forms alike.
+  - `expect(once).not.toBe("")` — a non-emptiness precondition on the fixed-point case.
+  - the idempotence equality itself, `expect(twice).toBe(once)` — **M17 leaves it green by
+    construction**, because a copy performed inside the canonicaliser is still idempotent. What M17
+    reddens on that case is the name assertion beside it, not this one.
+  - `expect(declared.length).toBeGreaterThanOrEqual(2)` — the allowlist-coverage floor. It reddens on
+    a rename of either exported constant, which no mutation performed.
+
+  All four are low-value and none is load-bearing for the privacy property. Listing them is the point:
+  an unmutated assertion is unproven, whatever its author believes about it.
 
 **A note against the narrowed runs, since it is the honest limit:** a per-mutation narrowed run cannot
 see collateral damage outside its three suites, and does not claim to. The full `test:cc-guards` on the

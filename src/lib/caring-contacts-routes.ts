@@ -14,6 +14,17 @@
  * This module is plain string data with no React and no client code, so the
  * tools catalogue can name the workspace's front door without pulling any of
  * the workspace itself into the Clinical KB dashboard's bundle.
+ *
+ * It gained ONE import to stay that way rather than in spite of it.
+ * `CARING_CONTACTS_PLAN_QUERY_PARAM` and `CARING_CONTACTS_REFERRAL_QUERY_PARAM`
+ * are now aliases of the declarations in
+ * `src/lib/caring-contacts/workspace-address.ts`, which is the allowlist the
+ * workspace's overlay writer builds every history entry from. That module is
+ * itself plain string data in the sealed domain -- no React, no client code, no
+ * component import -- so the sentence above still holds of everything this file
+ * pulls in. Single-sourcing the names is what stops this file and that allowlist
+ * disagreeing about what a parameter is called, which would silently strip a
+ * deep link out of its own address.
  */
 
 import { CARING_CONTACTS_PLAN_PARAM, CARING_CONTACTS_REFERRAL_PARAM } from "@/lib/caring-contacts/workspace-address";
