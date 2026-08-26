@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// DocumentViewer resolves a four-way shell state (loading / ready / auth-required
-// / error) that decides whether a source document is shown at all. The
+// DocumentViewer resolves a five-way shell state (loading / ready / auth-required
+// / offline / error) that decides whether a source document is shown at all. The
 // auth-required branch is the private-document gate: an unauthenticated reader
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
@@ -129,6 +129,9 @@ describe("DocumentViewer — shell states", () => {
 
     expect(await screen.findByText("Sign in required")).toBeVisible();
     expect(screen.getByText("Sign in to open private source documents.")).toBeVisible();
+    expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "auth-required");
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
     // The private-access gate must resolve to its own shell, not the generic
     // failure shell (which would read as "broken" rather than "sign in").
     expect(screen.queryByText("Source unavailable")).toBeNull();
@@ -139,6 +142,14 @@ describe("DocumentViewer — shell states", () => {
 
     expect(await screen.findByText("Source unavailable")).toBeVisible();
     expect(screen.getByText("Document could not be loaded.")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "error"),
+    );
+    expect(document.getElementById("document-viewer-main")).toHaveAttribute("data-route-recovery", "true");
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByText("Indexed source text")).toBeNull();
+    expect(screen.queryByText("Tables and diagrams")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Answer from this" })).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
   });
 
@@ -168,6 +179,19 @@ describe("DocumentViewer — shell states", () => {
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
+
+    const overview = document.getElementById("document-overview");
+    const preview = document.getElementById("pdf-preview-section");
+    const sourceSummary = document.getElementById("source-summary-card");
+    const indexedText = document.getElementById("source-text");
+    expect(overview).not.toBeNull();
+    expect(preview).not.toBeNull();
+    expect(sourceSummary).not.toBeNull();
+    expect(indexedText).not.toBeNull();
+    expect(overview!.compareDocumentPosition(preview!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(preview!.compareDocumentPosition(sourceSummary!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(sourceSummary!.compareDocumentPosition(indexedText!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(document.getElementById("document-viewer-main")).not.toHaveAttribute("data-route-recovery");
   });
 
   // Search/answer opens always attach ?chunk=…. Citation landing used to
@@ -369,8 +393,17 @@ describe("DocumentViewer — shell states", () => {
 
     render(<DocumentViewer documentId="doc-1" initialPage={1} />);
 
-    await waitFor(() => expect(screen.getByText("Document details returned an invalid response.")).toBeVisible());
+    await waitFor(() =>
+      expect(screen.getByText("This document could not be opened because its details were incomplete.")).toBeVisible(),
+    );
     expect(screen.queryByRole("heading", { level: 1, name: "Incomplete" })).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "error"),
+    );
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
+    expect(screen.queryByText("Indexed source text")).toBeNull();
+    expect(screen.queryByText("Tables and diagrams")).toBeNull();
   });
 
   // A private document's signed URL is a bearer link. The viewer holds the

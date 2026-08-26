@@ -3067,6 +3067,13 @@ summary::-webkit-details-marker {
   overscroll-behavior: contain;
 }
 
+/* Recovery pages already devote the viewport to one clear next step. An
+   install promotion over that state obscures the recovery action on phones;
+   connectivity and update notices remain visible because they use other cards. */
+body:has([data-route-recovery="true"]) .pwa-install-sheet {
+  display: none;
+}
+
 .pwa-install-grip {
   display: flex;
   height: var(--pwa-grip-height);
