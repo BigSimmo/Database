@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "e15b250cff99c3b113adab318beb8e5fd59b0112",
-    "committed_at": "2026-08-26T06:17:39Z"
+    "sha": "0abca58a554adeba03299363d436c4fed843618e",
+    "committed_at": "2026-08-26T15:30:47+08:00"
   },
   "routes": {
     "modes": [
@@ -3837,6 +3837,14 @@
         "scope": "PR #2384 Ward Flow Phase 5 docs and sidebar changed scope",
         "outcome": "Post-merge review: original head tree matches squash merge; two review threads fixed and resolved; nonblocking Advisory UI exposed exact-minute countdown test flake fixed in follow-up. CodeRabbit breakpoint-token nitpick dispositioned: the selector must remain coupled to the Ward sidebar's shared literal 64rem contract.",
         "checks": "Hosted PR required aggregate passed; 94/96 advisory UI tests passed with one skipped and one exact-minute assertion failure; local focused rerun initially blocked by coordinator EPERM while queued behind an active exclusive Playwright lease."
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "PR #2385",
+        "head": "0abca58a554adeba03299363d436c4fed843618e",
+        "scope": "privacy trust brief changed scope",
+        "outcome": "No unresolved findings; named design-value review comment fixed",
+        "checks": "design-system contract passed; privacy DOM 7/7 passed; privacy Playwright 5/5 passed with production build and TypeScript; full unit suite 10556 passed with 6 unrelated Windows absolute-path failures"
       },
       {
         "date": "2026-08-25",
@@ -24768,8 +24776,8 @@
       }
     ],
     "counts": {
-      "records": 2622,
-      "refs": 1601
+      "records": 2623,
+      "refs": 1602
     }
   }
 }
