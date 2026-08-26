@@ -873,10 +873,6 @@
     display: none;
   }
 
-  .modeIdentity span:first-child {
-    display: none;
-  }
-
   .pageGrid {
     grid-template-columns: 1fr;
   }
@@ -901,6 +897,10 @@
      header down below it, rather than letting the bar cover it. */
   .modeShell {
     padding-top: var(--spacing-ward-phone-bar);
+  }
+
+  .modeIdentity .modeBrand {
+    display: none;
   }
 
   .modeHeader {
