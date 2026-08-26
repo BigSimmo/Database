@@ -584,10 +584,20 @@
      clears roughly 3.5rem less than the Compare bar. */
   --phone-dock-patient-details-clearance: 9rem;
   --phone-dock-patient-details-compact-clearance: 8.75rem;
+  /* Therapy compare tray: one row + 0.5rem gap, same geometry as Patient
+     details. The tray is required to stay exactly one row tall (its expanded
+     state is a sheet), which is what lets a single static number stay correct. */
+  --phone-dock-therapy-compare-clearance: 9rem;
+  --phone-dock-therapy-compare-compact-clearance: 8.75rem;
   --patient-details-fab-gap: 0.5rem;
   --patient-details-fab-padding: 0.3125rem 0.5rem 0.3125rem 1rem;
   --patient-details-fab-count-size: 1.625rem;
   --patient-details-fab-count-padding: 0.375rem;
+  --therapy-compare-tray-gap: 0.5rem;
+  --therapy-compare-tray-pip-gap: 0.125rem;
+  --therapy-compare-tray-pip-size: 1.5rem;
+  --therapy-compare-tray-padding: 0.25rem 0.5rem;
+  --therapy-compare-tray-summary-inset: 0.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -1457,6 +1467,101 @@ summary::-webkit-details-marker {
   padding-inline: var(--patient-details-fab-count-padding);
   font-size: 0.75rem;
   font-weight: 800;
+}
+
+/* Therapy Compass compare tray: the row above the search pill that says what is
+   in the comparison. Same in-flow trick as the two rows above, so scroll-hide
+   carries it with the composer.
+
+   It must stay ONE row tall at every state — the dock's content clearance is a
+   static token, so a dock that grows covers page content by exactly its growth.
+   The expanded state is a bottom sheet for that reason, not a taller bar.
+
+   Interaction states are NOT redeclared here: the summary row carries
+   `interactiveRowBase` and the actions are the shared `Button`, so hover, focus
+   and disabled behaviour come from the design system, per COMPONENTS.md 9.1. */
+.therapy-compare-tray {
+  position: relative;
+  z-index: var(--z-raised, 10);
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--therapy-compare-tray-gap);
+  margin-bottom: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  padding: var(--therapy-compare-tray-padding);
+  box-shadow: var(--e3);
+}
+
+.therapy-compare-tray__summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-md);
+  padding-inline: var(--therapy-compare-tray-summary-inset);
+}
+
+.therapy-compare-tray__pips {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--therapy-compare-tray-pip-gap);
+}
+
+.therapy-compare-tray__pip {
+  display: grid;
+  height: var(--therapy-compare-tray-pip-size);
+  width: var(--therapy-compare-tray-pip-size);
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill, 9999px);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  transition: transform var(--duration-moderate) var(--ease-out-soft);
+}
+
+.therapy-compare-tray__pip[data-filled="true"] {
+  border-color: transparent;
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+}
+
+/* The arriving slot pulses once. Derived from the set, so it fires whichever
+   control added the therapy. */
+.therapy-compare-tray__pip[data-landed="true"] {
+  transform: scale(1.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .therapy-compare-tray__pip {
+    transition: none;
+  }
+
+  .therapy-compare-tray__pip[data-landed="true"] {
+    transform: none;
+  }
+}
+
+.therapy-compare-tray__names {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-heading);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.therapy-compare-tray__count {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
 /* Bottom-docked composer: hint row + upward dropdown grow above the pill. */
@@ -2777,6 +2882,17 @@ summary::-webkit-details-marker {
     height: max(var(--phone-dock-patient-details-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
   }
 
+  /* Therapy Compass: the compare tray sits above the search pill in the dock.
+     Heights track --phone-dock-therapy-compare-* (same as content reserve). */
+  .answer-footer-search-dock[data-footer-addon="therapy-compare"] .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-clearance), calc(var(--safe-area-bottom) + 7.75rem));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="therapy-compare"]
+    .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
+  }
+
   .document-mobile-search-pill {
     min-height: 3.6rem;
     border-color: var(--border-strong);
@@ -2864,6 +2980,13 @@ summary::-webkit-details-marker {
 
   /* Same extra clearance for the Patient details row, scaled to its shorter height. */
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
+  }
+
+  /* Therapy compare tray: shell dock (.document-mobile-search-edge), one row,
+     so the same 0.5rem overshoot as Patient details. Without it the tray's top
+     border can leave a subpixel peep at the viewport edge while hidden. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="therapy-compare"][data-scroll-hidden="true"] {
     transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
   }
 
@@ -4823,12 +4946,6 @@ html.theme-transitioning *:after {
 }
 
 @media (max-width: 640px) {
-  [data-therapy-scroll-sm] {
-    overflow-x: auto !important;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
   .therapy-pathway-list {
     border-right: 0 !important;
     border-bottom: 1px solid var(--border);

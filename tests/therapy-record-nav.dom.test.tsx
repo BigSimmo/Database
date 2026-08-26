@@ -13,7 +13,6 @@ const bindings = vi.hoisted(() => ({
   open: vi.fn(),
   openSheet: vi.fn(),
   openBrief: vi.fn(),
-  toggleCompare: vi.fn(),
   goCompare: vi.fn(),
   removeCompare: vi.fn(),
   inCompare: false,
@@ -24,7 +23,6 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
     open: bindings.open,
     openSheet: bindings.openSheet,
     openBrief: bindings.openBrief,
-    toggleCompare: bindings.toggleCompare,
     goCompare: bindings.goCompare,
     removeCompare: bindings.removeCompare,
     isInCompare: () => bindings.inCompare,
@@ -110,27 +108,29 @@ describe("therapy record header", () => {
     expect(bindings.openBrief).toHaveBeenCalledWith(therapy.slug);
   });
 
-  it("adds the therapy to the comparison before opening it, but only once", async () => {
+  // Every other slot in this rail is a destination, and this one now is too.
+  // It used to add the therapy when it was absent from the set and navigate
+  // when it was present — the same tap doing two different things depending on
+  // state the reader could not see. Adding moved to the record's own button.
+  it("navigates to the comparison whether or not the therapy is in it", async () => {
     const user = userEvent.setup();
     const { unmount } = renderHeader();
 
     await user.click(
       within(screen.getByTestId("therapy-detail-section-rail")).getByRole("button", { name: /^Compare/ }),
     );
-    expect(bindings.toggleCompare).toHaveBeenCalledWith(therapy.slug);
-    expect(bindings.goCompare).not.toHaveBeenCalled();
+    expect(bindings.goCompare).toHaveBeenCalledTimes(1);
+    expect(bindings.removeCompare).not.toHaveBeenCalled();
     unmount();
 
-    // Already in the comparison: toggling again would remove it, so an
-    // established member just navigates.
     bindings.inCompare = true;
-    bindings.toggleCompare.mockReset();
+    bindings.goCompare.mockReset();
     renderHeader();
     await user.click(
       within(screen.getByTestId("therapy-detail-section-rail")).getByRole("button", { name: /^Compare/ }),
     );
-    expect(bindings.goCompare).toHaveBeenCalled();
-    expect(bindings.toggleCompare).not.toHaveBeenCalled();
+    expect(bindings.goCompare).toHaveBeenCalledTimes(1);
+    expect(bindings.removeCompare).not.toHaveBeenCalled();
   });
 
   it("does not re-navigate when the active destination is selected", async () => {
