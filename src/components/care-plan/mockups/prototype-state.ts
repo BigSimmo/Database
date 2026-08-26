@@ -1277,11 +1277,46 @@ export function prototypeReducer(
         amendedAt: prototypeTimestamp(state),
       };
 
+      const correctedPresentation = {
+        ...presentation,
+        [action.field]: action.replacementValue,
+      } as EdPresentation;
+      const plan = state.managementPlans.find(({ patientId }) => patientId === presentation.patientId) ?? null;
+      const hasEverHadAVersion =
+        plan !== null && state.managementPlanVersions.some((version) => version.planId === plan.id);
+      const candidate = hasEverHadAVersion ? reviewTriggerReasonFor(correctedPresentation) : null;
+      const alreadyOpen =
+        plan !== null &&
+        candidate !== null &&
+        state.reviewTriggers.some(
+          (trigger) =>
+            trigger.managementPlanId === plan.id && trigger.source === candidate.source && trigger.status === "open",
+        );
+      const newTrigger: ReviewTrigger | null =
+        plan !== null && candidate !== null && !alreadyOpen
+          ? {
+              id: nextSyntheticId(
+                "SYN-TRIGGER",
+                state.reviewTriggers.map(({ id }) => id),
+              ),
+              patientId: presentation.patientId,
+              managementPlanId: plan.id,
+              source: candidate.source,
+              sourceId: presentation.id,
+              reason: candidate.reason,
+              status: "open",
+              createdAt: prototypeTimestamp(state, 1),
+              resolvedAt: null,
+              resolution: null,
+            }
+          : null;
+
       return {
         ...state,
         // The episode is untouched. A correction is appended beside it, with who
         // made it, when, what it replaced, and why.
         presentationAmendments: [...state.presentationAmendments, amendment],
+        reviewTriggers: newTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, newTrigger],
         auditEvents: withAudit(state, {
           type: "presentation_amended",
           patientId: presentation.patientId,
@@ -1290,7 +1325,10 @@ export function prototypeReducer(
         }),
         lastOutcome: {
           kind: "success",
-          message: "Correction recorded beside the original. The original ED Presentation record is unchanged.",
+          message:
+            newTrigger === null
+              ? "Correction recorded beside the original. The original ED Presentation record is unchanged."
+              : "Correction recorded beside the original, and an open Review Trigger was raised for the team to look at. The original ED Presentation record is unchanged.",
         },
       };
     }
@@ -1578,6 +1616,13 @@ export function prototypeReducer(
       }
       const plan = state.patientPlans.find(({ id }) => id === version.planId) ?? null;
       if (plan === null) return refuse(state, "That version has no Patient Plan record.");
+      const managementPlan = state.managementPlans.find((candidate) => candidate.patientId === plan.patientId) ?? null;
+      if (managementPlan?.currentVersionId !== version.derivedFromManagementVersionId) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} was written from a Management Plan Version that is no longer Current, so it cannot be approved. Create a new draft only after a Current Management Plan is available. Nothing was changed.`,
+        );
+      }
 
       const approver = state.users.find(({ id }) => id === state.activeUserId) ?? null;
       if (approver === null || isBlank(approver.displayName)) {
