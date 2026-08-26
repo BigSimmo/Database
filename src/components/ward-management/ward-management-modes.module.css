@@ -69,9 +69,18 @@
  * stops saying it a second time six inches to the right. The panel is a preceding sibling of this
  * header inside the shell grid, which is what makes this expressible in CSS at all — neither
  * component knows about the other.
+ *
+ * **The 64rem guard is load-bearing, not tidiness.** The panel is MOUNTED whenever the stored
+ * preference is expanded, at every width; below 64rem it is merely `display: none`. Without this
+ * media query the selector still matched that hidden aside on a tablet, so a user who had expanded
+ * the sidebar on a desktop and later opened the same browser at 820px saw the icon rail with the
+ * header brand suppressed — and nothing on screen named the prototype at all. Found in review on
+ * PR #2384; pinned by `tests/ward-sidebar-phone-contract.test.ts`.
  */
-:global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
-  display: none;
+@media (min-width: 64rem) {
+  :global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
+    display: none;
+  }
 }
 
 .modeIdentity {
