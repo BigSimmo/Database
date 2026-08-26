@@ -1,9 +1,16 @@
 // tests/caring-contacts-patients-directory.dom.test.tsx
 //
-// The Patients directory body (Task 5), tested as the pure Server Component it is: it is handed
-// the records the page already read and decides only what to SHOW.
+// The Patients directory, tested through its server half: `PatientsDirectory` is handed the records
+// the page already read, narrows them to `PatientsDirectoryRow`, filters by the non-identifying plan
+// state, and hands the result to the client island that renders it.
 //
 // The assertions that matter are about honesty rather than layout:
+//   * A PATIENT'S NAME MUST NEVER REACH A URL. Ruling [111]: "a query string is logged by every
+//     proxy between here and the browser. Nothing about a patient may travel here." The caseload
+//     search matches names, so it lives in the browser and not in `?q=`. That is the load-bearing
+//     proof in this file and it is written first, below, with a positive control on both halves:
+//     the searched name IS in the fixture and IS found, and the collector that reads the screen's
+//     addresses IS reading something.
 //   * an empty caseload and a caseload hidden by a filter are DIFFERENT facts, and the two
 //     `ListEmptyState` kinds are not interchangeable (Task 1's whole reason for existing);
 //   * a role that may not view plans at all must not be told the team has no patients;
@@ -12,19 +19,18 @@
 //     releases a mobile number, an identifier list or a cultural identity) is never called here;
 //   * a role that may not see names is TOLD so once, above the list, rather than left to wonder why
 //     every row is headed by an identifier;
-//   * a row's detail control is an UNAVAILABLE control with a stated reason, not a link into a
-//     route that does not exist yet (Ruling 52).
+//   * moving the name search into the browser costs a reload, and the screen SAYS so rather than
+//     letting a coordinator watch their list change for no reachable reason (spec 4.4).
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import {
-  PatientsDirectory,
-  parsePatientsDirectoryFilter,
-  patientsDirectoryHref,
-} from "@/components/caring-contacts/workspace/patients-directory";
+import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
+import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 const TEAM = teamId("demo-team");
@@ -80,6 +86,143 @@ function name(planIdText: string, patientName: string): PatientNameProjection {
   return { planId: planId(planIdText), patientName };
 }
 
+/**
+ * Every address on this screen that a browser could put into its history, or send to a server, or
+ * leave in a proxy log: the `href` of every link, plus -- because a `<form method="get">` is exactly
+ * how the defect got in -- the `action` of every form and the name and value of every field inside
+ * one.
+ *
+ * The search input is deliberately NOT read here even though it holds the typed name. That is the
+ * property under test: the name lives in a control that is part of no address at all.
+ */
+function addressesIn(container: HTMLElement): string[] {
+  const addresses: string[] = [];
+  for (const link of container.querySelectorAll("a[href]")) addresses.push(link.getAttribute("href") ?? "");
+  for (const form of container.querySelectorAll("form")) {
+    addresses.push(form.getAttribute("action") ?? "");
+    for (const field of form.querySelectorAll("input, select, textarea")) {
+      addresses.push(`${field.getAttribute("name") ?? ""}=${(field as HTMLInputElement).value}`);
+    }
+  }
+  return addresses;
+}
+
+/**
+ * The forms a name could be smuggled into an address as. A hash is in the list because a hash of a
+ * name is still a name-derived identifier sitting in a log, and both cases of the raw text are in
+ * it because a lower-cased needle is the shape the matcher itself uses.
+ */
+function urlFormsOf(text: string): string[] {
+  return [
+    text,
+    text.toLowerCase(),
+    encodeURIComponent(text),
+    encodeURIComponent(text).toLowerCase(),
+    text.replace(/ /g, "+"),
+    ...text.split(" "),
+    ...text.toLowerCase().split(" "),
+  ];
+}
+
+describe("Patients directory - RULING [111]: a patient's name never reaches a URL", () => {
+  const SEARCHED_NAME = "Jordan Nguyen";
+
+  /**
+   * THE load-bearing case in this file.
+   *
+   * Three things have to be true together, and each is asserted with something that could redden it:
+   *   1. the name IS in the fixture and the search DOES find it by name -- otherwise the absence
+   *      below is an absence over a screen that never held the name in the first place, which is
+   *      decoration presented as proof;
+   *   2. the collector IS reading addresses -- otherwise `not.toContain` over an empty list passes
+   *      for a screen that puts the name in every href;
+   *   3. no address contains the name in any form it could travel as.
+   */
+  it("finds the row by name, and puts no part of that name into any address on the screen", async () => {
+    const user = userEvent.setup();
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+    const names = [name("plan-1", SEARCHED_NAME), name("plan-2", "Alex Whitlock")];
+
+    const { container } = render(
+      <PatientsDirectory mayViewPatientNames patientNames={names} records={records} filter={ALL} mayViewPlans />,
+    );
+
+    // (1a) The fixture really holds this name, before anything is typed.
+    expect(screen.getByRole("heading", { name: SEARCHED_NAME })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    await user.type(screen.getByRole("searchbox"), SEARCHED_NAME);
+
+    // (1b) ...and the search really matched on it: the other plan, whose identifiers are identical
+    // in shape and differ only in their name, is gone.
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: SEARCHED_NAME })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alex Whitlock" })).toBeNull();
+    // The typed text is on screen, in a control -- so it exists to be leaked.
+    expect(screen.getByRole("searchbox")).toHaveValue(SEARCHED_NAME);
+
+    // (2) The collector is not answering from an empty list.
+    const addresses = addressesIn(container);
+    expect(addresses.length).toBeGreaterThan(0);
+    expect(addresses).toContain(CARING_CONTACTS_ROUTES.patients);
+
+    // (3) The property itself.
+    for (const form of urlFormsOf(SEARCHED_NAME)) {
+      for (const address of addresses) {
+        expect(address, `an address on this screen carries "${form}"`).not.toContain(form);
+      }
+    }
+
+    // And there is no GET form left that could put it there on submit -- the mechanism the fix
+    // removed, asserted as removed rather than assumed gone.
+    expect(container.querySelector("form")).toBeNull();
+    // Nothing navigated: the search changed no address at all.
+    expect(window.location.search).toBe("");
+  });
+
+  it("keeps the name out of the parsed filter, while the plan state is read from the same URL", () => {
+    // A `?q=` on an old bookmark must be ignored rather than honoured. The state in the SAME object
+    // is the positive control: this proves the parser read the URL and dropped the name, not that it
+    // read nothing.
+    const parsed = parsePatientsDirectoryFilter({ state: "active", q: SEARCHED_NAME, name: SEARCHED_NAME });
+
+    expect(parsed.state).toBe("active");
+    for (const form of urlFormsOf(SEARCHED_NAME)) {
+      expect(JSON.stringify(parsed)).not.toContain(form);
+    }
+  });
+
+  it("builds every filter href from the plan state alone, and the state survives the round trip", () => {
+    expect(patientsDirectoryHref({ state: "all" })).toBe(CARING_CONTACTS_ROUTES.patients);
+
+    const href = patientsDirectoryHref({ state: "paused" });
+    expect(href).toBe(`${CARING_CONTACTS_ROUTES.patients}?state=paused`);
+    // The whole point of leaving state in the address: it comes back out of it.
+    const params = Object.fromEntries(new URL(href, "https://example.invalid").searchParams);
+    expect(parsePatientsDirectoryFilter(params).state).toBe("paused");
+  });
+
+  it("says, beside the control, that the search is not in the address and a reload clears it", () => {
+    // Spec 4.4 applied to the cost of this fix. A reload keeps the plan-state filter and drops the
+    // typed name; a coordinator who did not know that would watch their list change for no reachable
+    // reason. Read from the element the input POINTS AT, not from anywhere the words happen to be:
+    // a note the screen reader never reaches is not a note.
+    const { container } = render(
+      <PatientsDirectory mayViewPatientNames patientNames={[]} records={[]} filter={ALL} mayViewPlans />,
+    );
+
+    const describedBy = screen.getByRole("searchbox").getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    const note = container.querySelector(`#${describedBy}`);
+    expect(note).not.toBeNull();
+    const text = note?.textContent ?? "";
+    expect(text).toMatch(/reloading/i);
+    expect(text).toMatch(/clears/i);
+    expect(text).toMatch(/keeps the plan-state filter/i);
+    expect(text).toMatch(/never is|never put into/i);
+  });
+});
+
 describe("Patients directory - the two empty states are not interchangeable", () => {
   it("an empty caseload renders the no-data kind, which states how a first patient arrives", () => {
     const { container } = render(
@@ -121,13 +264,18 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     expect(remedy).toHaveAttribute("data-internal-link", "true");
   });
 
-  it("a caseload hidden by the identifier search names the search text as the reason", () => {
+  it("a caseload hidden by the identifier search names the search text as the reason", async () => {
+    const user = userEvent.setup();
     const records = [planRecord({ id: "plan-1", state: "active" })];
-    const filter = parsePatientsDirectoryFilter({ q: "nothing-matches-this" });
 
     render(
-      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />,
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />,
     );
+    // Positive control: the row is present before the search hides it, so the empty state below is
+    // the search's doing rather than an empty fixture.
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+
+    await user.type(screen.getByRole("searchbox"), "nothing-matches-this");
 
     const empty = screen.getByRole("group", { name: /no patients match/i });
     expect(empty.textContent ?? "").toContain("nothing-matches-this");
@@ -405,30 +553,14 @@ describe("Patients directory - rows", () => {
   });
 });
 
-describe("Patients directory - the filter is a URL, not a client boundary", () => {
+describe("Patients directory - the plan state is a URL, and only the plan state", () => {
   it("parses a known plan state and ignores an unknown one rather than failing the render", () => {
     expect(parsePatientsDirectoryFilter({ state: "paused" }).state).toBe("paused");
     expect(parsePatientsDirectoryFilter({ state: "not-a-state" }).state).toBe("all");
     expect(parsePatientsDirectoryFilter({ state: ["active", "paused"] }).state).toBe("all");
   });
 
-  it("trims the search text and treats a blank search as no search", () => {
-    expect(parsePatientsDirectoryFilter({ q: "  plan-1  " }).query).toBe("plan-1");
-    expect(parsePatientsDirectoryFilter({ q: "   " }).query).toBe("");
-    expect(parsePatientsDirectoryFilter({}).query).toBe("");
-  });
-
-  it("builds every filter href from the route module, carrying the other filter with it", () => {
-    expect(patientsDirectoryHref({ state: "all", query: "" })).toBe(CARING_CONTACTS_ROUTES.patients);
-    expect(patientsDirectoryHref({ state: "active", query: "" })).toBe(
-      `${CARING_CONTACTS_ROUTES.patients}?state=active`,
-    );
-    const both = patientsDirectoryHref({ state: "active", query: "plan 1" });
-    expect(both.startsWith(`${CARING_CONTACTS_ROUTES.patients}?`)).toBe(true);
-    expect(new URL(both, "https://example.invalid").searchParams.get("q")).toBe("plan 1");
-  });
-
-  it("filters by plan state without any client component in the tree", () => {
+  it("filters by plan state on the server, before any row crosses the boundary", () => {
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "paused" })];
 
     render(
@@ -444,38 +576,49 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
     expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
   });
 
-  it("matches the identifier search case-insensitively against the patient and plan identifiers", () => {
-    // Unchanged by the names projection: an identifier search still works with no name in play.
+  it("matches the identifier search case-insensitively against the patient and plan identifiers", async () => {
+    // The IDENTIFIER half of the same one control. A synthetic id is not a name, so it would have
+    // been safe to leave on the server -- but one box searches both, and splitting them would have
+    // given a coordinator a second box to type a name into. Both halves match in the browser.
+    const user = userEvent.setup();
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
     render(
-      <PatientsDirectory
-        mayViewPatientNames
-        patientNames={NO_NAMES}
-        records={records}
-        filter={parsePatientsDirectoryFilter({ q: "PLAN-2" })}
-        mayViewPlans
-      />,
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />,
     );
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    await user.type(screen.getByRole("searchbox"), "PLAN-2");
+
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
   });
 
-  it("submits the search as an ordinary GET form, so the filter needs no JavaScript", () => {
+  it("keeps the state filter in the address while the search runs in the browser", async () => {
+    // The two filters compose, and only one of them is addressable. The state came from the URL and
+    // the text did not, and the list respects both at once.
+    const user = userEvent.setup();
+    const records = [
+      planRecord({ id: "plan-1", state: "active" }),
+      planRecord({ id: "plan-2", state: "active" }),
+      planRecord({ id: "plan-3", state: "paused" }),
+    ];
     const { container } = render(
       <PatientsDirectory
         mayViewPatientNames
         patientNames={NO_NAMES}
-        records={[]}
+        records={records}
         filter={parsePatientsDirectoryFilter({ state: "active" })}
         mayViewPlans
       />,
     );
-    const form = container.querySelector("form");
-    expect(form).not.toBeNull();
-    expect(form).toHaveAttribute("method", "get");
-    expect(form).toHaveAttribute("action", CARING_CONTACTS_ROUTES.patients);
-    // The state filter rides along in a hidden field, so searching cannot silently widen it.
-    expect(form?.querySelector('input[type="hidden"][name="state"]')).toHaveValue("active");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    await user.type(screen.getByRole("searchbox"), "plan-2");
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
+    // No form to submit: the search is not a navigation.
+    expect(container.querySelector("form")).toBeNull();
   });
 
   it("marks the current state filter, so the screen and the URL cannot disagree", () => {
@@ -556,42 +699,68 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     expect(screen.getByText("Synthetic patient identifier")).toBeInTheDocument();
   });
 
-  it("matches the search against the name as well as the identifiers, still without client state", () => {
+  it("matches the search against the name case-insensitively, on a part of it", async () => {
+    const user = userEvent.setup();
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
     const names = [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")];
 
-    const { container } = render(
-      <PatientsDirectory
-        mayViewPatientNames
-        patientNames={names}
-        records={records}
-        filter={parsePatientsDirectoryFilter({ q: "nguyen" })}
-        mayViewPlans
-      />,
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={names} records={records} filter={ALL} mayViewPlans />,
     );
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    await user.type(screen.getByRole("searchbox"), "nguyen");
 
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
-    // The whole filter is still the URL: an ordinary GET form and a server render, no controlled
-    // input and no client boundary. Ruling 13.
-    expect(container.querySelector("form")).toHaveAttribute("method", "get");
   });
 
-  it("finds no row by a name it does not hold, when the names read released nothing", () => {
+  it("finds no row by a name it does not hold, when the names read released nothing", async () => {
     // The empty haystack segment must not turn into a wildcard: a role that may not read names
     // searching for one must find nothing, not everything.
+    const user = userEvent.setup();
     render(
       <PatientsDirectory
         mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
-        filter={parsePatientsDirectoryFilter({ q: "Jordan" })}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    // Positive control: the row IS here until the name search hides it.
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+
+    await user.type(screen.getByRole("searchbox"), "Jordan");
+
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.getByRole("group", { name: /no patients match/i })).toBeInTheDocument();
+  });
+
+  it("clears the typed name from the control when the search is cleared", async () => {
+    // The remedy the empty state promises has to be reachable, and the typed text has to actually
+    // leave the control rather than merely stop filtering.
+    const user = userEvent.setup();
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+    render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={records}
+        filter={ALL}
         mayViewPlans
       />,
     );
 
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
-    expect(screen.getByRole("group", { name: /no patients match/i })).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox"), "Jordan Nguyen");
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: /clear search/i }));
+
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    // And the control is gone again once there is nothing to clear.
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
   });
 });
 
