@@ -80,14 +80,14 @@ const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
  * is `on`, so the store holds no pathway version. That is a real production state and the screen's
  * honest statement of it -- "No governed versions yet" -- not a fixture.
  *
- * NO PROOF BLOCK IS WRITTEN AGAINST THIS ROUTE YET, and that is stated rather than left to be
- * inferred. Phase 2B Task 15 added the entry because
- * `tests/caring-contacts-workspace-screens.test.ts` requires every production workspace route to
- * appear here, and being in the array proves nothing on its own -- see the note on
- * `WORKSPACE_SCREENS` below. The screen's behaviour is proved offline by
- * `tests/caring-contacts-templates-library.dom.test.tsx` and
- * `tests/caring-contacts-templates-page.dom.test.tsx`; what is still owed here is the browser half
- * -- forced-colors, 320px, and the service-stop banner on this screen.
+ * THE BLOCK IS `caring-contacts templates library`, BELOW. Being in `WORKSPACE_SCREENS` proves
+ * nothing on its own -- see the note on that array -- so the entry and the block landed together.
+ * It covers dark, forced colours, 320px and print, plus rail reachability and the empty library's
+ * own statement. What is still owed is the SERVICE-STOP banner on this screen; that is all.
+ *
+ * The rest of the screen's behaviour is proved offline, against records this server cannot hold,
+ * by `tests/caring-contacts-templates-library.dom.test.tsx` and
+ * `tests/caring-contacts-templates-page.dom.test.tsx`.
  */
 const TEMPLATES_ROUTE = `${WORKSPACE_ROUTE}/templates`;
 
@@ -783,9 +783,17 @@ test.describe("caring-contacts templates library", () => {
     await expect(empty).toBeVisible();
     await expect(empty).toContainText("not a draft, not a retired one, nothing");
 
-    // Ruling [127], observed end to end rather than inferred from a render. This is the only place
-    // the whole stack runs in one process, so it is the strongest available form of the guarantee:
-    // no patient-visible wording reaches this screen, and the specimen is the string that would.
+    // Ruling [127], observed end to end rather than inferred from a render: no patient-visible
+    // wording reaches this screen, and the specimen is the string that would.
+    //
+    // READ THIS BEFORE TREATING IT AS THE STRONG FORM OF THE GUARANTEE. It is an absence over a
+    // store that holds no version, so the specimen is not in this page's data and this assertion
+    // CANNOT go red for the reason it exists -- the same shape as an absence asserted over a
+    // fixture that never held any. It is still worth having: it is whole-stack, and the `h1` and
+    // empty-state assertions above it are its positive controls, so it cannot pass on a page that
+    // rendered nothing. The assertion that can actually fail is in
+    // `tests/caring-contacts-templates-page.dom.test.tsx`, which renders the real demo seed --
+    // where `snapshot.messageTextByType.standard` IS the specimen.
     await expect(page.locator("body")).not.toContainText(EXACT_PATIENT_VISIBLE_MESSAGE);
 
     // The filter is a set of links, and an empty library still offers them, so a clinician can see
