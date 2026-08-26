@@ -195,17 +195,13 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
       catalogued: catalogued.has(repoPath),
     }));
 
-  const bySection = new Map<string, { name: string; documents: number; uncatalogued: number }>();
+  const sectionNames = new Set<string>();
   for (const document of documents) {
-    const entry = bySection.get(document.section) ?? { name: document.section, documents: 0, uncatalogued: 0 };
-    entry.documents += 1;
-    if (!document.catalogued) entry.uncatalogued += 1;
-    bySection.set(document.section, entry);
+    sectionNames.add(document.section);
   }
-  // `name` alone is already a total order here too: it is the key of the Map
-  // it was read from, so `bySection.values()` contains at most one entry per
-  // name and no tiebreaker is needed.
-  const sections = [...bySection.values()].sort((left, right) => left.name.localeCompare(right.name));
+  // `name` alone is already a total order here: `sectionNames` is a unique Set,
+  // so sorting produces deterministic output with no tiebreaker needed.
+  const sections = [...sectionNames].sort((left, right) => left.localeCompare(right)).map((name) => ({ name }));
 
   return {
     documents,

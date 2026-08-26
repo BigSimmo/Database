@@ -3,6 +3,13 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+import {
+  BED_RELEASE_BLOCKERS,
+  CANCEL_TRANSPORT_REASONS,
+  LEGAL_STATUS_CHANGE_REASONS,
+  RELEASE_HOLD_REASONS,
+  URGENCY_CHANGE_REASONS,
+} from "../src/components/ward-management/ward-change-reasons";
 import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import {
   seedWardFlowState,
@@ -10,8 +17,14 @@ import {
   type WardFlowState,
 } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
-import { DECLINE_REASONS, type LegalForm, type LegalStatus } from "../src/components/ward-management/ward-model";
+import {
+  BED_RELEASE_CONFIDENCE_LEVELS,
+  DECLINE_REASONS,
+  type LegalForm,
+  type LegalStatus,
+} from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 /**
@@ -358,6 +371,15 @@ function scanWardFiles(): ScannedFile[] {
 /** Every event type in the union, taken from the role table so a new variant cannot be forgotten. */
 const ALL_EVENT_TYPES = Object.keys(EVENT_ROLE) as WardFlowEvent["type"][];
 
+/** Every `LegalStatus` value, hand-listed — `ward-model.ts` exports the type but no runtime list
+ *  of its members, the same reason `ed-screen.tsx` keeps its own `LEGAL_STATUS_OPTIONS`. */
+const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
+  "Voluntary",
+  "Referred for psychiatric examination",
+  "Detained awaiting examination",
+  "Involuntary inpatient",
+];
+
 /**
  * Candidate events of one type, generated against the CURRENT state rather than hard-coded, so a
  * fixture change cannot silently make the traversal untestable. Every candidate carries the role
@@ -365,7 +387,11 @@ const ALL_EVENT_TYPES = Object.keys(EVENT_ROLE) as WardFlowEvent["type"][];
  * event proves nothing about what the reducer body does.
  */
 function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now: number): WardFlowEvent[] {
-  const role = EVENT_ROLE[type];
+  // `EVENT_ROLE[type]` is a non-empty list of permitted roles (widened this task, spec D2); any
+  // one of them is refused by the role check identically to any other, so the first is enough to
+  // get past the gate and exercise the reducer body — the coverage this sweep is checking never
+  // depends on which of two permitted roles raised the event.
+  const role = EVENT_ROLE[type][0];
   const movementIds = state.movements.map((movement) => movement.id);
   const unitIds = state.units.map((unit) => unit.id);
   const pairs = movementIds.flatMap((movementId) => unitIds.map((unitId) => ({ movementId, unitId })));
@@ -443,10 +469,67 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         triedUnitIds: unitIds.slice(0, 1),
         contact: "State-wide bed coordination line",
       }));
+    case "CHANGE_URGENCY":
+      // One candidate per urgency tier — the same precedent SET_SCENARIO sets below — so the
+      // sweep cannot silently leave two of the three tiers untested.
+      return movementIds.flatMap((movementId) =>
+        ([1, 2, 3] as const).map((urgency) => ({
+          type,
+          role,
+          now,
+          movementId,
+          urgency,
+          reason: URGENCY_CHANGE_REASONS[0],
+        })),
+      );
+    case "CHANGE_LEGAL_STATUS":
+      // One candidate per legal status, for the same reason.
+      return movementIds.flatMap((movementId) =>
+        LEGAL_STATUS_OPTIONS.map((legalStatus) => ({
+          type,
+          role,
+          now,
+          movementId,
+          legalStatus,
+          reason: LEGAL_STATUS_CHANGE_REASONS[0],
+        })),
+      );
     case "ADVANCE_CLOCK":
       return [{ type, role, now, minutes: 30 }];
     case "RESET_SCENARIO":
       return [{ type, role, now }];
+    case "SET_SCENARIO":
+      // Both scenarios, like RAISE_REFERRAL's real domain values above — not one hard-coded
+      // choice that would leave the other half of `WARD_SCENARIOS` untested.
+      return WARD_SCENARIOS.map((scenario) => ({ type, role, now, scenario }));
+    case "RELEASE_HOLD":
+      // One candidate per reason, same precedent as CHANGE_URGENCY/CHANGE_LEGAL_STATUS above —
+      // `role` is the first permitted role (coordinator), so `actingUnitId` is never needed here.
+      return movementIds.flatMap((movementId) =>
+        RELEASE_HOLD_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "CANCEL_TRANSPORT":
+      return movementIds.flatMap((movementId) =>
+        CANCEL_TRANSPORT_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "FLAG_BED_RELEASE":
+      // `actingUnitId` mirrors `unitId`, same reasoning as CONFIRM_CAPACITY above. One candidate
+      // per confidence level crossed with every blocker — the same "one candidate per real
+      // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO set, so a branch
+      // keyed on either dimension is entered rather than assumed reachable.
+      return unitIds.flatMap((unitId) =>
+        BED_RELEASE_CONFIDENCE_LEVELS.flatMap((confidence) =>
+          BED_RELEASE_BLOCKERS.map((blocker) => ({
+            type,
+            role,
+            now,
+            unitId,
+            actingUnitId: unitId,
+            confidence,
+            blocker,
+          })),
+        ),
+      );
   }
 }
 
@@ -463,6 +546,10 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "PATIENT_COLLECTED",
   "PATIENT_ARRIVED",
   "RECORD_ESCALATION",
+  "CHANGE_URGENCY",
+  "CHANGE_LEGAL_STATUS",
+  "RELEASE_HOLD",
+  "CANCEL_TRANSPORT",
 ]);
 
 /**
@@ -502,6 +589,87 @@ const STRUCTURALLY_IMPOSSIBLE_FOR_CODE: Record<string, { type: WardFlowEvent["ty
 /** The movement an event acts on, or `undefined` for the unit- and scenario-scoped events. */
 function targetMovementId(event: WardFlowEvent): string | undefined {
   return "movementId" in event ? event.movementId : undefined;
+}
+
+/**
+ * Fix round 1 (2026-08-25). `RELEASE_HOLD` only ever succeeds at stage `bed_held`, and once the
+ * round-robin sweep above lets `HANDOVER_READY` (or a transport-progression event) fire first, a
+ * movement is past `bed_held` for good — the only way back is `RELEASE_HOLD` itself, the very
+ * event under test. That is a limitation of the SWEEP's fixed cyclic ordering, not of the domain:
+ * a movement of any legal-form code can genuinely sit at `bed_held` with a live transport job, the
+ * same as a Form 1A can (see `WF-016`/`WF-005`, the pre-seeded fixture movements that let 1A pass
+ * without needing this helper at all). Excusing the gap via `STRUCTURALLY_IMPOSSIBLE_FOR_CODE`
+ * would therefore be a FALSE claim about the domain — exactly what that list's own doc comment
+ * forbids ("never 'the sweep did not happen to get there'"). So this builds the precondition
+ * explicitly instead, the same way `RESET_SCENARIO`/`SET_SCENARIO` are exercised on their own
+ * below, and every step asserts it was NOT refused — a genuinely impossible step fails loudly with
+ * the reducer's own reason quoted, rather than the construction silently stopping early and
+ * reporting nothing.
+ */
+function buildHeldMovementFor(code: string, now: number): { state: WardFlowState; movementId: string } {
+  const seeded = seedWardFlowState();
+  const ed = allEmergencyDepartments()[0];
+  const raised = wardFlowReducer(seeded, {
+    type: "RAISE_REFERRAL",
+    role: EVENT_ROLE.RAISE_REFERRAL[0],
+    now,
+    edId: ed.id,
+    draft: {
+      cohort: "Adult",
+      security: "Open",
+      sex: "Female",
+      specialling: false,
+      legalStatus: "Referred for psychiatric examination",
+      urgency: 2,
+      legalFormCode: code,
+    },
+  });
+  expect(raised.rejections, `RAISE_REFERRAL for Form ${code} was refused: ${raised.rejections.at(-1)?.reason}`).toEqual(
+    [],
+  );
+  const movement = raised.movements.at(-1)!;
+
+  // Neither REFER_TO_UNITS, ACCEPT_IN_PRINCIPLE nor HOLD_BED gate on cohort, security or sex —
+  // that eligibility scoring lives in the protected `ward-eligibility.ts`, a UI-facing concern the
+  // reducer itself never consults — so any unit with spare allocatable capacity is a genuine,
+  // reachable destination for this construction, not a fabricated shortcut.
+  const unit = raised.units.find((candidate) => candidate.allocatable.value > 0);
+  expect(unit, `no unit with allocatable capacity was found to hold a bed for Form ${code}`).toBeDefined();
+
+  const referred = wardFlowReducer(raised, {
+    type: "REFER_TO_UNITS",
+    role: EVENT_ROLE.REFER_TO_UNITS[0],
+    now,
+    movementId: movement.id,
+    unitIds: [unit!.id],
+  });
+  expect(
+    referred.rejections,
+    `REFER_TO_UNITS for Form ${code} was refused: ${referred.rejections.at(-1)?.reason}`,
+  ).toEqual([]);
+
+  const acceptedInPrinciple = wardFlowReducer(referred, {
+    type: "ACCEPT_IN_PRINCIPLE",
+    role: EVENT_ROLE.ACCEPT_IN_PRINCIPLE[0],
+    now,
+    movementId: movement.id,
+    unitId: unit!.id,
+  });
+  expect(
+    acceptedInPrinciple.rejections,
+    `ACCEPT_IN_PRINCIPLE for Form ${code} was refused: ${acceptedInPrinciple.rejections.at(-1)?.reason}`,
+  ).toEqual([]);
+
+  const held = wardFlowReducer(acceptedInPrinciple, {
+    type: "HOLD_BED",
+    role: EVENT_ROLE.HOLD_BED[0],
+    now,
+    movementId: movement.id,
+    unitId: unit!.id,
+  });
+  expect(held.rejections, `HOLD_BED for Form ${code} was refused: ${held.rejections.at(-1)?.reason}`).toEqual([]);
+
+  return { state: held, movementId: movement.id };
 }
 
 /**
@@ -568,9 +736,10 @@ function driveEveryEventAgainst(
     const pivot = round % ALL_EVENT_TYPES.length;
     const order = [...ALL_EVENT_TYPES.slice(pivot), ...ALL_EVENT_TYPES.slice(0, pivot)];
     for (const type of order) {
-      // RESET_SCENARIO would discard the movement the sweep is building; it is exercised on its
-      // own below, where the invariant is checked against the reset state directly.
-      if (type === "RESET_SCENARIO") continue;
+      // RESET_SCENARIO and SET_SCENARIO would both discard the movement the sweep is building —
+      // seedWardFlowState() replaces `state.movements` wholesale either way. Both are exercised on
+      // their own below, where the invariant is checked against the resulting state directly.
+      if (type === "RESET_SCENARIO" || type === "SET_SCENARIO") continue;
       const result = applyFirstAccepted(type, state, now, code);
       if (!result) continue;
       accepted.add(type);
@@ -726,6 +895,56 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       expect(carrying.length, `the sweep never held a Form ${code}`).toBeGreaterThan(0);
     }
 
+    // RELEASE_HOLD / CANCEL_TRANSPORT, exercised explicitly per code (fix round 1, 2026-08-25) —
+    // see `buildHeldMovementFor`'s own doc comment for why the round-robin sweep above can never
+    // reach these two for a code without a pre-seeded fixture movement, and why that is a
+    // traversal limitation rather than grounds for a `STRUCTURALLY_IMPOSSIBLE_FOR_CODE` entry.
+    // Mutates the SAME `Set` instances already stored in `coverage` above, so this genuinely
+    // satisfies the "Non-vacuity 3" check below rather than sidestepping it.
+    for (const code of SWEEP_CODES) {
+      const accepted = coverage.get(code)!;
+
+      const forRelease = buildHeldMovementFor(code, NOW_ANCHOR);
+      const released = wardFlowReducer(forRelease.state, {
+        type: "RELEASE_HOLD",
+        role: EVENT_ROLE.RELEASE_HOLD[0],
+        now: NOW_ANCHOR,
+        movementId: forRelease.movementId,
+        reason: "hold_made_in_error",
+      });
+      expect(
+        released.rejections,
+        `RELEASE_HOLD for Form ${code} was refused: ${released.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("RELEASE_HOLD");
+      offenders.push(...offendingFormsIn(released, `RELEASE_HOLD(${code})`));
+
+      const forCancel = buildHeldMovementFor(code, NOW_ANCHOR);
+      const readyForHandover = wardFlowReducer(forCancel.state, {
+        type: "HANDOVER_READY",
+        role: EVENT_ROLE.HANDOVER_READY[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+      });
+      expect(
+        readyForHandover.rejections,
+        `HANDOVER_READY for Form ${code} was refused: ${readyForHandover.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      const cancelled = wardFlowReducer(readyForHandover, {
+        type: "CANCEL_TRANSPORT",
+        role: EVENT_ROLE.CANCEL_TRANSPORT[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+        reason: "provider_unavailable",
+      });
+      expect(
+        cancelled.rejections,
+        `CANCEL_TRANSPORT for Form ${code} was refused: ${cancelled.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("CANCEL_TRANSPORT");
+      offenders.push(...offendingFormsIn(cancelled, `CANCEL_TRANSPORT(${code})`));
+    }
+
     // Non-vacuity 3: every movement-targeted event type was ACCEPTED against a movement carrying
     // each code. This is the assertion wave 2 lacked. Reported by name, never counted — and it is
     // what proves the `code === "1A"` branch above is actually entered rather than merely
@@ -764,7 +983,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     // code-targetable, but must still be exercised and must still leave the invariant intact.
     for (const [code, accepted] of coverage) {
       const unscoped = ALL_EVENT_TYPES.filter(
-        (type) => !MOVEMENT_TARGETED_EVENTS.has(type) && type !== "RESET_SCENARIO",
+        (type) => !MOVEMENT_TARGETED_EVENTS.has(type) && type !== "RESET_SCENARIO" && type !== "SET_SCENARIO",
       );
       expect(
         unscoped.filter((type) => !accepted.has(type)),
@@ -777,6 +996,20 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     const reset = applyFirstAccepted("RESET_SCENARIO", seedWardFlowState(), NOW_ANCHOR);
     expect(reset, "RESET_SCENARIO was never accepted").toBeDefined();
     offenders.push(...offendingFormsIn(reset!.applied, "RESET_SCENARIO"));
+
+    // SET_SCENARIO on its own, same reason as RESET_SCENARIO above — and against BOTH scenarios,
+    // since `candidateEvents` offers one candidate per entry in `WARD_SCENARIOS` and this loop must
+    // not silently exercise only the first one it is handed.
+    for (const scenario of WARD_SCENARIOS) {
+      const setScenario = wardFlowReducer(seedWardFlowState(), {
+        type: "SET_SCENARIO",
+        role: EVENT_ROLE.SET_SCENARIO[0],
+        now: NOW_ANCHOR,
+        scenario,
+      });
+      expect(setScenario.rejections, `SET_SCENARIO to ${scenario} was refused`).toEqual([]);
+      offenders.push(...offendingFormsIn(setScenario, `SET_SCENARIO(${scenario})`));
+    }
 
     expect(offenders).toEqual([]);
   });

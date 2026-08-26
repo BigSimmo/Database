@@ -59,7 +59,7 @@ Before writing any fixed-position phone element, read `docs/search-chrome-behavi
 bind here.
 
 What I have already established for you, so you do not have to rediscover it: `/ward-management`
-is **not** inside the `(search-app)` route group, and `src/app/ward-management/layout.tsx` is only
+is **not** inside the `(search-app)` route group, and `src/app/mockups/ward-flow/layout.tsx` is only
 the `WardFlowProvider` — no global search shell, no phone composer dock. So a bottom-pinned bar on
 this route does **not** collide with the "one search composer per page" rule and there is no
 existing dock reserve to fight. Confirm that yourself before relying on it.

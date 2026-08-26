@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useState } from "react";
 
 import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { NotAMedicalDeviceStatement } from "@/components/ward-management/ward-management-modes";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { queueOrder } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
@@ -36,13 +37,14 @@ const PHONE_DIAGRAM_MEDIA_QUERY = "(max-width: 48rem)";
 export function CoordinatorScreen() {
   // Task 5: the screen's props stop being derived from the frozen `wardMovements` fixture and
   // `NOW_ANCHOR` constant and start coming from the shared provider (`WardFlowProvider`, already
-  // wrapping every `/ward-management` route via `src/app/ward-management/layout.tsx`).
+  // wrapping every `/mockups/ward-flow` route via `src/app/mockups/ward-flow/layout.tsx`).
   //
   // Whole-branch review Critical 1: `units` IS now destructured and threaded into `FlowDiagram`
   // and `ShortlistPanel` below. It was deliberately left out here on the original claim that
   // "nothing this screen renders yet reads live unit state" — false: both child components read
   // unit capacity, and both were doing it from the frozen `ward-sites.ts` fixture instead.
-  const { movements, units, rejections, now, dispatch, focusMovementId, setFocusMovementId } = useWardFlow();
+  const { movements, units, bedReleases, rejections, now, dispatch, focusMovementId, setFocusMovementId } =
+    useWardFlow();
   // Task 12: seeded from the shared `focusMovementId` (not always `undefined`) so a coordinator
   // who switched away to answer a referral as another role and switches back finds the same
   // patient still selected — this screen remounts on every route change (it is a route
@@ -142,21 +144,20 @@ export function CoordinatorScreen() {
   // on a live work list. Latent on today's fixture — no closed movement currently qualifies for
   // any of the three categories — but it is precisely the shape of Phase 1's "48 open movements"
   // defect, which was also a closed record counted as live.
-  const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now), [movements, now]);
+  const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now, units), [movements, now, units]);
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
       <ClinicalRail activeMode="command" />
-      <div className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <h1 className="sr-only">Ward Flow coordinator</h1>
 
         <div className={styles.governanceBanner} data-testid="ward-coordinator-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
-          <p>
-            This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
-            assesses a patient&apos;s risk, acuity or treatment. A human coordinator confirms or overrides every
-            suggestion.
-          </p>
+          {/* Task 9 (spec item 7): shared verbatim with the governance board's own banner via
+           * `NotAMedicalDeviceStatement` (ward-management-modes.tsx) rather than kept as a second,
+           * independently maintained copy of the same governance claim. */}
+          <NotAMedicalDeviceStatement />
         </div>
 
         <div className={styles.body} data-testid="ward-coordinator-body">
@@ -193,6 +194,7 @@ export function CoordinatorScreen() {
                   movement={selectedMovement}
                   now={now}
                   units={units}
+                  bedReleases={bedReleases}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
                 />
@@ -208,6 +210,7 @@ export function CoordinatorScreen() {
                   movement={selectedMovement}
                   now={now}
                   units={units}
+                  bedReleases={bedReleases}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
                   dispatch={dispatch}
@@ -231,7 +234,7 @@ export function CoordinatorScreen() {
             setExceptionsOpen(false);
           }}
         />
-      </div>
+      </main>
     </div>
   );
 }
