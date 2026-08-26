@@ -172,12 +172,28 @@ only visible once the overlay is **open**, which is Playwright's ground.
 
 ## Open questions and limits I could not close
 
-1. **A paused plan is still offered as sendable by the domain.** `listSendableContacts` filters on
-   `contact.state === "scheduled"` and consults `plan.state` nowhere, so a paused plan's contacts are
-   still in the sendable list. I did **not** change that — it is a domain question, not a screen one —
-   and I deliberately wrote the note to say what the two records hold rather than to claim what a
-   dispatcher would do. **Worth your eye:** if pausing is meant to stop sending, the rule for that does
-   not currently live anywhere.
+1. **WITHDRAWN — I was wrong, and the correction matters more than the original.** I reported that
+   "if pausing is meant to stop sending, the rule for that does not currently live anywhere." **That
+   rule does exist**, and I have now read it at source. My narrow observation was right —
+   `listSendableContacts` filters on `contact.state === "scheduled"` and consults `plan.state`
+   nowhere, in both stores — but the conclusion drawn from it was not.
+
+   `contactStatusWrite` is the single path every contact-status write takes, and it carries a
+   `requiresActivePlan` flag. `startContactDispatch` passes `true` (`in-memory-repository.ts:693`),
+   so a plan that is not `active` is refused with `REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan`
+   — `in-memory-repository.ts:459-461` and `db/postgres-repository.ts:757-759`. A paused or draft
+   plan's contacts appear in the **list** and are refused at the **write**. `listSendableContacts` also
+   has exactly one production reader in the tree, `simulation.ts:293`; no screen calls it, and
+   `plan-activation.ts:766` already says so in a comment.
+
+   **The screen behaviour stands unchanged** — stating plan state beside the schedule was the right
+   call and is what this task shipped. What was wrong was the invitation to go and add a gate; doing
+   so would have duplicated one that already exists on the path that matters.
+
+   **The lesson, which is the part worth keeping:** I verified the narrow claim and then reported a
+   conclusion I had not verified. *Verifying a premise is not verifying the conclusion drawn from it.*
+   One more grep — **who calls this, and what happens after?** — would have closed it. The coordinator
+   made the same error downstream of mine, which is exactly how an unverified conclusion travels.
 2. **The attestation's actor is recorded on the plan and is not shown.** Actor ids in this workspace
    are `demo-<role>`, so printing one would put a raw role identifier in front of a clinician. Role
    wording lives in the sealed domain (`CARING_CONTACT_ROLE_WORDING`) and resolves from a **role**;
@@ -220,12 +236,14 @@ Gates run in this worktree. **Every summary line is pasted; none is reported fro
 
 ```
  Test Files  18 passed (18)
-      Tests  407 passed (407)
-   Duration  82.33s
+      Tests  408 passed (408)
+   Duration  59.92s
 ```
 
-An earlier run at 406 tests went **red** on one file before the client-component allowlist entry was
-added, which is itself evidence the gate examines this change:
+An earlier run went **red** on one file before the client-component allowlist entry was added, which
+is itself evidence the gate examines this change. (Its lower test count is not that commit's doing:
+`1c37c5c61` adds one array entry and no test at all. The count rose with `9bef9682f`, which added the
+ended-plan case, and again with `3465b94fd`.)
 
 ```
  FAIL  |jsdom| tests/caring-contacts-explained-automation.dom.test.tsx > the service-state path stays on the server
@@ -281,31 +299,35 @@ greens included; **no aggregate total**.
 
 | # | The claim the mutation attacks | Expected | Got | Gate result (`Tests`) |
 | --- | --- | --- | --- | --- |
-| M1 | the paused note names the PAUSED state as the cause | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M2 | the paused note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M3 | the paused note says what would change it | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M4 | the paused note is LABELLED Paused, so it is findable by the state it is about | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M5 | the draft note names NOT STARTED as the cause | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M6 | draft and paused are different facts and do not collapse into one label | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M7 | the draft note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M8 | a RUNNING plan gets no such note, so the note means something when it appears | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M9 | an ENDED plan, which explains itself row by row, gets no plan-level note | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content | red | **RED**, as predicted | 2 failed / 405 passed (407) |
-| M11 | each attestation row NAMES THE DESTINATION rather than only the act | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M12 | no wording on this card says the patient consented | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M13 | the card says WHERE the agreement lives | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M14 | the attestation's own instant is read back, not a constant | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M15 | the empty case states itself as a fact | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M17 | a plan WITH attestations renders them rather than the empty copy | red | **RED**, as predicted | 2 failed / 405 passed (407) |
-| M18 | the card says WHY retention keeps the attestation while it clears the reason | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M19 | the delivery drawer is offered where a message LEFT, not where it did not | red | **RED**, as predicted | 2 failed / 405 passed (407) |
-| M20 | the control raises the delivery-detail row and no other | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M21 | the control names the row, so ten of them are not ambiguous | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op) | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M23 | an unknown overlay id is refused by name rather than by a TypeError | red | **RED**, as predicted | 1 failed / 406 passed (407) |
-| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width | green | **GREEN**, as predicted | 407 passed (407) |
-| M25 | FINDING: the CHOICE of a record commit over an unavailable one is unproven offline | green | **GREEN**, as predicted | 407 passed (407) |
+| M1 | the paused note names the PAUSED state as the cause | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M2 | the paused note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M3 | the paused note says what would change it | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M4 | the paused note is LABELLED Paused, so it is findable by the state it is about | red | **RED**, as predicted | 2 failed / 406 passed (408) |
+| M5 | the draft note names NOT STARTED as the cause | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M6 | draft and paused are different facts and do not collapse into one label | red | **RED**, as predicted | 3 failed / 405 passed (408) |
+| M7 | the draft note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M8 | a RUNNING plan gets no such note, so the note means something when it appears | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M9 | an ENDED plan, which explains itself row by row, gets no plan-level note | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content | red | **RED**, as predicted | 3 failed / 405 passed (408) |
+| M11 | each attestation row NAMES THE DESTINATION rather than only the act | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M12 | no wording on this card says the patient consented | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M13 | the card says WHERE the agreement lives | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M14 | the attestation's own instant is read back, not a constant | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M15 | the empty case states itself as a fact | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M17 | a plan WITH attestations renders them rather than the empty copy | red | **RED**, as predicted | 3 failed / 405 passed (408) |
+| M18 | the card says WHY retention keeps the attestation while it clears the reason | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M19 | the delivery drawer is offered where a message LEFT, not where it did not | red | **RED**, as predicted | 2 failed / 406 passed (408) |
+| M20 | the control raises the delivery-detail row and no other | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M21 | the control names the row it was opened from, so one row's control is told from another's | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op) | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M23 | an unknown overlay id is refused by name rather than by a TypeError | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width | green | **GREEN**, as predicted | 408 passed (408) |
+| M25 | the exit row gets a RECORD commit, not an unavailable one that would aria-disable the exit | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M26 | the visible promise is GENERIC, because the drawer it opens is | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M27 | REACHABLE NOW: the draft note does not describe itself as paused | red | **RED**, as predicted | 1 failed / 407 passed (408) |
+| M28 | CONTROL: the attestation list locator finds a list when one exists | red | **RED**, as predicted | 2 failed / 406 passed (408) |
+| M29 | CONTROL: an ended plan's rows carry their own reason, held to expected content | red | **RED**, as predicted | 2 failed / 406 passed (408) |
 
 Predicted message against observed, row by row:
 
@@ -363,15 +385,15 @@ Predicted message against observed, row by row:
 - **M18** — predicted: *element does not match /no patient detail/i*
   - failing test: `keeps the attestation on a cleared plan while the first-contact reason has gone`
   - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /no patient detail/i Received:
-- **M19** — predicted: *accessible name "What the phone network reported — Month 1" does not match /Day 1/*
+- **M19** — predicted: *the surviving trigger is the Month 1 row, so the accessible name does not match /opened from the Day 1 row/*
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /Day 1/ Received:
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /opened from the Day 1 row/ Received:
 - **M20** — predicted: *expected data-overlay-trigger "message-preview" to equal "delivery-detail"*
   - failing test: `offers it on a message that went out, naming the row it was opened from`
   - observed: Error: expect(element).toHaveAttribute("data-overlay-trigger", "delivery-detail") // element.getAttribute("data-overlay-trigger") === "delivery-detail" Expected the element to have attribute:   data-overlay-trigger="delivery-detail" Received:
-- **M21** — predicted: *accessible name "What the phone network reported" does not match /Day 1/*
+- **M21** — predicted: *accessible name loses the row, so it does not match /opened from the Day 1 row/*
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /Day 1/ Received:
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /opened from the Day 1 row/ Received:
 - **M22** — predicted: *expected function to throw an error matching /records a decision/i, but it did not throw*
   - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
   - observed: AssertionError: expected [Function] to throw an error - Expected: null + Received:
@@ -379,11 +401,22 @@ Predicted message against observed, row by row:
   - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
   - observed: AssertionError: expected [Function] to throw error matching /No overlay is defined/i but got 'Cannot read properties of null (readi…' - Expected: /No overlay is defined/i + Received:
 - **M24** — predicted: *green -- geometry is not asserted offline, and should not be*
-  - observed: no failure, and none expected. 407 passed (407).
-- **M25** — predicted: *green -- the difference is visible only once the overlay is open, which is Playwright's ground*
-  - observed: no failure, and none expected. 407 passed (407).
-
----
+  - observed: no failure, and none expected. 408 passed (408).
+- **M25** — predicted: *commitRefusalFor returns an every-row refusal instead of null, so toBeNull fails*
+  - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
+  - observed: AssertionError: expected { reason: 'Not built yet.', …(1) } to be null - Expected: null + Received:
+- **M26** — predicted: *accessible name no longer starts with 'What a delivery receipt means'*
+  - failing test: `offers it on a message that went out, naming the row it was opened from`
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /^What a delivery receipt means/ Received:
+- **M27** — predicted: *the Draft group matches /paused/i, so the not.toHaveTextContent negative fires*
+  - failing test: `does not let draft and paused collapse into one note, and proves the locators first`
+  - observed: Error: expect(element).not.toHaveTextContent() Expected element not to have text content:   /paused/i Received:
+- **M28** — predicted: *the positive control cannot find the list, so the empty case's absence proves nothing*
+  - failing test: `reads both attestations back in plain words, and never says the patient consented`
+  - observed: TestingLibraryElementError: Unable to find an accessible element with the role "list" and name "Confirmations recorded on this plan" Here are the accessible roles: heading: Name "What was confirmed before this plan started":
+- **M29** — predicted: *the Cancelled group's text no longer matches the expected sentence*
+  - failing test: `explains every cancelled message in place, rather than leaving a bare status beside it`
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /cancelled every message that had not already gone out/i Received:
 
 ## Three process incidents during verification, none of them absorbed
 
@@ -413,14 +446,107 @@ away.
 
 ## What the ledger does NOT prove, stated rather than implied
 
-- **M25 is a real gap, not a formality.** Swapping the exit commit for `{ kind: "unavailable" }` left
-  the whole gate green. Nothing offline distinguishes the two, because the difference appears only
-  inside an **open** overlay. If the owner wants that pinned, it needs a browser test that opens the
-  drawer and asserts its action control is not `aria-disabled`.
+- **M25 WAS NOT A GAP, and how I got that wrong is the most useful thing in this report.** I first
+  reported the record-vs-unavailable commit choice as unprovable offline and deferred it to Playwright.
+  It is provable offline twice over. `commitRefusalFor` is exported, pure and total over the three
+  states of the slot, and `tests/caring-contacts-overlay-trigger.dom.test.tsx` **already draws exactly
+  this distinction** — an `unavailable` commit gives an `every-row` refusal, a `record` commit gives
+  `null`. That same file also opens overlays **in jsdom** and asserts `aria-disabled` on
+  `workspace-overlay-action`, so the DOM-level difference is not Playwright's ground either.
+
+  One line now sits beside the throw assertions and reddens under M25:
+  `expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull();` — **M25 is RED in
+  the ledger below**, where it used to be green.
+
+  **Why I missed it:** `tests/caring-contacts-overlay-trigger.dom.test.tsx` is **not in
+  `test:cc-guards`**. Reasoning from *"what does my gate run?"* I concluded that no offline test could
+  distinguish two behaviours that an unrun suite distinguishes today. **A gate that omits a suite does
+  not merely skip coverage — it hides the precedent**, and the second failure is worse than the first,
+  because it makes an existing solution invisible rather than merely unproven.
 - **M24 is an over-sensitivity control** and its green is the correct answer: no assertion reads the
-  trigger's responsive width, and none should.
+  trigger's responsive width, and none should. It is now the only green in the ledger.
 - **The schedule summary sentence itself** is asserted in my paused-plan case but was **not** mutated
   by me — `scheduleSummarySentence` is an earlier task's, proved by the Ruling [98] and ended-plan
   blocks above mine. I am relying on those rather than claiming my own coverage of it.
 - **M10, M17 and M19 each turned two tests red**, not one. Reported rather than smoothed: each attacks
   a claim that two of my cases depend on.
+
+---
+
+## Review round 2 — what was wrong, and what it cost
+
+Five things in the first submission were wrong or unproven. Each is corrected in the tree and in the
+ledger above; this section is what they have in common.
+
+**1. An unreachable pair of negatives (M6).** My draft case asserted
+`getByRole("group", { name: "Draft" })` and then, behind it, that the note says nothing about being
+paused. M6 swaps the draft label for the paused one — so the **first** line failed and neither
+negative was ever reached. The claim "draft and paused do not collapse into one label" was therefore
+**unproven while appearing proven**, which is worse than an absent test. The negatives now live in
+their own case, with the group negative placed **first** so a mutated label reaches it, and
+**M27** — new, and reachable — reddens the wording negative.
+
+**2. Absence assertions with no positive control.** Four assertions denied the presence of something
+without ever showing that the locator can find that something when it exists: the empty-attestation
+card's missing list, the running plan's missing not-running note, the ended plan's missing plan-level
+note, and `exitOnlyOverlayCommit("delivery-detail")` not throwing. Each now renders the **present**
+case first, asserts it, and only then asserts the absence — and each control is itself mutated
+(**M28** for the attestation list, **M29** for the ended plan's row-level reasons, **M6** for the
+not-running note, **M25** for the commit). The ended-plan control was also holding to
+`length > 0`, which any group carrying any words at all satisfies; it is held to expected content now.
+
+**3. A label that promised what the surface behind it cannot hold.** The control read
+`What the phone network reported — Day 1` and opened a drawer with no contact data in it, because
+`OverlayHost` takes no children. I had **disclosed** that in a comment and left the label alone, which
+is precisely the "disclosing a limitation is not discharging it" failure. The visible words are now
+generic — `What a delivery receipt means` — and the cadence label follows as the control's **origin**
+(`opened from the Day 1 row`), which disambiguates one row's control from another's for a
+screen-reader user without claiming anything about what opens. **M26** pins the generic promise;
+**M21** pins the row.
+
+**4. Ruling [130] — the throw stands in for a type, and I should have said so.**
+`exitOnlyOverlayCommit`'s refusal is a runtime check for something the type system could make
+impossible. `WORKSPACE_OVERLAY_DEFINITIONS` is annotated `readonly WorkspaceOverlayDefinition[]` with
+`id: string`, which erases the id literals its `satisfies` clause would otherwise preserve; narrowing
+`id` to a literal union there would let `overlayId` become a derived `NonMutatingOverlayId` and turn
+**M22's wrong wiring into a compile error** — the standard Ruling [87] set. That narrowing lives in
+`definitions.ts`, which is shared with live branches, so it is the coordinator's to land. The throw
+stays as belt-and-braces either way, and is now recorded in the module rather than left implicit.
+
+**5. Three counts restated in prose**, in the commit named for removing them. The test that catches
+them: **is the thing the number counts visible in the same view as the number?** If not, name the set.
+
+---
+
+## A finding: the unmatched anchor was not mine
+
+The `M17 | ANCHOR NOT UNIQUE (0 occurrences) | NOT RUN` line in my driver log is **not** my M17
+failing to match. It is a **foreign mutation row from another task's table**, sitting inside my
+driver's array — `file: "…/plan-wizard/plan-wizard.tsx"`, carrying `from`/`to`/`suite`/`predicts`
+where every row of mine carries `find`/`replace`/`claim`/`predicted`. My own M17 ran and is RED above.
+
+**It never wrote anything, and I proved that rather than assuming it.** The foreign row has no `find`
+key, so the driver's uniqueness check counted occurrences of the string `"undefined"`, got zero, and
+skipped the row — and the skip path performs no write. Independently: `plan-wizard.tsx` is
+byte-identical to `HEAD`, its replacement text (`everyAssuranceConfirmed(input.assurances)`) appears
+nowhere in the tree, and **no commit on this branch touches that file at all**.
+
+**The part worth worrying about: namespacing the directory was not enough.** I moved the driver to
+`scratchpad/cc-plan-detail/` precisely to stop cross-task collisions, and a foreign row still arrived
+inside it. The driver now **refuses** any row whose shape it does not recognise, logging
+`FOREIGN ROW SHAPE`, rather than silently treating it as an unmatched anchor — a skip that reads like
+a near-miss is exactly how this stayed invisible across two passes.
+
+**Both the intermediate lock refusals and this row are itemised** rather than replaced by the later
+clean result, because the discipline asks for every attempt including the ones that did not run. In
+this pass one row (**M29**) was refused the focused-test lease and was retried, not forced.
+
+---
+
+## Presence, now recorded rather than merely enforced
+
+Every row above carries `mutation verified present on disk (in process): true`, read back from the
+file by the driver rather than through a shell. It is load-bearing only for a **green** — a red proves
+its own presence, since a mutation that never reached disk cannot make its own target assertion fail —
+but the field is printed for every attempt so that the one green in the ledger (**M24**) rests on
+evidence rather than on the absence of an abort.
