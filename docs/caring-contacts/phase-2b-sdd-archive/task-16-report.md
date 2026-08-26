@@ -379,6 +379,28 @@ reads of the markup. The screen has not been seen rendering in a browser by me.
 
 ---
 
-**Closing verification, run after this report was written** — the report is the only file changed since
+**Closing verification, run after this report was written.** The report is the only file changed since
 the block above, and no gate in `test:cc-guards` reads it, so the suite line is unchanged and that is
-expected rather than stale. Prettier does read it, and the line below covers it.
+expected rather than stale — re-run anyway, on the committed tree:
+
+```
+ Test Files  27 passed (27)
+      Tests  566 passed (566)
+```
+
+Prettier DOES read this file, and the check below covers it along with every other file this task
+changed — `src/components/caring-contacts/workspace/template-detail.tsx`, `…/templates-library.tsx`,
+`…/overlays/overlay-trigger.tsx`, `src/app/caring-contacts/templates/[pathwayId]/page.tsx`, both test
+files, `tests/ui-caring-contacts-workspace.spec.ts`, `tests/route-reachability.test.ts`,
+`tests/design-system-adoption.test.ts`, `scripts/generate-site-map.ts`, `docs/site-map.md`, the three
+generated `docs/design-system/` artefacts, `package.json`, and this report:
+
+```
+Checking formatting...
+All matched files use Prettier code style!
+```
+
+The regress this could become is worth naming, because the next person appending to a report will meet
+it: a verification block quoting a run, then a run after the block, then a block quoting that run. The
+line to draw is Task 15's — **an append of prose to a report cannot change what any gate reads**, so one
+post-append Prettier run is enough, and this paragraph does not require another.
