@@ -51,6 +51,7 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Jordy",
 };
 
 /** Discharge at 2026-03-02 10:00 AWST. Every date below is derived from this one day. */

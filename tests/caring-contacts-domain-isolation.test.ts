@@ -5,9 +5,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+import { PREFERRED_NAME_MAX_SEPTETS } from "@/lib/caring-contacts/message-copy";
 
 const DOMAIN_ROOT = path.join(process.cwd(), "src", "lib", "caring-contacts");
 const CARING_CONTACTS_ASSURANCE_MIGRATION = "0006_caring_contacts_plan_assurances.sql";
+const CARING_CONTACTS_PREFERRED_NAME_MIGRATION = "0007_caring_contacts_preferred_name.sql";
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -231,6 +233,83 @@ describe("caring-contacts properties that only a source scan can hold", () => {
     const listed = [...(declaration?.[1] ?? "").matchAll(/'([^']+)'/g)].map((match) => match[1]).sort();
 
     expect(listed).toEqual([...PLAN_ASSURANCE_VALUES].sort());
+  });
+
+  it("never fetches the preferred name for a list read", () => {
+    // The same property, and the same argument, as the first-contact reason above: `preferred_name`
+    // is a patient's own name, so pulling it for the team's whole caseload on every list render
+    // would put patient content into a read that deliberately carries none. `getEpisode` selects it
+    // by name, and that is the only read that does.
+    //
+    // Nothing observable through the repository can hold this. Adding the column to `PLAN_COLUMNS`
+    // fetches it for every plan in the team and still releases nothing, because `toPlanRecord` maps
+    // field by field -- identical behaviour, every behavioural test still green. The narrowing lives
+    // in the QUERY.
+    const declaration = /const PLAN_COLUMNS = `([\s\S]*?)`;/.exec(postgresStore());
+
+    // Positive control: the constant was found and really is the plan column list.
+    expect(declaration).not.toBeNull();
+    expect(declaration?.[1]).toContain("patient_name");
+
+    expect(declaration?.[1]).not.toContain("preferred_name");
+  });
+
+  it("never derives the preferred name from the stored patient name", () => {
+    // Owner decision, 2026-08-26, and the one a later "simplification" is most likely to undo: the
+    // preferred name is ASKED FOR. A store that split `patient_name` would greet `Mr John Smith` as
+    // "Mr" and a family-name-first entry by its surname, and it would pass every behavioural test,
+    // because every fixture in this repository happens to have an ordinary given name first.
+    const source = postgresStore();
+
+    // Positive control: the store really does write and read this column, so the absence below is
+    // the invariant rather than a column this file never mentions.
+    expect(source).toContain("preferred_name");
+
+    // The write takes the caller's value and nothing else. `split_part`, `regexp_split_to_array`
+    // and `substring` are how this would be done in SQL; a JavaScript split of a patient name would
+    // have to name `patient_name` on the left of it.
+    expect(source).not.toMatch(/split_part\s*\(\s*patient_name/);
+    expect(source).not.toMatch(/regexp_split_to_array\s*\(\s*patient_name/);
+    expect(source).not.toMatch(/patient_name\s*\)?\s*\.split\(/);
+    expect(source).not.toMatch(/patientName\s*\.split\(/);
+  });
+
+  it("keeps the preferred-name cap at least as strict in the domain as in its SQL backstop", () => {
+    // The domain owns the rule and refuses an over-long name BY NAME (`preferred-name-too-long`)
+    // before any message is built; the column's check constraint is a backstop for a write that
+    // reached the table another way.
+    //
+    // THIS IS `<=`, NOT `=`, AND THE ASYMMETRY IS DELIBERATE -- it is the opposite of 0005's, where
+    // the two express one rule in one unit and had to be pinned equal. Two differences here:
+    //   * THE UNITS DIFFER. The domain caps the name's GSM-7 SEPTET cost, because that is what
+    //     decides whether the message fits two segments; Postgres cannot count septets, so the
+    //     constraint counts characters. Every character costs at least one septet, so a septet cap
+    //     of N implies a character length of at most N -- the constraint can never refuse a name the
+    //     domain accepted.
+    //   * THE DOMAIN CAP IS DERIVED, from the GSM-7 constants and the PROVISIONAL message's own
+    //     length, so the clinical approval gate rewording that message moves it. Pinning equality
+    //     would make a wording review produce a schema migration.
+    //
+    // The dangerous direction is still caught: a domain cap ABOVE this number would turn a named
+    // refusal into a raw constraint violation on a clinical write.
+    const migration = readFileSync(
+      path.join(process.cwd(), "caring-contacts", "supabase", "migrations", CARING_CONTACTS_PREFERRED_NAME_MIGRATION),
+      "utf8",
+    ).replace(/--.*/g, "");
+
+    const sql = /char_length\([\s\S]*?<=\s*(\d+)/.exec(migration);
+
+    // Positive controls, three of them, each covering a different way this could go green while
+    // meaning nothing:
+    //   * the constraint is still the one this test thinks it is (a rename fails loudly);
+    //   * the anchor is UNIQUE, so a second `char_length(` anywhere in the file -- including one
+    //     added to the existence guard -- must fail rather than silently displace the match;
+    //   * the literal was actually found, or the comparison is against `NaN`.
+    expect(migration).toContain("plans_preferred_name_shape");
+    expect(migration.split("char_length(").length - 1).toBe(1);
+    expect(sql?.[1]).toBeDefined();
+
+    expect(PREFERRED_NAME_MAX_SEPTETS).toBeLessThanOrEqual(Number(sql?.[1]));
   });
 
   it("never amends or deletes an attestation from the Postgres store", () => {

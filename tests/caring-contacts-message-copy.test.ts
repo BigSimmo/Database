@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateGsm7 } from "@/lib/caring-contacts/message-policy";
+import { calculateGsm7, maxSeptetsWithin } from "@/lib/caring-contacts/message-policy";
+import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import {
   AUTOMATED_REPLY_GSM7,
   AUTOMATED_REPLY_RESPONSE,
   EXACT_MESSAGE_GSM7,
   EXACT_PATIENT_VISIBLE_MESSAGE,
+  PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS,
   PATIENT_VISIBLE_NO_REPLY_NOTICE,
+  PREFERRED_NAME_MAX_SEPTETS,
+  SPECIMEN_PREFERRED_NAME,
+  resolvePatientVisibleMessage,
 } from "@/lib/caring-contacts/message-copy";
 import {
   DESIGNATED_FICTIONAL_MOBILE_NUMBERS,
@@ -14,10 +19,134 @@ import {
 } from "@/lib/caring-contacts/synthetic-contacts";
 
 describe("caring-contacts patient-visible copy", () => {
-  it("keeps the pinned GSM-7 evidence for both patient-visible strings", () => {
-    expect(EXACT_MESSAGE_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 252, valid: true });
+  it("keeps the patient-visible message inside its approved segment ceiling, for every name it accepts", () => {
+    // THIS REPLACES THE EXACT `septets: 252` PIN, AND IT IS A STRICTLY STRONGER STATEMENT — the pin
+    // was not deleted, it was superseded (2026-08-26).
+    //
+    // 252 was true of ONE message: the specimen, with the fictional name `Rowan` in it. The message
+    // is a template now, so the interesting property is no longer "this one string is 252 septets"
+    // but "no name this domain accepts can push this message past its ceiling". A number cannot say
+    // that; a bound quantified over every accepted length can, and it stays true when the
+    // PROVISIONAL wording changes — which the number could not.
+    //
+    // The specimen's own evidence is still pinned, in caring-contact-mockups.dom.test.tsx, where the
+    // claim belongs: that is the string the mockups render.
+    const ceiling = maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments);
+
+    for (let length = 1; length <= PREFERRED_NAME_MAX_SEPTETS; length += 1) {
+      // Basic-set characters, so one character costs exactly one septet and `length` IS the septet
+      // cost of this name. The extension-set case, where it is not, is its own test below.
+      const name = "x".repeat(length);
+      const resolved = resolvePatientVisibleMessage(name);
+
+      expect(resolved).toMatchObject({ ok: true });
+      if (!resolved.ok) continue;
+
+      // The name really is IN the message. Without this, a template that stopped substituting
+      // would hold every septet claim below constant at the base length and this whole loop would
+      // go green while the message greeted nobody.
+      expect(resolved.text).toContain(name);
+
+      const evidence = calculateGsm7(resolved.text);
+      expect(evidence.valid).toBe(true);
+      expect(evidence.segments).toBeLessThanOrEqual(PROVISIONAL_MESSAGE_RULES.maxSegments);
+      expect(evidence.septets).toBeLessThanOrEqual(ceiling);
+    }
+  });
+
+  it("caps the name at the largest one that fits, and refuses the next character", () => {
+    // Both ends, because a cap that is merely SAFE is not the same claim as a cap that is RIGHT. A
+    // cap of 1 would pass the bound above and quietly refuse almost every real name.
+    const ceiling = maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments);
+    const longestAccepted = "x".repeat(PREFERRED_NAME_MAX_SEPTETS);
+
+    const accepted = resolvePatientVisibleMessage(longestAccepted);
+    expect(accepted).toMatchObject({ ok: true });
+    if (accepted.ok) {
+      const evidence = calculateGsm7(accepted.text);
+      // Exactly at the ceiling, not merely below it: the cap spends all the headroom there is.
+      expect(evidence.septets).toBe(ceiling);
+      expect(evidence.segments).toBe(PROVISIONAL_MESSAGE_RULES.maxSegments);
+    }
+
+    expect(resolvePatientVisibleMessage(`${longestAccepted}x`)).toEqual({
+      ok: false,
+      issue: {
+        code: "preferred-name-too-long",
+        septets: PREFERRED_NAME_MAX_SEPTETS + 1,
+        maxSeptets: PREFERRED_NAME_MAX_SEPTETS,
+      },
+    });
+
+    // And the refusal is not the cap being zero or negative: there is real room here. The comment in
+    // message-copy.ts once read "no room left", which meant no room for one particular extra
+    // sentence and was later read as meaning no headroom at all.
+    expect(PREFERRED_NAME_MAX_SEPTETS).toBe(ceiling - PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS);
+    expect(PREFERRED_NAME_MAX_SEPTETS).toBeGreaterThan(0);
+  });
+
+  it("counts the name in septets rather than characters, so a two-septet character costs two", () => {
+    // `€` is a GSM-7 EXTENSION character: one character, two septets. A cap measured in characters
+    // would accept a name of `PREFERRED_NAME_MAX_SEPTETS` of them and produce a three-segment
+    // message. The positive control is the half-length name, which must still be accepted — an
+    // implementation that simply refused every `€` would pass the refusal alone.
+    const halfLength = Math.floor(PREFERRED_NAME_MAX_SEPTETS / 2);
+
+    const accepted = resolvePatientVisibleMessage("€".repeat(halfLength));
+    expect(accepted).toMatchObject({ ok: true });
+    if (accepted.ok) {
+      expect(calculateGsm7(accepted.text).segments).toBe(PROVISIONAL_MESSAGE_RULES.maxSegments);
+    }
+
+    const refused = resolvePatientVisibleMessage("€".repeat(PREFERRED_NAME_MAX_SEPTETS));
+    expect(refused).toMatchObject({ ok: false, issue: { code: "preferred-name-too-long" } });
+  });
+
+  it("refuses rather than sending an unpersonalised greeting nobody has authored", () => {
+    // There is no no-name wording, and inventing one would be an implementer drafting
+    // patient-visible copy for a suicide-prevention message. So the absence is a loud refusal,
+    // exactly as `resolveClosingContactMessageBody` refuses for the closing message.
+    for (const absent of [null, "", "   "]) {
+      expect(resolvePatientVisibleMessage(absent)).toEqual({
+        ok: false,
+        issue: { code: "preferred-name-not-recorded" },
+      });
+    }
+
+    // Positive control: the same function DOES produce a message when a name is recorded, so the
+    // three refusals above are the absence being refused rather than the function refusing always.
+    expect(resolvePatientVisibleMessage("Rowan")).toMatchObject({ ok: true });
+  });
+
+  it("refuses a name this channel cannot carry, rather than emitting a message it would mangle", () => {
+    // `ë` is outside the GSM-7 alphabet. `calculateGsm7` reports the whole message `valid: false`,
+    // and `validateGovernedMessage` checks the segment ceiling only when the message IS valid — so
+    // an accepted `Zoë` would produce a message that passes every check this domain has and still
+    // arrives damaged. Refusing by name is the conservative failure; the character set is a telecom
+    // specification, so nothing here decides anything about the patient.
+    expect(resolvePatientVisibleMessage("Zoë")).toEqual({
+      ok: false,
+      issue: { code: "preferred-name-not-sendable", unsupportedCharacters: ["ë"] },
+    });
+
+    // Positive control on the alphabet itself: accented characters that ARE in GSM-7 are accepted,
+    // so this is a transport limit rather than a blanket refusal of anything unfamiliar.
+    expect(resolvePatientVisibleMessage("José")).toMatchObject({ ok: true });
+  });
+
+  it("builds the specimen from the template rather than holding a second copy of the wording", () => {
+    // The reversal of Ruling [127] is narrow: the message gained a slot and nothing else changed.
+    // The specimen is the template with the fictional name in it, so there is no second string that
+    // could drift from the one the resolver produces.
+    const resolved = resolvePatientVisibleMessage(SPECIMEN_PREFERRED_NAME);
+    expect(resolved).toEqual({ ok: true, text: EXACT_PATIENT_VISIBLE_MESSAGE });
+    expect(EXACT_PATIENT_VISIBLE_MESSAGE).toContain(`Hi ${SPECIMEN_PREFERRED_NAME},`);
+  });
+
+  it("keeps the pinned GSM-7 evidence for the automated reply", () => {
     // 218 -> 210 septets, owner-approved 2026-08-24 (items A2 + A3): the first sentence was
-    // replaced, see the "A2 + A3" describe block below for the full covering tests.
+    // replaced, see the "A2 + A3" describe block below for the full covering tests. This one is
+    // still a fixed string with no slot, so an exact pin is still the right claim about it.
     expect(AUTOMATED_REPLY_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 210, valid: true });
   });
 

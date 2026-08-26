@@ -201,6 +201,67 @@ describe("caring-contact migrations", () => {
     await expect(setReason(`  ${"x".repeat(500)}  `)).resolves.toBeUndefined();
   });
 
+  it("holds the preferred name nullable, undefaulted, unbackfilled, and bounded", async () => {
+    // Migration 0007. Four properties, each a real defect if it were otherwise:
+    //
+    //   * NULLABLE and UNDEFAULTED, because plans created before this column existed hold no
+    //     preferred name and no placeholder was written into them. A default -- least of all one
+    //     derived from `patient_name` -- would fabricate a clinical record.
+    //   * NOT BACKFILLED, so an existing row still reads null rather than a value nobody supplied.
+    //   * THE EMPTY STRING IS ACCEPTED, because that is what a retention clearance writes, exactly
+    //     as it does for `patient_name`. This is the one place 0007 deliberately differs from 0005:
+    //     there, `''` can only be a caller's bug; here it is the cleared value, and refusing it
+    //     would make `markRetentionCleared` fail against a real database.
+    //   * BOUNDED, so unbounded free text cannot reach a column a patient-visible message is
+    //     substituted from by a route that bypassed the domain's own refusal.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plans'
+         and column_name = 'preferred_name'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-PREFERRED", patientId: "PATIENT-PREFERRED" });
+
+    // NO BACKFILL, proven on a row this migration never touched: the seed writes no preferred name,
+    // so anything other than null here would be a default or a backfill acting.
+    const { rows: seeded } = await pool.query<{ preferred_name: string | null }>(
+      "select preferred_name from caring_contacts.plans where id = $1",
+      ["PLAN-PREFERRED"],
+    );
+    expect(seeded[0].preferred_name).toBeNull();
+
+    const setPreferredName = async (value: string) =>
+      runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-PREFERRED",
+          outcome: "allowed",
+          idempotencyKey: `preferred-${value.length}`,
+        });
+        await client.query("update caring_contacts.plans set preferred_name = $1 where id = $2", [
+          value,
+          "PLAN-PREFERRED",
+        ]);
+      });
+
+    // Positive control: an ordinary preferred name is accepted, so the refusal below is the check
+    // constraint acting rather than the update never reaching the table.
+    await expect(setPreferredName("Rowan")).resolves.toBeUndefined();
+
+    // The clearance's own value. `markRetentionCleared` writes this against a real database, so a
+    // constraint that refused it would break de-identification rather than protect anything.
+    await expect(setPreferredName("")).resolves.toBeUndefined();
+
+    await expect(setPreferredName("x".repeat(500))).rejects.toThrow(/plans_preferred_name_shape/);
+  });
+
   it("holds the plan assurances as a closed, undefaulted, team-scoped attestation", async () => {
     // Migration 0006. Four properties, each a real defect if it were otherwise:
     //

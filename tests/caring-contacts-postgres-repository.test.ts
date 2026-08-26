@@ -156,8 +156,11 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
   const PATIENT_MOBILE = "+61 491 570 156";
   const PATIENT_IDENTIFIER = "UR-00219384";
   const CULTURAL_IDENTITY = "Noongar";
+  // Not a substring of `PATIENT_NAME`, deliberately: the preferred name is asked for rather than
+  // split off the stored one, so an absence check on it must be able to fail independently.
+  const PREFERRED_NAME = "Jordy";
 
-  it("stores no row containing the patient's name, mobile number, identifiers or cultural identity", async () => {
+  it("stores no row containing the patient's name, preferred name, mobile number, identifiers or cultural identity", async () => {
     const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
     const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
 
@@ -201,6 +204,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
           patientMobileNumber: PATIENT_MOBILE,
           patientIdentifiers: [PATIENT_IDENTIFIER],
           culturalIdentity: CULTURAL_IDENTITY,
+          preferredName: PREFERRED_NAME,
         },
       },
       context("idem-create"),
@@ -213,6 +217,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     const episode = await store.getEpisode(planId("IDEM-PLAN"), { actor: COORDINATOR });
     expect(episode?.patientName).toBe(PATIENT_NAME);
     expect(episode?.culturalIdentity).toBe(CULTURAL_IDENTITY);
+    expect(episode?.preferredName).toBe(PREFERRED_NAME);
 
     const rows = await pool.query(
       "select fingerprint, result::text as result from caring_contacts.idempotency_records",
@@ -228,6 +233,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
       "491 570 156",
       PATIENT_IDENTIFIER,
       CULTURAL_IDENTITY,
+      PREFERRED_NAME,
     ]) {
       expect(stored).not.toContain(secret);
     }

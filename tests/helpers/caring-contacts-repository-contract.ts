@@ -86,6 +86,11 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  // DELIBERATELY NOT A SUBSTRING OF `patientName`, and not derivable from it by any split. The
+  // preferred name is ASKED FOR rather than parsed off the stored name (2026-08-26), so a fixture
+  // where the two overlap would let an implementation that DID split satisfy every assertion about
+  // it -- and would make the `JSON.stringify` absence checks below unable to tell the two apart.
+  preferredName: "Jordy",
 };
 
 /**
@@ -2974,6 +2979,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(before?.patientMobileNumber).not.toBe("");
         expect(before?.patientIdentifiers).not.toEqual([]);
         expect(before?.culturalIdentity).toBe("Noongar");
+        expect(before?.preferredName).toBe("Jordy");
 
         unwrap(
           await store.markRetentionCleared(
@@ -2987,6 +2993,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(episode?.patientMobileNumber).toBe("");
         expect(episode?.patientIdentifiers).toEqual([]);
         expect(episode?.culturalIdentity).toBeNull();
+        expect(episode?.preferredName).toBe("");
       });
     });
 
@@ -3057,6 +3064,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(before?.patientName).toBe(PATIENT_DETAIL.patientName);
         expect(before?.patientMobileNumber).toBe(PATIENT_DETAIL.patientMobileNumber);
         expect(before?.patientIdentifiers).toEqual([...PATIENT_DETAIL.patientIdentifiers]);
+        expect(before?.preferredName).toBe(PATIENT_DETAIL.preferredName);
 
         unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-deid")));
 
@@ -3073,6 +3081,13 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(after?.patientMobileNumber).toBe("");
         expect(after?.patientIdentifiers).toEqual([]);
         expect(after?.culturalIdentity).toBeNull();
+        // The name the patient asked to be called goes too (2026-08-26). It is Ruling [105]'s class
+        // rather than Ruling [122]'s: the attestation is preserved because it holds no patient
+        // content, and this holds nothing else. It clears to `""` rather than null, matching
+        // `patientName`, so a REMOVED preferred name stays distinguishable from an episode that
+        // never held one -- which is null and is what every plan predating the column carries.
+        expect(after?.preferredName).toBe("");
+        expect(JSON.stringify(after)).not.toContain("Jordy");
         expect(JSON.stringify(after)).not.toContain("Jordan");
         expect(JSON.stringify(after)).not.toContain("491 570 156");
         expect(JSON.stringify(after)).not.toContain("UR-00219384");

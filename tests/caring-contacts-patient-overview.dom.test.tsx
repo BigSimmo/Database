@@ -139,6 +139,7 @@ async function createPlan(
         patientMobileNumber: "0400000000",
         patientIdentifiers: ["SYN-UMRN-001"],
         culturalIdentity: "Not stated",
+        preferredName: "Rowan",
       },
       assurances: PLAN_ASSURANCE_VALUES,
     },

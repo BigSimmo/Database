@@ -83,6 +83,7 @@ const PATIENT_DETAIL = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Rowan",
 };
 
 /** A stage-1 panel with every confirmation made, which is the only state stage 4 can be reached in. */

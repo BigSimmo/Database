@@ -396,6 +396,28 @@ function EpisodeOverview({
           </div>
         ) : null}
 
+        {/*
+          THE NAME THE MESSAGES OPEN WITH, AND ITS THREE STATES KEPT APART.
+
+          A cleared episode and one that never held a preferred name are different facts and must
+          not read as the same one. `""` is the retention clearance's own value
+          (`CLEARED_PATIENT_DETAIL.preferredName`), exactly as a blank name and a blank number are;
+          `null` is an episode that predates the field, or one whose caller supplied none. Each gets
+          its own sentence, and NEITHER names a cause the record cannot support -- "removed when this
+          episode was de-identified" is an act this record does hold, and "none is held" says only
+          what is true now rather than guessing why (see `Episode.preferredName`).
+        */}
+        {episode === null ? null : (
+          <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+            <span className="font-medium text-[color:var(--text)]">Called this in messages: </span>
+            {episode.preferredName === null
+              ? "none is held for this episode"
+              : episode.preferredName === ""
+                ? "removed when this episode was de-identified"
+                : episode.preferredName}
+          </p>
+        )}
+
         {episode !== null && episode.patientIdentifiers.length > 0 ? (
           <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
             <span className="font-medium text-[color:var(--text)]">Other identifiers: </span>

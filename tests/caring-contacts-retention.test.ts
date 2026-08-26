@@ -65,6 +65,10 @@ function baseEpisode(overrides: Partial<Episode> = {}): Episode {
     patientMobileNumber: "+61 491 570 156",
     patientIdentifiers: ["UR-00219384", "MRN-778213"],
     culturalIdentity: "Aboriginal",
+    // The name this patient asked to be called. Deliberately NOT a substring of `patientName`: it
+    // is asked for rather than split off the stored name, so the absence check below can fail
+    // independently of the one on `patientName`.
+    preferredName: "Jordy",
     // Free text a clinician wrote about this patient, so de-identification must drop it with the
     // other identifying fields rather than carry it into the reporting projection.
     firstContactReason: "Patient asked to wait until she is home from her sister's.",
@@ -212,13 +216,18 @@ describe("rule 2: isDueForDeidentification", () => {
 // ---------------------------------------------------------------------------
 
 describe("rule 3: deidentifyEpisode", () => {
-  it("removes patient name, mobile, identifiers, and cultural identity", () => {
+  it("removes patient name, preferred name, mobile, identifiers, and cultural identity", () => {
     const deidentified = deidentifyEpisode(baseEpisode()) as unknown as Record<string, unknown>;
     expect(deidentified).not.toHaveProperty("patientName");
     expect(deidentified).not.toHaveProperty("patientMobileNumber");
     expect(deidentified).not.toHaveProperty("patientIdentifiers");
     expect(deidentified).not.toHaveProperty("culturalIdentity");
-    // The fifth field (Ruling 105). It is not on this module's own list, because that list names
+    // The name the patient asked to be called (2026-08-26). Nothing but patient content, so it is
+    // removed with the rest of it -- and the string check is what proves the property is gone
+    // rather than merely the key, on a fixture where the value cannot come from anywhere else.
+    expect(deidentified).not.toHaveProperty("preferredName");
+    expect(JSON.stringify(deidentified)).not.toContain("Jordy");
+    // The reason a first contact moved (Ruling 105). It is not on this module's own list, because that list names
     // what identifies a patient and this names a scheduling decision -- but its VALUE is prose a
     // clinician typed about this patient, so a de-identified episode carrying it would be
     // de-identified in name only.
