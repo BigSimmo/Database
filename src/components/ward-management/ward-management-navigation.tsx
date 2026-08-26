@@ -11,7 +11,7 @@ import shellStyles from "./ward-management.module.css";
 import sidebarStyles from "./ward-sidebar.module.css";
 import { WardDemoControls } from "./ward-demo-controls";
 import { WardRoleSwitcher } from "./ward-role-switcher";
-import { WardSidebarContent } from "./ward-sidebar-content";
+import { WardSidebarContent, WardSidebarFooter, WardSidebarNav } from "./ward-sidebar-content";
 import { WARD_NAV_ICONS, WARD_VIEW_ICONS } from "./ward-nav-icons";
 import { WARD_DEVELOPER_HUB_HREF, WARD_NAV, WARD_VIEWS, type WardMode, type WardNavItem } from "./ward-nav";
 import { useWardSidebarCollapsed } from "./use-ward-sidebar-collapsed";
@@ -103,8 +103,9 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
       {!collapsed ? (
         <aside className={sidebarStyles.panel} aria-label="Ward Flow sidebar">
           <div className={sidebarStyles.panelScroll}>
-            <WardSidebarContent activeMode={activeMode} onCollapse={() => setCollapsed(true)} />
+            <WardSidebarNav activeMode={activeMode} onCollapse={() => setCollapsed(true)} />
           </div>
+          <WardSidebarFooter />
         </aside>
       ) : null}
 
@@ -163,33 +164,40 @@ function WardIconRail({
         <PanelLeftOpen aria-hidden="true" className={shellStyles.railExpandIcon} />
       </button>
       <div className={shellStyles.railRule} aria-hidden="true" />
-      <WardModeNavigation active={activeMode} />
-      <div className={shellStyles.railRule} aria-hidden="true" />
-      {/*
-       * "Ward Flow role screens" holds the one non-arbitrary role entry point (Officer); the
-       * nested group holds the two that name one arbitrary synthetic instance rather than a
-       * section of the app (D10) and says so in its own aria-label. Coordinator is deliberately
-       * absent from both — it is the "Command" view one group up.
-       */}
-      <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow role screens">
-        {WARD_NAV.filter((item) => item.group === "role" && !item.exampleOnly).map((item) => (
-          <WardNavLink key={item.id} item={item} />
-        ))}
-        <div
-          className={shellStyles.railGroup}
-          role="group"
-          aria-label="Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"
-        >
-          {WARD_NAV.filter((item) => item.group === "role" && item.exampleOnly).map((item) => (
+      {/* Scrolls, so the pinned bottom block below can never be pushed off the screen. Fourteen
+          icons plus rules overflow a 900px-tall viewport, and this rail's overflow has already
+          cost one silent defect: the bottom block overlapped the last links and swallowed their
+          clicks while every link stayed in the DOM and every unit test stayed green. Same
+          treatment, same reason, as `collapsed-sidebar-scroll-region` in the clinical sidebar. */}
+      <div className={shellStyles.railScroll} data-testid="ward-rail-scroll-region">
+        <WardModeNavigation active={activeMode} />
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        {/*
+         * "Ward Flow role screens" holds the one non-arbitrary role entry point (Officer); the
+         * nested group holds the two that name one arbitrary synthetic instance rather than a
+         * section of the app (D10) and says so in its own aria-label. Coordinator is deliberately
+         * absent from both — it is the "Command" view one group up.
+         */}
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow role screens">
+          {WARD_NAV.filter((item) => item.group === "role" && !item.exampleOnly).map((item) => (
+            <WardNavLink key={item.id} item={item} />
+          ))}
+          <div
+            className={shellStyles.railGroup}
+            role="group"
+            aria-label="Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"
+          >
+            {WARD_NAV.filter((item) => item.group === "role" && item.exampleOnly).map((item) => (
+              <WardNavLink key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow specialist boards">
+          {WARD_NAV.filter((item) => item.group === "board").map((item) => (
             <WardNavLink key={item.id} item={item} />
           ))}
         </div>
-      </div>
-      <div className={shellStyles.railRule} aria-hidden="true" />
-      <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow specialist boards">
-        {WARD_NAV.filter((item) => item.group === "board").map((item) => (
-          <WardNavLink key={item.id} item={item} />
-        ))}
       </div>
       <div className={shellStyles.railBottom}>
         {/* The role switcher is the one control the proof journey (spec section 14) uses to move
