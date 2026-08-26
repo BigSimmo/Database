@@ -576,8 +576,24 @@ Test Files  22 passed (22)
 Tests  457 passed (457)
 ```
 
-The tree was clean and unchanged across all six attempts, so the passing run covers exactly the
-tree the first refusal was asked about.
+The tree was clean and unchanged across all six attempts, so that run covers exactly the tree the
+first refusal was asked about.
+
+**And it was run AGAIN after this section was appended**, because the rule is "re-verify after your
+final edit", not "after your final code edit". The second run refused once and then landed:
+
+```
+attempt 1: UNRUN - lock refusal
+attempt 2: RAN, exit 0
+Test Files  22 passed (22)
+      Tests  457 passed (457)
+```
+
+The regress this could turn into is worth naming, because the next person appending a report will
+meet it: a verification block quoting a run, then a run after the block, then a block quoting that
+run, and so on. The line to draw is that **an append of prose to a report cannot change what any
+gate reads** — no gate in `test:cc-guards` opens this file — so one post-append run is enough, and
+this paragraph does not require another. A code edit is a different matter and always does.
 
 **The gate line is unchanged at 22/457, and that is expected rather than a stale number.** This
 round added no Vitest case: `0dc7e0990` changes two comments and nothing else, and the previous
