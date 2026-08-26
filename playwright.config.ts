@@ -25,13 +25,13 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const productionSpecPattern =
   /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/;
 const mockupSpecPattern =
-  /.*ui-(answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles)\.spec\.ts/;
+  /.*ui-(answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles)|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges)|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently

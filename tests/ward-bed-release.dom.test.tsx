@@ -53,41 +53,72 @@ describe("ward bed release flag", () => {
     const blockerSelect = screen.getByLabelText("Blocker");
     expect(confidenceSelect.tagName).toBe("SELECT");
     expect(blockerSelect.tagName).toBe("SELECT");
+
+    // Fix round 2 (P1): the ward's own estimate of when the bed will be free is a plain
+    // `<input type="time">`, same as the leave-bed form's "Expected return" — not a picker, but
+    // also never free text.
+    const expectedAtInput = screen.getByLabelText("Expected free");
+    expect(expectedAtInput.tagName).toBe("INPUT");
+    expect(expectedAtInput).toHaveAttribute("type", "time");
   });
 
-  it("starts with the submit button disabled until both fields are chosen, then flags a release that raises potential by one", () => {
+  it("starts with the submit button disabled until confidence is chosen, then flags a release that raises the predicted count by one", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardScreen unitId="rph-adult-secure" />
       </WardFlowProvider>,
     );
 
-    // Baseline: one fixture-seeded release for this unit already shows as Potential 1.
+    // Baseline: the one fixture-seeded release for this unit (WR-001) is already `confirmed`, so
+    // it shows as Confirmed 1, Predicted 0 — the two figures that replaced the raw, state-blind
+    // "Potential 1" this screen used to show for the same release (unitCapacity()'s `potential`
+    // counted every release regardless of state; capacityBreakdown() tells confirmed from
+    // predicted apart).
     const bedsBefore = screen.getByTestId("ward-unit-beds");
-    expect(within(bedsBefore).getByText("Potential 1")).toBeInTheDocument();
+    expect(within(bedsBefore).getByText("Confirmed 1")).toBeInTheDocument();
+    expect(within(bedsBefore).getByText("Predicted 0")).toBeInTheDocument();
 
     const submit = screen.getByTestId("ward-flag-bed-release-submit");
     expect(submit).toBeDisabled();
 
+    // Blocker is optional (Phase 5, spec D3: a flag with no blocker is a plain prediction, not a
+    // held release) — so confidence alone is enough to enable the submit, and choosing then
+    // clearing a blocker again must not leave it disabled either.
     fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "likely" } });
-    expect(submit).toBeDisabled(); // blocker still unchosen
+    expect(submit).not.toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "Awaiting clean" } });
     expect(submit).not.toBeDisabled();
 
+    // The expected-free time is required for the dispatch to actually go through (the reducer's
+    // own comment on `FLAG_BED_RELEASE` explains why an estimate matters), but is deliberately
+    // NOT wired into the submit button's own `disabled` state — same precedent the leave-bed
+    // form's "Expected return" already sets, where only `bedReleaseConfidence` gates the button.
+    fireEvent.change(screen.getByLabelText("Expected free"), { target: { value: "16:30" } });
+
+    // Clear the blocker back to "No blocker" before submitting. Spec D3 makes blocker and
+    // confidence mutually exclusive on the produced record — a release flagged with a blocker is
+    // written `blocked`, and `capacityBreakdown()` never counts a `blocked` release into Confirmed
+    // or Predicted (see its own file-level comment). Submitting with a blocker still selected
+    // would leave every figure on this screen unchanged, and this test could no longer tell a real
+    // dispatch from a no-op. Confidence alone keeps the flagged release a plain prediction.
+    fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "" } });
+
     fireEvent.click(submit);
 
     // After a real FLAG_BED_RELEASE dispatch updates state.bedReleases, the screen must show the
-    // new live count — resolving from the frozen fixture (as `unitCapacity` did before this task)
-    // would keep showing Potential 1 forever.
+    // new live Predicted count — resolving from the frozen fixture (as `unitCapacity` did before
+    // this task) would keep showing Predicted 0 forever. Confirmed is unchanged: the new release
+    // is `predicted`, not `confirmed`.
     const bedsAfter = screen.getByTestId("ward-unit-beds");
-    expect(within(bedsAfter).getByText("Potential 2")).toBeInTheDocument();
+    expect(within(bedsAfter).getByText("Confirmed 1")).toBeInTheDocument();
+    expect(within(bedsAfter).getByText("Predicted 1")).toBeInTheDocument();
 
     // The form resets after a successful submit, ready for the next flag.
     expect(screen.getByTestId("ward-flag-bed-release-submit")).toBeDisabled();
   });
 
-  it("never moves a sibling unit's own live potential count", () => {
+  it("never moves a sibling unit's own live capacity figures", () => {
     // Both surfaces share one provider instance, so a dispatch from the ward screen is read back
     // through the SAME live state the statewide capacity board reads — not a second, disconnected
     // copy that could never actually catch a unit-scoping bug.
@@ -101,19 +132,29 @@ describe("ward bed release flag", () => {
     // sjgm-adult-open carries no bed release in the fixture at all — asserted directly against
     // the live capacity row rather than the static fixture constant, so a scoping bug in the
     // reducer (writing the flagged release to every unit, or to the wrong one) would be caught
-    // here even though it could never show up in the frozen `bedReleases` array itself.
+    // here even though it could never show up in the frozen `bedReleases` array itself. Both
+    // Confirmed and Predicted are checked, not just one, since a scoping bug could leak into
+    // either bucket.
     const sjgmRowBefore = screen.getByTestId("ward-capacity-row-sjgm-adult-open");
-    expect(sjgmRowBefore).toHaveTextContent("0Potential");
+    expect(sjgmRowBefore).toHaveTextContent("0Confirmed");
+    expect(sjgmRowBefore).toHaveTextContent("0Predicted");
 
-    fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "confirmed" } });
-    fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "Awaiting pharmacy" } });
+    // No blocker: a release flagged with a blocker is written `blocked`, and capacityBreakdown()
+    // never counts a `blocked` release into Confirmed or Predicted (see that file's own comment)
+    // — leaving no figure on either row to move, and no way for this test to catch a scoping bug.
+    // Confidence alone keeps the flagged release a plain prediction, which does move a real,
+    // visible number.
+    fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "likely" } });
+    fireEvent.change(screen.getByLabelText("Expected free"), { target: { value: "16:30" } });
     fireEvent.click(screen.getByTestId("ward-flag-bed-release-submit"));
 
-    // rph-adult-secure's own row moved to Potential 2 (the same figure proved on the ward screen
-    // above) — the sibling must not.
+    // rph-adult-secure's own row moved from Predicted 0 to Predicted 1 (the same figure proved on
+    // the ward screen above) — the sibling must not move at all.
     const rphRowAfter = screen.getByTestId("ward-capacity-row-rph-adult-secure");
-    expect(rphRowAfter).toHaveTextContent("2Potential");
+    expect(rphRowAfter).toHaveTextContent("1Confirmed");
+    expect(rphRowAfter).toHaveTextContent("1Predicted");
     const sjgmRowAfter = screen.getByTestId("ward-capacity-row-sjgm-adult-open");
-    expect(sjgmRowAfter).toHaveTextContent("0Potential");
+    expect(sjgmRowAfter).toHaveTextContent("0Confirmed");
+    expect(sjgmRowAfter).toHaveTextContent("0Predicted");
   });
 });

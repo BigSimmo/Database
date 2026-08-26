@@ -428,7 +428,8 @@
   color: var(--net-warn);
 }
 
-.bedChip[data-state="potential"] {
+.bedChip[data-state="confirmed"],
+.bedChip[data-state="predicted"] {
   border-style: dashed;
   border-color: var(--net-blue);
   color: var(--net-blue);
@@ -528,7 +529,8 @@
   background: var(--net-warn-soft);
 }
 
-.legendSwatch[data-state="potential"] {
+.legendSwatch[data-state="confirmed"],
+.legendSwatch[data-state="predicted"] {
   border-style: dashed;
   border-color: var(--net-blue);
 }

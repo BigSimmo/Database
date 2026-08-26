@@ -95,6 +95,7 @@ export const WARD_NAV: readonly WardNavItem[] = [
   { id: "handover", href: "/mockups/ward-flow/handover", label: "Handover", group: "board" },
   { id: "escalation", href: "/mockups/ward-flow/escalation", label: "Escalation", group: "board" },
   { id: "search", href: "/mockups/ward-flow/search", label: "Patient search", group: "board" },
+  { id: "discharges", href: "/mockups/ward-flow/discharges", label: "Discharges", group: "board" },
 ];
 
 /**

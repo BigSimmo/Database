@@ -32,6 +32,7 @@ import { CoordinatorScreen } from "@/components/ward-management/coordinator/coor
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
+import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { HandoverPage } from "@/components/ward-management/handover/handover-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
@@ -94,15 +95,17 @@ const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((ent
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
   it("finds every known page.tsx under src/app/mockups/ward-flow, both static and dynamic", () => {
-    // 16 page.tsx files measured on this branch at HEAD: 13 static + 3 dynamic
-    // (ed/[edId], patients/[patientId], ward/[unitId]). A silently broken scan (e.g. resolving
-    // the wrong directory) would collapse this to 0 or a handful, and every assertion below would
-    // then vacuously pass — so this is checked before trusting any of them.
-    expect(wardFlowRoutes.length).toBe(16);
+    // 17 page.tsx files measured on this branch at HEAD: 14 static + 3 dynamic
+    // (ed/[edId], patients/[patientId], ward/[unitId]) — Task 6 added the discharges board.
+    // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
+    // handful, and every assertion below would then vacuously pass — so this is checked before
+    // trusting any of them.
+    expect(wardFlowRoutes.length).toBe(17);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/search`);
+    expect(staticRoutes).toContain(`${ROUTE_PREFIX}/discharges`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/transport/officer`);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ward/rph-adult-secure`))).toBe(true);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ed/peel-ed`))).toBe(true);
@@ -273,6 +276,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/exceptions`, render: () => createElement(WardModeWorkspace, { mode: "exceptions" }) },
   { route: `${ROUTE_PREFIX}/ed/[edId]`, render: () => createElement(EdScreen, { edId: "peel-ed" }) },
   { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
+  { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
   { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
   { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
   { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
@@ -293,7 +297,7 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
-    expect(RENDERABLE_ROUTES.length).toBe(15);
+    expect(RENDERABLE_ROUTES.length).toBe(16);
   });
 });
 

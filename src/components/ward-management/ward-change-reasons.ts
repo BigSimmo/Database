@@ -77,6 +77,13 @@ export const BED_RELEASE_BLOCKERS = [
   "Awaiting pharmacy",
   "Awaiting placement confirmation",
   "Awaiting service coordination",
+  // Phase 5 (spec D3). Operational facts about the bed, chosen for the "ready but cannot leave"
+  // case. Deliberately NOT added: guardianship, financial arrangements, family availability — each
+  // describes the person rather than the bed, and so follows "Pending case review outcome" out of
+  // this list. Adding one is a recorded product decision, never an implementer's convenience.
+  "Awaiting accommodation",
+  "Awaiting transport",
+  "Awaiting receiving-service acceptance",
 ] as const;
 export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
 
