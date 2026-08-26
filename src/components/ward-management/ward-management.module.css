@@ -203,6 +203,30 @@
   background: var(--ward-border);
 }
 
+/*
+ * The rail's scrollable middle. Fourteen 3rem icons plus their rules overflow a 900px-tall
+ * viewport, and this rail's overflow is not a theoretical problem: an earlier version pushed
+ * `.railBottom` over the last nav links, which then swallowed their clicks while every link
+ * stayed in the DOM and keyboard-reachable, so the entire unit suite passed and one Chromium
+ * journey timed out. Scrolling here keeps the pinned bottom block reachable at any height.
+ */
+.railScroll {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ward-space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.railScroll::-webkit-scrollbar {
+  display: none;
+}
+
 .railNav,
 .railBottom {
   display: grid;
