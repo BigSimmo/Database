@@ -1954,7 +1954,18 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
       "This browser is not writing this sign-up down",
     );
     // And the one row whose words differ, held to its own literal for the same reason.
-    expect(WIZARD_DECISION_REFUSAL_OVERRIDES["discard-changes"]?.["sign-up-still-here"]).toContain(
+    //
+    // TWO ASSERTIONS, NOT ONE OPTIONAL CHAIN. The first version read
+    // `OVERRIDES["discard-changes"]?.["sign-up-still-here"]` and went red when the row key was
+    // renamed -- but with "the given combination of arguments (undefined and string) is invalid for
+    // this assertion", which names neither the row nor the wording. A degenerate receiver is still a
+    // failure, but it cannot tell "the override is gone" from "the wording changed", and that is the
+    // whole distinction this pin exists to draw.
+    expect(
+      Object.hasOwn(WIZARD_DECISION_REFUSAL_OVERRIDES, "discard-changes"),
+      "discard-changes no longer has its own refusal wording, so it falls back to the sentence that tells a coordinator to start again",
+    ).toBe(true);
+    expect(WIZARD_DECISION_REFUSAL_OVERRIDES["discard-changes"]["sign-up-still-here"]).toContain(
       "there was nothing left to discard",
     );
   });
