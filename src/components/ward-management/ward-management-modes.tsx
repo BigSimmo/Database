@@ -137,7 +137,10 @@ function ModeHeader({
             does no searching and is not source-backed. Found by looking at a screenshot — every
             measurement run against this codebase missed it, because nothing was structurally
             wrong with it. */}
-        <span>
+        {/* Hidden by CSS whenever the labelled sidebar panel is open, because that panel already
+            carries this exact name and tagline — seen side by side in one eyeline on a
+            screenshot, which is the only place a duplicate like this shows up. */}
+        <span className={styles.modeBrand}>
           <strong>Ward Flow</strong>
           <small>Synthetic patient-flow prototype</small>
         </span>
