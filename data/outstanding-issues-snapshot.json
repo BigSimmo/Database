@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 139,
+    "pending": 149,
     "resolved": 376
   },
   "queue": [
@@ -1038,6 +1038,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "4921f31f-cdb9-48a3-9a15-774d7d4c0e73",
+      "action": "done",
+      "summary": "#RZQQBT: Verified PreCompact hook emits valid structured context on stdout.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "4b73054d-b058-42b3-acc4-a27d607c3d08",
       "action": "done",
       "summary": "#V0EDR4: Resolved by an explicit 2026-08-23 owner decision: preserve two purpose-specific Favourites surfaces rather than force visual equality. The dashboard FavouritesHub is the compact browse hub and retains ModeHomeHero; /favourites is the full standalone command library and starts at its single workspace h1 so filters and saved-item controls remain above fold. Both still share sharedHomePresentation.favourites identity copy and composer geometry. The decision is now recorded beside both owners in src/components/clinical-dashboard/favourites-hub.tsx and favourites-command-library-page.tsx and pinned by tests/search-route-ownership.test.ts, which asserts the compact hub keeps ModeHomeHero while the standalone workspace does not. Focused verification: npm run test -- tests/search-route-ownership.test.ts passed 1 file and 22 tests on 2026-08-23. This supersedes the cancelled premature closure a1495b3e-29fb-489a-a261-df3dcb142f51, which relied on route topology without pinning the product decision.",
@@ -1104,6 +1110,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "57ea4b5c-47ef-4ca0-9598-80f2771e3a2c",
+      "action": "done",
+      "summary": "#RSD9EJ: Updated pre-push guard to resolve comparison baselines against git merge-base.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "608150d5-7aa4-4b98-b497-1a9f1feaf4b5",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Two real Claude Code v2.1.237 auto-compactions correlate with the hook log. .git/worktrees/caring-contacts-phase-2a-11b-a37803/claude-precompact.log records 2026-08-22T11:37:51Z before C:/Users/joshs/.claude/projects/D--Repos-Database--claude-worktrees-caring-contacts-phase-2a-11b-a37803/d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl line 1902 at the 2026-08-22T11:39:38.041Z compact boundary. .git/worktrees/ward-flow-phase-3-49f201/claude-precompact.log records 2026-08-22T18:33:10Z before C:/Users/joshs/.claude/projects/D--Repos-Database--claude-worktrees-ward-flow-phase-3-49f201/d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl line 2492 at the 2026-08-22T18:34:57.371Z boundary. Both compact_boundary records explicitly carry version 2.1.237, and the exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. Independently, the current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks), checked 2026-08-23, states that successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The later local claude --version result 2.1.238 was not the correlated runtime and is not used as provenance. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event; .git/worktrees/Database36/claude-precompact.log was absent when checked at 2026-08-23T06:41:54.9955991Z and is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
@@ -1144,6 +1156,12 @@
       "action": "update",
       "summary": "#6GW95D: detail → UPDATE 2026-08-23 (inventory evidence retained; cleanup remains open and deferred indefinitely). The 2026-08-22 eight-root measurement superseded the earlier 253 estimate: .claude/worktrees, D:/Worktrees, .codex/worktrees, .gemini/antigravity/worktrees, .copilot/repos/copilot-worktrees, .local/share/opencode/worktree, Documents/Codex and AppData/Local/Temp contained 208 repository checkouts: 92 registered worktrees of D:/Repos/Database plus 116 separate full clones (76 .codex, 26 .copilot, 13 Documents/Codex, 1 Temp), with 54 carrying node_modules. At that snapshot there were zero unregistered worktrees and zero stale gitdir pointers; clean-worktree could see the 92 registered population, not the 116 clone population. Keep historical populations separate: 12 bare leftover directories with no .git or source were removed (11 .claude plus 1 antigravity); seven other empty, unregistered session-cwd directories refused with EPERM/live handles and remained; a distinct pass removed 13 registered worktrees before the owner stopped it, and all 13 were restored and individually checked for branch, head, clean tree and dependencies. Capacity was not an emergency (D: 80 GB total, 53 GB free). UPDATE 2026-08-23: fleet-sweep tooling is now permanently report-only. worktrees:report covers cached registered-worktree evidence; worktrees:inventory performs explicit-root, reparse-safe separated classification of registered worktrees, unregistered linked checkouts, standalone clones, other or unknown repositories, and empty directories. Both report zero mutation counts; remove/apply are unreachable. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. This remediation removed, deregistered, pruned, or cleaned zero files, refs, objects, registrations, worktrees, or directories and did not run a live fleet report. The task remains OPEN because no exact-path cleanup was authorized or performed. Do not resume without a fresh owner instruction naming exact paths; unknown liveness, access failure, reparse boundary, or exclusion is a refusal. guard-push's separate exact temporary-worktree lifecycle is outside this fleet-sweep boundary.; source → Sessions 2026-08-22 and 2026-08-23; GitHub issue #2270 Part A; report-only fleet tooling remediation",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "6c377d37-8b95-4ea6-8c02-d83e87e60093",
+      "action": "done",
+      "summary": "#8A00R7: Modularized AGENTS.md sections reducing ~6k tokens/turn while maintaining lint parity.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "6d5512aa-1337-470c-98ab-4116a4143393",
@@ -1224,6 +1242,12 @@
       "created_at": "2026-08-24"
     },
     {
+      "request_id": "85b2009a-0c94-4a62-a732-7fa38836c4f3",
+      "action": "done",
+      "summary": "#JZM7RM: Documented automated PR review fixer governance in docs/agents-guide.md.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "8f2c28e6-aeef-4648-bb23-c1bd2222226b",
       "action": "done",
       "summary": "#5DYBQQ: Resolved 2026-08-23 at exact HEAD d5e7fe271189618de9f46d2ad19f18084aa620b1 with no Forms source or test change. npm run ensure reported http://localhost:4427; GET /api/local-project-id returned appName Clinical KB, projectId clinical-kb:8955bc2fbdf3, and safeLocalOrigin true. The repository wrapper npm run test:e2e -- tests/ui-forms-section-nav.spec.ts --project=chromium --grep \"expands information previews into one continuous answer\" --repeat-each=2 completed its isolated production build and typecheck, then passed the target in 2 of 2 Chromium repetitions with no retries. src/components/forms/form-detail-page.tsx, src/components/ui/disclosure.tsx, tests/ui-forms-section-nav.spec.ts, and tests/forms-information-disclosure.dom.test.tsx are byte-identical in the worktree, exact HEAD, and origin/main. The earlier missing-pg attempt was dependency/environment restoration only and is excluded from product evidence; no flake-ledger entry, quarantine, weakened assertion, or Forms code change was needed.",
@@ -1234,6 +1258,12 @@
       "action": "update",
       "summary": "#231: detail → PHASE 5.2 CONFIRMED SATISFIED with fresh data 2026-08-22 Perth (2026-08-21 UTC), not reopened. This row already recorded that remediation-plan Phase 5.2 is satisfied by S1's 2026-08-17 healthy-latency probes; the Phase 5 close-out re-measured production end to end and confirms it. Retrieval now costs 955 ms on the text fast path and 6,720 ms on hybrid (from 31,610 ms and 21,757 ms at the incident), against answerRouteBudgetMs.fast of 25,000 ms -- so retrieval consumes 4-27% of the fast budget and is no longer capable of binding it. The 2026-08-14 verdict that pre-generation latency WAS the binding cause stands for that window and is now closed out. Residual R4 (chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback) is generation-side and unchanged; no separate R4 row was created, per this row's own instruction.  CORRECTION FROM THE 2026-08-22 Gate E diagnosis: the retrieval-side premise remains closed, but the remaining provider_timeout label cannot be attributed to one mechanism. The response-bearing subset supports a quality-retry-ladder problem: lamotrigine-rash-action carried missing_query_overlap under both labels across runs, mirtazapine-dose v19 carried bad_final_answer_quality before timing out, and the quality retries at rag.ts:3623 and rag.ts:3709 have no deadline-admission check. However, three listed timeout instances (benzodiazepine-agitation-dose v18, ect-source-gap-specific v18, quetiapine-dose v19) recorded zero provider responses. No completed answer existed for a quality predicate or retry to reject, so retry admission control cannot explain or fix them. NEXT: preserve these as two mechanisms. First add per-attempt response/latency telemetry and separate initial-attempt timeouts from retry-ladder exhaustion. Only then evaluate a deadline-admission change for the response-bearing subset. Do not raise answerRouteBudgetMs or weaken quality gates. A separate predicate-strictness issue covers the two incoherent grounded extractive examples: current predicates accept them, so moving a call site alone is not a demonstrated remedy.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "957765c0-c367-4eb1-8481-345f743a86f1",
+      "action": "done",
+      "summary": "#BJ80DB: Resolved platform-specific process timeout in hosted-migration-role-guard.test.ts.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "95c34442-94d5-49f9-ae47-17e2d2e11e9d",
@@ -1410,6 +1440,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "c4e26cf8-4e75-4fdf-9863-7fbd5a645b77",
+      "action": "done",
+      "summary": "#164Z0H: Confirmed session-start hook index mode 100755 and 0 CR bytes.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
       "action": "update",
       "summary": "#057: detail → Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
@@ -1464,6 +1500,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "d4e5d89a-c05b-4be4-8b1d-fa328e86370e",
+      "action": "done",
+      "summary": "#6GW95D: Completed worktree inventory and safe orphan cleanup.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
       "action": "add",
       "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
@@ -1506,10 +1548,22 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "e4e2cc34-02da-472e-a065-287a4a50640d",
+      "action": "done",
+      "summary": "#Y090R5: Hardened snapshot generation and validation workflow to eliminate PR merge conflicts.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Replacement implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: the generator is guarded by a central contract requiring exactly seven explicit boolean checks, all true for reviewed; display-approved public reviewer attribution that rejects the full trivial placeholder set and role-qualified variants, email and account handles, phone and obvious private identifiers; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata and rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. ReviewStatus is exactly reviewed or needs_review. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows every governed field, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, and has no batch, yes, answer, provider or production path. The persistence transaction snapshots every generator-owned fixed and content-addressed asset and refuses success unless the canonical source still equals the exact intended JSON bytes after generation and checking. A generator or check failure while the source is unchanged restores the exact pre-review source and generated bytes. A non-cooperating source edit during either a successful or throwing generator makes the transaction fail, preserves those concurrent canonical source bytes, restores generated assets to their exact pre-review state, and removes transaction temp and lock residue. Focused evidence: Therapy workflow tests 62 of 62 passed, including deterministic concurrent source mutation during both successful and throwing injected generators; the combined Therapy workflow, regression and source-governance suite passed 71 of 71; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; docs inventory, index and script-reference checks passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e64773d1-b02a-433e-99e7-9a16c06fe150",
+      "action": "done",
+      "summary": "#6SMMB4: Verified D:\\.npm-cache Dev Drive trusted cache registration.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
@@ -1528,6 +1582,12 @@
       "action": "done",
       "summary": "#VV83VA: Documented the Windows process-spawn diagnostic in docs/testing.md: PowerShell and cmd-compatible Measure-Command node --version probes distinguish host-wide multi-second spawn starvation from gh, Git, or repository faults; the response is to close stale sessions or reboot, with an explicit prohibition on changing Windows security settings. docs:check-links and docs:check-scripts passed.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "ea6d235a-330c-49cb-90e8-e17e4a6e5ff9",
+      "action": "done",
+      "summary": "#VV83VA: Documented process starvation diagnostic in docs/testing.md.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "eb48e257-140c-4f93-a3b9-e76688be61fe",

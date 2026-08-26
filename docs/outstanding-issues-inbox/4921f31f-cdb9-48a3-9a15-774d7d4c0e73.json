@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4921f31f-cdb9-48a3-9a15-774d7d4c0e73",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#RZQQBT",
+    "outcome": "Verified PreCompact hook emits valid structured context on stdout.",
+    "baseRowFingerprint": "146efa4b7f1e28a4cd676224896678eb945de2a27b94573b6216fca5e9befba2"
+  }
+}

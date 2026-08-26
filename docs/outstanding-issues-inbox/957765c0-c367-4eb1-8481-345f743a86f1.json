@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "957765c0-c367-4eb1-8481-345f743a86f1",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#BJ80DB",
+    "outcome": "Resolved platform-specific process timeout in hosted-migration-role-guard.test.ts.",
+    "baseRowFingerprint": "c56871479d77d951a572b0ca35fda11dc8f2fce037015c2ff15412d815dd121d"
+  }
+}
