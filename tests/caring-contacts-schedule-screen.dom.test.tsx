@@ -857,6 +857,25 @@ describe("the Schedule screen — a delivery the provider did not complete", () 
     expect(text).not.toMatch(/(?:\d+|one|two|three|several) attempts?/i);
   });
 
+  it("offers no move control on a contact that has already been sent", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { sendingPreference: "morning" });
+    const stored = contactOn(planIn(await plansOf(store), id), MONTH_END);
+    await driveContactTo(store, id, stored, "statusUnavailable");
+    const records = await plansOf(store);
+
+    // A contact that has already gone out has no time left to change, and a control offering to
+    // change it would be advertising an action the system does not perform. The test is the domain's
+    // own `contactSendability` answer rather than a list of states written on the screen.
+    const sent = renderScreen(records, MONTH_END);
+    expect(within(sent.container).queryByTestId("caring-contacts-contact-time-adjustment")).toBeNull();
+
+    // THE POSITIVE CONTROL, and it is the whole reason the absence above means anything: the same
+    // plan's Week 1 message is still to send, and the same query finds the control on its day.
+    const stillToSend = renderScreen(records, ABSORBING_FIRST_CONTACT_DAY);
+    expect(within(stillToSend.container).queryByTestId("caring-contacts-contact-time-adjustment")).not.toBeNull();
+  });
+
   it("carries the correction into the overlay itself, on a decision control that stays focusable", async () => {
     const store = newStore();
     const id = await seedPlan(store, { sendingPreference: "morning" });

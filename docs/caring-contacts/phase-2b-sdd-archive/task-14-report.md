@@ -201,7 +201,34 @@ both stores and the shared contract suite, so it is reported rather than done he
 
 ### Gates
 
-_(filled in below, after the final tree)_
+| Gate                                                                | Evidence                                                       |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), at `b74500d02`  | `Test Files  27 passed (27)` and `Tests  523 passed (523)`     |
+| The four suites this task can move (`GATE_RECEIPTS=refresh`), later | `Test Files  4 passed (4)` and `Tests  63 passed (63)`         |
+| `npm run test:cc-guards`, FINAL TREE                                | see "the shared machine" below — this is the row to read first |
+| `npx tsc --noEmit`, final tree                                      | exit 0, zero `error TS` lines emitted                          |
+| `npx eslint --no-cache`, the 13 changed TypeScript files            | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)     |
+| `prettier --check`, every file this task changed                    | `All matched files use Prettier code style!`                   |
+
+`typecheck` prints nothing on success, so its row is an exit code and an absence of diagnostics
+rather than a summary line. The ESLint cache directory was deleted before that run and `--no-cache`
+passed, because the per-file cache is what hides a failure caused by a different file's change.
+`prettier --check` was run because formatting is in none of the other three, and it caught two files
+(`tests/caring-contacts-contact-route.test.ts` and this report), repaired in `82e9c1487`.
+
+**What the two suite rows cover between them, precisely.** The full run at `b74500d02` covers every
+source change this task made — no source file has been touched since. Three commits followed it:
+`f4769b8d9` (the DOM test restructure), `b6a151b85` (this report) and `82e9c1487` (formatting), and
+the first of those is what the four-suite run covers. **The one thing neither covers is the assertion
+added last** — "offers no move control on a contact that has already been sent" — which is stated in
+its own right below rather than folded into a green.
+
+The full `npm run test` was **not** run: the controller owns it at the merge point.
+
+**One disclosure about how a gate was run.** Early in this task, before adopting the per-mutation
+narrowing, I ran `npx vitest run tests/caring-contacts-contact-route.test.ts` directly once, which
+takes NO lease from the run coordinator and therefore ran as a third concurrent job while capacity was
+full. It was not repeated; every run after it went through `scripts/run-vitest.mjs`.
 
 ### The browser gate — what I think it needs, which I did not run
 
@@ -229,7 +256,102 @@ in the isolated server rather than writing assertions around its absence.
 
 ### The mutation ledger
 
-_(filled in below)_
+**The suite-borne rows are UNRUN, and that is the honest result rather than a shortfall dressed up.**
+The shared focused-test capacity was continuously full for the whole window this task had: the
+coordinator named `C:\Users\joshs\.codex\worktrees\document-viewer-workspace-20260826\Database`
+and then `C:\Users\joshs\.codex\worktrees\remove-followup-suggestions\Database` as the owners,
+the second running `playwright tests/ui-smoke.spec.ts --project=chromium`. The driver retried on the
+coordinator's own markers — never on the lock directory path, which a run that merely WAITED also
+prints — and **T1 alone was refused twenty-three consecutive times over about fifty minutes** before I
+stopped it. Task 13's worst round saw eight.
+
+A lock refusal is neither a pass nor a failure. I did not force past another worktree's lease, and I
+did not run the suites outside the coordinator to get around it. The rows below record what each
+mutation was for, so a later round can run the table as it stands rather than rebuild it.
+
+**Two rows DID run, because their guard is the typechecker rather than a suite**, and `tsc` takes no
+lease. Both are real proofs of the Ruling [130] work, and both predictions were exact:
+
+| #   | Mutation                                                                | Gate  | Predicted                                                              | Result | The line it printed                                                                                                                               |
+| --- | ----------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T18 | `WorkspaceOverlayId` widened back to `string`                           | `tsc` | the trigger suite's `@ts-expect-error` case has nothing left to expect | RED    | `tests/caring-contacts-overlay-trigger.dom.test.tsx(108,7): error TS2578: Unused '@ts-expect-error' directive.`                                   |
+| T19 | `outside-window-warning` swapped for the non-mutating `delivery-detail` | `tsc` | the `satisfies readonly MutatingOverlayId[]` in the control refuses it | RED    | `contact-time-adjustment.tsx(75,3): error TS2322: Type '"delivery-detail"' is not assignable to type '"verify-identity" \| … \| "team-switcher"'` |
+
+T18 is the one that matters most: before the narrowing that `@ts-expect-error` did not compile as an
+error at all, which is exactly why the hole existed. T19 proves the derived `MutatingOverlayId` is
+doing work in this task's own wiring rather than decorating it — the union in that error message is
+the sixteen mutating rows, and the non-mutating id is refused by name.
+
+**The table that did not run.** Every row was validated against the file allowlist and the
+id-uniqueness check before any file I/O, and each names the suite it targets rather than the whole
+`test:cc-guards` set:
+
+| #   | File                      | Suite                           | Mutation                                                           | Predicted                                                                                                    | Result |
+| --- | ------------------------- | ------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ------ |
+| T1  | `contact-time-adjustment` | contact-time-adjustment         | the commit-time recheck stops re-reading the acting role           | the role case loses "auditor"; the unreadable-role case's record CHANGES; the recovery case clears its guard | UNRUN  |
+| T2  | `contact-time-adjustment` | contact-time-adjustment         | the commit ignores the refusal its own recheck produced            | the role case loses "auditor"; the unreadable-role case's record changes                                     | UNRUN  |
+| T3  | `contact-time-adjustment` | contact-time-adjustment         | the connectivity check is dropped                                  | the offline case's record changes — the write lands                                                          | UNRUN  |
+| T4  | `contact-time-adjustment` | contact-time-adjustment         | the success wording stops saying the outcome is synthetic          | the success case's "no message was sent" assertion, and only it                                              | UNRUN  |
+| T5  | `contact-time-adjustment` | contact-time-adjustment         | the write sends a version one ahead of the rendered one            | success becomes stale; the stale case succeeds — two cases                                                   | UNRUN  |
+| T6  | `contact-time-adjustment` | contact-time-adjustment         | the window rule is ignored, so the warning is never raised         | 18:00 opens `adjust-date-time`; the No change case commits a move — two cases                                | UNRUN  |
+| T7  | `contact-time-adjustment` | contact-time-adjustment         | the window wording becomes a closed range                          | the exclusive-bound assertion, and only it                                                                   | UNRUN  |
+| T8  | `contact-time-adjustment` | contact-time-adjustment         | the No change outcome borrows the success sentence                 | the `not.toContain("Recorded on the plan")` assertion                                                        | UNRUN  |
+| T9  | `contact-time-adjustment` | contact-time-adjustment         | keeping the approved time no longer returns the field              | the recovery assertion on the field's value                                                                  | UNRUN  |
+| T10 | `contact-time-adjustment` | contact-time-adjustment         | the recovery clears the guard whether or not the recheck passed    | the still-refused re-open finds no `aria-disabled`                                                           | UNRUN  |
+| T11 | `contact-time-adjustment` | contact-time-adjustment         | a standing guard no longer reaches the decision control            | both `aria-disabled` assertions — two cases                                                                  | UNRUN  |
+| T12 | `schedule-screen`         | schedule-screen                 | a provider outcome states nothing at all                           | the transport-receipt group is not found; the overlay case finds no trigger                                  | UNRUN  |
+| T13 | `schedule-screen`         | schedule-screen                 | the panel stops saying an attempt history is not held              | the positive half of the absence case                                                                        | UNRUN  |
+| T14 | `schedule-screen`         | schedule-screen                 | the overlay refusal drops the correction to its own frozen summary | the `aria-describedby` text assertion                                                                        | UNRUN  |
+| T15 | `schedule-view`           | schedule-view + schedule-screen | the entry publishes a constant version                             | the view suite's version pair — `expected 1 to be 2`                                                         | UNRUN  |
+| T16 | contact route             | contact-route                   | the route ignores the version the caller sent                      | the stale-version case gets 200 — `expected 200 to be 409`                                                   | UNRUN  |
+| T17 | `schedule-screen`         | schedule-screen                 | the move control is offered on a contact already sent              | **predicted GREEN, and that prediction is why an assertion was added** — see below                           | UNRUN  |
+
+**T17 is the row worth reading.** Designing it found a real coverage gap before it was run: nothing in
+either suite asserted that the move control is ABSENT on a contact that has already gone out, so a
+screen offering to change the send time of a delivered message would have been green. The assertion
+now exists — "offers no move control on a contact that has already been sent", with the still-to-send
+day as its positive control, because an absence check against a screen that renders nothing passes for
+the wrong reason. **That assertion has not been run**, for the same lease reason as the table above,
+and it is the one thing in this diff that neither suite row in the gates table covers.
+
+### The driver, and its four guards
+
+`scratchpad/cc-schedule-task14/mutate.mjs` — a separate directory from Task 13's, because Task 13
+recorded one implementer's driver being overwritten by another task's at the same path. Every path and
+name carries `cc-schedule-task14`, and each log's first lines record the worktree, the suite and the
+id, so a result that is not this task's says so itself.
+
+Both of Task 13's guards are kept, and two more were added for this task. Each has a positive control
+that fires on its own line, and each control was run:
+
+| Control           | What it applies                              | What was printed                                                                                         |
+| ----------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `CTRL_ABSENT`     | an anchor that is not in the file at all     | `cc-schedule-task14 CTRL_ABSENT: the anchor matched 0 times, not once`                                   |
+| `CTRL_NOOP`       | a replacement equal to its anchor            | `cc-schedule-task14 CTRL_NOOP: the post-image is identical to the file -- this mutation changes nothing` |
+| `PROBE_FOREIGN`   | a row naming a file this task may not mutate | `cc-schedule-task14 PROBE_FOREIGN: …plan-wizard.tsx is not a file this task may mutate.`                 |
+| `PROBE_DUPLICATE` | a repeated id                                | `cc-schedule-task14: the id T1 appears more than once`                                                   |
+
+The last two are run from a temporary copy of the driver rather than from a permanent row, because a
+foreign row or a duplicated id would break every ordinary run; the copies were deleted afterwards. The
+id check is why the table is an ARRAY: **an object literal cannot detect a duplicated key at all** —
+the later one silently wins — which is the shape that let a foreign row cross into another task's
+driver this session.
+
+The two file guards remain separate lines with separate messages, deliberately and for the reason
+Task 13 gave: the occurrence guard catches an absent or ambiguous anchor and fires first; the
+post-image guard catches a mutation that matches its anchor and changes nothing anyway, which a count
+cannot see. Neither is the other's substitute, and the gap between them was created once by an edit
+that removed one and left the other looking sufficient.
+
+`git status --porcelain` was asserted empty before each mutation and again after each restore, by the
+driver, which throws rather than continuing. When the round was stopped, the driver was parked and the
+worktree restored by hand; `git status --porcelain` is empty and was verified after the restore.
+
+### The shared machine
+
+Beyond the mutation round, ordinary gate runs were refused repeatedly: one round of
+`npm run test:cc-guards` was refused eight consecutive times before a run produced a summary line, and
+a later round more than twenty. Every refusal is recorded as UNRUN and retried; none was forced.
 
 ## Seams left
 
