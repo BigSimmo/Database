@@ -450,7 +450,9 @@ describe("DocumentViewer — shell states", () => {
     const cachedUrl = "https://example.supabase.co/storage/v1/object/sign/doc-1.pdf?token=prior-session";
     setCachedSignedUrl("/api/documents/doc-1/signed-url", {
       url: cachedUrl,
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      // Stay well above SIGNED_URL_EXPIRY_SKEW_MS (60s) so getCachedSignedUrl
+      // actually returns this entry instead of evicting it on the boundary.
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });
 
     render(
