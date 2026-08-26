@@ -490,7 +490,13 @@ test.describe("universal search smart affordances", () => {
     await input.fill("acamprosat");
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+    // Answer mode carries its cross-mode matches on the answer surface's own
+    // library line, not the mode-level `universal-also-matches` panel. Both used
+    // to render, one directly under the other, asking the same question — the
+    // duplication the owner photographed on 2026-08-26. The mode-level panel is
+    // still asserted on the other result kinds in this file.
+    await expect(page.getByTestId("cross-mode-links")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
 
   test("hides Answer-mode also-matches while drafting and shows them after the final answer", async ({ page }) => {
@@ -549,12 +555,15 @@ test.describe("universal search smart affordances", () => {
     const progress = page.getByTestId("answer-progress-stepper");
     await expect(progress).toBeVisible();
     await expect(progress).toContainText("Drafting a cited answer from the selected passages.");
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+    // The contract under test is unchanged — no cross-mode matches while the
+    // answer is still drafting, and matches once it is final. On answer mode the
+    // element carrying it is now the surface's own library line; the mode-level
+    // panel no longer renders here at all.
+    await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.getByTestId("universal-also-matches").getByRole("button", { name: /Also matches in other modes/ }),
-    ).toBeVisible();
+    await expect(page.getByTestId("cross-mode-links")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("cross-mode-links-line-trigger")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {

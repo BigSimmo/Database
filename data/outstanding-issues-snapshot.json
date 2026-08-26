@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
+    "committed_at": "2026-08-25T17:45:01Z"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 29,
+    "pending": 35,
     "resolved": 412
   },
   "queue": [
@@ -991,6 +991,12 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "40ff11ca-52f3-4b95-9118-5e0c107e68f0",
+      "action": "cancel",
+      "summary": "Cancel request 970b4089-9e76-4bcf-821e-2e70e16a3617: Superseded before reconciliation: the original wording incorrectly implied every component metric belongs in :root. The replacement distinguishes module-local one-consumer constants from shared CSS custom properties.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "485bdac6-7f79-4539-9d90-347866604b35",
       "action": "add",
       "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
@@ -1025,6 +1031,18 @@
       "action": "add",
       "summary": "The answer source-rail card carries three hardcoded pixel measurements, one of them duplicated",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "970b4089-9e76-4bcf-821e-2e70e16a3617",
+      "action": "add",
+      "summary": "Component metrics stay in :root, not @theme — record the rule where reviewers read it, because bots keep re-raising it",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "970bbb8b-4dbe-4e27-97a4-80142db94d7d",
+      "action": "add",
+      "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "9b9b8f4f-7f0a-4f91-944e-c11837e69994",
@@ -1063,6 +1081,12 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "b85ad821-4c9b-4925-b86b-2d5767052b20",
+      "action": "add",
+      "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "ba655ad0-9934-4885-a959-5efd375a9bf1",
       "action": "add",
       "summary": "Caring Contacts: Ruling 60's 640-767px overlay-modality band is pinned on one side only",
@@ -1087,6 +1111,12 @@
       "created_at": "2026-08-24"
     },
     {
+      "request_id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
+      "action": "add",
+      "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "d2a6122a-4fcd-4429-92a7-6004fa19eb24",
       "action": "add",
       "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
@@ -1103,6 +1133,12 @@
       "action": "add",
       "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
       "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "ecabc51d-034a-4a68-91cd-280214aac6bf",
+      "action": "add",
+      "summary": "Ward Flow Phase 5: bed availability becomes real - discharge lifecycle, egress board, predicted capacity, freshness everywhere",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "fa126adf-ade8-4027-a029-d59b4bef8967",

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, memo, useState } from "react";
-import { CircleAlert, ChevronDown, Copy, ShieldCheck } from "lucide-react";
+import { CircleAlert, ChevronDown, Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
@@ -461,15 +461,17 @@ export function NaturalLanguageAnswer({
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[color:var(--text-heading)]"
+      /* No assistant badge, and therefore no column reserved for one. The tile
+         was decorative (`aria-hidden`) and its column cost ~2.75rem of every
+         line of a clinical answer on a 390px phone. There are two speakers on
+         this surface, the person's turn is already a right-aligned bubble, and
+         the answer is the one element here that wants the full measure. What
+         identifies the turn instead is the verification line above it, which is
+         information rather than decoration. Approved by the owner 2026-08-26
+         against /mockups/answer-chat-perfected-v2; see §12.6 of
+         docs/answer-page-redesign-handover.md. */
+      className="relative rounded-lg bg-transparent py-0.5 text-[color:var(--text-heading)]"
     >
-      <span
-        data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <ShieldCheck aria-hidden="true" className="size-icon-lg" />
-      </span>
       <div className="min-w-0 space-y-1">
         <p className={chatAnswerText}>
           {/* One span per sentence, joined by a single space, so the prose's
@@ -489,7 +491,10 @@ export function NaturalLanguageAnswer({
             ))}
           </span>
         </p>
-        <div className="space-y-1 -mb-2">
+        {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
+            heading used to carry a top border — the two collided and drew a rule
+            straight through the Source-only pill. */}
+        <div className="space-y-1">
           {sourceOnly ? (
             <section
               data-testid="source-only-disclosure"

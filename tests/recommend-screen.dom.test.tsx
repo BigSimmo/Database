@@ -16,7 +16,9 @@ const bindings = vi.hoisted(() => ({
   open: vi.fn(),
   openSheet: vi.fn(),
   isInCompare: () => false,
-  toggleCompare: vi.fn(),
+  compareSlugs: [],
+  addCompare: vi.fn(),
+  removeCompare: vi.fn(),
   search: { query: "", tags: [] as string[] },
   recommendations: [] as Array<{ therapy: Therapy; score: number; reasons: string[] }>,
 }));

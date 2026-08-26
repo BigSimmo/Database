@@ -2,10 +2,10 @@ import { useState } from "react";
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
-  SignedImage: ({ caption }: { caption?: string }) => <p>{caption}</p>,
+  SignedImage: ({ caption, alt }: { caption?: string; alt?: string }) => <p>{caption ?? alt}</p>,
 }));
 
 import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
@@ -17,6 +17,7 @@ import {
   sourceCapsuleDisplay,
   sourceSupportSentence,
 } from "@/components/clinical-dashboard/answer-source-rows";
+import { resetDocumentCoverCacheForTests } from "@/components/clinical-dashboard/use-document-cover";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { VisualEvidenceCard } from "@/lib/types";
 
@@ -504,5 +505,106 @@ describe("source drawer overflow menu", () => {
     await user.click(report);
     expect(onReportSource).not.toHaveBeenCalled();
     expect(report).toHaveTextContent("Confirm: report this page");
+  });
+});
+
+describe("answer source drawer cover", () => {
+  /**
+   * The cover is the one thing on this surface that can misrepresent the
+   * evidence by being merely decorative. The index stores ONE first-page
+   * thumbnail per document and no per-page renders, so a picture shown beside
+   * "p. 12" with no caption reads as page 12. The caption is the guarantee, and
+   * that is what these tests pin — not the picture.
+   */
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    resetDocumentCoverCacheForTests();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function openFirstSource(user: ReturnType<typeof userEvent.setup>) {
+    render(<RailAndDrawer sources={SOURCES} />);
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+  }
+
+  it("names the front page and where the passage actually sits", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    const cover = await screen.findByTestId("answer-source-drawer-cover");
+    expect(cover).toHaveTextContent("Front page");
+    // The cited page, stated, so the thumbnail cannot be read as that page.
+    expect(cover).toHaveTextContent("passage on p. 4");
+    expect(within(cover).getByText(/Front page of/i)).toBeInTheDocument();
+  });
+
+  it("renders no cover when the document has none, and asks only once", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: null }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+
+    // A text-only upload is the common case; re-asking on every open would spend
+    // a document-read rate-limit token to learn the same null.
+    const calls = fetchMock.mock.calls.length;
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(fetchMock.mock.calls.length).toBe(calls);
+  });
+
+  it("retries after a transient failure instead of caching it as a no-cover answer", async () => {
+    // The defect this pins: a 429/5xx/offline blip used to be cached exactly
+    // like an authoritative `null`, so every later open skipped the request and
+    // the thumbnail could not return without a full page reload.
+    fetchMock
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    expect(await screen.findByTestId("answer-source-drawer-cover")).toHaveTextContent("Front page");
+  });
+
+  it("treats a 404 as an answer and does not keep asking", async () => {
+    // 404 means the document is gone or not ours to read. That is a real answer,
+    // so it caches — unlike the transient failures above.
+    fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    const calls = fetchMock.mock.calls.length;
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+  });
+
+  it("degrades to no cover when the lookup fails", async () => {
+    fetchMock.mockRejectedValue(new Error("offline"));
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+    // The citation itself is untouched: a missing decoration must never take the
+    // passage down with it.
+    expect(screen.getByTestId("answer-source-drawer-passage")).toBeInTheDocument();
   });
 });

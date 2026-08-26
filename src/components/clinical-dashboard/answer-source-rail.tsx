@@ -108,7 +108,10 @@ export function AnswerSourceRail({
         <p
           data-testid="answer-source-rail-heading"
           className={cn(
-            "mb-1.5 flex items-baseline justify-between gap-2 border-t border-[color:var(--border)] pt-2.5 text-2xs font-semibold uppercase tracking-wide",
+            // No top border. The rule ran the full column width while the
+            // Source-only pill above it is `w-fit`, so on a source-only answer it
+            // read as a line struck through the pill rather than as a separator.
+            "mb-1.5 flex items-baseline justify-between gap-2 text-2xs font-semibold uppercase tracking-wide",
             textMuted,
           )}
         >

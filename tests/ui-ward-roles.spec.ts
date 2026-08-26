@@ -67,6 +67,9 @@ test.describe("@mockup Ward screen", () => {
    * (`ward-movements.ts`), so Hold needs no prior referral/accept steps here.
    */
   test("the demo clock control advances a held bed toward expiry, and reads as demo scaffolding", async ({ page }) => {
+    // The countdown floors wall-clock minutes. Pin the browser clock so crossing a minute
+    // boundary between the hold action and the assertion cannot turn 1h 00m into 59m.
+    await page.clock.install({ time: new Date("2026-08-26T10:00:00Z") });
     await gotoWard(page, "rph-adult-secure");
 
     const card = page.getByTestId("ward-accepted-WF-003");

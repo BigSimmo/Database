@@ -80,6 +80,26 @@ describe("Ward Flow sidebar — phone contract", () => {
     expect(missing, `shell(s) whose content would sit under the fixed phone bar: ${missing.join(", ")}`).toEqual([]);
   });
 
+  /**
+   * Found in review, not by any check that existed at the time. The expanded panel is mounted at
+   * every width and only hidden by CSS below 64rem, so a selector that keys off its presence must
+   * be guarded by the same breakpoint — otherwise a tablet user with the expanded preference
+   * stored sees the icon rail AND loses the header brand, leaving nothing on screen naming the
+   * prototype.
+   */
+  it("suppresses the header brand only where the panel is actually visible", () => {
+    const modes = readModule("ward-management-modes.module.css");
+    const rule = ':global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand';
+    expect(modes).toContain(rule);
+    const before = modes.slice(0, modes.indexOf(rule));
+    const lastMediaOpen = before.lastIndexOf("@media");
+    expect(lastMediaOpen, "the brand-hiding rule sits outside any media query").toBeGreaterThan(-1);
+    expect(before.slice(lastMediaOpen)).toContain("min-width: 64rem");
+    // Non-vacuity: the guard must not have been satisfied by an unrelated earlier media query that
+    // was already closed before the rule.
+    expect(before.slice(lastMediaOpen).split("}").length).toBeLessThan(4);
+  });
+
   it("pushes each shell's own sticky header below the phone bar rather than under it", () => {
     // The two shells that have a sticky header of their own. Anything else has no header at all,
     // which is why the sidebar brings its own bar.

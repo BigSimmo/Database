@@ -98,7 +98,9 @@ describe("resolveClaimMarks", () => {
       sourceIds: SOURCE_IDS,
     });
     expect(cluster?.marks).toHaveLength(maxMarksPerCluster);
-    expect(cluster?.overflow).toBe(1);
+    // Derived from the cap rather than hard-coded, so the assertion keeps
+    // proving "every uncapped target is counted" if the cap moves again.
+    expect(cluster?.overflow).toBe(SOURCE_IDS.length - maxMarksPerCluster);
   });
 
   it("merges consecutive claims only when every one of them is direct", () => {
@@ -110,7 +112,13 @@ describe("resolveClaimMarks", () => {
       ],
       sourceIds: SOURCE_IDS,
     });
-    expect(both[0]?.marks.map((mark) => mark.index)).toEqual([0, 1]);
+    // The merge is what is under test: two direct claims in one sentence
+    // become one cluster carrying both their sources. Since the cap took the
+    // visible marks to one, the second source is observed through `overflow`
+    // rather than through a second digit — it is counted, not discarded, and
+    // the rail below still lists it.
+    expect(both[0]?.marks.map((mark) => mark.index)).toEqual([0]);
+    expect(both[0]?.overflow).toBe(1);
 
     // The same sentence, but the second half is only partly supported: the first
     // half's plain number must not be inherited by the whole sentence.

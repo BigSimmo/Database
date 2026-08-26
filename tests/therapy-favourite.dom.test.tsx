@@ -23,7 +23,9 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
     isInCompare: () => false,
     open: vi.fn(),
     openSheet: vi.fn(),
-    toggleCompare: vi.fn(),
+    compareSlugs: [],
+    addCompare: vi.fn(),
+    removeCompare: vi.fn(),
   }),
 }));
 
