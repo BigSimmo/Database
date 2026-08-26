@@ -4,11 +4,16 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const coverAuth = vi.hoisted(() => ({
+  authorizationHeader: { Authorization: "Bearer cover-test" },
+  session: { user: { id: "cover-test-user" } },
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
-  useAuthSession: () => ({
-    authorizationHeader: { Authorization: "Bearer cover-test" },
-    session: { user: { id: "cover-test-user" } },
-  }),
+  // The real provider memoizes this value until credentials change. Keeping
+  // the mock stable prevents an ordinary state update from masquerading as a
+  // token refresh and starting a new cover lookup in the same open drawer.
+  useAuthSession: () => coverAuth,
 }));
 
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
