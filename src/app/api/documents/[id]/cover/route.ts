@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     request.signal.throwIfAborted();
 
     const { data: document, error: documentError } = await withOwnerReadScope(
-      supabase.from("documents").select("id").eq("id", id),
+      supabase.from("documents").select("id,metadata").eq("id", id),
       access.ownerId,
     )
       .abortSignal(request.signal)
@@ -60,6 +60,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (documentError) throw new Error(documentError.message);
     if (!document) return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
 
+    /*
+     * `documents.metadata.cover_image_id` is the SELECTED cover: the worker
+     * writes it in the same committed-core metadata patch as
+     * `index_generation_id` (worker/main.ts), so it names the cover belonging to
+     * the generation the document currently serves.
+     *
+     * Prefer it over scanning `document_images` for a `cover_page` row. That
+     * scan takes whichever row comes back first, with no ordering and no
+     * generation filter, so a document mid-reindex or mid-cover-repair can hand
+     * back a staged row — which `/api/images/[id]/signed-url` then refuses as
+     * uncommitted, silently losing the thumbnail — or an obsolete duplicate,
+     * which shows the wrong front page beside a citation.
+     */
+    const metadata = document.metadata;
+    const pointer =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? (metadata as Record<string, unknown>).cover_image_id
+        : null;
+    if (typeof pointer === "string" && pointer.length > 0) {
+      return NextResponse.json({ coverImageId: pointer });
+    }
+
+    // Documents indexed before the pointer existed carry no such key. Fall back
+    // to the scan rather than drop their thumbnail: it is the same resolution
+    // the document search cards already use, and the signed-url route still
+    // re-checks ownership and committed generation before it hands anything out.
     const covers = await fetchDocumentCoverImageIds(supabase, [id], request.signal);
     return NextResponse.json({ coverImageId: covers.get(id) ?? null });
   } catch (error) {

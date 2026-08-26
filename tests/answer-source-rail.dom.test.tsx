@@ -562,6 +562,40 @@ describe("answer source drawer cover", () => {
     expect(fetchMock.mock.calls.length).toBe(calls);
   });
 
+  it("retries after a transient failure instead of caching it as a no-cover answer", async () => {
+    // The defect this pins: a 429/5xx/offline blip used to be cached exactly
+    // like an authoritative `null`, so every later open skipped the request and
+    // the thumbnail could not return without a full page reload.
+    fetchMock
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    expect(await screen.findByTestId("answer-source-drawer-cover")).toHaveTextContent("Front page");
+  });
+
+  it("treats a 404 as an answer and does not keep asking", async () => {
+    // 404 means the document is gone or not ours to read. That is a real answer,
+    // so it caches — unlike the transient failures above.
+    fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    const calls = fetchMock.mock.calls.length;
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+  });
+
   it("degrades to no cover when the lookup fails", async () => {
     fetchMock.mockRejectedValue(new Error("offline"));
     const user = userEvent.setup();
