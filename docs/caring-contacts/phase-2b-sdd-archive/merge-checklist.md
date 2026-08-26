@@ -135,11 +135,23 @@ does not have it.** Task 16 grepped, found only the brief, correctly reported th
 Ninth instance of the same error class this session: _a narrowly-verified fact generalised to a scope it was
 never checked against._
 
-**Resolution — keep Task 10's file**, because it has more consumers (Task 11a wired three rows through it) and
-its own independent review. **But before deleting Task 16's, check the property Task 16 built for and Task 10
-may lack:** Task 16's version reads `mutatesState` off the frozen table so that **Task 14's union narrowing
-composes rather than collides**. If Task 10's throws on a construction-time check that the narrowed
-`NonMutatingOverlayId` makes unreachable — or worse, uncompilable — adopt Task 16's mechanism into the kept file.
+**ADJUDICATED — full reasoning in the build record. Keep Task 10's file and structure, with Task 16's
+runtime behaviour.**
+
+The narrowing question I raised is a non-issue: **both** read `mutatesState` off the frozen table through
+`overlayDefinition`, and **both** type `overlayId` as `string`, which Task 14's `NonMutatingOverlayId`
+assigns to freely. Neither collides.
+
+The difference that does matter is one I had not thought to ask about. Task 10's **stages a commit** —
+`{ kind: "record", record: closingIsTheWholeAction }`, an empty named function. Task 16's **stages nothing**
+and lets the host's existing `NO_STAGED_COMMIT_REASON` / `recording-rows-only` path handle it.
+
+**Take Task 16's behaviour into Task 10's file**, because a no-op commit is indistinguishable at the host from
+a screen that merely satisfied the compiler — the exact shape Ruling [87] exists to prevent. Keep everything
+else of Task 10's: the separate module (which also dissolves the textual collision with Task 14's edits to
+`overlay-trigger.tsx`), the exported guard, and the Ruling [130] narrowing plan. **Carry over Task 16's
+`data-overlay-trigger-kind="exit-only"` marker** — it makes "exit route, not no-op commit" assertable from the
+DOM rather than only from source.
 
 **Then re-point every consumer** and confirm no module still exports the name twice.
 
