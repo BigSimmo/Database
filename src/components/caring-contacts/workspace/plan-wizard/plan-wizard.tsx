@@ -30,11 +30,7 @@ import { ExitOnlyOverlayTrigger } from "../overlays/exit-only-overlay-trigger";
 import type { WorkspaceOverlayCommit } from "../overlays/overlay-commits";
 import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
-import {
-  wizardDecisionConditions,
-  wizardDecisionRefusal,
-  type WizardDecisionState,
-} from "./overlay-guards";
+import { wizardDecisionConditions, wizardDecisionRefusal, type WizardDecisionState } from "./overlay-guards";
 import {
   clearPlanDraft,
   emptyPlanDraft,
@@ -1013,8 +1009,8 @@ function DraftNotice({
           when they step away from a shared computer.
         */}
         <p className={mutedTextClass}>
-          Discarding removes this sign-up from this computer. It changes no plan and no record:
-          nothing has been written onto a plan yet, because the plan is created at the last stage.
+          Discarding removes this sign-up from this computer. It changes no plan and no record: nothing has been written
+          onto a plan yet, because the plan is created at the last stage.
         </p>
         <p role="status" className="min-w-0 text-sm text-[color:var(--text-muted)]">
           {discarded ? "The draft was discarded. Nothing from it is left on this computer." : ""}
@@ -1706,10 +1702,9 @@ function PersonalisationStage({
       <div className={panelClass}>
         <h2 className={headingClass}>The wording a patient would receive</h2>
         <p className={`mt-1 ${mutedTextClass}`}>
-          This is the governed wording itself, shown as it stands in the approved copy. It is a
-          specimen: it carries its own example name rather than the name entered above, so read it
-          for what a message says and not for what this patient&rsquo;s would say. Nothing in this
-          prototype is ever sent to any number.
+          This is the governed wording itself, shown as it stands in the approved copy. It is a specimen: it carries its
+          own example name rather than the name entered above, so read it for what a message says and not for what this
+          patient&rsquo;s would say. Nothing in this prototype is ever sent to any number.
         </p>
         <p
           data-testid="caring-contacts-message-specimen"
