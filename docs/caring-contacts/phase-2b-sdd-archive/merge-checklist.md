@@ -77,6 +77,28 @@ while four build tasks, the merge and the owed gates come first. It is well-scop
 sitting. The same reasoning covers the surviving `#<name>` fragment, which is narrower still — history
 only, never sent to a server, and nothing in the workspace writes one.
 
+## 2a. TWO implementations of `ExitOnlyOverlayTrigger`, at different paths — caused by a controller error
+
+**Both branches have one, and they will not collide as a merge conflict — they will both survive, silently.**
+
+| Branch                               | Location                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `claude/caring-contacts-plan-detail` | `src/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger.tsx` (its own file) |
+| `claude/caring-contacts-demo-seed`   | inside `overlays/overlay-trigger.tsx:167`                                                        |
+
+**Cause:** the controller verified Task 10's trigger existed and then told Task 16 to use it — **on a branch that
+does not have it.** Task 16 grepped, found only the brief, correctly reported the absence, and built its own.
+Ninth instance of the same error class this session: _a narrowly-verified fact generalised to a scope it was
+never checked against._
+
+**Resolution — keep Task 10's file**, because it has more consumers (Task 11a wired three rows through it) and
+its own independent review. **But before deleting Task 16's, check the property Task 16 built for and Task 10
+may lack:** Task 16's version reads `mutatesState` off the frozen table so that **Task 14's union narrowing
+composes rather than collides**. If Task 10's throws on a construction-time check that the narrowed
+`NonMutatingOverlayId` makes unreachable — or worse, uncompilable — adopt Task 16's mechanism into the kept file.
+
+**Then re-point every consumer** and confirm no module still exports the name twice.
+
 ## 2b. A file two branches both edited — the one conflict that is not trivial
 
 `src/components/caring-contacts/workspace/patient-overview.tsx` is edited on **both**
