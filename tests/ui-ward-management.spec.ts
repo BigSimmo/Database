@@ -182,8 +182,19 @@ test.describe("@mockup Ward Flow command view", () => {
     await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
 
     const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
-    await expect(header.getByText("Ward Flow", { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("complementary", { name: "Ward Flow sidebar" })).toBeHidden();
+    const sidebar = page.getByRole("complementary", { name: "Ward Flow sidebar", includeHidden: true });
+    await expect(sidebar).toBeAttached({ timeout: 15_000 });
+    await expect(sidebar).toBeHidden();
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeVisible();
+  });
+
+  test("uses its fixed bar as the sole Ward Flow brand on phone", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 820 });
+    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    await expect(page.getByRole("link", { name: "Ward Flow", exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeHidden();
   });
 
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
