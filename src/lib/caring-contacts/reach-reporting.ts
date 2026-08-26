@@ -5,13 +5,17 @@
 // WHAT THIS MODULE IS FOR, AND WHY IT EXISTS BEFORE THE SCREEN THAT WOULD USE IT
 // -----------------------------------------------------------------------------
 // Spec §2.5 promises aggregate reporting on programme reach with a governance-configured
-// small-cell threshold and a non-inferable `Suppressed` state. The threshold is an input this
-// system does not yet hold anywhere -- see `reachReportingThreshold()` below -- so the reach
-// section of `/caring-contacts/reports` currently discloses nothing at all. The RULE still lives
-// here rather than in the screen, for the reason the standing constraints give: a suppression
-// threshold is a rule, and a screen must never re-derive a rule a module owns. When a threshold
-// gains a governance home, the screen changes by passing a number; nothing about the arithmetic
-// below moves into a component.
+// small-cell threshold and a non-inferable `Suppressed` state. The threshold now exists (see
+// below); the FIELD IT WOULD REPORT ON DOES NOT. This system records no Aboriginal and Torres
+// Strait Islander status, so `/caring-contacts/reports` currently discloses nothing at all and its
+// reach section says exactly that -- not an empty breakdown, which would read as a statement about
+// patients rather than about collection.
+//
+// So this module is complete and, for now, unexercised by any screen. That is deliberate: the RULE
+// belongs here rather than in the screen, for the reason the standing constraints give -- a
+// suppression threshold is a rule, and a screen must never re-derive a rule a module owns. When a
+// bounded category set exists and the field is recorded again, the screen changes by passing cells
+// to `discloseReach`; nothing about the arithmetic below moves into a component.
 //
 // WHY NAIVE SUPPRESSION IS DECORATION
 // -----------------------------------
@@ -41,6 +45,12 @@
 // control that would produce a second, differently-scoped reach report to difference against it.
 // That is a property of the surface, not of this function, and it is stated here because this is
 // where a reader will look for it.
+//
+// THE THRESHOLD IS AN INPUT, AND IT NOW HAS AN OWNER. It is 5, decided by the service owner on
+// 2026-08-26 by analogy to common practice and explicitly open to revision. The value and its
+// provenance live in ./reach-reporting-governance; `reachReportingThreshold()` below reads it and
+// `discloseReach` takes it as a required argument. Nothing in this file chooses a number.
+import { REACH_REPORTING_GOVERNANCE } from "./reach-reporting-governance";
 
 /** One category and how many members it has, before any disclosure decision is made. */
 export type ReachCell = { readonly category: string; readonly count: number };
@@ -88,22 +98,22 @@ export const MINIMUM_SUPPRESSING_THRESHOLD = 3;
 /**
  * The governance-configured small-cell threshold, or `null` when there is none.
  *
- * IT RETURNS `null` BECAUSE THERE IS NOWHERE FOR IT TO COME FROM. Searched 2026-08-26 across the
- * sealed domain and every caring-contacts migration: no configuration surface for a small-cell
- * threshold exists. The only "suppress" in this domain is the contact-suppression state, which is
- * unrelated.
+ * IT READS THE DECISION, IT DOES NOT MAKE ONE. The value is the owner's, taken on 2026-08-26, and
+ * it lives in `./reach-reporting-governance` beside the record of who took it, what it was chosen
+ * by, and what it is NOT an output of. A literal here would be a disclosure control set by whoever
+ * happened to write this file -- the shape of the decision the owner declined on 2026-08-25, when
+ * he refused a data-cleaning step that would silently have decided who counts as Aboriginal.
  *
- * A literal here would be a disclosure control set by whoever happened to write this file, which
- * is the decision the owner declined on 2026-08-25 when he refused a normalisation step that would
- * have decided who counts as Aboriginal. The shape the configuration needs is recorded in
- * `docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md`; until it exists, this function
- * returning `null` is the honest answer and every reach surface renders the not-configured state.
+ * It is still typed `number | null`, and that is not vestigial. `discloseReach` must go on
+ * accepting "no threshold is set" as a first-class answer, because a future configuration source --
+ * a stored, per-service row rather than a committed decision -- can genuinely be absent, and the
+ * withheld-for-no-threshold state must remain reachable rather than becoming dead wording.
  *
  * A function rather than a constant so the call site reads as a lookup that can fail, and so a
  * later configuration source is a change of body rather than a change of every caller.
  */
 export function reachReportingThreshold(): number | null {
-  return null;
+  return REACH_REPORTING_GOVERNANCE.smallCellThreshold;
 }
 
 /** Non-negative integers only; a negative or fractional count is a broken caller, not a small cell. */

@@ -33,6 +33,7 @@ import {
   type ReachCell,
   type ReachDisclosure,
 } from "@/lib/caring-contacts/reach-reporting";
+import { REACH_REPORTING_GOVERNANCE } from "@/lib/caring-contacts/reach-reporting-governance";
 import type { DispatchRecord, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 import { naiveSuppression, recoverableCategories, type ReadableCell } from "./helpers/caring-contacts-reach-inference";
@@ -53,6 +54,14 @@ function asReadable(disclosure: ReachDisclosure): ReadableCell[] {
 // The inference attempt
 // ---------------------------------------------------------------------------
 
+/**
+ * The threshold these arithmetic cases are computed at.
+ *
+ * A FIXTURE, not the governance value, and it is worth saying so because they currently coincide:
+ * the owner's decision is also 5. Nothing below depends on that -- the suppression cases are about
+ * the arithmetic at a given threshold, and the governance block further down is the only place the
+ * decided value is asserted. If the decision moves, these cases must not.
+ */
 const THRESHOLD = 5;
 /** One small cell among larger ones -- the shape naive suppression gives away in one subtraction. */
 const ONE_SMALL_CELL: readonly ReachCell[] = [
@@ -141,10 +150,41 @@ describe("caring-contacts reach reporting -- the inference attempt", () => {
 });
 
 describe("caring-contacts reach reporting -- the threshold is an input, never a literal", () => {
-  it("has no configured threshold, and says so rather than choosing one", () => {
-    // The fact the whole task turns on. A number here would be a disclosure control set by whoever
-    // wrote the file, which is the decision the owner declined on 2026-08-25.
-    expect(reachReportingThreshold()).toBeNull();
+  it("reads the owner's decision rather than a number chosen in the module that uses it", () => {
+    // The threshold is a DISCLOSURE CONTROL, so where it comes from is part of what it is. This
+    // pins the lookup to the governance record rather than to the value, which is what makes a
+    // literal reintroduced into `reach-reporting.ts` a failure rather than a coincidence.
+    expect(reachReportingThreshold()).toBe(REACH_REPORTING_GOVERNANCE.smallCellThreshold);
+    expect(reachReportingThreshold()).not.toBeNull();
+  });
+
+  it("pins the decided value TOGETHER with what it rests on, so neither can move without the other", () => {
+    // THIS PIN IS THE ONLY THING THAT MAKES A CHANGE TO THE THRESHOLD DELIBERATE. There is no
+    // migration, no review gate and no second approver behind it today: an edit to the number alone
+    // would otherwise be a one-character change to a disclosure control. Pinning the provenance
+    // beside the value means an edit that moves one and not the other goes red, so the record and
+    // the number cannot drift apart. Do not relax this to make an edit easier -- see the note in
+    // `reach-reporting-governance.ts`, and the recommendation in the Task 19 report.
+    expect(REACH_REPORTING_GOVERNANCE.smallCellThreshold).toBe(5);
+    expect(REACH_REPORTING_GOVERNANCE.decidedBy).toBe("the service owner");
+    expect(REACH_REPORTING_GOVERNANCE.decidedOn).toBe("2026-08-26");
+    expect(REACH_REPORTING_GOVERNANCE.basis).toMatch(/by analogy/);
+    // The field that stops the number being read as an output of something. A threshold presented
+    // as derived when it was chosen is the decaying form of a restated count.
+    expect(REACH_REPORTING_GOVERNANCE.restsOn).toMatch(/No calculation over this programme's own data/);
+    expect(REACH_REPORTING_GOVERNANCE.revisit).toMatch(/open to revision/i);
+  });
+
+  it("is frozen, so no request can move a disclosure control at runtime", () => {
+    expect(Object.isFrozen(REACH_REPORTING_GOVERNANCE)).toBe(true);
+  });
+
+  it("clears the floor it must clear, which is a property of the decided value and not of the floor", () => {
+    // The floor is arithmetic; the value is governance. This is the assertion that the two agree,
+    // and it is the one that would catch a future decision set below the point at which suppression
+    // suppresses anything.
+    expect(REACH_REPORTING_GOVERNANCE.smallCellThreshold).toBeGreaterThanOrEqual(MINIMUM_SUPPRESSING_THRESHOLD);
+    expect(discloseReach(ONE_SMALL_CELL, reachReportingThreshold()).kind).toBe("breakdown");
   });
 
   it("withholds for the absence of a threshold, distinguishably from withholding for the data", () => {

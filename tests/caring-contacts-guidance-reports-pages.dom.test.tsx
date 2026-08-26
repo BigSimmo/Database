@@ -49,6 +49,7 @@ import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-reposi
 import { PATIENT_VISIBLE_NO_REPLY_NOTICE } from "@/lib/caring-contacts/message-copy";
 import { CARING_CONTACT_ROLE_WORDING } from "@/lib/caring-contacts/permissions";
 import { discloseReach, type ReachCell } from "@/lib/caring-contacts/reach-reporting";
+import { REACH_REPORTING_GOVERNANCE } from "@/lib/caring-contacts/reach-reporting-governance";
 import type { CaringContactRepository, PlanRecord } from "@/lib/caring-contacts/repository";
 
 import { naiveSuppression, recoverableCategories, type ReadableCell } from "./helpers/caring-contacts-reach-inference";
@@ -278,6 +279,25 @@ describe("the /caring-contacts/reports page - what it says", () => {
     // must not be able to be read that way. No breakdown is rendered at all.
     expect(within(reach).queryByTestId("caring-contacts-reach-breakdown")).toBeNull();
     expect(reach.textContent ?? "").not.toContain("Suppressed");
+  });
+
+  it("names the governance-set cell size and where it came from, sourced rather than retyped", async () => {
+    emptyStoreWithSpy();
+
+    await renderPageBody(REPORTS);
+
+    // The value is asserted through the governance record, not against a literal: a screen that
+    // retyped the number would keep passing on the day the decision moved, which is the one day it
+    // matters. Its provenance travels with it, so a reader is never shown a disclosure control as
+    // though it fell out of a calculation.
+    const threshold = screen.getByTestId("caring-contacts-reach-threshold");
+    expect(threshold).toHaveTextContent(String(REACH_REPORTING_GOVERNANCE.smallCellThreshold));
+    expect(threshold).toHaveTextContent(REACH_REPORTING_GOVERNANCE.decidedBy);
+    expect(threshold).toHaveTextContent(REACH_REPORTING_GOVERNANCE.decidedOn);
+    // And it still says the report cannot be produced: a set threshold is not a set category list.
+    expect(
+      within(screen.getByTestId("caring-contacts-reach")).getByTestId("caring-contacts-reach-not-collected"),
+    ).toBeInTheDocument();
   });
 
   it("tells a reader who may not see a measure that they may not, rather than showing a zero", async () => {

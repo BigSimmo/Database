@@ -233,10 +233,14 @@ that can fail on that walks the rendered ancestor chain, in
 `tests/caring-contacts-workspace-shell.dom.test.tsx`, and clicks the link at 390px in
 `tests/ui-caring-contacts-workspace.spec.ts`.
 
-`/caring-contacts/reports` performs NO read of `caring_contacts.cultural_identity_reports`. Spec
-§2.5 promises reach reporting with a governance-configured small-cell threshold, and no
-configuration surface for one exists anywhere in the domain or the migrations, so the screen states
-what is and is not collected instead. The suppression rule itself lives in
+`/caring-contacts/reports` performs NO read of `caring_contacts.cultural_identity_reports`. Spec §2.5
+promises reach reporting over Aboriginal and Torres Strait Islander status, and this system records
+none — so the screen states what is and is not collected instead of rendering an empty breakdown,
+which would read as a statement about patients rather than about collection. The two halves of §2.5
+are in different states and the screen says so: the small-cell threshold IS set (the owner's decision
+of 2026-08-26, held with its provenance in `src/lib/caring-contacts/reach-reporting-governance.ts`,
+which is the file a governance change opens and the only place the number appears); a bounded
+category set is not. The suppression rule itself lives in
 `src/lib/caring-contacts/reach-reporting.ts`: it takes the threshold as a required argument, refuses
 one too low to hide anything, and suppresses complementary cells so that no hidden figure is
 recoverable by subtracting the published ones from a total.

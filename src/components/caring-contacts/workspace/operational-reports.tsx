@@ -2,6 +2,7 @@ import { GitCompareArrows, Info, ListChecks, Users } from "lucide-react";
 
 import type { DispatchDiscrepancySummary, OperationalReport } from "@/lib/caring-contacts/operational-reporting";
 import type { ReachDisclosure } from "@/lib/caring-contacts/reach-reporting";
+import { REACH_REPORTING_GOVERNANCE } from "@/lib/caring-contacts/reach-reporting-governance";
 
 /**
  * Aggregate operational reporting, and the programme-reach section spec §2.5 owes.
@@ -131,9 +132,17 @@ function ReachSection({ reach }: { reach: ReachReportingSection }) {
               a breakdown here would not be an empty one — there is nothing for it to be a breakdown of.
             </p>
             <p className="max-w-[var(--measure)]">
-              Two things are needed before this report can exist, and neither has been decided: a bounded set of
-              categories to record against, and a minimum cell size, set under governance, below which a figure is
-              withheld rather than shown.
+              One thing is still missing before this report can exist: a bounded set of categories to record against.
+              Free text cannot carry it, which is why the field stopped being collected.
+            </p>
+            <p className="max-w-[var(--measure)]" data-testid="caring-contacts-reach-threshold">
+              The minimum cell size below which a figure is withheld is already set under governance — it is{" "}
+              <span className="font-medium tabular-nums text-[color:var(--text)]">
+                {REACH_REPORTING_GOVERNANCE.smallCellThreshold}
+              </span>
+              , set by {REACH_REPORTING_GOVERNANCE.decidedBy} on {REACH_REPORTING_GOVERNANCE.decidedOn} and open to
+              revision. So the suppression rule is ready for the day the categories exist; it is the categories that are
+              waiting.
             </p>
           </div>
         ) : reach.disclosure.kind === "withheld" ? (

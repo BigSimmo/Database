@@ -1738,6 +1738,10 @@ test.describe("caring-contacts guidance and reports", () => {
     await expect(page.getByTestId("caring-contacts-reach-not-collected")).toBeVisible();
     await expect(page.getByTestId("caring-contacts-reach-breakdown")).toHaveCount(0);
     await expect(reach).not.toContainText("Suppressed");
+
+    // The governance-set minimum cell size is stated on the same screen, so a reader can see that
+    // the control exists and that it is the CATEGORIES that are missing -- not the rule.
+    await expect(page.getByTestId("caring-contacts-reach-threshold")).toContainText("set under governance");
   });
 
   test("reaches guidance and reports from the More panel at 1024px", async ({ page }) => {

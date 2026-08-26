@@ -7,56 +7,117 @@ Nothing pushed, no pull request opened, no subagent dispatched.
 
 ## 1. The thing you most needed me to get right: the reach report
 
-**I stopped, and I am reporting it. There is nowhere for the small-cell threshold to live, and I did
-not invent one.**
+**Written in two passes.** I built this screen under the original instruction — _stop, do not invent
+a threshold, report what shape the configuration would need_ — and then the owner's decision of
+2026-08-26 arrived mid-task, setting the threshold at 5. Both halves are recorded below, because the
+first half is what makes the second one safe to read: the value did not come from an implementer,
+and the file it now lives in exists to say so.
+
+### What I found before the decision
 
 I searched independently of your search and reached the same answer: no configuration surface for a
-small-cell threshold exists anywhere in `src/lib/caring-contacts/**`, in
+small-cell threshold existed anywhere in `src/lib/caring-contacts/**`, in
 `caring-contacts/supabase/migrations/**`, or in the server seam. The only "suppress" in the domain
-is the contact-suppression state, which is unrelated.
+is the contact-suppression state, which is unrelated. `reachReportingThreshold()` returned `null` and
+the screen rendered the not-configured state.
 
-So `/caring-contacts/reports` performs **no read of `caring_contacts.cultural_identity_reports` at
-all**, and its reach section states, in words:
+### What the decision changed, and what it did not
 
-- that this service does not record Aboriginal and Torres Strait Islander status, so there are no
-  reach figures to report;
+**It gave the value an owner. It did not give the report a field.** Those are independent, and the
+screen still says so:
+
+- `/caring-contacts/reports` performs **no read of `caring_contacts.cultural_identity_reports`**;
+- its reach section states that this service does not record Aboriginal and Torres Strait Islander
+  status, so there are no reach figures to report;
 - that this is a statement about what is collected and **not** about who is in the programme —
   explicitly, "nobody has been asked, so a breakdown here would not be an empty one; there is
   nothing for it to be a breakdown of";
-- that two things are needed before the report can exist, and neither has been decided: a bounded
-  category set, and a minimum cell size set under governance.
+- that **one** thing is still missing: a bounded set of categories to record against;
+- and that the minimum cell size **is** already set under governance, naming the value, who set it
+  and when — so a reader can see that what is waiting is the categories, not the rule.
 
 It renders **no breakdown element**, so the "no Aboriginal or Torres Strait Islander patients"
 reading is not available to a reader by any route. That is asserted structurally rather than by
 wording (`queryByTestId(...breakdown)` is null, and the section contains no `Suppressed`), and
 end-to-end in the browser block.
 
-### The shape the configuration needs
+### Where the value lives, and why there
 
-Recording this because you asked what it would take, not because I am proposing it:
+`src/lib/caring-contacts/reach-reporting-governance.ts` — a new module whose only content is the
+decision:
 
-1. **A bounded category set, versioned.** Suppression presupposes it. The natural home is beside the
-   other governed vocabularies in the sealed domain — a frozen list with a version identifier, so a
-   report can say which set it was computed against and a later change does not silently restate an
-   older report. Free text cannot be normalised into this without an unaudited step deciding who
-   counts as Aboriginal, which is the decision the owner refused on 2026-08-25.
-2. **A threshold that is a stored, attributable, auditable value — not a constant.** Minimally: which
-   team or service it applies to, the integer, who set it, and when. A migration-backed row is the
-   honest home, because it is a governance decision with an author; a constant in a module has no
-   author and no date. Whatever holds it, `reachReportingThreshold()` in
-   `src/lib/caring-contacts/reach-reporting.ts` is the one function that must start returning it, and
-   nothing else in the tree needs to change to use it.
-3. **A floor the code already enforces, so the governance decision cannot be a no-op.** A threshold
-   below 3 is refused by name: at 2, "suppressed" means "exactly 1" and the marker announces the
-   number it stands for; at 1, nothing is ever suppressed. That refusal is arithmetic, not policy,
-   and it is tested.
-4. **A new `AccessedObjectType` member, when the read is built.** A reach read over
+```
+smallCellThreshold: 5
+decidedBy:          the service owner
+decidedOn:          2026-08-26
+basis:              common practice for small-cell suppression, by analogy
+restsOn:            No calculation over this programme's own data. Nothing has been counted, and
+                    this number is not an output of anything.
+revisit:            Explicitly open to revision; taken to unblock reporting, not to settle the
+                    question.
+```
+
+Three things about that shape, each answering one of your three points:
+
+1. **It is a decision, not a constant.** The number is not in a component and not in the body of the
+   sealed domain's suppression module. `reachReportingThreshold()` in `reach-reporting.ts` reads it;
+   the reach section renders it from the same record; **nothing restates it**. The file is the one a
+   governance change would naturally open, and its module note says so in as many words.
+2. **`restsOn` is a field, not a sentence in a comment.** It exists because the failure mode you
+   named is real and invisible from the number: a threshold presented as derived when it was chosen
+   is the decaying form of a restated count. A later reader who assumed 5 came out of an analysis of
+   this dataset would over-trust it, and might decline to revisit it because "the analysis said 5".
+   The record says, in the value itself, that nothing has been counted.
+3. **It cannot be moved silently, but "not silently" is weaker than "not without authority".** See
+   below.
+
+### What a change to it should require — and what actually stops one today
+
+**Today, exactly one thing makes a change deliberate**: `tests/caring-contacts-reporting.test.ts`
+pins the value **together with** `decidedBy`, `decidedOn`, `basis`, `restsOn` and `revisit`, so an
+edit that moves the number without moving the record that explains it turns the suite red. That
+makes a change **visible and reviewable**. It does not make it **authorised** — a single commit can
+edit both the value and the pin, and nothing outside review would notice.
+
+What I think a change ought to require, in ascending order of what it buys:
+
+- **A second approver, at minimum.** This domain already refuses to let one person both author and
+  approve clinical message content (`pathway_versions_no_self_approval`). A disclosure control over
+  Aboriginal and Torres Strait Islander status is at least as consequential as message wording, and
+  the argument that carried there carries here.
+- **A dated, superseding record rather than an in-place edit** — the same discipline the review
+  ledger uses. An in-place edit destroys the previous decision; a superseding record keeps the
+  history of what was disclosable when, which is the question an auditor asks after the fact.
+- **A migration, if and only if the threshold becomes per-service.** A committed constant is
+  honest while there is one service and one owner. The moment a second service could hold a
+  different threshold, a stored row is the only shape that can be right, and then it needs the
+  guard-migration contract like any other schema change.
+
+I have not built any of that, and I am not proposing it be built now — you asked me not to make the
+threshold a value any future edit can silently move, and the pin achieves that much. The gap between
+"visible" and "authorised" is the part worth a decision.
+
+### Still outstanding for §2.5
+
+1. **A bounded category set, versioned.** Suppression presupposes it, and it is the thing the report
+   is now waiting on. The natural home is beside the other governed vocabularies in the sealed
+   domain — a frozen list with a version identifier, so a report can say which set it was computed
+   against and a later change does not silently restate an older report. Free text cannot be
+   normalised into this without an unaudited step deciding who counts as Aboriginal, which is the
+   decision the owner refused on 2026-08-25.
+2. **A collection path**, once the categories exist. The input was removed and the wizard sends
+   `null` unconditionally; nothing on my screens changes that, and nothing should until the
+   categories are decided.
+3. **A new `AccessedObjectType` member, when the read is built.** A reach read over
    `cultural_identity_reports` is a genuinely different object from anything the trail names today.
    That is the member this screen would warrant, and it belongs to building that read — not to
    building this screen. See §4.
 
-**Whether the screen ships as it stands, or waits for the threshold, is yours. It is honest either
-way; it is simply smaller than §2.5 promises.**
+**The floor holds either way.** A threshold below 3 is refused by name: at 2, "suppressed" means
+"exactly 1" and the marker announces the number it stands for; at 1, nothing is ever suppressed.
+That refusal is arithmetic, not policy, and a test asserts that the decided value clears it — so a
+future decision set below the point at which suppression suppresses anything goes red rather than
+shipping.
 
 ---
 
@@ -268,7 +329,8 @@ each other rather than assumed to agree.
 
 | File                                                                                    | What                                                                                                                                    |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/caring-contacts/reach-reporting.ts`                                            | New. The §2.5 suppression rule; `reachReportingThreshold()` returns `null`.                                                             |
+| `src/lib/caring-contacts/reach-reporting.ts`                                            | New. The §2.5 suppression rule; `reachReportingThreshold()` reads the owner's decision.                                                 |
+| `src/lib/caring-contacts/reach-reporting-governance.ts`                                 | New. The owner's 2026-08-26 decision, with what it rests on and what it does not.                                                       |
 | `src/lib/caring-contacts/operational-reporting.ts`                                      | New. Plan/contact rollups and dispatch-difference measures.                                                                             |
 | `src/lib/caring-contacts/repository.ts`                                                 | `READ_ACTIONS.dispatch`.                                                                                                                |
 | `src/lib/caring-contacts/in-memory-repository.ts`, `db/postgres-repository.ts`          | Both `listDispatches` now name the capability through `READ_ACTIONS`.                                                                   |
@@ -346,20 +408,25 @@ retried on a delay, and never forced past another worktree's lease.
 
 ## 9. Concerns
 
-1. **The reach report is smaller than spec §2.5 promises, and only you can close that.** The screen
-   is honest, but "honest about a gap" is not the same as delivering the section. The threshold needs
-   a governance home and the field needs a bounded category set; §1 says what shape both need.
-2. **The unguarded `z.enum` hand-copy (§5.1) will bite the first task that adds an
+1. **The reach report is smaller than spec §2.5 promises, and the threshold decision did not close
+   that.** The screen is honest, but "honest about a gap" is not the same as delivering the section.
+   What remains is a bounded category set and a collection path; §1 says what shape they need.
+2. **"Cannot be moved silently" is not "cannot be moved."** The only thing making a change to the
+   threshold deliberate is a test that pins the value together with its provenance. One commit can
+   edit both. §1 sets out what I think a change ought to require — a second approver at minimum, and
+   a superseding record rather than an in-place edit — and that gap is a decision for you, not
+   something I should have built unasked.
+3. **The unguarded `z.enum` hand-copy (§5.1) will bite the first task that adds an
    `AccessedObjectType` member.** I left it alone deliberately — I add no member, and the files are
    shared — but it should be closed before the reach read is built, because that read is exactly the
    change that will add one.
-3. **`shell.tsx` will conflict.** It is shared with live branches and I changed both the
+4. **`shell.tsx` will conflict.** It is shared with live branches and I changed both the
    `MORE_DESTINATIONS` shape and the panel's render. The `PHONE_OVERFLOW_DESTINATIONS` derivation is
    the part worth preserving through any merge; a hand-written list restores the defect.
-4. **`package.json` will conflict too**, for the two `test:cc-guards` entries.
-5. **The demo seed writes a free-text sentinel into the cultural-identity column (§5.2).** Nothing on
+5. **`package.json` will conflict too**, for the two `test:cc-guards` entries.
+6. **The demo seed writes a free-text sentinel into the cultural-identity column (§5.2).** Nothing on
    my screens reads it. It is worth deciding whether the seed should stop writing it, now that the
    input is gone — a column written only by a seed is a column that will surprise someone.
-6. **`rendersAt` is a model of the CSS.** It throws on any variant it does not know, which is the
+7. **`rendersAt` is a model of the CSS.** It throws on any variant it does not know, which is the
    right failure direction, but it will need teaching if the shell adopts a `max-` variant or a
    container query. The browser block is the half that does not model anything.
