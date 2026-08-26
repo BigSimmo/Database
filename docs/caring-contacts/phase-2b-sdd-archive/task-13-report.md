@@ -332,9 +332,12 @@ Named, with where each attaches:
 1. **`adjust-date-time`.** A contact row (`ContactRow`) has no control on it. The overlay is opened by
    `?overlay=<id>`, and the row already carries `planId`, `contactId` and the contact's own send time,
    which is what a move needs. A control added there must satisfy the button-wiring rule.
-2. **`outside-window-warning`.** Belongs to the move, not to this screen: the group headed "Not at an
-   approved send time" is contacts that ARE inside the approved 9:00 am–6:00 pm window, so nothing
-   here warns. The warning fires when a coordinator asks for a time outside it.
+2. **`outside-window-warning`.** Belongs to the move, not to this screen. The warning fires when a
+   coordinator asks for a time outside the approved 9:00 am–6:00 pm window; nothing on this screen
+   warns, because nothing on it is asking for a time. **This bullet originally said the group headed
+   "Not at an approved send time" holds contacts that ARE inside that window** — it does not, and the
+   correction is in round 2 below. Task 14 must not inherit that claim: membership of that group says
+   only that a contact is not at any of the three send times.
 3. **`resolve-failed-delivery`.** The named-exceptions panel renders its rows as content, with no
    control. The approved mockup makes each exception row a button that opens this overlay; that button
    is Task 14's, and the rows are already scoped and identified for it.
@@ -373,3 +376,173 @@ Nothing on this screen renders an `UnavailableDestination`, so Task 14 has nothi
    changed and that screen's own suite is green, but it is an edit to a Group 1 file made for a Group 2
    screen. The alternative was a second copy of the frozen transport vocabulary, which is the thing
    that must not exist twice.
+
+---
+
+# Round 2 — after review
+
+Task 13 passed both verdicts. Five findings; all five are addressed here, plus the driver correction
+the review derived from my concern 5.
+
+## Commits
+
+| SHA          | What                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `e96ce5711`  | All five findings: the overclaim, Label in Name, the collapsed duplicate, the site-map entry, the statement anchor. |
+| _(this one)_ | This round.                                                                                                         |
+
+The coverage finding needed no separate commit — the two suppression cases are in the same diff. Every
+SHA in this report, both rounds, was re-checked with `git cat-file -e <sha>^{commit}` after the last
+commit of this round.
+
+## 1 — the window description overclaimed, and my own test proved it
+
+The group said its contacts _"sit inside the approved 9:00 am to 6:00 pm AWST sending window"_.
+`sendingPreferenceAt` does not test that bound at all: it answers null for **any** instant that is not
+exactly one of the three send hours at minute zero. So the group admits times outside 09:00–18:00, and
+the case I wrote myself — a 00:00 AWST contact — renders in it, under a heading telling a coordinator
+it is inside 9 am to 6 pm.
+
+**The review is right that this is Ruling [126]'s error class one sentence further down.** "Moved"
+asserted an act the record cannot evidence; this asserted a containment the type does not guarantee.
+Both are the screen saying more than the value it was handed can support, and I corrected the first
+while writing the second.
+
+The description now reads: _"These contacts send at a time none of the three windows above covers.
+They are listed here rather than filed under a window they do not send in."_ The reasoning above the
+component records the correction, so the sentence cannot come back by someone reasoning from the
+group's name. Seam 2 above is corrected in place, since it would otherwise have handed the claim to
+Task 14.
+
+**Why it was easy to miss and worth writing down:** the planner cannot produce such a contact, so the
+sentence was false only about data the product cannot currently create — which is exactly the sentence
+nobody re-reads. The defensive test that reaches it was the evidence, and I read it as confirmation
+rather than as a contradiction.
+
+## 2 — suppression was uncovered, and it is the pair the brief named
+
+Correct, and it is the more serious of the two Importants. The brief's pair 1 is _every contact
+**suppressed** against a plan with none_; I implemented **withdrawn** — every contact `cancelled` —
+which is a good test of a different thing. Neither `suppressed` nor `absorbedByFirstContact` appeared
+anywhere in either new suite, so two of `notSendingExplanation`'s four branches were unasserted and
+unmutated — including the only one carrying a remedy, and the one the brief's "nine, not ten" section
+is about.
+
+Two cases now cover them, in a new block, _"a message the system decided not to send"_:
+
+- **The absorbed Week 1 message.** Seeded through the real planner with the first contact at
+  **discharge + 7**, so the Week 1 message lands on the same calendar day and the planner absorbs one
+  of them. The case asserts the "Suppressed" state, the reason (_"two caring contacts must never land
+  on one day"_), and the remedy that undoes it (_"Choosing a different first-contact date"_) — which is
+  the whole of what distinguishes this from the other three: it is reversible, and the plan is working
+  as designed. It also asserts the day still reads as a working day, because absorption is not a
+  stopped day. The premise is read off the derivation first, so nothing can pass on an empty day.
+- **A suppression whose cause the screen does not hold.** Hand-assembled and labelled defensive:
+  `applyContactTransition`'s `suppress` action can move any live contact to `suppressed` with no
+  planner marker, but no repository method exposes it, so this cannot be seeded. It is the brief's
+  pair 1 literally — the day's only contact is suppressed — and it asserts the day reads as stopped
+  rather than empty, and that this branch does **not** borrow the absorbed message's remedy, which
+  would send a coordinator to change a first-contact date that has nothing to do with it.
+
+## 3 — the duplicate is collapsed
+
+`calendarDaysFrom` is now `Array.from({ length: count }, (_unused, offset) =>
+awstCalendarDayOffset(fromCalendarDay, offset))`. `middayOf` stays, as instructed: `daysBetween` wants
+the instant rather than the day, so only the midday expression is still written twice, and its doc
+comment now says so instead of describing an enumeration it no longer serves.
+
+## 4 — Label in Name, and a number nobody can see
+
+**WCAG 2.5.3 (level A).** Each strip day carried `aria-label="Monday 31 August 2026…"` while every
+visible face read "Mon 31 Aug" — the visible string appeared nowhere in the accessible name, so voice
+control could not address the control by what it shows. The `aria-label` is gone. The name is now an
+`sr-only` span, the only thing in the control that is not `aria-hidden`, reading
+`Mon 31 Aug 2026, Today. 1 contact.` — it begins with the visible day label and contains every visible
+face.
+
+**And the still-to-send count is dropped from it.** It was a number no sighted user can find anywhere
+in the strip, which makes it a divergence between two readings of the same control rather than an
+enhancement for one of them. The decision is deliberate: `counts.due` is on the day itself, in the
+readout above its windows, where both readings get it at the same moment. The reasoning is written on
+`stripDayAccessibleName`.
+
+Two assertions cover it. One pins the exact name and proves that string really IS the name — the faces
+are `aria-hidden`, so accessible-name computation excludes them and the role lookup can only match
+through the `sr-only` span. The other walks **every** day of the strip and asserts each visible face is
+contained in that day's name, with a premise that exactly one day carries the "Today" face, so the loop
+cannot pass by inspecting nothing.
+
+## 5 — the two small ones
+
+- `scripts/generate-site-map.ts` gained a `routeDescriptions` entry, so `docs/site-map.md:14` carries
+  prose rather than _"Route discovered from app directory"_. Regenerated. My round-1 report presented
+  the route checklist as complete while one of its five steps had produced a placeholder.
+- `dayStatementText()` now finds the statement by its own `data-testid` instead of walking
+  `previousElementSibling` from the counts readout. The old form would have read the **wrong node**
+  rather than failed if anything were inserted between the two.
+
+## The presence check — concern 5, fixed as the review specified
+
+Adopted exactly: compute the post-image in process (`const expected = before.replace(find, replace)`),
+write it, re-read the file from disk, and assert `onDisk === expected` byte for byte. Occurrence
+counting is not the fix, for the reason given: an additive edit leaves the anchor's count unchanged, so
+it fails identically.
+
+**Confirmed by re-running M17 under it**, the mutation that reported absent while landing perfectly: it
+now reports `mutation present on disk: true` and produces the same three reds.
+
+## Mutation ledger, continued
+
+Numbering continues from round 1. Both suites ran through `npm run test:cc-guards`
+(`GATE_RECEIPTS=refresh`) for every attempt, presence was checked by whole-file comparison in process,
+and `git status --porcelain` was asserted empty before each mutation and after each restore by the
+driver, which throws rather than continuing. It was empty every time.
+
+M11 has no successor row: it mutated the `aria-label` template, which no longer exists. M23 and M25
+between them cover what it covered and more — M23 the name's form, M25 the number in it.
+
+| #   | Mutation                                                                 | Predicted                                                                                            | Result | The line the suite printed                                                                                                      |
+| --- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| M21 | The absorbed branch returns the generic suppressed reason and remedy     | the absorbed case loses its reason; the plain-suppressed case is untouched                           | RED    | `expected 'SuppressedWhy: The system marked this…' to contain 'Week 1 message'` — `1 failed / 460 passed (461)`                 |
+| M22 | The plain suppressed branch's reason becomes "This message was not sent" | the plain case loses its reason; the absorbed case is untouched                                      | RED    | `expected 'SuppressedWhy: This message was not s…' to contain 'does not hold what caused that'` — `1 failed / 460 passed (461)` |
+| M23 | The strip's accessible name reverts to the full-date form                | Label in Name breaks on every day, and both exact-name assertions fail                               | RED    | `"Fri 28 Aug" is visible on 2026-08-28 but not in its name` — `4 failed / 457 passed (461)`                                     |
+| M25 | The strip's accessible name counts `due` instead of `total`              | the same collapse M10 covers on the face, in the name a screen reader hears                          | RED    | `expected 'Mon 31 Aug 2026, Today. 0 contacts.' to be 'Mon 31 Aug 2026, Today. 1 contact.'` — `1 failed / 460 passed (461)`     |
+| M24 | `calendarDaysFrom` returns the same day `count` times                    | the collapsed helper is load-bearing: the range enumeration, the route, the strip and the page break | RED    | `expected [ '2026-08-31', '2026-08-31', …(5) ] to deeply equal [ '2026-08-31', '2026-09-01', …(5) ]` — `21 failed / 440 passed` |
+| M17 | Re-run of round 1's additive mutation under the exact presence check     | the same three reds, now with presence reported correctly                                            | RED    | `expected true to be false` — `3 failed / 458 passed (461)`, `mutation present on disk: true`                                   |
+
+Every prediction above was exact except M24's, where I predicted breakage across three layers without
+committing to a count; the twenty-one are the range enumeration, the HTTP route, the screen and the
+page. M23's four are the two exact-name assertions, the Label-in-Name walk, and the page's
+"which day is today" case.
+
+## Gates
+
+| Gate                                                           | Evidence                                                   |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  23 passed (23)` and `Tests  461 passed (461)` |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`), final tree      | exit 0, zero `error TS` lines emitted                      |
+| `npx eslint --no-cache`, the files this round changed          | `files linted: 5`, `errorCount: 0 warningCount: 0` (JSON)  |
+| `prettier --check`, every file this task has changed           | `All matched files use Prettier code style!`               |
+
+Run **after** the final edit of this round, which is this section. The three-count difference from
+round 1's 458 is the two suppression cases and the Label-in-Name walk.
+
+`tests/ui-caring-contacts-workspace.spec.ts` is untouched by this round and I still have not run it;
+nothing here changes the strip's structure, its link count or the empty-state wording that block
+asserts, and the `aria-label` it never read is the only removed attribute.
+
+## Concerns from round 2
+
+1. **The absorbed-message case depends on `firstContactDate: "2026-09-06"` being discharge + 7.** It is
+   derived from the fixture's discharge date by hand, in a constant beside the other fixture days,
+   rather than computed — if `DISCHARGE_AT` moves, the absorption stops happening and the case's own
+   premise assertion goes red rather than passing vacuously, which is the behaviour I wanted, but the
+   coupling is worth knowing about.
+2. **The plain-suppressed case is hand-assembled and will stay that way** until a repository method
+   exposes `applyContactTransition`'s `suppress`. It is labelled defensive in the file.
+3. **The accessible name is now shorter than the visible day is long-form.** A screen-reader user hears
+   "Mon 31 Aug 2026" rather than "Monday 31 August 2026". That is the trade Label in Name asks for, and
+   the full date is still the day's own heading once the day is open.
+4. **`middayOf` and `awstCalendarDayOffset` still both spell midday.** Instructed, and defensible —
+   `daysBetween` needs the instant — but it is the one remaining place the two modules agree by
+   coincidence rather than by construction.
