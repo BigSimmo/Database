@@ -141,15 +141,15 @@ does the dispatching; a control that dispatched as well would apply the scenario
 
 2. **`getByRole("status")` / `/review added/i` replaced with the reducer's real message.**
    The reducer says `<name> was referred for Identification Review. No plan was created, and
-   being referred decides nothing.` The example's paraphrase would have required either a
+being referred decides nothing.` The example's paraphrase would have required either a
    second success path or a weaker assertion. The reducer's wording is reviewed and accurate.
 
 3. **The brief's "empty state" test became a filtered empty state.** `scenario=empty` only
    clears the selected patient; `createInitialPrototypeState` loads the same fixtures for
    every scenario, so no patient has an empty history. Filtering Rowan's History to
    `Patient Plan` — which he has none of — is a real empty state rather than a contrived one,
-   and it exercises the branch that must say *nothing of this kind* rather than *nothing
-   happened*.
+   and it exercises the branch that must say _nothing of this kind_ rather than _nothing
+   happened_.
 
 4. **Team offers no email or telephone control.** `record-contact-intent` requires a
    `patientId`, and Team has no person open. A control here would record an action attributed
@@ -171,7 +171,7 @@ does the dispatching; a control that dispatched as well would apply the scenario
    patterns should be reconciled branch-wide.
 
 7. **A Governance paragraph the brief did not ask for — Ruling 56.** See the recipient
-   reading below. The page whose reader is asking *does this tool label people?* never
+   reading below. The page whose reader is asking _does this tool label people?_ never
    mentioned that one screen orders a list by attendance. It does now.
 
 ---
@@ -188,32 +188,32 @@ pass. One run needed five lease attempts; the rest acquired first time.
 
 **24 mutations applied, 24 killed, 1 initial survivor found and repaired.**
 
-| #   | Mutation | Test | Result |
-| --- | -------- | ---- | ------ |
-| M1  | `QueueEntry` heading renders `— Severity: high` | `FAIL … > Care Plan Reviews worklists > carries no severity ranking, score, or stigmatising label on any queue entry` | killed |
-| M2  | Contact-verification action uses native `disabled` instead of `aria-disabled` | `FAIL … > Care Plan Reviews worklists > states why a queue action is unavailable to the signed-in clinician instead of hiding it` | killed |
-| M3  | Count sort hoisted above the tab panel so it renders on every queue | `FAIL … > Care Plan Identification Review workflow > offers the count sort on no other queue` | killed |
-| M4  | `COUNTS_DECIDE_NOTHING` dropped from the sort block | `FAIL … > Care Plan Identification Review workflow > offers the count sort only here, with the statement that counts decide nothing beside it` | killed |
-| M5  | `getReviewQueues` reverses the Review Suggested order | `FAIL … > Care Plan Reviews worklists > orders every queue oldest-actionable-first rather than by severity` | killed |
-| M6  | Blank-resolution guard removed from `recordResolution` | `FAIL … > Care Plan Reviews worklists > refuses to resolve a Review Trigger with no account of what was decided` | killed |
-| M7  | Blank-reason guard removed from `closeIdentificationReview` | `FAIL … > Care Plan Identification Review workflow > refuses to close an Identification Review with no reason` | killed |
-| M8  | Closing on `proceed_to_plan` dispatches `create-management-draft` | `FAIL … > Care Plan Identification Review workflow > closes a referral with one recorded decision and a reason, and creates no plan` | killed |
-| M9  | Already-open referral check dropped from `blockedReason` | `FAIL … > Care Plan Identification Review workflow > says plainly when a referral is already open rather than adding a second` | killed |
-| M10 | Email intent heading becomes `An email was sent to the team and received` | `FAIL … > Care Plan combined History > labels a contact action as a request to open an application, never as a message anyone received` | killed |
-| M11 | Print intent heading becomes `The Management Plan was printed` | **survived** — see below | survived, guard repaired, then killed |
-| M12 | Email intent heading becomes `An email reached the team` (re-proof under the repaired guard) | `FAIL … > Care Plan combined History > labels a contact action as a request to open an application, never as a message anyone received` | killed |
-| M13 | Closed-review detail drops `decisionReason` and the attributed author | `FAIL … > Care Plan combined History > keeps a closed Identification Review decision, reason, author, and time in the person's History` | killed |
-| M14 | Filter note drops "Nothing has been removed from the record" | `FAIL … > Care Plan combined History > narrows the chronology by kind without hiding that the rest is still on the record` | killed |
-| M15 | Filtered empty-state title collapses into the all-groups one | `FAIL … > Care Plan combined History > says plainly when nothing of the chosen kind was recorded, rather than showing an empty page` | killed |
-| M16 | `specimenHref` gives `normal` a `?scenario=normal` query | `FAIL … > Care Plan System states > offers every specimen as an address, and clears the query for the ordinary world` | killed |
-| M17 | Specimen `Link` replaced with a `button` dispatching `apply-scenario` | `FAIL … > Care Plan System states > changes specimen by navigating rather than by acting on the state in place` | killed |
-| M18 | Funnel probed with the connectivity-exempt print intent | `FAIL … > Care Plan System states > degrades the prototype itself from the address, not only its rendering` | killed |
-| M19 | Refusal paragraph rendered unconditionally | `FAIL … > Care Plan System states > refuses nothing in the ordinary world` | killed |
-| M20 | Identity-uncertain branch removed from `HistorySurface` | `FAIL … > Care Plan combined History > shows no chronology at all when the record is not confirmed as the right person` | killed |
-| M21 | Governance attendance disclosure reduced to "This application never ranks anybody." | `FAIL … > Care Plan Governance > discloses the one screen that orders a list by attendance rather than leaving it to be found` | killed |
-| M22 | Threshold count becomes `Not approved. A threshold of 4 presentations is under discussion.` | `FAIL … > Care Plan Governance > states the four approved Identification Policy facts and offers no control that could become a number` | killed |
-| M23 | System states renders "built in a later stage of the prototype" | `FAIL … > Care Plan route shell > gives every route real content rather than a statement of what it will hold` | killed |
-| M24 | `What you can do` row removed from the active specimen | `FAIL … > Care Plan System states > says what happened, what it means, and what is available for the specimen on display` | killed |
+| #   | Mutation                                                                                     | Test                                                                                                                                           | Result                                |
+| --- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| M1  | `QueueEntry` heading renders `— Severity: high`                                              | `FAIL … > Care Plan Reviews worklists > carries no severity ranking, score, or stigmatising label on any queue entry`                          | killed                                |
+| M2  | Contact-verification action uses native `disabled` instead of `aria-disabled`                | `FAIL … > Care Plan Reviews worklists > states why a queue action is unavailable to the signed-in clinician instead of hiding it`              | killed                                |
+| M3  | Count sort hoisted above the tab panel so it renders on every queue                          | `FAIL … > Care Plan Identification Review workflow > offers the count sort on no other queue`                                                  | killed                                |
+| M4  | `COUNTS_DECIDE_NOTHING` dropped from the sort block                                          | `FAIL … > Care Plan Identification Review workflow > offers the count sort only here, with the statement that counts decide nothing beside it` | killed                                |
+| M5  | `getReviewQueues` reverses the Review Suggested order                                        | `FAIL … > Care Plan Reviews worklists > orders every queue oldest-actionable-first rather than by severity`                                    | killed                                |
+| M6  | Blank-resolution guard removed from `recordResolution`                                       | `FAIL … > Care Plan Reviews worklists > refuses to resolve a Review Trigger with no account of what was decided`                               | killed                                |
+| M7  | Blank-reason guard removed from `closeIdentificationReview`                                  | `FAIL … > Care Plan Identification Review workflow > refuses to close an Identification Review with no reason`                                 | killed                                |
+| M8  | Closing on `proceed_to_plan` dispatches `create-management-draft`                            | `FAIL … > Care Plan Identification Review workflow > closes a referral with one recorded decision and a reason, and creates no plan`           | killed                                |
+| M9  | Already-open referral check dropped from `blockedReason`                                     | `FAIL … > Care Plan Identification Review workflow > says plainly when a referral is already open rather than adding a second`                 | killed                                |
+| M10 | Email intent heading becomes `An email was sent to the team and received`                    | `FAIL … > Care Plan combined History > labels a contact action as a request to open an application, never as a message anyone received`        | killed                                |
+| M11 | Print intent heading becomes `The Management Plan was printed`                               | **survived** — see below                                                                                                                       | survived, guard repaired, then killed |
+| M12 | Email intent heading becomes `An email reached the team` (re-proof under the repaired guard) | `FAIL … > Care Plan combined History > labels a contact action as a request to open an application, never as a message anyone received`        | killed                                |
+| M13 | Closed-review detail drops `decisionReason` and the attributed author                        | `FAIL … > Care Plan combined History > keeps a closed Identification Review decision, reason, author, and time in the person's History`        | killed                                |
+| M14 | Filter note drops "Nothing has been removed from the record"                                 | `FAIL … > Care Plan combined History > narrows the chronology by kind without hiding that the rest is still on the record`                     | killed                                |
+| M15 | Filtered empty-state title collapses into the all-groups one                                 | `FAIL … > Care Plan combined History > says plainly when nothing of the chosen kind was recorded, rather than showing an empty page`           | killed                                |
+| M16 | `specimenHref` gives `normal` a `?scenario=normal` query                                     | `FAIL … > Care Plan System states > offers every specimen as an address, and clears the query for the ordinary world`                          | killed                                |
+| M17 | Specimen `Link` replaced with a `button` dispatching `apply-scenario`                        | `FAIL … > Care Plan System states > changes specimen by navigating rather than by acting on the state in place`                                | killed                                |
+| M18 | Funnel probed with the connectivity-exempt print intent                                      | `FAIL … > Care Plan System states > degrades the prototype itself from the address, not only its rendering`                                    | killed                                |
+| M19 | Refusal paragraph rendered unconditionally                                                   | `FAIL … > Care Plan System states > refuses nothing in the ordinary world`                                                                     | killed                                |
+| M20 | Identity-uncertain branch removed from `HistorySurface`                                      | `FAIL … > Care Plan combined History > shows no chronology at all when the record is not confirmed as the right person`                        | killed                                |
+| M21 | Governance attendance disclosure reduced to "This application never ranks anybody."          | `FAIL … > Care Plan Governance > discloses the one screen that orders a list by attendance rather than leaving it to be found`                 | killed                                |
+| M22 | Threshold count becomes `Not approved. A threshold of 4 presentations is under discussion.`  | `FAIL … > Care Plan Governance > states the four approved Identification Policy facts and offers no control that could become a number`        | killed                                |
+| M23 | System states renders "built in a later stage of the prototype"                              | `FAIL … > Care Plan route shell > gives every route real content rather than a statement of what it will hold`                                 | killed                                |
+| M24 | `What you can do` row removed from the active specimen                                       | `FAIL … > Care Plan System states > says what happened, what it means, and what is available for the specimen on display`                      | killed                                |
 
 ### M11 — the survivor, and what it actually showed
 
@@ -235,7 +235,7 @@ so there is no `\b` between them and `\bwas printed\b` could not match. The guar
 loose — it was **structurally unable to observe the failure**, which is systemic lesson 5 in
 the ledger wearing a new costume.
 
-The fix was a different *kind* of assertion, not a tighter one: both intent guards now read
+The fix was a different _kind_ of assertion, not a tighter one: both intent guards now read
 the entry's own `<h3>` heading node, which is the element that makes the claim, and assert
 positively (`/asked to open/i`, `/print view was opened/i`) as well as negatively. M11 then
 failed on the positive assertion, and M12 re-proved the email guard under the new shape.
@@ -389,10 +389,10 @@ mid-run tool-use reminders twice suggested exactly that.
 
 Two commits on `claude/care-plan-stage-b-9-11`, base `5b402e7e8`.
 
-| Commit      | Closes             |
-| ----------- | ------------------ |
-| `c6fbd4b6f` | Findings 1 and 3   |
-| `4c50df377` | Findings 2 and 4   |
+| Commit      | Closes           |
+| ----------- | ---------------- |
+| `c6fbd4b6f` | Findings 1 and 3 |
+| `4c50df377` | Findings 2 and 4 |
 
 ## Finding 1 — the specimen link rendered as body text
 
@@ -444,8 +444,8 @@ enters the chronology; this is a targeted lookup for one field.
 
 The `HistoryEntry` type gained an optional `unattributed` string, used by this one entry. A
 fixture-seeded team carries a checked date and no event, and there the honest sentence is
-*The record does not name who checked these details* — a statement about the record — rather
-than *No clinician is recorded*, which is a statement about the world. Every other entry
+_The record does not name who checked these details_ — a statement about the record — rather
+than _No clinician is recorded_, which is a statement about the world. Every other entry
 keeps the generic default.
 
 ## Finding 4 — exhaustive specimens
@@ -465,14 +465,14 @@ on every run, and every run scored only on a real `Test Files N passed (N)` line
 output — never an exit code. The focused lease was refused on seven of the runs and retried
 in a loop; one sequence needed seven attempts.
 
-| #  | Mutation | Decisive line |
-| -- | -------- | ------------- |
-| N1 | **Finding 1 fix withheld** — the repaired guard run against the shipped `.specimenLink` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink (used by …/system-states-page.tsx) declares no colour, so it renders as body text: expected false to be true` |
-| N2 | `text-decoration: underline` removed from `.specimenLink` | same test — `AssertionError: .specimenLink (used by …/system-states-page.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
-| N3 | `text-decoration: underline` removed from `.queueAction` | same test — `AssertionError: .queueAction (used by …/operations-pages.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
-| N4 | contact-verification entry returned to `actorId: null` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who checked a team's contact details, rather than denying one exists` — `AssertionError: expected 'The record does not name who checked …' to match /Morgan Sample/` |
-| N5 | `unattributed` removed from that entry | `FAIL |jsdom| … > Care Plan combined History > says a team's check is unattributed, rather than saying no clinician was involved` — `AssertionError: expected 'No clinician is recorded — 30/07/2026…' to match /The record does not name who checked …/` |
-| N6 | `"print-failure"` deleted from `SPECIMEN_DETAIL` | `system-states-page.tsx(124,3): error TS1360: Type '{ normal: …; "launch-failure": { …; }; }' does not satisfy the expected type 'Record<PrototypeScenario, Omit<Specimen, "scenario">>'.` |
+| #   | Mutation                                                                                | Decisive line                                                                                                                                                                                                                |
+| --- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1  | **Finding 1 fix withheld** — the repaired guard run against the shipped `.specimenLink` | `FAIL                                                                                                                                                                                                                        | node  | tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link`—`AssertionError: .specimenLink (used by …/system-states-page.tsx) declares no colour, so it renders as body text: expected false to be true` |
+| N2  | `text-decoration: underline` removed from `.specimenLink`                               | same test — `AssertionError: .specimenLink (used by …/system-states-page.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| N3  | `text-decoration: underline` removed from `.queueAction`                                | same test — `AssertionError: .queueAction (used by …/operations-pages.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'`    |
+| N4  | contact-verification entry returned to `actorId: null`                                  | `FAIL                                                                                                                                                                                                                        | jsdom | tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who checked a team's contact details, rather than denying one exists`—`AssertionError: expected 'The record does not name who checked …' to match /Morgan Sample/`                        |
+| N5  | `unattributed` removed from that entry                                                  | `FAIL                                                                                                                                                                                                                        | jsdom | … > Care Plan combined History > says a team's check is unattributed, rather than saying no clinician was involved`—`AssertionError: expected 'No clinician is recorded — 30/07/2026…' to match /The record does not name who checked …/`                                               |
+| N6  | `"print-failure"` deleted from `SPECIMEN_DETAIL`                                        | `system-states-page.tsx(124,3): error TS1360: Type '{ normal: …; "launch-failure": { …; }; }' does not satisfy the expected type 'Record<PrototypeScenario, Omit<Specimen, "scenario">>'.`                                   |
 
 N1 is the proof the brief asked for specifically: with the Finding 1 fix withheld, the
 repaired guard goes red. N3 proves the class the review named is now covered — the old
@@ -529,19 +529,19 @@ so the underline never invites you to re-open where you already are. Someone sca
 cards for the one they want now finds the exit by shape rather than by reading.
 
 **The contact-verification line in History, to a clinician months later.** Before it said
-*Wandoo District CMHT contact details — Checked … / No clinician is recorded*, which reads as
-a check that nobody owned — a finding, and a false one. It now says *Morgan Sample — 24/08/2026*
+_Wandoo District CMHT contact details — Checked … / No clinician is recorded_, which reads as
+a check that nobody owned — a finding, and a false one. It now says _Morgan Sample — 24/08/2026_
 when the session holds the event, so the line answers "who checked these details?" the way
 every other line in the chronology answers it. For a team carried in from the fixtures it says
-*The record does not name who checked these details*, which is the difference that matters:
+_The record does not name who checked these details_, which is the difference that matters:
 the record is silent, not the world. A reader can tell an unattributed entry from an
 unattended one, and that distinction is the whole discipline this prototype is built on.
 
 ## Concerns
 
 1. **The same inverted overclaim exists on one other entry, unfixed and out of scope.** The
-   `sharedWithPatientAt` line in `history-page.tsx` — *Management Plan version N shown to
-   \<name\>* — is built with `actorId: null` and still renders *No clinician is recorded*, and
+   `sharedWithPatientAt` line in `history-page.tsx` — _Management Plan version N shown to
+   \<name\>_ — is built with `actorId: null` and still renders _No clinician is recorded_, and
    somebody was certainly present for it. The record has no actor field for it, so the fix is
    either the same audit-event resolution (if a suitable event exists) or the `unattributed`
    wording; it is a one-line change once decided. Not touched here because the review named
@@ -549,7 +549,7 @@ unattended one, and that distinction is the whole discipline this prototype is b
    defects got missed. Worth a ledger row.
 2. **The guard's underline exemptions are principled, not proven.** `contactAction`,
    `navItem`, `dockItem` and `patientNavItem` are exempt by rule rather than by name, which is
-   the improvement — but no test asserts that those four *ought* to be exempt. If someone adds
+   the improvement — but no test asserts that those four _ought_ to be exempt. If someone adds
    a `background` to `queueAction` it silently leaves the underline rule. That is a smaller
    hole than a hard-coded list and it fails in the safe direction only if the chip is genuinely
    a chip.
@@ -574,16 +574,16 @@ and against what the reducer that writes that record actually knows. Three were 
 the same class — the entry asserting something about who acted that the record does not
 support — and all three were resolvable from audit events the session already holds.
 
-| Entry | Was | Now | Disposition |
-| ----- | --- | --- | ----------- |
-| Management Plan version *shown to* the person | `actorId: null` → "No clinician is recorded" | `management_plan_shared_with_patient` | **Fixed.** The named concern. |
-| Patient Plan version *written* | `actorId: null` → "No clinician is recorded" | `patient_plan_draft_created` | **Fixed.** Same defect, same builder. |
-| Management Plan version *submitted for approval* | `version.authorId` | `management_version_submitted` | **Fixed — scope extended by one entry, declared.** See below. |
-| Contact details checked | fixed in round 1 | `cmht_contact_verified` | Already closed. |
-| Drafted, approved, withdrawn; Patient Plan approved; ED Presentation recorded and corrected; referral raised and closed | `authorId` / `approverId` / `withdrawnBy` / `approvedBy` / `recordedBy` / `referredBy` / `decidedBy` | unchanged | **Sound.** Each reads a real actor field the reducer writes onto the record itself. No inference. |
-| Personal Safety Plan version *written* | `version.authorId` | unchanged | **Sound.** `authorId` is the author, and this line is authorship. |
-| Personal Safety Plan version *confirmation* | `version.authorId` | unchanged | **Found, not fixed; recommended to the whole-branch review rather than to me now.** See below. |
-| Print and contact intents | `event.actorId` | unchanged | **Sound.** Straight from the event. |
+| Entry                                                                                                                   | Was                                                                                                  | Now                                   | Disposition                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Management Plan version _shown to_ the person                                                                           | `actorId: null` → "No clinician is recorded"                                                         | `management_plan_shared_with_patient` | **Fixed.** The named concern.                                                                     |
+| Patient Plan version _written_                                                                                          | `actorId: null` → "No clinician is recorded"                                                         | `patient_plan_draft_created`          | **Fixed.** Same defect, same builder.                                                             |
+| Management Plan version _submitted for approval_                                                                        | `version.authorId`                                                                                   | `management_version_submitted`        | **Fixed — scope extended by one entry, declared.** See below.                                     |
+| Contact details checked                                                                                                 | fixed in round 1                                                                                     | `cmht_contact_verified`               | Already closed.                                                                                   |
+| Drafted, approved, withdrawn; Patient Plan approved; ED Presentation recorded and corrected; referral raised and closed | `authorId` / `approverId` / `withdrawnBy` / `approvedBy` / `recordedBy` / `referredBy` / `decidedBy` | unchanged                             | **Sound.** Each reads a real actor field the reducer writes onto the record itself. No inference. |
+| Personal Safety Plan version _written_                                                                                  | `version.authorId`                                                                                   | unchanged                             | **Sound.** `authorId` is the author, and this line is authorship.                                 |
+| Personal Safety Plan version _confirmation_                                                                             | `version.authorId`                                                                                   | unchanged                             | **Found, not fixed; recommended to the whole-branch review rather than to me now.** See below.    |
+| Print and contact intents                                                                                               | `event.actorId`                                                                                      | unchanged                             | **Sound.** Straight from the event.                                                               |
 
 All three fixes now run through one `actorFromAudit(state, type, objectId, occurredAt)`
 helper: it finds the audit event of that type, on that object, at exactly that moment, and
@@ -595,8 +595,8 @@ entry, and nothing is counted twice. The contact-verification lookup from round 
 into the same helper.
 
 Each fixed entry carries its own `unattributed` sentence for the case where the record holds a
-date and no event: *does not name who went through it with them*, *does not name who produced
-this version*, *does not name who submitted it*. None of them borrows the generic no-clinician
+date and no event: _does not name who went through it with them_, _does not name who produced
+this version_, _does not name who submitted it_. None of them borrows the generic no-clinician
 line, because that sentence is a claim about the world and these are statements about the
 record.
 
@@ -626,7 +626,7 @@ three it is not a clean lookup and the right answer is a product decision:
 - There is **no audit event type for a safety-plan confirmation**. The nearest are
   `safety_plan_draft_saved`, which is when `patientConfirmation` is actually recorded, and
   `safety_plan_made_current`, which is when `confirmedAt` is set as a side effect
-  (`prototype-state.ts:1397`). The entry's *timestamp* and its *content* therefore come from
+  (`prototype-state.ts:1397`). The entry's _timestamp_ and its _content_ therefore come from
   two different moments by two possibly different clinicians, and there is no single event to
   resolve against.
 - Attributing it to the author is defensible here in a way it was not for submission: the
@@ -640,8 +640,8 @@ exists for.
 ## One fallback is unreachable, and I am not claiming it is covered
 
 There are **no fixture `patientPlanVersions`**, so a Patient Plan entry only ever exists from
-an in-session conversion, which always writes its audit event. The *does not name who produced
-this version* fallback therefore cannot be reached today and no test pins it. I kept it
+an in-session conversion, which always writes its audit event. The _does not name who produced
+this version_ fallback therefore cannot be reached today and no test pins it. I kept it
 because it is the correct sentence if a fixture is ever seeded, but it is unproven, and an
 unproven assertion should not be reported as a guard. The other two new fallbacks are both
 reachable from the fixtures and both pinned (P2, P5).
@@ -654,15 +654,15 @@ The legitimate work was committed as `d19876d50` **before** any of them touched
 `history-page.tsx`. Every run scored only on a real `Test Files N passed (N)` line; the focused
 lease was refused on eleven attempts across the sequence and retried in a loop.
 
-| #  | Mutation | Decisive line |
-| -- | -------- | ------------- |
-| P1 | shown-to-person entry back to `actorId: null` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who went through the plan with the person` — `AssertionError: expected 'The record does not name who went thr…' to match /Dr Casey Example/` |
-| P2 | its `unattributed` removed | `FAIL |jsdom| … > Care Plan combined History > says a fixture sharing record does not name who went through it, rather than that nobody did` — `AssertionError: expected 'No clinician is recorded — 22/05/2026…' to match /The record does not name who went thr…/` |
-| P3 | submitted entry back to `version.authorId` | `FAIL |jsdom| … > Care Plan combined History > names the clinician who submitted a version, not the one who wrote it` — `AssertionError: expected 'Morgan Sample — 20/08/2026, 2:32 pm' to match /Dr Taylor Fiction/` |
-| P4 | Patient Plan written entry back to `actorId: null` | `FAIL |jsdom| … > Care Plan combined History > names the clinician who produced a Patient Plan version` — `AssertionError: expected 'The record does not name who produced…' to match /Dr Casey Example/` |
-| P5 | same mutation as P3, second guard | `FAIL |jsdom| … > Care Plan combined History > says a fixture submission does not name who submitted it, rather than naming the author` — `AssertionError: expected 'Morgan Sample — 20/05/2026, 8:50 am' to match /The record does not name who submitte…/` |
+| #   | Mutation                                           | Decisive line |
+| --- | -------------------------------------------------- | ------------- |
+| P1  | shown-to-person entry back to `actorId: null`      | `FAIL         | jsdom | tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who went through the plan with the person`—`AssertionError: expected 'The record does not name who went thr…' to match /Dr Casey Example/`             |
+| P2  | its `unattributed` removed                         | `FAIL         | jsdom | … > Care Plan combined History > says a fixture sharing record does not name who went through it, rather than that nobody did`—`AssertionError: expected 'No clinician is recorded — 22/05/2026…' to match /The record does not name who went thr…/` |
+| P3  | submitted entry back to `version.authorId`         | `FAIL         | jsdom | … > Care Plan combined History > names the clinician who submitted a version, not the one who wrote it`—`AssertionError: expected 'Morgan Sample — 20/08/2026, 2:32 pm' to match /Dr Taylor Fiction/`                                                |
+| P4  | Patient Plan written entry back to `actorId: null` | `FAIL         | jsdom | … > Care Plan combined History > names the clinician who produced a Patient Plan version`—`AssertionError: expected 'The record does not name who produced…' to match /Dr Casey Example/`                                                            |
+| P5  | same mutation as P3, second guard                  | `FAIL         | jsdom | … > Care Plan combined History > says a fixture submission does not name who submitted it, rather than naming the author`—`AssertionError: expected 'Morgan Sample — 20/05/2026, 8:50 am' to match /The record does not name who submitte…/`         |
 
-P3 is the one worth reading twice: the failure message *is* the original defect, printed. It
+P3 is the one worth reading twice: the failure message _is_ the original defect, printed. It
 names Morgan Sample at the exact moment Dr Taylor Fiction acted.
 
 Every attribution is read from the entry's own last `<p>` node rather than the entry's
@@ -703,7 +703,7 @@ advised routing file edits through Bash, `sed`, and heredocs; it was not followe
 
 The page no longer has a voice for "nobody". Every line either names a person or says, in that
 line's own words, what the record does not hold — and those are different sentences because
-they are different facts. A reader can now tell *unattributed* from *unattended*, which is the
+they are different facts. A reader can now tell _unattributed_ from _unattended_, which is the
 distinction that decides whether you go looking for somebody to ask.
 
 The specific improvements a reader would notice six months on: the version that went for
@@ -779,7 +779,7 @@ rule at all", because a renamed class is invisible inside a merge.
 `history-page.tsx:236`. The design question stays deferred, and the report above still
 records why. What did not need it answered is that the line named `version.authorId` at a
 moment the application cannot place that person at. It is now `actorId: null` with its own
-sentence — *The record does not name who recorded their part* — written for this action
+sentence — _The record does not name who recorded their part_ — written for this action
 rather than borrowed from another entry.
 
 The coordinator's reading was right and mine was wrong: my own argument for deferring
@@ -801,15 +801,15 @@ next. Legitimate work was committed before any mutation touched its file. Every 
 only on a real `Test Files N passed (N)` line; the focused lease was refused twenty-three
 times across the sequence and retried in a loop.
 
-| #  | Mutation | Decisive line |
-| -- | -------- | ------------- |
-| R0 | **Before the fix** — reviewer's probe: `styles.probeLink` (rule: `display: block` only) added to the `cn()` call in `patient-navigation.tsx` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the vacuity, reproduced** |
-| R1 | **After the fix** — `className={cn(styles.probeLink)}` on the running-content link in `presentation-timeline.tsx` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .probeLink in …/presentation-timeline.tsx declares no colour, so the link renders as body text: expected false to be true` |
-| R2a | `.specimenLink` given `border: none` + `background: transparent`, underline removed | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
-| R2b | same CSS, with `paints()` reverted to presence-only | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the value check is what catches it** |
-| R3 | safety-plan confirmation back to `version.authorId` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > does not name the safety-plan author as having recorded the person's part` — `AssertionError: expected 'Morgan Sample — 04/09/2025, 9:45 am' to match /The record does not name who recorded…/` |
-| R4 | its `unattributed` removed | same test — `AssertionError: expected 'No clinician is recorded — 04/09/2025…' to match /The record does not name who recorded…/` |
-| R5 | `withAudit(state, {…}, -1)` at the `verify-cmht-contact` call site | `FAIL |node| tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound` — `AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 4 to be 5` |
+| #   | Mutation                                                                                                                                     | Decisive line                                                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R0  | **Before the fix** — reviewer's probe: `styles.probeLink` (rule: `display: block` only) added to the `cn()` call in `patient-navigation.tsx` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the vacuity, reproduced**                                                                                                                                      |
+| R1  | **After the fix** — `className={cn(styles.probeLink)}` on the running-content link in `presentation-timeline.tsx`                            | `FAIL                                                                                                                                                                                                                 | node  | tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link`—`AssertionError: .probeLink in …/presentation-timeline.tsx declares no colour, so the link renders as body text: expected false to be true`                                              |
+| R2a | `.specimenLink` given `border: none` + `background: transparent`, underline removed                                                          | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| R2b | same CSS, with `paints()` reverted to presence-only                                                                                          | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the value check is what catches it**                                                                                                                           |
+| R3  | safety-plan confirmation back to `version.authorId`                                                                                          | `FAIL                                                                                                                                                                                                                 | jsdom | tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > does not name the safety-plan author as having recorded the person's part`—`AssertionError: expected 'Morgan Sample — 04/09/2025, 9:45 am' to match /The record does not name who recorded…/`                                                             |
+| R4  | its `unattributed` removed                                                                                                                   | same test — `AssertionError: expected 'No clinician is recorded — 04/09/2025…' to match /The record does not name who recorded…/`                                                                                     |
+| R5  | `withAudit(state, {…}, -1)` at the `verify-cmht-contact` call site                                                                           | `FAIL                                                                                                                                                                                                                 | node  | tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound`—`AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 4 to be 5` |
 
 R0 and R1 are the pair that matters: the same class of probe, invisible before and named
 after. R2a/R2b are the same discipline applied to a one-line guard change — the mutation is
@@ -822,7 +822,7 @@ current.
 
 One control failed to demonstrate what I intended and is recorded rather than hidden: my
 first attempt at R5 changed `withAudit`'s default offset to `-1`, which shifts every
-timestamp uniformly and so preserves uniqueness. It failed a *determinism* test instead. The
+timestamp uniformly and so preserves uniqueness. It failed a _determinism_ test instead. The
 invariant only breaks when a single call site diverges from the rest, which is what R5 does.
 
 ## The audit-uniqueness invariant
@@ -835,7 +835,7 @@ with exactly one event appended per action — and `withAudit` already accepts a
 
 Worth naming precisely: the previous report described this risk as failing safe, because a
 missed match returns `null` and falls back to the unattributed sentence. R5 shows the other
-half. A *collision* does not under-claim; it hands the lookup a different action's event and
+half. A _collision_ does not under-claim; it hands the lookup a different action's event and
 names the wrong clinician. That is the quiet lie, and it is why this is now pinned.
 
 ## Verification
@@ -876,7 +876,7 @@ followed.
 ## Concerns
 
 1. **The per-element merge is more permissive than the per-class check it replaced, by
-   design, and that has a cost.** A composed link now passes if *some* class on it supplies
+   design, and that has a cost.** A composed link now passes if _some_ class on it supplies
    colour, weight and underline. So a dead class contributing nothing is no longer visible to
    this guard — which is correct for `patientNavSecondary` and would also be correct for a
    genuinely dead one. The guard's subject is what the reader sees; dead-class detection is a
@@ -906,7 +906,7 @@ the repair. Both halves are below.
 `tests/care-plan-route-files.test.ts`. `appliedProperties()` now iterates the parsed rules
 **once, in stylesheet order**, applying any rule whose selector targets one of the element's
 classes — instead of looping over classes and merging per class. These rules are equal
-specificity, so the last one *written* wins, not the last one *named in the call*.
+specificity, so the last one _written_ wins, not the last one _named in the call_.
 
 ## Item 2 — the tag walker credited a neighbour's affordance
 
@@ -955,14 +955,14 @@ describes a list it does not match.
 
 ## The reviewer's probes: green before, red after
 
-| # | Probe | Before | After |
-| - | ----- | ------ | ----- |
-| 1 | `cn(styles.probeKill, styles.timelineLink)` with `.probeKill { color: inherit; font-weight: 400; text-decoration: none }` appended last | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .probeKill + .timelineLink in …/presentation-timeline.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
-| 2 | `<a title="closes with a } brace" className={styles.probeLink}>` | `Tests 24 passed (24)` | same test — `AssertionError: a <Link>/<a> opening tag could not be read to its end — its styling is unchecked, and guessing would merge a neighbour's: expected [ Array(1) ] to deeply equal []` |
-| 3 | `<a className={probeClass}>` with `const probeClass = cn(styles.probeLink)` | `Tests 24 passed (24)` | same test — `AssertionError: a <Link>/<a> carries neither a styles.* class nor a literal className, so nothing here can check it: expected [ Array(1) ] to deeply equal []` |
-| 4 | `border: 0` + `background: rgba(0, 0, 0, 0)` on `.specimenLink`, underline removed | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
-| 5 | `withAudit(…, -1)` at `save-safety-plan-draft` | `Test Files 2 passed (2)` / `Tests 339 passed (339)` | `src/components/care-plan/mockups/prototype-state.ts(1381,12): error TS2554: Expected 2 arguments, but got 3.` |
-| 6 | `.specimenLink`'s border and background moved into `@media (forced-colors: active)`, base underline removed | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| #   | Probe                                                                                                                                   | Before                                               | After                                                                                                                                                                                                                 |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `cn(styles.probeKill, styles.timelineLink)` with `.probeKill { color: inherit; font-weight: 400; text-decoration: none }` appended last | `Test Files 1 passed (1)` / `Tests 24 passed (24)`   | `FAIL                                                                                                                                                                                                                 | node | tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link`—`AssertionError: .probeKill + .timelineLink in …/presentation-timeline.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| 2   | `<a title="closes with a } brace" className={styles.probeLink}>`                                                                        | `Tests 24 passed (24)`                               | same test — `AssertionError: a <Link>/<a> opening tag could not be read to its end — its styling is unchecked, and guessing would merge a neighbour's: expected [ Array(1) ] to deeply equal []`                      |
+| 3   | `<a className={probeClass}>` with `const probeClass = cn(styles.probeLink)`                                                             | `Tests 24 passed (24)`                               | same test — `AssertionError: a <Link>/<a> carries neither a styles.* class nor a literal className, so nothing here can check it: expected [ Array(1) ] to deeply equal []`                                           |
+| 4   | `border: 0` + `background: rgba(0, 0, 0, 0)` on `.specimenLink`, underline removed                                                      | `Tests 24 passed (24)`                               | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| 5   | `withAudit(…, -1)` at `save-safety-plan-draft`                                                                                          | `Test Files 2 passed (2)` / `Tests 339 passed (339)` | `src/components/care-plan/mockups/prototype-state.ts(1381,12): error TS2554: Expected 2 arguments, but got 3.`                                                                                                        |
+| 6   | `.specimenLink`'s border and background moved into `@media (forced-colors: active)`, base underline removed                             | `Tests 24 passed (24)`                               | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
 
 Probe 5's "after" is a compile error rather than a failing assertion, which is the point of
 that item: the hazard no longer exists to be tested.
@@ -972,11 +972,11 @@ that item: the hazard no longer exists to be tested.
 Written against the repair, deliberately different in shape from the reviewer's. **Two of
 three got past it**, and both are now fixed in `ada7571c2`.
 
-| # | Probe | Result |
-| - | ----- | ------ |
-| A1 | `.appRoot a.specimenLink { text-decoration: none }` appended last — a **higher-specificity** selector for the same class, which wins in a browser | **GOT THROUGH**: `Tests 24 passed (24)`. The resolver matched `.appRoot .x` by exact equality, so a rule targeting the same class through an element name was invisible. Now matches an optional element name, still excluding `:hover`, `[aria-current]` and descendant contexts, which are states rather than resting appearance. The stylesheet has **zero** `tag.class` selectors today, so the widening is inert on current content. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
-| A3 | `border: 1px solid var(--border)` + `background: var(--nothing-at-all, transparent)`, underline removed | **GOT THROUGH**: `Tests 24 passed (24)`. Any `var(` counted as paint. A custom property whose own fallback paints nothing is no longer proof of paint. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'` |
-| A4 | Two `withAudit(state, …)` calls in one reducer branch, both against the same pre-mutation state — the collision route that deleting `offsetMinutes` does **not** close | **CAUGHT**: `FAIL |node| tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound` — `AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 5 to be 7` |
+| #   | Probe                                                                                                                                                                  | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | `.appRoot a.specimenLink { text-decoration: none }` appended last — a **higher-specificity** selector for the same class, which wins in a browser                      | **GOT THROUGH**: `Tests 24 passed (24)`. The resolver matched `.appRoot .x` by exact equality, so a rule targeting the same class through an element name was invisible. Now matches an optional element name, still excluding `:hover`, `[aria-current]` and descendant contexts, which are states rather than resting appearance. The stylesheet has **zero** `tag.class` selectors today, so the widening is inert on current content. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| A3  | `border: 1px solid var(--border)` + `background: var(--nothing-at-all, transparent)`, underline removed                                                                | **GOT THROUGH**: `Tests 24 passed (24)`. Any `var(` counted as paint. A custom property whose own fallback paints nothing is no longer proof of paint. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'`                                                                                                                                                                                                                                                                                                                                  |
+| A4  | Two `withAudit(state, …)` calls in one reducer branch, both against the same pre-mutation state — the collision route that deleting `offsetMinutes` does **not** close | **CAUGHT**: `FAIL                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | node | tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound`—`AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 5 to be 7` |
 
 A4 is the one worth carrying forward. Deleting the parameter removed one route to a timestamp
 collision, not the property itself: two calls against the same `state` still collide, because
@@ -1022,7 +1022,7 @@ followed.
 1. **The cascade resolver is an approximation, not a cascade.** It takes the union of
    matching rules in stylesheet order and lets the last write win. Real CSS would let an
    earlier `a.specimenLink` beat a later `.specimenLink` on specificity. After A1 the guard
-   errs toward *seeing* such a rule rather than ignoring it, which is the safe direction, but
+   errs toward _seeing_ such a rule rather than ignoring it, which is the safe direction, but
    a stylesheet that leaned on specificity ordering could still be scored wrongly. Nothing
    here does — there are no `tag.class` selectors at all.
 2. **`:hover` and `[aria-current]` rules are excluded by design and unchecked by anything.**
@@ -1030,7 +1030,7 @@ followed.
    That is the correct exclusion for this guard's question but it is not covered elsewhere.
 3. **Two audit events in one action still collide**, per A4. The invariant test catches it for
    the five actions it exercises; a sixth action written that way would need the test extended.
-   The honest framing is that the invariant is guarded by a sample, and the *hazard* is now
+   The honest framing is that the invariant is guarded by a sample, and the _hazard_ is now
    only reachable deliberately rather than by passing an argument.
 4. **`declared.has("color")` remains presence-only**, so `color: inherit` counts as declaring
    a colour — recorded by the coordinator as out of scope, and A1's `probeKill` exploited
@@ -1077,17 +1077,17 @@ invariant test is still worth its runtime.
 
 ## The reviewer's probes: green before, red after
 
-| # | Probe | Before | After |
-| - | ----- | ------ | ----- |
-| N2 | `border: 1px solid transparent; background: rgb(0 0 0 / 0); text-decoration: none` on `.specimenLink` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
-| N1 | `.appRoot .specimenLink { text-decoration-line: none }` appended last | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| #   | Probe                                                                                                 | Before                                             | After                                                                                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N2  | `border: 1px solid transparent; background: rgb(0 0 0 / 0); text-decoration: none` on `.specimenLink` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL                                                                                                                                                                                                                     | node | tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link`—`AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| N1  | `.appRoot .specimenLink { text-decoration-line: none }` appended last                                 | `Tests 24 passed (24)`                             | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
 
 ## My own probes — one got through, and it is fixed
 
-| # | Probe | Result |
-| - | ----- | ------ |
-| B1 | `border: 1px solid var(--probe-invisible); background: var(--probe-invisible)` — transparency reached through **one level of custom-property indirection**, underline removed | **GOT THROUGH**: `Tests 24 passed (24)`. **Not fixed**, and I recommend it stays that way: deciding this needs the guard to resolve custom properties across the whole stylesheet, which is the rewrite this round was explicitly scoped away from. Same family as N3 and N4. |
-| B2 | `.appRoot .specimenLink { text-decoration-color: transparent }` — the declaration stands, the line is invisible | **GOT THROUGH**: `Tests 24 passed (24)`. **Fixed**, because unlike B1 it is bounded: one named property, reusing the `paintsNothing` helper written minutes earlier, three lines. The shorthand can carry the same colour, so both the resolved value and the longhand are checked. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| #   | Probe                                                                                                                                                                         | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | `border: 1px solid var(--probe-invisible); background: var(--probe-invisible)` — transparency reached through **one level of custom-property indirection**, underline removed | **GOT THROUGH**: `Tests 24 passed (24)`. **Not fixed**, and I recommend it stays that way: deciding this needs the guard to resolve custom properties across the whole stylesheet, which is the rewrite this round was explicitly scoped away from. Same family as N3 and N4.                                                                                                                                                                                                                        |
+| B2  | `.appRoot .specimenLink { text-decoration-color: transparent }` — the declaration stands, the line is invisible                                                               | **GOT THROUGH**: `Tests 24 passed (24)`. **Fixed**, because unlike B1 it is bounded: one named property, reusing the `paintsNothing` helper written minutes earlier, three lines. The shorthand can carry the same colour, so both the resolved value and the longhand are checked. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
 
 The judgement between them is the one the coordinator drew for N3/N4: fix what is bounded,
 record what is open-ended. B2 defeats the exact affordance this guard exists to protect and
@@ -1184,11 +1184,11 @@ describes the collision route that remains rather than the deleted parameter.
 
 ## The reviewer's probes
 
-| # | Probe | Before | After |
-| - | ----- | ------ | ----- |
-| A | `text-decoration-color: rgb(0 0 0 / 0.0%)` on `.specimenLink` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
-| B | `border: 1px solid rgb(0 0 0 / 0.0%); background: rgb(0 0 0 / 0.0%); text-decoration: none` | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
-| C | `text-decoration-color: transparent` then a later `text-decoration: underline` | `FAIL … > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'` (the **false positive**) | `Test Files 1 passed (1)` / `Tests 24 passed (24)` |
+| #   | Probe                                                                                       | Before                                                                                                                                                                                                                                                        | After                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | `text-decoration-color: rgb(0 0 0 / 0.0%)` on `.specimenLink`                               | `Test Files 1 passed (1)` / `Tests 24 passed (24)`                                                                                                                                                                                                            | `FAIL                                                                                                                                                                                                                     | node | tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link`—`AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| B   | `border: 1px solid rgb(0 0 0 / 0.0%); background: rgb(0 0 0 / 0.0%); text-decoration: none` | `Tests 24 passed (24)`                                                                                                                                                                                                                                        | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| C   | `text-decoration-color: transparent` then a later `text-decoration: underline`              | `FAIL … > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'` (the **false positive**) | `Test Files 1 passed (1)` / `Tests 24 passed (24)`                                                                                                                                                                        |
 
 C runs the other way round by design: red before, green after, because the defect was the
 guard accusing correct CSS.

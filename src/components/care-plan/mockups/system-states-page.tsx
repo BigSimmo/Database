@@ -263,8 +263,8 @@ export function SystemStatesSurface({ scenario }: { scenario: PrototypeScenario 
       <SectionFrame id="care-plan-specimen-boundary" heading="What a specimen is not" tone="secondary">
         <ul className={styles.contentList}>
           <li>
-            It is not a real condition. Nothing here watches the network, the browser&rsquo;s permissions, or any
-            device state — a specimen is a named starting world and nothing else.
+            It is not a real condition. Nothing here watches the network, the browser&rsquo;s permissions, or any device
+            state — a specimen is a named starting world and nothing else.
           </li>
           <li>
             {`It is not a display filter. Opening ${scenarioLabel(active.scenario)} or any other specimen rebuilds the whole synthetic world, and anything written in this session is discarded.`}

@@ -105,8 +105,7 @@ export function contactVerificationSummary(contact: CmhtContact): string {
  * is offered. Objective counts are an observation about a service; they create
  * no eligibility, no label for a person, no severity claim, and no plan.
  */
-const COUNTS_DECIDE_NOTHING =
-  "Counts describe what happened. They do not determine eligibility for a Management Plan.";
+const COUNTS_DECIDE_NOTHING = "Counts describe what happened. They do not determine eligibility for a Management Plan.";
 
 function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): string | null {
   if (id === null) return null;
@@ -266,8 +265,8 @@ export function ReviewsSurface() {
         <SyntheticMarker />
         <p className={styles.sectionDescription}>
           Four worklists of things somebody has to do. They are ordered oldest-actionable-first and carry no severity
-          rating, score, or priority order: nothing here rates a person, and nothing here optimises for people
-          attending less often.
+          rating, score, or priority order: nothing here rates a person, and nothing here optimises for people attending
+          less often.
         </p>
       </div>
 
@@ -961,9 +960,9 @@ export function TeamSurface() {
           something it does not know.
         */}
         <p className={styles.contactBoundary}>
-          The email and telephone controls live on a person&rsquo;s record rather than here, because a contact action
-          is recorded against the person it was made for. Opening one of them records only that an external
-          application was asked to open — never that anything was sent, delivered, read, answered, or completed.
+          The email and telephone controls live on a person&rsquo;s record rather than here, because a contact action is
+          recorded against the person it was made for. Opening one of them records only that an external application was
+          asked to open — never that anything was sent, delivered, read, answered, or completed.
         </p>
       </SectionFrame>
 
@@ -1122,12 +1121,15 @@ export function GovernanceSurface() {
         </dl>
         <p className={styles.contactBoundary}>
           This is interaction modelling only. It is not authentication, authorisation, role-based access control,
-          relationship-based access, or break-glass evidence, and no data anywhere in this prototype is protected by
-          it.
+          relationship-based access, or break-glass evidence, and no data anywhere in this prototype is protected by it.
         </p>
       </SectionFrame>
 
-      <SectionFrame id="care-plan-governance-lifecycle" heading="Lifecycle rules" testId="care-plan-governance-lifecycle">
+      <SectionFrame
+        id="care-plan-governance-lifecycle"
+        heading="Lifecycle rules"
+        testId="care-plan-governance-lifecycle"
+      >
         <ul className={styles.contentList}>
           {LIFECYCLE_RULE.map((rule) => (
             <li key={rule}>{rule}</li>
