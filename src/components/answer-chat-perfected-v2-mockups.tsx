@@ -478,6 +478,28 @@ function statusWord(status: SourceStatus) {
  * capsule that this design deletes: collapse to a single chip that expands,
  * rather than letting the preference become a silent no-op.
  */
+/**
+ * The card row scrolls and has to say so without a scrollbar.
+ *
+ * Same mechanism the shipped composer already uses for its suggestion chips
+ * (`.answer-suggestion-chips-scroll` in `globals.css`): a mask that fades the
+ * last stretch of whatever is under it, so it reads correctly on light, on dark
+ * and on the drawer's tinted surface alike. A painted gradient overlay would
+ * have to name the colour behind it and would name the wrong one on at least
+ * one of those three.
+ *
+ * Written as an inline style rather than an arbitrary Tailwind property because
+ * `[mask-image:…]` did not generate a rule here — the class landed on the
+ * element and the computed value stayed `none`. Checked in the browser, not
+ * assumed. Like its shipped sibling it keeps the fade under forced colours; a
+ * mask is not a paint, so unlike the ring and the claim wash it survives there.
+ */
+const RAIL_SCROLL_FADE = {
+  scrollbarWidth: "none",
+  maskImage: "linear-gradient(90deg, black calc(100% - 1.75rem), transparent)",
+  WebkitMaskImage: "linear-gradient(90deg, black calc(100% - 1.75rem), transparent)",
+} as const;
+
 function V2Rail({
   pool,
   activeId,
@@ -522,7 +544,7 @@ function V2Rail({
       role="group"
       aria-label={`Sources behind this answer, ${pool.length}`}
       className="flex gap-1.5 overflow-x-auto pb-1"
-      style={{ scrollbarWidth: "none" }}
+      style={RAIL_SCROLL_FADE}
     >
       {pool.map((source) => (
         <button
@@ -880,11 +902,20 @@ function V2DrawerPanel({
  */
 function VerificationNotice({ kind, sourceCount }: { kind: AnswerStateKind; sourceCount: number }) {
   const model = kind !== "source_only";
+  // Two deliberate lines, not one sentence left to wrap wherever the column
+  // ends. With the avatar gone this line is what identifies the turn, and it
+  // was breaking mid-phrase — "…check each" / "number against its page" — which
+  // reads as a layout accident rather than as provenance. Split at the
+  // separator the sentence already carries: what wrote it, then what the reader
+  // owes it. Same words.
   return (
     <p className="text-3xs leading-4 text-[color:var(--text-muted)]">
-      {model
-        ? `AI-generated from ${sourceCount} cited sources · check each number against its page`
-        : "Assembled from your documents · check each statement against its source"}
+      <span className="font-semibold">
+        {model ? `AI-generated from ${sourceCount} cited sources` : "Assembled from your documents"}
+      </span>
+      <span className="block">
+        {model ? "Check each number against its page" : "Check each statement against its source"}
+      </span>
     </p>
   );
 }
@@ -975,7 +1006,7 @@ function ActionRow() {
   return (
     <div className="flex items-center gap-0.5">
       {[
-        { key: "copy", label: "Copy", Icon: Copy },
+        { key: "copy", label: "Copy with sources", Icon: Copy },
         { key: "ask", label: "Follow up", Icon: CornerUpLeft },
       ].map(({ key, label, Icon }) => (
         <button
@@ -1114,14 +1145,16 @@ function AnswerScreen({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className={cn("space-y-3 px-3 py-3", wide && "mx-auto w-full max-w-3xl px-5 py-5")}>
           <UserTurn />
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-            <span
-              aria-hidden="true"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-            >
-              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0 space-y-2.5">
+          {/* No assistant avatar, and therefore no gutter behind it.
+              An avatar column costs ~2.75rem of every line on a 390px screen
+              and buys nothing a reader needs: there are only two speakers, the
+              person's turn is already a right-aligned bubble, and the answer is
+              the one thing on this surface that wants the full measure. Every
+              mature chat product settled here for the same reason. What
+              identifies the turn instead is the provenance line below — which
+              is information, not decoration. */}
+          <div className="pt-1.5">
+            <div className="min-w-0 space-y-3">
               <VerificationNotice kind={kind} sourceCount={pool.length} />
               <StateBanner
                 kind={kind}
@@ -1134,7 +1167,12 @@ function AnswerScreen({
                   {SOURCE_ONLY_PROSE}
                 </p>
               )}
-              <V2Rail pool={pool} activeId={openId} compact={compactRail} onOpen={(id) => openSource(id, null)} />
+              <div className="space-y-1.5 border-t border-[color:var(--border)] pt-2.5">
+                <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                  {kind === "partial_retrieval" ? "Sources read" : "Cited documents"}
+                </p>
+                <V2Rail pool={pool} activeId={openId} compact={compactRail} onOpen={(id) => openSource(id, null)} />
+              </div>
               <ActionRow />
             </div>
           </div>
@@ -1182,14 +1220,16 @@ function PendingScreen({ stage }: { stage: "asked" | "evidence" | "answered" }) 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-3 px-3 py-3">
           <UserTurn />
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-            <span
-              aria-hidden="true"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-            >
-              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0 space-y-2.5">
+          {/* No assistant avatar, and therefore no gutter behind it.
+              An avatar column costs ~2.75rem of every line on a 390px screen
+              and buys nothing a reader needs: there are only two speakers, the
+              person's turn is already a right-aligned bubble, and the answer is
+              the one thing on this surface that wants the full measure. Every
+              mature chat product settled here for the same reason. What
+              identifies the turn instead is the provenance line below — which
+              is information, not decoration. */}
+          <div className="pt-1.5">
+            <div className="min-w-0 space-y-3">
               {stage === "asked" ? (
                 <p aria-live="polite" className="text-2xs text-[color:var(--text-muted)]">
                   Searching your documents…

@@ -610,3 +610,35 @@ side by side with the answer on a large screen. Still state it in the PR body �
 seeing the aside disappear deserves the sentence.
 
 ---
+
+### 12.6 The assistant avatar is removed, and the prose runs to the edge (2026-08-26)
+
+Every assistant turn opened with a shield tile in its own grid column, and the answer prose
+was indented to clear it. `/mockups/answer-chat-perfected-v2` now draws no avatar and no
+gutter: the answer is a single full-width stack.
+
+**Why.** On a 390px phone that column costs about 2.75rem of every line of a clinical answer
+— the exact measurement `--answer-message-gutter` was introduced to hold. It buys nothing a
+reader needs. There are only two speakers on this surface, the person's turn is already a
+right-aligned bubble, and the answer is the one element here that wants the full measure.
+Every mature chat product settled in the same place for the same reason.
+
+**What identifies the turn instead** is the provenance line beneath the question, which is
+information rather than decoration, and which now sets as two deliberate lines — what wrote
+the answer, then what the reader owes it — instead of one sentence left to wrap wherever the
+column ends. Its wording is unchanged.
+
+Three changes travel with it, all in the same mockup:
+
+- A hairline and a quiet `CITED DOCUMENTS` / `SOURCES READ` eyebrow above the card row. With
+  no gutter organising the column the answer needed a clean end before its evidence.
+- The card row fades at its right edge, so it reads as scrollable without a scrollbar. Same
+  mechanism `.answer-suggestion-chips-scroll` already ships (`globals.css`).
+- `Copy` became `Copy with sources`. On this product an answer copied without its citations
+  is the actual hazard, so the control names what it puts on the clipboard.
+
+**Not yet in production.** `answer-content.tsx` still renders the shield tile and
+`globals.css` still declares `--answer-message-gutter`. Removing both is the follow-up, and
+it is deliberately a separate change: the owner approves the look on the mockup first.
+
+---
