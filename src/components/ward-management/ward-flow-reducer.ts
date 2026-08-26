@@ -1,8 +1,16 @@
+import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { BedRelease, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
-import { bedReleases, wardMovements } from "@/components/ward-management/ward-movements";
+import type {
+  BedRelease,
+  LeaveBed,
+  Movement,
+  MovementStage,
+  Rejection,
+  Unit,
+} from "@/components/ward-management/ward-model";
+import { bedReleases, leaveBeds, wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -40,6 +48,19 @@ export type WardFlowState = {
    * `unitCapacity()`'s `potential` figure. Seeded from `ward-movements.ts`'s `bedReleases`.
    */
   bedReleases: BedRelease[];
+  /**
+   * Task 3: beds occupied by someone on approved leave, live reducer state for the same reason
+   * `bedReleases` is — `RECORD_LEAVE_BED`/`END_LEAVE_BED` append to and remove from it, so a
+   * ward's own report actually moves what the capacity board shows. Seeded from
+   * `ward-movements.ts`'s `leaveBeds`. Never merged into availability (spec D4).
+   */
+  leaveBeds: LeaveBed[];
+  /**
+   * Task 3, spec D12: the one thing a coordinator may do to a ward's bed data. Recording a
+   * request changes no bed figure at all — it is a record that somebody asked, with the time and
+   * the requesting role, nothing more. `REQUEST_CAPACITY_REFRESH` appends here.
+   */
+  refreshRequests: { unitId: string; at: Instant; byRole: string }[];
 };
 
 /**
@@ -57,6 +78,8 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     referralSequence: 0,
     scenario,
     bedReleases: structuredClone(bedReleases),
+    leaveBeds: structuredClone(leaveBeds),
+    refreshRequests: [],
   };
 }
 
@@ -67,7 +90,15 @@ function subjectId(event: WardFlowEvent): string {
       return event.edId;
     case "CONFIRM_CAPACITY":
     case "FLAG_BED_RELEASE":
+    case "RECORD_LEAVE_BED":
+    case "REQUEST_CAPACITY_REFRESH":
       return event.unitId;
+    case "CONFIRM_BED_RELEASE":
+    case "BLOCK_BED_RELEASE":
+    case "RELEASE_BED":
+      return event.releaseId;
+    case "END_LEAVE_BED":
+      return event.leaveBedId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
     case "SET_SCENARIO":
@@ -103,6 +134,22 @@ function findMovement(state: WardFlowState, movementId: string): Movement | unde
 
 function findUnit(state: WardFlowState, unitId: string): Unit | undefined {
   return state.units.find((candidate) => candidate.id === unitId);
+}
+
+function findBedRelease(state: WardFlowState, releaseId: string): BedRelease | undefined {
+  return state.bedReleases.find((candidate) => candidate.id === releaseId);
+}
+
+/** Replaces one bed release in the array by id, leaving every other element untouched. */
+function replaceBedRelease(state: WardFlowState, releaseId: string, next: BedRelease): WardFlowState {
+  return {
+    ...state,
+    bedReleases: state.bedReleases.map((candidate) => (candidate.id === releaseId ? next : candidate)),
+  };
+}
+
+function findLeaveBed(state: WardFlowState, leaveBedId: string): LeaveBed | undefined {
+  return state.leaveBeds.find((candidate) => candidate.id === leaveBedId);
 }
 
 /** Replaces one movement in the array by id, leaving every other element untouched. */
@@ -589,6 +636,145 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
               confirmedBy: `NUM ${flaggedUnit.name}`,
             };
       return { ...state, bedReleases: [...state.bedReleases, release] };
+    }
+
+    case "CONFIRM_BED_RELEASE": {
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      // Same claim-not-proof discipline as FLAG_BED_RELEASE (see that case's own comment in
+      // full): this compares what the caller SAID it was acting as against the unit the release
+      // belongs to, and refuses when they differ. `CONFIRM_BED_RELEASE` is `ward`-only, so unlike
+      // RELEASE_HOLD/CANCEL_TRANSPORT there is no coordinator caller to exempt.
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `CONFIRM_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // Legal transitions: predicted -> confirmed, blocked -> confirmed. Nothing else. Naming
+      // both the current state and the attempted target keeps a refusal readable without having
+      // to cross-reference the state machine comment above.
+      if (release.state !== "predicted" && release.state !== "blocked") {
+        return reject(state, event, `cannot move release ${release.id} from ${release.state} to confirmed`);
+      }
+      const updated: BedRelease = { ...release, state: "confirmed", confidence: null, blocker: null };
+      return replaceBedRelease(state, release.id, updated);
+    }
+
+    case "BLOCK_BED_RELEASE": {
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `BLOCK_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // A typed caller cannot construct this event without `blocker` — it is a required field,
+      // not the optional one `FLAG_BED_RELEASE` carries. This check exists for the untyped
+      // caller anyway: "blocked with no blocker" is a contradiction in terms (spec D3) and must
+      // be refused at runtime, not merely disallowed at compile time.
+      if (!event.blocker) {
+        return reject(state, event, `BLOCK_BED_RELEASE requires a blocker chosen from BED_RELEASE_BLOCKERS`);
+      }
+      // Legal transitions: predicted -> blocked, confirmed -> blocked. Nothing else.
+      if (release.state !== "predicted" && release.state !== "confirmed") {
+        return reject(state, event, `cannot move release ${release.id} from ${release.state} to blocked`);
+      }
+      const updated: BedRelease = { ...release, state: "blocked", confidence: null, blocker: event.blocker };
+      return replaceBedRelease(state, release.id, updated);
+    }
+
+    case "RELEASE_BED": {
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `RELEASE_BED was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // Legal transitions: confirmed -> released, blocked -> released. released is terminal —
+      // there is no target state further on to move to, so both current-`released` and any other
+      // state fall into the same refusal below.
+      if (release.state !== "confirmed" && release.state !== "blocked") {
+        return reject(state, event, `cannot move release ${release.id} from ${release.state} to released`);
+      }
+      const unit = findUnit(state, release.unitId);
+      if (!unit) return reject(state, event, `no unit found for id ${release.unitId}`);
+      const updatedRelease: BedRelease = { ...release, state: "released", confidence: null, blocker: null };
+      // RELEASE_BED is the one event in this six-case group that changes an actual bed count,
+      // not just a record about one — this is where the predicted/confirmed expectation
+      // `FLAG_BED_RELEASE`/`CONFIRM_BED_RELEASE` only anticipated becomes the physical fact.
+      // `capacityBreakdown`'s `availableNow` is deliberately blind to `bedReleases` itself (Task
+      // 2: nothing predicted or confirmed-but-unreleased may ever be added into it), so the only
+      // way a release ever moves that number is through the unit's own fields, here. Both
+      // `allocatable.value` and `empty.value` rise by one: the bed is now truly free, not merely
+      // reserved (`allocatable` alone) or physically vacant while still held for someone else
+      // (`empty` alone) — mirroring `PATIENT_ARRIVED`'s and `HOLD_BED`'s own single-field writes,
+      // just on both fields at once, because this bed had never been decremented by either of
+      // those handlers to begin with.
+      const updatedUnit: Unit = {
+        ...unit,
+        allocatable: { ...unit.allocatable, value: unit.allocatable.value + 1, confirmedAt: event.now },
+        empty: { ...unit.empty, value: unit.empty.value + 1, confirmedAt: event.now },
+      };
+      const withUnit = replaceUnit(state, unit.id, updatedUnit);
+      return replaceBedRelease(withUnit, release.id, updatedRelease);
+    }
+
+    case "RECORD_LEAVE_BED": {
+      // Same claim-not-proof discipline as FLAG_BED_RELEASE's own field: this compares what the
+      // caller SAID it was acting as against the unit the leave bed is being recorded against.
+      if (event.actingUnitId !== event.unitId) {
+        return reject(
+          state,
+          event,
+          `RECORD_LEAVE_BED was raised acting as unit ${event.actingUnitId} but targets unit ${event.unitId}`,
+        );
+      }
+      const unit = findUnit(state, event.unitId);
+      if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      const created: LeaveBed = {
+        // "WL-9NN" mirrors FLAG_BED_RELEASE's own "WR-9NN" — visibly distinct from the
+        // hand-authored "WL-00N" fixture ids.
+        id: `WL-9${String(state.leaveBeds.length).padStart(2, "0")}`,
+        unitId: unit.id,
+        usable: event.usable,
+        expectedReturn: event.expectedReturn,
+        confirmedAt: event.now,
+        confirmedBy: `NUM ${unit.name}`,
+      };
+      return { ...state, leaveBeds: [...state.leaveBeds, created] };
+    }
+
+    case "END_LEAVE_BED": {
+      const leaveBed = findLeaveBed(state, event.leaveBedId);
+      if (!leaveBed) return reject(state, event, `no leave bed found for id ${event.leaveBedId}`);
+      if (event.actingUnitId !== leaveBed.unitId) {
+        return reject(
+          state,
+          event,
+          `END_LEAVE_BED was raised acting as unit ${event.actingUnitId} but leave bed ${leaveBed.id} belongs to unit ${leaveBed.unitId}`,
+        );
+      }
+      return { ...state, leaveBeds: state.leaveBeds.filter((candidate) => candidate.id !== leaveBed.id) };
+    }
+
+    case "REQUEST_CAPACITY_REFRESH": {
+      // Spec D12: the one thing a coordinator may do to a ward's bed data. This changes no
+      // number at all — no field on any unit, release or leave bed is read or written below — it
+      // only records that somebody asked, with the time and the requesting role. Nothing leaves
+      // the sandbox and no message is sent.
+      const unit = findUnit(state, event.unitId);
+      if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      return {
+        ...state,
+        refreshRequests: [...state.refreshRequests, { unitId: unit.id, at: event.now, byRole: event.role }],
+      };
     }
 
     case "RECORD_ESCALATION": {

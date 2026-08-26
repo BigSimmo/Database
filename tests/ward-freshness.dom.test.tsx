@@ -8,7 +8,9 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 describe("freshness stamp", () => {
   it("names the time and the confirming role", () => {
     render(<WardFreshness confirmedAt={NOW_ANCHOR - 20} confirmedByRole="RPH Adult Secure" now={NOW_ANCHOR} />);
-    expect(screen.getByText(/Confirmed/)).toHaveTextContent("RPH Adult Secure");
+    // confirmedAt and now are deliberately different instants: this must render confirmedAt's
+    // time, never now's, or a stale figure could silently claim to have just been confirmed.
+    expect(screen.getByText(`Confirmed ${formatInstant(NOW_ANCHOR - 20)} · RPH Adult Secure`)).toBeTruthy();
   });
 
   it("says 'Never confirmed' rather than showing a blank or a dash", () => {

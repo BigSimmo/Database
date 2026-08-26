@@ -5,6 +5,7 @@ import {
   EVENING_SHIFT_END_MINUTES,
   releaseBand,
 } from "@/components/ward-management/ward-bed-availability";
+import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import type { BedRelease, LeaveBed } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -82,6 +83,26 @@ describe("capacity breakdown", () => {
     const result = capacityBreakdown(unit, [release({ expectedAt: NOW_ANCHOR + 1440 })], [], NOW_ANCHOR);
     expect(result.predictedToday).toBe(0);
     expect(result.excludedBeyondToday).toBe(1);
+  });
+
+  it("counts a blocked release expected beyond today in excludedBeyondToday and nowhere else", () => {
+    const result = capacityBreakdown(
+      unit,
+      [
+        release({
+          state: "blocked",
+          blocker: BED_RELEASE_BLOCKERS[0],
+          confidence: null,
+          expectedAt: NOW_ANCHOR + 1440,
+        }),
+      ],
+      [],
+      NOW_ANCHOR,
+    );
+    expect(result.excludedBeyondToday).toBe(1);
+    expect(result.confirmedToday).toBe(0);
+    expect(result.predictedToday).toBe(0);
+    expect(result.availableNow).toBe(capacityBreakdown(unit, [], [], NOW_ANCHOR).availableNow);
   });
 
   it("ignores releases and leave beds belonging to another unit", () => {
