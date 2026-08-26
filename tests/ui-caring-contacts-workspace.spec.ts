@@ -92,6 +92,29 @@ const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
 const TEMPLATES_ROUTE = `${WORKSPACE_ROUTE}/templates`;
 
 /**
+ * Programme boundaries and operational guidance.
+ *
+ * Fixed text and one service-state read, so this server renders it in full -- there is no
+ * population for it to be missing, and it is the same screen here that it is anywhere.
+ *
+ * THE BLOCK IS `caring-contacts guidance and reports`, BELOW. Being in `WORKSPACE_SCREENS` proves
+ * nothing on its own -- see the note on that array -- so the entry and the block landed together.
+ */
+const GUIDANCE_ROUTE = `${WORKSPACE_ROUTE}/guidance`;
+
+/**
+ * Aggregate operational reporting, and the programme-reach section spec §2.5 owes.
+ *
+ * On this server the operational measures are over an empty store, for the same reason the wizard
+ * and the templates library render their empty states: `demoSeedRequested()` excludes the isolated
+ * Playwright server unless `CARING_CONTACTS_DEMO_SEED` is `on`. The reach section is NOT empty-
+ * state behaviour and does not vary with the population at all -- it states that the field it
+ * would report on is not collected, which is true of every server this code runs on. That is the
+ * assertion the block below is written around.
+ */
+const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
@@ -117,7 +140,11 @@ const TEMPLATES_ROUTE = `${WORKSPACE_ROUTE}/templates`;
  *     `openWorkspace` with a viewport and NO fourth argument, so despite its
  *     name it also proves Today only;
  *   * `caring-contacts patients directory` names `PATIENTS_SCREEN`;
- *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`.
+ *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`;
+ *   * `caring-contacts templates library` names `TEMPLATES_SCREEN`;
+ *   * `caring-contacts guidance and reports` names `GUIDANCE_SCREEN` and
+ *     `REPORTS_SCREEN`, and is the block that proves a phone can reach the More
+ *     panel's links at all.
  *
  * So each screen is proved by the block written for it, and by nothing else.
  * Adding an entry here without writing that block proves nothing about the new
@@ -140,6 +167,8 @@ const WORKSPACE_SCREENS = [
   { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
   { name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" },
   { name: "Templates", route: TEMPLATES_ROUTE, heading: "Templates" },
+  { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
+  { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -149,6 +178,8 @@ const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
 const NEW_PLAN_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[3];
 const TEMPLATES_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[4];
+const GUIDANCE_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[5];
+const REPORTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[6];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -1660,3 +1691,150 @@ test.describe("caring-contacts service stop, stated on every screen", () => {
     expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
   });
 });
+
+/**
+ * Phase 2B Task 19. Guidance and Reports, and the More panel that is the only way a phone reaches
+ * either of them.
+ *
+ * WHAT ONLY A BROWSER CAN PROVE HERE, and it is the reason this block exists rather than being
+ * folded into the offline suites. `tests/caring-contacts-workspace-shell.dom.test.tsx` resolves
+ * Tailwind display variants FROM CLASS NAMES: it walks the rendered ancestor chain and works out
+ * which utility wins at a width. That is far stronger than the orphan-route gate's text match, and
+ * it is still a model of the CSS rather than the CSS. This block sets a real 390px viewport and
+ * clicks the link, so the two halves fail for different reasons -- a stylesheet that did not ship
+ * the variant reddens here and nowhere else.
+ */
+test.describe("caring-contacts guidance and reports", () => {
+  test("serves guidance as a page and states the one-way boundary", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(GUIDANCE_SCREEN.route, { waitUntil: "load" });
+
+    // Kept for the refusals made before the stream opens -- the production demo lock, or the route
+    // failing to resolve -- and deliberately NOT the load-bearing assertion; this route is dynamic
+    // and a `notFound()` reached during the render arrives as content after the headers flush.
+    expect(response?.status(), "the guidance route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: GUIDANCE_SCREEN.heading })).toBeVisible();
+
+    const guidance = page.getByTestId("caring-contacts-guidance");
+    await expect(guidance).toBeVisible();
+    await expect(guidance).toContainText("One-way programme boundary");
+    await expect(guidance).toContainText("transport receipt");
+  });
+
+  test("serves reports, and says the reach field is not collected rather than showing an empty breakdown", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(REPORTS_SCREEN.route, { waitUntil: "load" });
+
+    expect(response?.status(), "the reports route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: REPORTS_SCREEN.heading })).toBeVisible();
+
+    // The assertion the whole task turns on, end to end: a reach section over a field nothing
+    // records must state THAT, not render a breakdown of zeroes which reads as "no Aboriginal or
+    // Torres Strait Islander patients".
+    const reach = page.getByTestId("caring-contacts-reach");
+    await expect(reach).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-reach-not-collected")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-reach-breakdown")).toHaveCount(0);
+    await expect(reach).not.toContainText("Suppressed");
+  });
+
+  test("reaches guidance and reports from the More panel at 1024px", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    const panel = page.getByRole("region", { name: "More destinations" });
+    await panel.getByRole("link", { name: "Reports" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: REPORTS_SCREEN.heading })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(REPORTS_SCREEN.route);
+  });
+
+  test("reaches templates, guidance and reports on a phone, where there is no rail at all", async ({ page }) => {
+    // THE DEFECT THIS CLOSES, in the browser. Templates shipped a page, an `href` in the rail and a
+    // green orphan-route gate while being unreachable below 768px: the rail is `hidden … md:flex`
+    // and the phone bar filtered Templates out by name. The gate reads `shell.tsx` as text and can
+    // see neither fact.
+    await openWorkspace(page, 390);
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+
+    const panel = page.getByRole("region", { name: "More destinations" });
+    for (const label of ["Templates", "Guidance", "Reports"]) {
+      await expect(panel.getByRole("link", { name: label }), label + " has no link a phone can reach").toBeVisible();
+    }
+
+    await panel.getByRole("link", { name: "Templates" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATES_SCREEN.heading })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(TEMPLATES_SCREEN.route);
+  });
+
+  test("holds both screens at 320px, the narrowest reviewed width", async ({ page }) => {
+    for (const screen of [GUIDANCE_SCREEN, REPORTS_SCREEN]) {
+      await openWorkspace(page, 320, VIEWPORT_HEIGHT, screen);
+
+      expect(await documentOverflow(page), "horizontal overflow at 320px on " + screen.name).toBeLessThanOrEqual(2);
+      expect(await displayedWidthStates(page), "width state at 320px on " + screen.name).toEqual([widthStateFor(320)]);
+      await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    }
+  });
+
+  test("re-resolves the reports screen in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, REPORTS_SCREEN);
+    const light = await shellColours(page);
+    const lightReach = await reachColours(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, REPORTS_SCREEN);
+    const dark = await shellColours(page);
+    const darkReach = await reachColours(page);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    // The shell chrome above is identical on every route, so on its own it would claim the
+    // category on a screen it had not inspected. These read this screen's own surface.
+    expect(darkReach.surface, "the reach section's surface did not change in dark").not.toBe(lightReach.surface);
+    expect(darkReach.ink, "the reach section's ink did not change in dark").not.toBe(lightReach.ink);
+    for (const value of Object.values(darkReach)) {
+      expect(value, "a dark colour on the reach section resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+
+  test("states the reach section in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, REPORTS_SCREEN);
+
+    // Forced colours drop the author's tint, so the words are all that carries the statement.
+    await expect(page.getByTestId("caring-contacts-reach-not-collected")).toContainText(
+      "does not record Aboriginal and Torres Strait Islander status",
+    );
+    const border = await page.evaluate(() => {
+      const section = document.querySelector('[data-testid="caring-contacts-reach"]');
+      if (!section) throw new Error("the reach section is missing");
+      const style = getComputedStyle(section);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    });
+    expect(Number.parseFloat(border.width), "the reach section has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the reach section border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+});
+
+/** The reach section's own surface and ink, so a dark-mode claim is made about this screen. */
+function reachColours(page: Page) {
+  return page.evaluate(() => {
+    const section = document.querySelector('[data-testid="caring-contacts-reach"]');
+    if (!section) throw new Error("the reach section is missing");
+    const heading = section.querySelector("h2");
+    if (!heading) throw new Error("the reach section has no heading");
+    return {
+      surface: getComputedStyle(section).backgroundColor,
+      border: getComputedStyle(section).borderTopColor,
+      ink: getComputedStyle(heading).color,
+    };
+  });
+}
