@@ -19,8 +19,8 @@
 // about them (Ruling 94): a report is nothing but counts, and a count restated in prose would be
 // wrong the first time the data moved.
 import { awstCalendarDay } from "./clock";
-import { summariseStoredContacts, type DispatchRecord, type PlanRecord, type StoredContactSummary } from "./repository";
 import type { PlanState } from "./model";
+import { summariseStoredContacts, type DispatchRecord, type PlanRecord, type StoredContactSummary } from "./repository";
 
 /** Contacts falling on one AWST calendar day, split by whether they have gone out yet. */
 export type ContactsOnDay = {
