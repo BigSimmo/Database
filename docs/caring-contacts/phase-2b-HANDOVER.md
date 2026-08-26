@@ -34,9 +34,16 @@ byte-identical install. **Never `npm ci` here** — it takes ~58 minutes.
 
 ## Still to build
 
-**Complete and accepted:** Tasks 10, 11a, 12, 13, 15, 19, and P. Task 14 is accepted on its round-4
-content and is running one small round 5 (typing the client's request body through the shared schema so a
-field rename fails to compile rather than only failing a test).
+**Complete and accepted:** Tasks 10, 11a, 12, 13, 14, 15 and 19. Task 14 was accepted at round 5, whose
+one item — typing the client's request body through the shared schema — is proved by a `tsc` error naming
+the client, not by a test alone.
+
+**Task P is NOT accepted, and my earlier note saying it was is corrected here.** Its round 2 contains a real
+49-line code change across `message-copy.ts`, `patient-detail.ts` and two test files — the module holding the
+patient-visible wording — and no re-review closed it. I recorded "accepted" from the implementer's own status
+line. A scoped re-review of that round is running now, and **nothing merges until it returns**. This is the
+tenth instance of the same error in this session: a narrowly-true fact ("the implementer reported complete")
+stated at a scope it was never checked against ("the work is accepted").
 
 **In flight:** Task 11b (pause, withdrawal, reassignment) and Task 16's review (template detail).
 
