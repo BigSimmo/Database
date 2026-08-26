@@ -705,6 +705,8 @@ export function DocumentViewer({
           // keeps offering "Open source file" for the wrong document.
           setSignedUrl(null);
           setDownloadSignedUrl(null);
+          clearCachedSignedUrl(signedUrlEndpoint);
+          clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
           const message =
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
           if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
@@ -718,7 +720,10 @@ export function DocumentViewer({
           }
         }
 
-        if (previewResults) {
+        // Preview is fetched in parallel with detail. Applying a cache hit after
+        // a failed detail load would put a prior session's bearer URL onto the
+        // sign-in/error recovery surface.
+        if (detailLoaded && previewResults) {
           const previewResult = previewResults[0];
           if (previewResult) applyPreviewSignedUrlResult(previewResult, signedUrlEndpoint);
         }
@@ -739,6 +744,8 @@ export function DocumentViewer({
         setIndexHealth(null);
         setSignedUrl(null);
         setDownloadSignedUrl(null);
+        clearCachedSignedUrl(signedUrlEndpoint);
+        clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
         setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
@@ -1360,7 +1367,6 @@ export function DocumentViewer({
         <DocumentViewerStateSurface
           state={viewerState}
           message={effectiveViewerError ?? previewError}
-          signedUrl={signedUrl}
           documentHomeHref={documentHomeHref}
           onRetry={retryPreview}
         />

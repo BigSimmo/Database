@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, FileQuestion, Loader2, LockKeyhole, RefreshCw, WifiOff } from "lucide-react";
+import { ArrowLeft, FileQuestion, Loader2, LockKeyhole, RefreshCw, WifiOff } from "lucide-react";
 
 import { ContextualBackLink } from "@/components/contextual-back-link";
 import { cn, floatingControl, panel } from "@/components/ui-primitives";
@@ -10,13 +10,11 @@ export type DocumentViewerShellState = "loading" | "ready" | "auth-required" | "
 export function DocumentViewerStateSurface({
   state,
   message,
-  signedUrl,
   documentHomeHref,
   onRetry,
 }: {
   state: Exclude<DocumentViewerShellState, "ready">;
   message: string | null;
-  signedUrl: string | null;
   documentHomeHref: string;
   onRetry: () => void;
 }) {
@@ -87,17 +85,6 @@ export function DocumentViewerStateSurface({
                 <RefreshCw aria-hidden="true" className="size-icon-sm" />
                 Try again
               </button>
-            ) : null}
-            {signedUrl ? (
-              <a
-                href={signedUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={cn(secondaryButton, "min-h-tap justify-center")}
-              >
-                <ExternalLink aria-hidden="true" className="size-icon-sm" />
-                Open source file
-              </a>
             ) : null}
             <ContextualBackLink
               fallbackHref={documentHomeHref}

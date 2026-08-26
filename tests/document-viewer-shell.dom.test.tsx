@@ -64,6 +64,7 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 
 import { DocumentViewer } from "@/components/DocumentViewer";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
+import { clearSignedUrlCache, setCachedSignedUrl } from "@/lib/signed-url-cache";
 
 function detailPayload(): DocumentDetailPayload {
   return {
@@ -116,6 +117,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearSignedUrlCache();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -439,6 +441,25 @@ describe("DocumentViewer — shell states", () => {
     rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />);
 
     expect(window.document.querySelector(`a[href="${userAUrl}"]`)).toBeNull();
+  });
+
+  // A full reload fetches preview in parallel with detail and used to apply a
+  // module-LRU hit even when detail failed. That put a prior session's bearer
+  // URL onto the sign-in recovery surface as "Open source file".
+  it("does not offer a cached signed source URL on the sign-in recovery surface", async () => {
+    const cachedUrl = "https://example.supabase.co/storage/v1/object/sign/doc-1.pdf?token=prior-session";
+    setCachedSignedUrl("/api/documents/doc-1/signed-url", {
+      url: cachedUrl,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    render(
+      <DocumentViewer documentId="doc-1" initialPage={1} initialError="Sign in to open private source documents." />,
+    );
+
+    expect(await screen.findByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "auth-required");
+    await waitFor(() => expect(window.document.querySelector(`a[href="${cachedUrl}"]`)).toBeNull());
+    expect(screen.queryByRole("link", { name: "Open source file" })).toBeNull();
   });
 
   // The signed URLs are not the only identity-bound state the viewer holds. An
