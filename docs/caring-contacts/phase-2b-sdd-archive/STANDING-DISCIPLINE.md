@@ -337,3 +337,31 @@ only: status, commit SHAs, a one-line test summary, and your concerns. **Do not 
 pull request. Do not dispatch subagents.** If the brief is unclear or contradicts the tree, **ask
 before implementing rather than guessing** — and if an earlier task's report does not match what it
 actually left you, that is a finding, not something to work around silently.
+
+## For the controller — the two rules the controller kept breaking
+
+Everything above binds implementers. These two bind whoever is dispatching them, and both were bought at
+full price in this phase.
+
+- **A narrowly-verified fact must be stated at the scope it was checked at, and no wider.** Ten instances in
+  one session, several of which changed what got built: a component verified on one branch and asserted about
+  the tree, producing two implementations of `ExitOnlyOverlayTrigger`; a matrix row read correctly and
+  transcribed wrongly into a brief, which would have thrown at render for every coordinator opening the
+  pathway chooser; a per-attempt record reported absent because one screen could not reach it.
+
+  **The tell is a sentence with no subject.** "The trigger exists." "No per-attempt record exists." "Only one
+  name is new." Each was true of something — a branch, a screen, a comparison — and the something was dropped
+  on the way into the brief. **Write the scope into the sentence**: _on `cc-plan-detail`_, _from the delivery
+  screen_, _against the seed's given names_. A claim that cannot name where it was checked has not been
+  checked.
+
+- **An implementer's status line is not acceptance, and neither is a green gate.** Task P reported complete;
+  its round 2 held a 49-line code change to `message-copy.ts` — the module carrying the words a discharged
+  patient reads — and no re-review had closed it. It was recorded as accepted and came within one step of
+  being merged on the strength of the word "complete".
+
+  **Acceptance is a thing the controller does, with evidence, after a review returns.** The cheap check that
+  would have caught it: for every task about to be merged, name the review that closed its **last** round —
+  not its first. A round that follows a review is the round nobody reviewed unless somebody re-reviewed it,
+  and the rule permitting a re-review to be skipped applies to **prose-only** rounds. Read the round's diff
+  before invoking that rule; a commit subject saying "docs" is a claim like any other.
