@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "ecae1752e52dd2cd363bfaaafe2491df24769606",
-    "committed_at": "2026-08-26T04:01:20+00:00"
+    "sha": "8b4b45b575e9fdc08813a3856d16df20700bd26a",
+    "committed_at": "2026-08-26T12:06:45+08:00"
   },
   "routes": {
     "modes": [
@@ -3665,6 +3665,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-26",
+        "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
+        "head": "8ad4133fb05f0a47bd2618cd75bd86db973798ad",
+        "scope": "PR #2382 full changed scope",
+        "outcome": "Fixed the valid P2 by removing a spurious request that would duplicate already-resolved #NPQJKP work; merged current main and regenerated the conflicted issues snapshot from canonical inputs; no other P0-P2 findings; one review thread pending reply and resolution after push.",
+        "checks": "check:outstanding-issues PASS (503 rows, 91 open, 7 pending); docs:check-links PASS (3433 references); exact-head hosted CI before repair was green but must rerun after push; provider-backed gates not run."
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/therapy-compare-tray",
@@ -24619,8 +24627,8 @@
       }
     ],
     "counts": {
-      "records": 2619,
-      "refs": 1598
+      "records": 2620,
+      "refs": 1599
     }
   }
 }
