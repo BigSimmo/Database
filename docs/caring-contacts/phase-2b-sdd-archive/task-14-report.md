@@ -6,14 +6,20 @@ says — and refuses to say — about a delivery the provider did not complete.
 
 ## Commits
 
-| SHA                     | What                                                                                         |
-| ----------------------- | -------------------------------------------------------------------------------------------- |
-| `7c3dacb17`             | Ruling [130]: the frozen overlay table carries its own ids, and the trigger takes the union. |
-| `1f0dea068`             | `ScheduleEntry.contactVersion`, and the route that moves one contact within its day.         |
-| `be4b6a791`             | The three overlays wired onto the Schedule screen.                                           |
-| `ee57d649f`             | The two new suites: the DOM control and the HTTP boundary.                                   |
-| `b74500d02`             | Three screen cases for the delivery exceptions, and the version pinned in the view suite.    |
-| _(in this round's log)_ | The word-ban fix, the wait-for-any-outcome restructure, and this report.                     |
+| SHA          | What                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `7c3dacb17`  | Ruling [130]: the frozen overlay table carries its own ids, and the trigger takes the union. |
+| `1f0dea068`  | `ScheduleEntry.contactVersion`, and the route that moves one contact within its day.         |
+| `be4b6a791`  | The three overlays wired onto the Schedule screen.                                           |
+| `01f656acb`  | The word-ban fix: Task 13's whole-screen assertion, kept rather than weakened.               |
+| `ee57d649f`  | The two new suites: the DOM control and the HTTP boundary.                                   |
+| `b74500d02`  | Three screen cases for the delivery exceptions, and the version pinned in the view suite.    |
+| `f4769b8d9`  | Wait for any outcome before asserting which one it is; the unreadable-role case.             |
+| `b6a151b85`  | This report, committed before the gates and the ledger were in it.                           |
+| `82e9c1487`  | Formatting for the two files Prettier had not seen.                                          |
+| `878385245`  | The already-sent absence assertion, found by designing mutation T17.                         |
+| `2e071506c`  | The final gate on the final tree, written into the gates table.                              |
+| _(this one)_ | This commit table.                                                                           |
 
 Every SHA above was re-checked with `git cat-file -e <sha>^{commit}` after the last commit of this
 task; the branch log is the authority for the rows this table cannot name before they exist.
