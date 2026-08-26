@@ -180,6 +180,11 @@ export type PatientsDirectoryClientProps = {
   mayViewPlans: boolean;
   /** False when the acting role does not hold `viewPatientRecord`, decided by the page. */
   mayViewPatientNames: boolean;
+  /**
+   * True when the address carried a saved search term that the page dropped. A BOOLEAN: the term
+   * itself never crosses this boundary, and neither does its name or its length.
+   */
+  savedSearchNotApplied: boolean;
 };
 
 export function PatientsDirectoryClient({
@@ -188,6 +193,7 @@ export function PatientsDirectoryClient({
   filter,
   mayViewPlans,
   mayViewPatientNames,
+  savedSearchNotApplied,
 }: PatientsDirectoryClientProps) {
   // The one place the typed name lives. It is read by `matchesQuery` and rendered back into the
   // input and the empty state, and it reaches nothing else -- no href, no form, no fetch.
@@ -280,12 +286,21 @@ export function PatientsDirectoryClient({
             state. Reloading keeps the plan-state filter and clears this search, and a coordinator
             who did not know that would see their list change for no reachable reason.
           */}
-          <p id={searchScopeNoteId} className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <p
+            id={searchScopeNoteId}
+            className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
+          >
             This search stays in this browser tab. Reloading the page, or opening its web address anywhere else, clears
             what you typed here and keeps the plan-state filter above, because the plan state is in the web address and
             what you type here never is: a patient&rsquo;s name is never put into a web address, browser history or
             server log.
           </p>
+
+          {savedSearchNotApplied ? (
+            <div className="mt-4 min-w-0">
+              <SavedSearchNotAppliedNotice />
+            </div>
+          ) : null}
 
           {mayViewPatientNames ? null : (
             <div className="mt-4 min-w-0">
@@ -359,6 +374,45 @@ function NamesNotShownNotice() {
         <span className="font-medium text-[color:var(--text)]">What changes it: </span>
         Nothing on this screen, and there is no control for it anywhere in this workspace yet. The role this
         demonstration acts in is set outside the interface; a coordinator sees the names.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Shown when the address this page was reached by carried a saved search term, which the page
+ * dropped on the way in.
+ *
+ * IT NEVER ECHOES THE TERM, and it is not given it to echo -- the prop that reaches this component
+ * is a boolean. Echoing a dropped name back onto the screen would put it in a screenshot, a printed
+ * page and a support ticket, which is the same disclosure the address bar was closed against.
+ *
+ * Spec 4.4's shape, for the same reason `NamesNotShownNotice` borrows it: the coordinator opened a
+ * bookmark expecting a filtered list and got an unfiltered one, and a system that quietly declines
+ * to do what an address asked owes a reason and a remedy in place.
+ */
+function SavedSearchNotAppliedNotice() {
+  const heading = "A saved search was not applied";
+  return (
+    <div
+      role="note"
+      aria-label={heading}
+      className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
+    >
+      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
+        <EyeOff aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="min-w-0">{heading}</span>
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">Why: </span>
+        The web address you arrived on carried a search term. This screen never takes one from a web address, because a
+        patient&rsquo;s name must never travel in one, so the term was dropped from the address without being used and
+        is not shown here.
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+        Type what you were looking for into the search box above. A search here stays in this browser tab, so there is
+        nothing for a bookmark to save.
       </p>
     </div>
   );

@@ -89,7 +89,7 @@ const routeDescriptions: Record<string, string> = {
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
   "/caring-contacts/patients":
-    "The team's caring-contact caseload: one row per plan, filtered by plan state or synthetic identifier through the URL. Carries no patient-identifying detail.",
+    "The team's caring-contact caseload: one row per plan. Only the plan state travels in the URL; the search box matches patient names and synthetic identifiers inside the browser and is never put into an address, because a patient's name must not reach browser history or a request log. A row carries the patient's name and a synthetic identifier and no other identifying detail.",
   "/caring-contacts/patients/[patientId]":
     "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
   "/caring-contacts/plans/new":

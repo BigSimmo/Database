@@ -145,6 +145,16 @@ export type PatientsDirectoryProps = {
    * and telling that clinician their role is the reason would be false.
    */
   mayViewPatientNames: boolean;
+  /**
+   * True when the address this render was reached by had carried a parameter this route does not
+   * understand -- an old bookmark's saved search term, most likely a patient's name.
+   *
+   * A BOOLEAN and nothing else. Not the name of the parameter, not its value, not its length: a
+   * boolean is the largest thing that can cross to a Client Component without narrowing what the
+   * dropped term was. The page has already rewritten the address by the time this renders, so this
+   * prop explains a removal that has happened rather than announcing one that is about to.
+   */
+  savedSearchNotApplied?: boolean;
 };
 
 /**
@@ -160,6 +170,7 @@ export function PatientsDirectory({
   filter,
   mayViewPlans,
   mayViewPatientNames,
+  savedSearchNotApplied = false,
 }: PatientsDirectoryProps) {
   // A cleared plan's name is the empty string both stores write for a removed one, so it is dropped
   // here rather than at each row: an empty name is "no name held", never a name, and every reader
@@ -169,25 +180,27 @@ export function PatientsDirectory({
   );
 
   const rows: readonly PatientsDirectoryRow[] = mayViewPlans
-    ? records.filter((record) => filter.state === "all" || record.plan.state === filter.state).map((record) => {
-        const suppressed = suppressedContactCount(record);
-        const absorbed = absorbedContactCount(record);
-        return {
-          planId: record.plan.id,
-          patientId: record.patientId,
-          referralId: record.referralId,
-          state: record.plan.state,
-          patientName: nameByPlan.get(record.plan.id) ?? null,
-          dischargeDay: awstCalendarDay(record.dischargeAt),
-          // Every suppressed contact is subtracted from the count, so every suppressed contact
-          // must be accounted for in the reason beside it. `absorbed` can never exceed
-          // `suppressed`: both stores write an absorbed contact straight into the terminal
-          // `suppressed` state.
-          scheduledContactCount: record.contacts.length - suppressed,
-          absorbedContactCount: absorbed,
-          otherSuppressedContactCount: suppressed - absorbed,
-        };
-      })
+    ? records
+        .filter((record) => filter.state === "all" || record.plan.state === filter.state)
+        .map((record) => {
+          const suppressed = suppressedContactCount(record);
+          const absorbed = absorbedContactCount(record);
+          return {
+            planId: record.plan.id,
+            patientId: record.patientId,
+            referralId: record.referralId,
+            state: record.plan.state,
+            patientName: nameByPlan.get(record.plan.id) ?? null,
+            dischargeDay: awstCalendarDay(record.dischargeAt),
+            // Every suppressed contact is subtracted from the count, so every suppressed contact
+            // must be accounted for in the reason beside it. `absorbed` can never exceed
+            // `suppressed`: both stores write an absorbed contact straight into the terminal
+            // `suppressed` state.
+            scheduledContactCount: record.contacts.length - suppressed,
+            absorbedContactCount: absorbed,
+            otherSuppressedContactCount: suppressed - absorbed,
+          };
+        })
     : [];
 
   return (
@@ -197,6 +210,7 @@ export function PatientsDirectory({
       filter={filter}
       mayViewPlans={mayViewPlans}
       mayViewPatientNames={mayViewPatientNames}
+      savedSearchNotApplied={savedSearchNotApplied}
     />
   );
 }

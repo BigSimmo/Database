@@ -96,20 +96,25 @@ promise.
 `npm run test:cc-guards` only, plus `typecheck` and uncached lint. **No full `npm run test`, no
 Playwright** — three implementers are live.
 
-| Gate                                             | Decisive line                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| `npm run typecheck` (`GATE_RECEIPTS=refresh`)     | `[gate-receipts] recorded a pass for "typecheck:internal"`, no errors |
-| `npx eslint` on the 6 changed files, cache wiped  | `files linted: 6 / errors: 0 / warnings: 0`                          |
-| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`) | `Test Files 18 passed (18)` / `Tests 401 passed (401)`               |
+| Gate                                               | Decisive line                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`)      | `[gate-receipts] recorded a pass for "typecheck:internal"`, no errors |
+| `npx eslint` on the 6 changed files, cache wiped   | `files linted: 6 / errors: 0 / warnings: 0`                           |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`) | `Test Files 18 passed (18)` / `Tests 401 passed (401)`                |
 
 Lint was run with `node_modules/.cache/eslint` removed and via `npx eslint` (no cache), and the count
 is printed explicitly because a silent ESLint pass is indistinguishable from a run that examined
 nothing.
 
-**All three were re-run on the final tree**, after the last edit in this task (this report), and the
-lines above are from that re-run. `typecheck` refused once during it with
-`DATABASE_HEAVY_RUN_ADMISSION_BUSY` (owner worktree `D:\Worktrees\Database\cc-plan-detail`) — a
-refusal, not a failure — and was retried until it ran. No lease was broken at any point in this task.
+**Correction (round 2).** Round 1 of this report claimed "all three were re-run on the final tree".
+That was accurate for `test:cc-guards` and not for `typecheck`: the reviewer recomputed the tree's
+gate-receipt signature as `08f4bcf5…`, which the `test:cc-guards` receipt carries, while the
+`typecheck` receipt carried `80c53421…` — one edit earlier. The only delta was this report's
+markdown, which `typecheck` does not read, so the substance was fine and **the sentence was not**.
+The claim is corrected here rather than the gate; round 2's own re-verify is recorded at the end of
+this file. `typecheck` also refused once with `DATABASE_HEAVY_RUN_ADMISSION_BUSY` (owner worktree
+`D:\Worktrees\Database\cc-plan-detail`) — a refusal, not a failure — and was retried until it ran.
+No lease was broken at any point in this task.
 
 ### Mutation ledger
 
@@ -118,16 +123,16 @@ the prediction is compared. `git diff --quiet` was asserted clean before and aft
 and every mutation was applied by exact-string replacement with an in-process presence check (never
 through a shell — an argv containing `{`, `"` or `$` is not the string you sent on this machine).
 
-| id     | mutation                                                                          | predicted                                                       | observed                                                                                                                    | verdict           |
-| ------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| **M1** | put the name back in a URL: state chip href gains `&q=${encodeURIComponent(query)}` | address loop reddens naming form `Jordan%20Nguyen`              | `AssertionError: an address on this screen carries "Jordan%20Nguyen": expected '/caring-contacts/patients?state=draft…'` — 1 failed | RED as predicted  |
-| **M2** | `matchesQuery` drops `row.patientName` from the haystack                          | the name search finds nothing; `getAllByRole("listitem")` throws | `TestingLibraryElementError: Unable to find an accessible element with the role "listitem"` — 3 failed                        | RED as predicted  |
-| **M3** | remove `aria-describedby` from the search input                                    | `expected null not to be null`                                  | `AssertionError: expected null not to be null` — 1 failed                                                                    | RED as predicted  |
-| **M4** | parser reads `q` back into the filter object                                      | state assertion passes, then `JSON.stringify` contains the name | `expected '{"state":"active","query":"Jordan Ngu…' not to contain 'Jordan Nguyen'`, failing at line 191 after line 189 passed | RED as predicted  |
-| **M5** | server wrapper stops filtering by plan state                                       | `expected … to have a length of 1 but got 2`                    | exactly that, plus 4 siblings across 2 files — 5 failed                                                                     | RED as predicted  |
-| **M6** | search `<div role="search">` becomes a `<form>` (fields keep no `name`)            | address collector catches the unnamed field's value             | `an address on this screen carries "Jordan Nguyen": expected '=Jordan Nguyen' not to contain…` — 2 failed                     | RED as predicted  |
-| **M7** | add a field-less `<form method="get" action={patients}>`                            | address loop passes; the `form` null-check reddens              | `AssertionError: expected <form …></form> to be null` — 2 failed                                                            | RED as predicted  |
-| **M8** | `patientsDirectoryHref` drops `encodeURIComponent` around the plan state           | GREEN — no plan state contains a character needing encoding      | `Test Files 18 passed (18)` / `Tests 401 passed (401)`                                                                       | GREEN as predicted — over-sensitivity control |
+| id     | mutation                                                                            | predicted                                                        | observed                                                                                                                            | verdict                                       |
+| ------ | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **M1** | put the name back in a URL: state chip href gains `&q=${encodeURIComponent(query)}` | address loop reddens naming form `Jordan%20Nguyen`               | `AssertionError: an address on this screen carries "Jordan%20Nguyen": expected '/caring-contacts/patients?state=draft…'` — 1 failed | RED as predicted                              |
+| **M2** | `matchesQuery` drops `row.patientName` from the haystack                            | the name search finds nothing; `getAllByRole("listitem")` throws | `TestingLibraryElementError: Unable to find an accessible element with the role "listitem"` — 3 failed                              | RED as predicted                              |
+| **M3** | remove `aria-describedby` from the search input                                     | `expected null not to be null`                                   | `AssertionError: expected null not to be null` — 1 failed                                                                           | RED as predicted                              |
+| **M4** | parser reads `q` back into the filter object                                        | state assertion passes, then `JSON.stringify` contains the name  | `expected '{"state":"active","query":"Jordan Ngu…' not to contain 'Jordan Nguyen'`, failing at line 191 after line 189 passed       | RED as predicted                              |
+| **M5** | server wrapper stops filtering by plan state                                        | `expected … to have a length of 1 but got 2`                     | exactly that, plus 4 siblings across 2 files — 5 failed                                                                             | RED as predicted                              |
+| **M6** | search `<div role="search">` becomes a `<form>` (fields keep no `name`)             | address collector catches the unnamed field's value              | `an address on this screen carries "Jordan Nguyen": expected '=Jordan Nguyen' not to contain…` — 2 failed                           | RED as predicted                              |
+| **M7** | add a field-less `<form method="get" action={patients}>`                            | address loop passes; the `form` null-check reddens               | `AssertionError: expected <form …></form> to be null` — 2 failed                                                                    | RED as predicted                              |
+| **M8** | `patientsDirectoryHref` drops `encodeURIComponent` around the plan state            | GREEN — no plan state contains a character needing encoding      | `Test Files 18 passed (18)` / `Tests 401 passed (401)`                                                                              | GREEN as predicted — over-sensitivity control |
 
 **M7 exists because I suspected `expect(container.querySelector("form")).toBeNull()` was redundant.**
 M6 showed it firing behind a sibling that reddens first, which proves nothing about it. M7 is the

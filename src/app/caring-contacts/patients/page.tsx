@@ -1,11 +1,12 @@
 import dynamic from "next/dynamic";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-filter";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -84,12 +85,27 @@ const CaringContactsShell = dynamic(() =>
  * dynamic, which is already true here -- the role cookie does the same -- and is correct: a cached
  * copy of a caseload would outlive the caseload.
  *
- * `parsePatientsDirectoryFilter` reads the plan state and NOTHING ELSE. It deliberately does not
- * read a `q` parameter, because a caseload search matches the patient's name and Ruling [111] does
- * not allow one into a query string: "a query string is logged by every proxy between here and the
- * browser. Nothing about a patient may travel here." The name search is local state inside the
- * directory's client island and never reaches this page at all -- so a `?q=` a coordinator arrives
- * with from an old bookmark is ignored rather than honoured, which is the conservative direction.
+ * `readPatientsDirectoryAddress` reads the plan state and NOTHING ELSE that could name a patient.
+ * A caseload search matches the patient's name, and Ruling [111] does not allow one into a query
+ * string: "a query string is logged by every proxy between here and the browser. Nothing about a
+ * patient may travel here." The name search is local state inside the directory's client island and
+ * never reaches this page at all.
+ *
+ * IGNORING A BOOKMARKED `?q=<name>` WAS NOT ENOUGH, AND WAS WORSE THAN DOING NOTHING. Declining to
+ * honour the parameter leaves the name in the address bar, and `overlayUrl()` in
+ * `workspace-overlays.tsx` copies EVERY existing parameter into each history entry it pushes -- so
+ * an ignored name was re-written into a fresh history entry every time a coordinator opened an
+ * overlay. So the address is REWRITTEN rather than merely unread: any unrecognised parameter, by
+ * any name (`q`, `name`, `search`, anything), triggers a `redirect()` to the canonical address
+ * carrying only the recognised ones plus a non-identifying flag, and the screen then says a saved
+ * search term was not applied without ever echoing it.
+ *
+ * THE REDIRECT IS THE FIRST THING THIS PAGE DOES, and that placement is the guarantee rather than a
+ * tidiness preference: it happens before `resolveDemoActor`, before the store is opened and before
+ * every `auditedRead` below, so a dropped value cannot reach an access-trail record, an error
+ * message or a thrown `Error` on its way through. `redirect()` in a Server Component is a 307 that
+ * REPLACES the history entry (Next 16 `redirect` reference), so the bookmarked address carrying the
+ * name is not left behind as an entry of its own.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,
@@ -97,9 +113,20 @@ export default async function CaringContactsPatientsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isCaringContactsDemoEnabled()) notFound();
+
+  // Before anything is read, audited or thrown. See "IGNORING A BOOKMARKED ?q= WAS NOT ENOUGH".
+  const address = readPatientsDirectoryAddress(await searchParams);
+  if (address.droppedUnrecognisedParams) {
+    redirect(
+      address.canonicalQuery === ""
+        ? CARING_CONTACTS_ROUTES.patients
+        : `${CARING_CONTACTS_ROUTES.patients}?${address.canonicalQuery}`,
+    );
+  }
+  const filter = address.filter;
+
   const actor = await resolveDemoActor();
   const store = await caringContactsStore();
-  const filter = parsePatientsDirectoryFilter(await searchParams);
 
   // "service" names the one service-wide record, matching the object id the API route records
   // against -- the access trail needs one stable identifier for it, not a per-caller one.
@@ -210,6 +237,7 @@ export default async function CaringContactsPatientsPage({
         filter={filter}
         mayViewPlans={mayViewPlans}
         mayViewPatientNames={mayViewPatientNames}
+        savedSearchNotApplied={address.searchNotApplied}
       />
     </CaringContactsShell>
   );

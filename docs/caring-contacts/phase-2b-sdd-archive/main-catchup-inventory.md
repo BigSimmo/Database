@@ -114,23 +114,38 @@ small client island:
   logs, which the workspace's binding privacy contract forbids."_
 - `parsePatientsDirectoryFilter` on `main` returns `{ state }` only. There is no `q`.
 
-**What this trunk does instead.** `patients-directory.tsx` here is a 589-line Server Component with
-no client boundary at all, per Ruling 13 ("this workspace's client payload to a rounding error"). Its
-filter type is `{ state, query }`, `patientsDirectoryHref` writes `?q=<value>`, the search is an
-ordinary `method="get"` form, and since `3450ebcb8` ("name the people on the caseload, from the
-narrow read", Ruling 91) `matchesFilter` matches the **patient's name** as well as the three
-synthetic identifiers.
+> **RESOLVED 2026-08-26 — this finding is a record of what the merge found, and it is no longer true
+> of the tree.** The owner ruled that Ruling [111] (a patient-confidentiality contract) outranks
+> Ruling 13 (a client-payload preference) and that `main`'s approach be adopted. It was, on this
+> branch: `patients-directory.tsx` is now the server wrapper, `patients-directory-client.tsx` is the
+> adopted client island, and `parsePatientsDirectoryFilter` in
+> `src/lib/caring-contacts/patients-directory-filter.ts` is the parser in use. The paragraphs below
+> are left in the past tense as the record they were written to be. Two things went FURTHER than
+> `main`: a bookmarked search parameter is now **stripped by a server redirect** rather than merely
+> ignored (ignoring it left the name in the address bar, which `overlayUrl()` then copied into every
+> overlay history entry), and the screen states that a saved search was not applied without echoing
+> it. See `docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md`.
 
-**The consequence, stated plainly.** On this trunk, typing a patient's name into the caseload search
-produces `/caring-contacts/patients?q=Jordan%20Nguyen`. That name then reaches browser history, the
-`Referer` header and any request log in front of the app. `main` fixed exactly this; the trunk never
-received the fix and independently widened the same search to cover names.
+**What this trunk did instead, before the fix.** `patients-directory.tsx` was a 589-line Server
+Component with no client boundary at all, per Ruling 13 ("this workspace's client payload to a
+rounding error"). Its filter type was `{ state, query }`, `patientsDirectoryHref` wrote `?q=<value>`,
+the search was an ordinary `method="get"` form, and since `3450ebcb8` ("name the people on the
+caseload, from the narrow read", Ruling 91) `matchesFilter` matched the **patient's name** as well as
+the three synthetic identifiers.
 
-**This merge does not cause the regression** — it is already the state of `HEAD` — but the merge is
-the moment at which we choose not to adopt `main`'s fix, so it is recorded here rather than passed
-over.
+**The consequence, stated plainly.** On this trunk as merged, typing a patient's name into the
+caseload search produced `/caring-contacts/patients?q=Jordan%20Nguyen`. That name then reached
+browser history, the `Referer` header and any request log in front of the app. `main` fixed exactly
+this; the trunk had never received the fix and had independently widened the same search to cover
+names.
 
-**Main-only tests lost with it** (in `tests/caring-contacts-patients-directory.dom.test.tsx`):
+**That merge did not cause the defect** — it was already the state of `HEAD` — but the merge was the
+moment at which the choice to adopt `main`'s fix fell due, so it was recorded here rather than passed
+over. The choice was made, and it was to adopt.
+
+**Main-only tests lost with it** (in `tests/caring-contacts-patients-directory.dom.test.tsx`) — each
+now has a replacement in that file, written against the adopted architecture rather than restored
+verbatim:
 
 - `"ignores a legacy query parameter rather than passing patient text into the directory"` —
   `parsePatientsDirectoryFilter({ q: "Jordan Nguyen", state: "active" })` must equal
@@ -372,11 +387,16 @@ never-staged case specifically.
 
 **File:** `scripts/generate-site-map.ts`
 
-The trunk's description — _"filtered by plan state or synthetic identifier through the URL"_ — predates
-`3450ebcb8`, which widened the same URL search to match patient names. It is now incomplete in exactly
-the direction finding 3 is about. `main`'s competing description is accurate for `main`'s architecture
+The trunk's description — _"filtered by plan state or synthetic identifier through the URL"_ — predated
+`3450ebcb8`, which widened the same URL search to match patient names. It was incomplete in exactly
+the direction finding 3 is about. `main`'s competing description was accurate for `main`'s architecture
 and false for this tree, so it could not be taken either. The trunk's text was kept verbatim rather
-than rewritten, because the correct wording depends on how finding 3 is decided.
+than rewritten, because the correct wording depended on how finding 3 was decided.
+
+> **RESOLVED 2026-08-26.** Finding 3 was decided by adopting `main`'s split, so the description was
+> rewritten and `docs/site-map.md` regenerated. It now says that only the plan state travels in the
+> URL and that the search runs in the browser. The old wording had become a false statement about a
+> privacy-relevant mechanism sitting in a generated document, which is worse than an incomplete one.
 
 ## Route census after the merge
 

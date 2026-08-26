@@ -26,11 +26,16 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
+import { WORKSPACE_OVERLAY_PARAM } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
-import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
+import {
+  PATIENTS_DIRECTORY_OVERLAY_PARAM,
+  parsePatientsDirectoryFilter,
+  readPatientsDirectoryAddress,
+} from "@/lib/caring-contacts/patients-directory-filter";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 const TEAM = teamId("demo-team");
@@ -176,8 +181,13 @@ describe("Patients directory - RULING [111]: a patient's name never reaches a UR
     // And there is no GET form left that could put it there on submit -- the mechanism the fix
     // removed, asserted as removed rather than assumed gone.
     expect(container.querySelector("form")).toBeNull();
-    // Nothing navigated: the search changed no address at all.
+    // Nothing navigated: the search changed no address at all. `addressesIn` reads the DOM, so a
+    // script-driven write to the address would slip past it entirely -- these two read the address
+    // itself. The hash is here because nothing in this island writes one TODAY and a hash would
+    // evade both the DOM sweep and the search-string check; the assertion is the cheap guard, and
+    // no machinery was added to look for hash writes.
     expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
   });
 
   it("keeps the name out of the parsed filter, while the plan state is read from the same URL", () => {
@@ -704,9 +714,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
     const names = [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")];
 
-    render(
-      <PatientsDirectory mayViewPatientNames patientNames={names} records={records} filter={ALL} mayViewPlans />,
-    );
+    render(<PatientsDirectory mayViewPatientNames patientNames={names} records={records} filter={ALL} mayViewPlans />);
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
 
     await user.type(screen.getByRole("searchbox"), "nguyen");
@@ -861,5 +869,99 @@ describe("Patients directory - a role that may not see names is told once, not p
     const fallbackRow = screen.getAllByRole("listitem")[0];
     expect(within(fallbackRow).getByText("Synthetic patient identifier")).toBeInTheDocument();
     expect(within(fallbackRow).queryByText("Patient")).toBeNull();
+  });
+});
+
+describe("Patients directory - a bookmarked search term is stripped from the address, not just unread", () => {
+  const NAME = "Jordan Nguyen";
+
+  it("reports an unrecognised parameter as a BOOLEAN, and rebuilds a query that cannot carry it", () => {
+    const address = readPatientsDirectoryAddress({ state: "active", q: NAME });
+
+    expect(address.droppedUnrecognisedParams).toBe(true);
+    expect(address.searchNotApplied).toBe(true);
+    // Positive control: the recognised parameter survived into both the filter and the query.
+    expect(address.filter.state).toBe("active");
+    expect(address.canonicalQuery).toContain("state=active");
+    expect(address.canonicalQuery).toContain("searchNotApplied=1");
+    // The whole returned value, not only the query -- nothing anywhere in it names the term.
+    for (const form of urlFormsOf(NAME)) {
+      expect(JSON.stringify(address), `the address value carries "${form}"`).not.toContain(form);
+    }
+  });
+
+  it("triggers on any unrecognised name, because a bookmark need not say `q`", () => {
+    for (const key of ["q", "name", "search", "patient", "filter"]) {
+      expect(readPatientsDirectoryAddress({ [key]: NAME }).droppedUnrecognisedParams, key).toBe(true);
+    }
+    // ...and not on the ones this route does understand, or the rewrite would fire forever.
+    expect(readPatientsDirectoryAddress({}).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ state: "active" }).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ searchNotApplied: "1" }).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ overlay: "consent-and-withdrawal" }).droppedUnrecognisedParams).toBe(false);
+  });
+
+  it("produces a rewrite target that is itself clean, so the redirect cannot loop", () => {
+    const address = readPatientsDirectoryAddress({ state: "paused", overlay: "consent-and-withdrawal", q: NAME });
+    const rewritten = Object.fromEntries(new URLSearchParams(address.canonicalQuery));
+
+    // Feed the target back through the same reader: it must ask for no further rewrite.
+    expect(readPatientsDirectoryAddress(rewritten).droppedUnrecognisedParams).toBe(false);
+    // ...while still carrying everything that was allowed to survive.
+    expect(rewritten.state).toBe("paused");
+    expect(rewritten.overlay).toBe("consent-and-withdrawal");
+    expect(rewritten.searchNotApplied).toBe("1");
+  });
+
+  it("names the overlay parameter identically to the overlay host that owns it", () => {
+    // The sealed filter module may import nothing outside `src/lib/caring-contacts/`, so the
+    // parameter name is duplicated there as a bare string. This is what stops the copies drifting:
+    // renaming the overlay parameter without updating the allowlist would make this route strip
+    // every deep-linked overlay out of its own address, silently.
+    expect(PATIENTS_DIRECTORY_OVERLAY_PARAM).toBe(WORKSPACE_OVERLAY_PARAM);
+  });
+
+  it("states that a saved search was not applied, and never echoes what it was", () => {
+    const { container } = render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={[name("plan-1", NAME)]}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+        savedSearchNotApplied
+      />,
+    );
+
+    const notice = screen.getByRole("note", { name: /a saved search was not applied/i });
+    expect(within(notice).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(notice).getByText(/What changes it:/)).toBeInTheDocument();
+    // Reachable as text, never only as a hover title -- spec 4.4.
+    expect(notice.querySelector("[title]")).toBeNull();
+    // The remedy names a control that exists on this screen.
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    // It never echoes the dropped term. The name IS on this screen -- the row is headed by it, so
+    // this is not an absence over a fixture that never held it -- but the NOTICE must not repeat it.
+    expect(screen.getByRole("heading", { name: NAME })).toBeInTheDocument();
+    for (const form of urlFormsOf(NAME)) {
+      expect(notice.textContent ?? "", `the notice echoes "${form}"`).not.toContain(form);
+    }
+    // And nothing about it reaches an address either.
+    for (const form of urlFormsOf(NAME)) {
+      for (const address of addressesIn(container)) expect(address).not.toContain(form);
+    }
+  });
+
+  it("prints no such notice when the address carried nothing to drop", () => {
+    render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    expect(screen.queryByRole("note", { name: /a saved search was not applied/i })).toBeNull();
   });
 });

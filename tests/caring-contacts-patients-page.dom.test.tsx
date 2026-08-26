@@ -25,6 +25,11 @@ const mocks = vi.hoisted(() => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
+  // The real `redirect` throws too, so throwing here keeps the page's control flow identical while
+  // making the target inspectable.
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
 }));
 
 vi.mock("next/headers", () => ({
@@ -34,6 +39,7 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   notFound: mocks.notFound,
+  redirect: mocks.redirect,
 }));
 
 vi.mock("@/lib/caring-contacts-server/store", () => ({
@@ -100,6 +106,7 @@ beforeEach(() => {
   mockCookies = {};
   mocks.store.current = null;
   mocks.notFound.mockClear();
+  mocks.redirect.mockClear();
 });
 
 afterEach(() => {
@@ -332,5 +339,88 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
 
     await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/names read returned no list/i);
+  });
+});
+
+/** The forms a dropped name could survive in an address or a record. */
+function urlFormsOf(text: string): string[] {
+  return [
+    text,
+    text.toLowerCase(),
+    encodeURIComponent(text),
+    encodeURIComponent(text).toLowerCase(),
+    text.replace(/ /g, "+"),
+    ...text.split(" "),
+    ...text.toLowerCase().split(" "),
+  ];
+}
+
+describe("the /caring-contacts/patients page - a bookmarked search term is removed, not merely unread", () => {
+  const NAME = "Jordan Nguyen";
+
+  // Ignoring `?q=<name>` was NOT enough, and was worse than doing nothing: `overlayUrl()` in
+  // `workspace-overlays.tsx` copies every existing parameter into each history entry it pushes, so
+  // an ignored name was re-written into a fresh entry every time an overlay opened. The address is
+  // rewritten instead.
+  it("redirects to an address that keeps the plan state and carries no part of the term", async () => {
+    inMemoryStoreWithSpy();
+
+    await expect(renderPage({ state: "active", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    expect(mocks.redirect).toHaveBeenCalledTimes(1);
+    const target = String(mocks.redirect.mock.calls[0]?.[0]);
+    // Positive control on the target: the RECOGNISED parameter survived, so what follows is a
+    // dropped name rather than a redirect that dropped everything.
+    expect(target).toContain("state=active");
+    expect(target).toContain("searchNotApplied=1");
+    for (const form of urlFormsOf(NAME)) {
+      expect(target, `the redirect target carries "${form}"`).not.toContain(form);
+    }
+  });
+
+  it("fires on any unrecognised parameter name, not only on `q`", async () => {
+    for (const key of ["q", "name", "search", "patient"]) {
+      inMemoryStoreWithSpy();
+      mocks.redirect.mockClear();
+      await expect(renderPage({ [key]: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+      expect(mocks.redirect, `?${key}= did not trigger the rewrite`).toHaveBeenCalledTimes(1);
+      expect(String(mocks.redirect.mock.calls[0]?.[0])).not.toContain("Nguyen");
+    }
+  });
+
+  it("keeps a deep-linked overlay while dropping the term beside it", async () => {
+    inMemoryStoreWithSpy();
+
+    await expect(renderPage({ overlay: "consent-and-withdrawal", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    const target = String(mocks.redirect.mock.calls[0]?.[0]);
+    expect(target).toContain("overlay=consent-and-withdrawal");
+    expect(target).not.toContain("Nguyen");
+  });
+
+  it("does not redirect an address it already understands, so the rewrite cannot loop", async () => {
+    inMemoryStoreWithSpy();
+
+    await renderPage({ state: "active", searchNotApplied: "1", overlay: "consent-and-withdrawal" });
+
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    // ...and the notice the flag exists for is what the coordinator lands on.
+    expect(screen.getByRole("note", { name: /a saved search was not applied/i })).toBeInTheDocument();
+  });
+
+  it("drops the term before any audited read, so it cannot reach an access record", async () => {
+    // POSITIVE CONTROL FIRST. An ordinary render of this page records reads; without this, "no
+    // record contains the name" would be satisfied by a page that records nothing at all.
+    const ordinary = inMemoryStoreWithSpy();
+    await renderPage({ state: "active" });
+    expect(ordinary.recorded().length).toBeGreaterThan(0);
+
+    const dropped = inMemoryStoreWithSpy();
+    await expect(renderPage({ state: "active", q: NAME })).rejects.toThrow(/NEXT_REDIRECT/);
+
+    expect(dropped.recorded()).toHaveLength(0);
+    for (const form of urlFormsOf(NAME)) {
+      expect(JSON.stringify(dropped.recorded())).not.toContain(form);
+    }
   });
 });
