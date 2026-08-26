@@ -201,8 +201,15 @@ screens — it would delete the empty-caseload observations other tests depend o
   statement about a seeded record.
 - Task 15's brief ordered a new `AccessedObjectType` member on Ruling [46]'s letter. The implementer
   argued the read is byte-identical to one that already exists, so a new member would name a **screen**
-  rather than an object and split one askable trail question in two. Under review; my prior is that it is
-  right and the brief over-applied the ruling.
+  rather than an object and split one askable trail question in two. **SETTLED — Ruling [134], and the
+  implementer was right.** I checked it literally: the Templates library and the plan wizard record the
+  identical access tuple for the same collection. Nothing to do at the merge; the ruling records why, and
+  records the divergence that would later justify a split.
+
+  The generalisable half: **Ruling [46]'s wording said "add a member"; its reasoning said "make the question
+  askable".** I applied the wording, the implementer read the reasoning, and when those two point opposite
+  ways the reasoning is the ruling. Briefs written from a ruling's sentence rather than its argument will
+  keep producing this.
 
 ## 2d. The DOM mirror is closer to the route, and still a mirror
 
