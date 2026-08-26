@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01Z"
+    "committed_at": "2026-08-25T17:45:01+00:00"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 4,
+    "pending": 5,
     "resolved": 412
   },
   "queue": [
@@ -953,6 +953,12 @@
       "action": "add",
       "summary": "The answer source-rail card carries three hardcoded pixel measurements, one of them duplicated",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "970b4089-9e76-4bcf-821e-2e70e16a3617",
+      "action": "add",
+      "summary": "Component metrics stay in :root, not @theme — record the rule where reviewers read it, because bots keep re-raising it",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "d2a6122a-4fcd-4429-92a7-6004fa19eb24",
