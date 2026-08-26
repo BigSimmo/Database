@@ -105,10 +105,17 @@ composes rather than collides**. If Task 10's throws on a construction-time chec
 `cc-plan-detail` (Task 10 built the plan and contact detail into it) and `cc-schedule` (Task 13 moved two
 label maps out of it into a new `contact-vocabulary.ts`, claiming **no rendered text changed**).
 
-That claim is under review and **must be verified literally before the merge**, because a refactor that
-moves shared vocabulary out of a file another branch is simultaneously rewriting is exactly where a
-rendered string changes by accident and nothing notices. Resolve Task 10's additions on top of Task 13's
-extraction, not the other way round, and re-read the resulting file's rendered strings.
+**The claim is VERIFIED, by me, literally.** At `a0959de6d`, the whole diff to `patient-overview.tsx` is:
+two `import` lines changed, and the two maps plus their explanatory comments deleted. **Not one quoted
+string was added to that file.** The extracted maps are byte-identical in the new module — same keys, same
+order, same strings, including `Delivered (transport receipt)` and the rest of the transport vocabulary. The
+two maps Task 13 did NOT move (plan state, episode state) are still in place, unchanged.
+
+What that leaves is the conflict itself, which is still real: Task 10 adds plan and contact detail to the
+same file Task 13 shortened. **Resolve Task 10's additions on top of Task 13's extraction, not the other way
+round**, and confirm the resulting file imports `CONTACT_STATE_LABELS` and `MESSAGE_TYPE_LABELS` rather than
+re-declaring either — a resolution that keeps both sides' text would silently restore a second copy of the
+vocabulary, and a second copy is how the two drift apart later.
 
 ## 3. The one real conflict
 
@@ -177,3 +184,28 @@ second catch-up merge, and the first one cost 26 conflicts across 31 commits. **
 the trunk BEFORE merging the four feature branches**, not after: resolving trunk-versus-main conflicts is
 cheaper when the trunk does not also carry four branches' worth of new files, and the first catch-up
 audit found the merge actually **repaired** a live trunk defect, so it is not a formality.
+
+## 8. Tasks 20 and 21 run AFTER the merge, not before it — Ruling [133]
+
+Both briefs are written and both were queued to run next. **They must not.**
+
+**Task 20 reconciles all twenty-four rows of the frozen interaction matrix.** Run on any one branch, it can
+only see that branch's wiring — so it would report as unwired every row another branch wired, and its
+deliverable is precisely a table of which rows are wired. A reconciliation run against a partial tree does
+not produce a weaker table; it produces a **wrong** one, and a wrong table is worse than none because the
+next reader treats it as the answer.
+
+**Task 21 proves responsive and accessibility properties across every screen in the phase.** The screens are
+spread across four branches. Same problem, and additionally its per-screen, per-condition table is exactly
+the artefact that would have to be redone.
+
+This is the same failure that produced the duplicate `ExitOnlyOverlayTrigger` (§2a): **a fact checked on one
+branch, asserted about the tree.** Doing it deliberately, at the scale of twenty-four rows and five
+conditions, would be that error industrialised.
+
+**Order: catch-up merge → four feature branches → the owed gates → Task 20 → Task 21.** Tasks 20 and 21 are
+also the two tasks whose findings the gates would most want to precede, so running them on the merged tree
+costs nothing in sequence and buys a table that is true.
+
+**Cost if wrong:** the merge happens without two more sets of eyes on it. Against that: both tasks are
+verification tasks, and verification of the wrong tree is not verification.
