@@ -31,15 +31,29 @@ function coverCacheKey(documentId: string, authIdentity: string | null) {
   return JSON.stringify([authIdentity, documentId]);
 }
 
+function coverInFlightKey(
+  documentId: string,
+  authIdentity: string | null,
+  authorizationHeader: Record<string, string>,
+) {
+  // Resolved answers stay keyed by user + document so a healthy cover survives
+  // token refresh. In-flight work must also include the credential: the same
+  // user can rotate a header while a request is pending, and reusing that
+  // promise would let a 401 settle as a miss after the new header is in use.
+  return JSON.stringify([authIdentity, documentId, authorizationHeader.Authorization ?? ""]);
+}
+
 /** `string`/`null` are answers and get cached; `undefined` is a transient failure. */
 async function loadCoverImageId(
   key: string,
   documentId: string,
+  authIdentity: string | null,
   authorizationHeader: Record<string, string>,
 ): Promise<string | null | undefined> {
   const cached = coverImageIds.get(key);
   if (cached !== undefined) return cached;
-  const pending = inFlight.get(key);
+  const requestKey = coverInFlightKey(documentId, authIdentity, authorizationHeader);
+  const pending = inFlight.get(requestKey);
   if (pending) return pending;
 
   const request = (async () => {
@@ -64,9 +78,9 @@ async function loadCoverImageId(
     }
   })();
 
-  inFlight.set(key, request);
+  inFlight.set(requestKey, request);
   const resolved = await request;
-  inFlight.delete(key);
+  inFlight.delete(requestKey);
   if (resolved !== undefined) coverImageIds.set(key, resolved);
   return resolved;
 }
@@ -97,13 +111,13 @@ export function useDocumentCoverImageId(documentId: string | null | undefined): 
   useEffect(() => {
     if (!id || !key || coverImageIds.get(key) !== undefined) return;
     let active = true;
-    void loadCoverImageId(key, id, authorizationHeader).then((resolved) => {
+    void loadCoverImageId(key, id, authIdentity, authorizationHeader).then((resolved) => {
       if (active) setFetched(resolved ?? null);
     });
     return () => {
       active = false;
     };
-  }, [authorizationHeader, id, key]);
+  }, [authIdentity, authorizationHeader, id, key]);
 
   const markCoverUnavailable = useCallback(
     (imageId: string) => {

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "0abca58a554adeba03299363d436c4fed843618e",
-    "committed_at": "2026-08-26T15:30:47+08:00"
+    "sha": "3186205d5ef2bd630157a31b2e777f9c1873b8c5",
+    "committed_at": "2026-08-26T21:42:06+08:00"
   },
   "routes": {
     "modes": [
@@ -3805,6 +3805,14 @@
         "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
         "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
         "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "09ff8ca36489411f26408d6b557888459151bb4a",
+        "scope": "authenticated document cover selection, retry lifecycle, optional preview failure, and source evidence preservation",
+        "outcome": "All substantiated P2 findings fixed; no remaining P0-P2 findings",
+        "checks": "lint pass; typecheck pass; focused preview 79/79; production build pass; full suite 10489 pass with six unrelated Windows Claude-cloud failures after the one preview failure was fixed; offline fixture contracts pass; snapshot and medication checks pass"
       },
       {
         "date": "2026-08-26",
@@ -24776,8 +24784,8 @@
       }
     ],
     "counts": {
-      "records": 2623,
-      "refs": 1602
+      "records": 2624,
+      "refs": 1603
     }
   }
 }

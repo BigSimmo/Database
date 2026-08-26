@@ -103,6 +103,29 @@ describe("useDocumentCoverImageId", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not reuse an in-flight cover request after the same user rotates credentials", async () => {
+    const first = deferred<{ ok: boolean; status: number; json: () => Promise<unknown> }>();
+    const second = deferred<ReturnType<typeof coverResponse>>();
+    const fetchMock = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(() => useDocumentCoverImageId(DOCUMENT_ID));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    setAuth("user-a", "token-a-refreshed");
+    rerender();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenLastCalledWith(`/api/documents/${DOCUMENT_ID}/cover`, {
+      headers: { Authorization: "Bearer token-a-refreshed" },
+    });
+
+    await act(async () => first.resolve({ ok: false, status: 401, json: async () => ({}) }));
+    expect(result.current.coverImageId).toBeNull();
+
+    await act(async () => second.resolve(coverResponse("cover-after-rotation")));
+    await waitFor(() => expect(result.current.coverImageId).toBe("cover-after-rotation"));
+  });
+
   it("caches an authoritative null for the current identity and document", async () => {
     const payload = deferred<{ coverImageId: null }>();
     const json = vi.fn().mockReturnValue(payload.promise);
