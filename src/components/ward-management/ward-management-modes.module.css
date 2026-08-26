@@ -66,12 +66,13 @@
 
 /*
  * The expanded sidebar panel names the prototype at the top of the screen already, so the header
- * stops saying it a second time six inches to the right. The panel is a preceding sibling of this
- * header inside the shell grid, which is what makes this expressible in CSS at all — neither
- * component knows about the other.
+ * stops saying it a second time six inches to the right. Restrict this to desktop: the panel stays
+ * mounted below 64rem to retain the user's preference, but is hidden while the icon rail is shown.
  */
-:global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
-  display: none;
+@media (min-width: 64rem) {
+  :global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
+    display: none;
+  }
 }
 
 .modeIdentity {
@@ -864,9 +865,6 @@
     display: none;
   }
 
-  .modeIdentity span:first-child {
-    display: none;
-  }
 
   .pageGrid {
     grid-template-columns: 1fr;
