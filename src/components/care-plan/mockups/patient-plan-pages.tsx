@@ -11,13 +11,15 @@ import styles from "./care-plan.module.css";
 import {
   buildPatientSnapshot,
   canPerformAction,
+  claimsJointAuthorship,
   getCurrentPatientPlanVersion,
   getOpenPatientPlanDraft,
   isPatientPlanVersionStale,
 } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
+import { PatientNavigation } from "./patient-navigation";
 import { groupPatientResources } from "./patient-plan-fixtures";
-import { PATIENT_PLAN_SECTION_LEAD_IN } from "./patient-plan-transform";
+import { patientPlanSectionLeadIn } from "./patient-plan-transform";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -25,6 +27,7 @@ import {
   NOT_RECORDED,
   PROTOTYPE_OUTCOME_TONE,
   PROTOTYPE_ROLE_LABEL,
+  ParticipationMarker,
   SectionFrame,
   StatusMark,
   SyntheticMarker,
@@ -32,6 +35,8 @@ import {
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
+  ManagementPlanVersion,
+  ParticipationState,
   Patient,
   PatientPlanVersion,
   PatientResource,
@@ -51,10 +56,12 @@ import type {
  *
  * Two rules shape everything below.
  *
- * A gap is never printed. A gap is a place the offline conversion refused to
- * guess, and approval is blocked while any remains, so an approved copy has
- * nothing missing from it. That is why this surface shows gaps loudly on a draft
- * and the printed copy has no notion of one.
+ * A flagged section is never printed. A flag means some part of the section
+ * still needs a person — the conversion takes each point on its own, so a
+ * flagged section may already hold the points it could convert and still be
+ * waiting on the rest. Approval is blocked while any flag remains, so an
+ * approved copy has nothing missing from it. That is why this surface shows
+ * flags loudly on a draft and the printed copy has no notion of one.
  *
  * A stale copy is never quietly repaired. When the Management Plan moves on, the
  * patient copy is marked as needing updating and stays completely readable. It
@@ -76,22 +83,95 @@ function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): s
 }
 
 /**
+ * The Management Plan Version this copy was written from.
+ *
+ * Every fact about how the plan came to be written lives on that version, not
+ * on the copy: `PatientPlanVersion` records who approved the copy and when, and
+ * nothing at all about whether the person took part in writing the plan it
+ * carries. Both surfaces below therefore have to resolve it before they say
+ * anything about authorship.
+ */
+function sourceManagementVersion(
+  versions: readonly ManagementPlanVersion[],
+  copy: PatientPlanVersion,
+): ManagementPlanVersion | null {
+  return versions.find((version) => version.id === copy.derivedFromManagementVersionId) ?? null;
+}
+
+/**
+ * The first thing the person reads on their own sheet.
+ *
+ * There are two of these, and which one prints is decided by the record rather
+ * than assumed. A version may be approved at `declined` or `patient_unavailable`
+ * — sometimes a plan has to be written for somebody who cannot or will not take
+ * part, and the tool must not refuse the situation it exists for. What it must
+ * not do is hand that person a sheet opening "the plan you and your team wrote
+ * together", which is the one thing on the page they are in a position to know
+ * is untrue, on a document whose whole claim is that it is honest with them.
+ *
+ * The second sentence is not a softer way of saying they did not turn up.
+ * Non-participation is never labelled non-compliance here, and a person who was
+ * unwell, or who did not want to, has done nothing that belongs on their own
+ * plan. So it says who wrote it, says plainly that they can change it, and
+ * stops. No reason is given, no absence is mentioned, and nothing is asked of
+ * them beyond an invitation.
+ */
+const PATIENT_PLAN_PAPER_INTRO_TOGETHER =
+  "This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly, and " +
+  "bring it with you if you can. If something in it stops fitting, tell someone on your team so you can write it " +
+  "again together.";
+
+const PATIENT_PLAN_PAPER_INTRO_WRITTEN_BY_THE_TEAM =
+  "This is your copy of the plan your team wrote for you. It is yours, and it is not fixed: read it whenever you " +
+  "like, and tell someone on your team anything you would like changed, so the next one can be written with you. " +
+  "Keep it somewhere you can find it quickly, and bring it with you if you can.";
+
+function patientPlanPaperIntro(participationState: ParticipationState | null): string {
+  return claimsJointAuthorship(participationState)
+    ? PATIENT_PLAN_PAPER_INTRO_TOGETHER
+    : PATIENT_PLAN_PAPER_INTRO_WRITTEN_BY_THE_TEAM;
+}
+
+/**
+ * The clinician-facing counterpart of `patientPlanPaperIntro`.
+ *
+ * This paragraph sits on the reading surface, not the paper, and it is the
+ * first thing a clinician reads about whose document this is. It may only
+ * describe a copy that exists, and it may only claim joint authorship when
+ * `claimsJointAuthorship` says the source version was written with the person.
+ * "Own voice" and "the same agreement" are the same claim the paper intro, the
+ * headings, and the lead-ins already refuse when the person took no part.
+ */
+function patientPlanOwnershipLead(preferredName: string, participationState: ParticipationState | null): string {
+  return claimsJointAuthorship(participationState)
+    ? `This is ${preferredName}'s own copy of the plan, written to be read by ${preferredName} rather than by a clinician. It carries the same agreement as the Management Plan, in ${preferredName}'s own voice.`
+    : `This is ${preferredName}'s own copy of the plan the team wrote, written to be read by ${preferredName} rather than by a clinician. It carries the same plan as the Management Plan, in everyday words.`;
+}
+
+/**
  * The eight sections, generated by iterating the version's own list. One
  * rendering serves the screen and the paper.
  *
- * `gaps` is the one thing the two surfaces must not share. On the draft a gap is
- * shown with its reason, because a clinician needs to see what is still owed and
- * why the machine would not attempt it. On paper there are none, because a
- * version carrying one cannot be approved — and were one ever to reach here it
- * is omitted outright rather than printed as a heading with nothing beneath it.
- * "My reasons for living — Not recorded" was printed on a person's own safety
- * plan once; nothing in this file may reproduce it.
+ * `gaps` is the one thing the two surfaces must not share. On the draft a
+ * flagged section is shown with its reason *and* with whatever it did convert,
+ * because a clinician needs both halves: what the machine managed, and what it
+ * refused. On paper there are none, because a version carrying one cannot be
+ * approved — and were one ever to reach here it is omitted whole rather than
+ * printed half-finished or as a heading with nothing beneath it. "My reasons for
+ * living — Not recorded" was printed on a person's own safety plan once; nothing
+ * in this file may reproduce it.
  */
 function PatientPlanSections({
   sections,
+  participationState,
   gaps = "state",
 }: {
   sections: readonly PatientPlanVersion["sections"][number][];
+  /** How the source Management Plan Version was written. The heading is already
+   *  stored on the section, chosen from this same fact when the draft was built;
+   *  the lead-in beneath it is chosen here, from the same predicate, so a heading
+   *  and its own sentence cannot make opposite claims. */
+  participationState: ParticipationState | null;
   /** `state` — the working copy: a gap is shown with its reason.
    *  `omit` — the person's own copy: a gap is not printed at all. */
   gaps?: "state" | "omit";
@@ -104,19 +184,33 @@ function PatientPlanSections({
           <h3 id={`care-plan-patient-plan-section-${section.key}`} className={styles.patientPlanSectionHeading}>
             {section.heading}
           </h3>
-          <p className={styles.patientPlanLeadIn}>{PATIENT_PLAN_SECTION_LEAD_IN[section.key]}</p>
-          {section.gap ? (
-            <div data-testid={`care-plan-patient-plan-gap-${section.key}`} className={styles.patientPlanGap}>
-              <StatusMark tone="warning" label="A clinician needs to write this" />
-              <p className={styles.patientPlanGapReason}>{section.gapReason ?? NOT_RECORDED}</p>
-            </div>
-          ) : (
+          <p className={styles.patientPlanLeadIn}>{patientPlanSectionLeadIn(section.key, participationState)}</p>
+          {/*
+            The converted points and the flag are shown together, not one or the
+            other. A section may hold some of its points and still be waiting on
+            a person for the rest, and a clinician needs to see both halves: what
+            the conversion managed, and what it refused.
+          */}
+          {section.body.length > 0 ? (
             <ul className={styles.contentList}>
               {section.body.map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
-          )}
+          ) : null}
+          {section.gap ? (
+            <div data-testid={`care-plan-patient-plan-gap-${section.key}`} className={styles.patientPlanGap}>
+              <StatusMark
+                tone="warning"
+                label={
+                  section.body.length > 0
+                    ? "Partly converted — the rest needs writing"
+                    : "A clinician needs to write this"
+                }
+              />
+              <p className={styles.patientPlanGapReason}>{section.gapReason ?? NOT_RECORDED}</p>
+            </div>
+          ) : null}
         </PrintSection>
       ))}
     </div>
@@ -169,21 +263,76 @@ function PatientPlanResources({ resources }: { resources: readonly PatientResour
  * written from has been replaced. Derived every render from the two identifiers,
  * never stored.
  */
-function StaleNotice({ version, patient }: { version: PatientPlanVersion; patient: Patient }) {
+function StaleNotice({
+  version,
+  patient,
+  sourcePlanWithdrawn,
+}: {
+  version: PatientPlanVersion;
+  patient: Patient;
+  sourcePlanWithdrawn: boolean;
+}) {
   return (
     <p role="status" data-testid="care-plan-patient-plan-stale" className={styles.patientPlanStale}>
       <strong>This copy needs updating.</strong>{" "}
-      {`The Management Plan has moved on since version ${version.version} of ${patient.preferredName}'s own copy was written. Everything in it is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them and write a new one.`}
+      {sourcePlanWithdrawn
+        ? `The Management Plan this copy was written from has been withdrawn, and there is no Current Plan in use. Everything in version ${version.version} of ${patient.preferredName}'s own copy is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them; if a new Current Plan is agreed, write a new copy from that plan.`
+        : `The Management Plan has moved on since version ${version.version} of ${patient.preferredName}'s own copy was written. Everything in it is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them and write a new one.`}
     </p>
   );
 }
 
+/**
+ * The same fact as `StaleNotice`, written to the person rather than about them,
+ * and printed.
+ *
+ * The screen notice is worded for a clinician — "go through it with them" — so
+ * it stays off the paper. But the paper is the artefact that outlives
+ * everything: it goes in a bag, then a drawer, and may be read months later by
+ * somebody who has no way to know the plan behind it has moved on. A sheet that
+ * says nothing in that situation is the one thing here that would be lying, so
+ * the printed copy carries its own line.
+ *
+ * It does not tell the person the sheet is wrong, or to stop using it. Most of
+ * what is on it will still be true, and a document that disowns itself is worse
+ * than useless to somebody holding it in a waiting room.
+ *
+ * It also states only what this application has actually measured, which is one
+ * comparison of two identifiers: the Management Plan version this copy was
+ * written from is not the one in use now. It does not say the team *updated*
+ * anything — staleness includes the Management Plan being withdrawn outright,
+ * where nothing was updated and there may be no plan in use at all, and a person
+ * holding a copy of a plan their service has withdrawn must not read on their own
+ * sheet that it was updated. Nor does it estimate how much of the sheet is still
+ * right: that is a delta nothing here computes.
+ */
+function PrintedStaleBanner() {
+  return (
+    <p data-testid="care-plan-patient-plan-paper-stale" className={styles.patientPlanPaperStale}>
+      <strong>Some of this may have changed.</strong> The plan this copy was written from is no longer the one your team
+      is using, so some of what is here may be out of date. It is still yours to keep. Bring it with you and ask someone
+      on your team to go through it with you, and they can write a new one with you.
+    </p>
+  );
+}
+
+/**
+ * Used by the reading surface only; the printed copy builds its own head.
+ *
+ * The Patient Plan is not one of the five patient sections, so nothing in the
+ * navigation is marked as the current page — `null` is the documented value for
+ * a surface that is not itself a section. It is rendered here all the same,
+ * because without it this route is a dead end: a clinician who opens the
+ * person's own copy has no way back into the record but the browser's Back
+ * button.
+ */
 function PatientPlanIdentityBand({ patient }: { patient: Patient }) {
   return (
     <div data-testid="care-plan-patient-plan-identity" className={styles.identityBand}>
       <SyntheticMarker />
       <h2 className={styles.patientName}>{patient.fullName}</h2>
       <p className={styles.sectionDescription}>{`${patient.mrn} — born ${formatPerthDate(patient.dateOfBirth)}`}</p>
+      <PatientNavigation patientId={patient.id} activeSection={null} />
     </div>
   );
 }
@@ -219,6 +368,7 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
   const current = plan === null ? null : getCurrentPatientPlanVersion(state.patientPlanVersions, plan.id);
   const draft = plan === null ? null : getOpenPatientPlanDraft(state.patientPlanVersions, plan.id);
   const stale = isPatientPlanVersionStale(current, managementPlan?.currentVersionId ?? null);
+  const sourceVersion = current === null ? null : sourceManagementVersion(state.managementPlanVersions, current);
 
   const actor = state.users.find((user) => user.id === state.activeUserId) ?? null;
   const mayAuthor = actor !== null && canPerformAction(actor.role, "approve_patient_plan");
@@ -227,23 +377,24 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
     patientId: patient.id,
   });
 
-  const ownership = (
-    <SectionFrame
-      id="care-plan-patient-plan-ownership"
-      heading="Whose copy this is"
-      testId="care-plan-patient-plan-ownership"
-      tone="boundary"
-    >
-      <p className={styles.boundaryStatement}>
-        {`This is ${patient.preferredName}'s own copy of the plan, written to be read by ${patient.preferredName} rather than by a clinician. It carries the same agreement as the Management Plan, in ${patient.preferredName}'s own voice.`}
-      </p>
-      <p className={styles.boundaryStatement}>
-        It is produced by a fixed offline conversion that runs on this device. No language model, and no service of any
-        kind, is involved at any point. Anything the conversion could not turn into everyday words with confidence is
-        left blank for a clinician to write, and a copy with a blank in it cannot be approved.
-      </p>
-    </SectionFrame>
-  );
+  const ownership =
+    current === null ? null : (
+      <SectionFrame
+        id="care-plan-patient-plan-ownership"
+        heading="Whose copy this is"
+        testId="care-plan-patient-plan-ownership"
+        tone="boundary"
+      >
+        <p className={styles.boundaryStatement}>
+          {patientPlanOwnershipLead(patient.preferredName, sourceVersion?.participationState ?? null)}
+        </p>
+        <p className={styles.boundaryStatement}>
+          It is produced by a fixed offline conversion that runs on this device. No language model, and no service of
+          any kind, is involved at any point. Anything the conversion could not turn into everyday words with confidence
+          is left blank for a clinician to write, and a copy with a blank in it cannot be approved.
+        </p>
+      </SectionFrame>
+    );
 
   const authoringLink = mayAuthor ? (
     <p className={styles.planFooterLink}>
@@ -302,7 +453,13 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
         <InlineNotice tone={PROTOTYPE_OUTCOME_TONE[state.lastOutcome.kind]}>{state.lastOutcome.message}</InlineNotice>
       )}
 
-      {stale && current !== null ? <StaleNotice version={current} patient={patient} /> : null}
+      {stale && current !== null ? (
+        <StaleNotice
+          version={current}
+          patient={patient}
+          sourcePlanWithdrawn={managementPlan?.currentVersionId === null}
+        />
+      ) : null}
 
       {current === null ? (
         <SectionFrame id="care-plan-patient-plan-none" heading="No approved copy">
@@ -328,21 +485,31 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
             <div className={styles.metadataMarks}>
               <StatusMark tone="success" label={`Version ${current.version}`} />
               {stale ? <StatusMark tone="warning" label="Needs updating" /> : null}
+              {/*
+                The same marker the clinician sees on every Management Plan
+                surface, on the copy derived from that version. A clinician about
+                to hand this over has to know the plan inside it was written
+                without this person, because the sheet itself will not say so in
+                those words — it addresses the person rather than describing them.
+              */}
+              {sourceVersion === null ? null : (
+                <ParticipationMarker participationState={sourceVersion.participationState} />
+              )}
             </div>
             <dl className={styles.definitionGrid}>
               <DefinitionRow term="Approved by">{displayName(state.users, current.approvedBy)}</DefinitionRow>
               <DefinitionRow term="Approved on">{formatPerthDate(current.approvedAt)}</DefinitionRow>
               <DefinitionRow term="Written from Management Plan version">
-                {String(
-                  state.managementPlanVersions.find((version) => version.id === current.derivedFromManagementVersionId)
-                    ?.version ?? NOT_RECORDED,
-                )}
+                {String(sourceVersion?.version ?? NOT_RECORDED)}
               </DefinitionRow>
             </dl>
           </SectionFrame>
 
           <SectionFrame id="care-plan-patient-plan-content" heading={`${patient.preferredName}'s copy`}>
-            <PatientPlanSections sections={current.sections} />
+            <PatientPlanSections
+              sections={current.sections}
+              participationState={sourceVersion?.participationState ?? null}
+            />
           </SectionFrame>
 
           <SectionFrame id="care-plan-patient-plan-resource-list" heading="Resources on this copy">
@@ -447,6 +614,7 @@ export function PatientPlanPrintSurface({
     patientId: patient.id,
   });
   const stale = isPatientPlanVersionStale(version, managementPlan?.currentVersionId ?? null);
+  const sourceVersion = sourceManagementVersion(state.managementPlanVersions, version);
 
   return (
     <section
@@ -454,6 +622,23 @@ export function PatientPlanPrintSurface({
       data-testid="care-plan-patient-plan-print-surface"
       className={styles.workspace}
     >
+      {/*
+        Off the paper deliberately, and on the screen deliberately. The clinician
+        standing at the printer is the reader who needs this fact in these words;
+        the sheet carries the same fact in the second person, in its opening
+        sentence, because a document handed to somebody must not describe them in
+        the third person as an absence.
+      */}
+      {sourceVersion === null ? null : (
+        <div
+          data-testid="care-plan-patient-plan-print-participation"
+          data-print-hide="true"
+          className={styles.metadataMarks}
+        >
+          <ParticipationMarker participationState={sourceVersion.participationState} />
+        </div>
+      )}
+
       <div className={styles.printControls} data-print-hide="true">
         {blockedReason !== null ? (
           <Button
@@ -497,7 +682,11 @@ export function PatientPlanPrintSurface({
 
       {stale ? (
         <div data-print-hide="true">
-          <StaleNotice version={version} patient={patient} />
+          <StaleNotice
+            version={version}
+            patient={patient}
+            sourcePlanWithdrawn={managementPlan?.currentVersionId === null}
+          />
         </div>
       ) : null}
 
@@ -539,31 +728,30 @@ export function PatientPlanPrintSurface({
             <DefinitionRow term="Name">{patient.preferredName}</DefinitionRow>
             <DefinitionRow term="Record number">{patient.mrn}</DefinitionRow>
             <DefinitionRow term="Version">{String(version.version)}</DefinitionRow>
-            <DefinitionRow term="Agreed on">{formatPerthDate(version.approvedAt)}</DefinitionRow>
+            {/*
+              `Written on`, not `Agreed on`. `approvedAt` is the moment a
+              clinician pressed *Approve patient copy* and nothing else:
+              `PatientPlanVersion` holds no participation or confirmation field,
+              so this application has never recorded a moment at which this
+              person agreed to anything. Dating a clinician's action as the
+              person's own act is the defect user decision D1 was taken about,
+              one document further on. If this sheet should one day show a
+              genuine agreement, that needs its own recorded moment, as D1 gave
+              the Personal Safety Plan — not this one relabelled back.
+            */}
+            <DefinitionRow term="Written on">{formatPerthDate(version.approvedAt)}</DefinitionRow>
           </dl>
           <p data-testid="care-plan-patient-plan-paper-intro" className={styles.patientPlanPaperIntro}>
-            This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly,
-            and bring it with you if you can. If something in it stops fitting, tell someone on your team so you can
-            write it again together.
+            {patientPlanPaperIntro(sourceVersion?.participationState ?? null)}
           </p>
+          {stale ? <PrintedStaleBanner /> : null}
         </PrintSection>
 
-        {stale ? (
-          // A stale copy is going to paper here just as readably as a current
-          // one — the domain rule this warning exists to serve is that nothing
-          // is hidden or withdrawn on the person's behalf. What must not happen
-          // is the paper leaving the room silent about it: the on-screen
-          // StaleNotice above sits outside this element and the shared print
-          // rule hides everything outside `[data-print-output]`, so this is the
-          // one copy of the warning a reader holding the sheet ever sees.
-          <p data-testid="care-plan-patient-plan-print-stale" className={styles.printRecordWarning}>
-            <strong>This copy needs updating.</strong> The Management Plan has moved on since version{" "}
-            {String(version.version)} of this copy was written. Everything here is still shown, and nothing has been
-            changed or taken away. Check with the team before treating it as current.
-          </p>
-        ) : null}
-
-        <PatientPlanSections sections={version.sections} gaps="omit" />
+        <PatientPlanSections
+          sections={version.sections}
+          participationState={sourceVersion?.participationState ?? null}
+          gaps="omit"
+        />
 
         <PatientPlanResources resources={version.resources} />
       </PrintOutput>
