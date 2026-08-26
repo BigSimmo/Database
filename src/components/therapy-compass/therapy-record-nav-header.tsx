@@ -102,10 +102,11 @@ export function TherapyRecordNavHeader({
     if (destination === "overview") b.open(therapy.slug);
     else if (destination === "sheet") b.openSheet(therapy.slug);
     else if (destination === "brief") b.openBrief(therapy.slug);
-    // `toggleCompare` adds the therapy and navigates; once it is already in the
-    // set, toggling would remove it, so an established member just navigates.
-    else if (inCompare) b.goCompare();
-    else b.toggleCompare(therapy.slug);
+    // Pure navigation, both branches. This slot used to add the therapy when it
+    // was not in the set and navigate when it was — one control with two
+    // different meanings depending on state the reader could not see. Adding
+    // now belongs to the record's own "Add to compare" button.
+    else b.goCompare();
   }
 
   return (
