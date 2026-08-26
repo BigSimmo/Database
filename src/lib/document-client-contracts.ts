@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
 const metadataSchema = z.record(z.string(), z.unknown());
 const nullableFiniteNumber = z.number().finite().nullable();
@@ -198,6 +199,15 @@ export const documentDetailResponseSchema = z
     chunkWindow: chunkWindowSchema,
   })
   .strict();
+
+/**
+ * Keeps the server and browser on the same exact document-detail wire contract.
+ * Parsing at the producer boundary prevents a private or fixture-only field
+ * from turning into a generic client-side "invalid response" failure.
+ */
+export function parseDocumentDetailPayload(input: unknown): DocumentDetailPayload {
+  return documentDetailResponseSchema.parse(input) as DocumentDetailPayload;
+}
 
 const documentSearchResultSchema = z
   .object({

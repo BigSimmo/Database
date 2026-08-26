@@ -69,7 +69,7 @@ function FactCard({ card, onOpen }: { card: TherapyKeyFactCard; onOpen?: () => v
         type="button"
         onClick={onOpen}
         aria-haspopup="dialog"
-        className={cn(interactiveRowBase, "flex min-h-12 min-w-0 flex-1 flex-col rounded-md text-left")}
+        className={cn(interactiveRowBase, "flex min-h-12 min-w-0 flex-1 flex-col items-start rounded-md text-left")}
         aria-label={`${card.label}: ${card.face}. Open detail.`}
       >
         {header}

@@ -4,6 +4,7 @@ import { Network } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { Instant } from "@/components/ward-management/ward-clock";
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import {
   candidateReason,
   eligibleCandidatesAmong,
@@ -11,7 +12,13 @@ import {
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
-import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import {
+  PARALLEL_REFERRAL_CAP,
+  type BedRelease,
+  type LeaveBed,
+  type Movement,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { edPressure } from "@/components/ward-management/ward-pressure";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -21,6 +28,8 @@ type FlowDiagramProps = {
   movement: Movement | undefined;
   now: Instant;
   units: Unit[];
+  bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
 };
@@ -137,7 +146,15 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * and reruns on a `ResizeObserver` plus a window resize listener, so the diagram survives a
  * resize rather than only ever being screenshotted once.
  */
-export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
+export function FlowDiagram({
+  movement,
+  now,
+  units,
+  bedReleases,
+  leaveBeds,
+  selectedUnitId,
+  onSelectUnit,
+}: FlowDiagramProps) {
   const pressure = useMemo(() => edPressure(now), [now]);
   const shortlist = useMemo(
     () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
@@ -400,6 +417,9 @@ export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit
                     <UnitNode
                       key={unit.id}
                       unit={unit}
+                      bedReleases={bedReleases}
+                      leaveBeds={leaveBeds}
+                      now={now}
                       movement={movement}
                       candidate={shortlistByUnitId.get(unit.id)}
                       selected={selectedUnitId === unit.id}
@@ -439,6 +459,9 @@ export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit
 
 function UnitNode({
   unit,
+  bedReleases,
+  leaveBeds,
+  now,
   movement,
   candidate,
   selected,
@@ -446,13 +469,17 @@ function UnitNode({
   registerUnitNode,
 }: {
   unit: Unit;
+  bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
+  now: Instant;
   movement: Movement | undefined;
   candidate: ShortlistCandidate | undefined;
   selected: boolean;
   onSelectUnit: (unitId: string) => void;
   registerUnitNode: (id: string, node: HTMLButtonElement | null) => void;
 }) {
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
+  const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   const routed = candidate !== undefined;
   // `destinationUnit(movement)` (`acceptedUnitId ?? referredUnitIds[0]`) conflates two different
   // facts into one badge and only ever looks at the first referral (review Important 2) -- WF-017
@@ -508,11 +535,18 @@ function UnitNode({
         <span className={styles.diagramBedChip} data-state="occupied">
           Occupied {capacity.occupied}
         </span>
-        {/* `potential` is drawn from bed releases, not from `unit.beds` -- it is never summed
-            into the four states above. Dashed styling marks it as the separate, forward-looking
-            figure it is (ruling 3). */}
-        <span className={styles.diagramBedChip} data-state="potential">
-          Potential {capacity.potential}
+        {/* Review Finding 4: `capacity.potential` counted every bed release for the unit
+            regardless of state or timing -- including a release already `released` and one
+            expected beyond tonight, both of which spec D5/D6 exclude from every count. Confirmed
+            and Predicted are read from the same `capacityBreakdown()` the capacity board and the
+            ward screen already use, so this board can never show a figure they contradict.
+            Dashed styling marks both as the separate, forward-looking figures they are (ruling
+            3); `capacity.potential` itself is untouched -- see its own doc comment. */}
+        <span className={styles.diagramBedChip} data-state="confirmed">
+          Confirmed {breakdown.confirmedToday}
+        </span>
+        <span className={styles.diagramBedChip} data-state="predicted">
+          Predicted {breakdown.predictedToday}
         </span>
       </span>
       {!unit.authorised ? (

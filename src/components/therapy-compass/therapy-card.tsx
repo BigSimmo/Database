@@ -17,6 +17,7 @@ import {
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
@@ -51,6 +52,9 @@ export function ResultCard({
   const sheetUnavailableId = useId();
   const { notice, saved, toggleFavourite } = useTherapyFavourite(therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
+  // A full tray keeps its tab stop and states why, per the wiring convention.
+  const compareFull = !inCompare && b.compareSlugs.length >= THERAPY_MAX_COMPARE;
+  const compareFullId = `${sheetUnavailableId}-compare-full`;
   const rankingQuery = query ?? b.search.query;
   const subtitle =
     cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
@@ -181,13 +185,33 @@ export function ResultCard({
           block
           className={cn(cardActionButton, controlPressed)}
           icon={Scale}
-          onClick={() => b.toggleCompare(therapy.slug)}
+          // Adding no longer navigates: the tray above the composer is where the
+          // set is now assembled, so this control fills it and leaves the reader
+          // exactly where they were. The label moved with the behaviour — the
+          // old "Compare" promised a destination it no longer goes to.
+          onClick={
+            compareFull
+              ? ignoreUnavailableActivation
+              : inCompare
+                ? () => b.removeCompare(therapy.slug)
+                : () => b.addCompare(therapy.slug)
+          }
           aria-pressed={inCompare}
-          aria-label={inCompare ? "In compare" : "Compare"}
+          aria-disabled={compareFull ? true : undefined}
+          aria-describedby={compareFull ? compareFullId : undefined}
+          title={compareFull ? `Compare holds ${THERAPY_MAX_COMPARE} therapies — remove one first` : undefined}
+          aria-label={inCompare ? "In compare tray" : compareFull ? "Compare tray full" : "Add to compare"}
         >
-          <span className="max-sm:hidden">{inCompare ? "In compare" : "Compare"}</span>
-          <span className="sm:hidden">{inCompare ? "Added" : "Compare"}</span>
+          <span className="max-sm:hidden">
+            {inCompare ? "In compare tray" : compareFull ? "Tray full" : "Add to compare"}
+          </span>
+          <span className="sm:hidden">{inCompare ? "In tray" : compareFull ? "Full" : "Add"}</span>
         </Button>
+        {compareFull ? (
+          <span id={compareFullId} className="sr-only">
+            The comparison already holds {THERAPY_MAX_COMPARE} therapies. Remove one before adding another.
+          </span>
+        ) : null}
         <Button
           variant="secondary"
           size="sm"

@@ -1,8 +1,8 @@
 import { statusDotMuted, statusDotReady, statusDotReview, type StatusDotTone } from "@/components/ui-primitives";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
-import { type SourceLink } from "@/lib/answer-render-policy";
-import type { BestSourceRecommendation, SearchResult } from "@/lib/types";
+import { type CanonicalAnswerTableRecord, type SourceLink } from "@/lib/answer-render-policy";
+import type { BestSourceRecommendation, SearchResult, VisualEvidenceCard } from "@/lib/types";
 
 /**
  * One cited document as the answer surface shows it: the shape the source rail
@@ -26,6 +26,20 @@ export type AnswerSourceRow = {
   snippet?: string;
   sourceStrength?:
     SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | SearchResult["source_strength"];
+  /**
+   * Whether the drawer will show a table or an image for this source. Set by
+   * {@link annotateSourceAttachments} from the same matching rule the drawer
+   * pages with, so the marker on a card can never advertise an attachment the
+   * drawer then does not show.
+   */
+  hasTable?: boolean;
+  hasImage?: boolean;
+  /**
+   * False for a row that only made the retrieved set — the "also found" group on
+   * the rail. Cited rows come from the answer's own primary sources and are the
+   * only ones an in-prose mark can point at.
+   */
+  cited?: boolean;
 };
 
 /** Back-compat alias for the capsule-era name. */
@@ -67,6 +81,15 @@ export function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSour
   if (metadata.document_status === "review_due") return "Review due";
   if (metadata.document_status === "outdated") return "Outdated";
   if (metadata.document_status === "current") return "Current";
+  // "Review status unknown" is 21 characters on a card whose whole title is
+  // truncated at 158px, so the one line that has to carry page AND status became
+  // mostly status. Same statement, short enough to sit beside the page number.
+  // Registry summaries keep their own wording.
+  if (
+    metadata.source_kind !== "registry_record" &&
+    (!metadata.document_status || metadata.document_status === "unknown")
+  )
+    return "Status unknown";
   return sourceStatusLabel(metadata);
 }
 
@@ -75,8 +98,53 @@ export function sourceRowIsStale(source: AnswerSourceRow) {
   return source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated";
 }
 
+/**
+ * The visible digit. One numbering system across the in-prose mark, the rail
+ * card, the drawer's title pill and its pager — a mark reading "2" beside a card
+ * reading "S2" is two systems the reader has to reconcile.
+ */
 export function sourceBadgeLabel(index: number) {
-  return `S${index + 1}`;
+  return String(index + 1);
+}
+
+/**
+ * The spoken form. `aria-label` replaces a control's own text, so a bare "2"
+ * would announce as a number with no noun; every accessible name built from a
+ * source number starts here.
+ */
+export function sourceSpokenLabel(index: number) {
+  return `Source ${index + 1}`;
+}
+
+/**
+ * What a surface prints where a source number would go.
+ *
+ * A retrieved-but-uncited row takes an em-dash instead of a digit. The numbers
+ * are the same numbers the in-prose marks use, and `answer-content` masks
+ * uncited rows out of the markable ids, so a digit here would name a source no
+ * mark can reach — a reference the reader can look for and never find.
+ *
+ * This lives beside {@link sourceBadgeLabel} rather than in any one component
+ * because three surfaces print it — the rail card, the drawer's title pill and
+ * the drawer's pager — and the rail alone having the rule is how the drawer came
+ * to number an "Also found" row that the card beside it dashed.
+ */
+export function sourceBadgeDisplay(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "—" : sourceBadgeLabel(index);
+}
+
+/** The spoken counterpart, so an uncited row is never announced as "Source 4". */
+export function sourceSpokenName(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "Also found" : sourceSpokenLabel(index);
+}
+
+/**
+ * The same name for a pager step, which has to name a thing to move to rather
+ * than label a card already on screen — so an uncited row reads "also found
+ * source" where the rail card reads "Also found".
+ */
+export function sourceStepSpokenLabel(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "Also found source" : sourceSpokenLabel(index);
 }
 
 export function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
@@ -89,21 +157,44 @@ export function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSource
   return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
-export function sourceSupportLabel(source: AnswerSourceRow, index: number) {
+/**
+ * How strongly this document backs the answer, read from the row's own strength
+ * and nothing else.
+ *
+ * It previously also returned "Direct" for `index === 0`. That branch was
+ * unreachable — every other strength is handled above it — but it read as though
+ * the first row were promoted to direct support by position, which is exactly
+ * the claim this surface must never make. Removed with the index parameter.
+ */
+export function sourceSupportLabel(source: AnswerSourceRow) {
   if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
-  if (source.sourceStrength === "limited") return "Partial";
-  if (source.sourceStrength === "moderate") return "Partial";
-  if (index === 0 || source.sourceStrength === "strong") return "Direct";
+  if (source.sourceStrength === "strong") return "Direct";
   return "Partial";
 }
 
 /**
  * The drawer's support clause. `index === null` means the drawer was opened from
  * the source list rather than from a claim, so there is no claim to speak about.
+ *
+ * When a claim opened the drawer, `claimSupport` is that claim's recorded
+ * status — not the row's document-level `sourceStrength`. Those fields are
+ * independent: a partial mark can sit on a strong row, and the sentence must
+ * match the mark the clinician just tapped.
  */
-export function sourceSupportSentence(source: AnswerSourceRow | null, index: number | null) {
+export function sourceSupportSentence(
+  source: AnswerSourceRow | null,
+  index: number | null,
+  claimSupport?: "direct" | "partial" | "unsupported" | null,
+) {
   if (!source || index === null) return "Opened from the source list, so this is the document, not a claim.";
-  const support = sourceSupportLabel(source, index);
+  const support =
+    claimSupport === "direct"
+      ? "Direct"
+      : claimSupport === "partial"
+        ? "Partial"
+        : claimSupport === "unsupported"
+          ? "Unsupported"
+          : sourceSupportLabel(source);
   if (support === "Direct") return "This page states the claim directly.";
   if (support === "Partial")
     return "This page supports part of the claim. Read the passage before relying on the rest.";
@@ -145,6 +236,7 @@ export function buildAnswerSourceRows(
       href: source.href,
       snippet: source.snippet,
       sourceStrength: source.sourceStrength,
+      cited: true,
     });
   });
 
@@ -160,6 +252,7 @@ export function buildAnswerSourceRows(
       score: bestSource.score,
       href: bestSource.viewer_href,
       sourceStrength: bestSource.source_strength,
+      cited: true,
     });
   }
 
@@ -175,6 +268,8 @@ export function buildAnswerSourceRows(
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
       href: sourceResultHref(source),
       sourceStrength: source.source_strength,
+      // Retrieved but not cited by the answer: the rail's "also found" group.
+      cited: false,
     });
   });
 
@@ -184,4 +279,61 @@ export function buildAnswerSourceRows(
 /** DOM id for a rail row, so a Sheet can resolve its return-focus target late. */
 export function answerSourceRailRowId(index: number) {
   return `answer-source-rail-row-${index}`;
+}
+
+/**
+ * Attaches each table to the source it was cited from.
+ *
+ * A table whose `source.chunkId` matches no row still has to be reachable —
+ * losing the wide-screen table column was an accepted cost, losing the tables
+ * was not — so anything unmatched falls to the first source.
+ */
+export function tablesForSource(tables: CanonicalAnswerTableRecord[], sources: AnswerSourceRow[], index: number) {
+  const chunkIds = new Set(sources.map((source) => source.id));
+  const source = sources[index];
+  if (!source) return [];
+  return tables.filter((table) => {
+    const chunkId = table.source?.chunkId;
+    if (chunkId && chunkIds.has(chunkId)) return chunkId === source.id;
+    return index === 0;
+  });
+}
+
+/**
+ * Attaches each image to the source it was cited from.
+ *
+ * Same rule as {@link tablesForSource}: a card whose `source_chunk_id` matches a
+ * rail row stays on that row only. Anything unmatched falls to the first source
+ * so it stays reachable after the table column was removed — never to every row
+ * that happens to share a `documentId`.
+ */
+export function imagesForSource(visualEvidence: VisualEvidenceCard[], sources: AnswerSourceRow[], index: number) {
+  const chunkIds = new Set(sources.map((source) => source.id));
+  const source = sources[index];
+  if (!source) return [];
+  return visualEvidence.filter((card) => {
+    const chunkId = card.source_chunk_id;
+    if (chunkId && chunkIds.has(chunkId)) return chunkId === source.id;
+    return index === 0;
+  });
+}
+
+/**
+ * Stamps each row with whether the drawer will have a table or an image to show
+ * for it, so a rail card's attachment marker and the drawer's contents are one
+ * decision made once rather than two rules that can drift apart.
+ */
+export function annotateSourceAttachments(
+  rows: AnswerSourceRow[],
+  {
+    tables = [],
+    visualEvidence = [],
+  }: { tables?: CanonicalAnswerTableRecord[]; visualEvidence?: VisualEvidenceCard[] } = {},
+): AnswerSourceRow[] {
+  if (!tables.length && !visualEvidence.length) return rows;
+  return rows.map((row, index) => ({
+    ...row,
+    hasTable: tablesForSource(tables, rows, index).length > 0,
+    hasImage: imagesForSource(visualEvidence, rows, index).length > 0,
+  }));
 }

@@ -5,7 +5,7 @@ The last screen, and the one carrying both clocks. Spec §7.
 **Files:**
 
 - Create: `src/components/ward-management/ed/ed-screen.tsx`
-- Create: `src/app/ward-management/ed/[edId]/page.tsx`
+- Create: `src/app/mockups/ward-flow/ed/[edId]/page.tsx`
 - Modify: `tests/ui-ward-roles.spec.ts`, `adoption-contract.json`, `ward-management-navigation.tsx`
 
 - [ ] **Step 1: Write the failing test**

@@ -28,7 +28,7 @@ import {
   getOpenPatientPlanDraft,
 } from "./domain";
 import { getPatientResources, syntheticPatientResources } from "./patient-plan-fixtures";
-import { buildPatientPlanDraft, unfilledGapSections } from "./patient-plan-transform";
+import { buildPatientPlanDraft, missingSectionKeys, unfilledGapSections } from "./patient-plan-transform";
 import {
   PROTOTYPE_NOW,
   identificationPolicy,
@@ -360,8 +360,23 @@ type AuditDraft = {
  * Appends one attributed audit event. `evidence` describes only what this
  * application actually did — never that a message reached anyone, that a call
  * was answered, or that a page was printed.
+ *
+ * The timestamp is not adjustable, and that is load-bearing rather than tidy.
+ * History resolves who performed a record-derived action by matching the audit
+ * event of that type, on that object, at exactly that moment — which is sound
+ * only while an audit timestamp identifies one event. `prototypeTimestamp` is
+ * `PROTOTYPE_NOW + auditEvents.length + 1` and exactly one event is appended
+ * per action, so timestamps are unique by construction; a per-call-site offset
+ * could collide two of them and hand the lookup a different action's actor,
+ * turning an honest name into a quiet lie.
+ *
+ * This previously took an `offsetMinutes` that not one of the twenty-four call
+ * sites ever passed, so the hazard was pure surface area. Record timestamps
+ * still use `prototypeTimestamp(state, n)` where a reducer writes several
+ * records in one action — that is a different sequence with no lookup keyed on
+ * it, and it is unaffected.
  */
-function withAudit(state: CarePlanPrototypeState, draft: AuditDraft, offsetMinutes = 0): AuditEvent[] {
+function withAudit(state: CarePlanPrototypeState, draft: AuditDraft): AuditEvent[] {
   return [
     ...state.auditEvents,
     {
@@ -373,7 +388,7 @@ function withAudit(state: CarePlanPrototypeState, draft: AuditDraft, offsetMinut
       patientId: draft.patientId,
       objectId: draft.objectId,
       actorId: state.activeUserId,
-      occurredAt: prototypeTimestamp(state, offsetMinutes),
+      occurredAt: prototypeTimestamp(state),
       evidence: draft.evidence,
     },
   ];
@@ -954,38 +969,40 @@ export function prototypeReducer(
       const actor = state.users.find(({ id }) => id === state.activeUserId);
 
       /**
-       * Withdrawal leaves the plan with no Current version at all — not merely
-       * a different one — and a Current Patient Plan copy derived from what
-       * was just withdrawn is exactly as out of date as one derived from a
-       * superseded version. The same mechanism `approve-management-version`
-       * uses applies here: the copy is never touched, and the discrepancy goes
-       * in front of a human once, deduplicated per plan.
+       * Withdrawal makes any patient copy stale, for the same reason approving a
+       * newer version does — the copy now describes a plan that is not in use —
+       * and it deserves the same deduplicated trigger. Without it, taking a plan
+       * out of use was the one change to it that reached nobody's queue, on the
+       * case where somebody is holding paper describing care the service has
+       * just stopped agreeing to.
        */
-      const patientPlan = state.patientPlans.find((candidate) => candidate.patientId === plan.patientId) ?? null;
-      const currentPatientVersion =
-        patientPlan === null ? null : getCurrentPatientPlanVersion(state.patientPlanVersions, patientPlan.id);
-      const staleTriggerAlreadyOpen = state.reviewTriggers.some(
+      const withdrawnPatientPlan = state.patientPlans.find((candidate) => candidate.patientId === patient.id) ?? null;
+      const copyLeftBehind =
+        withdrawnPatientPlan === null
+          ? null
+          : getCurrentPatientPlanVersion(state.patientPlanVersions, withdrawnPatientPlan.id);
+      const staleAlreadyOpen = state.reviewTriggers.some(
         (trigger) =>
           trigger.managementPlanId === plan.id && trigger.source === "patient_plan_stale" && trigger.status === "open",
       );
       const staleTrigger: ReviewTrigger | null =
-        currentPatientVersion !== null && !staleTriggerAlreadyOpen
-          ? {
+        copyLeftBehind === null || staleAlreadyOpen
+          ? null
+          : {
               id: nextSyntheticId(
                 "SYN-TRIGGER",
                 state.reviewTriggers.map(({ id }) => id),
               ),
-              patientId: plan.patientId,
+              patientId: patient.id,
               managementPlanId: plan.id,
               source: "patient_plan_stale",
-              sourceId: currentPatientVersion.id,
-              reason: `Version ${current.version} was withdrawn and ${patient.preferredName} now has no Current Plan. Patient Plan version ${currentPatientVersion.version} was written from it, so it stays readable and unchanged until somebody goes through it with them.`,
+              sourceId: copyLeftBehind.id,
+              reason: `Patient Plan version ${copyLeftBehind.version} describes a Management Plan that has now been withdrawn, so ${patient.preferredName} may be holding a printed copy of a plan that is no longer in use. It stays readable and unchanged until somebody goes through it with them.`,
               status: "open",
               createdAt: prototypeTimestamp(state, 1),
               resolvedAt: null,
               resolution: null,
-            }
-          : null;
+            };
 
       return {
         ...state,
@@ -1016,7 +1033,7 @@ export function prototypeReducer(
           message:
             staleTrigger === null
               ? `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and no earlier version was put back into use.`
-              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and their Patient Plan stays readable but needs updating; an open Review Trigger was raised.`,
+              : `Version ${current.version} withdrawn. ${patient.preferredName} now has no Current Plan, and their own copy now needs updating; it stays readable and an open Review Trigger was raised.`,
         },
       };
     }
@@ -1260,22 +1277,14 @@ export function prototypeReducer(
         amendedAt: prototypeTimestamp(state),
       };
 
-      // The timeline renders an amendment over the original record. Review
-      // triggers must make the same decision from that effective record; using
-      // the stored original here leaves a newly corrected admission or adverse
-      // plan-use answer visible on screen but absent from Reviews.
-      const amendments = [...state.presentationAmendments, amendment];
-      const reviewRelevant = action.field === "planHelpfulness" || action.field === "disposition";
-      const effectivePresentation: EdPresentation = {
+      const correctedPresentation = {
         ...presentation,
-        planHelpfulness: getEffectivePresentationValue(amendments, presentation, "planHelpfulness") as PlanHelpfulness,
-        disposition: getEffectivePresentationValue(amendments, presentation, "disposition") as Disposition,
-      };
-      const patient = findPatient(state, presentation.patientId);
-      const plan = patient === null ? null : findManagementPlan(state, patient);
+        [action.field]: action.replacementValue,
+      } as EdPresentation;
+      const plan = state.managementPlans.find(({ patientId }) => patientId === presentation.patientId) ?? null;
       const hasEverHadAVersion =
-        plan !== null && state.managementPlanVersions.some((existing) => existing.planId === plan.id);
-      const candidate = reviewRelevant && hasEverHadAVersion ? reviewTriggerReasonFor(effectivePresentation) : null;
+        plan !== null && state.managementPlanVersions.some((version) => version.planId === plan.id);
+      const candidate = hasEverHadAVersion ? reviewTriggerReasonFor(correctedPresentation) : null;
       const alreadyOpen =
         plan !== null &&
         candidate !== null &&
@@ -1306,7 +1315,7 @@ export function prototypeReducer(
         ...state,
         // The episode is untouched. A correction is appended beside it, with who
         // made it, when, what it replaced, and why.
-        presentationAmendments: amendments,
+        presentationAmendments: [...state.presentationAmendments, amendment],
         reviewTriggers: newTrigger === null ? state.reviewTriggers : [...state.reviewTriggers, newTrigger],
         auditEvents: withAudit(state, {
           type: "presentation_amended",
@@ -1319,7 +1328,7 @@ export function prototypeReducer(
           message:
             newTrigger === null
               ? "Correction recorded beside the original. The original ED Presentation record is unchanged."
-              : "Correction recorded beside the original. The original ED Presentation record is unchanged, and an open Review Trigger was raised for the team to look at.",
+              : "Correction recorded beside the original, and an open Review Trigger was raised for the team to look at. The original ED Presentation record is unchanged.",
         },
       };
     }
@@ -1351,8 +1360,10 @@ export function prototypeReducer(
         confirmedAt: null,
         reviewDueAt: addIsoMonths(createdAt, REVIEW_INTERVAL_MONTHS),
         // As with a Management Plan draft, nothing is yet known about this
-        // person's part in this edition, so the record claims none.
+        // person's part in this edition, so the record claims none — and it
+        // therefore holds no moment at which their part was recorded either.
         patientConfirmation: "unavailable",
+        participationRecordedAt: null,
         collaborationNote: "",
         content: cloneJson(current === null ? EMPTY_SAFETY_CONTENT : current.content),
       };
@@ -1389,10 +1400,27 @@ export function prototypeReducer(
         );
       }
 
+      /**
+       * This save is the moment the person's part is recorded, so the moment
+       * is kept here rather than inferred later from `confirmedAt`, which
+       * belongs to publication and can be a different day.
+       *
+       * It moves when the answer moves, and not otherwise. A clinician
+       * re-saving a draft to tidy the wording has not sat down with the person
+       * again, and stamping a fresh date on that save would claim a
+       * conversation that did not happen — the overclaim this prototype exists
+       * to avoid. The first save is stamped whatever it says, because that is
+       * when the record first asserts a participation state at all instead of
+       * carrying the untouched default a new draft starts with.
+       */
+      const participationChanged =
+        version.participationRecordedAt === null || action.input.patientConfirmation !== version.patientConfirmation;
+
       const saved: PersonalSafetyPlanVersion = {
         ...version,
         reviewDueAt: action.input.reviewDueAt,
         patientConfirmation: action.input.patientConfirmation,
+        participationRecordedAt: participationChanged ? prototypeTimestamp(state) : version.participationRecordedAt,
         collaborationNote: action.input.collaborationNote,
         content: cloneJson(action.input.content),
       };
@@ -1532,7 +1560,7 @@ export function prototypeReducer(
           message:
             gaps === 0
               ? `Patient Plan draft version ${draft.version} created. Read it through before approving it.`
-              : `Patient Plan draft version ${draft.version} created, with ${gaps} of ${draft.sections.length} sections left blank for you to write. The conversion refuses to guess, so a gap is a section it would not risk getting wrong.`,
+              : `Patient Plan draft version ${draft.version} created, with ${gaps} of ${draft.sections.length} sections still needing you. The conversion takes each point on its own and keeps the ones it could put into everyday words, so a flagged section may already hold some of its content and still be waiting on the rest.`,
         },
       };
     }
@@ -1572,7 +1600,7 @@ export function prototypeReducer(
           message:
             remaining === 0
               ? `Patient Plan draft version ${saved.version} saved. Every section now has something in it.`
-              : `Patient Plan draft version ${saved.version} saved. ${remaining} sections are still blank and it cannot be approved until they are written.`,
+              : `Patient Plan draft version ${saved.version} saved. ${remaining} sections still need writing, and it cannot be approved until they are done.`,
         },
       };
     }
@@ -1588,17 +1616,11 @@ export function prototypeReducer(
       }
       const plan = state.patientPlans.find(({ id }) => id === version.planId) ?? null;
       if (plan === null) return refuse(state, "That version has no Patient Plan record.");
-
-      const patient = findPatient(state, plan.patientId);
-      const managementPlan = patient === null ? null : findManagementPlan(state, patient);
-      const currentManagement =
-        managementPlan === null
-          ? null
-          : getCurrentManagementPlanVersion(state.managementPlanVersions, managementPlan.id);
-      if (currentManagement === null || currentManagement.id !== version.derivedFromManagementVersionId) {
+      const managementPlan = state.managementPlans.find((candidate) => candidate.patientId === plan.patientId) ?? null;
+      if (managementPlan?.currentVersionId !== version.derivedFromManagementVersionId) {
         return refuse(
           state,
-          `Patient Plan version ${version.version} was made from a Management Plan that is no longer Current, so it cannot be approved. Start a new copy from the agreed plan instead.`,
+          `Patient Plan version ${version.version} was written from a Management Plan Version that is no longer Current, so it cannot be approved. Create a new draft only after a Current Management Plan is available. Nothing was changed.`,
         );
       }
 
@@ -1608,16 +1630,32 @@ export function prototypeReducer(
       }
 
       /**
-       * The gap block. A gap is a place the conversion refused to guess, and an
-       * unfilled one prints as a heading with nothing under it — handed to the
-       * person it is about. The form makes the control unavailable with this
-       * reason; the reducer is the guard that means it cannot happen anyway.
+       * A copy is not approvable unless it still has all eight headings. The
+       * gap block below can only inspect the sections it is given, so a version
+       * that has quietly lost two of them would pass it without ever being
+       * looked at.
+       */
+      const missing = missingSectionKeys(version.sections);
+      if (missing.length > 0) {
+        return refuse(
+          state,
+          `Patient Plan version ${version.version} is missing ${missing.length} of the eight headings the person's copy is made of, so it is not a copy of the plan. Nothing was changed.`,
+        );
+      }
+
+      /**
+       * The gap block. A flagged section is one some part of which still needs a
+       * person, and an unfinished one prints as a heading with nothing under it
+       * — handed to the person it is about. The form makes the control
+       * unavailable with this reason; the reducer is the guard that means it
+       * cannot happen anyway, which is why it counts an empty section as
+       * unfinished whatever flag the caller attached to it.
        */
       const gaps = unfilledGapSections(version.sections);
       if (gaps.length > 0) {
         return refuse(
           state,
-          `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section is" : "sections are"} still blank: ${gaps.map((section) => section.heading).join("; ")}. A blank heading on a copy handed to somebody reads as though nothing about them was worth writing.`,
+          `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section" : "sections"} still ${gaps.length === 1 ? "needs" : "need"} writing: ${gaps.map((section) => section.heading).join("; ")}. A section the conversion could only half do is not finished, and a heading with nothing under it on a copy handed to somebody reads as though nothing about them was worth writing.`,
         );
       }
 
@@ -1641,7 +1679,12 @@ export function prototypeReducer(
           type: "patient_plan_approved",
           patientId: plan.patientId,
           objectId: version.id,
-          evidence: `Patient Plan version ${version.version} approved by ${approver.displayName} and is now the copy given to this person. Any earlier copy is superseded and stays readable in history.`,
+          // "to be given", not "given". Approving a copy is the only thing this
+          // application has observed; whether it ever reached the person's hands
+          // happens in a room nothing here can see. History's own line for this
+          // event already hedges to "may be holding", and the record must not
+          // contradict itself about the one fact it cannot know.
+          evidence: `Patient Plan version ${version.version} approved by ${approver.displayName} and is now the copy to be given to this person. Any earlier copy is superseded and stays readable in history.`,
         }),
         lastOutcome: {
           kind: "success",

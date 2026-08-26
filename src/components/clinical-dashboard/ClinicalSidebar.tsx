@@ -77,7 +77,7 @@ const sidebarToolItems = [
   // would spend a round trip arriving at the same place.
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/?mode=services" },
   // Medication owns a real home at /medications; it is not a consolidated-mode
-  // redirect. The shared-home alias /?mode=prescribing is only for submitted search.
+  // redirect onto /?mode=prescribing (the shared empty home).
   { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.

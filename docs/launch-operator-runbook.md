@@ -38,9 +38,12 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 ## 0. Pre-flight (read-only)
 
 ```bash
-npm run check:supabase-project     # must report Clinical KB Database / sjrfecxgysukkwxsowpy
+node -v                              # must report >= 24.15.0 < 25 (Node 24 engine floor)
+npm -v                               # must report >= 11.0.0 < 12 (npm 11)
+npm run check:runtime                # validates Node 24 and npm 11 engines
+npm run check:supabase-project       # must report Clinical KB Database / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked
-npm run reindex:health             # note jobs_pending / jobs_processing (needed for step 1 R17)
+npm run reindex:health               # note jobs_pending / jobs_processing (needed for step 1 R17)
 ```
 
 ## 1. Confirm migration state; apply only unresolved controls 🧑 Supabase
@@ -192,12 +195,12 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 - **Concurrent Document Index Recipe (#102):** When applying additive document index optimizations on a busy database (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`, and `documents_status_id_idx`), pre-create indexes concurrently (`CREATE INDEX CONCURRENTLY IF NOT EXISTS`) before applying the committed migration and registering in `search_schema_health()` to avoid write lock contention. Validate each index with `pg_index.indisvalid`. Note that bare-column trigrams and composite `(status, id)` indexes on the RAG path are canary-gated due to unordered `LIMIT 12` selection in candidate retrieval ([operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md)).
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
-- **Dev Drive Trusted Package Cache (#6SMMB4):** On Windows workstations hosting worktrees on a Dev Drive (e.g. `D:`, ReFS), verify that the local npm package cache (`D:\.npm-cache`) is registered as a trusted Dev Drive cache. If unverified or not registered, Microsoft Defender real-time scanning runs over every `npm ci` across all worktrees. From an **elevated administrator prompt**, inspect and register the trusted cache:
-  ```cmd
-  fsutil devdrv query D:
+- **Dev Drive Trusted Package Cache (#6SMMB4):** On Windows workstations hosting worktrees on a Dev Drive (e.g. `D:`, ReFS), verify that the local npm package cache (`D:\.npm-cache`) is registered as a trusted Dev Drive cache. If unverified or not registered, Microsoft Defender real-time scanning runs over every `npm ci` across all worktrees. From an **elevated administrator prompt**, register and verify the trusted cache:
+  ```powershell
   fsutil devdrv trust D:\.npm-cache
+  fsutil devdrv query D:
   ```
-  Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
+  Non-elevated prompts return `Error 5: Access is denied`. For fallback or non-elevated registry diagnostics, probe `Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue` or verify `(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`. Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
 
 ## 9. Ledger queue derivation & credential discipline (#327, #042)
 

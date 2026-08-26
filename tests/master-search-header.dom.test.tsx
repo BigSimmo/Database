@@ -1,9 +1,11 @@
 /** @vitest-environment jsdom */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { factsheetsTopicsHref } from "@/lib/app-modes";
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 const router = vi.hoisted(() => ({
@@ -116,6 +118,16 @@ describe("MasterSearchHeader DOM", () => {
 
     fireEvent.submit(screen.getByRole("search"));
     expect(props.onAsk).toHaveBeenCalledOnce();
+  });
+
+  it("routes Factsheets Browse all sheets to the Topics page", async () => {
+    const user = userEvent.setup();
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="factsheets" />);
+
+    await user.click(screen.getByRole("button", { name: "Open factsheets options" }));
+    await user.click(screen.getByRole("menuitem", { name: "Browse all sheets" }));
+
+    expect(router.push).toHaveBeenCalledWith(factsheetsTopicsHref);
   });
 
   describe("#WJDQ0X - privacy notice landmark / role=group wrapping", () => {

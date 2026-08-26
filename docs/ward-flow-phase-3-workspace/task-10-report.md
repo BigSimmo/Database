@@ -11,7 +11,7 @@ Commit: `b2e0a92aa` on `codex/ward-management-design`. Worktree:
   pure rendering helpers (`trackerRowState`, `stampAgeText`).
 - Created `tests/tracker-derivations.test.ts` — node-environment unit coverage over those
   helpers.
-- Modified `src/app/ward-management/transport/page.tsx` — mounts `LiveTracker` instead of
+- Modified `src/app/mockups/ward-flow/transport/page.tsx` — mounts `LiveTracker` instead of
   `WardModeWorkspace mode="transport"`.
 - Modified `tests/ui-ward-roles.spec.ts` — appended the brief's Step 1 test verbatim plus one
   strengthening test.

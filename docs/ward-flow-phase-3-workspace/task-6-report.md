@@ -201,7 +201,7 @@ This is the decisive evidence for the task: the same movement, referred once on 
 screen, was reflected by two different route components (`ward-management-modes.tsx`'s
 `QueueView`/`DecisionPanel` and its `MovementsView`) purely because both now read `movements` from
 the same `WardFlowProvider` instance that persists across client-side navigation in
-`src/app/ward-management/layout.tsx`. Before this task, `MovementsView` and `QueueView` read the
+`src/app/mockups/ward-flow/layout.tsx`. Before this task, `MovementsView` and `QueueView` read the
 frozen `wardMovements` array and would have kept showing WF-001 under "Placement requested"
 forever, disagreeing with the coordinator screen the whole session.
 
