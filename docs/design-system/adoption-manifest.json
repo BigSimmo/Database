@@ -1229,7 +1229,6 @@
       "directImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -1242,7 +1241,6 @@
       "productImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
-        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",

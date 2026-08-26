@@ -4639,6 +4639,13 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* The trust-brief heading keeps its deliberate compact wrap without exposing a
+ * page-specific length in component markup. Body copy uses the shared
+ * `--measure` prose ceiling below. */
+.privacy-page {
+  --measure-trust-heading: 18ch;
+}
+
 /* Data-handling page (/privacy) print export.
  * The page is written to be filed in a governance pack, so a printed copy has to
  * carry the title, the fact summary and every section heading. The transitional
