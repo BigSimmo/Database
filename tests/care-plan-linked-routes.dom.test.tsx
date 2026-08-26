@@ -881,6 +881,7 @@ describe("Care Plan review currency with no review date", () => {
         activeSection={null}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
         onRecordContactIntent={() => {}}
+        contactActionBlockedReason={null}
       />,
     );
   }

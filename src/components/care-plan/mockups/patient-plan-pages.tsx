@@ -682,7 +682,11 @@ export function PatientPlanPrintSurface({
 
       {stale ? (
         <div data-print-hide="true">
-          <StaleNotice version={version} patient={patient} />
+          <StaleNotice
+            version={version}
+            patient={patient}
+            sourcePlanWithdrawn={managementPlan?.currentVersionId === null}
+          />
         </div>
       ) : null}
 
