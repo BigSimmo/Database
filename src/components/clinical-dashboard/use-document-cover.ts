@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -79,8 +79,6 @@ export function useDocumentCoverImageId(documentId: string | null | undefined): 
   const id = documentId ?? null;
   const authIdentity = session?.user?.id ?? null;
   const key = id ? coverCacheKey(id, authIdentity) : null;
-  const currentKeyRef = useRef(key);
-  currentKeyRef.current = key;
   /**
    * Reset happens during render, not in an effect. Clearing the previous
    * identity/document answer from inside an effect renders one frame with the
@@ -110,9 +108,10 @@ export function useDocumentCoverImageId(documentId: string | null | undefined): 
   const markCoverUnavailable = useCallback(
     (imageId: string) => {
       // A settled image failure can report after the drawer has paged to a new
-      // document/account. It may only invalidate the entry that is still
-      // current, and only if that entry still names the failing image.
-      if (!key || currentKeyRef.current !== key || coverImageIds.get(key) !== imageId) return;
+      // document/account. The captured identity+document key and exact image
+      // guard ensure it can only invalidate the result that actually failed;
+      // a newer result for that key and every other account remain untouched.
+      if (!key || coverImageIds.get(key) !== imageId) return;
       // This is not an authoritative "no cover" answer. The signed-url or
       // object download may have failed transiently, or a reindex may have
       // selected a replacement since this id was resolved. Hide the optional

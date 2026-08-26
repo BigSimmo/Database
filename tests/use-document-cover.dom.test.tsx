@@ -167,7 +167,8 @@ describe("useDocumentCoverImageId", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(coverResponse("cover-a"))
-      .mockResolvedValueOnce(coverResponse("cover-b"));
+      .mockResolvedValueOnce(coverResponse("cover-b"))
+      .mockResolvedValueOnce(coverResponse("cover-a-recovered"));
     vi.stubGlobal("fetch", fetchMock);
     const { result, rerender } = renderHook(() => useDocumentCoverImageId(DOCUMENT_ID));
     await waitFor(() => expect(result.current.coverImageId).toBe("cover-a"));
@@ -184,9 +185,10 @@ describe("useDocumentCoverImageId", () => {
 
     setAuth("user-a", "token-a-refreshed");
     rerender();
-    expect(result.current.coverImageId).toBe("cover-a");
+    expect(result.current.coverImageId).toBeNull();
+    await waitFor(() => expect(result.current.coverImageId).toBe("cover-a-recovered"));
 
-    act(() => result.current.markCoverUnavailable("cover-a"));
+    act(() => result.current.markCoverUnavailable("cover-a-recovered"));
     expect(result.current.coverImageId).toBeNull();
   });
 
