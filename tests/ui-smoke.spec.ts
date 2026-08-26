@@ -3578,6 +3578,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(workspace).toBeVisible({ timeout: 30_000 });
   });
 
+  test("document detail back arrow skips PDF page changes at phone and desktop", async ({ page }) => {
+    await mockDemoApi(page);
+    const documentId = "22222222-2222-4222-8222-222222222222";
+
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoApp(page, "/documents/search?mode=documents&q=clozapine+monitoring&run=1");
+      const origin = new URL(page.url());
+      await page.goto(`/documents/${documentId}?page=1`, { waitUntil: "domcontentloaded" });
+      await expect(
+        page.getByRole("heading", { level: 1, name: /Synthetic clozapine monitoring protocol/i }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const historyLength = await page.evaluate(() => window.history.length);
+      await page.getByLabel("Next page").first().click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `/documents/${documentId}` && url.searchParams.get("page") === "2",
+      );
+      expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
+
+      await page.getByRole("link", { name: "Back to documents" }).click();
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === origin.pathname &&
+          url.searchParams.get("q") === origin.searchParams.get("q") &&
+          url.searchParams.get("run") === origin.searchParams.get("run"),
+        { timeout: 30_000 },
+      );
+    }
+  });
+
   test("newer routed differential context wins over an older response", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
