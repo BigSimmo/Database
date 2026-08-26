@@ -282,6 +282,18 @@ attempt; the per-suite runs earlier took up to twelve behind another worktree's 
 lease (PID 83164, `…\.codex\worktrees\remove-followup-suggestions\Database`, exclusive, live). Every
 refusal was waited out and recorded UNRUN. Nothing was ever forced.
 
+**RE-VERIFIED AFTER THE FINAL EDIT**, because a gate's verdict covers only the tree it saw and this
+report was the last thing to change:
+
+```
+ Test Files  18 passed (18)
+      Tests  431 passed (431)
+   Duration  84.34s
+```
+
+The uncached lint and `prettier --check` below were re-run on that same final tree for the same
+reason — the first lint pass predated two test-file commits.
+
 **The full set went RED first, and that is evidence the gate examines this change.** The wizard
 suite's first run on the new tree:
 
