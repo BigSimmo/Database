@@ -42,10 +42,11 @@ export type Episode = {
    *
    * THREE VALUES, THREE DIFFERENT FACTS, AND THEY MUST STAY DISTINGUISHABLE. A non-empty string is
    * a name a clinician recorded. `null` is "no preferred name is held" -- an episode that predates
-   * the field, or one a caller created without supplying one. `""` is what a retention clearance
-   * writes, exactly as it does for `patientName`, so an episode whose name has been REMOVED is not
-   * mistaken for one that never had it. A surface rendering this says which of those it is looking
-   * at, or says only that no preferred name is held; it never invents a cause for the absence.
+   * the field, or one a caller created without supplying one. `""` is what the clearance that
+   * de-identifies an ended episode writes, exactly as it does for `patientName`, so an episode whose
+   * name has been REMOVED is not mistaken for one that never had it. A surface rendering this says
+   * which of those it is looking at, or says only that no preferred name is held; it never invents
+   * a cause for the absence.
    */
   preferredName: string | null;
   /**

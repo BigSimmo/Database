@@ -150,6 +150,7 @@ function reviewReadyDraft(overrides: Record<string, unknown> = {}) {
     pathwayVersionId: NAMED_PATHWAY,
     patientDetail: {
       patientName: "Rowan Example",
+      preferredName: "Rowan",
       patientMobileNumber: FICTIONAL_PATIENT_MOBILES[1],
       patientIdentifiers: "SYN-MRN-4471",
       culturalIdentity: "",
@@ -442,6 +443,7 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
       // a patient's name, mobile number or sending preference, so there is nothing to prefill.
       patientDetail: {
         patientName: "",
+        preferredName: "",
         patientMobileNumber: "",
         patientIdentifiers: "",
         culturalIdentity: "",
@@ -967,6 +969,7 @@ describe("stage 3 — cultural identity is NOT asked for (owner decision, round 
     const stage = await reachPersonalisationStage(user);
 
     await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/what should we call them in messages/i), "Rowan");
     await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
     await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
 
