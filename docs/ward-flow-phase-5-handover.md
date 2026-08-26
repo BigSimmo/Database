@@ -7,13 +7,14 @@ it points at. You should not need the conversation that produced it.
 
 ## 1. Read in this order
 
-| Order | File                                                                             | Why                                                                                                    |
-| ----- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 1     | this file                                                                        | orientation, traps, and how to start                                                                   |
-| 2     | `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md` | **binding authority.** Fourteen numbered decisions. Where anything disagrees with anything, this wins. |
-| 3     | `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`        | the eight-task implementation plan, with code                                                          |
-| 4     | `docs/ward-flow-roadmap.md`                                                      | settled direction and the sixteen product decisions. Do not re-litigate these.                         |
-| 5     | `docs/ward-flow-complete-ledger.md`                                              | the whole project's history, Phases 1 to 5                                                             |
+| Order | File                                                                                                      | Why                                                                                                    |
+| ----- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1     | this file                                                                                                 | orientation, traps, and how to start                                                                   |
+| 2     | `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`                          | **binding authority.** Fourteen numbered decisions. Where anything disagrees with anything, this wins. |
+| 3     | `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`                                 | the eight-task implementation plan, with code                                                          |
+| 4     | `docs/ward-flow-roadmap.md`                                                                               | settled direction and the sixteen product decisions. Do not re-litigate these.                         |
+| 5     | `docs/ward-flow-kickoff` see `docs/ward-flow-phase-5-kickoff-prompt.md` for the paste-ready first message | the prompt this session was started from                                                               |
+| 6     | `docs/ward-flow-complete-ledger.md`                                                                       | the whole project's history, Phases 1 to 5                                                             |
 
 Everything else is optional. `docs/ward-flow-context.md` has the original problem statement if you
 want the why.
