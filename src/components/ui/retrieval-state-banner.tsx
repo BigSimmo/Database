@@ -1,6 +1,7 @@
 "use client";
 
-import { FileWarning, Info, TriangleAlert } from "lucide-react";
+import { useId, useState } from "react";
+import { ChevronDown, FileWarning, Info, TriangleAlert } from "lucide-react";
 
 import { cn, toneInfo, toneWarning } from "@/components/ui-primitives";
 import type { DegradedAnswerState, OverdueSource, SourceRef, UngroundedReason } from "@/components/ui/answer-state";
@@ -65,6 +66,8 @@ function StaleEvidenceBody({
   sourceCount: number;
   onOpenSource: RetrievalStateBannerProps["onOpenSource"];
 }) {
+  const [open, setOpen] = useState(false);
+  const detailId = useId();
   // Totality is its own sentence. "3 sources are past review" reads very
   // differently when 3 is also the total. Treat sourceCount below the overdue
   // count (including 0) as totality so we never print "2 of 0 sources…".
@@ -87,37 +90,67 @@ function StaleEvidenceBody({
           : `${scope} ${everySourceOverdue ? "is" : "are"} past ${everySourceOverdue ? "its" : "their"} review date.`;
 
   return (
-    <>
-      <p data-testid="retrieval-state-headline" className="font-semibold">
-        {headline}
-      </p>
-      <ul className="mt-2 space-y-1">
-        {overdue.map((source) => (
-          <li
-            key={source.sourceId}
-            data-testid="retrieval-state-overdue-row"
-            data-status={source.status}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1"
-          >
-            <StatusMark status={source.status} className="mt-[0.4em] self-start" />
-            <span className="min-w-0 font-medium">{source.title}</span>
-            {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
-            <span className="text-[color:var(--text-muted)]">
-              {source.status === "outdated" ? "Superseded — was due " : "Review due "}
-              <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
-            </span>
-            {source.sourceId.startsWith("__unidentified_") ? null : (
-              <OpenSourceButton
-                sourceId={source.sourceId}
-                title={source.title}
-                locator={source.locator}
-                onOpenSource={onOpenSource}
-              />
-            )}
-          </li>
-        ))}
-      </ul>
-    </>
+    <div
+      className={cn(
+        "w-fit max-w-full overflow-hidden border text-sm transition-[border-radius] duration-[var(--duration-quick)]",
+        open ? "rounded-lg" : "rounded-full",
+        toneWarning,
+      )}
+    >
+      <button
+        type="button"
+        data-testid="retrieval-state-stale-toggle"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-controls={detailId}
+        className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+      >
+        <span data-testid="retrieval-state-headline" className="min-w-0 truncate font-semibold">
+          Review due
+        </span>
+        <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">
+          · {overdue.length} {overdue.length === 1 ? "source" : "sources"}
+        </span>
+        <ChevronDown
+          className={cn(
+            "ml-auto size-icon-xs shrink-0 text-[color:var(--text-muted)] transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <div id={detailId} className="mt-1 border-t border-[color:var(--warning)]/15 px-2.5 pb-2 pt-2">
+          <p className="font-semibold">{headline}</p>
+          <ul className="mt-2 space-y-1">
+            {overdue.map((source) => (
+              <li
+                key={source.sourceId}
+                data-testid="retrieval-state-overdue-row"
+                data-status={source.status}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1"
+              >
+                <StatusMark status={source.status} className="mt-[0.4em] self-start" />
+                <span className="min-w-0 font-medium">{source.title}</span>
+                {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
+                <span className="text-[color:var(--text-muted)]">
+                  {source.status === "outdated" ? "Superseded — was due " : "Review due "}
+                  <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
+                </span>
+                {source.sourceId.startsWith("__unidentified_") ? null : (
+                  <OpenSourceButton
+                    sourceId={source.sourceId}
+                    title={source.title}
+                    locator={source.locator}
+                    onOpenSource={onOpenSource}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -276,14 +309,15 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
       data-testid="retrieval-state-banner"
       data-state={state.kind}
       className={cn(
-        "flex items-start gap-2 rounded-[var(--radius-md)] border p-[var(--pad-card)] text-sm",
+        "flex items-start gap-2 text-sm",
+        state.kind === "stale_evidence" ? "w-full" : "rounded-[var(--radius-md)] border p-[var(--pad-card)]",
         // Source currency is the amber channel (SPEC §11). Operational severity
         // is not: a fallback answer is not a clinical hazard.
-        caution ? toneWarning : toneInfo,
+        state.kind === "stale_evidence" ? null : caution ? toneWarning : toneInfo,
         className,
       )}
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
+      {state.kind === "stale_evidence" ? null : <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />}
       <div className="min-w-0 flex-1">
         {state.kind === "stale_evidence" ? (
           <StaleEvidenceBody overdue={state.overdue} sourceCount={state.sourceCount} onOpenSource={onOpenSource} />
