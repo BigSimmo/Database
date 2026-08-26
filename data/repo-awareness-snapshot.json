@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "8ad4133fb05f0a47bd2618cd75bd86db973798ad",
-    "committed_at": "2026-08-26T11:42:26+08:00"
+    "sha": "232597e62018457cab8a6d953d2f4436d94f00e5",
+    "committed_at": "2026-08-26T11:48:44+08:00"
   },
   "routes": {
     "modes": [
@@ -2953,6 +2953,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
         "section": "superpowers",
         "catalogued": false
@@ -3234,6 +3239,11 @@
       },
       {
         "path": "docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3533,7 +3543,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-5-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-5-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-roadmap.md",
         "section": "root",
         "catalogued": false
       },
@@ -3625,9 +3650,9 @@
       }
     ],
     "counts": {
-      "documents": 436,
+      "documents": 441,
       "catalogued": 102,
-      "uncatalogued": 334,
+      "uncatalogued": 339,
       "sections": 18
     }
   },
