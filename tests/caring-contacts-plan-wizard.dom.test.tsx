@@ -1779,20 +1779,37 @@ describe("stage 4 — the draft survives every shape of failed write (Ruling [11
  * matrix is actually about.
  */
 describe("the caring-contacts plan wizard — Task 11a's decision overlays", () => {
-  /** The one trigger for a row, found by the id it stamps rather than by its visible words. */
-  function decisionTrigger(overlayId: string): HTMLElement {
-    const matches = screen
+  /** Every trigger for a row, found by the id it stamps rather than by its visible words. */
+  function decisionTriggers(overlayId: string): HTMLElement[] {
+    return screen
       .getAllByTestId("workspace-overlay-trigger")
       .filter((element) => element.getAttribute("data-overlay-trigger") === overlayId);
-    if (matches.length !== 1) {
+  }
+
+  /**
+   * The one trigger for a row.
+   *
+   * `perRow` is `pathway-preview` and nothing else: its frozen decision is "Use this pathway", so a
+   * stage offering three approved versions offers three of them and a uniqueness check would fail on
+   * a correct screen. Stated as a property of the ROW rather than relaxed for every row, so a second
+   * control appearing on a row that should have one is still an error.
+   */
+  function decisionTrigger(overlayId: string, perRow = false): HTMLElement {
+    const matches = decisionTriggers(overlayId);
+    if (matches.length === 0) throw new Error(`no trigger for "${overlayId}" is on screen`);
+    if (!perRow && matches.length !== 1) {
       throw new Error(`expected exactly one trigger for "${overlayId}" on screen, found ${matches.length}`);
     }
     return matches[0];
   }
 
   /** Raises a row and returns its decision control, having checked the host raised the right row. */
-  async function openDecision(user: ReturnType<typeof userEvent.setup>, overlayId: string): Promise<HTMLElement> {
-    await user.click(decisionTrigger(overlayId));
+  async function openDecision(
+    user: ReturnType<typeof userEvent.setup>,
+    overlayId: string,
+    perRow = false,
+  ): Promise<HTMLElement> {
+    await user.click(decisionTrigger(overlayId, perRow));
     const content = await screen.findByTestId("workspace-overlay-content");
     expect(content, "the host opened a different row from the one the trigger names").toHaveAttribute(
       "data-overlay-id",
@@ -1811,12 +1828,14 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
   const DECISION_ROWS: readonly {
     id: string;
     reach: (user: ReturnType<typeof userEvent.setup>) => Promise<unknown>;
+    /** True where the frozen decision names a thing on the row, so a stage offers one control each. */
+    perRow?: boolean;
   }[] = [
     { id: "verify-identity", reach: async () => undefined },
     { id: "change-patient", reach: async () => undefined },
     { id: "discard-changes", reach: async () => undefined },
     { id: "save-draft", reach: async () => undefined },
-    { id: "pathway-preview", reach: reachPathwayStage },
+    { id: "pathway-preview", reach: reachPathwayStage, perRow: true },
     { id: "communication-preference", reach: reachPersonalisationStage },
     { id: "message-preview", reach: reachPersonalisationStage },
   ];
@@ -1827,7 +1846,7 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
       renderWizardWithOverlays();
       await row.reach(user);
 
-      const trigger = decisionTrigger(row.id);
+      const trigger = decisionTrigger(row.id, row.perRow);
       // The production tap floor and the forced-colors border come from the trigger's own base
       // class. Asserted here because these call sites pass a `className`, and a caller that
       // replaced the base rather than adding to it would lose both silently.
@@ -1835,7 +1854,7 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
       expect(trigger.className, `${row.id}'s control was narrowed to the 44px guidance`).not.toContain("min-h-11");
       expect(trigger.className, `${row.id}'s control disappears under forced colours`).toContain("forced-colors:");
 
-      const action = await openDecision(user, row.id);
+      const action = await openDecision(user, row.id, row.perRow);
       // THE WHOLE POINT OF RULING 87, ASKED OF EVERY ROW: a decision surface a screen has opened
       // without wiring shows its control refused. None of these is.
       expect(action, `${row.id} opened a decision the screen has not wired`).not.toHaveAttribute("aria-disabled");
@@ -1847,8 +1866,10 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     // MUTATING row's decision is refused with the named reason and `aria-disabled` — which is what
     // proves `not.toHaveAttribute("aria-disabled")` is capable of failing rather than decorative.
     renderWizardWithOverlays();
-    window.history.pushState(null, "", "/caring-contacts/plans/new?overlay=verify-identity");
-    window.dispatchEvent(new Event("popstate"));
+    act(() => {
+      window.history.pushState(null, "", "/caring-contacts/plans/new?overlay=verify-identity");
+      window.dispatchEvent(new Event("popstate"));
+    });
 
     const action = await screen.findByTestId("workspace-overlay-action");
     expect(action).toHaveAttribute("aria-disabled", "true");
@@ -1999,9 +2020,7 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     // than a first choice agreeing with what was already there.
     expect(readPlanDraft(REFERRAL)?.pathwayVersionId).toBe(NAMED_PATHWAY);
 
-    const triggers = screen
-      .getAllByTestId("workspace-overlay-trigger")
-      .filter((element) => element.getAttribute("data-overlay-trigger") === "pathway-preview");
+    const triggers = decisionTriggers("pathway-preview");
     expect(triggers, "one preview control per approved version").toHaveLength(2);
     // One row's control is told from another's by its accessible name, because the drawer they
     // open is generic and cannot name the version itself.
