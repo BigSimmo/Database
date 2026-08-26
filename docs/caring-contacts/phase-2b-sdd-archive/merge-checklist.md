@@ -192,7 +192,13 @@ gate-drift rule added after those branches forked.
 
 ### Order, and why it is this order
 
-1. **`origin/main` → trunk** (the second catch-up; the trunk is 13 behind again)
+1. ~~**`origin/main` → trunk**~~ — **DONE**, merge commit `be06c7800`, trunk back to 0 behind.
+   Both conflicts were the generated snapshots and were resolved by regenerating, not hand-merging:
+   `[snapshot] in step with data/outstanding-issues-snapshot.json (91 open, 35 pending)` and
+   `[repo-awareness] in step with data/repo-awareness-snapshot.json (194 pages, 488 documents, 2623 reviews)`.
+   **Audited two ways.** The merge touched **zero** Caring Contacts files — everything it brought is
+   therapy-compass, ward and care-plan work from `main` — and the trunk's gate on the merged tree reports
+   `Test Files 18 passed (18)`, `Tests 418 passed (418)`.
 2. **`cc-message-name`** — clean, so it costs nothing and shortens the list
 3. **`cc-plan-detail`** — one trivial conflict
 4. **`cc-schedule`** — and this is where `patient-overview.tsx` finally conflicts
