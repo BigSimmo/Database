@@ -74,6 +74,8 @@ const PLAN_ID = planId("SYN-PLAN-001");
 const CONTACT_ENDPOINT = "/api/caring-contacts/plans";
 const SESSION_ENDPOINT = "/api/caring-contacts/session";
 
+/** When true, a successful write answers 200 with a body carrying no contact version. */
+let answerWithoutVersion = false;
 /** The acting role the mirrored service answers with, changeable mid-test. */
 let actingRole: CaringContactRole | null = "coordinator";
 /** Every URL the component asked for, in order, so "nothing was even attempted" is checkable. */
@@ -182,7 +184,7 @@ function installService(store: CaringContactRepository) {
     // refused every second move because it could not name a version. That was a divergence between
     // the mirror and the real handler, found by a test rather than in production, and it is why
     // `tests/caring-contacts-contact-route.test.ts` now pins this field on the real route.
-    return Response.json({ value: result.value });
+    return Response.json({ value: answerWithoutVersion ? null : result.value });
   });
 }
 
@@ -251,6 +253,7 @@ beforeEach(() => {
   actingRole = "coordinator";
   requested = [];
   navigation.refresh.mockClear();
+  answerWithoutVersion = false;
   clearStagedWorkspaceOverlayCommit();
   setViewportWidth(1440);
   setOnline(true);
@@ -324,6 +327,43 @@ describe("moving one contact within its day", () => {
     // And the screen said so, rather than naming a change nobody made.
     expect(outcomeText()).toContain("15:45 AWST");
     expect(outcomeText()).not.toContain("This contact changed after this screen read it");
+  });
+
+  it("refuses the next move rather than guessing a version the service did not confirm", async () => {
+    /*
+      The conservative branch, and it is reachable: a 200 whose body this screen cannot read a
+      version out of. Adding one is the obvious shortcut and it is wrong -- `rescheduleContact`
+      increments by exactly one TODAY, so a guess would be right today and silently wrong the first
+      time anything else touches the contact between the two writes.
+    */
+    const store = newStore();
+    await seedPlan(store);
+    installService(store);
+    answerWithoutVersion = true;
+    const before = await renderControl(store);
+
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "11:30");
+    await openOverlay();
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).toContain("11:30 AWST"));
+
+    // The first move landed -- the premise, so what follows is about the SECOND one.
+    expect(toAwstParts((await contactUnderTest(store)).planned.sendAt)).toMatchObject({ hour: 11, minute: 30 });
+    const afterFirst = await contactUnderTest(store);
+
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "15:45");
+    await openOverlay();
+    const beforeSecond = requested.length;
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).not.toContain("11:30 AWST"));
+
+    expect(outcomeText()).toContain("no longer knows which version of this contact");
+    // Refused, and nothing attempted: the record still holds the first move.
+    expect(stateOf(await contactUnderTest(store))).toBe(stateOf(afterFirst));
+    expect(requested.slice(beforeSecond).filter((url) => url.startsWith(CONTACT_ENDPOINT))).toEqual([]);
+    void before;
   });
 
   it("asks the server to re-render, because the row's send time is the server's", async () => {
