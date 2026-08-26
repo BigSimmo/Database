@@ -344,3 +344,34 @@ describe("in-prose source marks", () => {
     expect(screen.getAllByTestId("answer-source-rail-row")[0].tagName).toBe("A");
   });
 });
+
+describe("source-only disclosure", () => {
+  it("folds the governed verification warning into the compact disclosure", async () => {
+    const user = userEvent.setup();
+    render(
+      <NaturalLanguageAnswer
+        text={ANSWER}
+        query="clozapine monitoring"
+        sourceOnly
+        sourceOnlyVerificationState="ungrounded"
+        bestSource={null}
+        sources={[]}
+        sourceLinks={[]}
+        railRows={ROWS}
+        copied={false}
+        onCopy={vi.fn()}
+      />,
+    );
+
+    const disclosure = screen.getByTestId("source-only-disclosure");
+    expect(disclosure).toHaveTextContent("Source-only");
+    expect(disclosure).not.toHaveTextContent("Copied from cited sources without model synthesis");
+    expect(disclosure.className).toContain("text-2xs");
+    expect(disclosure.parentElement?.className).toContain("py-1");
+
+    await user.click(within(disclosure).getByRole("button", { name: /Source-only/ }));
+    expect(disclosure).toHaveTextContent(
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
+    );
+  });
+});
