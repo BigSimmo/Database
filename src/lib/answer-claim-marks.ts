@@ -50,10 +50,21 @@ export type ClaimMarkCluster = {
 };
 
 /**
+ * One number per claim, and a `+N` for the rest.
+ *
  * A claim on four documents would otherwise produce an unbreakable run wider
- * than a phone column, so a cluster shows two numbers and a `+N`.
+ * than a phone column. It was two; the owner asked for single numbers in the
+ * prose (2026-08-26) and one is also the quieter reading: a clinical sentence
+ * ending in `1,2` invites the eye to parse a pair before it has finished the
+ * sentence.
+ *
+ * Nothing is hidden by the cut. The `+N` counts the rest, and every source it
+ * counts is on the rail immediately below at full tap size — which is also
+ * where a `Review due` or `Outdated` badge lives, per the 2026-08-24 decision
+ * that staleness is carried by the row and the drawer and never by the mark.
+ * So the one signal that must not be lost was never on the mark to begin with.
  */
-export const maxMarksPerCluster = 2;
+export const maxMarksPerCluster = 1;
 
 /**
  * Canonical form for comparing a rendered sentence against a recorded claim.

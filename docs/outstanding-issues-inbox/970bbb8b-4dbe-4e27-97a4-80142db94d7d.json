@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "970bbb8b-4dbe-4e27-97a4-80142db94d7d",
+  "createdOn": "2026-08-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
+    "detail": "Ward prediction track record; 'why not here' across the whole state for one patient; a sixty-second self-driving guided tour; out-of-area ledger; 'waiting since' promoted in the priority queue; named moments on the demo clock. All accepted by the product owner 2026-08-26 and described in docs/ward-flow-roadmap.md.",
+    "source": "Product-owner direction, 2026-08-26",
+    "issueUlid": "01M0XVHQ3D875H6TZWM5JT85YW"
+  }
+}

@@ -19,6 +19,7 @@ import {
   PinnedSafetyBoundary,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type { PrototypeScenario, PrototypeUser, SyntheticId } from "./types";
@@ -131,10 +132,7 @@ export function ManagementPlanPrintSurface({
       ? null
       : deriveReviewState(currentManagementVersion.reviewDueAt, PROTOTYPE_NOW);
 
-  const safetyPlanStatus =
-    snapshot.currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${snapshot.currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(snapshot.currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(snapshot.currentSafetyPlanVersion);
   const blockedReason = getPrototypeMutationBlockReason(state, {
     type: "record-management-plan-print-intent",
     patientId: patient.id,
@@ -202,7 +200,13 @@ export function ManagementPlanPrintSurface({
           </dl>
         </PrintSection>
 
-        <PinnedSafetyBoundary content={currentManagementVersion.content} />
+        {/*
+          `medium="print"` is what puts the boundary's own lines on the paper
+          rather than a count of them. Paper has no jump link, and the section it
+          would have pointed at is far enough down the sheet for a page break to
+          land between the two.
+        */}
+        <PinnedSafetyBoundary content={currentManagementVersion.content} medium="print" />
 
         <p data-testid="care-plan-print-record-warning" className={styles.printRecordWarning}>
           <strong>This is a printed copy and may already be out of date.</strong> Before you rely on it, check the

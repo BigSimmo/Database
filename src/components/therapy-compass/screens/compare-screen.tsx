@@ -129,7 +129,7 @@ export function CompareScreen() {
         // count that grows cannot share a line with a title that wraps.
         meta={
           <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
-            {items.length} of 4 selected
+            {items.length} of {THERAPY_MAX_COMPARE} selected
           </span>
         }
         actions={
@@ -208,13 +208,13 @@ export function CompareScreen() {
               { id: "all", label: "All fields" },
             ]}
           >
-            {/* table */}
+            {/* Phones read the same rows stacked; see TherapyCompareStack below. */}
             <div
-              data-therapy-scroll-sm
+              data-testid="therapy-compare-table"
               role="region"
               aria-label="Therapy comparison table"
               tabIndex={0}
-              className="overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)]"
+              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)] md:block"
             >
               <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
                 <caption className="sr-only">Therapy comparison by clinical field</caption>
@@ -283,6 +283,7 @@ export function CompareScreen() {
                 </tbody>
               </table>
             </div>
+            <TherapyCompareStack items={items} rows={rows} dense={dense} />
             <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
               <Info aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Comparisons are source-grounded. Review status reflects the latest source checks.
@@ -291,6 +292,79 @@ export function CompareScreen() {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The phone comparison.
+ *
+ * The table above is `min-w-[720px]` inside a horizontal scroller, which on a
+ * 390px phone shows about two thirds of one column at a time and — worse —
+ * scrolls the field labels away from the values they label. Below `md` the same
+ * `rows` are turned inside out instead: one card per field, every therapy listed
+ * against it, so the label never leaves the value and nothing scrolls sideways.
+ *
+ * The fork is `md` (768px), not `sm` (640px): at 640–767px the 720px table would
+ * still scroll sideways, which is the exact defect being fixed.
+ *
+ * One `rows` memo, two presentations — deliberately in this file rather than
+ * extracted, because moving the table out has twice silently dropped the
+ * responsive-stack count that `tests/therapy-compass-responsive-contract.test.ts`
+ * measures.
+ */
+function TherapyCompareStack({
+  items,
+  rows,
+  dense,
+}: {
+  items: readonly Therapy[];
+  rows: readonly Row[];
+  dense: boolean;
+}) {
+  return (
+    <div data-testid="therapy-compare-stack" className="flex flex-col gap-2.5 md:hidden">
+      {rows.map((r) => {
+        const warn = r.tone === "warning";
+        return (
+          <section
+            key={r.key}
+            aria-label={r.label}
+            className={cn(
+              "rounded-xs border",
+              dense ? "p-3" : "p-4",
+              warn
+                ? "border-[color:var(--border-strong)] bg-[color:var(--warning-bg)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)]",
+            )}
+          >
+            <h3
+              className={cn(
+                "m-0 flex items-center gap-2 text-2xs font-bold tracking-eyebrow uppercase",
+                warn ? "text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]",
+              )}
+            >
+              <r.icon aria-hidden="true" size={15} strokeWidth={1.8} />
+              {r.label}
+            </h3>
+            <dl className={cn("m-0 grid gap-x-3", dense ? "mt-2 gap-y-1.5" : "mt-2.5 gap-y-2")}>
+              {items.map((t) => (
+                <div key={t.slug} className="grid grid-cols-1 gap-0.5">
+                  <dt className="text-2xs font-bold text-[color:var(--text-heading)]">{t.name}</dt>
+                  <dd
+                    className={cn(
+                      "m-0 text-sm-minus leading-normal",
+                      warn ? "text-[color:var(--warning-text)]" : "text-[color:var(--text)]",
+                    )}
+                  >
+                    {r.get(t)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

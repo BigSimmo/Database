@@ -3,35 +3,36 @@
 Companion to the plan (`2026-08-22-developer-hub-phase-2.md`) and the approved spec
 (`docs/superpowers/specs/2026-08-22-developer-hub-phase-2-design.md`).
 
-**Rewritten 2026-08-25 on the recovery branch — read this status note first, then the rest of
-this file, which otherwise still reflects the 2026-08-24 "at completion" write-up and remains
-accurate for what Tasks 6–13 built and verified.**
+**Status 2026-08-26: COMPLETE AND MERGED. Nothing in this phase is outstanding.** Read
+this status note first; the rest of the file is the 2026-08-24 "at completion" write-up and
+remains accurate for what Tasks 6-13 built and how they were verified.
 
-All 13 tasks were built and reviewed on `claude/dev-hub-phase-2-plan`. Partway through, **Tasks
-1–5 were squash-merged into `main` as PR #2292** and that remote branch was deleted. A later
-session, unaware of the squash-merge, continued building Tasks 6–13 on the same branch name and
-pushed it, opening **PR #2345**, which the owner closed believing it duplicated #2292. **It did
-not.** `main` at the time had only Tasks 1–5: a snapshot generator that nothing called — no gate,
-no reader, no committed snapshot, and none of the four pages.
+The route this work took is worth recording, because the confusion in the middle of it is the
+trap most worth not repeating:
 
-This file's 2026-08-24 "one thing to deal with first" note — that the branch might exist only on
-this machine, with no PR opened — was the belief that led to that confusion; it is superseded by
-the paragraph above, not by anything that happened later on this file's own branch. The recovery
-work lives on **`claude/dev-hub-phase-2-recovery`**, which merges current `origin/main` (carrying
-Tasks 1–5 from #2292, plus independent `main` changes since) with Tasks 6–13 from
-`claude/dev-hub-phase-2-plan`, resolving the resulting conflicts as a union — nothing `main` had is
-dropped, and the full Tasks 6–13 feature is added on top.
+| PR      | What it carried                                                                                                                                                                                                   |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#2292` | Phase 2 Tasks 1-5 — the snapshot generator, and only that                                                                                                                                                         |
+| `#2345` | Tasks 6-13. **Closed by the owner as a presumed duplicate of `#2292`. It was not** — `main` at that moment held a generator nothing called: no gate, no reader, no committed snapshot, and none of the four pages |
+| `#2359` | Tasks 6-13 brought onto current `main`, carrying forward everything `#2345` had built                                                                                                                             |
+| `#2366` | `PanelSection` extracted and section metadata cleaned — two of the three review findings §6 below records as deferred                                                                                             |
+| `#2371` | Phase 3's live ingestion panel, and four placeholder panels removed for restating facts a green gate already guarantees                                                                                           |
+| `#2372` | The issue-ledger reconciliation, and the owner's ruling that the hazard register stays in the hub                                                                                                                 |
+
+An earlier revision of this file said the branch might exist only on one machine with no PR
+opened. That claim was false and inherited unchecked, and it is what led to `#2345` being
+closed. One open-PR query against the remote would have settled it. Never carry a "no PR yet"
+claim forward without checking it.
 
 ---
 
 ## 1. Status
 
-|                 |                                                                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worktree        | `D:/Worktrees/Database/dev-hub-phase-1` — **not** `.claude/worktrees`, which has been wiped repeatedly                                                                       |
-| Original branch | `claude/dev-hub-phase-2-plan`, cut from `origin/main` at `83a8ffb37`. Tasks 1–5 landed on `main` via PR #2292; Tasks 6–13 were later closed as PR #2345 (presumed duplicate) |
-| Recovery branch | `claude/dev-hub-phase-2-recovery` — brings Tasks 6–13 onto current `main`                                                                                                    |
-| Dependencies    | Installed. Do **not** run `npm ci`; for a fresh worktree use `node scripts/setup-codex-worktree.mjs`                                                                         |
+|              |                                                                                                                                                                                                                                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Worktree     | `D:/Worktrees/Database/dev-hub-phase-1` — **not** `.claude/worktrees`, which has been wiped repeatedly                                                                                                                                                                                                                   |
+| Branches     | All merged and finished: `claude/dev-hub-phase-2-plan` (`#2292`, `#2345`), the recovery branch (`#2359`), `claude/dev-hub-phase-3-plan` (`#2371`), `claude/issues-reconcile-2026-08-26` (`#2372`). All squash-merged, so `git merge-base --is-ancestor` reports them **unmerged** — verify by content, never by ancestry |
+| Dependencies | Installed. Do **not** run `npm ci`; for a fresh worktree use `node scripts/setup-codex-worktree.mjs`                                                                                                                                                                                                                     |
 
 ## 2. What shipped
 
@@ -39,12 +40,13 @@ One generator reads four on-disk sources and writes a committed `data/repo-aware
 One gate keeps it in step. One typed reader statically imports it. Four Server Component pages render
 it, and the hub links to all four.
 
-| Path                                 | What it answers                                                                  |
-| ------------------------------------ | -------------------------------------------------------------------------------- |
-| `/mockups/development/routes`        | What pages, modes, redirects and API routes exist                                |
-| `/mockups/development/documentation` | What documents exist, in which section, and whether the curated index lists them |
-| `/mockups/development/test-health`   | What is quarantined and until when — currently nothing, said in words            |
-| `/mockups/development/review-state`  | Which branches were reviewed, at which head, with what outcome                   |
+| Path                                 | What it answers                                                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mockups/development/routes`        | What pages, modes, redirects and API routes exist                                                                                        |
+| `/mockups/development/documentation` | What documents exist, in which section, and whether the curated index lists them                                                         |
+| `/mockups/development/test-health`   | What is quarantined and until when — currently nothing, said in words                                                                    |
+| `/mockups/development/review-state`  | Which branches were reviewed, at which head, with what outcome                                                                           |
+| `/mockups/development/ingestion`     | Whether an uploaded document actually indexed — added later by `#2371`, and the only panel that reads live data rather than the snapshot |
 
 `work-in-flight` kept its id (ruling R9) and became **"Review state"**. The page says in its own words
 that it shows review history and **not** open pull requests or their CI, so a reader cannot infer that
@@ -113,13 +115,17 @@ Classify failures by mechanism, not by matching a name against a list that has a
 2. **The environment strip is still three-quarters unwired** — `isDemoMode()`, the signed-in email, the
    document count. Spec §3 defers these to the phase that owns their data source. The hub's own comment
    now says that, rather than pointing at Phase 2 as it did.
-3. **Nine panels remain declared placeholders** (phases 3 and 4). Each is still a phase flip plus an
-   href — the registry mechanism is unchanged.
+3. **One panel remains a declared placeholder**: `hazard-register` (phase 4). Four others were
+   removed in `#2371` for restating facts a green gate already guarantees, and `ingestion` was
+   built. The owner ruled on 2026-08-26 that the hazard register belongs in this hub rather than
+   as a separate clinical-safety surface — it is unbuilt, not unwanted. Building it is still a
+   phase flip plus an href; the registry mechanism is unchanged.
 4. **Spec open questions 2 and 3 are answered "no"** by rulings R1 and R3. To get orphan-route or
    document-age reporting, overturn those rulings; they are an argument, not an oversight.
-5. **Three review findings deferred by controller ruling**, all recorded with reasoning: a
-   `PanelSection` extraction for 17 repeated `<section aria-labelledby>` blocks; two per-section
-   documentation counts that are emitted and never read; a `.prettierignore` asymmetry.
+5. **Three review findings were deferred by controller ruling; two have since landed.** `#2366`
+   extracted the `PanelSection` primitive for the 17 repeated `<section aria-labelledby>` blocks
+   and cleaned up the two per-section documentation counts that were emitted and never read. The
+   `.prettierignore` asymmetry is the one still open, and it is cosmetic.
 6. **`/review-state` renders 1.73 MB of HTML** — 454 records, deliberately unpaginated so the list can
    never disagree with its own count. Measured here for the first time. No gate watches it:
    `check:bundle-budget` weighs client JavaScript and these pages ship none. A future option is
@@ -135,8 +141,10 @@ Classify failures by mechanism, not by matching a name against a list that has a
 
 The session ledger, task briefs and reviewer reports live in the git-ignored
 `.superpowers/sdd/2026-08-22-developer-hub-phase-2/`, with a copy outside the worktree at
-`…/scratchpad/sdd-backup/`. It is deliberately **not** deleted: it is the recovery map. Everything a
-resuming session actually needs is in this file, the plan, and the spec.
+`…/scratchpad/sdd-backup/`. It was preserved through the `#2345`/`#2359` recovery as the map back to work that
+looked lost. That recovery is finished and everything it held is merged, so the directory is now
+ordinary scratch — safe to delete, and safe to ignore. Everything a resuming session actually
+needs is in this file, the plan, and the spec.
 
 ## 8. Outstanding for the owner, unrelated to this phase
 

@@ -2378,15 +2378,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("main")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      await expect(page.getByTestId("privacy-trust-brief")).toBeVisible();
+      await expect(page.getByTestId("privacy-draft-disclaimer")).toBeVisible();
+
+      const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+      await safetyDisclosure.focus();
+      await expect(safetyDisclosure).toBeFocused();
+      await safetyDisclosure.click();
+      await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+
       // The scannable answer layer and the print affordance are the two things a
       // reader arriving from the composer notice needs without opening anything.
       await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
+      const factColumns = await page.getByTestId("privacy-at-a-glance-grid").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(factColumns).toBe(viewport.width >= 1024 ? 3 : viewport.width >= 640 ? 2 : 1);
+
+      const processingColumns = await page.getByTestId("privacy-processing-stages").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(processingColumns).toBe(viewport.width >= 640 ? 3 : 1);
       // The footer control, not the sm+ header one: the header print button is
       // hidden on a phone, and this assertion runs at 320px too.
       await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+
+    const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+    await safetyDisclosure.focus();
+    await expect(safetyDisclosure).toBeFocused();
+    await expect
+      .poll(() => safetyDisclosure.locator("svg").evaluate((icon) => getComputedStyle(icon).transitionProperty))
+      .toBe("none");
+    await safetyDisclosure.click();
+    await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
 
   test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -2684,9 +2720,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    const relatedItems = page.getByRole("region", { name: "Related pages in other modes" }).getByRole("listitem");
+    // The library matches are one collapsed line under the answer now (owner
+    // decision, 2026-08-26, "direction B"): the follow-up questions lead, and
+    // this opens on demand. Still asserted end to end rather than dropped —
+    // open it and the same two links are there, at full tap size.
+    const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
+    const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
+    await relatedTrigger.click();
+    const relatedItems = relatedRegion.getByRole("listitem");
     await expect(relatedItems).toHaveCount(2);
     await expect(relatedItems.last()).toBeVisible();
+    // Collapse it again before the geometry below. The rest of this test
+    // measures the answer's scroll runway in its resting state, and an expanded
+    // panel adds ~88px of content that the page does not carry by default.
+    await relatedTrigger.click();
+    await expect(relatedItems.last()).toBeHidden();
 
     const main = page.locator("main#main-content");
     const header = page.locator("header.universal-header");
@@ -2815,6 +2863,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(input).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 844 });
+    // Re-open the library line: the tap-target sweep below is about the links
+    // inside it, and the geometry block above needed it resting closed.
+    await relatedTrigger.click();
     const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
     await expect(compactCrossModeRail).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -2963,7 +3014,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-card-rail");
+    // One collapsed line under the answer, opened on demand (owner decision,
+    // 2026-08-26, "direction B"). Everything below still has to work through it,
+    // so the test opens it rather than dropping the coverage.
+    await strip.getByTestId("cross-mode-links-line-trigger").click();
+    const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
     await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
@@ -2978,7 +3033,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const followUpBox = await followUps.boundingBox();
       expect(stripBox).toBeTruthy();
       expect(followUpBox).toBeTruthy();
-      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+      // Questions above matches, not below. Asking the next question is the
+      // clinical step; browsing the library is not.
+      expect(followUpBox!.y).toBeLessThan(stripBox!.y);
     }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });

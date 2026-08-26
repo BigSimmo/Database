@@ -105,10 +105,12 @@ import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  therapyCompareAddonSlotId,
   modeHomeComposerReservePendingValue,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
+import { isTherapyPhoneDockRoute, readTherapyCompareSlugCount } from "@/lib/therapy-compass-navigation";
 import {
   isAlwaysStandaloneShellPath,
   isDashboardOwnedModeHomePath,
@@ -448,6 +450,14 @@ function GlobalStandaloneSearchShellBody({
     // `/differentials` is absent on purpose: it redirects to the shared home, so a
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
+  // The therapy compare tray docks above the phone search pill. The claim is
+  // gated on the URL actually carrying a set, not merely on being on a therapy
+  // route: the dock reserve inflates on CLAIM, so claiming with an empty tray
+  // would open a blank band under a row that renders nothing.
+  const therapyCompareAddonActive =
+    searchMode === "therapy-compass" &&
+    isTherapyPhoneDockRoute(pathname) &&
+    readTherapyCompareSlugCount(searchParams) > 0;
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
@@ -509,6 +519,7 @@ function GlobalStandaloneSearchShellBody({
       heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
+      therapyCompareAddonActive,
     }),
   );
 
@@ -935,9 +946,19 @@ function GlobalStandaloneSearchShellBody({
               // maximum screen space (mode homes and result views alike).
               mobileBottomSearchVariant="compact"
               mobileBottomSearchAddonSlotId={
-                differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+                differentialsCompareAddonActive
+                  ? differentialsMobileCompareAddonSlotId
+                  : therapyCompareAddonActive
+                    ? therapyCompareAddonSlotId
+                    : undefined
               }
-              mobileBottomSearchAddonKind={differentialsCompareAddonActive ? "differentials-compare" : undefined}
+              mobileBottomSearchAddonKind={
+                differentialsCompareAddonActive
+                  ? "differentials-compare"
+                  : therapyCompareAddonActive
+                    ? "therapy-compare"
+                    : undefined
+              }
               desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
               showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
               searchComposerVisible={shouldShowSearchComposer}

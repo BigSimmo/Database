@@ -174,6 +174,29 @@ test.describe("@mockup Ward Flow command view", () => {
     await expectNoRegionGridOverflow(page);
   });
 
+  test("keeps the header brand visible at tablet width when the remembered panel is hidden", async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 900 });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("ward-flow-sidebar-collapsed", "0");
+    });
+    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    const sidebar = page.getByRole("complementary", { name: "Ward Flow sidebar", includeHidden: true });
+    await expect(sidebar).toBeAttached({ timeout: 15_000 });
+    await expect(sidebar).toBeHidden();
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeVisible();
+  });
+
+  test("uses its fixed bar as the sole Ward Flow brand on phone", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 820 });
+    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    await expect(page.getByRole("link", { name: "Ward Flow", exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeHidden();
+  });
+
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
