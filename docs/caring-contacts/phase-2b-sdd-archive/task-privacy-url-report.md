@@ -335,5 +335,15 @@ Recorded here so nobody reads its absence from the table as an oversight.
 
 ## Round 2 final re-verify
 
-Recorded after the last edit in this round, which is this section. See the two lines below the table
-in the summary handed to the coordinator.
+Run against commit `c51c651ad`, which contains **every source, test and generated-document change in
+this task**. All three green, first attempt each:
+
+- `typecheck` -- `[gate-receipts] recorded a pass for "typecheck:internal" (5502 input files)`
+- `test:cc-guards` -- `Test Files  18 passed (18)` / `Tests  412 passed (412)`
+- `prettier --check` over every file this task touched -- `All matched files use Prettier code style!`
+
+The only content added to the tree after that run is this paragraph, which is markdown none of the
+three gates reads. Stated this way deliberately: round 1's version of this sentence claimed the gates
+covered the tree that contained the sentence, which cannot be true of the last edit in any round --
+ordering is not the mechanism, and the honest form is to name the commit the verdict covers and the
+delta that follows it.
