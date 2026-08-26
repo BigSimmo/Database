@@ -1,11 +1,7 @@
 import { AlertTriangle, CalendarDays, Clock } from "lucide-react";
 import Link from "next/link";
 
-import {
-  CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM,
-  patientRoute,
-  scheduleDayRoute,
-} from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM, patientRoute, scheduleDayRoute } from "@/lib/caring-contacts-routes";
 import { toAwstParts } from "@/lib/caring-contacts/clock";
 import { isAwstCalendarDay } from "@/lib/caring-contacts/schedule";
 import type {
@@ -89,15 +85,7 @@ const sectionId = "caring-contacts-schedule";
  * runtime was built with, down to whether a comma follows the weekday. These arrays are three lines
  * and cannot drift.
  */
-const WEEKDAY_NAMES = Object.freeze([
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]);
+const WEEKDAY_NAMES = Object.freeze(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
 
 const MONTH_NAMES = Object.freeze([
   "January",
@@ -460,7 +448,9 @@ function SelectedDay({
             ))}
           </div>
 
-          {day.outsideApprovedWindows.entries.length > 0 ? <OutsideApprovedWindows group={day.outsideApprovedWindows} /> : null}
+          {day.outsideApprovedWindows.entries.length > 0 ? (
+            <OutsideApprovedWindows group={day.outsideApprovedWindows} />
+          ) : null}
 
           <NamedExceptions group={day.exceptions} />
         </>
@@ -667,8 +657,8 @@ function NamedExceptions({ group }: { group: ScheduleGroup }) {
         <span className="min-w-0">Named exceptions</span>
       </h4>
       <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-        Contacts a person has to look at: a message the provider did not deliver, and a message the
-        sending window closed on. They are kept out of the windows above so one patient is never counted twice.
+        Contacts a person has to look at: a message the provider did not deliver, and a message the sending window
+        closed on. They are kept out of the windows above so one patient is never counted twice.
       </p>
       {group.entries.length === 0 ? (
         <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
@@ -734,11 +724,7 @@ function ContactRow({ entry }: { entry: ScheduleEntry }) {
       </Link>
       {notSending === null ? null : (
         <div className="mt-3 min-w-0">
-          <AutomatedState
-            state={notSending.state}
-            because={notSending.because}
-            changedBy={notSending.changedBy}
-          />
+          <AutomatedState state={notSending.state} because={notSending.because} changedBy={notSending.changedBy} />
         </div>
       )}
     </li>

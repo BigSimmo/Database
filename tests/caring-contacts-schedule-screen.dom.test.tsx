@@ -214,7 +214,9 @@ function renderScreen(
 
 /** The screen's statement about the day it is open on. */
 function dayStatementText(): string {
-  const statement = document.querySelector("[data-testid='caring-contacts-schedule-day-counts']")?.previousElementSibling;
+  const statement = document.querySelector(
+    "[data-testid='caring-contacts-schedule-day-counts']",
+  )?.previousElementSibling;
   if (!statement) throw new Error("the day statement is missing");
   return statement.textContent ?? "";
 }
@@ -467,9 +469,11 @@ describe("the Schedule screen — the named-exceptions panel", () => {
     const routinePatient = planIn(records, routinePlan).patientId;
 
     const panel = screen.getByRole("region", { name: "Named exceptions" });
-    expect(within(panel).getAllByRole("heading", { level: 5 }).map((heading) => heading.textContent)).toEqual([
-      missedPatient,
-    ]);
+    expect(
+      within(panel)
+        .getAllByRole("heading", { level: 5 })
+        .map((heading) => heading.textContent),
+    ).toEqual([missedPatient]);
     expect(screen.getByRole("group", { name: "Missed" }).textContent).toContain("never retried");
 
     // It is in the panel INSTEAD of its window, not as well: one patient counted twice is the
@@ -478,9 +482,11 @@ describe("the Schedule screen — the named-exceptions panel", () => {
     const morning = screen.getByRole("region", { name: "Morning" });
     expect(within(morning).queryAllByRole("heading", { level: 5 })).toEqual([]);
     const afternoon = screen.getByRole("region", { name: "Afternoon" });
-    expect(within(afternoon).getAllByRole("heading", { level: 5 }).map((heading) => heading.textContent)).toEqual([
-      routinePatient,
-    ]);
+    expect(
+      within(afternoon)
+        .getAllByRole("heading", { level: 5 })
+        .map((heading) => heading.textContent),
+    ).toEqual([routinePatient]);
   });
 });
 
@@ -509,7 +515,9 @@ describe("the Schedule screen — the boundaries of a day", () => {
     const next = within(dayStrip())
       .getAllByRole("link")
       .find((link) => link.getAttribute("data-schedule-day") === NEXT_MONTH_START);
-    expect(next?.getAttribute("aria-label")).toBe(`${scheduleDayLabel(NEXT_MONTH_START)}. 0 contacts, 0 still to send.`);
+    expect(next?.getAttribute("aria-label")).toBe(
+      `${scheduleDayLabel(NEXT_MONTH_START)}. 0 contacts, 0 still to send.`,
+    );
     expect(scheduleDayLabel(NEXT_MONTH_START)).toBe("Tuesday 1 September 2026");
   });
 
