@@ -93,4 +93,24 @@ describe("document image filmstrip page sync", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show PDF page 3" }));
     expect(onSelectPage).toHaveBeenCalledExactlyOnceWith(3);
   });
+
+  it("uses a compact status instead of a warning panel when only the source table image is available", () => {
+    render(<DocumentImage image={image({ id: "img-10", page_number: 2 })} />);
+
+    expect(screen.getByTestId("source-image-only-status")).toHaveTextContent(
+      "Source image only; no reliable generated table is available.",
+    );
+    expect(screen.queryByText("Verify table formatting against the source.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No reliable generated table was available; use the source image."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the detailed warning when an image-only table has a material crop-quality issue", () => {
+    render(<DocumentImage image={image({ id: "img-11", page_number: 3, cropCompleteness: 0.61 })} />);
+
+    expect(screen.getByTestId("source-image-only-status")).toBeInTheDocument();
+    expect(screen.getByText("Verify table formatting against the source.")).toBeInTheDocument();
+    expect(screen.getByText("Source crop may be incomplete (61% completeness).")).toBeInTheDocument();
+  });
 });
