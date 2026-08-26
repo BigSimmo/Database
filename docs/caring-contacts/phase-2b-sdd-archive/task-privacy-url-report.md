@@ -491,3 +491,44 @@ final tree is what covers that, and it is in the table below.
 across the narrowed set — every one recorded as UNRUN and retried, none forced. One background run was
 cancelled mid-mutation by me; it left M18 applied, which `git status` caught immediately and an
 explicit `git checkout -- <path>` restored before anything else ran.
+
+## Round 3 gates, on the final tree
+
+Run against commit `5a0a68370`, which contains every source, test and generated-document change in
+this round.
+
+| Gate                                                         | Decisive line                                                                 |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `npx prettier --check` over every file this round touched    | `All matched files use Prettier code style!`                                  |
+| `npx eslint` uncached (cache directory removed first)        | `files linted: 10 errors: 0 warnings: 0`                                      |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`)                | `[gate-receipts] recorded a pass for "typecheck:internal" (5503 input files)` |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), **full** | `Test Files  18 passed (18)` / `Tests  418 passed (418)`                      |
+
+The only content added after that run is this section, which none of the four gates reads. Named this
+way rather than as "re-run on the final tree", for the reason round 2 recorded: the last edit of any
+round cannot be covered by a gate run before it, so the honest form is to name the commit the verdict
+covers and the delta that follows.
+
+### Two things the uncached lint and the refusal detector caught, both mine
+
+**The uncached lint found a real defect my own edit introduced.** Deleting the tautological equality
+pin left its import behind: `'PATIENTS_DIRECTORY_OVERLAY_PARAM' is defined but never used`. A cached
+ESLint run would not have re-examined that file, and nothing else in the pyramid looks at unused
+imports — this is precisely the case the "clear the cache or use `npx eslint`" rule exists for. Fixed
+in `5a0a68370`, and the gates above are the run that followed it.
+
+**My own refusal detector mislabelled a refusal as a run**, which is worth recording because it is the
+shape this programme keeps meeting. There are TWO refusal messages, not one: `run-heavy.mjs` prints
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY`, while `run-vitest.mjs` and the lock module _throw_, so the output
+ends `Error: Database focused-test capacity is full …` / `Node.js v24.19.0` with no marker at all. My
+retry loop grepped for the marker only, so a thrown refusal fell through the `else` branch and was
+reported as "ran on attempt 7" with a Node stack trace as its evidence. Nothing downstream would have
+noticed: a refusal reported as a run is a gate that never happened wearing the label of one that did.
+The detector now matches both shapes, and the table above is from the corrected run.
+
+### Refusals across round 3
+
+Recorded as UNRUN, retried, never forced. Baseline: 25 (typecheck ran on attempt 24). M18 and M17: 3.
+The narrowed set: 13. Final re-verify: 4 after the detector fix, plus one mislabelled refusal before
+it. A fifth worktree joined partway through — `C:\Users\joshs\.codex\worktrees\remove-followup-suggestions`
+holding an exclusive Playwright lease — alongside `cc-schedule`, `cc-plan-detail` and `care-plan-impl`.
