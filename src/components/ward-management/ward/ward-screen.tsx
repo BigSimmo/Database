@@ -441,7 +441,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
               Predicted {breakdown.predictedToday}
             </span>
             <span className={styles.bedChip} data-state="leave">
-              Leave {breakdown.leaveUsable}
+              Leave (usable) {breakdown.leaveUsable}
             </span>
           </div>
           <p className={styles.bedNote}>

@@ -859,11 +859,13 @@
 }
 
 /*
- * `potential` is drawn from bed releases, never from `unit.beds`, and must never be summed into
- * the four states above (ruling 3). Dashed styling marks it visually as the separate,
- * forward-looking figure it is — the same convention the Phase 1 network diagram already uses.
+ * Confirmed and Predicted are drawn from bed releases, never from `unit.beds`, and must never be
+ * summed into the four states above (ruling 3). Dashed styling marks them visually as the
+ * separate, forward-looking figures they are — the same convention the Phase 1 network diagram
+ * already uses.
  */
-.diagramBedChip[data-state="potential"] {
+.diagramBedChip[data-state="confirmed"],
+.diagramBedChip[data-state="predicted"] {
   border-style: dashed;
   border-color: var(--clinical-accent);
   color: var(--clinical-accent);

@@ -1,4 +1,5 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
+import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
@@ -625,6 +626,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const flaggedUnit = findUnit(state, event.unitId);
       if (!flaggedUnit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      // Review Finding 1: a typed caller cannot construct this event with a `blocker` outside
+      // `BED_RELEASE_BLOCKERS` — it is a required union member, not a plain `string`. This check
+      // exists for the untyped caller anyway: "Blockers are chosen, never typed" (binding spec)
+      // is a runtime rule, not merely a compile-time one, so a defined `blocker` is checked by
+      // real membership, not by truthiness alone.
+      if (event.blocker !== undefined && !BED_RELEASE_BLOCKERS.includes(event.blocker)) {
+        return reject(state, event, `FLAG_BED_RELEASE blocker must be chosen from BED_RELEASE_BLOCKERS`);
+      }
       // Spec D3: a release is `blocked` xor `predicted`, never both — a blocker is legal only in
       // `blocked`, a confidence only in `predicted`. A flag that names a blocker is reporting a
       // bed that is coming free but currently held up; a flag with no blocker is a plain
@@ -732,8 +741,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // A typed caller cannot construct this event without `blocker` — it is a required field,
       // not the optional one `FLAG_BED_RELEASE` carries. This check exists for the untyped
       // caller anyway: "blocked with no blocker" is a contradiction in terms (spec D3) and must
-      // be refused at runtime, not merely disallowed at compile time.
-      if (!event.blocker) {
+      // be refused at runtime, not merely disallowed at compile time. Review Finding 1: this used
+      // to be a truthiness test (`!event.blocker`), which refuses a missing or empty value but
+      // accepts any other non-empty string — a real membership test against
+      // `BED_RELEASE_BLOCKERS` is what "Blockers are chosen, never typed" (binding spec) actually
+      // requires.
+      if (!event.blocker || !BED_RELEASE_BLOCKERS.includes(event.blocker)) {
         return reject(state, event, `BLOCK_BED_RELEASE requires a blocker chosen from BED_RELEASE_BLOCKERS`);
       }
       // Legal transitions: predicted -> blocked, confirmed -> blocked. Nothing else.

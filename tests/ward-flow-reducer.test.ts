@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { releaseBand } from "../src/components/ward-management/ward-bed-availability";
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
+import type { WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -1221,6 +1222,33 @@ describe("bed release flagging", () => {
 
     expect(after.rejections).toHaveLength(1);
     expect(after.rejections[0].reason).toMatch(/role/i);
+    expect(after.bedReleases).toEqual(seeded.bedReleases);
+  });
+
+  it("refuses a blocker outside BED_RELEASE_BLOCKERS, not just an empty one (review Finding 1)", () => {
+    // Review Finding 1: the reducer's own runtime guard was a truthiness test
+    // (`event.blocker !== undefined`, no membership check), so any non-empty string reached this
+    // far. A typed caller cannot construct this event with an arbitrary `blocker` — the invalid
+    // event is constructed only for this runtime-refusal test, never by widening the event type
+    // itself, mirroring `ward-bed-release-lifecycle.test.ts`'s "no blocker" case.
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+
+    const invalidEvent = {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: unit.id,
+      confidence: "possible",
+      expectedAt: NOW + 60,
+      blocker: "Family unavailable to collect",
+    } as unknown as WardFlowEvent;
+
+    const after = wardFlowReducer(seeded, invalidEvent);
+
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].attempted).toBe("FLAG_BED_RELEASE");
     expect(after.bedReleases).toEqual(seeded.bedReleases);
   });
 });

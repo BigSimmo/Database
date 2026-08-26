@@ -186,7 +186,7 @@ describe("ward screen live unit capacity", () => {
  * (WR-001, `confirmed`, expected well inside today — asserted at the top of the earlier "bed
  * release controls" suite above) and exactly one seeded leave bed (WL-001, `usable: true`). That
  * gives an unambiguous, non-zero expectation for all three new figures: Confirmed 1, Predicted 0,
- * Leave 1.
+ * Leave (usable) 1.
  */
 describe("ward screen bed capacity chip row uses the shared breakdown, not the raw potential count", () => {
   it("never renders 'Potential', and renders Confirmed/Predicted/Leave from capacityBreakdown()", () => {
@@ -208,7 +208,7 @@ describe("ward screen bed capacity chip row uses the shared breakdown, not the r
     // reads, not re-derived by hand and not read from `unitCapacity()`.
     expect(chipRow).toHaveTextContent("Confirmed 1");
     expect(chipRow).toHaveTextContent("Predicted 0");
-    expect(chipRow).toHaveTextContent("Leave 1");
+    expect(chipRow).toHaveTextContent("Leave (usable) 1");
 
     // The four physical states are untouched by this fix — same figures, same order, same chips.
     expect(chipRow).toHaveTextContent("Ready 1");

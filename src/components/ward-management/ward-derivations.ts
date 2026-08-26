@@ -246,14 +246,16 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
     available,
     held,
     /**
-     * Task 7 (Phase 5, spec D6): this is a raw count of every bed release for the unit
-     * regardless of state or timing — it does not distinguish confirmed from predicted from
-     * blocked, and it does not exclude a release that falls beyond tonight. The capacity
-     * headline (`CapacityView` in `ward-management-modes.tsx`) no longer shows this figure at
-     * all — it renders `capacityBreakdown()`'s five separate figures instead. This field is
-     * NOT deleted and its arithmetic is unchanged: `coordinator/flow-diagram.tsx`,
-     * `ward-management-network.tsx` and `ward/ward-screen.tsx` still render it, and updating
-     * those three is a recorded follow-up outside this task's scope, not something to do here.
+     * Task 7 (Phase 5, spec D6); review Finding 4: this is a raw count of every bed release for
+     * the unit regardless of state or timing — it does not distinguish confirmed from predicted
+     * from blocked, and it does not exclude a release that falls beyond tonight. Nothing renders
+     * this field any more: `ward-management-modes.tsx`, `ward/ward-screen.tsx`,
+     * `ward-management-network.tsx` and `coordinator/flow-diagram.tsx` all render
+     * `capacityBreakdown()`'s Confirmed/Predicted figures instead. This field's arithmetic is
+     * deliberately left unchanged — it is protected — but it is dead beyond its remaining
+     * offline test callers (`tests/ward-capacity-reconciliation.test.ts`,
+     * `tests/ward-flow-reducer.test.ts`, `tests/ward-model.test.ts`); do not repurpose it as a
+     * live figure.
      */
     potential: bedReleases.filter((release) => release.unitId === unit.id).length,
     blocked,

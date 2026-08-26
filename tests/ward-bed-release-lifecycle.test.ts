@@ -100,6 +100,28 @@ describe("ward bed release lifecycle", () => {
     expect(release(next, "WR-002")).toEqual(before);
   });
 
+  it("3b. a ward blocks with a blocker outside BED_RELEASE_BLOCKERS — rejected, release unchanged (review Finding 1)", () => {
+    // Review Finding 1: the reducer's own guard was `if (!event.blocker)`, a truthiness test —
+    // it refuses only a missing or empty value, so any other non-empty string reached this far
+    // and was stored verbatim. This is the case truthiness alone cannot catch: a non-empty,
+    // non-member string. A typed caller cannot construct this event with such a value — the
+    // invalid event is constructed only for this runtime-refusal test, never by widening the
+    // event type itself, mirroring test 3 above.
+    const state = seeded();
+    const before = release(state, "WR-002");
+    const invalidEvent = {
+      type: "BLOCK_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+      blocker: "Awaiting a family decision",
+    } as unknown as WardFlowEvent;
+    const next = wardFlowReducer(state, invalidEvent);
+    expect(next.rejections).toHaveLength(1);
+    expect(release(next, "WR-002")).toEqual(before);
+  });
+
   it("4. a ward releases a confirmed release — availableNow rises by one", () => {
     const state = seeded();
     // WR-001 (rph-adult-secure) is seeded confirmed.

@@ -1,5 +1,9 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import type { LegalStatusChangeReason, UrgencyChangeReason } from "@/components/ward-management/ward-change-reasons";
+import type {
+  BedReleaseBlocker,
+  LegalStatusChangeReason,
+  UrgencyChangeReason,
+} from "@/components/ward-management/ward-change-reasons";
 
 export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACHS" | "Private";
 export type Cohort = "Adult" | "Older adult";
@@ -297,8 +301,9 @@ export type BedRelease = {
   expectedAt: Instant;
   /** Non-null only while `state` is `"predicted"`. */
   confidence: BedReleaseConfidence | null;
-  /** Non-null only while `state` is `"blocked"`. Always a `BedReleaseBlocker`. */
-  blocker: string | null;
+  /** Non-null only while `state` is `"blocked"`. Always a `BedReleaseBlocker` — enforced by the
+   *  type here, and by a membership check against `BED_RELEASE_BLOCKERS` in the reducer. */
+  blocker: BedReleaseBlocker | null;
   confirmedAt: Instant;
   /** A role — a unit or service label. Never a personal name. */
   confirmedBy: string;

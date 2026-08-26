@@ -19,9 +19,15 @@ describe("freshness stamp", () => {
     expect(screen.queryByText("—")).toBeNull();
   });
 
-  it("falls back to the time it was computed when there is nothing to confirm", () => {
+  it("falls back to 'Never confirmed', not the derived 'As at' rendering, when nothing is confirmed and nothing is derived", () => {
+    // Review Finding 7: this used to assert `/^(Never confirmed|As at )/` — an alternation
+    // matching either of `WardFreshness`'s two non-role renderings, so it could never fail for
+    // the one case it actually exercises (`derived` is not set here, so case 3, the floor,
+    // applies — see the sibling test below for case 1, where `derived` IS set). The exact
+    // mutation that survived: swapping the component's final fallback from "Never confirmed" to
+    // `As at ${formatInstant(now)}` left this assertion green.
     render(<WardFreshness confirmedByRole={null} confirmedAt={null} now={NOW_ANCHOR} />);
-    expect(screen.getByText(/^(Never confirmed|As at )/)).toBeTruthy();
+    expect(screen.getByText("Never confirmed")).toBeTruthy();
   });
 
   it("renders 'As at' with the formatted now when the screen states its data is derived", () => {

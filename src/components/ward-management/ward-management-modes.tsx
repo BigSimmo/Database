@@ -497,6 +497,19 @@ function CapacityView() {
                 </td>
                 <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
                   Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                  {/* Review Finding 2: `RELEASE_BED` moves `unit.empty` (and so derived `occupied`)
+                      without touching `unit.sexMix` — the model genuinely cannot know which sex
+                      left, so this cannot be corrected by decrementing a guessed sex or by adding
+                      `sex` to `BedRelease` (spec D11 forbids it). Once the two no longer agree, a
+                      bare sex-mix figure would present a stale, possibly-wrong number as current.
+                      Failure-behaviour rule: degrade toward stating less, never toward a claim —
+                      so this says the figure may be out of date, in real visible text, rather than
+                      silently rendering a number nothing has confirmed matches current occupancy. */}
+                  {unit.sexMix.Female + unit.sexMix.Male !== capacity.occupied ? (
+                    <div className={styles.microCopy} data-testid={`ward-capacity-sexmix-stale-${unit.id}`}>
+                      May not match current occupancy — a bed here was released since this was last recorded
+                    </div>
+                  ) : null}
                 </td>
                 <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
                 <td data-testid={`ward-capacity-authorised-${unit.id}`}>
@@ -505,8 +518,9 @@ function CapacityView() {
                 <td>
                   <WardFreshness
                     confirmedAt={unit.allocatable.confirmedAt}
-                    confirmedByRole={`NUM ${unit.name}`}
+                    confirmedByRole={unit.allocatable.source === "ward" ? `NUM ${unit.name}` : undefined}
                     now={now}
+                    derived={unit.allocatable.source !== "ward"}
                   />
                 </td>
                 <td className={styles.refreshCell}>
