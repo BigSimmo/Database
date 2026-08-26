@@ -155,6 +155,14 @@ tell whether your situation is the one it is about.
   - **The full `test:cc-guards` still runs once at the end, on the final tree**, with its `N passed` line
     pasted. That is what catches a mutation reddening something nobody predicted; a narrowed run cannot see
     collateral damage and must never be reported as though it could.
+
+    **This is measured, not a precaution.** Task 14 added a `useRouter()` call and it broke **eleven
+    Schedule-screen cases and two page cases that no per-mutation selection ever ran** — `invariant
+expected app router to be mounted`, thrown at render. Every narrowed row was green; only the wide run
+    at the end saw it. **The narrowing is safe precisely because this run exists**, so a task that narrows
+    its rows and then skips the full run has not saved time, it has removed the thing that made narrowing
+    safe.
+
   - **Predict and compare the failure message exactly as before.** Narrowing the selection narrows the
     files, never the evidence owed.
   - **Where a mutation targets a shared mechanism** — a type every overlay consumes, a helper three routes
