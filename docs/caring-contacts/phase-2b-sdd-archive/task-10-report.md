@@ -313,37 +313,37 @@ shell (`grep -c` silently returns 0 here for a mutation demonstrably present); t
 `npm run test:cc-guards` and nothing wider, with `GATE_RECEIPTS=refresh`; every attempt itemised,
 greens included; **no aggregate total**.
 
-| #   | The claim the mutation attacks                                                             | Expected | Got                     | Gate result (`Tests`)       |
-| --- | ------------------------------------------------------------------------------------------ | -------- | ----------------------- | --------------------------- |
-| M1  | the paused note names the PAUSED state as the cause                                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M2  | the paused note says a date is not a message on its way                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M3  | the paused note says what would change it                                                  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M4  | the paused note is LABELLED Paused, so it is findable by the state it is about             | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
-| M5  | the draft note names NOT STARTED as the cause                                              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M6  | draft and paused are different facts and do not collapse into one label                    | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
-| M7  | the draft note says a date is not a message on its way                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M8  | a RUNNING plan gets no such note, so the note means something when it appears              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M9  | an ENDED plan, which explains itself row by row, gets no plan-level note                   | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content              | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
-| M11 | each attestation row NAMES THE DESTINATION rather than only the act                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M12 | no wording on this card says the patient consented                                         | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M13 | the card says WHERE the agreement lives                                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M14 | the attestation's own instant is read back, not a constant                                 | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M15 | the empty case states itself as a fact                                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M17 | a plan WITH attestations renders them rather than the empty copy                           | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
-| M18 | the card says WHY retention keeps the attestation while it clears the reason               | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M19 | the delivery drawer is offered where a message LEFT, not where it did not                  | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
-| M20 | the control raises the delivery-detail row and no other                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M21 | the control names the row it was opened from, so one row's control is told from another's  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op)          | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M23 | an unknown overlay id is refused by name rather than by a TypeError                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width                | green    | **GREEN**, as predicted | 408 passed (408)            |
-| M25 | the exit row gets a RECORD commit, not an unavailable one that would aria-disable the exit | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M26 | the visible promise is GENERIC, because the drawer it opens is                             | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M27 | REACHABLE NOW: the draft note does not describe itself as paused                           | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
-| M28 | CONTROL: the attestation list locator finds a list when one exists                         | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
-| M29 | CONTROL: an ended plan's rows carry their own reason, held to expected content             | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
+| #   | The claim the mutation attacks                                                             | Expected | Got                     | Gate result (`Tests`)       | Selection                                     |
+| --- | ------------------------------------------------------------------------------------------ | -------- | ----------------------- | --------------------------- | --------------------------------------------- |
+| M1  | the paused note names the PAUSED state as the cause                                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M2  | the paused note says a date is not a message on its way                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M3  | the paused note says what would change it                                                  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M4  | the paused note is LABELLED Paused, so it is findable by the state it is about             | red      | **RED**, as predicted   | 2 failed / 406 passed (408) | full set                                      |
+| M5  | the draft note names NOT STARTED as the cause                                              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M6  | draft and paused are different facts and do not collapse into one label                    | red      | **RED**, as predicted   | 3 failed / 405 passed (408) | full set                                      |
+| M7  | the draft note says a date is not a message on its way                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M8  | a RUNNING plan gets no such note, so the note means something when it appears              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M9  | an ENDED plan, which explains itself row by row, gets no plan-level note                   | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content              | red      | **RED**, as predicted   | 3 failed / 405 passed (408) | full set                                      |
+| M11 | each attestation row NAMES THE DESTINATION rather than only the act                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M12 | no wording on this card says the patient consented                                         | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M13 | the card says WHERE the agreement lives                                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M14 | the attestation's own instant is read back, not a constant                                 | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M15 | the empty case states itself as a fact                                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M17 | a plan WITH attestations renders them rather than the empty copy                           | red      | **RED**, as predicted   | 3 failed / 405 passed (408) | full set                                      |
+| M18 | the card says WHY retention keeps the attestation while it clears the reason               | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M19 | the delivery drawer is offered where a message LEFT, not where it did not                  | red      | **RED**, as predicted   | 2 failed / 406 passed (408) | full set                                      |
+| M20 | the control raises the delivery-detail row and no other                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M21 | the control names the row it was opened from, so one row's control is told from another's  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op)          | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M23 | an unknown overlay id is refused by name rather than by a TypeError                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width                | green    | **GREEN**, as predicted | 408 passed (408)            | full set                                      |
+| M25 | the exit row gets a RECORD commit, not an unavailable one that would aria-disable the exit | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M26 | the visible promise is GENERIC, because the drawer it opens is                             | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M27 | REACHABLE NOW: the draft note does not describe itself as paused                           | red      | **RED**, as predicted   | 1 failed / 407 passed (408) | full set                                      |
+| M28 | CONTROL: the attestation list locator finds a list when one exists                         | red      | **RED**, as predicted   | 2 failed / 37 passed (39)   | caring-contacts-patient-overview.dom.test.tsx |
+| M29 | CONTROL: an ended plan's rows carry their own reason, held to expected content             | red      | **RED**, as predicted   | 2 failed / 37 passed (39)   | caring-contacts-patient-overview.dom.test.tsx |
 
 Predicted message against observed, row by row:
 
@@ -592,3 +592,98 @@ file by the driver rather than through a shell. It is load-bearing only for a **
 its own presence, since a mutation that never reached disk cannot make its own target assertion fail —
 but the field is printed for every attempt so that the one green in the ledger (**M24**) rests on
 evidence rather than on the absence of an abort.
+
+---
+
+## Review round 3
+
+Four items, all closed. Two were my errors of the same kind: **a correction applied to one site and
+not to its twin.**
+
+### 1. A claim I withdrew was still standing, stated as current, in the same report
+
+Round 2 withdrew "the choice between the two is unproven offline". I corrected it in "What the ledger
+does NOT prove" and **left it standing** in the `FINDING: WorkspaceOverlayCommit has no member`
+section — which is the section a reader consults when deciding that very question, so they got the
+withdrawn version. The same family, milder: the trigger was still framed as "names the row so ten of
+them are not ambiguous", the pre-correction wording.
+
+Both are corrected. **The rule I broke is one this programme already wrote down:** _when a diff
+changes what a mechanism does, read every doc comment in the files it touches._ A retraction is
+exactly that kind of change, and my own report is exactly that kind of file. A phrase grep would have
+found both in seconds; I did not run one because I believed I had already fixed "the" site.
+
+### 2. Two of the three supports under my foreign-row proof were false
+
+The conclusion held and was independently verified, but I had propped it up with two claims that do
+not survive checking:
+
+- "its replacement text appears nowhere in the tree" — **false.**
+  `everyAssuranceConfirmed(input.assurances)` is at `plan-activation.ts:485`. The true statement is
+  the **whole replacement line**: `sending" && everyAssuranceConfirmed` occurs nowhere in `src/` or
+  `tests/`.
+- "no commit on this branch touches that file at all" — **false.** **19** commits touch
+  `plan-wizard.tsx` (Tasks 7–9b). The true statement is **no commit since this task's base**
+  `ee2676290`, which is verified empty.
+
+The support that was exactly right is the one that carries the weight: **byte-identical to `HEAD`**.
+
+**And the escape was much narrower than I implied.** The foreign row's anchor occurs **exactly once**
+in `plan-wizard.tsx`. Had it carried a `find` key rather than `from`, the uniqueness check would have
+passed and **the driver would have applied it** to another task's source file. Only the missing key
+prevented that — nothing about the anchor did. Three loose supports read as three independent proofs;
+one exact support plus an honest statement of how close it came is worth more.
+
+**How the row actually arrived** is also more mundane than I said: it sits in
+`mutate-cc-plan-detail.mjs.bak` as the **last element of my own MUTATIONS array**, immediately after
+M25. It arrived as an **append edit to my own table**, not through a shared path. Namespacing did its
+job; the array had no guard.
+
+### 3. The guard was inadequate in four ways, and had never run
+
+Every one is fixed, and — the point I had missed — **the fixes are now executed rather than asserted**:
+
+| Defect                                                                                                         | Fix                                                                          | Proof                                                                               |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Ran _after_ `readFileSync`, so a row naming an absent path would ENOENT and kill the pass                      | every refusal moved above all file I/O                                       | `PROBE-ALLOWLIST` names a non-existent path and **refuses instead of throwing**     |
+| Sniffed shape, not containment — a foreign row carrying `find`/`claim` would be applied to another task's file | an **allowlist** of the files this task may mutate, checked against `m.file` | `PROBE-ALLOWLIST` refused on containment                                            |
+| No duplicate-`id` check — the collision that corrupted ledger identity                                         | id-uniqueness **throws** before any row runs                                 | re-injecting `id: "M17"` throws `duplicate mutation id M17`, and nothing is written |
+| Never executed                                                                                                 | probe rows that trip each branch                                             | `PROBE-SHAPE` refused on shape; tree clean after every probe                        |
+
+**Plus the check the byte-equality rule needed and did not have.** `expected !== before` is asserted
+**before** the write: if `find` were absent, `String.replace` returns the original, the write is a
+no-op, and `onDisk === expected` **passes** — reporting a mutation as present when it never applied,
+in precisely the green case the presence field exists for. `PROBE-NOOP` trips it.
+
+### 4. Formatting, and a count with a false number attached
+
+The changed files had never been through Prettier — `patient-overview.tsx`, the patient-overview DOM
+suite and this report all failed `--check`. All now pass. **Formatting moved no mutation anchor:**
+every one of the 29 was re-counted against the formatted files and each still occurs exactly once,
+and the ledger was then re-run in full against the formatted tree so the captured line numbers are
+the ones a reader will find.
+
+The Ruling [94] breach: "M10, M17 and M19 each turned two tests red" was wrong in **both** the number
+and the membership — **M6**, **M10** and **M17** reddened three; **M4**, **M19**, **M28** and **M29**
+reddened two. It is now stated as the set. Round-2 item 5 had the same shape — "Three counts restated
+in prose", counting a set it did not enumerate, failing the test the sentence itself proposes — and is
+now stated as the set too.
+
+### Per-mutation suite selection, from M28 onward
+
+The last two rows ran against **only the suite they target** rather than the whole `test:cc-guards`
+set — same runner, same lease, same evidence, a far shorter hold. The **Selection** column records
+which rows used which, so a per-suite red is never mistaken for a full-set red. What the narrow run
+deliberately cannot see is collateral damage in a suite it does not name; that is what the single full
+`test:cc-guards` run on the final tree is for, and it is not claimed to be replaced.
+
+### The lease, and what it cost
+
+This round's re-run met sustained contention: **one pass had every one of its first eighteen rows
+refused** by a single long lease from another worktree, which would have produced a ledger of unrun
+rows wearing the shape of evidence. That pass was **abandoned rather than recorded**. The driver now
+**retries a refusal in place** — waiting up to forty attempts, logging every refused attempt, never
+forcing — and the ledger shows those waits: fourteen consecutive refusals before one row, seven before
+another. The driver was also killed twice mid-row by process cleanup; each time the stranded mutation
+was restored and verified clean before the pass resumed, which is what `git diff --quiet` on both
+sides is for.
