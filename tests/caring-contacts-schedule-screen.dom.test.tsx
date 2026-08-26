@@ -23,8 +23,10 @@
 // differ": three empty lists agree perfectly, and a pair of renders compared only against each
 // other stays green when the thing they share is emptied.
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import {
   parseScheduleDay,
   ScheduleScreen,
@@ -162,7 +164,7 @@ async function driveContactTo(
   store: CaringContactRepository,
   id: PlanId,
   stored: StoredContact,
-  state: "delivered" | "statusUnavailable" | "missed",
+  state: "delivered" | "statusUnavailable" | "notDelivered" | "missed",
 ): Promise<void> {
   const key = (step: string) => idempotencyKey(`${stored.contact.id}-${step}`);
   if (state === "missed") {
@@ -800,5 +802,79 @@ describe("parseScheduleDay — the day comes from the URL, or from today", () =>
     expect(parseScheduleDay({ day: "2026-02-30" }, MONTH_END)).toBe(MONTH_END);
     expect(parseScheduleDay({ day: "2026-13-01" }, MONTH_END)).toBe(MONTH_END);
     expect(parseScheduleDay({ day: "yesterday" }, MONTH_END)).toBe(MONTH_END);
+  });
+});
+
+/**
+ * Phase 2B Task 14 -- what a named exception says about a delivery, and what it refuses to say.
+ *
+ * The design this panel comes from describes a delivery history the service does not keep: the row
+ * `resolve-failed-delivery`'s own frozen summary opens by saying all three attempts are finished,
+ * and nothing in this domain counts attempts. So these cases are about ABSENCE as much as presence,
+ * and every absence here has a positive control beside it.
+ */
+describe("the Schedule screen — a delivery the provider did not complete", () => {
+  it("states the transport receipt, that nothing is sent again, and offers the overlay", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { sendingPreference: "morning" });
+    const stored = contactOn(planIn(await plansOf(store), id), MONTH_END);
+    await driveContactTo(store, id, stored, "statusUnavailable");
+
+    const records = await plansOf(store);
+    renderScreen(records, MONTH_END);
+
+    const panel = screen.getByRole("region", { name: "Named exceptions" });
+    // The premise, first: the row really is in the panel, so nothing below can pass on an empty one.
+    expect(within(panel).getByRole("heading", { level: 5 }).textContent).toBe(planIn(records, id).patientId);
+
+    const state = within(panel).getByRole("group", { name: "Transport receipt unavailable" });
+    expect(state.textContent).toContain("no transport receipt ever came back");
+    // The remedy says what is true of every one of the four provider outcomes.
+    expect(state.textContent).toContain("no way to send a caring contact again");
+
+    expect(within(panel).getByRole("button", { name: /Close off this delivery/ })).not.toBeNull();
+  });
+
+  it("says an attempt history is not held, and implies no attempt count anywhere on the screen", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { sendingPreference: "morning" });
+    const stored = contactOn(planIn(await plansOf(store), id), MONTH_END);
+    await driveContactTo(store, id, stored, "statusUnavailable");
+
+    const { container } = renderScreen(await plansOf(store), MONTH_END);
+
+    // THE POSITIVE HALF, so the absence assertions below cannot pass on a screen that renders
+    // nothing at all.
+    expect(screen.getByTestId("caring-contacts-schedule-attempts-not-recorded").textContent).toContain(
+      "a history of sending attempts",
+    );
+
+    // And the absence: no sentence this screen renders counts attempts. The overlay's own frozen
+    // summary does say "all three attempts", which is why this is scoped to the screen rather than
+    // to the document -- that row is the frozen record's wording and not this screen's to edit.
+    const text = container.textContent ?? "";
+    expect(text).not.toMatch(/all three attempts/i);
+    expect(text).not.toMatch(/(?:\d+|one|two|three|several) attempts?/i);
+  });
+
+  it("carries the correction into the overlay itself, on a decision control that stays focusable", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { sendingPreference: "morning" });
+    const stored = contactOn(planIn(await plansOf(store), id), MONTH_END);
+    await driveContactTo(store, id, stored, "notDelivered");
+
+    renderScreen(await plansOf(store), MONTH_END);
+    render(<WorkspaceOverlays />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Close off this delivery/ }));
+    const action = screen.getByTestId("workspace-overlay-action");
+    // Ruling 87's shape: the decision the system will not honour is refused with the reason visible,
+    // and the control keeps its tab stop so a keyboard user reaches that reason.
+    expect(action.getAttribute("aria-disabled")).toBe("true");
+    expect(action.hasAttribute("disabled")).toBe(false);
+    const describedBy = action.getAttribute("aria-describedby");
+    expect(document.getElementById(describedBy ?? "")?.textContent ?? "").toContain(
+      "does not keep a history of sending attempts",
+    );
   });
 });

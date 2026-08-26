@@ -406,6 +406,14 @@ describe("buildScheduleRange — the three sending windows", () => {
     expect(day.outsideApprovedWindows.entries.map((entry) => entry.contactId)).toEqual([moved.contact.id]);
     expect(day.outsideApprovedWindows.counts.due).toBe(1);
     expect(day.disposition).toBe("contactsDue");
+
+    // Task 14: the entry carries the STORED contact's own version, and it advanced with the write
+    // above. A screen offering a move sends this as `expectedContactVersion`, so an entry that
+    // published a constant -- or the version as it was before the move -- would make every later
+    // move on this contact a stale-version refusal, or worse, silently overwrite somebody else's.
+    // The pair is the point: the first line would pass against a constant 2, the second would not.
+    expect(day.outsideApprovedWindows.entries[0].contactVersion).toBe(moved.contact.version + 1);
+    expect(day.outsideApprovedWindows.entries[0].contactVersion).toBe(rescheduled.value.contact.version);
   });
 
   it("puts every entry the day holds in exactly one group", async () => {
