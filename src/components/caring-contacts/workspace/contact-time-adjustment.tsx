@@ -419,8 +419,8 @@ export function ContactTimeAdjustment({
       </div>
 
       <p className="mt-1 max-w-[var(--measure)] text-xs leading-5 text-[color:var(--text-muted)]">
-        A contact may be moved only within the day it is already scheduled for, to a send hour {approvedWindowWording()}
-        .{unchanged ? " This is the time it is already scheduled for." : ""}
+        A contact&rsquo;s send time may be changed only within the day it is already scheduled for, to a send hour{" "}
+        {approvedWindowWording()}.{unchanged ? " This is the time it is already scheduled for." : ""}
       </p>
 
       <p
@@ -476,7 +476,7 @@ const MOVE_REFUSAL_WORDING: Readonly<Record<string, string>> = Object.freeze(
     "contact-move-outside-approved-window":
       "The service refused that time because it is not one this service may send at, so nothing was changed.",
     "contact-move-leaves-scheduled-day":
-      "The service refused that time because it would fall on a different day, and a contact may be moved only within the day it is already scheduled for. Nothing was changed.",
+      "The service refused that time because it would fall on a different day, and a send time may be changed only within the day the contact is already scheduled for. Nothing was changed.",
     "contact-terminal": "This contact has already finished, so there is nothing left to move and nothing was changed.",
     "service-stopped":
       "Sending is stopped across the whole service, so no change may be recorded against a plan at all. Nothing was changed.",

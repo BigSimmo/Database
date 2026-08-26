@@ -450,7 +450,7 @@ describe("a time this service may not send at", () => {
     installService(store);
     await renderControl(store);
 
-    const helper = screen.getByText(/A contact may be moved only within the day/);
+    const helper = screen.getByText(/send time may be changed only within the day/);
     // The POSITIVE half first, so this cannot pass by finding no text at all.
     expect(helper.textContent).toContain("up to but not including 6:00 pm AWST");
     // And the shape the previous two overclaims in this programme took: a closed range that reads as
