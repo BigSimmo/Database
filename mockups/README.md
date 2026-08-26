@@ -97,6 +97,51 @@ no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-let
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
 
+## Favourites, phone-first (2026-08-26)
+
+Runnable study at [`/mockups/favourites-phone-perfected`](../src/app/mockups/favourites-phone-perfected/page.tsx).
+One perfected direction rather than a set of alternatives — the six earlier favourites studies
+(`favourites-command-desk`, `-command-console`, `-library-view`, `-review-console`, `-set-board`,
+`-set-navigator`) already covered the option space.
+
+**The measurement it answers.** Chromium at 390 × 844 against the dev server, reading
+`getBoundingClientRect()` on the live `/favourites` route: the first row of the saved list begins at
+**y = 1141**, roughly 300px below the fold, behind a hint strip, an in-flow composer, a privacy
+notice, a results band, a Continue card and a Recent card. Each item card is **228px**. Nothing of
+the library itself is on the first screen. This direction spends **165px** of app chrome and **72px**
+a row, which puts **seven rows fully above the fold and an eighth partly**.
+
+| Decision                                 | Trade-off                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| One header, not six bands                | Sort, sets and clear-all cost a tap behind the ellipsis sheet          |
+| Sets as a scrolling chip rail            | Later sets sit off-screen until the rail is scrolled                   |
+| One-line rows                            | No description, so near-identical forms are told apart by code and set |
+| Pinned rows lead, with a real toggle     | One 28px group label, which disappears when nothing is pinned          |
+| The shared composer stays the only input | The input is at the far end of the phone from the count it changes     |
+
+A **weighted segment track** (the `DocumentSectionTrack` shape the in-page navigation template
+prescribes) was tried first and dropped: eight sets across 390px leaves each segment about 48px,
+under the width a set name needs, so the track degrades to unlabelled slivers.
+
+Nine phone frames cover library, one set selected, filtering, no matches, first run, item actions,
+set management, partial load and signed out; one 1280px frame shows the desktop translation.
+
+**Content honesty.** Only `service | form | differential | therapy` are drawn, because
+`favouriteContentTypeSchema` permits nothing else. The six earlier favourites mockups draw saved
+medications, documents, quotes and searches, none of which has a content type and none of which can
+be persisted. `tests/favourites-phone-perfected-mockups.test.ts` pins that, the controlled set
+vocabulary, and the 48px tap knob. Differentials and therapies borrow `--tone-purple` / `--tone-indigo`
+because the identity group has no `--type-differential` or `--type-therapy`; promotion would add them.
+
+Shared chrome is suppressed because every frame draws its own top bar, page header and composer.
+
+**Class-generation trap, again.** The phone frame's geometry (`max-w-phone-frame`, `h-phone-frame`,
+`rounded-phone-frame`) and both desktop `grid-cols-[...]` tracks are pinned inline. Measured on this
+route while building it, `--spacing-phone-frame` resolved to the empty string and the frame rendered
+2661px tall with square corners; the desktop grid collapsed to a single stacked column. Same cause as
+the `grid-cols-6` note above — Tailwind only emits a theme key some scanned source uses, and whether
+that holds depends on what else lands in the sheet. Pin unusual geometry inline.
+
 ## Dictionary — condensing the phone control row (2026-08-21)
 
 Runnable study at [`/mockups/dictionary-control-row`](../src/app/mockups/dictionary-control-row/page.tsx).
