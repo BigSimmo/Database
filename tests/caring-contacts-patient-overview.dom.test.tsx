@@ -1842,10 +1842,16 @@ describe("the plan actions - the commit-time recheck actually rechecks", () => {
     await user.click(await screen.findByTestId("workspace-overlay-action"));
 
     const resume = await screen.findByTestId("caring-contacts-plan-action-resume");
-    await waitFor(() => expect(resume).toHaveAttribute("aria-disabled", "true"));
-    expect(document.getElementById(resume.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
-      PLAN_ACTION_CONDITION_REFUSALS["no-other-change-to-this-plan-is-on-its-way"].heading,
+    // THE NAMED REASON IS THE LOAD-BEARING HALF, so it is what the wait is on. `aria-disabled` alone
+    // would prove nothing here and the mutation ledger is what showed it: a running plan's resume
+    // control is refused anyway, for being a plan nobody is holding, so that attribute is already
+    // "true" before any change is on its way. Only the SENTENCE distinguishes the two.
+    await waitFor(() =>
+      expect(document.getElementById("caring-contacts-plan-action-resume-reason")).toHaveTextContent(
+        PLAN_ACTION_CONDITION_REFUSALS["no-other-change-to-this-plan-is-on-its-way"].heading,
+      ),
     );
+    expect(resume).toHaveAttribute("aria-disabled", "true");
     release();
     await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
   });
