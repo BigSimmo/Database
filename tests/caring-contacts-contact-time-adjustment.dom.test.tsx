@@ -24,7 +24,26 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ContactTimeAdjustment } from "@/components/caring-contacts/workspace/contact-time-adjustment";
+/**
+ * The router, replaced so `refresh()` is observable.
+ *
+ * It is the mechanism that makes a confirmed move change what the SCREEN shows rather than only what
+ * the control says: `ContactRow` renders the send time from the server, so without a refresh the row
+ * and the sentence beneath it disagree. Mocking it also means the props never change during a test,
+ * which is exactly the state a coordinator moving the same contact twice in a row is in.
+ */
+const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: navigation.refresh }),
+}));
+
+import {
+  ContactTimeAdjustment,
+  moveRefusalWording,
+  parseInputTime,
+  SCHEDULE_MOVE_OVERLAYS,
+} from "@/components/caring-contacts/workspace/contact-time-adjustment";
+import { MUTATING_OVERLAY_IDS } from "@/components/caring-contacts/workspace/overlays/definitions";
 import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { awstCalendarDay, fixedClock, toAwstParts } from "@/lib/caring-contacts/clock";
@@ -158,7 +177,12 @@ function installService(store: CaringContactRepository) {
       { actor, idempotencyKey: idempotencyKey(body.idempotencyKey) },
     );
     if (!result.ok) return Response.json({ refusal: result.reason }, { status: 422 });
-    return Response.json({ value: null });
+    // `{ value: <the updated StoredContact> }`, which is what `writeHandler` returns -- NOT
+    // `{ value: null }`. The first version of this mirror answered null, and the control then
+    // refused every second move because it could not name a version. That was a divergence between
+    // the mirror and the real handler, found by a test rather than in production, and it is why
+    // `tests/caring-contacts-contact-route.test.ts` now pins this field on the real route.
+    return Response.json({ value: result.value });
   });
 }
 
@@ -172,9 +196,8 @@ function setOnline(online: boolean) {
   Object.defineProperty(window.navigator, "onLine", { configurable: true, value: online });
 }
 
-async function renderControl(store: CaringContactRepository) {
-  const stored = await contactUnderTest(store);
-  render(
+function controlTree(stored: StoredContact) {
+  return (
     <>
       <ContactTimeAdjustment
         planId={PLAN_ID}
@@ -187,8 +210,18 @@ async function renderControl(store: CaringContactRepository) {
         teamId={TEAM}
       />
       <WorkspaceOverlays />
-    </>,
+    </>
   );
+}
+
+let rerenderControl: (stored: StoredContact) => void = () => {
+  throw new Error("no control is rendered");
+};
+
+async function renderControl(store: CaringContactRepository) {
+  const stored = await contactUnderTest(store);
+  const view = render(controlTree(stored));
+  rerenderControl = (next: StoredContact) => view.rerender(controlTree(next));
   return stored;
 }
 
@@ -217,6 +250,7 @@ function openOverlayId(): string | null {
 beforeEach(() => {
   actingRole = "coordinator";
   requested = [];
+  navigation.refresh.mockClear();
   clearStagedWorkspaceOverlayCommit();
   setViewportWidth(1440);
   setOnline(true);
@@ -254,6 +288,98 @@ describe("moving one contact within its day", () => {
     // THE POSITIVE CONTROL for every "the record is unchanged" assertion in this file: the same
     // comparison, on the same fixture, going the other way.
     expect(stateOf(after)).not.toBe(stateOf(before));
+  });
+
+  it("takes a second move from the same screen, and says nothing about anybody else", async () => {
+    /*
+      THE CASE WHOSE ABSENCE HID A FALSE STATEMENT. `contactVersion` arrives as a prop, so it cannot
+      change until a server render lands -- and the router is mocked here, which is precisely the
+      state a coordinator who moves the same contact twice without waiting is in. Before the version
+      was held in state, the second write carried the version the first had already consumed, the
+      store refused it as `stale-version`, and the screen told the coordinator somebody else had
+      changed the contact. Nobody had. Every assertion below is about that sentence not appearing.
+    */
+    const store = newStore();
+    await seedPlan(store);
+    installService(store);
+    const before = await renderControl(store);
+
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "11:30");
+    await openOverlay();
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).toContain("11:30 AWST"));
+
+    // The second move, with no server render in between.
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "15:45");
+    await openOverlay();
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).not.toBe(""));
+
+    // The record, first: the second move actually landed.
+    const after = await contactUnderTest(store);
+    expect(toAwstParts(after.planned.sendAt)).toMatchObject({ hour: 15, minute: 45 });
+    expect(after.contact.version).toBe(before.contact.version + 2);
+    // And the screen said so, rather than naming a change nobody made.
+    expect(outcomeText()).toContain("15:45 AWST");
+    expect(outcomeText()).not.toContain("This contact changed after this screen read it");
+  });
+
+  it("asks the server to re-render, because the row's send time is the server's", async () => {
+    const store = newStore();
+    await seedPlan(store);
+    installService(store);
+    await renderControl(store);
+
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "11:30");
+    await openOverlay();
+    // The premise: nothing has asked for a refresh yet, so the assertion below cannot pass on a
+    // call some earlier step made.
+    expect(navigation.refresh).not.toHaveBeenCalled();
+
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).toContain("11:30 AWST"));
+
+    // `ContactRow` renders `Sends at:` from the server render. Announcing a new time while the row
+    // above goes on showing the old one is the divergence the matrix's Success clause forbids.
+    expect(navigation.refresh).toHaveBeenCalled();
+  });
+
+  it("follows the server when a fresh render hands it a different contact", async () => {
+    const store = newStore();
+    await seedPlan(store);
+    installService(store);
+    const before = await renderControl(store);
+
+    // A time typed and NOT confirmed, then somebody else's move landing and the page re-rendering.
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "11:30");
+    const theirs = await store.rescheduleContact(
+      {
+        planId: PLAN_ID,
+        contactId: before.contact.id,
+        expectedContactVersion: before.contact.version,
+        change: { contact: before.planned, toHour: 16, toMinute: 0 },
+      },
+      { actor: COORDINATOR, idempotencyKey: idempotencyKey("their-move") },
+    );
+    if (!theirs.ok) throw new Error(`the other move refused: ${theirs.reason}`);
+    const afterTheirs = await contactUnderTest(store);
+    act(() => rerenderControl(afterTheirs));
+
+    // The field follows the record rather than keeping a time that now disagrees with the row above.
+    expect(timeField().value).toBe("16:00");
+
+    // And the version follows too, so the next move is not refused as stale.
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "12:15");
+    await openOverlay();
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).not.toBe(""));
+    expect(outcomeText()).toContain("12:15 AWST");
+    expect(toAwstParts((await contactUnderTest(store)).planned.sendAt)).toMatchObject({ hour: 12, minute: 15 });
   });
 
   it("rechecks the acting role at COMMIT time, and names the role it actually found", async () => {
@@ -367,7 +493,10 @@ describe("moving one contact within its day", () => {
     await openOverlay();
     await userEvent.click(overlayAction());
 
-    await waitFor(() => expect(outcomeText()).toContain("Somebody else changed this contact"));
+    // NOT "somebody else". The store answers `stale-version` for any write against a version it has
+    // moved past and does not say what moved it -- and before the version was tracked in state, the
+    // thing that had moved it was most often this screen's own previous write.
+    await waitFor(() => expect(outcomeText()).toContain("This contact changed after this screen read it"));
     // The record still holds THEIR time, not this screen's. "Refused" alone would not say that.
     expect(stateOf(await contactUnderTest(store))).toBe(stateOf(afterTheirs));
     expect(toAwstParts((await contactUnderTest(store)).planned.sendAt)).toMatchObject({ hour: 15, minute: 0 });
@@ -427,6 +556,51 @@ describe("moving one contact within its day", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: /Check again/ })).toBeNull());
     await openOverlay();
     expect(overlayAction().getAttribute("aria-disabled")).toBeNull();
+  });
+});
+
+/**
+ * The three exports this module publishes for a test to use.
+ *
+ * They were exported with a comment saying a test would walk them, and no such test existed --
+ * a promise in a doc comment is not coverage, and a later dead-code sweep would have been entitled
+ * to read the comment as a consumer. These are that walk.
+ */
+describe("what the control publishes", () => {
+  it("raises only overlays the frozen table marks as mutating", () => {
+    // The premise, so this cannot pass on an empty list.
+    expect(SCHEDULE_MOVE_OVERLAYS).toEqual(["adjust-date-time", "outside-window-warning"]);
+    for (const id of SCHEDULE_MOVE_OVERLAYS) {
+      expect(MUTATING_OVERLAY_IDS, `${id} is not a mutating row`).toContain(id);
+    }
+    // And the negative half: a row this control does NOT raise is genuinely outside the list, so the
+    // check above is not satisfied by every id in the table.
+    expect(SCHEDULE_MOVE_OVERLAYS).not.toContain("delivery-detail");
+  });
+
+  it("reads a wall-clock field, and refuses anything that is not one", () => {
+    expect(parseInputTime("09:05")).toEqual({ hour: 9, minute: 5 });
+    expect(parseInputTime("00:00")).toEqual({ hour: 0, minute: 0 });
+    expect(parseInputTime("23:59")).toEqual({ hour: 23, minute: 59 });
+    // An empty field, a partial one, an out-of-range hour and an out-of-range minute. A screen that
+    // accepted "24:00" would hand the domain an instant on the following day.
+    expect(parseInputTime("")).toBeNull();
+    expect(parseInputTime("9:05")).toBeNull();
+    expect(parseInputTime("24:00")).toBeNull();
+    expect(parseInputTime("09:60")).toBeNull();
+  });
+
+  it("gives plain words for a named refusal, and names an unrecognised one rather than hiding it", () => {
+    expect(moveRefusalWording("stale-version")).toContain("This contact changed after this screen read it");
+    expect(moveRefusalWording("service-stopped")).toContain("Sending is stopped across the whole service");
+    // An unrecognised reason is passed on as the service gave it. A reason somebody can quote is
+    // worth more than a general apology.
+    expect(moveRefusalWording("some-new-refusal")).toContain('named the reason "some-new-refusal"');
+    // `constructor` resolves to a FUNCTION on an ordinary object literal, and a `!== undefined`
+    // guard would return it -- React renders a function as nothing, leaving a refusal paragraph
+    // that is empty. The null-prototype record plus `Object.hasOwn` is what stops that.
+    expect(moveRefusalWording("constructor")).toContain('named the reason "constructor"');
+    expect(moveRefusalWording("toString")).toContain("Nothing was changed.");
   });
 });
 

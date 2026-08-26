@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useId, useState } from "react";
 
 import { awstWallTimeToInstant, toAwstParts } from "@/lib/caring-contacts/clock";
@@ -52,6 +53,27 @@ import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
  *   * VERSION -- the version this screen was rendered from travels as `expectedContactVersion`, and
  *     the store refuses `stale-version` if the contact has moved since. That check is the store's,
  *     which is the only place it can be made truthfully.
+ * ## What a confirmed move does to the screen it sits on
+ *
+ * A SUCCESS HAS TO CHANGE WHAT THE SCREEN SHOWS, not only what it says. `ContactRow` renders
+ * `Sends at:` from the SERVER render, so a move that only announced itself left the row showing one
+ * time and the sentence beneath it showing another. `router.refresh()` re-runs the Server Component
+ * and the row catches up.
+ *
+ * A REFRESH IS NOT ENOUGH ON ITS OWN, AND THAT IS THE part worth reading. `contactVersion` arrives
+ * as a prop, so it cannot change until that refresh completes -- and a coordinator who moves the
+ * same contact twice in a row does not wait. The second write went out carrying the version the
+ * FIRST one had already consumed, the store refused it as `stale-version`, and the screen said
+ * somebody else had changed the contact. Nobody had. That is a false statement to a clinician on a
+ * suicide-prevention schedule, produced by the screen's own previous write.
+ *
+ * So the version this control sends is held in state: seeded from the prop, advanced from the
+ * store's OWN answer to each write, and reset whenever the server hands down a different prop than
+ * it did last render (React's documented way of adjusting state when a prop changes). If a write
+ * succeeds and its answer does not carry a version, the state becomes `null` and the next commit is
+ * refused rather than guessed at -- a version inferred by adding one is exactly the kind of quiet
+ * assumption that produced the false sentence in the first place.
+ *
  *   * AUTHENTICATION -- THERE IS NONE TO RECHECK. This prototype has no credential and no session
  *     that can expire; the role switcher says of itself that it is deliberately not a login. The
  *     nearest true fact is the acting role, which the permission recheck already re-reads. Claiming
@@ -207,11 +229,35 @@ export function ContactTimeAdjustment({
   actorId,
   teamId,
 }: ContactTimeAdjustmentProps) {
+  const router = useRouter();
   const scheduledTime = awstInputTime(sendsAt);
   const fieldId = useId();
   const [chosenTime, setChosenTime] = useState(scheduledTime);
   const [guard, setGuard] = useState<MoveGuard | null>(null);
   const [outcome, setOutcome] = useState<MoveOutcome>({ kind: "none" });
+  /**
+   * The version this control will send, and the render it was last seeded from.
+   *
+   * `null` means the version is no longer known -- see the header. The paired `seededFrom` is what
+   * makes the reset happen exactly once per server render rather than on every render: adjusting
+   * state while a prop changes is the documented React pattern, and it needs a record of which prop
+   * value the state was derived from.
+   */
+  const [committedVersion, setCommittedVersion] = useState<number | null>(contactVersion);
+  const [seededFrom, setSeededFrom] = useState<{ version: number; scheduledTime: string }>({
+    version: contactVersion,
+    scheduledTime,
+  });
+  if (seededFrom.version !== contactVersion || seededFrom.scheduledTime !== scheduledTime) {
+    // A fresh server render. Whatever this control was holding is now behind the record, including
+    // a time the coordinator had typed and not confirmed: the row beneath now says something else,
+    // and a field disagreeing with the row it belongs to is the divergence this whole file exists
+    // to remove.
+    setSeededFrom({ version: contactVersion, scheduledTime });
+    setCommittedVersion(contactVersion);
+    setChosenTime(scheduledTime);
+    setGuard(null);
+  }
   /**
    * The key that makes retrying THIS move a replay rather than a second write: reused while the
    * chosen time is unchanged, re-minted the moment it changes.
@@ -291,6 +337,15 @@ export function ContactTimeAdjustment({
       setOutcome({ kind: "refused", reason });
       return;
     }
+    if (committedVersion === null) {
+      // Conservative rather than clever: a version this control cannot name is one it must not
+      // invent. Reloading the day reads the contact again and seeds it.
+      const reason =
+        "This screen no longer knows which version of this contact it is looking at, so nothing was changed. Reloading this day reads it again.";
+      setGuard({ reason });
+      setOutcome({ kind: "refused", reason });
+      return;
+    }
 
     let answer: Response;
     try {
@@ -301,7 +356,7 @@ export function ContactTimeAdjustment({
           action: "moveWithinDay",
           toHour: parsed.hour,
           toMinute: parsed.minute,
-          expectedContactVersion: contactVersion,
+          expectedContactVersion: committedVersion,
           idempotencyKey: moveKey,
         }),
       });
@@ -328,9 +383,16 @@ export function ContactTimeAdjustment({
       return;
     }
 
+    // The store's OWN answer to this write, never `previous + 1`. `rescheduleContact` returns the
+    // updated `StoredContact`, and reading the version off it is what lets a second move from this
+    // same screen go out correctly before any refresh has landed.
+    setCommittedVersion(versionFrom(await readJson(answer)));
     setGuard(null);
     setOutcome({ kind: "recorded", at: chosenTime });
-  }, [chosenTime, contactId, contactVersion, moveKey, parsed, planId, recheckAtCommit]);
+    // The row above this control renders its send time from the server. Without this it would go on
+    // showing the old one while the sentence below announced the new one.
+    router.refresh();
+  }, [chosenTime, committedVersion, contactId, moveKey, parsed, planId, recheckAtCommit, router]);
 
   /**
    * `outside-window-warning`. Its decision is "Keep the approved time", and keeping a time is not a
@@ -434,6 +496,27 @@ export function ContactTimeAdjustment({
   );
 }
 
+/** The parsed body of a response, or null when there is nothing readable in it. */
+async function readJson(answer: Response): Promise<unknown> {
+  try {
+    return await answer.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The contact version a successful write answered with, or null.
+ *
+ * Null rather than a fallback, deliberately: the caller refuses the next commit rather than sending
+ * a version nobody confirmed. The shape is the write handler's `{ value: StoredContact }`.
+ */
+function versionFrom(payload: unknown): number | null {
+  const value = (payload as { value?: { contact?: { version?: unknown } } } | null)?.value;
+  const version = value?.contact?.version;
+  return typeof version === "number" && Number.isInteger(version) && version > 0 ? version : null;
+}
+
 function outcomeWording(outcome: MoveOutcome): string {
   switch (outcome.kind) {
     case "none":
@@ -465,8 +548,13 @@ function outcomeWording(outcome: MoveOutcome): string {
  */
 const MOVE_REFUSAL_WORDING: Readonly<Record<string, string>> = Object.freeze(
   Object.assign(Object.create(null) as Record<string, string>, {
+    // NOT "somebody else changed this". The store answers `stale-version` for any write against a
+    // version it has moved past, and it does not say what moved it -- a coordinator, a dispatcher, or
+    // this very screen's own previous write. Naming a person is an inference the record cannot
+    // support, and it was a FALSE one for the second move from this screen before the version was
+    // tracked in state.
     "stale-version":
-      "Somebody else changed this contact while this was open, so nothing was changed here. Reloading this day shows the time it sends at now.",
+      "This contact changed after this screen read it, so nothing was changed here. Reloading this day shows the time it sends at now.",
     "permission-denied": "The service refused the move for the role you are acting in, so nothing was changed.",
     "action-not-granted":
       "The role you are acting in is not granted the action that moves a contact, so nothing was changed.",

@@ -156,6 +156,14 @@ describe("POST /api/caring-contacts/plans/[planId]/contacts/[contactId]", () => 
     const response = await callPost(PLAN_ID, before.contact.id, moveBody({ expectedContactVersion: 1 }));
     expect(response.status).toBe(200);
 
+    // THE BODY CARRIES THE UPDATED CONTACT, and the screen depends on it: a control that has just
+    // moved a contact reads the new version off this answer so a SECOND move from the same screen
+    // does not go out carrying the version the first one consumed. `{ value: null }` here would make
+    // every second move a refusal, and the DOM suite's mirror of this route did exactly that until
+    // a two-consecutive-moves case caught it.
+    const body = (await response.json()) as { value?: { contact?: { version?: number } } };
+    expect(body.value?.contact?.version).toBe(2);
+
     const after = await contactUnderTest(store);
     expect(toAwstParts(after.planned.sendAt)).toMatchObject({ hour: 11, minute: 30 });
     // The day is unchanged and the version advanced: a move within the day, and one write.
