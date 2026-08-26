@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "38fb26025fe7dfb4d007182c319769dd42ed861d",
-    "committed_at": "2026-08-26T08:43:32+00:00"
+    "sha": "ea58e0fcc734a79db3af625f800953333203f5bd",
+    "committed_at": "2026-08-26T22:38:53+08:00"
   },
   "routes": {
     "modes": [
@@ -3818,6 +3818,22 @@
         "scope": "Ward Flow Phase 5 — bed availability lifecycle, leave beds, discharge board, capacity bands, freshness",
         "outcome": "Whole-branch review: approved with findings, 0 P0, 0 P1, 7 P2 — all seven fixed and mutation-tested. Four earlier automated findings: three fixed, one rejected with reasons.",
         "checks": "npm run test (3 pre-existing failures, identical on clean origin/main); npm run typecheck; npm run lint (eslint cache cleared); prettier --check on all changed files; chromium-mockups ward-management + ward-coordinator + ward-discharges; screenshots at 390/820/1440 on five screens, looked at"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "09ff8ca36489411f26408d6b557888459151bb4a",
+        "scope": "authenticated document cover selection, retry lifecycle, optional preview failure, and source evidence preservation",
+        "outcome": "All substantiated P2 findings fixed; no remaining P0-P2 findings",
+        "checks": "lint pass; typecheck pass; focused preview 79/79; production build pass; full suite 10489 pass with six unrelated Windows Claude-cloud failures after the one preview failure was fixed; offline fixture contracts pass; snapshot and medication checks pass"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "57ab01cbe28977ed3e0db830c45a00749977e351",
+        "scope": "PR #2391",
+        "outcome": "fixes-applied",
+        "checks": "PR policy body canonicalized; cover in-flight keyed by credential; vitest use-document-cover 9/9; snapshot regenerated; threads resolved; CI watching"
       },
       {
         "date": "2026-08-26",
@@ -24789,8 +24805,8 @@
       }
     ],
     "counts": {
-      "records": 2624,
-      "refs": 1603
+      "records": 2626,
+      "refs": 1604
     }
   }
 }

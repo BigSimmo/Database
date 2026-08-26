@@ -142,7 +142,7 @@ export function AnswerSourceDrawer({
   const stale = source ? sourceRowIsStale(source) : false;
   // Hooks cannot be conditional, so this asks for the open source's cover on
   // every render and resolves to null while the drawer is closed.
-  const coverImageId = useDocumentCoverImageId(source?.documentId);
+  const { coverImageId, markCoverUnavailable } = useDocumentCoverImageId(source?.documentId);
   const numbered = sources.length <= NUMBERED_PAGER_LIMIT;
 
   return (
@@ -280,6 +280,8 @@ export function AnswerSourceDrawer({
                   className="rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
                   rootMargin="0px"
                   priority
+                  failurePresentation="hidden"
+                  onSettledFailure={() => markCoverUnavailable(coverImageId)}
                 />
                 <figcaption className={cn("mt-1 text-3xs leading-4", textMuted)}>
                   Front page
