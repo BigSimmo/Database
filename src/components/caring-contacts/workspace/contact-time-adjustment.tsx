@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useId, useState } from "react";
 
+import type { ContactMoveRequestBody } from "@/lib/caring-contacts-contact-move-request";
+
 import { awstWallTimeToInstant, toAwstParts } from "@/lib/caring-contacts/clock";
 import type { ActorId, TeamId } from "@/lib/caring-contacts/ids";
 import {
@@ -358,18 +360,36 @@ export function ContactTimeAdjustment({
       return;
     }
 
+    /*
+      THE BODY IS TYPED BY THE SCHEMA THE ROUTE REFUSES AGAINST, and the annotation is the guard.
+
+      `contactMoveRequestSchema` is `.strict()`, so a renamed field, a missing one, or an extra one is
+      a 400 at the boundary. Until this annotation existed that was caught by a TEST -- the DOM
+      suite's mirror validates with the same schema -- and the schema module's own comment claimed
+      more than the code delivered: it said the client that BUILDS a body and the boundary that
+      REFUSES one share a definition, while the client hand-built an object literal and imported
+      nothing.
+
+      Ruling [130]'s standard, applied one layer out: wrong wiring should fail where it can be made
+      to fail, which is the compiler. `ContactMoveRequestBody` is `z.infer` of that schema, so a
+      rename in the schema is a compile error HERE, an omitted `action` is a missing-property error,
+      and an extra field is refused by excess-property checking rather than by a round trip. The
+      import is type-only and erases at build time, so nothing about the client bundle changes.
+    */
+    const requestBody: ContactMoveRequestBody = {
+      action: "moveWithinDay",
+      toHour: parsed.hour,
+      toMinute: parsed.minute,
+      expectedContactVersion: committedVersion,
+      idempotencyKey: moveKey,
+    };
+
     let answer: Response;
     try {
       answer = await fetch(contactEndpoint(planId, contactId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "moveWithinDay",
-          toHour: parsed.hour,
-          toMinute: parsed.minute,
-          expectedContactVersion: committedVersion,
-          idempotencyKey: moveKey,
-        }),
+        body: JSON.stringify(requestBody),
       });
     } catch {
       const reason =

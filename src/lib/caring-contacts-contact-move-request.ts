@@ -7,19 +7,28 @@ import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
  *
  * ## Why this is a module of its own rather than a `const` in the route
  *
- * The route is the only thing that ENFORCES this shape, and until now it was the only thing that
- * described it. That left the client free to send a body the route would refuse, and nothing able to
- * notice: the DOM suite's mirror of the route `JSON.parse`d the body and read four fields off it, so
- * a renamed or missing field on the client side sailed through a green suite, and the route's own
- * suite built its request from a fixture of its own rather than from the client. **A double that
- * diverges from the real thing makes everything downstream of it green and meaningless**, which is
- * exactly the defect a `{ value: null }` mirror produced one round earlier.
+ * THREE CALLERS SHARE ONE DEFINITION, and naming them exactly matters -- an earlier version of this
+ * comment claimed the client and the boundary shared it while the client hand-built an object
+ * literal and imported nothing at all. A comment that outlives the thing it described is the failure
+ * this phase keeps paying for, so here is the list:
  *
- * So the schema lives where both can import it. It cannot live in the route (that module reaches
- * `server-only` and `next/headers`, so a jsdom test cannot load it), and it cannot live in
- * `src/lib/caring-contacts/` (nothing under that tree may import anything non-relative, and this
- * needs Zod). This file is the remaining place: plain validation, no React, no server imports, and
- * one non-relative import of the sealed domain's own id-shape predicate.
+ *   * the ROUTE validates a request against `contactMoveRequestSchema` and answers 400 when it does
+ *     not parse;
+ *   * the CLIENT (`contact-time-adjustment.tsx`) annotates the body it builds with
+ *     {@link ContactMoveRequestBody}, so a renamed or dropped field is a COMPILE error at the call
+ *     site rather than a round trip;
+ *   * the DOM suite's mirror of the route validates with the same schema, so a body-shape regression
+ *     reddens where it happens.
+ *
+ * The first two are the guarantee; the third is what stops a test double from drifting away from the
+ * thing it stands in for. Before this module existed the mirror parsed the body by hand and never
+ * looked at `action` at all, so a client-side regression was invisible to every suite.
+ *
+ * WHERE IT CAN LIVE is decided for it rather than chosen. It cannot live in the route: that module
+ * reaches `server-only` and `next/headers`, so no jsdom test could load it. It cannot live in
+ * `src/lib/caring-contacts/`: nothing under that tree may import anything non-relative, which rules
+ * out Zod. This file is the remaining place -- plain validation, no React, no server imports, and one
+ * non-relative import of the sealed domain's own id-shape predicate.
  *
  * ## `.strict()`, and the two things it is doing
  *
