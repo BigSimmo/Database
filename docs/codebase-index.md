@@ -166,14 +166,14 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Supabase, auth, env
 
-| Module                                                                                            | Role                                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth                                                                                                                                                             |
-| `src/lib/supabase/database.types.ts`                                                              | Generated DB types                                                                                                                                                           |
-| `env.ts`                                                                                          | Zod-validated environment                                                                                                                                                    |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy                                                                                                                                                 |
-| `authorization.ts`                                                                                | `site_role === "administrator"` claim check                                                                                                                                  |
-| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                             | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`); the production block itself lives in `src/proxy.ts` |
+| Module                                                                                            | Role                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth                                                                                                                                                                                      |
+| `src/lib/supabase/database.types.ts`                                                              | Generated DB types                                                                                                                                                                                    |
+| `env.ts`                                                                                          | Zod-validated environment                                                                                                                                                                             |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy                                                                                                                                                                          |
+| `authorization.ts`                                                                                | `site_role === "administrator"` claim check                                                                                                                                                           |
+| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                             | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
 
 ### Clinical product data
 
@@ -548,6 +548,43 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `tests/developer-routes-page.dom.test.tsx`, `tests/developer-documentation-page.dom.test.tsx`,
   `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`,
   `tests/developer-ingestion-page.dom.test.tsx`.
+
+### Care Plan (`src/app/mockups/care-plan/`, `src/components/care-plan/mockups/`)
+
+Synthetic, memory-only, provider-free prototype for finding people with recurrent psychiatric
+emergency-department presentations and making their current management plan easy to find and use.
+Twenty-one routes under one gated prefix; every record is fictional, nothing is persisted, and a
+refresh restores the fixtures. Design authority: `docs/superpowers/specs/2026-08-20-care-plan-design.md`;
+terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-plan/sdd-ledger.md`.
+
+- **Gate:** `/mockups/care-plan` and everything beneath it is behind `DeveloperAreaGate`
+  (`layout.tsx`) and the production block in `src/proxy.ts`, which matches the exact prefix so a
+  look-alike such as `/mockups/care-plan-archive` is not let through.
+- **Routes:** `route-page.tsx` renders one client suite for every address. Home, `patients`,
+  `patients/[patientId]`, and per patient `management-plan{,/edit,/review,/print}`,
+  `patient-plan{,/edit,/print}`, `safety-plan{,/edit,/print}`, `presentations{,/new,/[presentationId]}`,
+  `history`; plus `reviews`, `team`, `governance`, `system-states`. Addresses are built only by
+  `routes.ts` (`CARE_PLAN_BASE`, `CARE_PLAN_ROUTES`, `carePlanRoute`); a query string may name a
+  deterministic specimen scenario and nothing else.
+- **State:** `prototype-state.ts` (reducer, ~85 kB, single-Current invariant, capability checks and
+  `getPrototypeMutationBlockReason` re-checked on every action), `prototype-provider.tsx`,
+  `domain.ts` (pure selectors), `fixtures.ts` + `patient-plan-fixtures.ts` (all `SYN-` identifiers),
+  `types.ts`.
+- **Surfaces:** `routable-suite.tsx` (address → surface), `care-plan-shell-frame.tsx` (rail, phone
+  dock, More sheet, one search slot), `clinical-snapshot-page.tsx`, `patient-workspace.tsx`,
+  `patient-navigation.tsx`, `management-plan-{read,form,review,print,diff}.tsx`,
+  `patient-plan-{pages,form,transform}.ts{,x}`, `safety-plan-{pages,form}.tsx`,
+  `presentation-{pages,form,timeline}.tsx`, `history-page.tsx`, `operations-pages.tsx`
+  (Reviews/Team/Governance), `system-states-page.tsx`, `care-plan-error-boundary.tsx`,
+  `care-plan.module.css`.
+- **Printing:** all three print surfaces consume the shared `PrintOutput`/`PrintSection`/
+  `BrowserPrintButton` primitives in `src/components/ui/print-output.tsx`; the print cascade itself
+  lives in `src/app/globals.css`.
+- **Tests:** `tests/care-plan-domain.test.ts`, `tests/care-plan-prototype-state.test.ts`,
+  `tests/care-plan-patient-plan.test.ts`, `tests/care-plan-route-files.test.ts`,
+  `tests/care-plan-linked-routes.dom.test.tsx`, the gate cases in `tests/proxy.test.ts`, and the
+  browser suite `tests/ui-care-plan-mockup.spec.ts` (`npm run test:e2e:care-plan-mockup`, advisory
+  `chromium-mockups` project only).
 
 ### Global search composer placement rules
 
