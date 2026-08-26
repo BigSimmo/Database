@@ -808,6 +808,12 @@ export function DocumentViewer({
           setTableFacts([]);
           setChunks([]);
           setIndexHealth(null);
+          // The deferred full-reload reset also cleared bearer URLs. Fast
+          // settlement cancels that timer, so a failed navigation must drop
+          // the previous document's signed URLs here or the recovery surface
+          // keeps offering "Open source file" for the wrong document.
+          setSignedUrl(null);
+          setDownloadSignedUrl(null);
           const message =
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
           if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
@@ -840,6 +846,8 @@ export function DocumentViewer({
         setTableFacts([]);
         setChunks([]);
         setIndexHealth(null);
+        setSignedUrl(null);
+        setDownloadSignedUrl(null);
         setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
