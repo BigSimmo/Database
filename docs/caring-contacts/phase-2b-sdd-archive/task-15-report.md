@@ -483,3 +483,105 @@ earlier paths. The sensitivity controls C1 and C2b from the first round establis
 
 **What is still not verified:** the browser block itself. Everything else in this task is offline
 evidence, and I have still never seen the screen render.
+
+---
+
+# Review round 2 — what changed
+
+Round 1 came back clean. Three small things were raised, none of which changes a test's behaviour;
+all three are done. One commit: `0dc7e0990` (the two comment corrections). The Prettier line this
+round was told to paste is in the verification block at the end.
+
+## 1. A comment that under-claims proof decays as fast as one that over-claims it
+
+`TEMPLATES_ROUTE`'s doc comment still read "NO PROOF BLOCK IS WRITTEN AGAINST THIS ROUTE YET" and
+still listed forced-colors and 320px as owed, 650 lines above the block that covers both. This is
+the same defect the previous round existed to fix, arriving from the opposite direction, and I
+walked straight into it: I edited the thing the round was about and left the sentence that
+described it.
+
+Worth naming rather than just fixing, because the general rule is the one the standing discipline
+already states and I applied only in one direction: **when a diff changes what a mechanism does,
+read every doc comment in the files it touches** — including the comments that were true when they
+were written and are now too modest. The corrected comment names the block, says what it covers,
+and says the service-stop banner on this screen is what is still owed. That is all that is owed.
+
+## 2. "The strongest available form of the guarantee" was claimed twice, and I put it on the weaker one
+
+The spec's `not.toContainText(EXACT_PATIENT_VISIBLE_MESSAGE)` runs against a store that holds no
+pathway version, so the specimen is not in that page's data and **the assertion cannot go red for
+the reason it exists.** That is precisely the "absence asserted over a fixture that never held any"
+shape this round's own criticism was about — added by the round that made the criticism.
+
+The assertion stays: it is whole-stack, and the `h1` and empty-state assertions immediately above it
+are its positive controls, so it cannot pass on a page that rendered nothing. Only the claim
+changed. Its comment now opens "READ THIS BEFORE TREATING IT AS THE STRONG FORM OF THE GUARANTEE",
+says in as many words that it cannot fail for its own reason, and points at
+`tests/caring-contacts-templates-page.dom.test.tsx` — the seeded render, where
+`snapshot.messageTextByType.standard` IS the specimen and where mutation M11 makes it fail:
+
+```
+  FAIL  |jsdom| tests/caring-contacts-templates-page.dom.test.tsx > … a seeded version's approvals are qualified > renders the demo population's governed version with the provenance its record carries
+  AssertionError: expected 'Governed pathway versionsOne row for …' not to contain 'Hi Rowan, Alex from Example Aftercare…'
+```
+
+Only one place now claims the title, and it is the one that earns it.
+
+## 3. The round-1 verification block dropped Prettier
+
+Correct, and the reason it matters is exactly as put to me: reading the added lines is not the
+check. Formatting is in none of `test`, `typecheck` or `lint`, so a block that lists three of those
+and omits the fourth is claiming less than a full pass while reading like one. The line is below,
+and the round-1 block is left as it was rather than backfilled — a verification block records what
+was run at the time, and editing one after the fact to look complete is the opposite of what it is
+for.
+
+## Carried forward, unchanged
+
+The Ruling [46] rider still stands: screen attribution on the access trail needs a `surface`/
+`context` dimension, never a second `objectType`.
+
+## Verification after this round
+
+Re-run after the final edit, not merely last in order. Worktree clean at the time of the run.
+
+```
+WORKTREE-CLEAN
+ Test Files  22 passed (22)
+      Tests  457 passed (457)
+TSC-EXIT=0
+ESLINT-EXIT=0
+Checking formatting...
+All matched files use Prettier code style!
+```
+
+The Prettier line is `npx prettier --check` over the six files this round and the last one touched:
+`tests/ui-caring-contacts-workspace.spec.ts`,
+`tests/caring-contacts-templates-library.dom.test.tsx`,
+`tests/caring-contacts-templates-page.dom.test.tsx`, `scripts/generate-site-map.ts`,
+`docs/site-map.md` and this report. Lint was uncached (`node_modules/.cache/eslint` removed first).
+
+**Lock refusals this round: five in a row.** The heavy lease was held continuously by
+`D:\Worktrees\Database\dev-hub-phase-1` running `npm run build:internal`, and a retry loop reported
+each refusal as UNRUN rather than counting it. The verdict above is attempt six:
+
+```
+attempt 1: UNRUN - lock refusal, waiting 90s
+attempt 2: UNRUN - lock refusal, waiting 90s
+attempt 3: UNRUN - lock refusal, waiting 90s
+attempt 4: UNRUN - lock refusal, waiting 90s
+attempt 5: UNRUN - lock refusal, waiting 90s
+attempt 6: RAN, exit 0
+Test Files  22 passed (22)
+Tests  457 passed (457)
+```
+
+The tree was clean and unchanged across all six attempts, so the passing run covers exactly the
+tree the first refusal was asked about.
+
+**The gate line is unchanged at 22/457, and that is expected rather than a stale number.** This
+round added no Vitest case: `0dc7e0990` changes two comments and nothing else, and the previous
+round's additions were Playwright `test(` blocks, which Vitest never counts.
+
+**What is still not verified:** the browser block, which I have never run, and the service-stop
+banner on this screen, which the block does not yet cover.
