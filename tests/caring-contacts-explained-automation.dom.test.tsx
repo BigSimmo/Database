@@ -282,6 +282,18 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the service with a distinctive incident note and asserts on the element tree the page returns,
   // so the note reaching this boundary under ANY prop name is a red test rather than a reading.
   "plan-wizard/plan-wizard.tsx",
+  // Phase 2B Task 14's contact-move control, and the second boundary in this workspace that exists
+  // because of BROWSER FACTS rather than a preference: a coordinator types a time, the connection is
+  // a property of the device at the instant a move is confirmed, and the confirm is a click. The
+  // frozen matrix requires connectivity, permission and version state to be rechecked AT COMMIT
+  // time, which is by definition after a click.
+  //
+  // Added on the same three conditions as every entry above. Its props are a plan id, a contact id,
+  // a synthetic patient id, an AWST calendar day, one instant, a version number, an actor id and a
+  // team id -- no state object, and nothing derived from the record. It deliberately does NOT name
+  // `schedule-view.ts`, which would reach the repository and through it the service-state module;
+  // the companion test below proves that for its whole module graph rather than for its own file.
+  "contact-time-adjustment.tsx",
 ];
 
 /**

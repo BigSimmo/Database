@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM, patientRoute, scheduleDayRoute } from "@/lib/caring-contacts-routes";
 import { toAwstParts } from "@/lib/caring-contacts/clock";
+import type { ActorId, TeamId } from "@/lib/caring-contacts/ids";
+import type { ContactState } from "@/lib/caring-contacts/model";
 import { isAwstCalendarDay } from "@/lib/caring-contacts/schedule";
 import type {
   PlanSendingHold,
@@ -15,8 +17,10 @@ import type {
 } from "@/lib/caring-contacts/schedule-view";
 
 import { AutomatedState } from "./automated-state";
+import { ContactTimeAdjustment } from "./contact-time-adjustment";
 import { CONTACT_STATE_LABELS, MESSAGE_TYPE_LABELS } from "./contact-vocabulary";
 import { ListEmptyState } from "./list-empty-state";
+import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
 
 /**
  * The Schedule screen -- what this team's caring-contact plans put on one AWST day, and what the
@@ -254,6 +258,96 @@ function notSendingExplanation(reason: ScheduleNotSendingReason): {
 }
 
 /**
+ * WHAT THIS SCREEN HOLDS ABOUT A DELIVERY THAT DID NOT ARRIVE, AND WHAT IT DOES NOT.
+ *
+ * Phase 2B Task 14, and the honesty this whole panel turns on. Four of the five named-exception
+ * states are PROVIDER OUTCOMES: the message left, and the phone network reported what became of it.
+ * Each is a transport receipt and none of them is a statement about the patient -- so the wording
+ * below says how the message travelled and stops there.
+ *
+ * NOTHING HERE COUNTS ATTEMPTS, AND THE RECORD DOES NOT EITHER. `resolve-failed-delivery`'s frozen
+ * summary speaks of "all three attempts in the original window", which describes a delivery history
+ * this service does not keep: it records the outcome of a single sending attempt for a contact, and
+ * no method anywhere in the repository contract dispatches a contact again -- `startProcessing`
+ * accepts only a `scheduled` contact, and a contact carrying a provider outcome is not one. The
+ * design is a picture of a later, integrated product; the types are what exists. Where they
+ * disagree, the types win, and the disagreement is recorded rather than resolved quietly (Task 14
+ * report). So no sentence on this screen implies that anything was tried more than once.
+ *
+ * `missed` is deliberately NOT answered here. It is a named exception too, but it is the one that
+ * never reached the provider at all, and `notSendingExplanation` above already states it -- two
+ * statements on one row would be the same fact told twice, in different words.
+ *
+ * Exhaustive over the whole of `ContactState` rather than over the four, for the reason every other
+ * classification in this workspace is: a state added later and left unworded must not compile into
+ * a silent blank on the panel that says which patients did not hear from the service.
+ */
+function deliveryExceptionExplanation(state: ContactState): { because: string; changedBy: string } | null {
+  const notTriedAgain =
+    "Nothing here, and nothing is sent later: this service has no way to send a caring contact again. What is done instead is a decision a person makes, and it is recorded away from this screen.";
+  switch (state) {
+    case "notDelivered":
+      return {
+        because:
+          "The message provider reported that this message was not delivered. That report is the whole of what is held about it -- how it travelled, and nothing about whether it was read or whether it helped.",
+        changedBy: notTriedAgain,
+      };
+    case "numberInvalid":
+      return {
+        because:
+          "The message provider reported that the mobile number it was sent to is not a working number, so the message did not arrive.",
+        changedBy: notTriedAgain,
+      };
+    case "contactChanged":
+      return {
+        because:
+          "The message provider reported that the mobile number it was sent to has changed. A changed number is checked by a person before anything else is sent to it.",
+        changedBy: notTriedAgain,
+      };
+    case "statusUnavailable":
+      return {
+        because:
+          "The message left and no transport receipt ever came back for it, so what became of it is not known. That is different from being told it failed: nothing was reported either way.",
+        changedBy: notTriedAgain,
+      };
+    // Not a provider outcome, or not an exception at all. `missed` is stated by
+    // `notSendingExplanation`; the rest are routine states that need no statement here.
+    case "missed":
+    case "scheduled":
+    case "processing":
+    case "sent":
+    case "delivered":
+    case "suppressed":
+    case "cancelled":
+      return null;
+    default: {
+      const unclassified: never = state;
+      return unclassified;
+    }
+  }
+}
+
+/**
+ * Why "Record what was done" cannot be recorded from this screen, in the words the overlay renders.
+ *
+ * THIS SENTENCE IS ALSO WHERE THE OVERLAY'S OWN COPY IS CORRECTED, and that placement is deliberate.
+ * The row's frozen summary -- rendered by the shared host, transcribed from the frozen matrix, and
+ * not this screen's to edit -- opens by saying all three attempts are finished. A clinician reading
+ * that sentence must not be left with it, and the refusal below is the only text this screen puts on
+ * the same surface.
+ *
+ * The rest of it is the gap itself, stated plainly rather than worked around. `resolveDispatchDiscrepancy`
+ * is keyed by a contact AND an attempt number; a schedule is built from plans and reads no dispatch
+ * record at all; and the one read that returns those records is a search over the instant a SEND
+ * BEGAN, which is a different instant from the one a contact is scheduled for. Joining the two by day
+ * would be relying on a coincidence this domain does not guarantee, and a resolution recorded against
+ * the wrong attempt is not an acceptable way to be wrong on this panel. Closing that needs a
+ * by-contact read on the repository contract, which is a contract change with its own review.
+ */
+const RESOLVE_FAILED_DELIVERY_UNAVAILABLE =
+  "Nothing can be recorded here, and one thing this overlay says needs correcting first: this service does not keep a history of sending attempts. It records the outcome of a single attempt for a contact and has no way to send another, so there is no set of attempts to close off. What was done instead is kept against the dispatch record for this contact, and a schedule is built from plans and never reads one.";
+
+/**
  * What the day's numbers say, in words, when nothing on it is due.
  *
  * `alreadySent`, `held` and `willNotBeSent` PARTITION a day with nothing due -- `total` is their
@@ -302,6 +396,23 @@ function dayStatement(day: ScheduleDay): string {
   return clauses.join(" ");
 }
 
+/**
+ * Who is acting, carried down to the one control on this screen that writes.
+ *
+ * ONE OBJECT RATHER THAN THREE PROPS THREADED THROUGH FIVE COMPONENTS. The alternative is the same
+ * three values repeated on every intermediate signature, where the next component added to the chain
+ * forgets one and a control silently loses its permission gate.
+ *
+ * It carries no patient data and no name: an actor id, a team id, and one answer about a capability
+ * the page asked the sealed domain for.
+ */
+export type ScheduleActingContext = {
+  actorId: ActorId;
+  teamId: TeamId;
+  /** False when the acting role is not granted the action that moves a contact. Decided by the page. */
+  mayMoveContactWithinDay: boolean;
+};
+
 export type ScheduleScreenProps = {
   /**
    * The whole day strip, from ONE `buildScheduleRange` call. The selected day is one of these days
@@ -314,9 +425,17 @@ export type ScheduleScreenProps = {
   todayCalendarDay: string;
   /** False when the acting role does not include viewing plans. Decided by the page, from the actor. */
   mayViewPlans: boolean;
+  /** Who is acting, for the one control on this screen that writes. */
+  acting: ScheduleActingContext;
 };
 
-export function ScheduleScreen({ view, selectedCalendarDay, todayCalendarDay, mayViewPlans }: ScheduleScreenProps) {
+export function ScheduleScreen({
+  view,
+  selectedCalendarDay,
+  todayCalendarDay,
+  mayViewPlans,
+  acting,
+}: ScheduleScreenProps) {
   const selected = view.days.find((day) => day.calendarDay === selectedCalendarDay) ?? null;
 
   return (
@@ -352,7 +471,7 @@ export function ScheduleScreen({ view, selectedCalendarDay, todayCalendarDay, ma
       ) : (
         <>
           <DayStrip view={view} selectedCalendarDay={selectedCalendarDay} todayCalendarDay={todayCalendarDay} />
-          <SelectedDay day={selected} view={view} todayCalendarDay={todayCalendarDay} />
+          <SelectedDay day={selected} view={view} todayCalendarDay={todayCalendarDay} acting={acting} />
         </>
       )}
     </section>
@@ -419,10 +538,12 @@ function SelectedDay({
   day,
   view,
   todayCalendarDay,
+  acting,
 }: {
   day: ScheduleDay;
   view: ScheduleRangeView;
   todayCalendarDay: string;
+  acting: ScheduleActingContext;
 }) {
   const heldHolds = distinctHoldsOf(day);
 
@@ -471,16 +592,17 @@ function SelectedDay({
                 heading={window.label}
                 sendTime={window.sendTime}
                 group={window}
+                acting={acting}
                 emptyText="Nothing sends in this window on this day."
               />
             ))}
           </div>
 
           {day.outsideApprovedWindows.entries.length > 0 ? (
-            <OutsideApprovedWindows group={day.outsideApprovedWindows} />
+            <OutsideApprovedWindows group={day.outsideApprovedWindows} acting={acting} />
           ) : null}
 
-          <NamedExceptions group={day.exceptions} />
+          <NamedExceptions group={day.exceptions} acting={acting} />
         </>
       )}
     </div>
@@ -599,6 +721,7 @@ function WindowColumn({
   heading,
   sendTime,
   group,
+  acting,
   emptyText,
   description,
   icon: Icon = Clock,
@@ -606,6 +729,7 @@ function WindowColumn({
   heading: string;
   sendTime: string;
   group: ScheduleGroup;
+  acting: ScheduleActingContext;
   emptyText: string;
   description?: string;
   icon?: typeof Clock;
@@ -628,7 +752,7 @@ function WindowColumn({
       ) : (
         <ul className="mt-3 flex min-w-0 flex-col gap-3">
           {group.entries.map((entry) => (
-            <ContactRow key={entry.contactId} entry={entry} />
+            <ContactRow key={entry.contactId} entry={entry} acting={acting} />
           ))}
         </ul>
       )}
@@ -655,7 +779,7 @@ function WindowColumn({
  * currently produce such a contact, which is precisely what would have kept the sentence false and
  * unread. It now says only what the grouping actually establishes: not at any of the three times.
  */
-function OutsideApprovedWindows({ group }: { group: ScheduleGroup }) {
+function OutsideApprovedWindows({ group, acting }: { group: ScheduleGroup; acting: ScheduleActingContext }) {
   return (
     <div className="mt-5 min-w-0">
       <WindowColumn
@@ -663,6 +787,7 @@ function OutsideApprovedWindows({ group }: { group: ScheduleGroup }) {
         sendTime="Each contact is shown at the time it sends"
         description="These contacts send at a time none of the three windows above covers. They are listed here rather than filed under a window they do not send in."
         group={group}
+        acting={acting}
         emptyText="No contact on this day sends outside the three windows."
         icon={CalendarDays}
       />
@@ -682,7 +807,7 @@ function OutsideApprovedWindows({ group }: { group: ScheduleGroup }) {
  * cancelled is true and would be read as reassurance, so the empty wording points back at the day's
  * own statement instead of standing alone.
  */
-function NamedExceptions({ group }: { group: ScheduleGroup }) {
+function NamedExceptions({ group, acting }: { group: ScheduleGroup; acting: ScheduleActingContext }) {
   return (
     <section
       aria-label="Named exceptions"
@@ -696,6 +821,24 @@ function NamedExceptions({ group }: { group: ScheduleGroup }) {
         Contacts a person has to look at: a message the provider did not deliver, and a message the sending window
         closed on. They are kept out of the windows above so one patient is never counted twice.
       </p>
+      {/*
+        WHAT IS NOT RECORDED, SAID ONCE, WHERE THE PANEL IS READ.
+
+        Ruling 94's test applies to this sentence and it passes: there is no tally here of anything
+        listed below it. What it states is the shape of the record -- a single sending attempt per
+        contact, and no way to send another -- which is the invariant, not a count of a list.
+
+        It is here because the design this panel comes from describes a delivery history the service
+        does not keep, and a coordinator reading a failed delivery would otherwise be entitled to
+        assume an attempt count exists somewhere. See `deliveryExceptionExplanation` above.
+      */}
+      <p
+        data-testid="caring-contacts-schedule-attempts-not-recorded"
+        className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
+      >
+        What this screen does not hold: a history of sending attempts. This service records the outcome of a single
+        attempt for a contact and has no way to send another, so there is no attempt history anywhere to show here.
+      </p>
       {group.entries.length === 0 ? (
         <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
           Nothing on this day needs a decision. That is not the same as nothing happening on it &mdash; what the day
@@ -704,7 +847,7 @@ function NamedExceptions({ group }: { group: ScheduleGroup }) {
       ) : (
         <ul className="mt-3 flex min-w-0 flex-col gap-3">
           {group.entries.map((entry) => (
-            <ContactRow key={entry.contactId} entry={entry} />
+            <ContactRow key={entry.contactId} entry={entry} acting={acting} />
           ))}
         </ul>
       )}
@@ -724,9 +867,21 @@ function NamedExceptions({ group }: { group: ScheduleGroup }) {
  * it is a fact about the plan, whose remedy is on the plan, and is stated once for the day above --
  * so the row names the hold and points at it rather than repeating the whole explanation per row.
  */
-function ContactRow({ entry }: { entry: ScheduleEntry }) {
+function ContactRow({ entry, acting }: { entry: ScheduleEntry; acting: ScheduleActingContext }) {
   const notSending = entry.notSendingReason === null ? null : notSendingExplanation(entry.notSendingReason);
   const held = entry.sendability === "stillToSend" && entry.planHold !== null ? entry.planHold : null;
+  const deliveryException = entry.needsReview ? deliveryExceptionExplanation(entry.state) : null;
+  /*
+    ONLY A CONTACT THAT HAS NOT GONE OUT CAN BE MOVED, and the test is the domain's own answer rather
+    than a list of states written here. `contactSendability` already decided; a contact that has been
+    sent, or that never will be, has no time left to change, and offering a control for one would be
+    a control advertising an action the system does not perform.
+
+    A HELD CONTACT STILL OFFERS IT. `rescheduleContact` does not gate on the plan's state, so a
+    coordinator can set the time a paused plan's contact would send at if it resumes -- and the day
+    already states, above, that the plan is holding it.
+  */
+  const mayMove = acting.mayMoveContactWithinDay && entry.sendability === "stillToSend";
 
   return (
     <li className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 forced-colors:border-[CanvasText]">
@@ -762,6 +917,41 @@ function ContactRow({ entry }: { entry: ScheduleEntry }) {
         <div className="mt-3 min-w-0">
           <AutomatedState state={notSending.state} because={notSending.because} changedBy={notSending.changedBy} />
         </div>
+      )}
+      {deliveryException === null ? null : (
+        <div className="mt-3 min-w-0">
+          <AutomatedState
+            state={CONTACT_STATE_LABELS[entry.state]}
+            because={deliveryException.because}
+            changedBy={deliveryException.changedBy}
+          />
+          {/*
+            The overlay's own refusal carries the correction to its frozen summary -- see
+            `RESOLVE_FAILED_DELIVERY_UNAVAILABLE`. The trigger itself stays live, deliberately:
+            `overlay-trigger.tsx` records why a decision surface that opens and then states plainly
+            what cannot be recorded tells a clinician more than a dead control on the screen behind it.
+          */}
+          <div className="mt-2 min-w-0">
+            <WorkspaceOverlayTrigger
+              overlayId="resolve-failed-delivery"
+              commit={{ kind: "unavailable", reason: RESOLVE_FAILED_DELIVERY_UNAVAILABLE }}
+            >
+              <span className="truncate">Close off this delivery &mdash; {entry.patientId}</span>
+            </WorkspaceOverlayTrigger>
+          </div>
+        </div>
+      )}
+      {!mayMove ? null : (
+        <ContactTimeAdjustment
+          planId={entry.planId}
+          contactId={entry.contactId}
+          patientId={entry.patientId}
+          calendarDay={entry.calendarDay}
+          sendsAt={entry.sendAt}
+          contactVersion={entry.contactVersion}
+          actorId={acting.actorId}
+          teamId={acting.teamId}
+        />
       )}
     </li>
   );

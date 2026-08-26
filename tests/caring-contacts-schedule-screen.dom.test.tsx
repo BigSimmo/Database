@@ -223,7 +223,7 @@ function allEntriesOf(day: ScheduleDay | undefined): ScheduleEntry[] {
 function renderScreen(
   records: readonly PlanRecord[],
   selectedCalendarDay: string,
-  options: { mayViewPlans?: boolean; todayCalendarDay?: string } = {},
+  options: { mayViewPlans?: boolean; todayCalendarDay?: string; mayMoveContactWithinDay?: boolean } = {},
 ) {
   return render(
     <ScheduleScreen
@@ -231,6 +231,11 @@ function renderScreen(
       selectedCalendarDay={selectedCalendarDay}
       todayCalendarDay={options.todayCalendarDay ?? MONTH_END}
       mayViewPlans={options.mayViewPlans ?? true}
+      acting={{
+        actorId: COORDINATOR.id,
+        teamId: TEAM,
+        mayMoveContactWithinDay: options.mayMoveContactWithinDay ?? true,
+      }}
     />,
   );
 }

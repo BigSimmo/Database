@@ -139,6 +139,13 @@ export default async function CaringContactsSchedulePage({
   }
 
   const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
+  // Asked of the sealed domain, with the action the STORE itself checks for a within-day move --
+  // never a broader stand-in, and never a list of roles written here. It decides whether the control
+  // is offered at all; the control rechecks it at the moment a move is confirmed, because a role can
+  // change while a confirmation sits open.
+  const mayMoveContactWithinDay = canPerformCaringContactAction(actor, "moveContactWithinDay", {
+    teamId: actor.teamId,
+  }).allowed;
 
   return (
     <CaringContactsShell
@@ -151,6 +158,7 @@ export default async function CaringContactsSchedulePage({
         selectedCalendarDay={selectedCalendarDay}
         todayCalendarDay={todayCalendarDay}
         mayViewPlans={mayViewPlans}
+        acting={{ actorId: actor.id, teamId: actor.teamId, mayMoveContactWithinDay }}
       />
     </CaringContactsShell>
   );
