@@ -192,10 +192,20 @@ describe("stage 3 reports the message's own length rule rather than re-deriving 
     expect(refused[0].message).not.toContain(refused[0].code);
   });
 
-  it("refuses a name a text message cannot carry, and names the characters", () => {
+  it("refuses a name a text message cannot carry, names the characters, and asks the person", () => {
     const refused = fieldsFor("Zoë");
     expect(refused.map((issue) => issue.code)).toEqual(["preferred-name-not-sendable"]);
     expect(refused[0].message).toContain("ë");
+
+    // WHO DECIDES, and this assertion is the one with clinical weight rather than technical weight.
+    // The first draft of this message said "Enter the closest spelling an ordinary text message can
+    // send", which instructs the clinician to strip the diacritics from someone's name themselves --
+    // the exact small indignity an ASKED-FOR preferred name exists to prevent. Every refusal on this
+    // field sends them back to the person whose name it is.
+    expect(refused[0].message, "the refusal decides the spelling instead of asking the person").toMatch(
+      /ask them how they would like their name spelled/i,
+    );
+    expect(refused[0].message.toLowerCase()).not.toContain("closest spelling");
 
     // Positive control on the alphabet: an accented name GSM-7 does carry raises nothing, so this
     // is the transport limit rather than a blanket refusal of anything unfamiliar.

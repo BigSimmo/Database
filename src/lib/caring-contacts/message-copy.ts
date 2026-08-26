@@ -117,14 +117,27 @@ export type PatientVisibleMessageResolution =
  * refusal: never an empty greeting, never a silent fall-back, never a quietly skipped contact.
  *
  * THE THIRD REFUSAL IS A TRANSPORT FACT, NOT A CLINICAL ONE, and it is the one decision here that
- * goes beyond what was asked for — recorded plainly so it can be overturned. A name containing a
- * character outside GSM-7 (`Zoë`, `Aroha-Lī`) makes the WHOLE message unencodable: `calculateGsm7`
- * reports `valid: false`, and `validateGovernedMessage` today checks the segment ceiling only
- * `if (gsm7.valid)` — so an invalid message would pass every check this domain has and reach a
- * sender mangled. Accepting the name and emitting that message is the guess; refusing by name, so a
- * clinician is told plainly and can choose a spelling this channel carries, is the conservative
- * failure. It refuses a value the TRANSPORT cannot carry, which is the same class as refusing one
- * that is too long, and no part of it decides anything about the patient.
+ * goes beyond what was asked for — recorded plainly so it can be overturned.
+ *
+ * WHAT IS DEMONSTRABLE. A name carrying a character outside GSM-7 (`Zoë`, `Aroha-Lī`) makes
+ * `calculateGsm7` report `{ valid: false, segments: 0 }` for the WHOLE message. `validateGovernedMessage`
+ * checks the segment ceiling only `if (gsm7.valid)`, and `MessageValidationIssue` has no
+ * invalid-characters code at all — so such a message is reported VALID by this domain with the
+ * ceiling never evaluated. **The failure is not corruption; it is that the two-segment ceiling
+ * silently stops being enforced**, and length is the only thing being checked there.
+ *
+ * WHAT IS NOT KNOWN, AND AN EARLIER VERSION OF THIS NOTE CLAIMED IT WAS. It said such a message
+ * would "reach a sender mangled". A real SMS gateway normally re-encodes a non-GSM-7 message to
+ * UCS-2 and delivers it INTACT — at 70 characters per segment, 67 concatenated, which would turn
+ * this 252-septet message into roughly four. Nothing in this domain models a UCS-2 path, so within
+ * this system the message genuinely is unencodable; outside it, the likely outcome is an
+ * over-length delivery rather than a damaged one. Refusing is still the conservative answer, and
+ * the reason is the unenforced ceiling rather than a corruption nobody here has observed.
+ *
+ * The refusal names the offending characters and sends the clinician back to the person to ask how
+ * they would like their name spelled — never to a spelling the clinician picks. It refuses a value
+ * the TRANSPORT cannot carry, which is the same class as refusing one that is too long, and no part
+ * of it decides anything about the patient.
  */
 export function resolvePatientVisibleMessage(preferredName: string | null): PatientVisibleMessageResolution {
   const name = (preferredName ?? "").trim();

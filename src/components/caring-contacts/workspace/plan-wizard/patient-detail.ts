@@ -114,6 +114,14 @@ export function personalisationIssues(input: {
   // because they need three different things done about them. The wording a clinician reads is
   // written here; the DECISION is `resolvePatientVisibleMessage`'s, so a wording change to the
   // provisional message moves the cap without this file being touched.
+  //
+  // EVERY ONE OF THE THREE SENDS THE CLINICIAN BACK TO THE PATIENT, AND THE THIRD ONE DID NOT.
+  // Its first draft read "Enter the closest spelling an ordinary text message can send" -- which
+  // handed the decision to the clinician at the exact moment this whole feature exists to keep it
+  // with the person whose name it is. A clinician quietly stripping the diacritics from someone's
+  // name is the small indignity the asked-for field was built to prevent, and a refusal that
+  // instructs them to do it is worse than no refusal at all. The field's own hint says "Ask the
+  // person"; so does every refusal beneath it.
   const preferredNameResolution = resolvePatientVisibleMessage(input.detail.preferredName);
   if (!preferredNameResolution.ok) {
     const issue = preferredNameResolution.issue;
@@ -130,7 +138,7 @@ export function personalisationIssues(input: {
           ? "Enter what this person asked to be called. It is used in the messages themselves, so it is asked for rather than taken from the name above — a name typed family-name-first, or with a title, would open the message with the wrong word."
           : issue.code === "preferred-name-too-long"
             ? "This is too long to fit in the message. Messages are limited to two SMS parts, and what is entered here goes inside one. Use the shorter form the person actually goes by."
-            : `A text message cannot carry ${issue.unsupportedCharacters.join(" ")}, so the message would arrive damaged. Enter the closest spelling an ordinary text message can send.`,
+            : `A text message here cannot carry ${issue.unsupportedCharacters.join(" ")}, so this plan's message could not be sent as written. Ask them how they would like their name spelled in a text message, and enter that.`,
     });
   }
 

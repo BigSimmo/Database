@@ -144,10 +144,14 @@ describe("caring-contacts patient-visible copy", () => {
 
   it("refuses a name this channel cannot carry, rather than emitting a message it would mangle", () => {
     // `ë` is outside the GSM-7 alphabet. `calculateGsm7` reports the whole message `valid: false`,
-    // and `validateGovernedMessage` checks the segment ceiling only when the message IS valid — so
-    // an accepted `Zoë` would produce a message that passes every check this domain has and still
-    // arrives damaged. Refusing by name is the conservative failure; the character set is a telecom
-    // specification, so nothing here decides anything about the patient.
+    // `validateGovernedMessage` checks the segment ceiling only when the message IS valid, and
+    // `MessageValidationIssue` has no invalid-characters code — so an accepted `Zoë` produces a
+    // message this domain reports as VALID with the ceiling never evaluated. The demonstrable
+    // failure is that the two-segment limit silently stops being enforced, NOT that the message
+    // arrives damaged: a real gateway re-encodes to UCS-2 and delivers it intact, at 70/67
+    // characters per segment. Nothing here models that path, so within this system the message is
+    // unencodable and refusing is the conservative answer. The character set is a telecom
+    // specification, so nothing in the refusal decides anything about the patient.
     expect(resolvePatientVisibleMessage("Zoë")).toEqual({
       ok: false,
       issue: { code: "preferred-name-not-sendable", unsupportedCharacters: ["ë"] },
