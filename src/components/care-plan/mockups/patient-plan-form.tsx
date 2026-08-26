@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/form-field";
@@ -161,7 +161,8 @@ export function PatientPlanFormSurface({
   );
   const [errors, setErrors] = useState<FieldEntry[]>([]);
   const [attempt, setAttempt] = useState(0);
-  const [pendingApprovalVersionId, setPendingApprovalVersionId] = useState<SyntheticId | null>(null);
+  const pendingApprovalVersionId = useRef<SyntheticId | null>(null);
+  const snapshotPatientId = snapshot?.patient.id ?? null;
 
   /*
    * Navigation follows the reducer's decision, not the click. A mutation gate
@@ -170,19 +171,20 @@ export function PatientPlanFormSurface({
    * stay here with their entered text intact.
    */
   useEffect(() => {
-    if (pendingApprovalVersionId === null) return;
+    const pendingVersionId = pendingApprovalVersionId.current;
+    if (pendingVersionId === null) return;
 
-    const pendingVersion = state.patientPlanVersions.find(({ id }) => id === pendingApprovalVersionId) ?? null;
+    const pendingVersion = state.patientPlanVersions.find(({ id }) => id === pendingVersionId) ?? null;
     if (pendingVersion?.state === "current") {
-      setPendingApprovalVersionId(null);
-      if (snapshot !== null) navigate(carePlanRoute.patientPlan(snapshot.patient.id));
+      pendingApprovalVersionId.current = null;
+      if (snapshotPatientId !== null) navigate(carePlanRoute.patientPlan(snapshotPatientId));
       return;
     }
 
     if (state.lastOutcome?.kind === "blocked" || state.lastOutcome?.kind === "error") {
-      setPendingApprovalVersionId(null);
+      pendingApprovalVersionId.current = null;
     }
-  }, [navigate, pendingApprovalVersionId, snapshot, state.lastOutcome, state.patientPlanVersions]);
+  }, [navigate, snapshotPatientId, state.lastOutcome, state.patientPlanVersions]);
 
   if (draft !== null && seededFrom !== draft.id) {
     setSeededFrom(draft.id);
@@ -339,7 +341,7 @@ export function PatientPlanFormSurface({
       return;
     }
     setErrors([]);
-    setPendingApprovalVersionId(draft.id);
+    pendingApprovalVersionId.current = draft.id;
     dispatch({
       type: "save-patient-plan-draft",
       versionId: draft.id,
