@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "3186205d5ef2bd630157a31b2e777f9c1873b8c5",
-    "committed_at": "2026-08-26T21:42:06+08:00"
+    "sha": "ea58e0fcc734a79db3af625f800953333203f5bd",
+    "committed_at": "2026-08-26T22:38:53+08:00"
   },
   "routes": {
     "modes": [
@@ -3826,6 +3826,14 @@
         "scope": "authenticated document cover selection, retry lifecycle, optional preview failure, and source evidence preservation",
         "outcome": "All substantiated P2 findings fixed; no remaining P0-P2 findings",
         "checks": "lint pass; typecheck pass; focused preview 79/79; production build pass; full suite 10489 pass with six unrelated Windows Claude-cloud failures after the one preview failure was fixed; offline fixture contracts pass; snapshot and medication checks pass"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "57ab01cbe28977ed3e0db830c45a00749977e351",
+        "scope": "PR #2391",
+        "outcome": "fixes-applied",
+        "checks": "PR policy body canonicalized; cover in-flight keyed by credential; vitest use-document-cover 9/9; snapshot regenerated; threads resolved; CI watching"
       },
       {
         "date": "2026-08-26",
@@ -24797,7 +24805,7 @@
       }
     ],
     "counts": {
-      "records": 2625,
+      "records": 2626,
       "refs": 1604
     }
   }
