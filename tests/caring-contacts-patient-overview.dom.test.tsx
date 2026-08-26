@@ -30,12 +30,14 @@
 //      about the plan being old.
 //
 // Built on the helper shape `caring-contacts-patients-page.dom.test.tsx` established for Task 5.
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   store: { current: null as unknown },
+  router: { refresh: vi.fn(), push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() },
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
@@ -48,6 +50,10 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   notFound: mocks.notFound,
+  // `PlanActions` asks the router to read the rest of this screen again after a change lands. There
+  // is no app-router context in jsdom, so the real hook throws; this is the same substitution the
+  // wizard's own suite makes for `push`.
+  useRouter: () => mocks.router,
 }));
 
 vi.mock("@/lib/caring-contacts-server/store", () => ({
@@ -55,7 +61,16 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 }));
 
 import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
-import { commitRefusalFor } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
+import { overlayDefinition } from "@/components/caring-contacts/workspace/overlays/definitions";
+import {
+  clearStagedWorkspaceOverlayCommit,
+  commitRefusalFor,
+} from "@/components/caring-contacts/workspace/overlays/overlay-commits";
+import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
+import {
+  planActionConditions,
+  PLAN_ACTION_CONDITION_REFUSALS,
+} from "@/components/caring-contacts/workspace/plan-action-rules";
 import type { PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
 import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
@@ -82,6 +97,7 @@ import {
 import type { ContactState, MessageType } from "@/lib/caring-contacts/model";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import type { CaringContactRepository, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
+import type { NextRequest } from "next/server";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
 
@@ -984,7 +1000,14 @@ describe("the patient overview - a plan that is not running must not read as for
     const note = screen.getByRole("group", { name: "Paused" });
     expect(note).toHaveTextContent("this plan is paused");
     expect(note).toHaveTextContent("a date below is not a message on its way");
-    expect(note).toHaveTextContent(/Resuming the plan/i);
+    // The remedy names a control that now EXISTS on this screen (Task 11b). It used to say there
+    // was none, and that sentence was true when it was written and false the moment the plan
+    // actions landed -- a remedy that points at nothing is worse than no remedy at all.
+    expect(note).toHaveTextContent(/Letting the plan run again/i);
+    expect(note, "the note still says this screen offers no way to lift a hold").not.toHaveTextContent(
+      /no control for that on this screen/i,
+    );
+    expect(screen.getByTestId("caring-contacts-plan-action-resume")).toBeInTheDocument();
   });
 
   it("says a DRAFT plan has not been started, in different words from the paused one", async () => {
@@ -1338,5 +1361,643 @@ describe("the patient overview - the activation outcome is offered only while th
     // And the guard still bites for the plan actions on this same screen's roadmap, so this is not
     // a universal escape hatch from Ruling 87.
     expect(() => exitOnlyOverlayCommit("pause")).toThrow(/records a decision/i);
+  });
+});
+
+/*
+ * ===========================================================================
+ * Task 11b -- `pause`, `withdrawal` and `reassignment`, the three plan actions
+ * ===========================================================================
+ *
+ * THE THREE CONTROLS IN THIS WORKSPACE THAT STOP A SUICIDE-PREVENTION PROGRAMME FOR A PERSON, which
+ * is why two of them are two-stage in the frozen matrix and why the assertions below are written
+ * against the RECORD rather than against the copy.
+ *
+ * WHY THESE CASES DRIVE THE REAL ROUTE HANDLERS RATHER THAN A STUBBED ANSWER. Every claim this
+ * block makes is about what the DOMAIN does -- pausing holds and cancels nothing, withdrawal
+ * cancels everything unsent, a stale version is refused, a replayed key acts once. A stubbed
+ * `fetch` would let each of those be asserted against an answer this file invented, which is the
+ * self-comparison trap the standing discipline names. So `fetch` is dispatched into
+ * `src/app/api/caring-contacts/**`'s own POST handlers against the SAME in-memory store the page
+ * reads, and every "did it mutate?" assertion reads that store back.
+ */
+
+/** One request the screen sent, captured at the seam. */
+type SentRequest = { url: string; body: Record<string, unknown> };
+
+/**
+ * `fetch`, dispatched into the real route handlers.
+ *
+ * `swallow` models the failure the idempotency key exists for: the service acted, and the answer
+ * never arrived. The handler still runs -- that is the point -- and the rejection happens after it.
+ */
+function routeFetch(options: { swallow?: (sent: SentRequest, index: number) => boolean; gate?: Promise<void> } = {}) {
+  const swallow = options.swallow ?? (() => false);
+  const sent: SentRequest[] = [];
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = String(input);
+
+    if (url === "/api/caring-contacts/session") {
+      const { GET } = await import("@/app/api/caring-contacts/session/route");
+      return GET();
+    }
+
+    // A write held open, so a second control can be inspected while the first is still on its way.
+    if (options.gate !== undefined) await options.gate;
+
+    const raw = typeof init?.body === "string" ? init.body : "{}";
+    const record: SentRequest = { url, body: JSON.parse(raw) as Record<string, unknown> };
+    const index = sent.length;
+    sent.push(record);
+
+    const request = new Request(`http://localhost${url}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: raw,
+    }) as unknown as NextRequest;
+    const id = decodeURIComponent(url.slice(url.lastIndexOf("/") + 1));
+
+    let answer: Response;
+    if (url.startsWith("/api/caring-contacts/plans/")) {
+      const { POST } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+      answer = await POST(request, { params: Promise.resolve({ planId: id }) });
+    } else if (url.startsWith("/api/caring-contacts/assignments/")) {
+      const { POST } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+      answer = await POST(request, { params: Promise.resolve({ planId: id }) });
+    } else {
+      throw new Error(`the plan actions asked for a URL this dispatcher does not know: ${url}`);
+    }
+
+    // The handler has already run against the real store by the time this fires, which is exactly
+    // the state a lost answer leaves behind.
+    if (swallow(record, index)) throw new TypeError("Failed to fetch");
+    return answer;
+  });
+  return { sent, spy, writes: () => sent.filter((entry) => !entry.url.includes("/session")) };
+}
+
+/** Renders the real page plus the overlay host the shell mounts in production, as ONE tree. */
+async function renderPageWithOverlays(patient = PATIENT): Promise<void> {
+  const { default: PatientOverviewPage } = await import("@/app/caring-contacts/patients/[patientId]/page");
+  const element = await PatientOverviewPage({
+    params: Promise.resolve({ patientId: patient }),
+    searchParams: Promise.resolve({}),
+  });
+  render(
+    <>
+      {(element as ReactElement<{ children: ReactElement }>).props.children}
+      <WorkspaceOverlays />
+    </>,
+  );
+}
+
+/** The trigger for ONE row, refusing anything but exactly one -- never "the trigger on screen". */
+function planActionTrigger(row: string): HTMLElement {
+  const matches = screen
+    .getAllByTestId("workspace-overlay-trigger")
+    .filter((element) => element.getAttribute("data-overlay-trigger") === row);
+  if (matches.length !== 1) {
+    throw new Error(`expected exactly one ${row} trigger on screen, found ${matches.length}`);
+  }
+  return matches[0];
+}
+
+/**
+ * Opens one row's confirmation and presses its decision control `stages` times.
+ *
+ * `withdrawal` and `reassignment` are `requiresFreshAuthentication` in the frozen table, so the host
+ * commits only on the SECOND activation; `pause` commits on the first. The stage count is passed
+ * rather than derived so a case that expects two and gets one fails here rather than silently.
+ */
+async function confirmPlanAction(user: ReturnType<typeof userEvent.setup>, row: string, stages: 1 | 2): Promise<void> {
+  await user.click(planActionTrigger(row));
+  for (let stage = 0; stage < stages; stage += 1) {
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+  }
+}
+
+/** Creates a plan through the real store and starts it, so the plan actions have something live. */
+async function runningPlan(store: CaringContactRepository, id = "plan-actions"): Promise<PlanId> {
+  const plan = await createPlan(store, id);
+  const actor = demoActorForRole("coordinator");
+  const started = await store.activatePlan(
+    { planId: plan, expectedVersion: 1 },
+    { actor, idempotencyKey: idempotencyKey(`activate-${id}`) },
+  );
+  if (!started.ok) throw new Error(`activatePlan(${id}) refused: ${started.reason}`);
+  return plan;
+}
+
+/** What the store holds for one plan, as the shape every "did it mutate?" assertion compares. */
+async function planShape(store: CaringContactRepository, plan: PlanId, role = "coordinator") {
+  const record = await store.getPlan(plan, { actor: demoActorForRole(role as "coordinator") });
+  if (record === null) throw new Error(`getPlan(${plan}) released nothing`);
+  return {
+    state: record.plan.state,
+    version: record.plan.version,
+    contacts: record.contacts.map((entry) => [entry.planned.cadenceLabel, entry.contact.state] as const),
+  };
+}
+
+const outcomeRegion = () => screen.getByTestId("caring-contacts-plan-action-outcome");
+
+describe("the plan actions - Ruling [129]: a hold is not a cancellation, and the record says so", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("holds the plan and cancels NOTHING, read back from the record rather than from the copy", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const after = await planShape(store, plan);
+    // The plan moved. Held to expected content on BOTH sides rather than compared with itself.
+    expect(before.state).toBe("active");
+    expect(after.state).toBe("paused");
+    expect(after.version).toBe(before.version + 1);
+    // And not one contact moved with it -- the domain's "holds without cancelling" contract, read
+    // from the store rather than inferred from a sentence on the screen.
+    // Held to expected content on one side, then the other compared to it -- three empty lists
+    // agree perfectly, so "these agree" alone would prove nothing.
+    expect(before.contacts).toContainEqual(["Day 1", "scheduled"]);
+    expect([...new Set(before.contacts.map(([, state]) => state))]).toEqual(["scheduled"]);
+    expect(after.contacts).toEqual(before.contacts);
+  });
+
+  it("withdraws by cancelling every message not already gone, which is the opposite shape", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    // Two stages: the frozen table marks this row `requiresFreshAuthentication`.
+    await confirmPlanAction(user, "withdrawal", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const after = await planShape(store, plan);
+    expect(after.state).toBe("withdrawn");
+    expect(after.contacts).toContainEqual(["Day 1", "cancelled"]);
+    // Every one of them, and the same entries as before -- the schedule is not shortened, it is
+    // moved to cancelled.
+    expect([...new Set(after.contacts.map(([, state]) => state))]).toEqual(["cancelled"]);
+    expect(after.contacts.map(([label]) => label)).toEqual(before.contacts.map(([label]) => label));
+  });
+
+  it("says on the screen that a hold keeps the schedule, where the frozen drawer says the opposite", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    expect(card).toHaveTextContent(/keeps its whole schedule/i);
+    expect(card).toHaveTextContent(/no dated message is removed, no date moves/i);
+    expect(card).toHaveTextContent(/can be let run again/i);
+    // THE CONTRAST IS BETWEEN TWO REAL STRINGS, not between the screen and a phrase this test
+    // invented: the frozen row's own summary says contacts inside the pause are skipped for good,
+    // which is not what `pausePlan` does. Positive control for the negative below.
+    expect(overlayDefinition("pause")?.summary).toMatch(/skipped for good/i);
+    expect(card, "the screen repeated the frozen drawer's claim about contacts being skipped").not.toHaveTextContent(
+      /skipped for good/i,
+    );
+  });
+
+  it("never says a hold stopped a message going out, and says why no screen may", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    // Pinned whole. The claim this replaces has been made wrongly on a screen in this programme in
+    // BOTH directions, so a loose match is not enough.
+    expect(card).toHaveTextContent(
+      "There is no messaging provider connected to this workspace at all, so nothing any of these controls does can send a message to anybody or stop one being sent.",
+    );
+    // What the hold DOES change, which is a fact about the write gate rather than about a sender.
+    expect(card).toHaveTextContent(/the service refuses any attempt to dispatch one of its messages/i);
+  });
+});
+
+describe("the plan actions - a guard rejection does not mutate", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("refuses a move this role may not make, keeps the control focusable, and leaves the record alone", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    // Claimed, so `somebody-is-carrying-this-plan` is met and the ROLE is the only obstacle left.
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-coordinator") } },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("claim-guard") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    const before = await planShape(store, plan);
+    const assignmentBefore = await store.getAssignment(plan, { actor: demoActorForRole("coordinator") });
+    const { writes } = routeFetch();
+
+    // A coordinator is granted pausePlan and withdrawPlan and is NOT granted reassignPlan.
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+
+    // The frozen matrix's guard-rejection shape: the surface is retained, the action keeps its tab
+    // stop and carries `aria-disabled`, and the named reason is on screen.
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    const reasonId = action.getAttribute("aria-describedby");
+    expect(reasonId).not.toBeNull();
+    expect(document.getElementById(reasonId!)).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["the-acting-role-holds-this-action"].heading,
+    );
+
+    await user.click(action);
+
+    // THE CLAUSE THAT MATTERS: nothing was sent, and the record is unchanged. Both records, because
+    // a reassignment could move either.
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+    expect(await store.getAssignment(plan, { actor: demoActorForRole("coordinator") })).toEqual(assignmentBefore);
+  });
+
+  it("POSITIVE CONTROL: the same row is live for a role that is granted it, so the refusal is about the role", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-control") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await user.click(planActionTrigger("reassignment"));
+
+    expect(await screen.findByTestId("workspace-overlay-action")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("refuses a hold on a plan that is not running, and sends nothing", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await createPlan(store, "plan-draft-actions");
+    const before = await planShape(store, plan);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    await user.click(action);
+
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+    expect(before.state).toBe("draft");
+  });
+});
+
+describe("the plan actions - the commit-time recheck actually rechecks", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("refuses a withdrawal confirmed after the acting account changed, and writes nothing", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    // OPEN in one account, CHANGE it, then CONFIRM -- the sequence the matrix's commit-time clause
+    // is about. The role switcher is a separate surface, so this is a state another tab can move.
+    await user.click(planActionTrigger("withdrawal"));
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() =>
+      expect(outcomeRegion()).toHaveTextContent(
+        PLAN_ACTION_CONDITION_REFUSALS["the-acting-account-has-not-changed"].heading,
+      ),
+    );
+    // Nothing reached the plan route, and the record is unchanged.
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+  });
+
+  it("POSITIVE CONTROL: the same sequence without the account changing records the withdrawal", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "withdrawal", 2);
+
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+    expect(writes()).toHaveLength(1);
+    expect((await planShape(store, plan)).state).toBe("withdrawn");
+  });
+
+  it("sends the version it holds, so a plan changed while the surface was open is refused by the service", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+
+    // Somebody else moves the plan while the confirmation sits open.
+    const elsewhere = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere") },
+    );
+    if (!elsewhere.ok) throw new Error(`the other write refused: ${elsewhere.reason}`);
+    const afterTheOtherWrite = await planShape(store, plan);
+
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+    // The refused attempt changed nothing: the plan is exactly as the OTHER write left it.
+    expect(await planShape(store, plan)).toEqual(afterTheOtherWrite);
+  });
+
+  it("tells a version collision apart from a permission refusal, in both directions", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // The screen believes this role may hold a plan -- it was rendered for one that may. The
+    // account the SERVICE acts as changes to one that may not, and `pause` carries no account
+    // check, so the write goes and the service is what refuses it.
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "clinicalProgrammeLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() =>
+      expect(outcomeRegion()).toHaveTextContent("This action is not granted to the role acting here"),
+    );
+    const permissionWords = outcomeRegion().textContent ?? "";
+    // Disjoint, deliberately: "somebody changed this plan" and "you may not do this" are different
+    // facts, and a coordinator acting on a suicide-prevention plan needs to know which.
+    expect(permissionWords).not.toMatch(/changed after this screen read it/i);
+    expect(permissionWords).toMatch(/nothing was recorded on this plan/i);
+    expect(await planShape(store, plan)).toEqual(before);
+  });
+
+  it("holds the other controls while a change is on its way, so a second one cannot collide with it", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    routeFetch({ gate });
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    const resume = await screen.findByTestId("caring-contacts-plan-action-resume");
+    await waitFor(() => expect(resume).toHaveAttribute("aria-disabled", "true"));
+    expect(document.getElementById(resume.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["no-other-change-to-this-plan-is-on-its-way"].heading,
+    );
+    release();
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+  });
+});
+
+describe("the plan actions - two actions in a row from one screen", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /**
+   * THE DEFECT THIS CASE EXISTS FOR, and its absence is what hid it on a sibling branch. The version
+   * arrives as a PROP, and a prop cannot change without a server render. A screen that kept sending
+   * the version it was rendered with would have its SECOND action refused as `stale-version` -- and
+   * the honest wording for that is that the plan moved after this screen read it, which would tell a
+   * coordinator somebody else had changed a suicide-prevention plan when nobody had.
+   */
+  it("holds the plan and then lets it run again, sending the version the first change answered", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now being held/i));
+
+    await user.click(screen.getByTestId("caring-contacts-plan-action-resume"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/running again/i));
+
+    // Both changes landed, in order, and the second carried the version the FIRST answered.
+    expect(writes().map((entry) => [entry.body.action, entry.body.expectedVersion])).toEqual([
+      ["pause", 2],
+      ["resume", 3],
+    ]);
+    const after = await planShape(store, plan);
+    expect([after.state, after.version]).toEqual(["active", 4]);
+    // A hold and its lifting leave the schedule exactly where it was.
+    expect(after.contacts).toContainEqual(["Day 1", "scheduled"]);
+    expect([...new Set(after.contacts.map(([, state]) => state))]).toEqual(["scheduled"]);
+    // Nobody was told somebody else had touched this plan.
+    expect(outcomeRegion().textContent ?? "").not.toMatch(/changed after this screen read it/i);
+    // The rest of this screen was rendered before both changes, so the server is asked again.
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("the plan actions - a repeated submission does not act twice", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /**
+   * ON REASSIGNMENT, BECAUSE THAT IS WHERE A SECOND PRESS PRODUCES A SECOND RECORD. The assignment
+   * route carries no `expectedVersion` at all, so nothing but the idempotency key stands between one
+   * press-after-a-timeout and two moves of one patient's plan. The lifecycle writes have the version
+   * guard as well; this one has only the key.
+   */
+  it("moves the plan once when the answer is lost and the coordinator presses again", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-replay") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    // The FIRST attempt reaches the service and its answer is lost on the way back.
+    const { writes } = routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+
+    // The coordinator presses again, exactly as the wording invites.
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    // ONE KEY ACROSS BOTH ATTEMPTS -- which is what makes the second a replay rather than a move.
+    const keys = writes().map((entry) => entry.body.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+
+    // AND ONE RECORD, held to expected content rather than to a count of presses.
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.ownerId).toBe("demo-coordinator");
+    expect(assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId, entry.reason])).toEqual([
+      ["demo-teamLead", "demo-coordinator", "Going on leave from Friday."],
+    ]);
+  });
+});
+
+describe("the plan actions - what a clinician is shown, and what never reaches them", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("names the coordinator carrying the plan and the one it would move to, in the domain's own words", async () => {
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-wording") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    // The losing side, in the sealed domain's wording. Positive control for the negative below: the
+    // constant is asserted PRESENT before anything is concluded from what is absent.
+    expect(card).toHaveTextContent(CARING_CONTACT_ROLE_WORDING.teamLead);
+    expect(
+      screen.getByRole("option", { name: `a ${CARING_CONTACT_ROLE_WORDING.coordinator} account` }),
+    ).toHaveAttribute("value", "demo-coordinator");
+    // And never the identifier behind either of them. Actor ids here are `demo-<role>`, and a raw
+    // role identifier is not put in front of a clinician.
+    expect(card.textContent ?? "").not.toMatch(/demo-/);
+    expect(card.textContent ?? "").not.toMatch(/teamLead/);
+  });
+
+  it("puts the withdrawal on a full-screen stage on a phone, where the hold is a bottom sheet", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("withdrawal"));
+
+    const surface = await screen.findByTestId("workspace-overlay-content");
+    expect(surface).toHaveAttribute("data-overlay-modality", "full-screen-stage");
+
+    // The contrast, at the SAME width, so the assertion is about this row rather than about 320px.
+    // A fresh tree rather than dismissing the first: closing unwinds a history entry through an
+    // asynchronous `popstate`, and racing that would make the second assertion about timing.
+    cleanup();
+    clearStagedWorkspaceOverlayCommit();
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    expect(await screen.findByTestId("workspace-overlay-content")).toHaveAttribute(
+      "data-overlay-modality",
+      "bottom-sheet",
+    );
+  });
+
+  it("keeps every control a production tap target and visible in forced colours", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    const controls = [...card.querySelectorAll("button"), ...card.querySelectorAll("select, textarea")];
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) {
+      expect(control.className, `${control.textContent ?? control.id} is not a production tap target`).toContain(
+        "min-h-tap",
+      );
+      expect(control.className).not.toContain("min-h-11");
+    }
+    expect(planActionTrigger("pause").className).toContain("forced-colors:");
+  });
+
+  it("sends nothing about the patient in a URL, and no query string at all", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { sent } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    expect(sent.length).toBeGreaterThan(0);
+    for (const entry of sent) {
+      expect(entry.url).not.toContain("?");
+      expect(entry.url).not.toMatch(/Rowan/i);
+      expect(entry.url).not.toContain(PATIENT);
+    }
+    // The one identifier that does travel is the plan's, which is synthetic and is on the screen.
+    expect(sent.some((entry) => entry.url.endsWith(`/${plan}`))).toBe(true);
+  });
+});
+
+describe("the plan actions - the conditions table refuses an action nobody declared", () => {
+  it("throws for an id no action carries, rather than answering with an empty list", () => {
+    // An empty list would make a mistyped id look identical to an action with no guard at all, and
+    // all four of these mutate.
+    expect(() => planActionConditions("pause")).not.toThrow();
+    expect(() => planActionConditions("delivery-detail")).toThrow(/No conditions are declared/i);
   });
 });
