@@ -610,3 +610,47 @@ side by side with the answer on a large screen. Still state it in the PR body �
 seeing the aside disappear deserves the sentence.
 
 ---
+
+### 12.8 The production change: edge to edge, one number, one panel (2026-08-26)
+
+Everything §12.6 and §12.7 drew in the mockup, applied to the live answer surface after the
+owner approved the look and chose direction B.
+
+**Edge to edge.** The `answer-clinical-icon` tile and its grid column are gone from
+`plain-answer-response` (`answer-content.tsx`), the matching `ps-[var(--answer-message-gutter)]`
+is gone from the bare `AnswerCard` header, and `--answer-message-gutter` is deleted from
+`globals.css`. The token existed only to keep those two non-nested places in one column;
+with no column to clear, there is nothing left for it to hold.
+
+**One number per claim.** `maxMarksPerCluster` is `1`. Nothing is hidden: `resolveClaimMarks`
+already counted the remainder into `overflow`, the `+N` renders it, and every source it counts
+is on the rail immediately below at full tap size — which is also where a `Review due` or
+`Outdated` badge lives, per the 2026-08-24 decision that staleness is carried by the row and
+the drawer and never by the mark. The one signal that must not be lost was never on the mark.
+`tests/answer-claim-marks.test.ts` now derives its overflow expectation from the cap rather
+than hard-coding it, so the assertion keeps proving "every uncapped target is counted" if the
+cap moves again.
+
+**The safety card has no rail.** Colour lives in the icon tile plus a severity chip built from
+the finding's own label, which `answerSupportPriority` now returns as `severityLabel` instead
+of running it into the citation string. Both priority rows lost `border-t-2`.
+
+**Direction B under the answer.** `AnswerFollowUpSuggestions` gained `layout="rows"` — one
+question per full-width row — and the answer surface renders it above the library line on every
+width. Three things had to move together for that to be an improvement rather than a third
+panel:
+
+- The `hidden sm:block` wrapper is gone, so the questions exist on a phone at all.
+- `CrossModeLinksSection` gained `variant="line"`: a single collapsed row carrying a preview of
+  the matches, opening to exactly the rail it always was.
+- The composer dock no longer receives `composerFollowUpSuggestions` on the answer mode, and the
+  dashboard no longer renders `UniversalSearchAlsoMatches` there. Both were second copies —
+  the same three questions truncated onto one scrolling line, and a mode-level restatement of
+  the record-level matches directly above it. Pinned in
+  `tests/answer-follow-up-chips.dom.test.tsx` so neither returns by accident.
+
+**One citation fix travelling with it.** `cleanCitationTitle` now inserts the missing space in
+`Guideline(EMHS)`. Every citation label in the product runs through that function, so the safety
+card, the rail cards, the drawer and print are fixed together. Display only.
+
+---
