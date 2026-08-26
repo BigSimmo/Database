@@ -33,7 +33,7 @@
 //
 // Pure and deterministic: no clock, no storage, no ambient time. The day being asked about is an
 // argument.
-import { awstCalendarDay, awstWallTimeToInstant } from "./clock";
+import { awstCalendarDay, awstCalendarDayOffset, awstWallTimeToInstant } from "./clock";
 import type { ContactId, PatientId, PlanId } from "./ids";
 import { contactSendability, type ContactSendability, type ContactState, type MessageType } from "./model";
 import type { PlanState, SendingPreference } from "./model";
@@ -224,10 +224,14 @@ const MILLISECONDS_PER_DAY = 86_400_000;
 /**
  * A calendar day as an instant, taken at midday AWST.
  *
- * Midday rather than midnight on purpose: it is the furthest point from either boundary, so adding
- * whole days can never land on the wrong side of one. AWST is UTC+8 all year, so there is no
+ * Midday rather than midnight on purpose: it is the furthest point from either boundary, so the
+ * difference between two of them cannot round across one. AWST is UTC+8 all year, so there is no
  * daylight-saving shift for this to survive -- the margin is against arithmetic, not against a
  * clock change.
+ *
+ * `daysBetween` below is its only caller, and it wants the INSTANT rather than the day, which is
+ * why the midday expression is still written here as well as inside `awstCalendarDayOffset`. The
+ * enumeration that used to be the second caller now goes through that helper (Task 13 review).
  */
 function middayOf(calendarDay: string): number {
   return awstWallTimeToInstant(calendarDay, 12).getTime();
@@ -238,10 +242,7 @@ function daysBetween(fromCalendarDay: string, toCalendarDay: string): number {
 }
 
 function calendarDaysFrom(fromCalendarDay: string, count: number): string[] {
-  const start = middayOf(fromCalendarDay);
-  return Array.from({ length: count }, (_unused, offset) =>
-    awstCalendarDay(new Date(start + offset * MILLISECONDS_PER_DAY)),
-  );
+  return Array.from({ length: count }, (_unused, offset) => awstCalendarDayOffset(fromCalendarDay, offset));
 }
 
 function notSendingReasonFor(stored: StoredContact): ScheduleNotSendingReason | null {

@@ -94,6 +94,8 @@ const routeDescriptions: Record<string, string> = {
     "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
   "/caring-contacts/plans/new":
     "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
+  "/caring-contacts/schedule":
+    "What this team's caring-contact plans put on one AWST day: the three approved sending windows, the contacts at no approved send time, and the named exceptions. The day travels in `?day=`; without it, today.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",

@@ -113,6 +113,26 @@ export function scheduleDayLabel(calendarDay: string): string {
   return `${WEEKDAY_NAMES[weekday]} ${day} ${MONTH_NAMES[month - 1]} ${year}`;
 }
 
+/**
+ * What a screen reader hears on one day of the strip, and it BEGINS with the words on the face of it.
+ *
+ * WCAG 2.5.3 Label in Name (level A): the visible label text must be contained in the accessible
+ * name, so that somebody driving this by voice can address the control by what it shows. The strip
+ * shows "Mon 31 Aug", a number, and "Today" on the day that is today; all three are here, in that
+ * order, with the year and the unit words around them. An `aria-label` reading "Monday 31 August
+ * 2026" instead met none of that -- the visible string appeared nowhere in the name.
+ *
+ * IT NAMES WHAT THE DAY HOLDS AND NOTHING ELSE. It also used to announce how many were still to
+ * send, a number no sighted user can find anywhere in the strip. That is a divergence between two
+ * readings of the same control rather than an enhancement for one of them, and the still-to-send
+ * count is already on the day itself, in the readout above its windows, where both readings get it
+ * at the same time.
+ */
+function stripDayAccessibleName(day: ScheduleDay, isToday: boolean): string {
+  const [year] = day.calendarDay.split("-");
+  return `${stripDayLabel(day.calendarDay)} ${year}${isToday ? ", Today" : ""}. ${plural(day.counts.total, "contact", "contacts")}.`;
+}
+
 /** "Mon 31 Aug" -- one day of the strip, where the whole date does not fit. */
 function stripDayLabel(calendarDay: string): string {
   const { month, day, weekday } = partsOfCalendarDay(calendarDay);
@@ -366,7 +386,6 @@ function DayStrip({
             data-internal-link="true"
             data-schedule-day={day.calendarDay}
             aria-current={current ? "page" : undefined}
-            aria-label={`${scheduleDayLabel(day.calendarDay)}${day.calendarDay === todayCalendarDay ? " (today)" : ""}. ${plural(day.counts.total, "contact", "contacts")}, ${plural(day.counts.due, "still to send", "still to send")}.`}
             className="flex min-h-tap min-w-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-1 py-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--surface-subtle)] forced-colors:border-[CanvasText]"
           >
             <span aria-hidden="true" className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
@@ -383,6 +402,12 @@ function DayStrip({
                 Today
               </span>
             ) : null}
+            {/*
+              The accessible name, and the ONLY thing in this control that is not `aria-hidden` --
+              so the name is this string rather than a competing `aria-label`. See
+              `stripDayAccessibleName` for why it begins with the words on the face of the control.
+            */}
+            <span className="sr-only">{stripDayAccessibleName(day, day.calendarDay === todayCalendarDay)}</span>
           </Link>
         );
       })}
@@ -414,7 +439,10 @@ function SelectedDay({
         </div>
       ) : (
         <>
-          <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <p
+            data-testid="caring-contacts-schedule-day-statement"
+            className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
+          >
             {dayStatement(day)}
           </p>
 
@@ -618,6 +646,14 @@ function WindowColumn({
  * every moved contact that landed on an approved hour -- a label claiming more than the system can
  * attest. It also does not invent a fourth window: adding a sending window to a suicide-prevention
  * schedule by implementation accident is exactly what Task 12 refused to do.
+ *
+ * AND IT CLAIMS NO CONTAINMENT EITHER, which is the same error class caught one sentence later.
+ * This copy used to say these contacts "sit inside the approved 9:00 am to 6:00 pm AWST sending
+ * window". `sendingPreferenceAt` does not test that bound at all -- it answers null for ANY instant
+ * that is not exactly one of the three send hours at minute zero -- so this group admits times
+ * outside 09:00-18:00, and the suite's own defensive midnight contact is one. The planner cannot
+ * currently produce such a contact, which is precisely what would have kept the sentence false and
+ * unread. It now says only what the grouping actually establishes: not at any of the three times.
  */
 function OutsideApprovedWindows({ group }: { group: ScheduleGroup }) {
   return (
@@ -625,7 +661,7 @@ function OutsideApprovedWindows({ group }: { group: ScheduleGroup }) {
       <WindowColumn
         heading="Not at an approved send time"
         sendTime="Each contact is shown at the time it sends"
-        description="These contacts sit inside the approved 9:00 am to 6:00 pm AWST sending window, at a time none of the three windows above covers. They are listed here rather than filed under a window they do not send in."
+        description="These contacts send at a time none of the three windows above covers. They are listed here rather than filed under a window they do not send in."
         group={group}
         emptyText="No contact on this day sends outside the three windows."
         icon={CalendarDays}

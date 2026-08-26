@@ -49,7 +49,12 @@ import type { SendingPreference } from "@/lib/caring-contacts/model";
 import type { Actor, SystemActor } from "@/lib/caring-contacts/permissions";
 import type { CaringContactRepository, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 import { SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
-import { buildScheduleRange, type ScheduleRangeView } from "@/lib/caring-contacts/schedule-view";
+import {
+  buildScheduleRange,
+  type ScheduleDay,
+  type ScheduleEntry,
+  type ScheduleRangeView,
+} from "@/lib/caring-contacts/schedule-view";
 
 const TEAM = teamId("TEAM-NORTH");
 const COORDINATOR: Actor = { id: actorId("ACTOR-1"), teamId: TEAM, roles: ["coordinator"] };
@@ -66,6 +71,9 @@ const NEXT_MONTH_START = "2026-09-01";
 /** A day far enough from any seeded plan that nothing can fall on it. */
 const QUIET_DAY = "2026-08-20";
 
+/** Discharge + 7: the day a first contact moved onto absorbs the Week 1 message. */
+const ABSORBING_FIRST_CONTACT_DAY = "2026-09-06";
+
 let seeded = 0;
 
 function newStore(): CaringContactRepository {
@@ -75,6 +83,9 @@ function newStore(): CaringContactRepository {
 type SeedOptions = {
   sendingPreference?: SendingPreference;
   planState?: "draft" | "active" | "paused" | "withdrawn";
+  /** Moves the first contact off the default discharge + 1. Needed to reach an absorbed Week 1. */
+  firstContactDate?: string;
+  firstContactReason?: string;
 };
 
 /** One plan through the real write path, left in the state named. */
@@ -90,6 +101,8 @@ async function seedPlan(store: CaringContactRepository, options: SeedOptions = {
       pathwayVersionId: pathwayVersionId("SYN-PATHWAY-001"),
       dischargeAt: DISCHARGE_AT,
       sendingPreference: options.sendingPreference ?? "morning",
+      firstContactDate: options.firstContactDate,
+      firstContactReason: options.firstContactReason,
       patientDetail: {
         patientName: `Synthetic Patient ${suffix}`,
         patientMobileNumber: "+61 491 570 156",
@@ -197,6 +210,16 @@ function viewAround(records: readonly PlanRecord[], selectedCalendarDay: string)
   return result.view;
 }
 
+/** Every entry a day holds, in whichever group it landed in. Undefined day means the strip is wrong. */
+function allEntriesOf(day: ScheduleDay | undefined): ScheduleEntry[] {
+  if (!day) throw new Error("the day under test is not in the strip that was built for it");
+  return [
+    ...day.windows.flatMap((window) => window.entries),
+    ...day.outsideApprovedWindows.entries,
+    ...day.exceptions.entries,
+  ];
+}
+
 function renderScreen(
   records: readonly PlanRecord[],
   selectedCalendarDay: string,
@@ -212,11 +235,16 @@ function renderScreen(
   );
 }
 
-/** The screen's statement about the day it is open on. */
+/**
+ * The screen's statement about the day it is open on.
+ *
+ * Found by its own test id, not by walking from the counts readout. `previousElementSibling` read
+ * the right node only for as long as nothing was inserted between the two, and an element added
+ * later would have made this read the WRONG node rather than fail -- a test that quietly changes
+ * what it asserts is worse than one that breaks.
+ */
 function dayStatementText(): string {
-  const statement = document.querySelector(
-    "[data-testid='caring-contacts-schedule-day-counts']",
-  )?.previousElementSibling;
+  const statement = document.querySelector("[data-testid='caring-contacts-schedule-day-statement']");
   if (!statement) throw new Error("the day statement is missing");
   return statement.textContent ?? "";
 }
@@ -270,9 +298,42 @@ describe("the Schedule screen — the day strip", () => {
     // `getByText` matches an element whose whole normalised text is "1", so the "31" inside
     // "Mon 31 Aug" cannot satisfy it -- which `toContain("1")` did, silently, before this.
     expect(within(selected as HTMLElement).getByText("1")).toBeTruthy();
-    expect(selected?.getAttribute("aria-label")).toBe(
-      `${scheduleDayLabel(MONTH_END)} (today). 1 contact, 0 still to send.`,
-    );
+
+    const accessibleName = selected?.querySelector(".sr-only")?.textContent ?? "";
+    expect(accessibleName).toBe("Mon 31 Aug 2026, Today. 1 contact.");
+    // That string is not merely present in the control, it IS the control's name: the faces are
+    // `aria-hidden`, so name computation excludes them and this lookup can only match through the
+    // `sr-only` span.
+    expect(within(dayStrip()).getByRole("link", { name: accessibleName })).toBe(selected);
+  });
+
+  it("keeps every visible word of a day inside its accessible name, so voice can address it", async () => {
+    const store = newStore();
+    await seedPlan(store);
+
+    renderScreen(await plansOf(store), MONTH_END);
+
+    // WCAG 2.5.3 Label in Name, level A. Checked on every day of the strip rather than on one,
+    // because the "Today" face appears on exactly one of them and a check on the wrong day would
+    // never see it.
+    const days = within(dayStrip()).getAllByRole("link");
+    const seen: string[][] = [];
+    for (const day of days) {
+      const visible = [...day.querySelectorAll('[aria-hidden="true"]')].map((face) => face.textContent?.trim() ?? "");
+      const accessibleName = day.querySelector(".sr-only")?.textContent ?? "";
+      expect(accessibleName, `${day.getAttribute("data-schedule-day")} has no accessible name`).not.toBe("");
+      for (const face of visible) {
+        expect(
+          accessibleName,
+          `"${face}" is visible on ${day.getAttribute("data-schedule-day")} but not in its name`,
+        ).toContain(face);
+      }
+      seen.push(visible);
+    }
+    // The premise, so the loop above cannot pass by inspecting nothing: one day carries the "Today"
+    // face and the others do not.
+    expect(seen.filter((visible) => visible.includes("Today"))).toHaveLength(1);
+    expect(seen.every((visible) => visible.length >= 2)).toBe(true);
   });
 });
 
@@ -455,6 +516,93 @@ describe("the Schedule screen — the four pairs that must not collapse", () => 
   });
 });
 
+describe("the Schedule screen — a message the system decided not to send", () => {
+  it("states the absorbed Week 1 message as suppressed, and gives the remedy that undoes it", async () => {
+    const store = newStore();
+    // Discharge + 7. The Week 1 message falls on the same calendar day as the first contact, and
+    // two caring contacts must never land on one day, so the planner absorbs one of them. This is
+    // the case behind "nine, not ten": the plan sends one fewer caring contact than its cadence
+    // names, and the final entry is a closing message rather than one more contact.
+    const id = await seedPlan(store, {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Synthetic: the patient asked for the first message a week after discharge.",
+    });
+    const records = await plansOf(store);
+
+    // The premise, read off the derivation: this day holds an absorbed entry and something else,
+    // so neither assertion below can be satisfied by an empty day.
+    const day = viewAround(records, ABSORBING_FIRST_CONTACT_DAY).days.find(
+      (entry) => entry.calendarDay === ABSORBING_FIRST_CONTACT_DAY,
+    );
+    const absorbed = allEntriesOf(day).filter((entry) => entry.notSendingReason === "absorbedByFirstContact");
+    expect(absorbed).toHaveLength(1);
+    expect(day?.counts.due).toBeGreaterThan(0);
+    expect(planIn(records, id).plan.state).toBe("active");
+
+    renderScreen(records, ABSORBING_FIRST_CONTACT_DAY);
+
+    // The state the store actually holds, and the reason and remedy beside it. The remedy is the
+    // one thing that distinguishes this from every other message that will not be sent: it is
+    // reversible by the coordinator, and the plan is working exactly as designed.
+    const suppressed = screen.getByRole("group", { name: "Suppressed" });
+    expect(suppressed.textContent).toContain("Week 1 message");
+    expect(suppressed.textContent).toContain("two caring contacts must never land on one day");
+    expect(suppressed.textContent).toContain("Choosing a different first-contact date");
+    // The day is still a working day: absorption is not a stopped day.
+    expect(dayStatementText()).toContain("Contacts still to go out on this day are grouped below");
+  });
+
+  it("states a suppression it does not hold the cause of WITHOUT borrowing the absorbed one's remedy", () => {
+    // DEFENSIVE, and the pair the brief names: a plan with every contact suppressed, against a plan
+    // with none. `applyContactTransition`'s `suppress` action can move any live contact to
+    // `suppressed` with no `planned.suppressed` marker, but no repository method exposes it yet --
+    // so this record is assembled by hand rather than seeded, and labelled as such.
+    const record: PlanRecord = {
+      plan: { id: planId("SYN-PLAN-SUPPRESSED"), teamId: TEAM, state: "active", version: 2 },
+      patientId: patientId("SYN-PATIENT-SUPPRESSED"),
+      referralId: referralId("SYN-REFERRAL-SUPPRESSED"),
+      pathwayVersionId: pathwayVersionId("SYN-PATHWAY-001"),
+      dischargeAt: DISCHARGE_AT,
+      completedAt: null,
+      outcome: "inProgress",
+      contacts: [
+        {
+          contact: {
+            id: contactId("SYN-CONTACT-SUPPRESSED"),
+            planId: planId("SYN-PLAN-SUPPRESSED"),
+            state: "suppressed",
+            version: 2,
+          },
+          planned: {
+            sequence: 1,
+            cadenceLabel: "Day 1",
+            calendarDay: MONTH_END,
+            // 10:00 AWST on the month end -- an ordinary morning send that never happened.
+            sendAt: new Date("2026-08-31T02:00:00.000Z"),
+            messageType: "first",
+          },
+        },
+      ],
+    };
+
+    // The premise: no planner marker, so the reason has to come from the contact's own state.
+    expect(record.contacts[0].planned.suppressed).toBeUndefined();
+
+    renderScreen([record], MONTH_END);
+
+    // Every contact on the day is suppressed, and the day says so rather than reading as empty.
+    expect(dayStatementText()).toContain("No contact on this day will be sent at all.");
+    expect(screen.queryByRole("group", { name: "Nothing is scheduled on this day" })).toBeNull();
+
+    const suppressed = screen.getByRole("group", { name: "Suppressed" });
+    expect(suppressed.textContent).toContain("does not hold what caused that");
+    expect(suppressed.textContent).toContain("never sent later");
+    // And it does NOT offer the absorbed message's remedy, which would send a coordinator to change
+    // a first-contact date that has nothing to do with this.
+    expect(suppressed.textContent).not.toContain("Choosing a different first-contact date");
+  });
+});
+
 describe("the Schedule screen — the named-exceptions panel", () => {
   it("takes a missed contact out of its window and states why it is not sent", async () => {
     const store = newStore();
@@ -515,9 +663,7 @@ describe("the Schedule screen — the boundaries of a day", () => {
     const next = within(dayStrip())
       .getAllByRole("link")
       .find((link) => link.getAttribute("data-schedule-day") === NEXT_MONTH_START);
-    expect(next?.getAttribute("aria-label")).toBe(
-      `${scheduleDayLabel(NEXT_MONTH_START)}. 0 contacts, 0 still to send.`,
-    );
+    expect(next?.querySelector(".sr-only")?.textContent).toBe("Tue 1 Sep 2026. 0 contacts.");
     expect(scheduleDayLabel(NEXT_MONTH_START)).toBe("Tuesday 1 September 2026");
   });
 

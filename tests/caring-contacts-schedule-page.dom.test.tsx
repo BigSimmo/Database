@@ -224,8 +224,11 @@ describe("the /caring-contacts/schedule page — which day it opens on", () => {
     expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(scheduleDayLabel(MONTH_END));
     const strip = screen.getByRole("navigation", { name: "Choose a day" });
     const today = strip.querySelector(`[data-schedule-day='${TODAY}']`);
-    expect(today?.getAttribute("aria-label")).toContain("(today)");
+    // The day marked "Today" is not the day the screen is open on, and both facts reach a screen
+    // reader: "Today" is in that day's accessible name, and `aria-current` is on the other one.
+    expect(today?.querySelector(".sr-only")?.textContent).toContain("Today");
     expect(today?.getAttribute("aria-current")).toBeNull();
+    expect(strip.querySelector("[aria-current='page']")?.getAttribute("data-schedule-day")).toBe(MONTH_END);
   });
 
   it("falls back to today for an impossible day rather than failing the render", async () => {
