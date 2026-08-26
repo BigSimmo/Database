@@ -6,14 +6,14 @@ says — and refuses to say — about a delivery the provider did not complete.
 
 ## Commits
 
-| SHA          | What                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| `7c3dacb17`  | Ruling [130]: the frozen overlay table carries its own ids, and the trigger takes the union.  |
-| `1f0dea068`  | `ScheduleEntry.contactVersion`, and the route that moves one contact within its day.          |
-| `be4b6a791`  | The three overlays wired onto the Schedule screen.                                            |
-| `ee57d649f`  | The two new suites: the DOM control and the HTTP boundary.                                    |
-| `b74500d02`  | Three screen cases for the delivery exceptions, and the version pinned in the view suite.     |
-| _(in this round's log)_ | The word-ban fix, the wait-for-any-outcome restructure, and this report.            |
+| SHA                     | What                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `7c3dacb17`             | Ruling [130]: the frozen overlay table carries its own ids, and the trigger takes the union. |
+| `1f0dea068`             | `ScheduleEntry.contactVersion`, and the route that moves one contact within its day.         |
+| `be4b6a791`             | The three overlays wired onto the Schedule screen.                                           |
+| `ee57d649f`             | The two new suites: the DOM control and the HTTP boundary.                                   |
+| `b74500d02`             | Three screen cases for the delivery exceptions, and the version pinned in the view suite.    |
+| _(in this round's log)_ | The word-ban fix, the wait-for-any-outcome restructure, and this report.                     |
 
 Every SHA above was re-checked with `git cat-file -e <sha>^{commit}` after the last commit of this
 task; the branch log is the authority for the rows this table cannot name before they exist.
@@ -163,23 +163,23 @@ overlay was dismissed.
 
 ## What was built
 
-| File                                                                     | What it is                                                                       |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `src/components/caring-contacts/workspace/contact-time-adjustment.tsx`   | NEW. The client control: the time field, the two triggers, the commit-time checks. |
-| `src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts` | NEW. `POST` — the within-day move, and only that.                                |
-| `src/components/caring-contacts/workspace/overlays/definitions.ts`       | EDIT. Ruling [130]: literal ids and the three derived types.                      |
-| `src/components/caring-contacts/workspace/overlays/overlay-trigger.tsx`  | EDIT. `overlayId` takes the union; the throw stays as belt-and-braces.            |
-| `src/components/caring-contacts/workspace/schedule-screen.tsx`           | EDIT. The acting context, the delivery-exception statements, the two new controls. |
-| `src/app/caring-contacts/schedule/page.tsx`                              | EDIT. Asks the domain for `moveContactWithinDay` and passes the acting context.   |
-| `src/lib/caring-contacts/schedule-view.ts`                               | EDIT. `ScheduleEntry.contactVersion`.                                             |
-| `tests/caring-contacts-contact-time-adjustment.dom.test.tsx`             | NEW. The control, against the real store.                                         |
-| `tests/caring-contacts-contact-route.test.ts`                            | NEW. The HTTP boundary.                                                           |
-| `tests/caring-contacts-schedule-screen.dom.test.tsx`                     | EDIT. Three delivery-exception cases, and the acting context in the render helper. |
-| `tests/caring-contacts-schedule-view.test.ts`                            | EDIT. The published contact version.                                              |
-| `tests/caring-contacts-overlay-trigger.dom.test.tsx`                     | EDIT. The compile-time and run-time halves of the id guard.                       |
-| `tests/caring-contacts-explained-automation.dom.test.tsx`                | EDIT. The new client boundary added to the allowlist, with its three conditions.  |
-| `package.json`                                                           | EDIT. Four suites added to `test:cc-guards`.                                      |
-| `docs/site-map.md`                                                       | Regenerated.                                                                      |
+| File                                                                       | What it is                                                                         |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/contact-time-adjustment.tsx`     | NEW. The client control: the time field, the two triggers, the commit-time checks. |
+| `src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts` | NEW. `POST` — the within-day move, and only that.                                  |
+| `src/components/caring-contacts/workspace/overlays/definitions.ts`         | EDIT. Ruling [130]: literal ids and the three derived types.                       |
+| `src/components/caring-contacts/workspace/overlays/overlay-trigger.tsx`    | EDIT. `overlayId` takes the union; the throw stays as belt-and-braces.             |
+| `src/components/caring-contacts/workspace/schedule-screen.tsx`             | EDIT. The acting context, the delivery-exception statements, the two new controls. |
+| `src/app/caring-contacts/schedule/page.tsx`                                | EDIT. Asks the domain for `moveContactWithinDay` and passes the acting context.    |
+| `src/lib/caring-contacts/schedule-view.ts`                                 | EDIT. `ScheduleEntry.contactVersion`.                                              |
+| `tests/caring-contacts-contact-time-adjustment.dom.test.tsx`               | NEW. The control, against the real store.                                          |
+| `tests/caring-contacts-contact-route.test.ts`                              | NEW. The HTTP boundary.                                                            |
+| `tests/caring-contacts-schedule-screen.dom.test.tsx`                       | EDIT. Three delivery-exception cases, and the acting context in the render helper. |
+| `tests/caring-contacts-schedule-view.test.ts`                              | EDIT. The published contact version.                                               |
+| `tests/caring-contacts-overlay-trigger.dom.test.tsx`                       | EDIT. The compile-time and run-time halves of the id guard.                        |
+| `tests/caring-contacts-explained-automation.dom.test.tsx`                  | EDIT. The new client boundary added to the allowlist, with its three conditions.   |
+| `package.json`                                                             | EDIT. Four suites added to `test:cc-guards`.                                       |
+| `docs/site-map.md`                                                         | Regenerated.                                                                       |
 
 ## Two things about the route worth knowing
 

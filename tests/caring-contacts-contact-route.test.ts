@@ -203,7 +203,12 @@ describe("POST /api/caring-contacts/plans/[planId]/contacts/[contactId]", () => 
     const ours = await callPost(
       PLAN_ID,
       before.contact.id,
-      moveBody({ toHour: 11, toMinute: 30, expectedContactVersion: before.contact.version, idempotencyKey: "CONTACT-MOVE-bbbb" }),
+      moveBody({
+        toHour: 11,
+        toMinute: 30,
+        expectedContactVersion: before.contact.version,
+        idempotencyKey: "CONTACT-MOVE-bbbb",
+      }),
     );
     expect(ours.status).toBe(409);
     expect(await response(ours)).toEqual({ refusal: "stale-version" });
