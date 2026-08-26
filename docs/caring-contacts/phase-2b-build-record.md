@@ -2776,3 +2776,51 @@ well-shaped body carrying the wrong version still compiles — that is what the 
 only this route has a shared body schema, so the same divergence remains available to any client
 hand-building one of the others; and deleting the annotation itself would compile, caught today only by its
 own control.
+
+### Ruling [135] — record the two divergent frozen tables; do not gate them
+
+Task 16's review surfaced something nobody had noticed: **two frozen tables carry different text for the same
+overlay id.** `overlays/definitions.ts:111-122` is what the host actually renders; `mockups/overlay-specimens.tsx:81-92`
+says something else for `message-preview`. And `overlay-definitions.test.ts:203-214` pins `definitions.ts` on
+**structure and prohibited language only — not on `summary` or `decision` text**, so nothing holds the two
+together and either can drift from the other silently.
+
+**Record it, do not gate it.** A test pinning the two equal would be **red today**, and would have to be
+deleted by the very consolidation that fixes it — so it would buy nothing and cost a deletion. Both file:line
+locations go into the record instead, so the consolidation can find them in one read.
+
+**Cost if wrong:** the two keep diverging until the consolidation happens. Against that: a gate that is red
+on arrival is not a gate, it is a second thing to explain.
+
+This sits under Ruling [132], which already says the six frozen-copy conflicts are one owner question rather
+than six bugs. [135] adds the part that changes the question: the frozen table is **not one table**.
+
+### The duplicate `ExitOnlyOverlayTrigger`, adjudicated — keep Task 10's file, Task 16's behaviour
+
+Two implementations exist because of a controller error (§2a of the merge checklist). The reviewer compared
+them on the property I asked about and on one I had not thought to ask about.
+
+**On my question they are equivalent:** both read `mutatesState` off the frozen table through
+`overlayDefinition` rather than a second id list, and both type `overlayId` as `string`, which a narrowed
+`NonMutatingOverlayId` assigns to freely. **Neither collides with Task 14's narrowing.** The collision is
+textual only — Task 16's happens to live inside the file Task 14 is editing.
+
+**They differ on something real.** Task 10's **stages a commit**: `exitOnlyOverlayCommit()` returns
+`{ kind: "record", record: closingIsTheWholeAction }` — an empty named function, arguing the host's own close
+is the whole action. Task 16's **stages nothing**, opening via `openWorkspaceOverlay` and letting the host's
+existing `NO_STAGED_COMMIT_REASON` / `recording-rows-only` path withhold the refusal from a non-recording row.
+
+**Resolution: keep Task 10's file and structure, with Task 16's runtime behaviour.**
+
+- Task 10's `{ kind: "record", record: noop }` is **indistinguishable at the host from a screen that merely
+  satisfied the compiler** — precisely the shape Ruling [87] exists to make impossible. Task 16's "stage
+  nothing" is distinguishable, and goes _through_ machinery already built for this case rather than around it.
+- Everything else Task 10 does better: a separate module (which also dissolves the textual collision with
+  Task 14), a guard exported so a test can hold it without rendering, and the Ruling [130] plan to narrow
+  `WORKSPACE_OVERLAY_DEFINITIONS`' `id` so the runtime throw becomes a compile error.
+- **Carry over Task 16's `data-overlay-trigger-kind="exit-only"` marker.** It is what makes "this is an exit
+  route, not a no-op commit" assertable from the DOM instead of only from the source.
+
+**Note what this cost.** My error produced two implementations; the adjudication produced a better component
+than either. That is luck, not a method, and it does not make the error cheaper — Task 16 spent a build on a
+component that is being deleted.
