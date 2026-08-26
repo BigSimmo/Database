@@ -82,6 +82,38 @@ export type PlanDraftAssurances = {
 };
 
 /**
+ * The two confirmations the wizard's own decision overlays record, and the ONLY place they are held.
+ *
+ * NAME THE DESTINATION, NOT THE ACT. These are held on this computer for this tab and are written
+ * onto NO plan. `createPlanSchema` carries `assurances` — the two stage-1 ticks Task 9b gave a field
+ * to — and it carries nothing for either of these. The screens that record them say exactly that in
+ * place, because "recorded" alone would let a coordinator read a tab's storage as the patient's
+ * record, and this system distinguishes the two while ordinary English does not.
+ *
+ * THAT NO DOMAIN FIELD EXISTS IS A FINDING, NOT AN INVENTION. Task 7 hit the identical shape for the
+ * stage-1 confirmations, reported it rather than inventing a storage location, and the owner later
+ * added one. These follow that precedent: the draft is the wizard's own state, so holding them here
+ * is honest, and adding a column to a sealed schema on a screen's say-so would not be.
+ */
+export type PlanDraftDecisions = {
+  /**
+   * `verify-identity`: the coordinator compared the person this sign-up is for against the invented
+   * source record before going any further.
+   */
+  identityChecked: boolean;
+  /**
+   * `communication-preference`: the sending preference chosen at stage 3 is one the patient gave
+   * through the staffed programme phone, rather than one the coordinator chose for them.
+   */
+  preferenceGivenOnStaffedLine: boolean;
+};
+
+export const NO_PLAN_DRAFT_DECISIONS: PlanDraftDecisions = Object.freeze({
+  identityChecked: false,
+  preferenceGivenOnStaffedLine: false,
+});
+
+/**
  * What the wizard holds between stages.
  *
  * `parseDraft` below validates field by field and treats anything it does not fully recognise as
@@ -131,6 +163,11 @@ export type PlanDraft = {
    * reached the stage that creates anything and should mint no plan identifier at all.
    */
   submission: PlanSubmissionIdentity | null;
+  /**
+   * What the wizard's own decision overlays have recorded. Held here and written onto no plan —
+   * see {@link PlanDraftDecisions}.
+   */
+  decisions: PlanDraftDecisions;
 };
 
 /**
@@ -150,6 +187,7 @@ export function emptyPlanDraft(referralId: string, pathwayVersionId: string | nu
     sendingPreference: null,
     activation: { ...EMPTY_PLAN_ACTIVATION },
     submission: null,
+    decisions: { ...NO_PLAN_DRAFT_DECISIONS },
   };
 }
 
@@ -301,8 +339,17 @@ function parseDraft(raw: string): PlanDraft | null {
   }
   if (!isRecord(parsed)) return null;
 
-  const { referralId, stage, assurances, pathwayVersionId, patientDetail, sendingPreference, activation, submission } =
-    parsed;
+  const {
+    referralId,
+    stage,
+    assurances,
+    pathwayVersionId,
+    patientDetail,
+    sendingPreference,
+    activation,
+    submission,
+    decisions,
+  } = parsed;
   if (typeof referralId !== "string" || referralId === "") return null;
   if (!isPlanWizardStage(stage)) return null;
   if (!isRecord(assurances)) return null;
@@ -316,6 +363,8 @@ function parseDraft(raw: string): PlanDraft | null {
   if (activationDraft === null) return null;
   const submissionIdentity = parseSubmission(submission);
   if (submissionIdentity === undefined) return null;
+  const recordedDecisions = parseDecisions(decisions);
+  if (recordedDecisions === null) return null;
 
   return {
     referralId,
@@ -329,7 +378,36 @@ function parseDraft(raw: string): PlanDraft | null {
     sendingPreference,
     activation: activationDraft,
     submission: submissionIdentity,
+    decisions: recordedDecisions,
   };
+}
+
+/**
+ * The wizard's own recorded decisions, or null when the stored value is a shape this module does
+ * not recognise.
+ *
+ * ABSENT IS ACCEPTED AND MEANS NEITHER WAS RECORDED, and that is the opposite treatment from
+ * `parseActivation` and `parsePatientDetail` above, so the difference is worth stating rather than
+ * inheriting. Those two refuse a draft missing their fields because absence there is AMBIGUOUS: a
+ * missing `patientName` could be a clinician who typed nothing or a draft older than the stage, and
+ * guessing between them silently defaults half a clinician's answers.
+ *
+ * Absence here is not ambiguous. Neither decision has a default a clinician could have meant, and
+ * the only reading of "this key is not present" is "these decisions had not been offered when this
+ * draft was written". Reading it as `false` under-claims in the one direction that is safe — it can
+ * never say a check happened that did not — where REFUSING the draft would throw away the patient's
+ * name and mobile number the clinician typed, to remove two confirmations they were never shown.
+ *
+ * A key that IS present and is not two booleans is refused outright, because that is a value this
+ * module did not write and cannot read.
+ */
+function parseDecisions(value: unknown): PlanDraftDecisions | null {
+  if (value === undefined) return { ...NO_PLAN_DRAFT_DECISIONS };
+  if (!isRecord(value)) return null;
+  const { identityChecked, preferenceGivenOnStaffedLine } = value;
+  if (typeof identityChecked !== "boolean") return null;
+  if (typeof preferenceGivenOnStaffedLine !== "boolean") return null;
+  return { identityChecked, preferenceGivenOnStaffedLine };
 }
 
 /**

@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { patientPlanRoute } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {
   firstContactDayBounds,
@@ -25,8 +25,16 @@ import {
 
 import { AutomatedState } from "../automated-state";
 import { ListEmptyState } from "../list-empty-state";
+import { overlayDefinition } from "../overlays/definitions";
+import { ExitOnlyOverlayTrigger } from "../overlays/exit-only-overlay-trigger";
+import type { WorkspaceOverlayCommit } from "../overlays/overlay-commits";
 import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
+import {
+  wizardDecisionConditions,
+  wizardDecisionRefusal,
+  type WizardDecisionState,
+} from "./overlay-guards";
 import {
   clearPlanDraft,
   emptyPlanDraft,
@@ -110,12 +118,21 @@ import { StatedReason } from "./stated-reason";
  * unreached rather than dead: they are the extension point a fifth stage would use, and Ruling 52
  * is what they implement.
  *
- * ONE OVERLAY IS WIRED HERE, AND EXACTLY ONE: `final-activation`, the confirmation in front of the
- * write. Task 11 owns this group's overlay wiring, but a control that writes with no confirmation
- * step is not something to ship and fix later. The approved mockup opens several others from these
- * stages — identity review, changing the patient, previewing the pathway, a message preview, a
- * communication preference, an "adjust schedule" sheet, and its own save/discard pair — and those
- * seams are named in the Task 7, 8 and 9 reports rather than half-built here.
+ * THE OVERLAYS WIRED HERE (Task 9 wired the first; Task 11a wired the rest). `final-activation` is
+ * the confirmation in front of the write, and Task 9 built it because a control that writes with no
+ * confirmation step is not something to ship and fix later. Task 11a then wired the seven the
+ * approved mockup opens from these stages: `verify-identity` and `change-patient` at stage 1,
+ * `pathway-preview` at stage 2, and `message-preview`, `communication-preference`, `save-draft` and
+ * `discard-changes` at stage 3. `adjust-date-time` and `outside-window-warning` are still unwired
+ * seams, named in the Task 8 and 9 reports.
+ *
+ * EVERY MUTATING ONE RECHECKS AT COMMIT TIME, WHICH IS NOT THE SAME AS AT OPEN TIME. The trigger
+ * stages its commit when it is activated, so a closure capturing this render's `draft` would write
+ * that draft back over whatever the tab holds when the decision is finally confirmed — including
+ * recreating a draft another part of the tab had removed, with a patient's name and mobile number
+ * in it. `overlay-guards.ts` holds the predicate and this component asks it twice: once at render,
+ * to decide whether the trigger's commit is `{ kind: "unavailable" }`, and once inside the commit
+ * from values read at that moment. A refusal at the second point changes nothing at all.
  */
 export type PlanWizardPathwayOption = {
   id: string;
@@ -170,6 +187,23 @@ export type PlanWizardProps = {
    * would be an authority invented on this screen and enforced nowhere else.
    */
   fictionalPatientMobileNumbers: readonly string[];
+  /**
+   * The patient-visible wording the `message-preview` row shows, READ FROM THE SEALED DOMAIN and
+   * resolved on the server (`EXACT_PATIENT_VISIBLE_MESSAGE` in `@/lib/caring-contacts/message-copy`).
+   *
+   * PASSED IN RATHER THAN IMPORTED, for the two reasons the props above it were. A screen may not
+   * author or alter patient-visible wording — a hardcoded copy would be a defect even with the
+   * string correct, because it puts the owner's pending decisions in two places — and resolving it
+   * on the server keeps `message-copy.ts` and the GSM-7 machinery it pulls in out of this route's
+   * client chunk.
+   *
+   * A PLAIN STRING, AND THIS SCREEN ASSUMES NOTHING ABOUT ITS SHAPE. The wording is changing: the
+   * owner has decided it gains a slot for the patient's first name, and that work is being done in
+   * the sealed domain. Whatever arrives here is rendered as it arrives. Nothing here assembles a
+   * greeting, interpolates a name, or reads the string apart — see the panel that renders it for
+   * what this screen therefore cannot yet promise.
+   */
+  patientVisibleMessageSpecimen: string;
 };
 
 const panelClass =
@@ -296,6 +330,7 @@ export function PlanWizard({
   pathwayOptions,
   sendingPreferenceOptions,
   fictionalPatientMobileNumbers,
+  patientVisibleMessageSpecimen,
 }: PlanWizardProps) {
   // THE DRAFT IS NOT REACT STATE. It is `plan-draft.ts`'s store, subscribed to here — see that
   // module's note for why: a lazy `useState` initialiser that read `sessionStorage` would make the
@@ -306,6 +341,18 @@ export function PlanWizard({
   const storage = useSyncExternalStore(subscribeToPlanDraft, readStorageState, readServerStorageState);
   const [discarded, setDiscarded] = useState(false);
   const [submissionState, setSubmissionState] = useState<PlanSubmissionState>({ status: "idle" });
+  /**
+   * A decision refused at the moment it was CONFIRMED, held so the screen can say so in place.
+   *
+   * It has to live on the screen rather than in the overlay, and that is a real limit of the shared
+   * host rather than a choice: `WorkspaceOverlays.recordDecision` calls the commit and then calls
+   * `closeWorkspaceOverlay()` unconditionally, so an overlay cannot stay open to report a refusal
+   * its own commit discovered. The matrix's "retain the surface" half is served by the OPEN-time
+   * branch, where `{ kind: "unavailable", reason }` keeps the host's decision control focusable with
+   * `aria-disabled` and the named reason beside it. This is the other half, and it is the one that
+   * matters most: it appears only when nothing was changed, and it says so.
+   */
+  const [decisionRefusal, setDecisionRefusal] = useState<{ overlayId: string; reason: string } | null>(null);
   // `useRouter` is how a Client Component navigates in the App Router (Next 16). It is used ONCE,
   // after a plan has been confirmed created and after the draft has been cleared -- see `activate`.
   const router = useRouter();
@@ -345,6 +392,124 @@ export function PlanWizard({
     setDiscarded(true);
   }
 
+  /**
+   * What the decision guards are answered from AT RENDER.
+   *
+   * Built from the two subscribed snapshots rather than by calling the store again, so the value a
+   * trigger is rendered against is the same value this render was produced from. The commit reads
+   * its own, later.
+   */
+  const decisionStateNow: WizardDecisionState = {
+    draftExists: stored !== null && stored.referralId === referralId,
+    draftIsWrittenDown: storage === "held",
+  };
+
+  /**
+   * One of the wizard's decisions, guarded at both moments.
+   *
+   * OPEN TIME decides the commit's KIND. A condition already unmet gives
+   * `{ kind: "unavailable", reason }`, which `commitRefusalFor` scopes `every-row`, so the host
+   * renders the reason and keeps its decision control focusable with `aria-disabled` — the frozen
+   * matrix's guard-rejection shape, implemented by the host rather than re-derived here.
+   *
+   * COMMIT TIME decides whether the decision happens. The conditions are asked again from
+   * `liveDecisionState()`, which reads the draft store at that instant. This is the check the naive
+   * version passes without: a coordinator can open a confirmation and press it much later, and by
+   * then the tab may hold a different draft or none.
+   */
+  function decisionCommit(overlayId: string, perform: () => void): WorkspaceOverlayCommit {
+    const needs = wizardDecisionConditions(overlayId);
+    const refusedNow = wizardDecisionRefusal(needs, decisionStateNow);
+    if (refusedNow !== null) return { kind: "unavailable", reason: refusedNow };
+    return {
+      kind: "record",
+      record: () => {
+        const refusedAtCommit = wizardDecisionRefusal(needs, liveDecisionState());
+        if (refusedAtCommit !== null) {
+          // NOTHING IS MUTATED ON THIS PATH, and that is the clause the frozen contract states and
+          // that a test is easiest to write without: `perform` is simply not called.
+          setDecisionRefusal({ overlayId, reason: refusedAtCommit });
+          return;
+        }
+        setDecisionRefusal(null);
+        perform();
+      },
+    };
+  }
+
+  /** The same two facts, read at the moment they are asked rather than at the moment of render. */
+  function liveDecisionState(): WizardDecisionState {
+    const held = planDraftSnapshot();
+    return {
+      draftExists: held !== null && held.referralId === referralId,
+      draftIsWrittenDown: planDraftIsHeld(),
+    };
+  }
+
+  /**
+   * Records a decision onto the draft the tab holds NOW, never onto the one this render closed over.
+   *
+   * This is the mechanism the commit-time recheck exists to make honest, not a second copy of it.
+   * The guard decides whether to write at all; this decides WHAT is written on top of, and reading
+   * the captured `draft` here would reinstate exactly the staleness the guard was added to prevent
+   * — including writing a whole draft back into storage after it had been removed.
+   *
+   * The null branch is unreachable through the interface: `decisionCommit` has already refused in
+   * plain words when no draft is held, and nothing asynchronous separates the two. It is guarded
+   * rather than asserted because a caller is one edit away, and it does nothing rather than throwing
+   * because a decision that records nothing is the conservative outcome here.
+   */
+  function recordOnLiveDraft(change: (current: PlanDraft) => PlanDraft) {
+    const held = planDraftSnapshot();
+    if (held === null || held.referralId !== referralId) return;
+    setDiscarded(false);
+    writePlanDraft(change(held));
+  }
+
+  /**
+   * The seven decisions this screen offers, built once per render so a stage renders a value rather
+   * than reaching back into this closure.
+   *
+   * `pathway-preview` is missing from here deliberately: its decision is "Use this pathway", which
+   * names a version, so its commit is minted per option row by the factory below.
+   */
+  const decisionCommits = {
+    verifyIdentity: decisionCommit("verify-identity", () =>
+      recordOnLiveDraft((current) => ({ ...current, decisions: { ...current.decisions, identityChecked: true } })),
+    ),
+    changePatient: decisionCommit("change-patient", () => {
+      // Ordered as Ruling [117] orders the activation pair, and for the same reason pointed the
+      // other way: the draft holds a patient's name and mobile number, so it is removed BEFORE the
+      // screen that held it goes away. Navigating first would leave it in this tab's storage with
+      // nothing on screen to point at the control that removes it.
+      clearPlanDraft();
+      setDiscarded(true);
+      router.push(CARING_CONTACTS_ROUTES.patients);
+    }),
+    communicationPreference: decisionCommit("communication-preference", () =>
+      recordOnLiveDraft((current) => ({
+        ...current,
+        decisions: { ...current.decisions, preferenceGivenOnStaffedLine: true },
+      })),
+    ),
+    saveDraft: decisionCommit("save-draft", () => {
+      // The draft is deliberately NOT written again here. Every change already goes through
+      // `update`, so this sign-up is on this computer as it stands; writing an identical value
+      // would be a gesture rather than an action, and the frozen row's decision is to leave it as
+      // it stands rather than to store it afresh. What this decision does is LEAVE, which is why
+      // its guard is the one that asks whether the browser will still be holding it afterwards.
+      router.push(CARING_CONTACTS_ROUTES.patients);
+    }),
+    discardChanges: decisionCommit("discard-changes", discard),
+  };
+
+  /** `pathway-preview`'s commit for one option row. Confirming it is what chooses that version. */
+  function pathwayPreviewCommit(optionId: string): WorkspaceOverlayCommit {
+    return decisionCommit("pathway-preview", () =>
+      recordOnLiveDraft((current) => ({ ...current, pathwayVersionId: optionId })),
+    );
+  }
+
   const stage = draft.stage;
   const implementation = planWizardStageImplementation(stage);
   const body = stageBody();
@@ -371,7 +536,29 @@ export function PlanWizard({
   return (
     <div className="flex min-w-0 flex-col gap-5" data-testid="caring-contacts-plan-wizard">
       <Stepper active={stage} />
-      <DraftNotice storage={storage} discarded={discarded} onDiscard={discard} />
+      <DraftNotice
+        storage={storage}
+        discarded={discarded}
+        discardCommit={decisionCommits.discardChanges}
+        saveCommit={decisionCommits.saveDraft}
+      />
+      {/*
+        A decision refused at the moment it was confirmed, stated where the clinician is looking.
+
+        `role="status"` rather than `role="alert"`: the person pressed a control and is waiting for
+        an answer, so a polite announcement reaches them without interrupting anything, and the
+        refusal is also visible text rather than an announcement alone.
+      */}
+      {decisionRefusal === null ? null : (
+        <div role="status" data-testid="caring-contacts-decision-refusal">
+          <StatedReason
+            heading={`${decisionRefusalHeading(decisionRefusal.overlayId)} — nothing was changed`}
+            because={decisionRefusal.reason}
+            changedBy="Nothing on this screen. The decision was not carried out, so there is nothing here to undo."
+            icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+          />
+        </div>
+      )}
       {implementation.kind === "not-built" ? (
         <UnbuiltStagePanel stage={stage} reason={implementation.reason} onBack={goBack} />
       ) : (
@@ -526,6 +713,9 @@ export function PlanWizard({
             actorId={actorId}
             actorRoleLabels={actorRoleLabels}
             assurances={draft.assurances}
+            identityChecked={draft.decisions.identityChecked}
+            verifyIdentityCommit={decisionCommits.verifyIdentity}
+            changePatientCommit={decisionCommits.changePatient}
             onAssuranceChange={(change) =>
               update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
             }
@@ -538,6 +728,7 @@ export function PlanWizard({
             options={pathwayOptions}
             chosen={draft.pathwayVersionId}
             referralPathwayVersionId={referralPathwayVersionId}
+            pathwayPreviewCommit={pathwayPreviewCommit}
             onChoose={(id) => update((current) => ({ ...current, pathwayVersionId: id }))}
             onBack={goBack}
             onContinue={() => goTo("personalisation")}
@@ -550,6 +741,9 @@ export function PlanWizard({
             sendingPreference={draft.sendingPreference}
             sendingPreferenceOptions={sendingPreferenceOptions}
             fictionalPatientMobileNumbers={fictionalPatientMobileNumbers}
+            patientVisibleMessageSpecimen={patientVisibleMessageSpecimen}
+            preferenceGivenOnStaffedLine={draft.decisions.preferenceGivenOnStaffedLine}
+            communicationPreferenceCommit={decisionCommits.communicationPreference}
             onDetailChange={(change) =>
               update((current) => ({ ...current, patientDetail: { ...current.patientDetail, ...change } }))
             }
@@ -589,6 +783,25 @@ export function PlanWizard({
       }
     }
   }
+}
+
+/**
+ * Which decision was refused, named from the frozen table rather than from a sentence written here.
+ *
+ * `overlayDefinition(...).label` is the row's own words, so a label edited in the matrix travels
+ * here without anyone remembering to. An id no row carries throws, on the same policy
+ * `WorkspaceOverlayTrigger` and `blockReasonWording` already follow: a refusal attributed to a
+ * decision nobody can find is worse than an error page that says nothing was changed.
+ */
+function decisionRefusalHeading(overlayId: string): string {
+  const definition = overlayDefinition(overlayId);
+  if (definition === null) {
+    throw new Error(
+      `No overlay is defined for the id "${overlayId}", so a refusal cannot be attributed to it. ` +
+        `The 24 rows are frozen in overlays/definitions.ts.`,
+    );
+  }
+  return `${definition.label} was not carried out`;
 }
 
 /**
@@ -724,11 +937,34 @@ const DRAFT_NOTICE_WORDING: Record<
 function DraftNotice({
   storage,
   discarded,
-  onDiscard,
+  discardCommit,
+  saveCommit,
 }: {
   storage: "pending" | "held" | "refused";
   discarded: boolean;
-  onDiscard: () => void;
+  /**
+   * What confirming `discard-changes` does. The control below RAISES that confirmation; it no
+   * longer discards on its own press.
+   *
+   * The frozen matrix puts `discard-changes` on this screen precisely because the act is
+   * irreversible and unannounced: the old control removed a patient's name and mobile number, and
+   * everything else typed, on one click with nothing in between. Its own summary — "Only the edits
+   * made in this session go" — is the sentence a coordinator most needs before pressing it.
+   */
+  discardCommit: WorkspaceOverlayCommit;
+  /**
+   * What confirming `save-draft` does: leave this screen with the sign-up still on this computer.
+   *
+   * The pair is deliberate. `discard-changes` and `save-draft` are the two ways to walk away from a
+   * half-finished sign-up, they differ in exactly one thing — whether a patient's details are left
+   * on this machine — and offering only the destructive one is how a coordinator ends up with no
+   * way to step out that does not throw their work away.
+   *
+   * NOTHING IS WRITTEN AGAIN BY CONFIRMING IT. Every keystroke already goes through the draft, so
+   * the sign-up is on this computer as it stands; the decision is to LEAVE it that way, which is
+   * why its guard asks whether this browser will still be holding it once this page is gone.
+   */
+  saveCommit: WorkspaceOverlayCommit;
 }) {
   // Three wordings, not two — round 1, finding M-3. `"pending"` used to borrow the affirmative
   // wording, which made the server-rendered page claim that what a clinician types "is written to
@@ -753,10 +989,26 @@ function DraftNotice({
         icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
       />
       <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <button type="button" onClick={onDiscard} className={secondaryControlClass}>
+        <WorkspaceOverlayTrigger overlayId="discard-changes" commit={discardCommit} className={secondaryControlClass}>
           <Trash2 aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="truncate">Discard draft</span>
-        </button>
+        </WorkspaceOverlayTrigger>
+        <WorkspaceOverlayTrigger overlayId="save-draft" commit={saveCommit} className={secondaryControlClass}>
+          <FileCheck2 aria-hidden="true" className="size-icon-md shrink-0" />
+          <span className="truncate">Leave this for now</span>
+        </WorkspaceOverlayTrigger>
+        {/*
+          WHICH OF THE TWO THIS DISCARDS, said without leaving it to be inferred. This system
+          distinguishes "held in this tab's storage" from "written onto the plan" while ordinary
+          English does not, and "discard" alone reads as either. Nothing has been written onto a
+          plan at this point — the plan does not exist yet — so there is nothing on any record to
+          lose, and saying so is what stops a coordinator hesitating over a control they should use
+          when they step away from a shared computer.
+        */}
+        <p className={mutedTextClass}>
+          Discarding removes this sign-up from this computer. It changes no plan and no record:
+          nothing has been written onto a plan yet, because the plan is created at the last stage.
+        </p>
         <p role="status" className="min-w-0 text-sm text-[color:var(--text-muted)]">
           {discarded ? "The draft was discarded. Nothing from it is left on this computer." : ""}
         </p>
@@ -823,6 +1075,9 @@ function AgreementStage({
   actorId,
   actorRoleLabels,
   assurances,
+  identityChecked,
+  verifyIdentityCommit,
+  changePatientCommit,
   onAssuranceChange,
   onContinue,
 }: {
@@ -832,6 +1087,10 @@ function AgreementStage({
   actorId: string;
   actorRoleLabels: readonly string[];
   assurances: { patientAgreed: boolean; mobileIsPatientControlled: boolean };
+  /** Whether `verify-identity` has been confirmed for this sign-up. Held in the draft, on no plan. */
+  identityChecked: boolean;
+  verifyIdentityCommit: WorkspaceOverlayCommit;
+  changePatientCommit: WorkspaceOverlayCommit;
   onAssuranceChange: (change: Partial<{ patientAgreed: boolean; mobileIsPatientControlled: boolean }>) => void;
   onContinue: () => void;
 }) {
@@ -871,6 +1130,45 @@ function AgreementStage({
             value={`${actorId} — ${actorRoleLabels.join(", ")}`}
             source="Read from the session you are signed in with, not from the referral"
           />
+        </div>
+
+        {/*
+          THE TWO DECISIONS THE FROZEN MATRIX PUTS ON THIS GATE, beside the facts they are about.
+
+          `verify-identity` is a confirmation, not a check the system can make: this workspace holds
+          no source record to compare against, so what is confirmed is that a PERSON compared them.
+          The line below says where that confirmation goes, in the terms this system distinguishes —
+          onto this computer, for this tab, and onto no plan — because "recorded" alone reads as the
+          patient's record and this one is not that.
+
+          `change-patient` is the destructive twin and is offered here rather than buried, because
+          the moment a coordinator realises they are signing up the wrong person is the moment they
+          are reading this panel. Its own summary states the cost before it is paid.
+        */}
+        <div className="mt-4 flex min-w-0 flex-col gap-3">
+          <p role="status" className={mutedTextClass} data-testid="caring-contacts-identity-check-state">
+            {identityChecked
+              ? "You have confirmed that this is the right person. That confirmation is kept on this computer for this tab, with the rest of this sign-up, and is written onto no plan — this system has no field for it."
+              : "Nobody has confirmed yet that this is the right person. This system holds no record to compare against, so the comparison is one a person makes."}
+          </p>
+          <div className="flex min-w-0 flex-wrap gap-3">
+            <WorkspaceOverlayTrigger
+              overlayId="verify-identity"
+              commit={verifyIdentityCommit}
+              className={secondaryControlClass}
+            >
+              <IdCard aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="truncate">{identityChecked ? "Check the identity again" : "Check the identity"}</span>
+            </WorkspaceOverlayTrigger>
+            <WorkspaceOverlayTrigger
+              overlayId="change-patient"
+              commit={changePatientCommit}
+              className={secondaryControlClass}
+            >
+              <UserRoundCheck aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="truncate">This is not the right patient</span>
+            </WorkspaceOverlayTrigger>
+          </div>
         </div>
       </div>
 
@@ -968,13 +1266,19 @@ function AgreementStage({
  *
  * NO MESSAGE TEXT IS RENDERED HERE. Patient-visible copy is frozen and belongs to the sealed
  * domain's `message-copy`; the cadence wording below comes from the version's own frozen snapshot,
- * so nothing on this screen is a literal a screen author chose. The preview the mockup opens from
- * this stage is an overlay, and Task 11 owns this group's overlay wiring.
+ * so nothing on this screen is a literal a screen author chose. The one place the governed wording
+ * itself appears is stage 3, where it is READ from that module and rendered as it arrives.
+ *
+ * `pathway-preview` IS WIRED PER OPTION ROW, and it is the row whose Mutation column surprises
+ * people: the frozen matrix marks it Yes and its decision is "Use this pathway", so confirming it
+ * chooses that version. It is a selection surface with a preview in front of it, not an inspection
+ * one.
  */
 function PathwayStage({
   options,
   chosen,
   referralPathwayVersionId,
+  pathwayPreviewCommit,
   onChoose,
   onBack,
   onContinue,
@@ -982,6 +1286,11 @@ function PathwayStage({
   options: readonly PlanWizardPathwayOption[];
   chosen: string | null;
   referralPathwayVersionId: string | null;
+  /**
+   * `pathway-preview`'s commit for one version. Per row rather than one for the stage, because its
+   * frozen decision is "Use this pathway" and a single commit could not name which.
+   */
+  pathwayPreviewCommit: (optionId: string) => WorkspaceOverlayCommit;
   onChoose: (id: string) => void;
   onBack: () => void;
   onContinue: () => void;
@@ -1066,6 +1375,31 @@ function PathwayStage({
                         {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
                         {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
                       </p>
+                      {/*
+                        `pathway-preview` — the frozen matrix's row for this stage, and the ONE row
+                        of the eight whose Mutation column reads Yes where its name suggests
+                        otherwise. Its decision is "Use this pathway", so confirming it CHOOSES the
+                        version; the radio above and this control are two ways to the same write,
+                        and this one states what is being chosen before it is chosen.
+
+                        WHAT THE DRAWER CAN AND CANNOT SAY, on the same limit Task 10 recorded for
+                        `delivery-detail`: `OverlayHost` renders each row's frozen summary and takes
+                        no children, so the drawer cannot name the version it was opened from. The
+                        version's own cadence and approvals therefore stay on this row, above, and
+                        the control's visible words promise only what the drawer holds — the
+                        version follows as the control's ORIGIN, which is what tells one row's
+                        control from another's for a reader who cannot see which row it sits in.
+                      */}
+                      <div className="mt-2 min-w-0">
+                        <WorkspaceOverlayTrigger
+                          overlayId="pathway-preview"
+                          commit={pathwayPreviewCommit(option.id)}
+                          className="w-full sm:w-auto"
+                        >
+                          <span className="truncate">Read the pathway in full, then use it</span>
+                          <span className="sr-only"> &mdash; opened from the {option.id} row</span>
+                        </WorkspaceOverlayTrigger>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1108,11 +1442,12 @@ function PathwayStage({
  * conditional (Ruling [98] — Week 1 is absorbed when the first contact falls on discharge + 7), so
  * the property is stated and the number is not (Ruling [94]).
  *
- * NO MESSAGE PREVIEW IS RENDERED HERE. The mockup puts a preview card on this stage. Patient-visible
- * copy is frozen and belongs to the sealed domain's `message-copy`; a screen that hardcoded one of
- * those strings would be a defect even with the string correct, because it would put the owner's
- * pending decisions in two places. The preview is an overlay, and Task 11 owns this group's overlay
- * wiring — see the Task 8 report for the four seams left here.
+ * THE PREVIEW CARD THE MOCKUP DRAWS IS HERE, AND ITS WORDING IS READ RATHER THAN WRITTEN.
+ * Patient-visible copy is frozen and belongs to the sealed domain's `message-copy`; a screen that
+ * hardcoded one of those strings would be a defect even with the string correct, because it would
+ * put the owner's pending decisions in two places. So the wording arrives as a prop the server
+ * resolved from that module, and this stage renders it as it arrives and says, in place, that it is
+ * a specimen carrying its own example name rather than the one entered above.
  *
  * AND NOTHING IS VALIDATED TWICE. The decisions about a value — what is required, what is trimmed,
  * what reaches a plan as null — live in `patient-detail.ts`, because Task 9 needs the identical
@@ -1123,6 +1458,9 @@ function PersonalisationStage({
   sendingPreference,
   sendingPreferenceOptions,
   fictionalPatientMobileNumbers,
+  patientVisibleMessageSpecimen,
+  preferenceGivenOnStaffedLine,
+  communicationPreferenceCommit,
   onDetailChange,
   onSendingPreferenceChange,
   onBack,
@@ -1132,6 +1470,11 @@ function PersonalisationStage({
   sendingPreference: SendingPreference | null;
   sendingPreferenceOptions: readonly SendingPreferenceOption[];
   fictionalPatientMobileNumbers: readonly string[];
+  /** The sealed domain's patient-visible wording, resolved on the server. Rendered as it arrives. */
+  patientVisibleMessageSpecimen: string;
+  /** Whether `communication-preference` has been confirmed. Held in the draft, on no plan. */
+  preferenceGivenOnStaffedLine: boolean;
+  communicationPreferenceCommit: WorkspaceOverlayCommit;
   onDetailChange: (change: Partial<PlanPatientDetailDraft>) => void;
   onSendingPreferenceChange: (preference: SendingPreference) => void;
   onBack: () => void;
@@ -1303,6 +1646,75 @@ function PersonalisationStage({
             <p className={`mt-2 ${mutedTextClass}`}>{issueFor("sendingPreference")?.message}</p>
           )}
         </fieldset>
+
+        {/*
+          `communication-preference` — where the choice above CAME FROM, which is a different fact
+          from the choice itself and is the one the frozen row is about: "Record only a preference
+          the patient gave through the staffed programme phone."
+
+          Why it can only have come from there, said rather than assumed: this workspace receives
+          nothing. The number a patient would be written to is one-way, no one reads replies to it,
+          and no screen here shows anything a patient said. So a preference the patient themselves
+          asked for reached this service by the staffed phone or it did not reach it at all — and if
+          it did not, the choice above is the coordinator's, which is a legitimate thing to record
+          and a different thing to record.
+        */}
+        <div className="mt-4 flex min-w-0 flex-col gap-3 border-t border-[color:var(--border)] pt-4">
+          <p role="status" className={mutedTextClass} data-testid="caring-contacts-preference-source">
+            {preferenceGivenOnStaffedLine
+              ? "You have recorded that the patient asked for this time through the staffed programme phone. That is kept on this computer for this tab, with the rest of this sign-up, and is written onto no plan — this system has no field for it."
+              : "Nothing says where this choice came from. Unless the patient asked for it through the staffed programme phone, it is your choice on their behalf, and this screen does not assume either."}
+          </p>
+          <div className="flex min-w-0 flex-wrap gap-3">
+            <WorkspaceOverlayTrigger
+              overlayId="communication-preference"
+              commit={communicationPreferenceCommit}
+              className={secondaryControlClass}
+            >
+              <PhoneOff aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="truncate">The patient asked for this time</span>
+            </WorkspaceOverlayTrigger>
+          </div>
+        </div>
+      </div>
+
+      {/*
+        `message-preview` — the row the approved mockup draws as a preview card on this stage.
+
+        THE WORDING IS READ, NEVER ASSEMBLED. `patientVisibleMessageSpecimen` is
+        `EXACT_PATIENT_VISIBLE_MESSAGE` from the sealed domain, resolved on the server and rendered
+        exactly as it arrives. Nothing here interpolates a name, splits the string, or writes a word
+        of it: patient-visible copy is frozen, and a screen that composed one would be a defect even
+        with the result correct.
+
+        AND IT IS A SPECIMEN, WHICH THE PANEL SAYS RATHER THAN LEAVING TO BE NOTICED. The frozen
+        wording carries a name of its own and has no slot for the one typed above, so it is not this
+        patient's message and must not be presented as one. That gap is the sealed domain's to
+        close; this screen states it instead of filling it.
+
+        The overlay beside it is `mutatesState: false` and its decision is "Back to personalisation"
+        — an exit — so it takes `ExitOnlyOverlayTrigger`, whose module records why an inline no-op
+        and `{ kind: "unavailable" }` are both the wrong answer for a row like this.
+      */}
+      <div className={panelClass}>
+        <h2 className={headingClass}>The wording a patient would receive</h2>
+        <p className={`mt-1 ${mutedTextClass}`}>
+          This is the governed wording itself, shown as it stands in the approved copy. It is a
+          specimen: it carries its own example name rather than the name entered above, so read it
+          for what a message says and not for what this patient&rsquo;s would say. Nothing in this
+          prototype is ever sent to any number.
+        </p>
+        <p
+          data-testid="caring-contacts-message-specimen"
+          className="mt-3 max-w-[var(--measure)] whitespace-pre-line rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-sm leading-6 text-[color:var(--text)] forced-colors:border-[CanvasText]"
+        >
+          {patientVisibleMessageSpecimen}
+        </p>
+        <div className="mt-3 min-w-0">
+          <ExitOnlyOverlayTrigger overlayId="message-preview" className="w-full sm:w-auto">
+            <span className="truncate">What a preview does and does not show</span>
+          </ExitOnlyOverlayTrigger>
+        </div>
       </div>
 
       <div className="flex min-w-0 flex-col gap-2">
@@ -1816,8 +2228,8 @@ function ReviewStage({
             {/*
               No message TEXT is rendered here. Patient-visible copy is frozen and belongs to the
               sealed domain's `message-copy`; a screen that hardcoded one of those strings would be a
-              defect even with the string correct. The preview the mockup opens from this stage is an
-              overlay, and Task 11 owns this group's overlay wiring.
+              defect even with the string correct. Stage 3 shows the governed wording, read from that
+              module and labelled as the specimen it is; this stage reads back what was decided.
             */}
             <p className={`mt-3 ${mutedTextClass}`}>
               The wording of each message comes from the governed pathway version above, not from this screen. Nothing
@@ -1874,8 +2286,9 @@ function ReviewStage({
             <span className="truncate">Back to personalisation</span>
           </button>
           {/*
-            THE ONE OVERLAY THIS TASK WIRES. Task 11 owns this group's overlay wiring and every other
-            seam is named in the Task 9 report — but a control that WRITES with no confirmation step
+            THE ONE OVERLAY TASK 9 WIRED, and the only one on this stage. Task 11a wired the other
+            seven this wizard now offers, and `adjust-date-time` and `outside-window-warning` remain
+            named in the Task 8 and 9 reports — but a control that WRITES with no confirmation step
             is not something to ship and fix later. `overlay-trigger.tsx` requires a commit handler
             at the type level precisely so a screen cannot open a decision surface it has not wired,
             and `{ kind: "unavailable" }` is how a screen says, in its own words, what cannot be done

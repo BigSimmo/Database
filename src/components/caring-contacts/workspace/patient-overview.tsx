@@ -511,7 +511,7 @@ function EpisodeOverview({
         )}
       </section>
 
-      <PlanAssurances attestations={record.assuranceAttestations} />
+      <PlanAssurances attestations={record.assuranceAttestations} planState={record.plan.state} />
 
       <section aria-labelledby="caring-contacts-schedule-heading" className={cardClass}>
         <div className="min-w-0">
@@ -907,7 +907,17 @@ function planNotRunningNote(
  * patient content. On a cleared plan a reader sees both at once, and the reason a reader might
  * otherwise reach for -- "this one was missed" -- is the wrong one.
  */
-function PlanAssurances({ attestations }: { attestations: readonly PlanAssuranceAttestation[] }) {
+function PlanAssurances({
+  attestations,
+  planState,
+}: {
+  attestations: readonly PlanAssuranceAttestation[];
+  /**
+   * Which state the plan is in, read only to decide whether the `activation-success` row has
+   * anything to be about. Never used to re-derive what the attestations mean.
+   */
+  planState: PlanState;
+}) {
   const headingId = "caring-contacts-assurances-heading";
   return (
     <section aria-labelledby={headingId} className={cardClass}>
@@ -965,6 +975,37 @@ function PlanAssurances({ attestations }: { attestations: readonly PlanAssurance
         The account that made each confirmation is recorded on the plan and is not shown here: this demonstration
         identifies accounts by an identifier rather than by a person.
       </p>
+
+      {/*
+        `activation-success` — the frozen matrix's "Patient overview outcome" row, and its ONLY
+        inbound path in this workspace.
+
+        WHY IT SITS ON A RUNNING PLAN RATHER THAN ON A JUST-FINISHED SIGN-UP. The wizard clears its
+        draft and navigates the moment both writes land, so a control rendered there would exist for
+        the width of a navigation. The matrix puts the row on this screen instead, and this is the
+        card it belongs beside: what activation recorded IS the confirmations above, and the row's
+        own summary — "The plan is recorded. This confirmation carries no patient detail" — is what
+        this card spends four paragraphs establishing.
+
+        Offered only while the plan is RUNNING. On a paused, draft or ended plan, a confirmation that
+        the plan is recorded and started would contradict what `planNotRunningNote` says a few
+        sections below, and two statements about one fact disagreeing on one screen is the defect
+        Task 9 found in the wizard's own copy.
+
+        The row is `mutatesState: false` and its decision is "View the plan" — an exit, on the screen
+        that IS the plan (Ruling [128]), so the host's own close is the whole action.
+        `ExitOnlyOverlayTrigger`'s module records why an inline no-op and `{ kind: "unavailable" }`
+        are both the wrong answer for a row like this. As with `delivery-detail` on the rows below,
+        the visible words promise only what the drawer holds: `OverlayHost` takes no children, so the
+        drawer carries the row's own generic copy and no patient detail whatever.
+      */}
+      {planState === "active" ? (
+        <div className="mt-3 min-w-0">
+          <ExitOnlyOverlayTrigger overlayId="activation-success" className="w-full sm:w-auto">
+            <span className="truncate">What starting a plan puts on the record</span>
+          </ExitOnlyOverlayTrigger>
+        </div>
+      ) : null}
     </section>
   );
 }

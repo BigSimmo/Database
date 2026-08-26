@@ -49,7 +49,8 @@ import {
   type PlanWizardProps,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { planWizardStageImplementation } from "@/components/caring-contacts/workspace/plan-wizard/stages";
-import { CARING_CONTACTS_PLAN_QUERY_PARAM, patientRoute } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_PLAN_QUERY_PARAM, CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
+import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import {
   firstContactDayBounds,
   FIRST_CONTACT_REASON_MAX_LENGTH,
@@ -96,6 +97,10 @@ function wizardProps(overrides: Partial<PlanWizardProps> = {}): PlanWizardProps 
     // modules out of the client bundle.
     sendingPreferenceOptions: SENDING_PREFERENCE_OPTIONS,
     fictionalPatientMobileNumbers: FICTIONAL_PATIENT_MOBILES,
+    // The sealed domain's own value, never a literal. A copy of the string here would let a case
+    // asserting "the governed wording is on screen" go on passing after the governed wording
+    // changed -- and it is changing: the owner has decided it gains a first-name slot.
+    patientVisibleMessageSpecimen: EXACT_PATIENT_VISIBLE_MESSAGE,
     ...overrides,
   };
 }
