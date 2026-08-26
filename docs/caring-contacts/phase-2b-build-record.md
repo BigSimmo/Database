@@ -2669,3 +2669,38 @@ the implementer never saw the file that already did the thing it declared imposs
 precedent.** An implementer reasoning from "what does the gate run?" concluded no offline test could
 distinguish two behaviours that an unrun suite distinguishes today. Consider whether that file belongs in
 `test:cc-guards`.
+
+### Ruling [131] — a template version's governance approval must never appear to cover the message wording
+
+Task 16 found it and asked rather than deciding, which was right. A pathway version record carries an
+approval — approved by, approved at — and the same screen renders the patient-visible wording, which
+`message-copy.ts` marks **"PROVISIONAL — not clinically approved"**. Two approvals, of two different things,
+and until this ruling only one of them was on screen.
+
+**Both are stated, and the version approval is positioned so it cannot be read as covering the words.** Not
+one line saying "approved" with the wording beneath it; the wording carries its own provisional status where
+the wording is.
+
+**What it costs if I am wrong:** nothing much, if the two turn out to be one approval in the end — a line of
+redundant text. **What the opposite costs:** a clinician reads "approved", concludes the message a discharged
+patient will receive has been clinically signed off, and it has not been. On a suicide-prevention surface
+that is the misreading that matters, and it is the whole reason the wording says PROVISIONAL in the source.
+
+This is the same shape as Ruling [127] — the approved message is a **specimen**, not a template — arriving
+now on the screen that displays it.
+
+### Ruling [132] — the sixth frozen-copy conflict is recorded, not repaired
+
+`message-preview`'s frozen matrix copy is false on the template detail screen, the way it was already false
+on five other surfaces: frozen copy promising detail the host cannot carry. The list is now
+`message-preview` (twice, in two contexts), `verify-identity`, `save-draft`, `resolve-failed-delivery`, and
+`outside-window-warning`.
+
+**Do not rewrite frozen text to fix an instance.** Six conflicts across one frozen table is no longer six
+bugs; it is one question about what the table is for, and that question is the owner's. Each instance gets
+pinned precisely — the clause, and what the host actually does — so the consolidation has something to work
+from instead of six paraphrases.
+
+**Cost if wrong:** the screens keep copy that over-promises for as long as it takes to decide. That is a
+smaller cost than six independent rewrites of a table whose purpose is to be the one place the wording is
+settled.
