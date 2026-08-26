@@ -125,6 +125,23 @@ export type ScheduleEntry = {
   patientId: PatientId;
   contactId: ContactId;
   planState: PlanState;
+  /**
+   * The stored contact's own version, the optimistic-concurrency token every contact write takes
+   * as `expectedContactVersion`.
+   *
+   * PUBLISHED BECAUSE A READ THAT OFFERS A MOVE HAS TO CARRY IT (Phase 2B Task 14). A screen that
+   * lets a coordinator move a contact must send the version it was looking at, so a second
+   * coordinator's move lands as `stale-version` rather than silently overwriting the first --
+   * which is the whole guarantee `rescheduleContact` makes. Without it here the screen's only
+   * options were to fetch the plan again at commit time, which reintroduces the race it is trying
+   * to close, or to omit the check, which removes it.
+   *
+   * IT IS NOT PATIENT DATA AND CARRIES NO IDENTITY. It is a counter this domain increments on
+   * every write to the contact; it says how many times the record has changed and nothing about
+   * whom it belongs to. `PlanRecord` already released the contact id, the plan id and the
+   * synthetic patient id beside it.
+   */
+  contactVersion: number;
   /** The AWST calendar day this contact actually sends on, derived from `sendAt`. */
   calendarDay: string;
   sendAt: Date;
@@ -274,6 +291,7 @@ function entryFor(record: PlanRecord, stored: StoredContact): ScheduleEntry {
     patientId: record.patientId,
     contactId: stored.contact.id,
     planState: record.plan.state,
+    contactVersion: stored.contact.version,
     calendarDay: awstCalendarDay(stored.planned.sendAt),
     sendAt: new Date(stored.planned.sendAt.getTime()),
     cadenceLabel: stored.planned.cadenceLabel,
