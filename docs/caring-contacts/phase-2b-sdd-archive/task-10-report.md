@@ -86,11 +86,17 @@ contact through `{ type: "cancel" }`, so a withdrawn or death-stopped plan is te
 `contactSendability` classifies them `willNotBeSent`, the summary says "none of them will be sent",
 and `notSentExplanation` gives each row its own reason.
 
-**Open, and the one this screen would have reintroduced.** `pausePlan` is a plain lifecycle
-transition: it moves the plan and touches no contact. So a **paused** plan's messages are still
-`scheduled`, `contactSendability` correctly says `stillToSend`, and the summary sentence reads
+**Open on the SCREEN, and the one this screen would have reintroduced.** `pausePlan` is a plain
+lifecycle transition: it moves the plan and touches no contact. So a **paused** plan's messages are
+still `scheduled`, `contactSendability` correctly says `stillToSend`, and the summary sentence reads
 "10 entries, and every one of them is still to be sent." That is true about the record and reads as a
 promise about the future. A **draft** plan is the same shape.
+
+**This was never a hole in the domain, and the report must not leave that impression.** Nothing would
+actually have gone out: `contactStatusWrite` refuses any contact-status write on a plan that is not
+`active`, so dispatch is blocked at the write whatever the list says (see the withdrawn open question
+below for the exact call sites). The defect was confined to what a coordinator would **read** on this
+screen — which is quite bad enough on a suicide-prevention surface, and is what the note fixes.
 
 `planNotRunningNote` states the second fact beside the first: "The messages below are dated and still
 to be sent, and this plan is paused. A paused plan is not running, so a date below is not a message
@@ -98,7 +104,8 @@ on its way." Draft gets its own wording, and the two are asserted not to collaps
 
 **Deliberately NOT fixed by re-deriving sendability on the screen.** The classification is correct and
 belongs to `src/lib/caring-contacts/model.ts`; what was missing is `plan.state`, and stating it is the
-screen's job. The note claims nothing about what a dispatcher would do — see open question 1.
+screen's job. The note deliberately says what the two records hold and claims nothing about what a
+dispatcher would do — which is why it needed no change once I found the dispatch gate.
 
 **The terminal branch is guarded and defensive.** It fires only when `stillToSend > 0`, which an ended
 plan never has, and it says the two records disagree rather than inventing a cause. That guard is
@@ -237,7 +244,7 @@ Gates run in this worktree. **Every summary line is pasted; none is reported fro
 ```
  Test Files  18 passed (18)
       Tests  408 passed (408)
-   Duration  59.92s
+   Duration  119.95s
 ```
 
 An earlier run went **red** on one file before the client-component allowlist entry was added, which
