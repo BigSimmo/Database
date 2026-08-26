@@ -572,6 +572,7 @@ for (const key of workspaceHrefKeys) {
  */
 const CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS: ReadonlyMap<string, string> = new Map([
   ["/caring-contacts/patients/[patientId]", "patientRoute"],
+  ["/caring-contacts/templates/[pathwayId]", "pathwayRoute"],
 ]);
 
 /** A route is reachable if a builder emits it, or a non-mockup source file links to it. */

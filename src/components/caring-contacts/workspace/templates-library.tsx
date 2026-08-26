@@ -2,7 +2,7 @@ import { CircleDashed, FileCheck2, FileClock, FileX2, Info } from "lucide-react"
 import Link from "next/link";
 import type { ComponentType, SVGProps } from "react";
 
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, pathwayRoute } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { MessageType, PathwayVersionState } from "@/lib/caring-contacts/model";
 import {
@@ -27,13 +27,32 @@ import { ListEmptyState } from "./list-empty-state";
  * That is not an omission to be filled in later by whoever reads this. Ruling [127]: the one
  * patient-visible message that exists is `EXACT_PATIENT_VISIBLE_MESSAGE`, a SPECIMEN rather than a
  * template -- one approved example, greeting and sender name included, measured against a hard
- * two-segment ceiling with no room left. It has no name slot and cannot acquire one. There is no
- * per-version message content anywhere in this system, so a library that presented wording beside
- * a version would be claiming a relationship between the two that does not exist. What this
- * screen CAN say truthfully, per version and derived from that version's own snapshot, is which
- * of the three message types the record holds wording for and which are still unwritten. It says
- * that and stops. Task 16 owns `/caring-contacts/templates/[pathwayId]` and the message-preview
- * surface; no wording is drafted here, and none may be.
+ * two-segment ceiling with no room left. There is no per-version message content anywhere in this
+ * system, so a LIST that set wording beside each row would be claiming a per-version relationship
+ * that does not exist -- and would repeat one long block of patient-visible text down a screen
+ * whose subject is governance. What this screen CAN say truthfully, per version and derived from
+ * that version's own snapshot, is which of the three message types the record holds wording for
+ * and which are still unwritten. It says that and stops.
+ *
+ * `./template-detail.tsx` DOES show it, and the difference is a list against a record rather than
+ * a disagreement. It renders `snapshot.messageTextByType[type]` for one version, verbatim and
+ * unexamined, states that only one approved message exists and that it is a specimen, and never
+ * presents it as a message prepared for a person. Its module note carries that argument in full.
+ * Two things this file used to say about the specimen have been corrected there rather than
+ * repeated here: its SHAPE is not settled -- the owner has decided it gains a first-name slot, and
+ * that change is being made in the sealed domain -- so no screen may learn its shape, complete it,
+ * or assemble a greeting. Reading whatever the record holds is the only spelling that survives the
+ * change. No wording is drafted in either file, and none may be.
+ *
+ * WHAT THE DETAIL SCREEN IMPORTS FROM HERE, AND WHY IT IS NOT COPIED
+ * ------------------------------------------------------------------
+ * `PATHWAY_VERSION_STATE_WORDING`, `MESSAGE_TYPE_WORDING`, `MESSAGE_TYPE_ORDER`,
+ * `heldMessageTypes`, `joinPhrases`, `publicationWording` and `retirementWording` are exported for
+ * `./template-detail.tsx`. Every one of them decides what a governance fact SAYS, and a second
+ * copy would be free to stop agreeing -- the list and the record would then describe the same
+ * stored fact in two ways, on two screens a coordinator reaches one from the other. The
+ * `typeof … === "string"` guard inside `heldMessageTypes` is the sharpest case: the detail screen
+ * renders the stored wording, so a truthiness test there would print an absent key.
  *
  * THE GOVERNANCE CLAIM THIS SCREEN MUST NOT OVERSTATE
  * --------------------------------------------------
@@ -122,7 +141,7 @@ export const TEMPLATE_LIFECYCLE_LABELS: Readonly<Record<TemplateLifecycle, strin
 export const TEMPLATE_LIFECYCLE_ORDER: readonly TemplateLifecycle[] = Object.freeze(["current", "pending", "retired"]);
 
 /** Plain words for each recorded lifecycle state, so no state identifier reaches a clinician. */
-const PATHWAY_VERSION_STATE_WORDING: Readonly<Record<PathwayVersionState, string>> = Object.freeze({
+export const PATHWAY_VERSION_STATE_WORDING: Readonly<Record<PathwayVersionState, string>> = Object.freeze({
   draft: "Drafted, not yet submitted for review",
   inReview: "In review, awaiting both approvals",
   approved: "Approved for use",
@@ -130,13 +149,13 @@ const PATHWAY_VERSION_STATE_WORDING: Readonly<Record<PathwayVersionState, string
 });
 
 /** Plain words for each message type. Never a raw `first`/`standard`/`closing` on screen. */
-const MESSAGE_TYPE_WORDING: Readonly<Record<MessageType, string>> = Object.freeze({
+export const MESSAGE_TYPE_WORDING: Readonly<Record<MessageType, string>> = Object.freeze({
   first: "the first message",
   standard: "the standard message",
   closing: "the closing message",
 });
 
-const MESSAGE_TYPE_ORDER: readonly MessageType[] = Object.freeze(["first", "standard", "closing"]);
+export const MESSAGE_TYPE_ORDER: readonly MessageType[] = Object.freeze(["first", "standard", "closing"]);
 
 export function templateLifecycleOf(version: PathwayVersion): TemplateLifecycle {
   return LIFECYCLE_BY_STATE[version.state];
@@ -178,7 +197,7 @@ export function templatesLibraryHref(filter: TemplatesLibraryFilter): string {
  * key and an empty string mean the same thing here -- no wording has been written -- and both fall
  * to the unwritten side, which is the direction that cannot overstate what the record holds.
  */
-function heldMessageTypes(snapshot: PathwayVersionSnapshot): readonly MessageType[] {
+export function heldMessageTypes(snapshot: PathwayVersionSnapshot): readonly MessageType[] {
   return MESSAGE_TYPE_ORDER.filter((type) => {
     const stored: unknown = snapshot.messageTextByType[type];
     return typeof stored === "string" && stored.trim() !== "";
@@ -186,7 +205,7 @@ function heldMessageTypes(snapshot: PathwayVersionSnapshot): readonly MessageTyp
 }
 
 /** "a, b and c" -- an Oxford-free join for a short closed list of plain-words phrases. */
-function joinPhrases(phrases: readonly string[]): string {
+export function joinPhrases(phrases: readonly string[]): string {
   if (phrases.length === 0) return "";
   if (phrases.length === 1) return phrases[0];
   return `${phrases.slice(0, -1).join(", ")} and ${phrases[phrases.length - 1]}`;
@@ -479,12 +498,41 @@ function PathwayVersionRow({ version }: { version: PathwayVersion }) {
           </dd>
         </div>
       </dl>
+
+      {/*
+        THE INBOUND LINK TO THE DETAIL SCREEN (Ruling 89, and the direction it is usually
+        forgotten). `/caring-contacts/templates/[pathwayId]` is a dynamic production route, and
+        `tests/route-reachability.test.ts` requires a non-mockup source to render
+        `<Link href={pathwayRoute(...)}>` for the family -- documenting the link does not count,
+        because that test strips comments before it scans, after a module note satisfied it on
+        prose. Built from the routes module, never from a path literal.
+
+        The href is the whole tap target rather than the row: a row-wide link would make the
+        version identifier, the lifecycle chip and every recorded fact one enormous control with
+        one accessible name, and `min-h-tap` on a wrapper leaves the row's own whitespace dead.
+      */}
+      <p className="mt-3 min-w-0">
+        <Link
+          href={pathwayRoute(version.id)}
+          data-internal-link="true"
+          className="inline-flex min-h-tap min-w-0 items-center rounded-[var(--radius-md)] px-2 text-sm font-semibold text-[color:var(--clinical-accent)] underline decoration-dotted underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <span className="min-w-0 break-words">Open this governed record</span>
+          {/*
+            Every row renders this control, so the visible words alone would give a screen reader a
+            list of identically named links to different records. The identifier is already on the
+            row above; repeating it here only in the accessible name keeps each link's purpose
+            distinguishable without printing it twice.
+          */}
+          <span className="sr-only">, {version.id}</span>
+        </Link>
+      </p>
     </li>
   );
 }
 
 /** The recorded fact of publication, or the absence of one. Never inferred from the state. */
-function publicationWording(version: PathwayVersion): string {
+export function publicationWording(version: PathwayVersion): string {
   if (version.publishedAt === null) {
     return version.state === "approved"
       ? "Approved, and not yet published. A plan may still be started on it."
@@ -502,7 +550,7 @@ function publicationWording(version: PathwayVersion): string {
  * plans already activated so a person reviews them. Rendering "Retired" alone would collapse the
  * one distinction that reaches a patient.
  */
-function retirementWording(version: PathwayVersion): string {
+export function retirementWording(version: PathwayVersion): string {
   if (version.retiredAt === null) return "Not retired.";
   const day = awstCalendarDay(new Date(version.retiredAt));
   if (version.retirementUrgency === "urgentSafety") {

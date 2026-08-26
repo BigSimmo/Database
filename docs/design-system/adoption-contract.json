@@ -553,6 +553,7 @@
         "src/app/caring-contacts/patients/[patientId]/page.tsx",
         "src/app/caring-contacts/plans/new/page.tsx",
         "src/app/caring-contacts/templates/page.tsx",
+        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "src/app/caring-contacts/guidance/page.tsx",
         "src/app/caring-contacts/reports/page.tsx"
       ],
@@ -587,7 +588,7 @@
         "files": []
       },
       "sanctionedSpecialPatterns": ["CaringContactsShell"],
-      "unverifiedProofNote": "2026-08-26 (Task 19): the guidance and reports routes were added to this surface with a proof block in tests/ui-caring-contacts-workspace.spec.ts covering dark, forced colours, 320px, print and browser reachability. That block has NOT been executed -- the browser gate is run at merge, not by the task that wrote it -- so the passed statuses above are declared-and-unrun for those two routes rather than observed. The contract schema has no state between passed and not-applicable, which is why this note exists rather than a status; see docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md."
+      "unverifiedProofNote": "2026-08-26 (Task 19): the guidance and reports routes were added to this surface with a proof block in tests/ui-caring-contacts-workspace.spec.ts covering dark, forced colours, 320px, print and browser reachability. That block has NOT been executed -- the browser gate is run at merge, not by the task that wrote it -- so the passed statuses above are declared-and-unrun for those two routes rather than observed. The contract schema has no state between passed and not-applicable, which is why this note exists rather than a status; see docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md. 2026-08-26 (Task 16): the same is true of src/app/caring-contacts/templates/[pathwayId]/page.tsx. It was added to this surface together with a `caring-contacts template detail` block in tests/ui-caring-contacts-workspace.spec.ts covering dark, forced colours, 320px, print and browser reachability, and that block has NOT been executed either -- so its passed statuses are declared-and-unrun for this route as well. See docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md."
     },
     {
       "id": "ward-management",

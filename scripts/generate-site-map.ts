@@ -95,7 +95,9 @@ const routeDescriptions: Record<string, string> = {
   "/caring-contacts/plans/new":
     "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
   "/caring-contacts/templates":
-    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; it shows no message wording, because no version holds wording of its own.",
+    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; the list itself shows no message wording, and each row states which of the three messages its record holds text for and links to the record that shows it.",
+  "/caring-contacts/templates/[pathwayId]":
+    "One governed pathway version in full: its lifecycle, both approval seats and the qualification its own record carries, the wording that record holds, and whether a new plan may be started on it. Reached from a row of the templates library; a well-formed identifier this team does not hold is stated as a governance fact rather than an error.",
   "/caring-contacts/guidance":
     "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
   "/caring-contacts/reports":

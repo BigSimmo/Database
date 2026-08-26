@@ -92,6 +92,40 @@ const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
 const TEMPLATES_ROUTE = `${WORKSPACE_ROUTE}/templates`;
 
 /**
+ * ONE governed pathway version -- the detail record a coordinator opens from a library row.
+ *
+ * A dynamic route needs a real id, and the honest answer to "what does this server hold" is
+ * NOTHING, for the same reason the library above renders its empty state: `demoSeedRequested()`
+ * excludes the isolated Playwright server unless `CARING_CONTACTS_DEMO_SEED=on`. So there is no
+ * seeded version id to pin, and this value is not pretending to be one -- it is a well-formed
+ * synthetic identifier that exercises the route's nothing-held path, which is the only path this
+ * server can reach. `SYN-PATHWAY-001` is also the id the approved mockup's own detail route
+ * accepts, so it is the shape a reader will recognise rather than an invention of this file.
+ *
+ * That makes it stable rather than rotten: the page renders the same statement for ANY
+ * identifier-shaped segment here, and its `h1` is "Template" either way.
+ *
+ * THE BLOCK IS `caring-contacts template detail`, BELOW. Being in `WORKSPACE_SCREENS` proves
+ * nothing on its own -- see the note on that array -- so the entry and the block landed together.
+ * It covers dark, forced colours, 320px and print, plus reachability FROM A LIBRARY ROW rather
+ * than by typing a URL, and the refusal of a segment that is not identifier-shaped.
+ *
+ * WHAT IT CANNOT REACH, AND WHERE THAT IS PROVED INSTEAD. The populated record -- both approval
+ * seats, the provenance qualification, the wording the record holds, and the two overlays this
+ * screen owns -- needs a stored pathway version, and nothing in this browser can write one:
+ * `api/caring-contacts/pathway-versions` has no create surface, deliberately. Those are proved
+ * against real records in `tests/caring-contacts-template-detail.dom.test.tsx` and
+ * `tests/caring-contacts-template-detail-page.dom.test.tsx`.
+ *
+ * DO NOT TURN THE SEED ON TO GET A POPULATED SCREEN HERE. `emptyStateColours` THROWS when the
+ * empty state is absent, so seeding this server would fail the dark-mode tests rather than merely
+ * changing what they sample -- and it would delete the nothing-held observations these blocks
+ * exist for instead of adding anything.
+ */
+const TEMPLATE_DETAIL_SYNTHETIC_ID = "SYN-PATHWAY-001";
+const TEMPLATE_DETAIL_ROUTE = `${TEMPLATES_ROUTE}/${TEMPLATE_DETAIL_SYNTHETIC_ID}`;
+
+/**
  * Programme boundaries and operational guidance.
  *
  * Fixed text and one service-state read, so this server renders it in full -- there is no
@@ -142,6 +176,7 @@ const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
  *   * `caring-contacts patients directory` names `PATIENTS_SCREEN`;
  *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`;
  *   * `caring-contacts templates library` names `TEMPLATES_SCREEN`;
+ *   * `caring-contacts template detail` names `TEMPLATE_DETAIL_SCREEN`;
  *   * `caring-contacts guidance and reports` names `GUIDANCE_SCREEN` and
  *     `REPORTS_SCREEN`, and is the block that proves a phone can reach the More
  *     panel's links at all.
@@ -167,6 +202,7 @@ const WORKSPACE_SCREENS = [
   { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
   { name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" },
   { name: "Templates", route: TEMPLATES_ROUTE, heading: "Templates" },
+  { name: "Template detail", route: TEMPLATE_DETAIL_ROUTE, heading: "Template" },
   { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
   { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
 ] as const;
@@ -178,8 +214,9 @@ const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
 const NEW_PLAN_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[3];
 const TEMPLATES_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[4];
-const GUIDANCE_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[5];
-const REPORTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[6];
+const TEMPLATE_DETAIL_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[5];
+const GUIDANCE_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[6];
+const REPORTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[7];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -940,6 +977,154 @@ test.describe("caring-contacts templates library", () => {
     // A printed governance library that has lost the statement of WHY it is empty reads as a team
     // holding no governed pathway, with no reason given.
     await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+});
+
+/**
+ * The template detail record (`/caring-contacts/templates/[pathwayId]`), Phase 2B Task 16.
+ *
+ * WHAT THIS SERVER CAN REACH, AND WHY THAT IS THE RIGHT THING TO PROVE. The store holds no pathway
+ * version here (see `TEMPLATE_DETAIL_ROUTE`'s note), so every identifier-shaped segment renders the
+ * screen's nothing-held statement. That is a real production state rather than a thin one: it is
+ * the branch that must never present a governance record as a missing resource, it is what a
+ * bookmarked or shared record URL lands on once a team's records move, and it renders this
+ * screen's OWN surface rather than shell chrome.
+ *
+ * REACHABILITY IS PROVED FROM THE RECORD BACK TO THE LIBRARY, NOT FROM A ROW FORWARD, and that is
+ * a limit of this server rather than a choice. A library row is what links to this route, and this
+ * server's library holds no rows to click. The row's own link is proved offline in
+ * `tests/caring-contacts-templates-library.dom.test.tsx`, and the family's inbound link is proved
+ * statically by `tests/route-reachability.test.ts`, which fails when no non-mockup source renders
+ * a `Link` built from `pathwayRoute`. What IS proved here is the navigation this server can really
+ * perform: the record's own way back, clicked, landing on the library.
+ *
+ * The malformed-segment refusal is deliberately NOT asserted here. A `notFound()` reached during
+ * the render of a route that streams under `loading.tsx` arrives as content after the headers are
+ * flushed, so a status assertion would not be measuring what it appears to; it is proved
+ * deterministically offline in `tests/caring-contacts-template-detail-page.dom.test.tsx`, which
+ * can observe the call itself.
+ */
+test.describe("caring-contacts template detail", () => {
+  const NOTHING_HELD = "No governed version with this identifier";
+
+  test("serves one record's screen as a page, and shows no message wording", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(TEMPLATE_DETAIL_SCREEN.route, { waitUntil: "load" });
+
+    // Kept for the refusals made before the stream opens -- the production demo lock, or the route
+    // failing to resolve -- and deliberately NOT the load-bearing assertion, for the reason the
+    // patients block records in full.
+    expect(response?.status(), "the template detail route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading })).toBeVisible();
+
+    // It states WHICH fact it is, and states that it cannot tell the two indistinguishable causes
+    // apart -- which is the store contract's own rule, not this screen's evasion.
+    const nothingHeld = page.getByRole("group", { name: NOTHING_HELD });
+    await expect(nothingHeld).toBeVisible();
+    await expect(nothingHeld).toContainText("looks exactly the same here");
+
+    // READ THIS BEFORE TREATING IT AS THE STRONG FORM OF THE GUARANTEE. It is an absence over a
+    // store that holds no version, so the specimen is not in this page's data and this assertion
+    // CANNOT go red for the reason it exists. It is still worth having: it is whole-stack, and the
+    // `h1` and nothing-held assertions above it are its positive controls, so it cannot pass on a
+    // page that rendered nothing. The assertion that can actually fail is in
+    // `tests/caring-contacts-template-detail-page.dom.test.tsx`, which renders the real demo seed
+    // -- where `snapshot.messageTextByType.standard` IS the specimen, and where the requirement is
+    // the opposite one: it must render, inside the region that says what it is.
+    await expect(page.locator("body")).not.toContainText(EXACT_PATIENT_VISIBLE_MESSAGE);
+  });
+
+  test("offers its own way back to the library, and the way back works", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+
+    await page.getByRole("link", { name: "Back to every governed version" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATES_SCREEN.heading })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(TEMPLATES_SCREEN.route);
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+    await expect(page.getByRole("group", { name: NOTHING_HELD })).toBeVisible();
+
+    // The way back is a production tap target at the width where a thumb is the only pointer. A
+    // control narrowed to the generic 44px guidance fails here, which is the point.
+    const back = page.getByRole("link", { name: "Back to every governed version" });
+    await expect(back).toBeVisible();
+    const box = await back.boundingBox();
+    expect(box?.height ?? 0, "the way back is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+    await expect(page.getByRole("group", { name: NOTHING_HELD })).toBeVisible();
+    const light = await shellColours(page);
+    const lightSurface = await emptyStateColours(page, NOTHING_HELD);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+    await expect(page.getByRole("group", { name: NOTHING_HELD })).toBeVisible();
+    const dark = await shellColours(page);
+    const darkSurface = await emptyStateColours(page, NOTHING_HELD);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the category
+    // on a screen it had not inspected. These read this screen's own surface.
+    expect(darkSurface.surface, "the record statement's surface did not change in dark").not.toBe(lightSurface.surface);
+    expect(darkSurface.border, "the record statement's border did not change in dark").not.toBe(lightSurface.border);
+    expect(darkSurface.ink, "the record statement's ink did not change in dark").not.toBe(lightSurface.ink);
+    for (const value of Object.values(darkSurface)) {
+      expect(value, "a dark colour on the record statement resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
+  test("states the record in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const nothingHeld = page.getByRole("group", { name: NOTHING_HELD });
+    await expect(nothingHeld).toBeVisible();
+    await expect(nothingHeld).toContainText("looks exactly the same here");
+
+    // The offline check reads a forced-colors border utility out of a class list, which says
+    // nothing about what paints. This is the half that does.
+    const border = await page.evaluate((label) => {
+      const group = document.querySelector("[role='group'][aria-label='" + label + "']");
+      if (!group) throw new Error("the record statement is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    }, NOTHING_HELD);
+    expect(Number.parseFloat(border.width), "the record statement has no border under forced colours").toBeGreaterThan(
+      0,
+    );
+    expect(border.colour, "the record statement border is transparent under forced colours").not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and its record statement still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATE_DETAIL_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading })).toBeVisible();
+    // A printed governance record that has lost the statement of WHY it is showing nothing reads as
+    // a team holding no governed pathway, with no reason given.
+    await expect(page.getByRole("group", { name: NOTHING_HELD })).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
   });
 });
