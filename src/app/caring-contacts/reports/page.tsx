@@ -78,13 +78,25 @@ const DISPATCH_WINDOW_DAYS = 7;
  * would tell an auditor their team has sent nothing, which is a false statement about a caseload.
  *
  * WHAT THIS SCREEN DOES NOT DO, AND WHY IT IS THE MOST IMPORTANT LINE IN THIS FILE. It performs NO
- * read of `caring_contacts.cultural_identity_reports`. Spec §2.5 promises reach reporting with a
- * governance-configured small-cell threshold, and there is nowhere for that threshold to live --
- * searched across the sealed domain and every caring-contacts migration on 2026-08-26 and found
- * none. A threshold invented here would be a disclosure control set by an implementer, which is the
- * decision the owner declined on 2026-08-25. So the reach section states what is and is not
- * collected, and reads nothing at all; the suppression rule itself is built and proved in
- * `src/lib/caring-contacts/reach-reporting.ts`, ready for the day a threshold is configured.
+ * read of `caring_contacts.cultural_identity_reports`, and the reason is NOT the threshold. Spec
+ * §2.5 promises reach reporting over Aboriginal and Torres Strait Islander status, and the two
+ * halves of that promise are in different states:
+ *
+ *   * the small-cell threshold IS configured -- the owner's decision of 2026-08-26, held with its
+ *     provenance in `src/lib/caring-contacts/reach-reporting-governance.ts` and read by
+ *     `reachReportingThreshold()`. The screen names it, so a reader can see the control exists;
+ *   * the FIELD is not collected. Nothing records the status, so there is nothing to read, nothing
+ *     to count and nothing to suppress.
+ *
+ * So the reach section states what is and is not collected and reads nothing at all -- an empty
+ * breakdown would read as a statement about patients rather than about collection. The suppression
+ * rule is built and proved in `src/lib/caring-contacts/reach-reporting.ts`, waiting on a bounded
+ * category set rather than on a number.
+ *
+ * This block said the opposite for one commit: it was written before the threshold existed and not
+ * re-read when it arrived, INSIDE the diff that made it false. The standing rule -- when a diff
+ * changes what a mechanism does, read every doc comment in the files it touches -- is the one that
+ * catches that, and nothing else does.
  *
  * Reading the role cookie makes this route dynamic, which is correct: a cached report would outlive
  * the data it reports on.

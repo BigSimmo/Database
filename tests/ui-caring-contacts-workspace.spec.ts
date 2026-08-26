@@ -1826,6 +1826,33 @@ test.describe("caring-contacts guidance and reports", () => {
     expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
     await page.emulateMedia({ forcedColors: "none" });
   });
+
+  test("prints with the synthetic marker and the reach statement still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, REPORTS_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: REPORTS_SCREEN.heading })).toBeVisible();
+    // A printed report that has lost the statement of WHY the reach section is empty is the worst
+    // artefact this screen can produce: it becomes a page of operational figures with a silent gap
+    // where programme reach should be, and a reader supplies their own reason for the silence.
+    await expect(page.getByTestId("caring-contacts-reach-not-collected")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-reach-breakdown")).toHaveCount(0);
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+    await page.emulateMedia({ media: "screen" });
+  });
+
+  test("prints guidance with the synthetic marker and the one-way boundary still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, GUIDANCE_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    // Printed guidance that has lost the boundary panel is guidance that no longer states the one
+    // thing it exists to state.
+    await expect(page.getByTestId("caring-contacts-guidance")).toContainText("One-way programme boundary");
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+    await page.emulateMedia({ media: "screen" });
+  });
 });
 
 /** The reach section's own surface and ink, so a dark-mode claim is made about this screen. */

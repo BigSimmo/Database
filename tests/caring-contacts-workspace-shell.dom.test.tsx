@@ -80,6 +80,17 @@ const DISPLAY_UTILITIES = new Set([
  *
  * This walks the REAL rendered ancestor chain and resolves the display utility that wins at the
  * given width, so an element moved into a `hidden md:flex` container fails here.
+ *
+ * WHAT IT DOES NOT MODEL, stated because "renders at 375" reads stronger than what is checked. It
+ * resolves DISPLAY UTILITIES and nothing else. A link is reported as rendering when it is in fact
+ * unreachable if it is hidden by `sr-only`, `invisible`, `opacity-0`, `visibility`, a clipped or
+ * zero-size ancestor, an off-screen transform, a stacking-order overlay, or the plain `hidden`
+ * attribute -- none of which this looks at. It fails closed on an unrecognised display VARIANT,
+ * which is a narrower guarantee than failing closed on an unrecognised way of hiding something.
+ *
+ * The only thing covering that gap today is the 390px block in
+ * `tests/ui-caring-contacts-workspace.spec.ts`, which asks a real browser whether the link is
+ * visible and clicks it. Treat this helper as the fast half of a pair, never as the whole proof.
  */
 function rendersAt(element: Element, width: number): boolean {
   for (let node: Element | null = element; node !== null; node = node.parentElement) {

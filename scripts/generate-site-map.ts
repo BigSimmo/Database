@@ -96,6 +96,10 @@ const routeDescriptions: Record<string, string> = {
     "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
   "/caring-contacts/templates":
     "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; it shows no message wording, because no version holds wording of its own.",
+  "/caring-contacts/guidance":
+    "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
+  "/caring-contacts/reports":
+    "Aggregate operational measures for one team — contacts still to send and already sent, plans held, and the dispatch attempts where the carrier reported something other than what was expected. Also carries the programme-reach section, which states that Aboriginal and Torres Strait Islander status is not recorded rather than rendering an empty breakdown of it. No measure names or identifies a patient, and no clinician is ranked.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",

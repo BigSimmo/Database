@@ -35,17 +35,31 @@ export type ContactsOnDay = {
 /**
  * Dispatch attempts whose reported provider status did not match what the dispatcher expected.
  *
- * `medianMinutesToResolution` is `null` when NO discrepancy has been resolved, which is a
- * different fact from a median of zero and must never be rendered as one. A median over an
- * even-sized set is the mean of the two middle values, rounded to the nearest minute; stated here
- * because "the median" alone does not determine it.
+ * WHAT THE INTERVAL SPANS, AND WHY THE FIELD IS NAMED THE LONG WAY. A `DispatchRecord` carries
+ * `startedAt` -- the instant the DISPATCH ATTEMPT began -- and `discrepancyResolvedAt`. It carries
+ * no "difference detected" instant at all. So this measures ATTEMPT START to RESOLUTION RECORDED,
+ * and the whole carrier round-trip that happened before the difference existed sits inside it. It
+ * is NOT time-to-triage, and a shorter name reads as though it were, which is why it does not have
+ * one.
+ *
+ * NO TEST CAN CATCH THAT KIND OF MISLABELLING, which is what makes it worth writing here rather
+ * than trusting a gate: every test derives its expected value from `startedAt` too, so the
+ * arithmetic and the assertions agree with each other while both disagree with the words on the
+ * screen. The correction is therefore in the wording, on both sides of the boundary. A genuine
+ * time-to-triage measure needs a difference-detected instant on the record, which is a repository
+ * contract change with its own review -- reported in the Task 19 report, deliberately not built.
+ *
+ * The value is `null` when NO difference has been resolved, which is a different fact from a median
+ * of zero and must never be rendered as one. A median over an even-sized set is the mean of the two
+ * middle values, rounded to the nearest minute; stated here because "the median" alone does not
+ * determine it.
  */
 export type DispatchDiscrepancySummary = {
   readonly attempts: number;
   readonly discrepancies: number;
   readonly resolved: number;
   readonly unresolved: number;
-  readonly medianMinutesToResolution: number | null;
+  readonly medianMinutesFromAttemptToResolution: number | null;
 };
 
 export type OperationalReport = {
@@ -134,6 +148,6 @@ export function summariseDispatchDiscrepancies(dispatches: readonly DispatchReco
     discrepancies: discrepancies.length,
     resolved: resolvedMinutes.length,
     unresolved: discrepancies.length - resolvedMinutes.length,
-    medianMinutesToResolution: median(resolvedMinutes),
+    medianMinutesFromAttemptToResolution: median(resolvedMinutes),
   };
 }

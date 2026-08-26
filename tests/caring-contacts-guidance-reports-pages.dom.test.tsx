@@ -281,6 +281,26 @@ describe("the /caring-contacts/reports page - what it says", () => {
     expect(reach.textContent ?? "").not.toContain("Suppressed");
   });
 
+  it("offers no control that would scope the reach section, so there is no second report to difference", async () => {
+    emptyStoreWithSpy();
+
+    await renderPageBody(REPORTS);
+
+    // HALF THE CROSS-FILTER DEFENCE USED TO BE A PARAGRAPH. `reach-reporting.ts` argues that
+    // differencing two reports over the same population but different scopes recovers what either
+    // one suppressed, and that no per-report rule can prevent it -- so the section is unfiltered BY
+    // CONSTRUCTION. That is a property of this screen, and a property nothing asserted: a later
+    // task could add a team or date filter here and no gate would go red.
+    //
+    // This is that gate. Any interactive control inside the reach section fails it, whatever it is
+    // called, because the argument does not depend on the control being labelled "filter".
+    const reach = screen.getByTestId("caring-contacts-reach");
+    expect(reach.querySelectorAll("a, button, select, input, textarea, form")).toHaveLength(0);
+    // The positive control, so this is not an absence asserted over a region that failed to render:
+    // the section IS on the page and IS saying something.
+    expect(within(reach).getByTestId("caring-contacts-reach-not-collected")).toBeInTheDocument();
+  });
+
   it("names the governance-set cell size and where it came from, sourced rather than retyped", async () => {
     emptyStoreWithSpy();
 
@@ -351,7 +371,7 @@ const NO_DISPATCHES = {
   discrepancies: 0,
   resolved: 0,
   unresolved: 0,
-  medianMinutesToResolution: null,
+  medianMinutesFromAttemptToResolution: null,
 } as const;
 
 function renderReach(reach: Parameters<typeof OperationalReports>[0]["reach"]) {

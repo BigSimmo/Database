@@ -39,12 +39,23 @@
 // for being small from a cell suppressed to hide it. When no promotion can achieve that, the whole
 // breakdown is withheld rather than published with a recoverable cell in it.
 //
-// WHAT IS DELIBERATELY NOT MODELLED: differencing across two reports that share a population but
-// differ by a filter. Two such reports can be subtracted from each other, and no per-report rule
-// can prevent it. The reach section is therefore UNFILTERED by construction -- the screen offers no
-// control that would produce a second, differently-scoped reach report to difference against it.
-// That is a property of the surface, not of this function, and it is stated here because this is
-// where a reader will look for it.
+// WHAT IS DELIBERATELY NOT MODELLED, AND WHERE THE OTHER HALF OF IT LIVES: differencing across two
+// reports that share a population but differ in scope. Two such reports can be subtracted from each
+// other, and no per-report rule can prevent it -- so the defence is a property of the SURFACE
+// rather than of this function.
+//
+//   * THE FILTER AXIS is closed by construction and pinned: the reach section offers no control
+//     that would produce a second, differently-scoped reach report.
+//     `tests/caring-contacts-guidance-reports-pages.dom.test.tsx` fails on any interactive element
+//     inside the section, whatever it is called. It was a paragraph and nothing else until that
+//     test existed, which meant a later task could have added a filter beside it with every gate
+//     green.
+//   * THE TEMPORAL AXIS IS NOT CLOSED. Two reports taken at different times over a growing
+//     population can be differenced the same way, and nothing here or on the screen prevents it.
+//     There is no live exposure -- the section discloses nothing at all today -- but it is an open
+//     gap rather than a handled one, and it is recorded as such in the Task 19 report. Closing it
+//     needs a decision about what a reach report is AS AT: a frozen reporting period, or a
+//     published as-at instant that makes two reports comparable rather than differenceable.
 //
 // THE THRESHOLD IS AN INPUT, AND IT NOW HAS AN OWNER. It is 5, decided by the service owner on
 // 2026-08-26 by analogy to common practice and explicitly open to revision. The value and its

@@ -205,17 +205,23 @@ export function OperationalReports({
         />
         <Measure label="Plans held" value={planMeasure(report.plans.total)} note="Every state, this team only" />
         <Measure
-          label="Median minutes to resolve"
+          // NAMED FOR WHAT IT SPANS, not for what a reader would like it to mean. The record holds
+          // no "difference detected" instant, so this is attempt-start to resolution-recorded and
+          // the carrier round-trip sits inside it -- `operational-reporting.ts` carries the full
+          // note. It read "Median minutes to resolve ... from a difference to its recorded
+          // outcome", which a reader takes as time-to-triage; it was never that, and no assertion
+          // could have caught the difference because every test measures from `startedAt` too.
+          label="Median minutes, attempt to resolution"
           // `null` means nothing has been worked through yet, which is a different fact from a
           // median of zero and must never be shown as one.
           value={
             mayViewDispatches
-              ? dispatches.medianMinutesToResolution === null
+              ? dispatches.medianMinutesFromAttemptToResolution === null
                 ? "None worked through"
-                : String(dispatches.medianMinutesToResolution)
+                : String(dispatches.medianMinutesFromAttemptToResolution)
               : NOT_VISIBLE
           }
-          note={`From a difference to its recorded outcome, last ${dispatchWindowDays} days`}
+          note={`Whole attempt, carrier round-trip included. Last ${dispatchWindowDays} days`}
         />
       </div>
 

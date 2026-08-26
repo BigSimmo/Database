@@ -586,7 +586,8 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["CaringContactsShell"]
+      "sanctionedSpecialPatterns": ["CaringContactsShell"],
+      "unverifiedProofNote": "2026-08-26 (Task 19): the guidance and reports routes were added to this surface with a proof block in tests/ui-caring-contacts-workspace.spec.ts covering dark, forced colours, 320px, print and browser reachability. That block has NOT been executed -- the browser gate is run at merge, not by the task that wrote it -- so the passed statuses above are declared-and-unrun for those two routes rather than observed. The contract schema has no state between passed and not-applicable, which is why this note exists rather than a status; see docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md."
     },
     {
       "id": "ward-management",

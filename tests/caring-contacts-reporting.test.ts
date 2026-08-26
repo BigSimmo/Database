@@ -194,10 +194,21 @@ describe("caring-contacts reach reporting -- the threshold is an input, never a 
     expect(discloseReach(ONE_SMALL_CELL, null)).toEqual({ kind: "withheld", reason: "threshold-not-configured" });
   });
 
-  it("refuses a threshold too low to hide anything", () => {
+  // SPLIT INTO TWO CASES ON PURPOSE, and the reason is the defect that split them. The pin on the
+  // constant used to sit at the top of the behavioural case, so lowering the constant reddened the
+  // pin and the loop below it was NEVER REACHED -- which meant the enforcement in `discloseReach`
+  // had no mutation covering it at all, while the ledger read as though the floor were proven. An
+  // assertion behind a sibling that fails first is not an assertion. The constant's value and the
+  // guard's behaviour are two claims and they get two cases.
+  it("pins the floor at the lowest threshold that suppresses anything", () => {
     // At 2, "hidden" means "exactly 1" and the marker announces the number it stands for. At 1,
     // nothing is ever hidden. Neither is a policy being disagreed with; both are arithmetic.
     expect(MINIMUM_SUPPRESSING_THRESHOLD).toBe(3);
+  });
+
+  it("refuses every threshold below the floor, and accepts the floor itself", () => {
+    // No pin on the constant here, deliberately: this case is about what `discloseReach` DOES, and
+    // a constant pin ahead of it would swallow this loop the moment the constant moved.
     for (const tooLow of [0, 1, 2]) {
       expect(discloseReach(ONE_SMALL_CELL, tooLow), `threshold ${tooLow}`).toEqual({
         kind: "withheld",
@@ -368,7 +379,7 @@ describe("caring-contacts dispatch differences", () => {
         dispatch("d1", "delivered", "notDelivered", 10),
         dispatch("d2", "delivered", "notDelivered", 50),
         dispatch("d3", "delivered", "notDelivered", 30),
-      ]).medianMinutesToResolution,
+      ]).medianMinutesFromAttemptToResolution,
     ).toBe(30);
 
     expect(
@@ -377,21 +388,34 @@ describe("caring-contacts dispatch differences", () => {
         dispatch("d2", "delivered", "notDelivered", 50),
         dispatch("d3", "delivered", "notDelivered", 30),
         dispatch("d4", "delivered", "notDelivered", 70),
-      ]).medianMinutesToResolution,
+      ]).medianMinutesFromAttemptToResolution,
     ).toBe(40);
+  });
+
+  it("measures the WHOLE attempt, not the time from a difference being noticed", () => {
+    // The span, pinned as a number rather than left to the field name. A record whose resolution is
+    // recorded ten hours after the attempt began yields ten hours -- the carrier round-trip that
+    // happened before the difference existed is inside it, because the record holds no
+    // difference-detected instant to measure from. This is what the screen's wording has to match.
+    expect(
+      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", 600)])
+        .medianMinutesFromAttemptToResolution,
+    ).toBe(600);
   });
 
   it("says nothing has been worked through rather than reporting a median of zero", () => {
     // A median of null and a median of 0 are different facts, and 0 is the one a screen would
     // render as an achievement.
     expect(
-      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", null)]).medianMinutesToResolution,
+      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", null)])
+        .medianMinutesFromAttemptToResolution,
     ).toBeNull();
-    expect(summariseDispatchDiscrepancies([]).medianMinutesToResolution).toBeNull();
+    expect(summariseDispatchDiscrepancies([]).medianMinutesFromAttemptToResolution).toBeNull();
     // The positive control on that null: a resolution taking under half a minute genuinely rounds
     // to zero, and must be reported as zero rather than as nothing.
     expect(
-      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", 0)]).medianMinutesToResolution,
+      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", 0)])
+        .medianMinutesFromAttemptToResolution,
     ).toBe(0);
   });
 });
