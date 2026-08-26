@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "c391de340e5946a35d5c7d9bf580ebe019e90c31",
-    "committed_at": "2026-08-26T00:26:15+00:00"
+    "sha": "b77efc338612c70b10b560ce8804196a44e87510",
+    "committed_at": "2026-08-25T19:28:48-07:00"
   },
   "routes": {
     "modes": [
@@ -3640,6 +3640,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-26",
+        "ref": "codex/medication-risk-highlights",
+        "head": "4a6ca72858752cc59e99ba17c8a9f00baa603ac5",
+        "scope": "PR #2380 CI blocker: medication verdict signal",
+        "outcome": "fixed and independently reviewed",
+        "checks": "CI lint failure reproduced; focused ESLint pass; medication interaction DOM 27/27; full lint pass; typecheck pass; independent review clear"
+      },
       {
         "date": "2026-08-25",
         "ref": "backup/pr-2333-prelinear-20260824",
@@ -24570,8 +24578,8 @@
       }
     ],
     "counts": {
-      "records": 2616,
-      "refs": 1595
+      "records": 2617,
+      "refs": 1596
     }
   }
 }
