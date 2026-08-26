@@ -347,3 +347,147 @@ three gates reads. Stated this way deliberately: round 1's version of this sente
 covered the tree that contained the sentence, which cannot be true of the last edit in any round --
 ordering is not the mechanism, and the honest form is to name the commit the verdict covers and the
 delta that follows it.
+
+---
+
+# Round 3 — the same defect, where it actually lives
+
+This is a **different defect from the one this report is about**, even though it is the same
+mechanism. Rounds 1–2 fixed the Patients caseload. This fixes the other three workspace routes.
+
+## What was wrong
+
+`overlayUrl()` built every history entry it wrote from `new URLSearchParams(window.location.search)`
+— **every parameter already on the address**. The shell mounts the overlay module on every workspace
+route, so a bookmarked `?q=<name>` opened on `/caring-contacts`, `/caring-contacts/plans/new` or
+`/caring-contacts/patients/[patientId]` was written into a **fresh history entry on every overlay
+open**. One name in an address bar became one name per overlay open, in the history of a
+possibly-shared ward computer. Round 2 removed the multiplier on one route by rewriting the address
+before the page rendered; the multiplier itself was untouched.
+
+## Where I fixed it, and why there
+
+**In `overlayUrl()`** — the one function both `pushState` and `replaceState` go through — not in each
+route's page. The reasoning is in the code: the defect was never route-specific, it was **the copy**.
+A per-route fix would be four copies of one answer and would miss the fifth route somebody adds.
+
+The three properties from round 2 are reused rather than re-derived, and are now in one sealed module
+(`src/lib/caring-contacts/workspace-address.ts`):
+
+- **Name what may be kept.** `canonicalCaringContactsQuery` iterates the allowlist and copies nothing:
+  `incoming` is never spread, filtered or passed to the `URLSearchParams` constructor. M17 makes it a
+  copy — the realistic mistake — and the name reappears on all three routes.
+- **`overlay` survives**, so deep links keep working. It is on the allowlist, and the option that sets
+  it distinguishes `undefined` (leave), a string (set) and `null` (remove) — the three things opening,
+  re-rendering and closing need. M21 breaks the `null` case and the close test reddens.
+- **The output is a fixed point of itself**, so nothing loops or drifts. `overlayUrl()` runs on
+  addresses it may already have written, and the Patients page redirects to its own canonical form.
+  Asserted directly rather than assumed.
+
+**One allowlist, not two shapes of one.** The shell allowlist is the **union** across routes
+(`overlay`, `state`, `searchNotApplied`, `plan`, `referral`) because the overlay writer runs on every
+screen — a per-route set there would strip another route's own parameter and break it. The Patients
+page keeps its own narrower set, so a stray `?referral=` there is still dropped.
+
+### The pin the coordinator told me to reuse — I removed it instead, and this is why
+
+Round 2 duplicated `WORKSPACE_OVERLAY_PARAM` into the sealed module as a bare string and pinned the
+copies with an equality test. Building the shell allowlist meant `plan` and `referral` would have
+been duplicated the same way, and the instruction was to reuse the pin rather than add more.
+
+Reusing it turned out to be the wrong shape once I looked at the constraint properly. The sealed rule
+constrains `src/lib/caring-contacts/`'s **outgoing** imports only — a component or a route builder may
+import inward freely. So the names can be **declared once** at the sealed end and re-exported outward,
+which is what they now are: `WORKSPACE_OVERLAY_PARAM`, `CARING_CONTACTS_PLAN_QUERY_PARAM` and
+`CARING_CONTACTS_REFERRAL_QUERY_PARAM` are aliases of the constants in `workspace-address.ts`.
+
+With one declaration, the equality assertion compares an alias to itself. **It cannot fail**, and an
+assertion that cannot fail is worse than no assertion — so it was deleted rather than kept as
+decoration. Two guards replace it, both of which can still redden:
+
+- a deep-linked overlay must survive the caseload's own address rewrite (in the directory suite);
+- **every `*_QUERY_PARAM` the route module exports must be in the workspace allowlist** (in the shell
+  suite), with a floor of two so an empty scan cannot satisfy it vacuously. It reads the module's
+  exports rather than its source text, deliberately: those constants are now aliases, so a regex for
+  string literals in `caring-contacts-routes.ts` would match nothing and pass while proving nothing.
+
+That second guard is what makes the allowlist's failure direction survivable. Dropping an
+unregistered parameter is conservative for privacy and a silent breakage for a feature; this makes a
+parameter added later **loud** rather than mysterious.
+
+## The decision you asked me to make deliberately — and it is a finding
+
+**The two mechanisms do not have the same guarantee, and the difference is not a detail.**
+
+|                            | Patients caseload              | The other three routes               |
+| -------------------------- | ------------------------------ | ------------------------------------ |
+| Where it runs              | Server, in `page.tsx`          | Browser, in `overlayUrl()`           |
+| When                       | Before any read, on arrival    | Only when an overlay opens or closes |
+| Arrival address            | Replaced by a 307              | **Still carries the name**           |
+| That request's server log  | Never sees it                  | **Still records it**                 |
+| Access record              | Structurally cannot contain it | N/A — no read is keyed off it        |
+| Subsequent history entries | Clean                          | Clean                                |
+
+So this fix stops the **multiplication** and the leak into every later entry. It does **not** give the
+other three routes the caseload's property, because `overlayUrl()` cannot: a parameter is already in
+the address before any overlay opens, and a client-side function cannot un-log a request the server
+has already served.
+
+**Does the shell need its own server-side canonicalisation to match? Yes — and there is exactly one
+place for it.** `src/proxy.ts` (Next 16's renamed middleware) already runs on every request and
+already performs static route redirects with the query string intact. A `/caring-contacts/**` clause
+there, reusing `canonicalCaringContactsQuery`, would give all four routes the caseload's property in
+one place and would make the caseload's own `redirect()` a backstop rather than the mechanism.
+
+**I did not do it, and the reason is verification rather than difficulty.** `src/proxy.ts` also owns
+the CSP nonce and the Supabase session refresh for _every route in the application_, and nothing in
+`test:cc-guards` — the only gate I am authorised to run — covers it. Changing a file with that blast
+radius while unable to run a gate that would notice the damage is the wrong trade, and I would rather
+report it than ship it unverified. **It needs your scoping and a wider gate.**
+
+Two residuals, stated rather than left to be discovered:
+
+- **The hash is carried through unchanged**, as it always was. Nothing in this workspace writes one
+  and a hash is never sent to a server, so this is a browser-history exposure only and narrower than
+  the query string — but a bookmarked `#<name>` survives `overlayUrl()`. Stripping it would break any
+  in-page anchor, so it is a decision rather than an oversight.
+- **The arrival entry on the other three routes keeps the name until the first overlay interaction**
+  rewrites it. That is the proxy-shaped gap above, restated where it bites.
+
+## Round 3 verification
+
+Baseline before mutating, and the final tree after: see the gate table at the end.
+
+**Per-mutation selection.** From M19 onward each mutation ran only the suites it could move, per your
+instruction:
+`node scripts/run-vitest.mjs run --reporter=dot <suites>` — the same runner and the same shared lease,
+79 tests instead of 418. **Every round-3 mutation edits the shared `workspace-address`/`overlayUrl`
+mechanism**, so each narrowed run used **all three** affected suites (shell, patients directory,
+patients page) — never one route as a proxy, which is the specific trap you flagged for this task.
+M18 and M17 had already run against the full set before the instruction arrived and were not redone.
+
+**Positive control on every route case.** The name is written into the address and **proved present**
+(`expect(window.location.search).toContain("Jordan")`) before the overlay opens; the pushed entry is
+**proved to exist** (`toContain("overlay=…")`) so the absence is over a rewritten entry rather than a
+no-op; and each route's own parameter is proved to have **survived**, so the rewrite is shown to
+narrow rather than erase. All three routes are exercised independently.
+
+| id      | mutation                                                          | selection             | predicted                                                                | observed                                                                                                                | verdict                                       |
+| ------- | ----------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **M18** | stop stripping — `overlayUrl` back to copying with set/delete     | full `test:cc-guards` | all three route cases plus the close case redden                         | `the pushed entry carries "Jordan+Nguyen"` on home, wizard and overview, plus `the replaced entry carries …` — 4 failed | RED as predicted                              |
+| **M17** | rebuild by copying — `new URLSearchParams(incoming)`              | full `test:cc-guards` | the same three, plus the fixed-point case                                | those four plus `expected 'q=Jordan+Nguyen&state=active&overlay=…' not to contain 'Jordan+Nguyen'` — 5 failed           | RED as predicted                              |
+| **M19** | allowlist omits `plan`                                            | 3 suites (79 tests)   | the coverage guard, and the overview route loses its own parameter       | `CARING_CONTACTS_PLAN_QUERY_PARAM ("plan") is not recognised` and `expected null to be 'plan-1'` — 2 failed             | RED as predicted                              |
+| **M21** | `overlay: null` keeps the existing overlay instead of removing it | 3 suites (79 tests)   | only the close case reddens                                              | `expected '?overlay=consent-and-withdrawal' not to contain 'overlay'` — 1 failed                                        | RED as predicted                              |
+| **M20** | reorder the allowlist (`overlay` last)                            | 3 suites (79 tests)   | GREEN — every assertion reads by name or by substring, never by position | `Test Files 3 passed (3)` / `Tests 79 passed (79)`                                                                      | GREEN as predicted — over-sensitivity control |
+
+M17 reddening the fixed-point case and M18 not is the difference between the two: copying is still
+idempotent when the copy happens inside the canonicaliser, and is not when it happens in the caller.
+
+**A note against the narrowed runs, since it is the honest limit:** a per-mutation narrowed run cannot
+see collateral damage outside its three suites, and does not claim to. The full `test:cc-guards` on the
+final tree is what covers that, and it is in the table below.
+
+**Refusals.** 25 during the round-3 baseline (typecheck ran on attempt 24), 3 across M18/M17, and 13
+across the narrowed set — every one recorded as UNRUN and retried, none forced. One background run was
+cancelled mid-mutation by me; it left M18 applied, which `git status` caught immediately and an
+explicit `git checkout -- <path>` restored before anything else ran.
