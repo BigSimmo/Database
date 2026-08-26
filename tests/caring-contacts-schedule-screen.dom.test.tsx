@@ -162,7 +162,7 @@ async function driveContactTo(
   store: CaringContactRepository,
   id: PlanId,
   stored: StoredContact,
-  state: "delivered" | "missed",
+  state: "delivered" | "statusUnavailable" | "missed",
 ): Promise<void> {
   const key = (step: string) => idempotencyKey(`${stored.contact.id}-${step}`);
   if (state === "missed") {
@@ -188,7 +188,7 @@ async function driveContactTo(
       planId: id,
       contactId: stored.contact.id,
       expectedContactVersion: sent.value.contact.version,
-      status: "delivered",
+      status: state,
     },
     { actor: DISPATCHER, idempotencyKey: key("status") },
   );
@@ -334,6 +334,62 @@ describe("the Schedule screen — the day strip", () => {
     // face and the others do not.
     expect(seen.filter((visible) => visible.includes("Today"))).toHaveLength(1);
     expect(seen.every((visible) => visible.length >= 2)).toBe(true);
+  });
+});
+
+describe("the Schedule screen — what the day holds, as numbers", () => {
+  it("labels every number in the readout with the thing it counts", async () => {
+    const store = newStore();
+    // Every plan's first contact falls on the month end, so one day carries all of these. The
+    // SHAPE of this fixture is the point: no two of the six numbers below are equal, so a value
+    // rendered against the wrong label cannot be hidden by a coincidence -- which is what a
+    // fixture of ones and zeroes would have done.
+    for (let due = 0; due < 5; due += 1) await seedPlan(store);
+    for (let held = 0; held < 3; held += 1) await seedPlan(store, { planState: "draft" });
+    for (let sent = 0; sent < 3; sent += 1) {
+      const id = await seedPlan(store);
+      await driveContactTo(store, id, contactOn(planIn(await plansOf(store), id), MONTH_END), "delivered");
+    }
+    const unavailable = await seedPlan(store);
+    await driveContactTo(
+      store,
+      unavailable,
+      contactOn(planIn(await plansOf(store), unavailable), MONTH_END),
+      "statusUnavailable",
+    );
+    const missed = await seedPlan(store);
+    await driveContactTo(store, missed, contactOn(planIn(await plansOf(store), missed), MONTH_END), "missed");
+
+    renderScreen(await plansOf(store), MONTH_END);
+
+    const readout = screen.getByTestId("caring-contacts-schedule-day-counts");
+    const rows = [...readout.querySelectorAll("div")].map((row) => [
+      row.querySelector("dt")?.textContent ?? "",
+      row.querySelector("dd")?.textContent ?? "",
+    ]);
+    // Written out rather than derived from the same view the screen was handed: a readout compared
+    // against its own input agrees with itself however it is mislabelled.
+    expect(rows).toEqual([
+      ["On this day", "13"],
+      ["Due to send", "5"],
+      ["Held by their plan", "3"],
+      ["Already sent", "4"],
+      ["Will not be sent", "1"],
+      ["Named exceptions", "2"],
+    ]);
+
+    // The first four rows are the claim this readout makes about the day, so it is asserted from
+    // the rendered numbers rather than from the type's doc comment: they partition the total.
+    const value = (label: string) => Number(rows.find(([name]) => name === label)?.[1]);
+    expect(value("Due to send") + value("Held by their plan") + value("Already sent") + value("Will not be sent")).toBe(
+      value("On this day"),
+    );
+    // And named exceptions cut ACROSS that partition rather than being a fifth part of it: the
+    // transport receipt that never arrived is already counted in "Already sent", and the missed
+    // message in "Will not be sent".
+    expect(
+      within(screen.getByRole("region", { name: "Named exceptions" })).getAllByRole("heading", { level: 5 }),
+    ).toHaveLength(value("Named exceptions"));
   });
 });
 
