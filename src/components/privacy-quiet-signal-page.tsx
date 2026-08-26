@@ -13,7 +13,6 @@ import { usePrivacyHashSection, writePrivacyHashSection } from "@/components/pri
 import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
 import { Button } from "@/components/ui/button";
 import { DateDisplay } from "@/components/ui/date-display";
-import { PageHeader } from "@/components/ui/page-header";
 import { cn, eyebrowText, pageContainer, searchPageCanvas, searchFocusRing } from "@/components/ui-primitives";
 import {
   PRIVACY_CLOSING_NOTE,
@@ -32,10 +31,9 @@ import { privacyCopy } from "@/lib/ui-copy";
  *
  * Page structure:
  * - Compact sticky navigation header
- * - `PageHeader` owns the h1, the lede, the as-of meta and the print action
- * - One amber alarm ("Before you use"); the status note is deliberately quieter
- * - At-a-glance fact grid — the answer layer, and a way into the prose
- * - Processing map is the mockup instrument strip — never rounded-full "circle" chips
+ * - One composed trust brief owns the h1, lede, provenance, draft note and safety obligation
+ * - At-a-glance facts share one divided surface — the answer layer, and a way into the prose
+ * - The processing journey stacks on phones and becomes a three-stage strip at `sm`
  * - Accordion with numbered gists; desktop Signal Index and a phone jump control
  *
  * Governance copy stays in `privacy-page-content` (pinned by privacy-ui tests).
@@ -48,15 +46,11 @@ import { privacyCopy } from "@/lib/ui-copy";
  */
 
 const atmosphere =
-  "bg-[radial-gradient(ellipse_at_8%_-8%,color-mix(in_srgb,var(--warning-bg)_78%,transparent),transparent_34%),radial-gradient(ellipse_at_92%_4%,color-mix(in_srgb,var(--clinical-accent-soft)_48%,transparent),transparent_42%),linear-gradient(180deg,color-mix(in_srgb,var(--surface)_55%,transparent),transparent_18rem),var(--background)]";
+  "bg-[radial-gradient(ellipse_at_8%_-8%,color-mix(in_srgb,var(--clinical-accent-soft)_62%,transparent),transparent_34%),radial-gradient(ellipse_at_92%_4%,color-mix(in_srgb,var(--surface-inset)_58%,transparent),transparent_42%),linear-gradient(180deg,color-mix(in_srgb,var(--surface)_55%,transparent),transparent_18rem),var(--background)]";
 
 const pagePadX = "px-4 sm:px-6 lg:px-8";
 /** Same safe-area top pad as `searchPageShellStandalone` — owned here for sticky chrome. */
 const pagePadTop = "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]";
-
-/** A quiet metadata chip for the header — not a status, so not a `Chip` tone. */
-const metaChip =
-  "inline-flex items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-1 text-3xs font-semibold text-[color:var(--text-muted)]";
 
 function PrintAction({ label = "Print" }: { label?: string }) {
   return (
@@ -179,7 +173,13 @@ export function PrivacyQuietSignalPage() {
   };
 
   const expandAllButton = (
-    <Button variant="secondary" size="sm" onClick={toggleExpandAll} testId="privacy-expand-all">
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={toggleExpandAll}
+      testId="privacy-expand-all"
+      className="border-transparent bg-transparent shadow-none hover:border-transparent hover:bg-[color:var(--surface-subtle)]"
+    >
       {allOpen ? "Collapse all" : "Expand all"}
     </Button>
   );
@@ -226,97 +226,121 @@ export function PrivacyQuietSignalPage() {
 
       <div className={cn(pagePadX, "py-5 sm:py-7 lg:py-10")}>
         <div className={cn(pageContainer, "space-y-5 sm:space-y-6")}>
-          <PageHeader
-            eyebrow="Privacy overview"
-            title={privacyCopy.pageTitle}
-            description="Understand what information Clinical KB handles, where it is processed, how long it is retained, and what you need to do before using it."
-            meta={
-              <>
-                <span className={metaChip}>
-                  <span>Describes configured behaviour as of</span>
-                  <DateDisplay value={PRIVACY_CONTENT_AS_OF} kind="generated" className="font-semibold" />
-                </span>
-                <span className={metaChip}>Applies to every Clinical KB mode</span>
-              </>
-            }
-          />
-
-          {/*
-            The status note used to be bold amber body text sitting directly under
-            the lede with no top margin, so it both collided with the paragraph
-            above and competed with the real safety alarm below it. Two amber
-            blocks in one viewport is how an alarm becomes decoration: this one is
-            demoted to a quiet bordered note, and the wording is unchanged.
-          */}
-          <p
-            role="note"
-            data-testid="privacy-draft-disclaimer"
-            className="flex max-w-[68ch] items-start gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 text-xs leading-5 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
+          <div
+            data-testid="privacy-trust-brief"
+            className="overflow-hidden rounded-[1.75rem] border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)]"
           >
-            <Info aria-hidden="true" className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
-            <span>{PRIVACY_DRAFT_DISCLAIMER}</span>
-          </p>
-
-          <section
-            aria-labelledby="privacy-important-heading"
-            className="overflow-hidden rounded-2xl border border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] shadow-[var(--shadow-inset)]"
-          >
-            <div className="flex flex-wrap items-start gap-2.5 p-3 sm:flex-nowrap sm:gap-3 sm:p-4">
-              <span
+            <header className="relative overflow-hidden px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-9">
+              <div
                 aria-hidden="true"
-                className="mt-0.5 w-1 shrink-0 self-stretch rounded-full bg-[color:var(--warning)]"
+                className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(ellipse_at_18%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_72%,transparent),transparent_68%)]"
               />
-              <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <h2
-                  id="privacy-important-heading"
-                  className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--warning-text)]"
-                >
-                  Before you use Clinical KB
-                </h2>
-                <p className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">
-                  {PRIVACY_IMPORTANT_SHORT}
-                </p>
+              <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:gap-10">
+                <div className="min-w-0">
+                  <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Privacy overview</p>
+                  <h1
+                    id="privacy-page-title"
+                    className="mt-2 max-w-[18ch] text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl"
+                  >
+                    {privacyCopy.pageTitle}
+                  </h1>
+                  <p className="mt-3 max-w-[62ch] text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-7">
+                    Understand what information Clinical KB handles, where it is processed, how long it is retained, and
+                    what you need to do before using it.
+                  </p>
+                </div>
+
+                <dl className="grid self-end overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]/80 shadow-[var(--shadow-inset)]">
+                  <div className="grid gap-1 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline sm:gap-3 lg:grid-cols-1">
+                    <dt className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+                      Describes configured behaviour as of
+                    </dt>
+                    <dd className="text-sm font-semibold text-[color:var(--text-heading)]">
+                      <DateDisplay value={PRIVACY_CONTENT_AS_OF} kind="generated" />
+                    </dd>
+                  </div>
+                  <div className="border-t border-[color:var(--border)] px-3 py-2.5">
+                    <dt className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+                      Coverage
+                    </dt>
+                    <dd className="mt-1 text-sm font-semibold text-[color:var(--text-heading)]">
+                      Applies to every Clinical KB mode
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <button
-                type="button"
-                onClick={() => setNoticeOpen((value) => !value)}
-                aria-expanded={noticeOpen}
-                aria-controls={noticeId}
+
+              <p
+                role="note"
+                data-testid="privacy-draft-disclaimer"
+                className="relative mt-5 flex max-w-[72ch] items-start gap-2 border-t border-[color:var(--border)] pt-4 text-xs leading-5 text-[color:var(--text-muted)]"
+              >
+                <Info aria-hidden="true" className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
+                <span>{PRIVACY_DRAFT_DISCLAIMER}</span>
+              </p>
+            </header>
+
+            <section
+              aria-labelledby="privacy-important-heading"
+              className="border-t border-[color:var(--warning-border)] bg-[color:var(--warning-bg)]"
+            >
+              <div className="grid grid-cols-[0.25rem_1rem_minmax(0,1fr)] items-start gap-x-2.5 gap-y-1 px-4 py-3.5 sm:flex sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-4 lg:px-8">
+                <span
+                  aria-hidden="true"
+                  className="row-span-2 mt-0.5 w-1 shrink-0 self-stretch rounded-full bg-[color:var(--warning)] sm:row-auto"
+                />
+                <ShieldAlert className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id="privacy-important-heading"
+                    className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--warning-text)]"
+                  >
+                    Before you use Clinical KB
+                  </h2>
+                  <p className="mt-1 max-w-[62ch] text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">
+                    {PRIVACY_IMPORTANT_SHORT}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNoticeOpen((value) => !value)}
+                  aria-expanded={noticeOpen}
+                  aria-controls={noticeId}
+                  className={cn(
+                    "col-start-3 inline-flex min-h-tap shrink-0 items-center justify-center gap-1 justify-self-start rounded-lg px-3 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--warning-text)] transition hover:bg-[color:var(--surface-raised)]/70 sm:col-auto sm:self-center sm:justify-self-auto print:hidden",
+                    searchFocusRing,
+                  )}
+                >
+                  {noticeOpen ? "Show less" : "Read more"}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                      noticeOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+              </div>
+              <div
+                id={noticeId}
+                role="region"
+                aria-labelledby="privacy-important-heading"
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center justify-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)] max-sm:w-full print:hidden",
-                  searchFocusRing,
+                  "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)]/78 px-4 py-3.5 sm:px-6 lg:px-8",
+                  !noticeOpen && "hidden",
+                  "print:block",
                 )}
               >
-                {noticeOpen ? "Show less" : "Read more"}
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn(
-                    "size-icon-xs transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-                    noticeOpen && "rotate-180",
-                  )}
-                />
-              </button>
-            </div>
-            <div
-              id={noticeId}
-              className={cn(
-                "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4",
-                !noticeOpen && "hidden",
-                "print:block",
-              )}
-            >
-              <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">
-                {PRIVACY_IMPORTANT_FULL}
-              </p>
-            </div>
-          </section>
+                <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">
+                  {PRIVACY_IMPORTANT_FULL}
+                </p>
+              </div>
+            </section>
+          </div>
 
           <PrivacyAtAGlance onOpenSection={openSection} />
 
-          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)] sm:p-4">
-            <ProcessingMap density="compact" />
-          </div>
+          <ProcessingMap density="compact" />
         </div>
       </div>
 
@@ -343,14 +367,14 @@ export function PrivacyQuietSignalPage() {
                   How your information is handled
                 </h2>
               </div>
-              <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <div className="flex flex-wrap items-center gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)] print:hidden">
                 <button
                   type="button"
                   onClick={() => setPhoneIndexOpen((value) => !value)}
                   aria-expanded={phoneIndexOpen}
                   aria-controls={phoneIndexId}
                   className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] lg:hidden",
+                    "inline-flex min-h-tap items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] lg:hidden",
                     searchFocusRing,
                   )}
                 >
@@ -391,7 +415,7 @@ export function PrivacyQuietSignalPage() {
               stickyOffsetPx={chromeSticky ? stickyChromeHeightPx : 0}
             />
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3 shadow-[var(--shadow-inset)] sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] px-1 py-4 sm:px-0">
               <p className="min-w-0 max-w-[68ch] text-xs leading-5 text-[color:var(--text-muted)]">
                 {PRIVACY_CLOSING_NOTE}
               </p>

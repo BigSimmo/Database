@@ -2326,15 +2326,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByRole("main")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
       await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      await expect(page.getByTestId("privacy-trust-brief")).toBeVisible();
+      await expect(page.getByTestId("privacy-draft-disclaimer")).toBeVisible();
+
+      const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+      await safetyDisclosure.focus();
+      await expect(safetyDisclosure).toBeFocused();
+      await safetyDisclosure.click();
+      await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+
       // The scannable answer layer and the print affordance are the two things a
       // reader arriving from the composer notice needs without opening anything.
       await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
+      const factColumns = await page.getByTestId("privacy-at-a-glance-grid").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(factColumns).toBe(viewport.width >= 1024 ? 3 : viewport.width >= 640 ? 2 : 1);
+
+      const processingColumns = await page.getByTestId("privacy-processing-stages").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(processingColumns).toBe(viewport.width >= 640 ? 3 : 1);
       // The footer control, not the sm+ header one: the header print button is
       // hidden on a phone, and this assertion runs at 320px too.
       await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+
+    const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+    await safetyDisclosure.focus();
+    await expect(safetyDisclosure).toBeFocused();
+    await expect
+      .poll(() => safetyDisclosure.locator("svg").evaluate((icon) => getComputedStyle(icon).transitionProperty))
+      .toBe("none");
+    await safetyDisclosure.click();
+    await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
 
   test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
