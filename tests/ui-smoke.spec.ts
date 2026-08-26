@@ -813,12 +813,13 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Answer", href: "/?mode=answer" },
     // Documents owns a real home: the shell mounts ClinicalDashboard for
     // /documents, so it paints browse and recent documents rather than the
-    // shared hero. Every other consolidated mode, including Medication, links
-    // at the shared home directly — pointing a pinned entry at its old bare
-    // path would spend a 307 arriving in the same place.
+    // shared hero. Every other consolidated mode links at the shared home
+    // directly — pointing a pinned entry at its old bare path would spend a
+    // 307 arriving in the same place. Medication is not consolidated:
+    // /medications is the prescribing workspace, not a 307 onto /?mode=prescribing.
     { name: "Documents", href: "/documents" },
     { name: "Services", href: "/?mode=services" },
-    { name: "Medication", href: "/?mode=prescribing" },
+    { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/?mode=factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -1175,7 +1176,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
-  test("Medication shortcut opens the shared Medication home", async ({ page }) => {
+  test("Medication shortcut opens the prescribing workspace", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1184,8 +1185,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("link", { name: "Medication" }).click();
 
-    await expect(page).toHaveURL(/\/?mode=prescribing$/);
-    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible();
+    await expect(page).toHaveURL(/\/medications$/);
+    await expect(page.getByTestId("medication-home")).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
