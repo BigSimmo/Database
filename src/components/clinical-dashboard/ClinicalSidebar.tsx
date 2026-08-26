@@ -37,7 +37,7 @@ import {
 } from "@/components/ui-primitives";
 
 import { Sheet } from "@/components/ui/sheet";
-import { appModeDefinition, appModeHomeHref, appModeSelectionHref, type AppModeId } from "@/lib/app-modes";
+import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { useSidebarPins, pinnableSidebarModeIds } from "@/components/clinical-dashboard/use-sidebar-pins";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import type { ThemePreference } from "@/lib/theme";
@@ -76,11 +76,13 @@ const sidebarToolItems = [
   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
   // would spend a round trip arriving at the same place.
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/?mode=services" },
+  // Medication owns a real home at /medications; unlike Services or Factsheets,
+  // that path is not a consolidated 307 onto the shared home.
   {
     id: "prescribing",
     label: appModeDefinition("prescribing").label,
     icon: Pill,
-    href: appModeSelectionHref("prescribing"),
+    href: appModeHomeHref("prescribing"),
   },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
