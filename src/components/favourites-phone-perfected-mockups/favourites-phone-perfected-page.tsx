@@ -16,8 +16,10 @@ import {
   focusRing,
 } from "./favourites-phone-shell";
 import {
+  ContinueCard,
   ContinueStrip,
   FavouritesList,
+  RecentCard,
   ItemActionsSheetBody,
   NoMatchesState,
   NothingSavedState,
@@ -68,9 +70,12 @@ import {
  *  4. Pinning finally gets a control. `pinnedAt` has been in the schema and
  *     the PATCH contract with no UI anywhere.
  *  5. The shared composer stays the only input. No search field in the header.
- *  6. Continue survives from the shipped page, at 72px instead of 113px. The
- *     Recent card does not: it costs 277px to show three items the
- *     recency-sorted list already has as its first three rows.
+ *  6. Continue survives from the shipped page, at 72px instead of 113px, and
+ *     the recency-sorted list makes a Recent card redundant. Frame 10 draws
+ *     the opposite choice at the owner's request: both cards in full, with
+ *     the library grouped by set so the three surfaces answer three different
+ *     questions. Measured, that lands one saved row above the fold instead of
+ *     six. The frames are the argument; the numbers are on each of them.
  *
  * WHAT IT REFUSES TO DRAW
  *
@@ -92,7 +97,8 @@ type FrameState =
   | "partial"
   | "signed-out"
   | "no-continue"
-  | "type-chips";
+  | "type-chips"
+  | "cards";
 
 type SortMode = "recent" | "title" | "set";
 
@@ -180,8 +186,17 @@ const frames: ReadonlyArray<{
     cost: "Nothing here hints at what is behind the gate beyond naming the four kinds.",
   },
   {
-    id: "no-continue",
+    id: "cards",
     number: "10",
+    name: "Continue and Recent restored",
+    summary:
+      "Both shipped cards rebuilt in full — Continue with its own action, Recent with View all, type pills and per-row Open. The library beneath then groups by set rather than by recency, so the three parts answer three different questions instead of repeating one.",
+    cost: "Measured: Continue 152px, Recent 271px, and one saved row above the fold — against six with the compact strip. You land on the two cards and scroll to reach your library.",
+    note: "interactive",
+  },
+  {
+    id: "no-continue",
+    number: "11",
     name: "Without Continue",
     summary:
       "The same library with the resume strip removed, for comparison. One more row fits. The question is whether resuming what you were doing is worth a row of what you saved.",
@@ -189,7 +204,7 @@ const frames: ReadonlyArray<{
   },
   {
     id: "type-chips",
-    number: "11",
+    number: "12",
     name: "Type as a chip",
     summary:
       "The metadata line carries the shipped Recent card's pill instead of a coloured word. It scans faster down a column of mixed kinds, which is what the shipped card got right.",
@@ -210,10 +225,17 @@ function sortRows(rows: readonly FavouriteRow[], sort: SortMode) {
 function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   // Continue is suppressed only in the comparison frame and in the states
   // where there is nothing to resume.
-  const showContinue = !["no-continue", "empty", "signed-out", "no-matches"].includes(state);
-  const typeAs = state === "type-chips" ? "chip" : "word";
+  const showContinue = !["no-continue", "empty", "signed-out", "no-matches", "cards"].includes(state);
+  // The shipped page's two cards, restored in full. The library beneath then
+  // groups by set: a recency-sorted list under a Recent card would repeat its
+  // three rows immediately.
+  const cardsMode = state === "cards";
+  const typeAs = state === "type-chips" || cardsMode ? "chip" : "word";
   const [activeSet, setActiveSet] = useState<FavouriteSetId>(state === "set" ? "ward-round" : "all");
-  const [sort, setSort] = useState<SortMode>("recent");
+  // Cards mode lands on the user's own filing, because a recency-sorted list
+  // under a Recent card repeats it. "View all" switches to recency, which is
+  // what makes that control do something.
+  const [sort, setSort] = useState<SortMode>(state === "cards" ? "set" : "recent");
   const [sheet, setSheet] = useState<null | "item" | "sets" | "page">(
     state === "item-sheet" ? "item" : state === "sets-sheet" ? "sets" : null,
   );
@@ -239,6 +261,15 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   const matchedCount = useMemo(
     () => (activeSet === "all" ? queryMatched : queryMatched.filter((row) => row.setId === activeSet)).length,
     [queryMatched, activeSet],
+  );
+
+  const recentRows = useMemo(
+    () =>
+      [...loadedRows]
+        .sort((a, b) => a.recency - b.recency)
+        .filter((row) => row.id !== resumeRow.id)
+        .slice(0, 3),
+    [loadedRows, resumeRow],
   );
 
   const visible = useMemo(() => {
@@ -290,12 +321,32 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
                 }}
               />
             ) : null}
+            {cardsMode ? (
+              <div className="space-y-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <ContinueCard
+                  row={resumeRow}
+                  onOpen={(row) => {
+                    setActiveRow(row);
+                    setSheet("item");
+                  }}
+                />
+                <RecentCard
+                  rows={recentRows}
+                  onOpen={(row) => {
+                    setActiveRow(row);
+                    setSheet("item");
+                  }}
+                  onViewAll={() => setSort("recent")}
+                />
+              </div>
+            ) : null}
             {visible.length === 0 ? (
               <NoMatchesState query={query} total={loadedRows.length} />
             ) : (
               <FavouritesList
                 rows={visible}
-                showPinnedGroup={sort === "recent"}
+                showPinnedGroup={sort === "recent" && !cardsMode}
+                groupBySet={cardsMode && sort !== "recent"}
                 typeAs={typeAs}
                 onOpen={(row) => {
                   setActiveRow(row);

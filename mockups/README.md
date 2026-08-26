@@ -133,8 +133,15 @@ Continue, again in Recent and again in the table. Recent is dropped: the list be
 sorted by recency, so its three rows are the first three rows. Your sets is replaced by the rail,
 which is always visible for 53px instead of 255px.
 
-Eleven phone frames cover library, one set selected, filtering, no matches, first run, item actions,
-set management, partial load, signed out, and two comparisons — the library without Continue, and the
+**Frame 10 draws the opposite choice**, added at the owner's request: both shipped cards rebuilt in
+full — Continue with its own action, Recent with View all, type pills and per-row Open — and the
+library grouped by set beneath them, so Continue, Recent and the library answer three different
+questions rather than repeating one. Measured at 390px that lands **one** saved row above the fold
+against six with the compact strip (Continue 152px with a title that wraps, Recent 271px). Both are
+kept because the choice is real and belongs to the owner, not to the mockup.
+
+Twelve phone frames cover library, one set selected, filtering, no matches, first run, item actions,
+set management, partial load, signed out, both cards restored, the library without Continue, and the
 type shown as the shipped Recent card's pill instead of a coloured word. One 1280px frame shows the
 desktop translation.
 

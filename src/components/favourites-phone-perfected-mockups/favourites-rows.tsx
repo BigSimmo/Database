@@ -185,6 +185,141 @@ export function ContinueStrip({ row, onOpen }: { row: FavouriteRow; onOpen: (row
   );
 }
 
+/**
+ * Continue, as the shipped page draws it: the title and its metadata, then a
+ * full-width action beneath them. 113px measured.
+ *
+ * `ContinueStrip` above is the 72px compression of the same idea. Both are
+ * kept because the choice between them is a real one — this version is a
+ * bigger, more obvious target and reads as an action; the strip reads as the
+ * first row of the list and costs a third as much.
+ *
+ * The shipped card tints its rule and kicker with `--success`. That token is
+ * the clinical-state layer, and TOKENS.md scopes it to source state and
+ * sanctioned urgency only — a resume affordance is neither. The accent is used
+ * here instead, which is the same visual job inside the information layer.
+ */
+export function ContinueCard({ row, onOpen }: { row: FavouriteRow; onOpen: (row: FavouriteRow) => void }) {
+  const identity = kindIdentity[row.kind];
+  const Glyph = identity.icon;
+  return (
+    <section
+      aria-label="Continue where you left off"
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]"
+      style={{ boxShadow: "inset 3px 0 0 0 var(--clinical-accent)" }}
+    >
+      <div className="flex min-w-0 items-start gap-2 pl-1.5">
+        <Glyph className="mt-px size-icon-md shrink-0" style={{ color: identity.ink }} aria-hidden />
+        <p className="min-w-0 flex-1">
+          <span className="text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
+            Continue
+          </span>{" "}
+          <span className="text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">{row.title}</span>
+        </p>
+      </div>
+      <p className="mt-1 pl-1.5 text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+        {setLabels[row.setId]} · last opened {row.lastOpened}
+      </p>
+      <button
+        type="button"
+        onClick={() => onOpen(row)}
+        className={cn(
+          "mt-2.5 flex w-full min-h-12 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm-minus font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]",
+          focusRing,
+        )}
+      >
+        <ExternalLink className="size-icon-md" aria-hidden />
+        Continue
+      </button>
+    </section>
+  );
+}
+
+/**
+ * Recent, as the shipped page draws it: a titled card, a View all escape, and
+ * three rows each carrying a type pill and its own Open button. 277px measured.
+ *
+ * It only earns that space if the list beneath it is NOT sorted by recency —
+ * otherwise its three rows are that list's first three rows and the card is a
+ * second copy. So a page that keeps this card should default the list to the
+ * user's own filing (grouped by set), which is what `FavouritesList`'s
+ * `groupBy="set"` does. Continue, Recent and the library then answer three
+ * different questions: what was I mid-way through, what did I just touch, and
+ * what have I organised.
+ */
+export function RecentCard({
+  rows,
+  onOpen,
+  onViewAll,
+}: {
+  rows: readonly FavouriteRow[];
+  onOpen: (row: FavouriteRow) => void;
+  onViewAll: () => void;
+}) {
+  return (
+    <section
+      aria-label="Recently opened"
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e1)]"
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <p className="inline-flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
+          <History className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden />
+          Recent
+        </p>
+        <button
+          type="button"
+          onClick={onViewAll}
+          className={cn(
+            "-mr-1 inline-flex min-h-9 items-center rounded-lg px-2 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+            focusRing,
+          )}
+        >
+          View all
+        </button>
+      </div>
+      <ul className="border-t border-[color:var(--border)]">
+        {rows.map((row) => {
+          const identity = kindIdentity[row.kind];
+          return (
+            <li
+              key={row.id}
+              className="flex min-h-18 items-center gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 last:border-b-0"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="shrink-0 rounded-pill border px-1.5 py-px text-3xs font-extrabold"
+                    style={{ background: identity.soft, borderColor: identity.border, color: identity.ink }}
+                  >
+                    {identity.label}
+                  </span>
+                  <span className="line-clamp-1 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
+                    {row.title}
+                  </span>
+                </span>
+                <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-muted)]">
+                  {setLabels[row.setId]} · {row.lastOpened}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpen(row)}
+                aria-label={`Open ${row.title}`}
+                className={cn(
+                  "inline-flex min-h-12 shrink-0 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--text-heading)] hover:border-[color:var(--border-strong)]",
+                  focusRing,
+                )}
+              >
+                Open
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function GroupLabel({ children }: { children: ReactNode }) {
   return (
     <p className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
@@ -204,18 +339,54 @@ function GroupLabel({ children }: { children: ReactNode }) {
 export function FavouritesList({
   rows,
   showPinnedGroup,
+  groupBySet = false,
   typeAs = "word",
   onOpen,
   onOpenActions,
 }: {
   rows: readonly FavouriteRow[];
   showPinnedGroup: boolean;
+  /** Group under set names instead. The shape a page keeping the Recent card
+   *  needs, so the library is the user's own filing rather than a second
+   *  recency list. */
+  groupBySet?: boolean;
   typeAs?: "word" | "chip";
   onOpen: (row: FavouriteRow) => void;
   onOpenActions: (row: FavouriteRow) => void;
 }) {
   const pinned = showPinnedGroup ? rows.filter((row) => row.pinned) : [];
   const rest = showPinnedGroup ? rows.filter((row) => !row.pinned) : rows;
+
+  if (groupBySet) {
+    const bySet = setOrder
+      .filter((id) => id !== "all")
+      .map((id) => ({ id, label: setLabels[id], items: rows.filter((row) => row.setId === id) }))
+      .filter((group) => group.items.length > 0);
+
+    return (
+      <div className="bg-[color:var(--surface)]">
+        {bySet.map((group) => (
+          <section key={group.id}>
+            <GroupLabel>
+              {group.label} · {group.items.length}
+            </GroupLabel>
+            <ul>
+              {group.items.map((row) => (
+                <FavouriteListRow
+                  key={row.id}
+                  row={row}
+                  showPinGlyph
+                  typeAs={typeAs}
+                  onOpen={onOpen}
+                  onOpenActions={onOpenActions}
+                />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[color:var(--surface)]">
