@@ -198,3 +198,142 @@ I did not run any Playwright gate and did not change that file. What it needs:
 4. **The whole-tree `npm run format` was not run**, per the gate restriction. The pre-commit hook ran
    documentation synchronisation and reported the tree synchronized; formatting of the changed files
    has not been checked against the repository-wide Prettier pass.
+
+---
+
+# Round 2 — the coordinator's five items
+
+## 1. A bookmarked name was not merely ignored; it was being MULTIPLIED
+
+The coordinator's reviewer found what round 1 missed. `overlayUrl()`
+(`workspace-overlays.tsx:79`) copies **every** existing query parameter into each history entry it
+pushes. So declining to honour a bookmarked `?q=<name>` did not remove the name from the address bar
+— and every time the coordinator opened an overlay, that name was written into a **fresh history
+entry**. Not reading a value is not removing it, and on this page not reading it actively made it
+worse.
+
+**The address is now rewritten, not merely unread.** `readPatientsDirectoryAddress()` in the sealed
+filter module reports whether the address carried anything unrecognised and rebuilds the canonical
+query; the page `redirect()`s to it.
+
+Each of the three constraints, and the mechanism that satisfies it:
+
+- **Any unrecognised parameter, not only `q`.** `PATIENTS_DIRECTORY_RECOGNISED_PARAMS` is an
+  **allowlist** (`state`, `searchNotApplied`, `overlay`), so `?name=`, `?search=`, `?patient=` and
+  anything else trigger the rewrite. A `q`-shaped denylist would have under-reported every one of
+  them; M12 is that denylist, and it goes red.
+- **The value never reaches the client.** The function returns a **boolean**, and the boolean is
+  what the page passes down — not the value, not the parameter's name, not a count, not a length.
+  The notice component is therefore structurally incapable of echoing the term: it is not given it.
+- **The value never reaches an audit event or an error message.** The `redirect()` is the **first**
+  thing the page does after the demo check — before `resolveDemoActor`, before the store opens,
+  before every `auditedRead`. That placement is the guarantee; M13 moves it after the reads and the
+  access-record assertion goes red.
+
+`canonicalQuery` is built by **naming what may be kept** rather than by deleting what may not, so a
+dropped value has no path into the redirect target even by accident. M11 rebuilds it by copying
+`searchParams` instead — the realistic mistake — and the name reappears in the target.
+
+Two further properties I had to add rather than inherit:
+
+- **The rewrite target must be clean under the same predicate, or the redirect loops forever.** That
+  is why `searchNotApplied` is itself recognised. A test feeds the target back through the reader
+  and asserts it asks for no further rewrite; M11 reddens it (`expected true to be false`).
+- **A deep-linked overlay must survive the rewrite.** `overlay` is on the allowlist, which forced a
+  bare-string duplicate of `WORKSPACE_OVERLAY_PARAM` into the sealed module (it may import nothing
+  outside `src/lib/caring-contacts/`). A duplicated string is only acceptable if divergence is loud,
+  so a test asserts the two are equal. Without it, renaming the overlay parameter would make this
+  route silently strip every deep link out of its own address.
+
+Next 16's `redirect()` in a Server Component is a **307 that replaces** the history entry
+(`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/redirect.md`), so the bookmarked
+address is not left behind as an entry of its own — and because it is server-side it works with
+JavaScript disabled, which a client-side `history.replaceState` would not have.
+
+**The screen says what happened**: a `role="note"` reading "A saved search was not applied", with a
+why and a remedy, which never echoes the term because it was never given it.
+
+### Residual, disclosed rather than discharged
+
+**`overlayUrl()` itself is unchanged, and the multiplier is generic to the workspace.** I fixed the
+route the brief scoped me to. Every other workspace route shares the same shell and the same
+`overlayUrl` — `/caring-contacts`, `/caring-contacts/plans/new`,
+`/caring-contacts/patients/[patientId]` — so a bookmarked `?q=<name>` opened on any of THOSE is
+still copied into a fresh history entry on every overlay open. The general fix belongs in
+`overlayUrl` (carry only recognised parameters) or in a shell-level canonicalisation, not in one
+route's page. **This is a live defect on those routes and I have not touched it**; it needs the
+owner to scope it.
+
+## 2. Prettier
+
+Fixed. `npx prettier --write` on the changed files, then
+`npx prettier --check $(git diff --name-only HEAD)` → `All matched files use Prettier code style!`
+The four files named were `patients-directory.tsx`, `patients-directory-client.tsx`, the directory
+test, and this report.
+
+## 3. The re-verify claim was accurate for two gates of three
+
+Corrected in place above rather than by re-running the gate: the reviewer recomputed the tree
+signature as `08f4bcf5…`, which the `test:cc-guards` receipt carried and the `typecheck` receipt did
+not. The substance was fine — the delta was markdown — and the sentence was not.
+
+## 4. The unmutated assertion
+
+`expect(window.location.search).toBe("")` was the only guard against a **script-driven** address
+write, and nothing in round 1 targeted it. M9 writes the query with `history.replaceState`: the DOM
+sweep (`addressesIn`) stays green and only that assertion reddens, which is exactly the second line
+of defence it was there to be.
+
+A `location.hash` write would have slipped past both. **I added the assertion, not the machinery** —
+`expect(window.location.hash).toBe("")` beside it — and M10 proves it can redden. There is no
+hash-detection mechanism, and nothing in the island writes a hash today.
+
+## 5. Generated and archived documents that had become false
+
+- `scripts/generate-site-map.ts:92` said the caseload is _"filtered by plan state or synthetic
+  identifier through the URL"_. It now says only the plan state travels in the URL and that the
+  search runs in the browser. `npm run sitemap:update` regenerated `docs/site-map.md`.
+- `main-catchup-inventory.md` finding 3 and finding C are corrected in place with dated **RESOLVED**
+  notes; the record of what the merge found is preserved and its present-tense claims about the tree
+  are now past-tense.
+
+## Round 2 gates
+
+| Gate                                               | Decisive line                                              |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`)      | `[gate-receipts] recorded a pass for "typecheck:internal"` |
+| `npx prettier --check` on every changed file       | `All matched files use Prettier code style!`               |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`) | `Test Files 18 passed (18)` / `Tests 412 passed (412)`     |
+
+11 cases were added since round 1 (401 → 412). Contention was severe throughout: `typecheck` needed
+four attempts and `test:cc-guards` eight, every refusal a `DATABASE_HEAVY_RUN_ADMISSION_BUSY` or
+`focused-test capacity is full` from another worktree (`cc-schedule`, `cc-plan-detail`,
+`care-plan-impl`). No lease was broken.
+
+## Round 2 mutation ledger
+
+The driver's presence check was rewritten first, per the sharpened rule: it now computes the expected
+post-image in process, writes it, re-reads from disk and asserts **byte equality**. The round-1 form
+(`new_first_line in after`) is structurally wrong for an additive mutation — an insertion whose
+anchor survives passes it even when the insertion never landed — and was **vacuously true for M3**,
+whose replacement was the empty string. It also now refuses a mutation that computes to a no-op.
+
+| id      | mutation                                                 | predicted                                               | observed                                                                                                    | verdict                                       |
+| ------- | -------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **M16** | stop stripping; go back to ignoring (`if (false && …)`)  | the four page redirect cases stop rejecting             | `AssertionError: promise resolved "{ … }" instead of rejecting` ×4 — 4 failed                               | RED as predicted                              |
+| **M9**  | `history.replaceState` writes the query into the address | DOM sweep unaffected; only `location.search` reddens    | `expected '?q=Jordan%20Nguyen' to be ''` — **1** failed, sweep green                                        | RED as predicted                              |
+| **M10** | `location.hash = query`                                  | only the new hash assertion reddens                     | `expected '#Jordan%20Nguyen' to be ''` — 1 failed                                                           | RED as predicted                              |
+| **M11** | build `canonicalQuery` by copying `searchParams`         | the term survives into the target, and the target loops | `the redirect target carries "Jordan+Nguyen"` plus `expected true to be false` on the loop guard — 5 failed | RED as predicted                              |
+| **M12** | detect only `q` (the denylist the allowlist replaced)    | `?name=` no longer triggers                             | `AssertionError: name: expected false to be true` — 2 failed                                                | RED as predicted                              |
+| **M13** | move the `redirect()` after the audited reads            | access records exist where none should                  | `expected [ {…}, {…}, {…} ] to have a length of +0 but got 3` — 1 failed                                    | RED as predicted                              |
+| **M15** | reorder the kept parameters (`overlay` before `state`)   | GREEN — every assertion is order-independent by design  | `Test Files 18 passed (18)` / `Tests 412 passed (412)`                                                      | GREEN as predicted — over-sensitivity control |
+
+**Not mutated, because it is structurally impossible rather than merely untested:** the notice
+echoing the dropped term. The prop that reaches it is a `boolean`; a mutation that made it echo the
+value would have to change the prop's type first, which is a compile error rather than a red test.
+Recorded here so nobody reads its absence from the table as an oversight.
+
+## Round 2 final re-verify
+
+Recorded after the last edit in this round, which is this section. See the two lines below the table
+in the summary handed to the coordinator.
