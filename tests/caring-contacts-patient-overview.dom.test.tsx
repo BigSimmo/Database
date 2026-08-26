@@ -975,7 +975,12 @@ describe("the patient overview - a plan that is not running must not read as for
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{ kind: "episode", record: planRecordFixture({ plan: pausedPlanFixture() }), episode: null, otherPlanCount: 0 }}
+        view={{
+          kind: "episode",
+          record: planRecordFixture({ plan: pausedPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        }}
       />,
     );
     // Positive control: both locators DO find a paused note when the plan is paused.
@@ -985,7 +990,12 @@ describe("the patient overview - a plan that is not running must not read as for
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{ kind: "episode", record: planRecordFixture({ plan: draftPlanFixture() }), episode: null, otherPlanCount: 0 }}
+        view={{
+          kind: "episode",
+          record: planRecordFixture({ plan: draftPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        }}
       />,
     );
     // The group negative FIRST, so a mutated label reaches it rather than failing the line above it.

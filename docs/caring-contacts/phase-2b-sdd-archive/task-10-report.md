@@ -10,13 +10,13 @@
 Nothing new was routed. Everything below is the **patient overview deepened**, plus one new
 overlay-trigger module and one wording map in the sealed domain.
 
-| File | Change |
-| --- | --- |
-| `src/components/caring-contacts/workspace/patient-overview.tsx` | The plan detail itself: the attestation card, the plan-not-running note, the delivery-detail control on each row that has a transport report, and the removal of the `UnavailableDestination` that used to point at "the plan detail". |
-| `src/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger.tsx` | **New.** The trigger for the overlays the frozen table marks `mutatesState: false`, whose decision control is an exit rather than a confirmation, and the module where the Ruling [87] tension is resolved. |
-| `src/lib/caring-contacts/assurances.ts` | `PLAN_ASSURANCE_WORDING` + `planAssuranceWording()` — the plain words each attestation is read back in, beside the closed vocabulary they name. |
-| `tests/caring-contacts-patient-overview.dom.test.tsx` | New cases across four blocks, listed under Verification. |
-| `tests/caring-contacts-explained-automation.dom.test.tsx` | One allowlist entry, with its three conditions stated. |
+| File                                                                              | Change                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/patient-overview.tsx`                   | The plan detail itself: the attestation card, the plan-not-running note, the delivery-detail control on each row that has a transport report, and the removal of the `UnavailableDestination` that used to point at "the plan detail". |
+| `src/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger.tsx` | **New.** The trigger for the overlays the frozen table marks `mutatesState: false`, whose decision control is an exit rather than a confirmation, and the module where the Ruling [87] tension is resolved.                            |
+| `src/lib/caring-contacts/assurances.ts`                                           | `PLAN_ASSURANCE_WORDING` + `planAssuranceWording()` — the plain words each attestation is read back in, beside the closed vocabulary they name.                                                                                        |
+| `tests/caring-contacts-patient-overview.dom.test.tsx`                             | New cases across four blocks, listed under Verification.                                                                                                                                                                               |
+| `tests/caring-contacts-explained-automation.dom.test.tsx`                         | One allowlist entry, with its three conditions stated.                                                                                                                                                                                 |
 
 ---
 
@@ -62,7 +62,7 @@ leaves these on the plan while it removes the patient's detail … Each line abo
 detail, only which check was made and when, so removing it would destroy the evidence that the check
 happened while keeping the plan it belongs to."
 
-**Not a consent record.** The card says a coordinator confirmed *that the patient had agreed*, never
+**Not a consent record.** The card says a coordinator confirmed _that the patient had agreed_, never
 that the patient agreed; it says the agreement is held in the patient's hospital record and not in
 this system; and a test asserts the card contains no occurrence of "consent" at all. **Name the
 destination, not the act:** every mention is "recorded on the plan", and the assertion that pins it
@@ -124,7 +124,9 @@ missed message has no transport report, so no control promises one.
 `OverlayHost` renders each row's frozen `summary` and **takes no children**. There is no slot for
 per-row content, so the overlay cannot name the contact it was opened from. The per-contact fact
 therefore stays on the row itself, where `CONTACT_STATE_LABELS` already labels every provider state as
-a transport receipt, and the trigger names the row so ten of them are not ambiguous.
+a transport receipt. The trigger's visible words are generic — the drawer is — and the cadence label
+follows as the control's ORIGIN, which is what tells one schedule row's control from another's for a
+reader who cannot see which row it sits in.
 
 **The tension, and how it was resolved.** `delivery-detail` is `mutatesState: false` and its decision
 is "Close this detail". Two obvious answers are both wrong:
@@ -152,16 +154,22 @@ overlay id, a class name, children). That is also why it needed an entry in
 ### FINDING: `WorkspaceOverlayCommit` has no member for a non-mutating row
 
 **I did not weaken the type, and I am reporting it rather than fixing it.** The union expresses
-"records something" and "is not built yet" and has no member meaning *"this row's decision is an exit,
-and the host's own close is the action."* Every screen wiring a non-mutating row must
+"records something" and "is not built yet" and has no member meaning _"this row's decision is an exit,
+and the host's own close is the action."_ Every screen wiring a non-mutating row must
 therefore reach for a construct like `exitOnlyOverlayCommit` or write a bare no-op — and Tasks 11 and
 14 are about to wire `activation-success` and `permission-unavailable`, which are exactly those rows.
 Adding a member is a change to Task 3's pinned contract and to the totality of `commitRefusalFor`, so
 it is the owner's call, not a screen's.
 
-**And the choice between the two is unproven offline** — mutation M25 demonstrates it. Swapping the
-exit commit for `{ kind: "unavailable" }` leaves every offline gate green, because the difference is
-only visible once the overlay is **open**, which is Playwright's ground.
+**And the choice between the two IS pinned offline, though I first reported that it was not.** Swapping
+the exit commit for `{ kind: "unavailable" }` is mutation **M25**, and it is **RED**: `commitRefusalFor`
+is exported, pure and total, so `expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail")))
+.toBeNull()` decides it without a browser. My original claim here — that the difference is visible only
+inside an open overlay, and so is Playwright's ground — was withdrawn in round 2; see "What the ledger
+does NOT prove" for why I got it wrong and what it cost.
+
+So the open question below is **only** whether the union should carry a member for it. The behaviour is
+under test either way.
 
 ---
 
@@ -198,9 +206,10 @@ only visible once the overlay is **open**, which is Playwright's ground.
    so would have duplicated one that already exists on the path that matters.
 
    **The lesson, which is the part worth keeping:** I verified the narrow claim and then reported a
-   conclusion I had not verified. *Verifying a premise is not verifying the conclusion drawn from it.*
+   conclusion I had not verified. _Verifying a premise is not verifying the conclusion drawn from it._
    One more grep — **who calls this, and what happens after?** — would have closed it. The coordinator
    made the same error downstream of mine, which is exactly how an unverified conclusion travels.
+
 2. **The attestation's actor is recorded on the plan and is not shown.** Actor ids in this workspace
    are `demo-<role>`, so printing one would put a raw role identifier in front of a clinician. Role
    wording lives in the sealed domain (`CARING_CONTACT_ROLE_WORDING`) and resolves from a **role**;
@@ -304,126 +313,126 @@ shell (`grep -c` silently returns 0 here for a mutation demonstrably present); t
 `npm run test:cc-guards` and nothing wider, with `GATE_RECEIPTS=refresh`; every attempt itemised,
 greens included; **no aggregate total**.
 
-| # | The claim the mutation attacks | Expected | Got | Gate result (`Tests`) |
-| --- | --- | --- | --- | --- |
-| M1 | the paused note names the PAUSED state as the cause | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M2 | the paused note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M3 | the paused note says what would change it | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M4 | the paused note is LABELLED Paused, so it is findable by the state it is about | red | **RED**, as predicted | 2 failed / 406 passed (408) |
-| M5 | the draft note names NOT STARTED as the cause | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M6 | draft and paused are different facts and do not collapse into one label | red | **RED**, as predicted | 3 failed / 405 passed (408) |
-| M7 | the draft note says a date is not a message on its way | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M8 | a RUNNING plan gets no such note, so the note means something when it appears | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M9 | an ENDED plan, which explains itself row by row, gets no plan-level note | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content | red | **RED**, as predicted | 3 failed / 405 passed (408) |
-| M11 | each attestation row NAMES THE DESTINATION rather than only the act | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M12 | no wording on this card says the patient consented | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M13 | the card says WHERE the agreement lives | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M14 | the attestation's own instant is read back, not a constant | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M15 | the empty case states itself as a fact | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M17 | a plan WITH attestations renders them rather than the empty copy | red | **RED**, as predicted | 3 failed / 405 passed (408) |
-| M18 | the card says WHY retention keeps the attestation while it clears the reason | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M19 | the delivery drawer is offered where a message LEFT, not where it did not | red | **RED**, as predicted | 2 failed / 406 passed (408) |
-| M20 | the control raises the delivery-detail row and no other | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M21 | the control names the row it was opened from, so one row's control is told from another's | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op) | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M23 | an unknown overlay id is refused by name rather than by a TypeError | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width | green | **GREEN**, as predicted | 408 passed (408) |
-| M25 | the exit row gets a RECORD commit, not an unavailable one that would aria-disable the exit | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M26 | the visible promise is GENERIC, because the drawer it opens is | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M27 | REACHABLE NOW: the draft note does not describe itself as paused | red | **RED**, as predicted | 1 failed / 407 passed (408) |
-| M28 | CONTROL: the attestation list locator finds a list when one exists | red | **RED**, as predicted | 2 failed / 406 passed (408) |
-| M29 | CONTROL: an ended plan's rows carry their own reason, held to expected content | red | **RED**, as predicted | 2 failed / 406 passed (408) |
+| #   | The claim the mutation attacks                                                             | Expected | Got                     | Gate result (`Tests`)       |
+| --- | ------------------------------------------------------------------------------------------ | -------- | ----------------------- | --------------------------- |
+| M1  | the paused note names the PAUSED state as the cause                                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M2  | the paused note says a date is not a message on its way                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M3  | the paused note says what would change it                                                  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M4  | the paused note is LABELLED Paused, so it is findable by the state it is about             | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
+| M5  | the draft note names NOT STARTED as the cause                                              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M6  | draft and paused are different facts and do not collapse into one label                    | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
+| M7  | the draft note says a date is not a message on its way                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M8  | a RUNNING plan gets no such note, so the note means something when it appears              | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M9  | an ENDED plan, which explains itself row by row, gets no plan-level note                   | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M10 | THE SELF-COMPARISON TRAP IS CLOSED: the read-back is held to expected content              | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
+| M11 | each attestation row NAMES THE DESTINATION rather than only the act                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M12 | no wording on this card says the patient consented                                         | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M13 | the card says WHERE the agreement lives                                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M14 | the attestation's own instant is read back, not a constant                                 | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M15 | the empty case states itself as a fact                                                     | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M16 | the empty case says WHICH absence it is -- an older plan, not a missed confirmation        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M17 | a plan WITH attestations renders them rather than the empty copy                           | red      | **RED**, as predicted   | 3 failed / 405 passed (408) |
+| M18 | the card says WHY retention keeps the attestation while it clears the reason               | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M19 | the delivery drawer is offered where a message LEFT, not where it did not                  | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
+| M20 | the control raises the delivery-detail row and no other                                    | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M21 | the control names the row it was opened from, so one row's control is told from another's  | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M22 | the exit-only commit REFUSES a row that records something (not a universal no-op)          | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M23 | an unknown overlay id is refused by name rather than by a TypeError                        | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M24 | OVER-SENSITIVITY CONTROL: no assertion reads the trigger's responsive width                | green    | **GREEN**, as predicted | 408 passed (408)            |
+| M25 | the exit row gets a RECORD commit, not an unavailable one that would aria-disable the exit | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M26 | the visible promise is GENERIC, because the drawer it opens is                             | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M27 | REACHABLE NOW: the draft note does not describe itself as paused                           | red      | **RED**, as predicted   | 1 failed / 407 passed (408) |
+| M28 | CONTROL: the attestation list locator finds a list when one exists                         | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
+| M29 | CONTROL: an ended plan's rows carry their own reason, held to expected content             | red      | **RED**, as predicted   | 2 failed / 406 passed (408) |
 
 Predicted message against observed, row by row:
 
-- **M1** — predicted: *element does not contain "this plan is paused"*
+- **M1** — predicted: _element does not contain "this plan is paused"_
   - failing test: `says a PAUSED plan is not running, and that a date below is not a message on its way`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   this plan is paused Received:
-- **M2** — predicted: *element does not contain "a date below is not a message on its way"*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: this plan is paused Received:
+- **M2** — predicted: _element does not contain "a date below is not a message on its way"_
   - failing test: `says a PAUSED plan is not running, and that a date below is not a message on its way`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   a date below is not a message on its way Received:
-- **M3** — predicted: *element does not match /Resuming the plan/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: a date below is not a message on its way Received:
+- **M3** — predicted: _element does not match /Resuming the plan/i_
   - failing test: `says a PAUSED plan is not running, and that a date below is not a message on its way`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /Resuming the plan/i Received:
-- **M4** — predicted: *unable to find an accessible element with the role "group" and name "Paused"*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /Resuming the plan/i Received:
+- **M4** — predicted: _unable to find an accessible element with the role "group" and name "Paused"_
   - failing test: `says a PAUSED plan is not running, and that a date below is not a message on its way`
   - observed: TestingLibraryElementError: Unable to find an accessible element with the role "group" and name "Paused" Here are the accessible roles: region: Name "Rowan Sample":
-- **M5** — predicted: *element does not contain "this plan has not been started"*
+- **M5** — predicted: _element does not contain "this plan has not been started"_
   - failing test: `says a DRAFT plan has not been started, in different words from the paused one`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   this plan has not been started Received:
-- **M6** — predicted: *unable to find an accessible element with the role "group" and name "Draft"*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: this plan has not been started Received:
+- **M6** — predicted: _unable to find an accessible element with the role "group" and name "Draft"_
   - failing test: `says a DRAFT plan has not been started, in different words from the paused one`
   - observed: TestingLibraryElementError: Unable to find an accessible element with the role "group" and name "Draft" Here are the accessible roles: region: Name "Rowan Sample":
-- **M7** — predicted: *element does not contain "a date below is not a message on its way"*
+- **M7** — predicted: _element does not contain "a date below is not a message on its way"_
   - failing test: `says a DRAFT plan has not been started, in different words from the paused one`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   a date below is not a message on its way Received:
-- **M8** — predicted: *expected null not to be in the document (queryByRole group "Paused")*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: a date below is not a message on its way Received:
+- **M8** — predicted: _expected null not to be in the document (queryByRole group "Paused")_
   - failing test: `adds no such note to a running plan, so the note means something when it appears`
   - observed: Error: expect(element).not.toBeInTheDocument() expected document not to contain element, found <div aria-label="Paused" class="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
-- **M9** — predicted: *expected element not to be in the document (queryByRole group "Withdrawn")*
+- **M9** — predicted: _expected element not to be in the document (queryByRole group "Withdrawn")_
   - failing test: `adds no plan-level note to an ENDED plan, which already explains itself row by row`
   - observed: Error: expect(element).not.toBeInTheDocument() expected document not to contain element, found <div aria-label="Withdrawn" class="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
-- **M10** — predicted: *element does not contain "A coordinator confirmed that the patient had agreed to receive caring contacts"*
+- **M10** — predicted: _element does not contain "A coordinator confirmed that the patient had agreed to receive caring contacts"_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   A coordinator confirmed that the patient had agreed to receive caring contacts Received:
-- **M11** — predicted: *element does not match /recorded on the plan on/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: A coordinator confirmed that the patient had agreed to receive caring contacts Received:
+- **M11** — predicted: _element does not match /recorded on the plan on/i_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /recorded on the plan on/i Received:
-- **M12** — predicted: *expected element not to match /consent/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /recorded on the plan on/i Received:
+- **M12** — predicted: _expected element not to match /consent/i_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).not.toHaveTextContent() Expected element not to have text content:   /consent/i Received:
-- **M13** — predicted: *element does not match /hospital record/i*
+  - observed: Error: expect(element).not.toHaveTextContent() Expected element not to have text content: /consent/i Received:
+- **M13** — predicted: _element does not match /hospital record/i_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /hospital record/i Received:
-- **M14** — predicted: *element does not contain "2026-03-02 (AWST)"*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /hospital record/i Received:
+- **M14** — predicted: _element does not contain "2026-03-02 (AWST)"_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   2026-03-02 (AWST) Received:
-- **M15** — predicted: *element does not match /holds no record of those confirmations/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: 2026-03-02 (AWST) Received:
+- **M15** — predicted: _element does not match /holds no record of those confirmations/i_
   - failing test: `says a plan created before the attestation existed holds none, rather than rendering a blank`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /holds no record of those confirmations/i Received:
-- **M16** — predicted: *element does not match /before this plan began recording them/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /holds no record of those confirmations/i Received:
+- **M16** — predicted: _element does not match /before this plan began recording them/i_
   - failing test: `says a plan created before the attestation existed holds none, rather than rendering a blank`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /before this plan began recording them/i Received:
-- **M17** — predicted: *element does not contain "A coordinator confirmed that the patient had agreed to receive caring contacts"*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /before this plan began recording them/i Received:
+- **M17** — predicted: _element does not contain "A coordinator confirmed that the patient had agreed to receive caring contacts"_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   A coordinator confirmed that the patient had agreed to receive caring contacts Received:
-- **M18** — predicted: *element does not match /no patient detail/i*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: A coordinator confirmed that the patient had agreed to receive caring contacts Received:
+- **M18** — predicted: _element does not match /no patient detail/i_
   - failing test: `keeps the attestation on a cleared plan while the first-contact reason has gone`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /no patient detail/i Received:
-- **M19** — predicted: *the surviving trigger is the Month 1 row, so the accessible name does not match /opened from the Day 1 row/*
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /no patient detail/i Received:
+- **M19** — predicted: _the surviving trigger is the Month 1 row, so the accessible name does not match /opened from the Day 1 row/_
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /opened from the Day 1 row/ Received:
-- **M20** — predicted: *expected data-overlay-trigger "message-preview" to equal "delivery-detail"*
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name: /opened from the Day 1 row/ Received:
+- **M20** — predicted: _expected data-overlay-trigger "message-preview" to equal "delivery-detail"_
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAttribute("data-overlay-trigger", "delivery-detail") // element.getAttribute("data-overlay-trigger") === "delivery-detail" Expected the element to have attribute:   data-overlay-trigger="delivery-detail" Received:
-- **M21** — predicted: *accessible name loses the row, so it does not match /opened from the Day 1 row/*
+  - observed: Error: expect(element).toHaveAttribute("data-overlay-trigger", "delivery-detail") // element.getAttribute("data-overlay-trigger") === "delivery-detail" Expected the element to have attribute: data-overlay-trigger="delivery-detail" Received:
+- **M21** — predicted: _accessible name loses the row, so it does not match /opened from the Day 1 row/_
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /opened from the Day 1 row/ Received:
-- **M22** — predicted: *expected function to throw an error matching /records a decision/i, but it did not throw*
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name: /opened from the Day 1 row/ Received:
+- **M22** — predicted: _expected function to throw an error matching /records a decision/i, but it did not throw_
   - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
   - observed: AssertionError: expected [Function] to throw an error - Expected: null + Received:
-- **M23** — predicted: *thrown error message does not match /No overlay is defined/i (a null property read instead)*
+- **M23** — predicted: _thrown error message does not match /No overlay is defined/i (a null property read instead)_
   - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
   - observed: AssertionError: expected [Function] to throw error matching /No overlay is defined/i but got 'Cannot read properties of null (readi…' - Expected: /No overlay is defined/i + Received:
-- **M24** — predicted: *green -- geometry is not asserted offline, and should not be*
+- **M24** — predicted: _green -- geometry is not asserted offline, and should not be_
   - observed: no failure, and none expected. 408 passed (408).
-- **M25** — predicted: *commitRefusalFor returns an every-row refusal instead of null, so toBeNull fails*
+- **M25** — predicted: _commitRefusalFor returns an every-row refusal instead of null, so toBeNull fails_
   - failing test: `refuses to be the workspace's escape hatch from Ruling 87 on a row that records something`
   - observed: AssertionError: expected { reason: 'Not built yet.', …(1) } to be null - Expected: null + Received:
-- **M26** — predicted: *accessible name no longer starts with 'What a delivery receipt means'*
+- **M26** — predicted: _accessible name no longer starts with 'What a delivery receipt means'_
   - failing test: `offers it on a message that went out, naming the row it was opened from`
-  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name:   /^What a delivery receipt means/ Received:
-- **M27** — predicted: *the Draft group matches /paused/i, so the not.toHaveTextContent negative fires*
+  - observed: Error: expect(element).toHaveAccessibleName() Expected element to have accessible name: /^What a delivery receipt means/ Received:
+- **M27** — predicted: _the Draft group matches /paused/i, so the not.toHaveTextContent negative fires_
   - failing test: `does not let draft and paused collapse into one note, and proves the locators first`
-  - observed: Error: expect(element).not.toHaveTextContent() Expected element not to have text content:   /paused/i Received:
-- **M28** — predicted: *the positive control cannot find the list, so the empty case's absence proves nothing*
+  - observed: Error: expect(element).not.toHaveTextContent() Expected element not to have text content: /paused/i Received:
+- **M28** — predicted: _the positive control cannot find the list, so the empty case's absence proves nothing_
   - failing test: `reads both attestations back in plain words, and never says the patient consented`
   - observed: TestingLibraryElementError: Unable to find an accessible element with the role "list" and name "Confirmations recorded on this plan" Here are the accessible roles: heading: Name "What was confirmed before this plan started":
-- **M29** — predicted: *the Cancelled group's text no longer matches the expected sentence*
+- **M29** — predicted: _the Cancelled group's text no longer matches the expected sentence_
   - failing test: `explains every cancelled message in place, rather than leaving a bare status beside it`
-  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content:   /cancelled every message that had not already gone out/i Received:
+  - observed: Error: expect(element).toHaveTextContent() Expected element to have text content: /cancelled every message that had not already gone out/i Received:
 
 ## Three process incidents during verification, none of them absorbed
 
@@ -466,17 +475,21 @@ away.
   the ledger below**, where it used to be green.
 
   **Why I missed it:** `tests/caring-contacts-overlay-trigger.dom.test.tsx` is **not in
-  `test:cc-guards`**. Reasoning from *"what does my gate run?"* I concluded that no offline test could
+  `test:cc-guards`**. Reasoning from _"what does my gate run?"_ I concluded that no offline test could
   distinguish two behaviours that an unrun suite distinguishes today. **A gate that omits a suite does
   not merely skip coverage — it hides the precedent**, and the second failure is worse than the first,
   because it makes an existing solution invisible rather than merely unproven.
+
 - **M24 is an over-sensitivity control** and its green is the correct answer: no assertion reads the
   trigger's responsive width, and none should. It is now the only green in the ledger.
 - **The schedule summary sentence itself** is asserted in my paused-plan case but was **not** mutated
   by me — `scheduleSummarySentence` is an earlier task's, proved by the Ruling [98] and ended-plan
   blocks above mine. I am relying on those rather than claiming my own coverage of it.
-- **M10, M17 and M19 each turned two tests red**, not one. Reported rather than smoothed: each attacks
-  a claim that two of my cases depend on.
+- **Several mutations turned more than one test red**, and the set is named rather than counted:
+  **M6**, **M10** and **M17** each reddened three cases; **M4**, **M19**, **M28** and **M29** each
+  reddened two. Reported rather than smoothed — each attacks a claim that more than one of my cases
+  leans on. (An earlier draft of this line said "M10, M17 and M19 each turned two", which was wrong in
+  both the number and the membership, and was itself a count standing where the set belonged.)
 
 ---
 
@@ -520,8 +533,12 @@ impossible. `WORKSPACE_OVERLAY_DEFINITIONS` is annotated `readonly WorkspaceOver
 `definitions.ts`, which is shared with live branches, so it is the coordinator's to land. The throw
 stays as belt-and-braces either way, and is now recorded in the module rather than left implicit.
 
-**5. Three counts restated in prose**, in the commit named for removing them. The test that catches
-them: **is the thing the number counts visible in the same view as the number?** If not, name the set.
+**5. Counts restated in prose survived the commit named for removing them** — `sixteen rows that
+record something` and `not ambiguous among ten of them` in the source, and `the eight overlays` in this
+report. Each is replaced by the set it names. The test that catches them: **is the thing the number
+counts visible in the same view as the number?** If not, name the set. (This bullet said "Three counts"
+in its own first draft, which counted a set it did not enumerate — failing the test the sentence
+itself proposes, in the sentence proposing it.)
 
 ---
 
@@ -532,17 +549,35 @@ failing to match. It is a **foreign mutation row from another task's table**, si
 driver's array — `file: "…/plan-wizard/plan-wizard.tsx"`, carrying `from`/`to`/`suite`/`predicts`
 where every row of mine carries `find`/`replace`/`claim`/`predicted`. My own M17 ran and is RED above.
 
-**It never wrote anything, and I proved that rather than assuming it.** The foreign row has no `find`
-key, so the driver's uniqueness check counted occurrences of the string `"undefined"`, got zero, and
-skipped the row — and the skip path performs no write. Independently: `plan-wizard.tsx` is
-byte-identical to `HEAD`, its replacement text (`everyAssuranceConfirmed(input.assurances)`) appears
-nowhere in the tree, and **no commit on this branch touches that file at all**.
+**It never wrote anything.** The foreign row has no `find` key, so the driver's uniqueness check
+counted occurrences of the string `"undefined"`, got zero, and took the `continue` path — which is
+above the write. The load-bearing confirmation is that **`plan-wizard.tsx` is byte-identical to
+`HEAD`**: same blob, same working file, clean tree.
 
-**The part worth worrying about: namespacing the directory was not enough.** I moved the driver to
-`scratchpad/cc-plan-detail/` precisely to stop cross-task collisions, and a foreign row still arrived
-inside it. The driver now **refuses** any row whose shape it does not recognise, logging
-`FOREIGN ROW SHAPE`, rather than silently treating it as an unmatched anchor — a skip that reads like
-a near-miss is exactly how this stayed invisible across two passes.
+**Two of my first three supports were wrong, and I am correcting them rather than quietly dropping
+them.** I wrote that the replacement text "appears nowhere in the tree" — **false**:
+`everyAssuranceConfirmed(input.assurances)` is at `plan-activation.ts:485`. The true statement is
+narrower: the **whole replacement line**, `sending" && everyAssuranceConfirmed`, occurs nowhere in
+`src/` or `tests/`. I also wrote that "no commit on this branch touches that file at all" — **false**:
+**19** commits touch `plan-wizard.tsx` (Tasks 7–9b). The true statement is that **no commit since this
+task's base `ee2676290`** touches it, which is verified empty. A near-miss dressed up as three
+independent proofs is worse than one proof stated exactly.
+
+**And the escape was far narrower than my first account implied.** The foreign row's anchor,
+`if (input.state.status === "sending") {`, occurs **exactly once** in `plan-wizard.tsx`. Had the row
+carried a `find` key instead of `from`, the uniqueness check would have passed and **the driver would
+have applied it** — mutating another task's source file mid-pass. Nothing about the anchor saved this;
+only the missing key did.
+
+**How it actually arrived, which is more mundane and more instructive than my first account.** I
+reported this as evidence that "namespacing the directory was not enough". The row is present in
+`mutate-cc-plan-detail.mjs.bak` as the **last element of my own MUTATIONS array**, immediately after
+M25 — exactly where the log shows it. So it arrived as an **append edit to my own table**, not through
+a shared path. Namespacing did its job; what had no guard was the array itself.
+
+**It also collided on `id`.** The row was `id: "M17"`, duplicating a real row that had already run —
+which is the entire reason the log read as _my_ M17 failing to match. **The crossing damaged the
+ledger's row identity, not any result.**
 
 **Both the intermediate lock refusals and this row are itemised** rather than replaced by the later
 clean result, because the discipline asks for every attempt including the ones that did not run. In

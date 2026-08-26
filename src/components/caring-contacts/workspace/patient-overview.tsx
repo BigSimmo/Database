@@ -911,7 +911,10 @@ function PlanAssurances({ attestations }: { attestations: readonly PlanAssurance
   const headingId = "caring-contacts-assurances-heading";
   return (
     <section aria-labelledby={headingId} className={cardClass}>
-      <h2 id={headingId} className="flex min-w-0 items-center gap-2 text-base font-semibold text-[color:var(--text-heading)]">
+      <h2
+        id={headingId}
+        className="flex min-w-0 items-center gap-2 text-base font-semibold text-[color:var(--text-heading)]"
+      >
         <ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="min-w-0">What was confirmed before this plan started</span>
       </h2>
