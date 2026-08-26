@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
-import { overlayDefinition } from "./definitions";
+import { overlayDefinition, type WorkspaceOverlayId } from "./definitions";
 import type { WorkspaceOverlayCommit } from "./overlay-commits";
 import { openWorkspaceOverlayWithCommit } from "./workspace-overlays";
 
@@ -45,8 +45,16 @@ import { openWorkspaceOverlayWithCommit } from "./workspace-overlays";
  * `UnavailableDestination`, not this.
  */
 export type WorkspaceOverlayTriggerProps = {
-  /** An id from the frozen 24-row table. An id that names no row throws at render. */
-  overlayId: string;
+  /**
+   * An id from the frozen 24-row table.
+   *
+   * RULING [130]: a LITERAL UNION, so an id no row carries is a compile error. The
+   * runtime throw below stays as belt-and-braces rather than as the only guard —
+   * a cast, an `any`, or a value read from somewhere untyped all reach this
+   * component past the type, and an overlay that opens nothing must fail loudly
+   * however it was asked for.
+   */
+  overlayId: WorkspaceOverlayId;
   /** What confirming the overlay's decision does. REQUIRED — see above. */
   commit: WorkspaceOverlayCommit;
   /** The control's visible label, and therefore its accessible name. */
@@ -56,7 +64,11 @@ export type WorkspaceOverlayTriggerProps = {
 
 export function WorkspaceOverlayTrigger({ overlayId, commit, children, className }: WorkspaceOverlayTriggerProps) {
   /**
-   * An unknown id fails here, loudly, in every environment.
+   * An unknown id fails here, loudly, in every environment. BELT-AND-BRACES SINCE
+   * RULING [130], never the only guard: `overlayId` is now a literal union, so the
+   * ordinary way of getting this wrong — a typo, a stale id after a matrix change —
+   * is a compile error. What still reaches here is a cast, an `any`, or a value
+   * that entered the program untyped, and for those the throw is the whole of it.
    *
    * The alternative is worse than an error page: `overlayDefinition` returns null
    * for an id no row carries, the host renders nothing for it, and the control

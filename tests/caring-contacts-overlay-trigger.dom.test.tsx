@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { Component, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WORKSPACE_OVERLAY_DEFINITIONS } from "@/components/caring-contacts/workspace/overlays/definitions";
+import {
+  WORKSPACE_OVERLAY_DEFINITIONS,
+  type WorkspaceOverlayId,
+} from "@/components/caring-contacts/workspace/overlays/definitions";
 import {
   clearStagedWorkspaceOverlayCommit,
   commitForHistoryEntry,
@@ -94,12 +97,34 @@ describe("the overlay trigger", () => {
     expect(window.location.search).not.toContain("overlay=");
   });
 
-  it("fails loudly for an id the frozen table does not carry, rather than opening nothing", () => {
-    // A control that opens an empty overlay is the silent version of exactly the
-    // defect the commit contract exists to prevent, so it throws at render.
+  it("refuses an id the frozen table does not carry at COMPILE time", () => {
+    // Ruling [130]. `overlayId` is a union derived from the twenty-four rows, so this
+    // is checked by `tsc --noEmit` rather than at runtime, and `@ts-expect-error` fails
+    // the typecheck if the error ever stops being raised. Before the narrowing, the
+    // annotation on `WORKSPACE_OVERLAY_DEFINITIONS` erased every literal and this line
+    // compiled: the throw below was the only thing standing between a typo and a
+    // control that opens nothing.
+    const mistyped = (
+      // @ts-expect-error "pause-plan" names no row in the frozen 24-overlay table.
+      <WorkspaceOverlayTrigger overlayId="pause-plan" commit={{ kind: "record", record: () => {} }}>
+        Pause this plan
+      </WorkspaceOverlayTrigger>
+    );
+    expect(mistyped).toBeTruthy();
+  });
+
+  it("still fails loudly at render for an id that reaches it past the type", () => {
+    // The belt-and-braces half, and the cast is the POINT rather than a convenience:
+    // the type is defeated deliberately, because a cast, an `any`, or a value that
+    // entered the program untyped is exactly what the throw is left in place for. A
+    // control that opens an empty overlay is the silent version of the defect the
+    // commit contract exists to prevent.
     expect(() =>
       render(
-        <WorkspaceOverlayTrigger overlayId="pause-plan" commit={{ kind: "record", record: () => {} }}>
+        <WorkspaceOverlayTrigger
+          overlayId={"pause-plan" as unknown as WorkspaceOverlayId}
+          commit={{ kind: "record", record: () => {} }}
+        >
           Pause this plan
         </WorkspaceOverlayTrigger>,
       ),
