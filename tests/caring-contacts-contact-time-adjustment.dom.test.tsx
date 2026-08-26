@@ -139,9 +139,11 @@ function installService(store: CaringContactRepository) {
       expectedContactVersion: number;
       idempotencyKey: string;
     };
-    const role = actingRole;
-    if (role === null) return Response.json({ refusal: "not-found" }, { status: 404 });
-    const actor: Actor = { id: ACTOR, teamId: TEAM, roles: [role] };
+    // `resolveDemoActor` falls back to the coordinator for anything unreadable rather than
+    // throwing -- an unreadable cookie must never lock someone out of a demonstration. Mirrored
+    // here, and it MATTERS: it is what makes "the client could not re-read the role" a case where
+    // the service would happily have written, so the refusal below has something real to prevent.
+    const actor: Actor = { id: ACTOR, teamId: TEAM, roles: [actingRole ?? "coordinator"] };
     const decision = canPerformCaringContactAction(actor, "moveContactWithinDay", { teamId: TEAM });
     if (!decision.allowed) return Response.json({ refusal: decision.reason }, { status: 403 });
 
@@ -254,7 +256,7 @@ describe("moving one contact within its day", () => {
     expect(stateOf(after)).not.toBe(stateOf(before));
   });
 
-  it("rechecks the acting role at COMMIT time, not at open time, and writes nothing when it fails", async () => {
+  it("rechecks the acting role at COMMIT time, and names the role it actually found", async () => {
     const store = newStore();
     await seedPlan(store);
     installService(store);
@@ -273,17 +275,48 @@ describe("moving one contact within its day", () => {
     const beforeConfirm = requested.length;
 
     await userEvent.click(overlayAction());
+    // WAIT FOR AN OUTCOME, ANY OUTCOME, before asserting anything. Waiting on the sentence this case
+    // expects would leave every assertion after it unreachable under a mutation that produced a
+    // DIFFERENT outcome: the timeout would be the only failure and nothing below would ever run.
+    await waitFor(() => expect(outcomeText()).not.toBe(""));
 
-    await waitFor(() => expect(outcomeText()).toContain("not granted the action that moves a contact"));
     // NAMED, and named with the role it actually found rather than the one the screen rendered for.
+    // The service's own refusal for the same state does not carry the role, so this fires the moment
+    // the recheck stops happening at the commit and the write is left to be refused at the far end.
     expect(outcomeText()).toContain("auditor");
-    // AND THE RECORD IS UNCHANGED. This is the clause the standing discipline says nobody writes:
-    // a refusal appearing on screen is not evidence that nothing was written.
+    expect(outcomeText()).toContain("not granted the action that moves a contact");
     expect(stateOf(await contactUnderTest(store))).toBe(stateOf(before));
-    // Stronger still: the write was never even attempted.
-    expect(requested.slice(beforeConfirm).filter((url) => url.startsWith(CONTACT_ENDPOINT))).toEqual([]);
     // And the recheck really did happen at the commit -- the session was read again after the open.
     expect(requested.slice(beforeConfirm)).toContain(SESSION_ENDPOINT);
+  });
+
+  it("refuses when the acting role cannot be re-read at all, and writes nothing", async () => {
+    const store = newStore();
+    await seedPlan(store);
+    installService(store);
+    const before = await renderControl(store);
+
+    await userEvent.clear(timeField());
+    await userEvent.type(timeField(), "11:30");
+    await openOverlay();
+
+    // The service can no longer answer who is acting. It would still WRITE if asked -- the fallback
+    // for an unreadable role cookie is the coordinator -- so this refusal has something real to
+    // prevent, and the assertions below are about a store that could have changed.
+    actingRole = null;
+    const beforeConfirm = requested.length;
+
+    await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).not.toBe(""));
+
+    // THE CLAUSE THE STANDING DISCIPLINE SAYS NOBODY WRITES: a refusal appearing on screen is not
+    // evidence that nothing was written.
+    expect(stateOf(await contactUnderTest(store))).toBe(stateOf(before));
+    // Strictly stronger than the line above, and behind it deliberately: the write was never even
+    // attempted. Nothing falsifies this one without also falsifying that one, so it is recorded as a
+    // strengthening rather than as an independently proven claim.
+    expect(requested.slice(beforeConfirm).filter((url) => url.startsWith(CONTACT_ENDPOINT))).toEqual([]);
+    expect(outcomeText()).toContain("could not be read again");
   });
 
   it("rechecks the connection at COMMIT time, and does not reach the service at all", async () => {
@@ -300,9 +333,10 @@ describe("moving one contact within its day", () => {
     const beforeConfirm = requested.length;
 
     await userEvent.click(overlayAction());
+    await waitFor(() => expect(outcomeText()).not.toBe(""));
 
-    await waitFor(() => expect(outcomeText()).toContain("There is no connection"));
     expect(stateOf(await contactUnderTest(store))).toBe(stateOf(before));
+    expect(outcomeText()).toContain("There is no connection");
     // Not one request, to either endpoint: an offline commit must not depend on a fetch failing.
     expect(requested.slice(beforeConfirm)).toEqual([]);
   });
