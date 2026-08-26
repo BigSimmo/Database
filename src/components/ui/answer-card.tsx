@@ -82,6 +82,17 @@ type AnswerCardBase = {
   /** Machine provenance, rendered through AnswerFooter. */
   provenance?: AnswerFooterProps;
   actions?: AnswerCardAction[];
+  /**
+   * `"raised"` is the bordered, shadowed panel this card has always drawn.
+   *
+   * `"bare"` removes the frame and the panel padding so the answer sits on the
+   * page, which is what the approved chat design draws: a question bubble, an
+   * assistant badge, and prose — no container. The card is still the component
+   * that owns the verification wording, the support word and the degraded
+   * banner, and it still refuses to render an answer without them; only the box
+   * around them goes. Adopted for the answer surface 2026-08-25.
+   */
+  frame?: "raised" | "bare";
   className?: string;
 };
 
@@ -105,8 +116,10 @@ export function AnswerCard({
   provenance,
   actions,
   onOpenSource,
+  frame = "raised",
   className,
 }: AnswerCardProps) {
+  const bare = frame === "bare";
   // Vertical density: lux horizontal `--pad-panel` stays, but stacked header+body
   // each carrying full panel padding added ~60px of phantom phone scroll against the
   // `#227` budget of 8 (short-answer smoke) and pushed the desktop table/prose delta
@@ -119,12 +132,29 @@ export function AnswerCard({
     <article
       data-testid="answer-card"
       data-state={state.kind}
+      data-frame={frame}
       className={cn(
-        "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
+        bare
+          ? "bg-transparent"
+          : "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
         className,
       )}
     >
-      <div className={cn("space-y-2 border-b border-[color:var(--border)]", panelX, panelY)}>
+      {/* Bare: the notice and the support word share one line, because on a
+          source-only answer they were two stacked banners saying the same thing
+          above a four-line answer. The degraded banner still takes its own line
+          via `w-full` below. */}
+      <div
+        className={cn(
+          bare
+            ? // Indented onto the prose column, not the page edge: the notice
+              // describes the message beside the assistant badge, so it has to
+              // start where that message starts. Token, because the badge is
+              // declared in a different component.
+              "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ps-[var(--answer-message-gutter)]"
+            : cn("space-y-2 border-b border-[color:var(--border)]", panelX, panelY),
+        )}
+      >
         {query ? <AnswerCardQueryEcho query={query} /> : null}
         {/* Above the prose and above the actions, in document order, on screen
             and on print alike. */}
@@ -134,7 +164,10 @@ export function AnswerCard({
         <p
           data-testid="answer-card-support"
           data-support={support}
-          className="text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]"
+          className={cn(
+            "font-semibold text-[color:var(--text-muted)]",
+            bare ? "text-3xs leading-4" : "text-2xs uppercase tracking-wide",
+          )}
         >
           <span className="sr-only">Evidence support: </span>
           {ANSWER_SUPPORT_WORDING[support]}
@@ -161,18 +194,20 @@ export function AnswerCard({
          * degraded answer must remain re-verifiable whether or not a banner renders.
          */}
         {state.kind === "stale_evidence" || state.kind === "partial_retrieval" ? (
-          <RetrievalStateBanner
-            state={state}
-            onOpenSource={onOpenSource as (sourceId: string, locator?: string) => void}
-          />
+          <div className={bare ? "w-full" : undefined}>
+            <RetrievalStateBanner
+              state={state}
+              onOpenSource={onOpenSource as (sourceId: string, locator?: string) => void}
+            />
+          </div>
         ) : null}
       </div>
       <div
         className={cn(
-          panelX,
+          bare ? "pt-1.5" : panelX,
           // Header already ends with py-3; keep a tight seam to the prose so the
           // card does not reintroduce the old space-y-3 gap as 24px of stacked pad.
-          "pt-2 pb-3",
+          bare ? null : "pt-2 pb-3",
           // Prose measure is a hard ceiling: an answer that runs the full width of a
           // desktop viewport is unreadable regardless of type size.
           "max-w-[var(--measure)] text-[length:var(--text-md)] leading-prose text-[color:var(--text)]",
@@ -181,7 +216,7 @@ export function AnswerCard({
         {children}
       </div>
       {actions?.length ? (
-        <div className={cn("flex flex-wrap gap-2", panelX, "pb-3")}>
+        <div className={cn("flex flex-wrap gap-2", bare ? "pt-2" : cn(panelX, "pb-3"))}>
           {actions.map((action) => (
             <button
               key={action.id}
