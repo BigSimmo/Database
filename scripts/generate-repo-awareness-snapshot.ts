@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import {
   REPO_AWARENESS_SNAPSHOT_VERSION,
   type DocumentationSection,
+  type RepoAwarenessSnapshot,
   type ReviewStateSection,
   type RouteArea,
   type RoutesSection,
@@ -193,17 +195,13 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
       catalogued: catalogued.has(repoPath),
     }));
 
-  const bySection = new Map<string, { name: string; documents: number; uncatalogued: number }>();
+  const sectionNames = new Set<string>();
   for (const document of documents) {
-    const entry = bySection.get(document.section) ?? { name: document.section, documents: 0, uncatalogued: 0 };
-    entry.documents += 1;
-    if (!document.catalogued) entry.uncatalogued += 1;
-    bySection.set(document.section, entry);
+    sectionNames.add(document.section);
   }
-  // `name` alone is already a total order here too: it is the key of the Map
-  // it was read from, so `bySection.values()` contains at most one entry per
-  // name and no tiebreaker is needed.
-  const sections = [...bySection.values()].sort((left, right) => left.name.localeCompare(right.name));
+  // `name` alone is already a total order here: `sectionNames` is a unique Set,
+  // so sorting produces deterministic output with no tiebreaker needed.
+  const sections = [...sectionNames].sort((left, right) => left.localeCompare(right)).map((name) => ({ name }));
 
   return {
     documents,
@@ -279,7 +277,10 @@ export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile
   return ledger;
 }
 
+export const REVIEW_LEDGER_PATH = "docs/branch-review-ledger.md";
+export const REVIEW_ARCHIVE_PATHSPEC = ":(glob)docs/archive/branch-review-ledger-*.md";
 export const REVIEW_RECORDS_DIR = "docs/branch-review-records";
+export const REVIEW_RECORDS_PATHSPEC = ":(glob)docs/branch-review-records/*.record.md";
 
 const RECORD_ROW = /^\|\s*\d{4}-\d{2}-\d{2}\s*\|/;
 
@@ -320,18 +321,35 @@ function splitRecordCells(line: string): string[] {
   return cells;
 }
 
+/**
+ * Read the same complete, tracked review corpus as `ledger:lookup`: the frozen
+ * live table, rotated archives, and immutable records. Walking the filesystem
+ * would list a developer's untracked draft records, and the staleness gate
+ * would then fail on a clean tree for everyone but that developer — the same
+ * failure `listDocumentPaths` exists to prevent.
+ */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".record.md"))
+  // An absolute `dir` is a throwaway fixture (the generator always uses the
+  // repo-relative default). Isolate `git ls-files` to that directory so the
+  // fixture can be its own tiny repository.
+  const cwd = path.isAbsolute(dir) ? dir : undefined;
+  const pathspecs = cwd ? ["."] : [REVIEW_LEDGER_PATH, REVIEW_ARCHIVE_PATHSPEC, REVIEW_RECORDS_PATHSPEC];
+  const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
+    encoding: "utf8",
+    cwd,
+  });
+  return output
+    .split("\0")
+    .filter(Boolean)
     .sort()
-    .map((name) => {
-      const file = `${dir}/${name}`;
-      const line = readFileSync(file, "utf8")
+    .flatMap((entry) => {
+      const file = cwd ? path.join(dir, entry) : entry;
+      const lines = readFileSync(file, "utf8")
         .split("\n")
-        .map((entry) => entry.trim())
-        .find((entry) => RECORD_ROW.test(entry));
-      if (!line) throw new Error(`${file}: no review record row found.`);
-      return { file, line };
+        .map((row) => row.trim())
+        .filter((row) => RECORD_ROW.test(row));
+      if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
+      return lines.map((line) => ({ file, line }));
     });
 }
 
@@ -342,9 +360,11 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       if (cells.length !== 6) {
         throw new Error(`${file}: expected 6 columns in the review record row, found ${cells.length}.`);
       }
-      const [date, ref, head, scope, outcome, checks] = cells;
-      // `head` is kept verbatim. Older records carry abbreviated SHAs, and
-      // rejecting them would drop real reviews from the panel.
+      const [date, ref, rawHead, scope, outcome, checks] = cells;
+      // Match the canonical ledger parser: legacy table rows sometimes wrap
+      // SHAs in Markdown code spans. Strip that presentation syntax while
+      // preserving abbreviated and full SHAs.
+      const head = rawHead.replaceAll("`", "");
       return { date, ref, head, scope, outcome, checks };
     })
     // Newest first, then ref, head and scope. That is NOT guaranteed to be a
@@ -353,9 +373,10 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
     // scopes, and nothing structurally prevents two records sharing all four.
     //
     // Determinism therefore rests on two further facts, not on the comparator:
-    // `readReviewRecordRows` sorts filenames, so its output order is the same on
-    // every platform, and `Array.prototype.sort` is specified stable, so ties
-    // keep that order. If either ever stops holding — records merged from a
+    // `readReviewRecordRows` sorts filenames and preserves row order within
+    // each file, so its output order is the same on every platform, and
+    // `Array.prototype.sort` is specified stable, so ties keep that order. If
+    // either ever stops holding — records merged from a
     // second source, or an unsorted glob — this comparator will start flapping
     // the staleness gate for exactly those records, and no test will say why.
     .sort(
@@ -370,4 +391,106 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
     records,
     counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
   };
+}
+
+/**
+ * The commit that last touched anything this snapshot describes — not `HEAD`.
+ *
+ * `HEAD` would advance on every unrelated commit, so the page would claim the
+ * data was fresher than it is. Dating the snapshot by its own inputs can only
+ * ever understate freshness, which is the safe direction and the same choice
+ * Phase 1 made for `ledger_revision`.
+ *
+ * This list may only ever contain files that genuinely shape emitted data —
+ * never widened to a transitive-closure chase or a broad directory "to be
+ * safe." The two directions are not symmetric:
+ *
+ *  - Adding a TRUE input is always safe. It can only move the resolved commit
+ *    forward, toward the commit that actually last changed something here —
+ *    which is always an improvement in accuracy, never a risk.
+ *  - Adding something that is NOT an input is unsafe. An unrelated commit
+ *    would then advance the date, and the page would claim the data is
+ *    FRESHER than it actually is — the one direction this scheme exists to
+ *    rule out.
+ *  - Omitting a true input is merely imprecise, and imprecise in the safe
+ *    direction: the date understates freshness rather than overstating it.
+ *    That is why growing this list is a correctness improvement, not a bug
+ *    fix — nothing here was ever unsafe, just less accurate than it could be.
+ *
+ * `scripts/generate-site-map.ts` and `src/lib/consolidated-mode-home-redirect.ts`
+ * were added after confirming each one flows into an emitted field:
+ * `documentedRedirectTargets` (generate-site-map.ts) is consumed while
+ * building `routes.redirects[].target`, and `consolidatedModeHomeModeIds`
+ * (consolidated-mode-home-redirect.ts) is branched on by `appModeHomeHref()`
+ * while building every mode's `home` field below. `src/lib/document-flow-routes.ts`
+ * (`documentsSearchHref`) and `src/lib/search-navigation-context.ts`
+ * (`appendSearchNavigationContext`) were deliberately left out: `appModeHomeHref`
+ * is always called here with no second argument, so `options` is always `{}` —
+ * the `documentsSearchHref` branch requires a truthy `query`, which is never
+ * present, so it never runs; and `appendSearchNavigationContext` hits its
+ * `!filters` early return on every call here, so it always returns its input
+ * `URLSearchParams` unchanged. Neither file's content can currently reach an
+ * emitted field through this call site.
+ *
+ * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
+ * other non-emitted files under that tree must not advance the stamp.
+ */
+const REVISION_INPUTS = [
+  "src/app",
+  "src/lib/app-modes.ts",
+  "src/lib/consolidated-mode-home-redirect.ts",
+  ":(glob)docs/**/*.md",
+  "tests/flake-ledger.json",
+  "scripts/generate-site-map.ts",
+];
+
+/**
+ * Git is a hard requirement of this generator, and that is deliberate rather
+ * than an oversight. `npm run docs:update` is the only thing that runs it, and
+ * `docs/site-map.md` sets the precedent: generated, committed, verified by a
+ * `check:` gate, never regenerated during a build. Because it never runs inside
+ * the Docker image, there is no git-less environment to degrade for — which is
+ * strictly better than Phase 1's position, where a `prebuild` hook forced a
+ * preserve-the-committed-value fallback to exist at all.
+ */
+export function readCapturedRevision({ cwd }: { cwd?: string } = {}): { sha: string; committed_at: string } {
+  let output: string;
+  try {
+    output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
+      encoding: "utf8",
+      cwd,
+    }).trim();
+  } catch (error) {
+    throw new Error(
+      `Could not read the repository revision from git: ${(error as Error).message}. ` +
+        "This generator runs only from `npm run docs:update`, where git is always available.",
+    );
+  }
+  if (!output) throw new Error("git reported no commit touching this snapshot's inputs.");
+  const [sha, committed_at] = output.split("\t");
+  if (!sha || !committed_at) {
+    throw new Error(`git log produced an unparsable revision line: "${output}" (expected "<sha>\\t<committed_at>").`);
+  }
+  return { sha, committed_at };
+}
+
+export function generate(): RepoAwarenessSnapshot {
+  return {
+    version: SNAPSHOT_VERSION,
+    captured_revision: readCapturedRevision(),
+    routes: buildRoutesSection(),
+    documentation: buildDocumentationSection(listDocumentPaths(), readFileSync(README_PATH, "utf8")),
+    test_health: buildTestHealthSection(readFlakeLedger()),
+    review_state: buildReviewStateSection(readReviewRecordRows()),
+  };
+}
+
+// Windows-safe main-module check, matching the convention used elsewhere in
+// scripts/: a manual `file://${argv[1]}` string reconstruction never matches
+// `import.meta.url` on Windows, because a relative argv[1] stays relative and an
+// absolute one is missing the drive-letter leading slash — the guard would
+// silently never fire and the file would never be written.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
+  console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
 }

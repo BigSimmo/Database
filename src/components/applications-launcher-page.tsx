@@ -20,6 +20,7 @@ import { cardInteractive, cardSelected, cardSelectedDanger, focusRing } from "@/
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
+import { ShowAllChip } from "@/components/show-all-chip";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
@@ -76,9 +77,8 @@ const statusLabels: Record<LauncherStatus, string> = {
 // 8-entry copy with a different fallback, so five tools showed one glyph on the
 // launcher and a generic grid glyph in results, and every results tile was
 // painted the same purple regardless of area. Both surfaces now read the one
-// registry, so a tool looks like itself wherever it is reached — including
-// Ward Flow's `ward-management` tool, which is keyed through the same registry
-// rather than a local map.
+// registry, so a tool looks like itself wherever it is reached, rather than
+// through a local map.
 function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
   return toolCatalogRecordsForSession({
     authenticated: canAccessFavourites,
@@ -834,18 +834,13 @@ export function ApplicationsLauncherWorkspace({
           headingLevel={1}
         />
 
-        <Link
+        <ShowAllChip
           href="/tools"
-          aria-label="Show all tools"
-          data-testid="tools-show-all"
-          className={cn(
-            "inline-flex min-h-tap items-center justify-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:text-sm lg:min-h-9",
-            focusRing,
-          )}
-        >
-          <Grid2X2 className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" strokeWidth={1.75} aria-hidden="true" />
-          {copy.showAllLabel}
-        </Link>
+          icon={Grid2X2}
+          label={copy.showAllLabel}
+          ariaLabel="Show all tools"
+          testId="tools-show-all"
+        />
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot

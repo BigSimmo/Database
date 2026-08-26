@@ -10,8 +10,8 @@ import { edById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-role-switcher.module.css";
 
-const COORDINATOR_HREF = "/ward-management";
-const OFFICER_HREF = "/ward-management/transport/officer";
+const COORDINATOR_HREF = "/mockups/ward-flow";
+const OFFICER_HREF = "/mockups/ward-flow/transport/officer";
 
 /**
  * Task 12 (addendum R41/R42/R48/R52/R67). The role switcher: four roles, one control, and the
@@ -124,7 +124,7 @@ export function WardRoleSwitcher() {
               wardCandidates.map((unit) => (
                 <Link
                   key={unit.id}
-                  href={`/ward-management/ward/${unit.id}`}
+                  href={`/mockups/ward-flow/ward/${unit.id}`}
                   role="menuitem"
                   className={styles.menuItem}
                   onClick={close}
@@ -156,7 +156,7 @@ export function WardRoleSwitcher() {
             <span className={styles.menuGroupLabel}>Emergency department</span>
             {edCandidate ? (
               <Link
-                href={`/ward-management/ed/${edCandidate.id}`}
+                href={`/mockups/ward-flow/ed/${edCandidate.id}`}
                 role="menuitem"
                 className={styles.menuItem}
                 onClick={close}

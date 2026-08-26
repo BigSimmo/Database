@@ -42,7 +42,7 @@
 
 4. **Clock mechanics otherwise sound.** Confirmed by grep: `wallClockNow`/`Date.now`/`new
 Date`/`performance.now`/`setInterval` appear nowhere else under `src/components/ward-management/**`
-   or `src/app/ward-management/**` except inside `ward-clock.ts` and this provider — no other
+   or `src/app/mockups/ward-flow/**` except inside `ward-clock.ts` and this provider — no other
    screen or module reads the wall clock. The pinned path returns from the effect before
    `setInterval` is ever called (not "start-then-ignore"), proven by the `setInterval` spy test.
    The interval is cleaned up (`return () => clearInterval(id)`). The reducer is seeded exactly
@@ -50,11 +50,11 @@ Date`/`performance.now`/`setInterval` appear nowhere else under `src/components/
    throws `"useWardFlow must be used within WardFlowProvider."`, matching the existing
    `useAccountData` convention in `src/components/account-data-provider.tsx` exactly.
 
-5. **`src/app/ward-management/layout.tsx` server/client boundary is correct per Next 16 docs.**
+5. **`src/app/mockups/ward-flow/layout.tsx` server/client boundary is correct per Next 16 docs.**
    Matches `node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`
    § "Context providers" verbatim: an ordinary (non-`"use client"`) layout importing and rendering
    a `"use client"` provider around `children`, no hooks in the layout itself. No existing page
-   under `src/app/ward-management/**` calls `useWardFlow` yet, confirming "nothing should render
+   under `src/app/mockups/ward-flow/**` calls `useWardFlow` yet, confirming "nothing should render
    differently yet."
 
 6. **Fixture commit (`ward-movements.ts`) is sound.** The new pin test iterates a non-empty,

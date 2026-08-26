@@ -109,6 +109,40 @@ export function resolveTherapyRoute(pathname: string): { screen: string; slug: s
   return { screen, slug: safeDecodePathSegment(first) };
 }
 
+/**
+ * Therapy routes that render the shared phone bottom dock, and therefore have a
+ * slot the compare tray can dock into.
+ *
+ * `/therapy-compass/recommend` is absent because it hides the shell composer
+ * (it owns an in-flow clinical-situation composer instead), and the record
+ * routes are absent because `isInformationPage` hides the composer there. The
+ * reserve inflates when a route CLAIMS the addon slot, not when the tray
+ * renders, so claiming a route with no dock opens a blank band at the bottom of
+ * the page — this list is what stops that.
+ */
+export const THERAPY_PHONE_DOCK_ROUTES = [
+  THERAPY_COMPASS_BASE,
+  `${THERAPY_COMPASS_BASE}/search`,
+  `${THERAPY_COMPASS_BASE}/compare`,
+  `${THERAPY_COMPASS_BASE}/pathways`,
+  `${THERAPY_COMPASS_BASE}/review`,
+] as const;
+
+export function isTherapyPhoneDockRoute(pathname: string): boolean {
+  return (THERAPY_PHONE_DOCK_ROUTES as readonly string[]).includes(pathname);
+}
+
+/**
+ * How many therapies the URL currently selects for comparison.
+ *
+ * The shell needs this — and only this — to decide whether the compare tray has
+ * anything to dock, without pulling the whole workspace parser onto every
+ * render of every route.
+ */
+export function readTherapyCompareSlugCount(params: Pick<URLSearchParams, "get">): number {
+  return uniqueNonEmpty((params.get("ids") ?? "").split(","), THERAPY_MAX_COMPARE).length;
+}
+
 export function therapyScreenHref(screen: string): string {
   return screen === "home" ? THERAPY_COMPASS_BASE : `${THERAPY_COMPASS_BASE}/${screen}`;
 }

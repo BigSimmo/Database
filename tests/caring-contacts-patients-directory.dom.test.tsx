@@ -1,0 +1,559 @@
+// tests/caring-contacts-patients-directory.dom.test.tsx
+//
+// The Patients directory body (Task 5), handed the narrowed records the page already read and
+// deciding only what to show. Its client boundary keeps patient-name search out of URLs.
+//
+// The assertions that matter are about honesty rather than layout:
+//   * an empty caseload and a caseload hidden by a filter are DIFFERENT facts, and the two
+//     `ListEmptyState` kinds are not interchangeable (Task 1's whole reason for existing);
+//   * a role that may not view plans at all must not be told the team has no patients;
+//   * the directory receives the separate names-only projection and never the wider `Episode`;
+//   * a row's detail control is an UNAVAILABLE control with a stated reason, not a link into a
+//     route that does not exist yet (Ruling 52).
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { describe, expect, it } from "vitest";
+
+import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
+import type { PatientsDirectoryRow } from "@/components/caring-contacts/workspace/patients-directory-row";
+import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
+import type { PlanState } from "@/lib/caring-contacts/model";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
+import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
+
+const TEAM = teamId("demo-team");
+
+function contact(sequence: number, options: { absorbed?: boolean; suppressed?: boolean } = {}): StoredContact {
+  return {
+    contact: {
+      id: contactId(`contact-${sequence}`),
+      planId: planId("plan-1"),
+      // Both stores write an absorbed contact straight into the terminal `suppressed` state so it
+      // can never be dispatched (in-memory-repository.ts, `createPlan`). The fixture matches the
+      // stores rather than the schedule, because the screen counts what the store holds.
+      state: options.absorbed || options.suppressed ? "suppressed" : "scheduled",
+      version: 1,
+    },
+    planned: {
+      sequence,
+      cadenceLabel: sequence === 1 ? "Day 1" : `Month ${sequence}`,
+      calendarDay: "2026-03-02",
+      sendAt: new Date("2026-03-02T02:00:00.000Z"),
+      messageType: sequence === 1 ? "first" : "standard",
+      ...(options.absorbed ? { suppressed: { reason: "absorbedByFirstContact" as const } } : {}),
+    },
+  };
+}
+
+function planRecord(options: { id: string; state: PlanState; contacts?: readonly StoredContact[] }): PlanRecord {
+  return {
+    plan: { id: planId(options.id), teamId: TEAM, state: options.state, version: 1 },
+    patientId: patientId(`patient-${options.id}`),
+    referralId: referralId(`referral-${options.id}`),
+    pathwayVersionId: pathwayVersionId("pathway-1"),
+    dischargeAt: new Date("2026-03-01T02:00:00.000Z"),
+    completedAt: null,
+    outcome: "inProgress",
+    contacts: options.contacts ?? [contact(1), contact(2)],
+  };
+}
+
+const ALL = parsePatientsDirectoryFilter({});
+
+/**
+ * What `listPatientNames` releases when it releases nothing for these plans -- a de-identified
+ * episode, or a role that may list plans without holding `viewPatientRecord`. Most tests below use
+ * it because they are about something other than the name, and it keeps the row on its fallback:
+ * headed by the synthetic identifier, exactly as Task 5 shipped it.
+ */
+const NO_NAMES: readonly PatientNameProjection[] = [];
+
+/** The names read's answer for one plan. Two fields, which is all the type has. */
+function name(planIdText: string, patientName: string): PatientNameProjection {
+  return { planId: planId(planIdText), patientName };
+}
+
+describe("Patients directory - the two empty states are not interchangeable", () => {
+  it("an empty caseload renders the no-data kind, which states how a first patient arrives", () => {
+    const { container } = render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans />);
+
+    const empty = screen.getByRole("group", { name: /no patients yet/i });
+    expect(empty).toBeInTheDocument();
+    // The "filtered" wording shape must never appear on a genuinely empty caseload: it would
+    // tell a clinician that patients exist and something is hiding them.
+    expect(container.textContent ?? "").not.toContain("What changes it:");
+    expect(empty.textContent ?? "").toMatch(/referral/i);
+  });
+
+  it("a caseload hidden by the state filter renders the filtered kind, naming the filter and the remedy", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+    const filter = parsePatientsDirectoryFilter({ state: "paused" });
+
+    const { container } = render(
+      <PatientsDirectory patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />,
+    );
+
+    const empty = screen.getByRole("group", { name: /no patients match/i });
+    expect(empty).toBeInTheDocument();
+    expect(within(empty).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(empty).getByText(/What changes it:/)).toBeInTheDocument();
+    // The reason must name the filter that is actually set, and the count it is hiding.
+    expect(empty.textContent ?? "").toContain("Paused");
+    expect(empty.textContent ?? "").toContain("2");
+    // Never the no-data claim.
+    expect(container.textContent ?? "").not.toContain("No patients yet");
+    // The remedy is reachable, not merely described...
+    const remedy = screen.getByRole("link", { name: /show every plan/i });
+    expect(remedy).toHaveAttribute("href", CARING_CONTACTS_ROUTES.patients);
+    // ...and reaches it as a `<Link>`, not a raw anchor. The row test below makes this assertion
+    // for the filter chips; without it here, the empty state's own action was the one link on this
+    // screen that nothing checked -- measured, not assumed: removing the attribute from this link
+    // alone left the whole file green.
+    expect(remedy).toHaveAttribute("data-internal-link", "true");
+  });
+
+  it("a caseload hidden by the identifier search names the search text as the reason", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" })];
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "nothing-matches-this" } });
+
+    const empty = screen.getByRole("group", { name: /no patients match/i });
+    expect(empty.textContent ?? "").toContain("nothing-matches-this");
+  });
+
+  it("a role that may not view plans is never told the team has no patients", () => {
+    const { container } = render(
+      <PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+    );
+
+    expect(container.textContent ?? "").not.toContain("No patients yet");
+    const empty = screen.getByRole("group", { name: /not visible in this role/i });
+    expect(within(empty).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(empty).getByText(/What changes it:/)).toBeInTheDocument();
+    // The reason must not claim anything about how many plans exist: a read this role may not make
+    // and a team holding none are indistinguishable by design, and saying otherwise would leak the
+    // very thing the store withholds.
+    expect(empty.textContent ?? "").toMatch(/says nothing about how many/i);
+  });
+
+  // Ruling 93. Asserting that "What changes it:" is PRESENT is a shape check, and a shape check
+  // certifies a well-formed lie: the first version of this screen said "The role switcher changes
+  // which role you are acting in", and no role switcher exists anywhere in this workspace's
+  // interface. Spec 4.4 requires a remedy that can be REACHED, so the content is pinned here.
+  it("states a remedy that exists, and never names a control the workspace does not have", () => {
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />);
+    const empty = screen.getByRole("group", { name: /not visible in this role/i });
+    const text = empty.textContent ?? "";
+
+    expect(text).toMatch(/nothing on this screen changes it/i);
+    expect(text).toMatch(/no control for it anywhere in this workspace/i);
+    // The exact false claim this test was written to keep out.
+    expect(text).not.toMatch(/role switcher/i);
+  });
+
+  it("uses the not-permitted kind, so the icon does not report a search nobody ran", () => {
+    // Ruling 92: the words were honest under `"filtered"`, the TYPE and the ICON were not.
+    // `"filtered"` selects `SearchX`; this case must not.
+    const restricted = render(
+      <PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+    );
+    const restrictedIcon = restricted.container.querySelector("[role='group'] svg")?.getAttribute("class") ?? "";
+    restricted.unmount();
+
+    const filtered = render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={parsePatientsDirectoryFilter({ state: "paused" })}
+        mayViewPlans
+      />,
+    );
+    const filteredIcon = filtered.container.querySelector("[role='group'] svg")?.getAttribute("class") ?? "";
+
+    expect(restrictedIcon).not.toBe("");
+    expect(filteredIcon).not.toBe("");
+    expect(restrictedIcon, "the role-restricted empty state reuses the search icon").not.toBe(filteredIcon);
+  });
+
+  it("hides the filter controls entirely for a role that may not view plans", () => {
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />);
+    expect(screen.queryByRole("link", { name: "Active" })).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
+});
+
+describe("Patients directory - rows", () => {
+  it("lists one row per plan the team may see, keyed by the synthetic patient identifier", () => {
+    const records = [
+      planRecord({ id: "plan-1", state: "active" }),
+      planRecord({ id: "plan-2", state: "paused" }),
+      planRecord({ id: "plan-3", state: "completed" }),
+    ];
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
+  });
+
+  it("states each plan's state in words, not by colour alone", () => {
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "paused" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    const row = screen.getAllByRole("listitem")[0];
+    expect(row.textContent ?? "").toContain("Paused");
+  });
+
+  it("explains a contact the SYSTEM suppressed, in place, with why and what would change it", () => {
+    const withAbsorbed = planRecord({
+      id: "plan-1",
+      state: "active",
+      contacts: [contact(1), contact(2, { absorbed: true })],
+    });
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[withAbsorbed]} filter={ALL} mayViewPlans />);
+
+    const automated = screen.getByRole("group", { name: "Suppressed" });
+    expect(within(automated).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(automated).getByText(/What changes it:/)).toBeInTheDocument();
+    // Reachable as text, never only as a hover title.
+    expect(automated.querySelector("[title]")).toBeNull();
+  });
+
+  it("explains a contact suppressed by the transition, which carries no schedule marker", () => {
+    // M-8: `planned.suppressed` marks only the schedule's own absorption. A contact moved to
+    // `suppressed` by `applyContactTransition` has no such marker, and counting the plan rather
+    // than the outcome left it with no explanation at all.
+    const record = planRecord({
+      id: "plan-1",
+      state: "active",
+      contacts: [contact(1), contact(2, { suppressed: true })],
+    });
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />);
+
+    const automated = screen.getByRole("group", { name: "Suppressed" });
+    expect(within(automated).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(automated).getByText(/What changes it:/)).toBeInTheDocument();
+    // Not the Week 1 wording -- that reason is false for this contact.
+    expect(automated.textContent ?? "").not.toMatch(/Week 1/);
+    // And the remedy is honest about being final rather than inventing one.
+    expect(automated.textContent ?? "").toMatch(/final/i);
+  });
+
+  // N-3. `scheduled` changed definition this round -- it counts `contacts.length` minus the
+  // contacts whose OWN state is suppressed, where it used to subtract only the schedule's absorbed
+  // ones. Nothing asserted the rendered number, so the change could have been silently wrong on
+  // every row. This is a clinician-facing count of how many messages a patient will receive.
+  it("states how many messages remain in the schedule, and subtracts every suppressed one", () => {
+    const plain = planRecord({ id: "plan-1", state: "active", contacts: [contact(1), contact(2)] });
+    const withSuppressed = planRecord({
+      id: "plan-2",
+      state: "active",
+      contacts: [contact(1), contact(2, { suppressed: true }), contact(3, { absorbed: true })],
+    });
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[plain, withSuppressed]} filter={ALL} mayViewPlans />);
+
+    const [first, second] = screen.getAllByRole("listitem");
+    expect(first.textContent ?? "").toContain("2 messages in the schedule");
+    // Three contacts, two of them suppressed by two different causes, so one message remains.
+    expect(second.textContent ?? "").toContain("1 message in the schedule");
+  });
+
+  // N-2. The count subtracts EVERY suppressed contact, so the reason beside it has to account for
+  // every one of them. The first shape branched on whether an absorbed contact existed at all, so
+  // this plan showed a count short by two beside a reason explaining one.
+  it("accounts for both causes when a plan carries an absorbed AND a transition-suppressed contact", () => {
+    const record = planRecord({
+      id: "plan-1",
+      state: "active",
+      contacts: [contact(1), contact(2, { absorbed: true }), contact(3, { suppressed: true })],
+    });
+
+    render(<PatientsDirectory patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />);
+
+    const automated = screen.getByRole("group", { name: "Suppressed" });
+    const text = automated.textContent ?? "";
+    // The absorbed cause, with its own remedy...
+    expect(text).toMatch(/Week 1/);
+    expect(text).toMatch(/first-contact date/i);
+    // ...and the other one, with its own, which is a different remedy entirely.
+    expect(text).toMatch(/does not hold what caused that/i);
+    expect(text).toMatch(/final/i);
+  });
+
+  it("says nothing about suppression when the system suppressed nothing", () => {
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    expect(screen.queryByRole("group", { name: "Suppressed" })).toBeNull();
+  });
+
+  it("offers the row's detail control as an unavailable control, never a link into a route with no page", () => {
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    const control = screen.getByRole("button", { name: /patient-plan-1/i });
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).toHaveAttribute("type", "button");
+    expect(control).toHaveAttribute("title", expect.stringContaining("coming soon"));
+    // Native `disabled` would remove the tab stop, so the stated reason could never be reached.
+    expect(control).not.toHaveAttribute("disabled");
+    // And nothing on this screen links into the not-yet-built detail routes...
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href") ?? "").not.toMatch(/\/caring-contacts\/(patients\/[^?]|plans\/)/);
+      // ...nor reaches an internal route by a raw anchor. `data-internal-link` is the marker the
+      // shell test uses to tell a `<Link>` from an `<a href="/…">`, which render identically.
+      expect(link.getAttribute("data-internal-link"), `${link.getAttribute("href")} is not a <Link>`).toBe("true");
+    }
+  });
+
+  it("releases the name and nothing else - a directory never calls getEpisode", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" })];
+    const { container } = render(
+      <PatientsDirectory
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={records}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    // The name is rendered WITH the names read in place, so the absences below are the screen
+    // holding nothing else rather than the screen holding nothing at all.
+    expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
+    // `PlanRecord` carries no identifying detail by construction and `PatientNameProjection` has
+    // two fields, so the other three fields `getEpisode` releases have nowhere to come from. This
+    // pins that the screen does not invent a place to put one either.
+    expect(container.textContent ?? "").not.toMatch(/mobile|cultural/i);
+  });
+});
+
+describe("Patients directory - only non-identifying state enters the URL", () => {
+  it("parses a known plan state and ignores an unknown one rather than failing the render", () => {
+    expect(parsePatientsDirectoryFilter({ state: "paused" }).state).toBe("paused");
+    expect(parsePatientsDirectoryFilter({ state: "not-a-state" }).state).toBe("all");
+    expect(parsePatientsDirectoryFilter({ state: ["active", "paused"] }).state).toBe("all");
+  });
+
+  it("ignores a legacy query parameter rather than passing patient text into the directory", () => {
+    expect(parsePatientsDirectoryFilter({ q: "Jordan Nguyen", state: "active" })).toEqual({ state: "active" });
+  });
+
+  it("builds every filter href from the route module with state and no patient search text", () => {
+    expect(patientsDirectoryHref({ state: "all" })).toBe(CARING_CONTACTS_ROUTES.patients);
+    expect(patientsDirectoryHref({ state: "active" })).toBe(`${CARING_CONTACTS_ROUTES.patients}?state=active`);
+  });
+
+  it("filters by plan state from the validated URL state", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "paused" })];
+
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={records}
+        filter={parsePatientsDirectoryFilter({ state: "paused" })}
+        mayViewPlans
+      />,
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
+  });
+
+  it("matches the identifier search case-insensitively against the patient and plan identifiers", () => {
+    // Unchanged by the names projection: an identifier search still works with no name in play.
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "PLAN-2" } });
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
+  });
+
+  it("never exposes the patient-name search as a GET form or URL parameter", () => {
+    const { container } = render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[]}
+        filter={parsePatientsDirectoryFilter({ state: "active" })}
+        mayViewPlans
+      />,
+    );
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Jordan Nguyen" } });
+    expect(container.querySelector("form")).toBeNull();
+    expect(screen.getByRole("searchbox")).not.toHaveAttribute("name");
+    for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).not.toContain("Jordan");
+  });
+
+  it("marks the current state filter, so the screen and the URL cannot disagree", () => {
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[]}
+        filter={parsePatientsDirectoryFilter({ state: "paused" })}
+        mayViewPlans
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Paused" })).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("link", { name: "Active" })).not.toHaveAttribute("aria-current");
+  });
+});
+
+describe("Patients directory - the names-only projection (Ruling 91)", () => {
+  it("filters identifying rows before the client boundary", () => {
+    const element = PatientsDirectory({
+      patientNames: [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")],
+      records: [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "paused" })],
+      filter: parsePatientsDirectoryFilter({ state: "paused" }),
+      mayViewPlans: true,
+    }) as ReactElement<{ rows: readonly PatientsDirectoryRow[]; totalPlanCount: number }>;
+
+    expect(element.props.totalPlanCount).toBe(2);
+    expect(element.props.rows.map((row) => row.patientName)).toEqual(["Alex Whitlock"]);
+  });
+
+  it("crosses the client boundary with only the rendered, searched or pre-derived row fields", () => {
+    const element = PatientsDirectory({
+      patientNames: [name("plan-1", "Jordan Nguyen")],
+      records: [planRecord({ id: "plan-1", state: "active" })],
+      filter: ALL,
+      mayViewPlans: true,
+    }) as ReactElement<{ rows: readonly Record<string, unknown>[] }>;
+
+    expect(Object.keys(element.props.rows[0] ?? {}).sort()).toEqual(
+      [
+        "absorbedContactCount",
+        "dischargeDay",
+        "otherSuppressedContactCount",
+        "patientId",
+        "patientName",
+        "planId",
+        "referralId",
+        "scheduledContactCount",
+        "state",
+      ].sort(),
+    );
+  });
+
+  it("heads the row with the patient's name, and keeps the synthetic identifier beside it", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" })];
+
+    render(
+      <PatientsDirectory
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={records}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
+    // Still present in the row's own body, because two patients can share a name.
+    //
+    // M7 in the mutation ledger: this assertion was first written as "the row's text contains the
+    // identifier", which the DETAIL CONTROL satisfies on its own -- so deleting the identifier line
+    // entirely left the file green. It reads the line itself now.
+    const row = screen.getAllByRole("listitem")[0];
+    expect(within(row).getByText(/Synthetic identifier: patient-plan-1/)).toBeInTheDocument();
+    // And the control is still named by the identifier, which is what distinguishes one row's
+    // control from the next to a screen reader.
+    expect(screen.getByRole("button", { name: /patient-plan-1/i })).toBeInTheDocument();
+  });
+
+  it("falls back to the synthetic identifier, and labels it as one, when no name came back", () => {
+    // The case a role without `viewPatientRecord` produces: `listPatientNames` answers `[]`, exactly
+    // as `listPlans` answers an actor who may not read it, and the screen must not present an
+    // identifier as though it were a name.
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
+    expect(screen.getByText("Synthetic patient identifier")).toBeInTheDocument();
+  });
+
+  it("treats a de-identified plan's empty name as no name held, never as a blank heading", () => {
+    // `markRetentionCleared` writes the empty string for a removed name in both stores, so the
+    // projection carries an entry whose name is "". Rendering it verbatim would give the row an
+    // empty heading and no identifier at all -- a row naming nobody.
+    render(
+      <PatientsDirectory
+        patientNames={[name("plan-1", "")]}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
+    expect(screen.getByText("Synthetic patient identifier")).toBeInTheDocument();
+  });
+
+  it("matches the trimmed local search against the name as well as the identifiers", () => {
+    const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+    const names = [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")];
+
+    render(<PatientsDirectory patientNames={names} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "  nguyen  " } });
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
+  });
+
+  it("treats whitespace-only local search as no search", () => {
+    render(
+      <PatientsDirectory
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={[planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "   " } });
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
+  });
+
+  it("finds no row by a name it does not hold, when the names read released nothing", () => {
+    // The empty haystack segment must not turn into a wildcard: a role that may not read names
+    // searching for one must find nothing, not everything.
+    render(
+      <PatientsDirectory
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Jordan" } });
+
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    expect(screen.getByRole("group", { name: /no patients match/i })).toBeInTheDocument();
+  });
+});

@@ -80,7 +80,7 @@ describe("emergency department pressure", () => {
     const breachedMovement = movementFrom({
       id: "TEST-past-due-transport",
       originEdId: "sjgm-ed",
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 45 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 45 },
     });
     const rows = edPressure(NOW_ANCHOR, [breachedMovement]);
 
@@ -183,7 +183,7 @@ describe("emergency department pressure", () => {
       movementFrom({
         id: "TEST-due-now",
         originEdId: "sjgm-ed",
-        legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR },
+        legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR },
       }),
     ];
     const rows = edPressure(NOW_ANCHOR, movements);
@@ -201,7 +201,7 @@ describe("emergency department pressure", () => {
         id: "TEST-no-deadline",
         originEdId: "sjgm-ed",
         openedAt: NOW_ANCHOR - 10_000,
-        legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+        legalForm: { code: "3B", kind: "detention" },
       }),
     ];
     const rows = edPressure(NOW_ANCHOR, movements);
@@ -219,7 +219,7 @@ describe("emergency department pressure", () => {
         id: "TEST-no-deadline",
         originEdId: "sjgm-ed",
         openedAt: NOW_ANCHOR - 10_000,
-        legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+        legalForm: { code: "3B", kind: "detention" },
       }),
     ];
     const rows = edPressure(NOW_ANCHOR, movements);

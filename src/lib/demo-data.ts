@@ -8,6 +8,7 @@ import type {
   RagAnswer,
   SearchResult,
   SmartPanel,
+  SupportedClaim,
 } from "@/lib/types";
 import { citationFromResult } from "@/lib/citations";
 import {
@@ -643,8 +644,43 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
       "The synthetic acute risk document highlights immediate safety, current intent, means restriction, protective factors, and senior review as the core escalation focus.";
   }
 
+  /**
+   * Sentence-level attribution, the shape `assessClaimSupport` produces for a
+   * live answer.
+   *
+   * Without it the demo corpus renders the degraded no-marks path, so the
+   * in-prose source marks — the thing the whole answer surface is built around —
+   * would be invisible in demo mode and untestable offline. The sentences are
+   * split the way the server splits them, and the chunk ids are the demo
+   * sources the answer was actually assembled from, so the marks point at pages
+   * that really do carry the text.
+   *
+   * An unsupported question emits no claims at all, which is the honest case
+   * and also the one that exercises the degrade.
+   */
+  const supportedClaims: SupportedClaim[] =
+    supportedQuestion && sources.length
+      ? answer
+          .split(/(?<=[.!?])\s+/)
+          .map((sentence) => sentence.trim())
+          .filter((sentence) => sentence.length >= 8)
+          .map((text, index) => ({
+            claimId: `claim-${index + 1}`,
+            text,
+            riskClass: "routine" as const,
+            // The first sentence carries the top two sources so a cluster (and its
+            // spacing) is exercised; later sentences carry one each.
+            supportingChunkIds: (index === 0 ? sources.slice(0, 2) : sources.slice(index, index + 1)).map(
+              (source) => source.id,
+            ),
+            supportStatus: "direct" as const,
+          }))
+          .filter((claim) => claim.supportingChunkIds.length > 0)
+      : [];
+
   return {
     answer: `${answer}\n\nSynthetic demo only: this is not clinical guidance.`,
+    supportedClaims,
     grounded: supportedQuestion && sources.length > 0,
     confidence: supportedQuestion && sources.length > 0 ? "high" : "unsupported",
     citations: sources.slice(0, 4).map((source) => citationFromResult(source, "deterministic_support")),

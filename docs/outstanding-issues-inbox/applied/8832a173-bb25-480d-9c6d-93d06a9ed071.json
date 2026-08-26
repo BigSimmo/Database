@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8832a173-bb25-480d-9c6d-93d06a9ed071",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "prettierignore lists one generated data snapshot but not its sibling",
+    "detail": "data/outstanding-issues-snapshot.json is in .prettierignore; data/repo-awareness-snapshot.json, added by Phase 2, is not. The repo-awareness file passes prettier --check today, so nothing is broken and this is latent rather than live. The asymmetry makes the one listed entry read as arbitrary. Resolve it in whichever direction is right - the answer may well be removing the older entry rather than adding the newer one.",
+    "source": "Phase 2 whole-branch review, PR #2359",
+    "issueUlid": "01M0V9M5PGDVRZA4J6JZKCHY4T"
+  }
+}

@@ -7,11 +7,31 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { edById } from "@/components/ward-management/ward-sites";
 
-import { stampAgeText, trackerRowState } from "./tracker-derivations";
+import { stampAgeText, trackerRowState, type TrackerLeg } from "./tracker-derivations";
 import styles from "./live-tracker.module.css";
 
 /**
- * Task 10: the coordinator's live tracker (`/ward-management/transport`, rewritten — spec §7:
+ * Which visual treatment each leg's badge carries. A `Record` over the full `TrackerLeg` union,
+ * not a chain of ternaries, so adding a leg is a compile error here rather than a badge that
+ * silently inherits the default.
+ *
+ * Only one distinction is drawn — "Collected", the patient physically in the vehicle — and the
+ * reasoning for drawing that one and no others is in `live-tracker.module.css` next to the class
+ * itself. `Cancelled` keeps the danger treatment it already had. `Arrived` maps to the same
+ * neutral badge as the pre-collection legs: an arrived movement is closed and `isOpen` keeps it
+ * off this screen entirely, so there is no arrival state here to give a treatment to.
+ */
+const LEG_BADGE_CLASS: Record<TrackerLeg, string> = {
+  Requested: styles.legBadge,
+  Accepted: styles.legBadge,
+  "En route": styles.legBadge,
+  Collected: styles.legBadgeInVehicle,
+  Arrived: styles.legBadge,
+  Cancelled: styles.legBadgeCancelled,
+};
+
+/**
+ * Task 10: the coordinator's live tracker (`/mockups/ward-flow/transport`, rewritten — spec §7:
  * "the existing route... the coordinator's view of every vehicle: which patient, which leg, how
  * long since the last stamp").
  *
@@ -46,7 +66,9 @@ export function LiveTracker() {
   return (
     <div className={styles.screen} data-testid="ward-mode-transport">
       <ClinicalRail activeMode="transport" />
-      <main className={styles.main} data-testid="ward-live-tracker">
+      <main id="main-content" className={styles.main} data-testid="ward-live-tracker">
+        <h1 className="sr-only">Live tracker</h1>
+
         <div className={styles.governanceBanner} data-testid="ward-tracker-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -86,7 +108,7 @@ export function LiveTracker() {
                 <li key={movement.id} data-testid={`ward-tracker-row-${movement.id}`} className={styles.vehicleRow}>
                   <div className={styles.vehicleHeader}>
                     <strong>{movement.id}</strong>
-                    <span className={leg === "Cancelled" ? styles.legBadgeCancelled : styles.legBadge}>{leg}</span>
+                    <span className={LEG_BADGE_CLASS[leg]}>{leg}</span>
                   </div>
                   <dl className={styles.vehicleDetails}>
                     <div className={styles.vehicleDetailRow}>
@@ -110,7 +132,7 @@ export function LiveTracker() {
                       <dd>{stampAgeText(stampAt, now)}</dd>
                     </div>
                   </dl>
-                  <Link className={styles.reviewLink} href={`/ward-management/patients/${movement.id}`}>
+                  <Link className={styles.reviewLink} href={`/mockups/ward-flow/patients/${movement.id}`}>
                     Review patient
                   </Link>
                 </li>

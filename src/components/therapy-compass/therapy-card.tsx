@@ -8,6 +8,7 @@ import {
   FileText,
   Heart,
   Scale,
+  Sparkles,
   Target,
   TriangleAlert,
   type LucideIcon,
@@ -16,6 +17,7 @@ import {
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
 import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
@@ -27,8 +29,8 @@ import { useTherapyFavourite } from "./use-therapy-favourite";
 
 /**
  * Search-result cards spend all three actions as `secondary` so the page keeps
- * the one filled `--command` slot (COMPONENTS.md §9.1). Recommend's featured
- * top match is that page-level primary, so only `featured` promotes Open.
+ * the one filled `--command` slot (COMPONENTS.md §9.1). A featured top match
+ * is that page-level primary, so only `featured` promotes Open.
  */
 const cardActionButton = "min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus";
 
@@ -50,6 +52,9 @@ export function ResultCard({
   const sheetUnavailableId = useId();
   const { notice, saved, toggleFavourite } = useTherapyFavourite(therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
+  // A full tray keeps its tab stop and states why, per the wiring convention.
+  const compareFull = !inCompare && b.compareSlugs.length >= THERAPY_MAX_COMPARE;
+  const compareFullId = `${sheetUnavailableId}-compare-full`;
   const rankingQuery = query ?? b.search.query;
   const subtitle =
     cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
@@ -109,6 +114,15 @@ export function ResultCard({
       </Button>
       <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">
+          {featured ? (
+            <div
+              data-therapy-result-highlight
+              className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-extrabold tracking-wide text-[color:var(--clinical-accent)] uppercase forced-colors:border-[CanvasText] forced-colors:text-[CanvasText]"
+            >
+              <Sparkles aria-hidden="true" size={13} strokeWidth={2.1} />
+              Best match
+            </div>
+          ) : null}
           <div className="flex items-start gap-2.5">
             {rank != null ? (
               <span className="inline-flex h-7 min-w-7 flex-none items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-xs font-extrabold nums text-[color:var(--text-heading)]">
@@ -171,13 +185,33 @@ export function ResultCard({
           block
           className={cn(cardActionButton, controlPressed)}
           icon={Scale}
-          onClick={() => b.toggleCompare(therapy.slug)}
+          // Adding no longer navigates: the tray above the composer is where the
+          // set is now assembled, so this control fills it and leaves the reader
+          // exactly where they were. The label moved with the behaviour — the
+          // old "Compare" promised a destination it no longer goes to.
+          onClick={
+            compareFull
+              ? ignoreUnavailableActivation
+              : inCompare
+                ? () => b.removeCompare(therapy.slug)
+                : () => b.addCompare(therapy.slug)
+          }
           aria-pressed={inCompare}
-          aria-label={inCompare ? "In compare" : "Compare"}
+          aria-disabled={compareFull ? true : undefined}
+          aria-describedby={compareFull ? compareFullId : undefined}
+          title={compareFull ? `Compare holds ${THERAPY_MAX_COMPARE} therapies — remove one first` : undefined}
+          aria-label={inCompare ? "In compare tray" : compareFull ? "Compare tray full" : "Add to compare"}
         >
-          <span className="max-sm:hidden">{inCompare ? "In compare" : "Compare"}</span>
-          <span className="sm:hidden">{inCompare ? "Added" : "Compare"}</span>
+          <span className="max-sm:hidden">
+            {inCompare ? "In compare tray" : compareFull ? "Tray full" : "Add to compare"}
+          </span>
+          <span className="sm:hidden">{inCompare ? "In tray" : compareFull ? "Full" : "Add"}</span>
         </Button>
+        {compareFull ? (
+          <span id={compareFullId} className="sr-only">
+            The comparison already holds {THERAPY_MAX_COMPARE} therapies. Remove one before adding another.
+          </span>
+        ) : null}
         <Button
           variant="secondary"
           size="sm"

@@ -21,8 +21,16 @@ import {
   teamId,
 } from "@/lib/caring-contacts/ids";
 import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
-import type { Actor, CaringContactActor, CaringContactRole, SystemActor } from "@/lib/caring-contacts/permissions";
 import {
+  canPerformCaringContactAction,
+  type Actor,
+  type CaringContactActor,
+  type CaringContactRole,
+  type SystemActor,
+} from "@/lib/caring-contacts/permissions";
+import {
+  PATIENT_NAME_READ_ACTIONS,
+  READ_ACTIONS,
   REPOSITORY_REFUSALS,
   type AuditSink,
   type CaringContactRepository,
@@ -634,6 +642,119 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         // tests/caring-contacts-postgres-repository.test.ts ("no patient detail reaches
         // idempotency_records"), which reads the table itself as the migration role. ../fingerprint
         // now hashes, so neither store can write the request's text into that row.
+      });
+    });
+
+    /**
+     * Ruling 91's names-only projection, held by the SHARED contract so both stores answer it the
+     * same way. The screen it exists for is the Patients directory, which needs a name per row and
+     * has no business holding a mobile number, an identifier list or a cultural identity.
+     */
+    describe("listPatientNames — the name, and structurally nothing else (Ruling 91)", () => {
+      it("releases the patient's name for a plan the actor can list, and no other detail with it", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "key-create")));
+
+        const names = await store.listPatientNames({ actor: COORDINATOR_A });
+
+        expect(names).toEqual([{ planId: PLAN_ID, patientName: "Jordan Nguyen" }]);
+        // The shape itself, not merely the values: an extra field would satisfy `toEqual`'s
+        // subset-free comparison only because it is asserted here as the whole key set.
+        expect(Object.keys(names[0]).sort()).toEqual(["patientName", "planId"]);
+        // And the three fields this read exists to leave behind. The fixture's own values, so a
+        // pass means they were not released rather than that the fixture never held them --
+        // `getEpisode` below is the positive control that the store is still holding all of them.
+        const serialised = JSON.stringify(names);
+        expect(serialised).not.toContain("491 570 156");
+        expect(serialised).not.toContain("UR-00219384");
+        const episode = await store.getEpisode(PLAN_ID, { actor: TEAM_LEAD_A });
+        expect(episode?.patientMobileNumber).toBe("+61 491 570 156");
+        expect(episode?.patientIdentifiers).toEqual(["UR-00219384"]);
+      });
+
+      it("names exactly the plans the same actor can list, one entry each", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "key-create")));
+        await createActivePlan(store);
+
+        const plans = await store.listPlans({ actor: COORDINATOR_A });
+        const names = await store.listPatientNames({ actor: COORDINATOR_A });
+
+        expect(plans).toHaveLength(2);
+        expect([...names].map((entry) => entry.planId).sort()).toEqual([...plans].map((plan) => plan.plan.id).sort());
+      });
+
+      it("gives an actor from another team the same empty answer an empty store gives", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "key-create")));
+
+        const empty = await newStore();
+
+        // Positive control: the plan is genuinely readable inside its own team, so the two empties
+        // below are scoping rather than an absent record.
+        expect(await store.listPatientNames({ actor: COORDINATOR_A })).toHaveLength(1);
+        // Identical answers, so nothing here tells a cross-team actor whether the plan exists --
+        // the property `getPlan` protects by returning null for both cases. This read takes no
+        // plan id at all, so there is no question for it to answer either way.
+        expect(await store.listPatientNames({ actor: COORDINATOR_B })).toEqual([]);
+        expect(await empty.listPatientNames({ actor: COORDINATOR_B })).toEqual([]);
+      });
+
+      it("is empty, never a refusal, for a role that may not list plans — even one holding viewPatientRecord", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "key-create")));
+
+        // The auditor is the case this rule exists for, and the assertion below is what makes the
+        // empty answer meaningful: the auditor DOES hold the name capability, and still gets
+        // nothing, because it cannot enumerate this team's plans. A read gated on
+        // `viewPatientRecord` alone would hand this role every name the team holds -- a widening,
+        // from a change whose whole purpose is narrowing.
+        expect(
+          canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.patientName, { teamId: AUDITOR_A.teamId }),
+        ).toEqual({ allowed: true });
+        expect(canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.plan, { teamId: AUDITOR_A.teamId }).allowed).toBe(
+          false,
+        );
+        expect(PATIENT_NAME_READ_ACTIONS).toContain(READ_ACTIONS.plan);
+
+        expect(await store.listPatientNames({ actor: AUDITOR_A })).toEqual([]);
+        expect(await store.listPlans({ actor: AUDITOR_A })).toEqual([]);
+        expect(await store.listPatientNames({ actor: ROLELESS_A })).toEqual([]);
+        // Software has no reason to know a patient's name; the dispatcher holds no human capability
+        // at all, and a delivery pipeline that could read names would be a new disclosure surface.
+        expect(await store.listPatientNames({ actor: DISPATCHER_A })).toEqual([]);
+      });
+
+      it("holds no name for a plan a retention clearance has already de-identified", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, `names-withdraw-${plan.plan.id}`),
+          ),
+        );
+
+        // Positive control: the name is released right up until the clearance.
+        const before = await store.listPatientNames({ actor: COORDINATOR_A });
+        expect(before.find((entry) => entry.planId === plan.plan.id)?.patientName).toBe("Jordan Nguyen");
+
+        unwrap(
+          await store.markRetentionCleared(
+            { planId: plan.plan.id },
+            writeContext(COORDINATOR_A, `names-clear-${plan.plan.id}`),
+          ),
+        );
+
+        const after = await store.listPatientNames({ actor: COORDINATOR_A });
+        // The row is still listed -- the plan still exists -- and the cleared value is the empty
+        // string both stores write, which a caller must read as "no name held". Dropping the entry
+        // instead would make a cleared plan indistinguishable from one this actor may not see.
+        expect(after.find((entry) => entry.planId === plan.plan.id)?.patientName).toBe("");
       });
     });
 

@@ -2,8 +2,19 @@
 
 import { useState, type FormEvent } from "react";
 
-import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
 import {
+  BED_RELEASE_BLOCKERS,
+  CANCEL_TRANSPORT_REASONS,
+  changeReasonLabels,
+  RELEASE_HOLD_REASONS,
+  type BedReleaseBlocker,
+  type CancelTransportReason,
+  type ReleaseHoldReason,
+} from "@/components/ward-management/ward-change-reasons";
+import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import {
+  bedReleaseStateLabels,
   elapsedLabel,
   isOpen,
   restrictionNotice,
@@ -11,10 +22,19 @@ import {
   unitCapacity,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import { DECLINE_REASONS, type DeclineReason, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import {
+  BED_RELEASE_CONFIDENCE_LEVELS,
+  DECLINE_REASONS,
+  type BedReleaseConfidence,
+  type DeclineReason,
+  type Movement,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
+import type { Instant } from "@/components/ward-management/ward-clock";
 
 import styles from "./ward.module.css";
 
@@ -54,6 +74,23 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
 }
 
 /**
+ * Task 5: parses an `<input type="time">`'s `HH:MM` value into an `Instant`. This is string
+ * parsing, not a wall-clock read, so it stays local to this component rather than moving into
+ * `ward-clock.ts` (the one module permitted to read the wall clock — see that file's own
+ * doc comment; parsing user-typed text is a different concern from reading `Date.now()`).
+ * Returns `undefined` for an empty or malformed value so a caller can refuse the submit rather
+ * than guessing a time.
+ */
+function parseTimeInputToInstant(value: string): Instant | undefined {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return undefined;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return undefined;
+  return hours * 60 + minutes;
+}
+
+/**
  * Task 8: one inpatient unit's own view — the ward answering what the coordinator refers,
  * never a filtered copy of the coordinator's statewide screen. Everything here is scoped to
  * exactly one `Unit`, resolved from the provider's live `units`. An id that resolves to nothing
@@ -76,7 +113,7 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  * anyone else reading it.
  */
 export function WardScreen({ unitId }: WardScreenProps) {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, leaveBeds, refreshRequests, now, dispatch } = useWardFlow();
   // Resolved from the provider's live `units`, not the frozen `unitById()` fixture — after
   // `CONFIRM_CAPACITY` or `HOLD_BED` updates `state.units`, this screen must show the current
   // bed counts (and gate `holdBlockedReason` on them) rather than the stale fixture value.
@@ -87,12 +124,37 @@ export function WardScreen({ unitId }: WardScreenProps) {
   const [declineOpenFor, setDeclineOpenFor] = useState<string | undefined>(undefined);
   const [declineReason, setDeclineReason] = useState<DeclineReason | undefined>(undefined);
   const [capacityValue, setCapacityValue] = useState<string>(() => String(unit?.allocatable.value ?? 0));
+  // Task 3: the undo the prototype has never had. Keyed by movementId, same pattern as
+  // `declineOpenFor`/`declineReason` above — at most one release form and one cancel form open
+  // at a time.
+  const [releaseOpenFor, setReleaseOpenFor] = useState<string | undefined>(undefined);
+  const [releaseReason, setReleaseReason] = useState<ReleaseHoldReason | undefined>(undefined);
+  const [cancelOpenFor, setCancelOpenFor] = useState<string | undefined>(undefined);
+  const [cancelReason, setCancelReason] = useState<CancelTransportReason | undefined>(undefined);
+  // Task 11 (spec item 9): the bed-release flag. Not keyed by movement id — unlike decline,
+  // release and cancel above, this is not about any one referral, it is about this ward's own
+  // bed stock, so one form per screen is enough.
+  const [bedReleaseConfidence, setBedReleaseConfidence] = useState<BedReleaseConfidence | undefined>(undefined);
+  const [bedReleaseBlocker, setBedReleaseBlocker] = useState<BedReleaseBlocker | undefined>(undefined);
+  // Fix round 2 (P1): the ward's own estimate of when this bed will actually be free, collected
+  // exactly like `leaveExpectedReturn` below and parsed the same way via
+  // `parseTimeInputToInstant` — see `ward-flow-events.ts`'s `FLAG_BED_RELEASE.expectedAt` doc
+  // comment for why this is a fact about the BED, not the departing patient.
+  const [bedReleaseExpectedAt, setBedReleaseExpectedAt] = useState<string>("");
+  // Task 5: the block form on an EXISTING release row. Keyed by release id, same one-open-at-a-time
+  // pattern as `declineOpenFor`/`releaseOpenFor`/`cancelOpenFor` above.
+  const [blockOpenFor, setBlockOpenFor] = useState<string | undefined>(undefined);
+  const [blockChoice, setBlockChoice] = useState<BedReleaseBlocker | undefined>(undefined);
+  // Task 5: the small leave-bed form. Not keyed by anything — like the flag-bed-release form
+  // above, this is about this ward's own bed stock, so one form per screen is enough.
+  const [leaveUsable, setLeaveUsable] = useState(false);
+  const [leaveExpectedReturn, setLeaveExpectedReturn] = useState<string>("");
 
   if (!unit) {
     return (
       <div className={styles.screen} data-testid="ward-unit-screen">
         <ClinicalRail />
-        <main className={styles.main}>
+        <main id="main-content" className={styles.main}>
           <h1 className={styles.notFoundHeading}>Ward not found</h1>
           <p className={styles.notFoundBody} data-testid="ward-unit-unresolved">
             No synthetic unit matches &ldquo;{unitId}&rdquo;. It may have been renamed or removed, or the id in the
@@ -104,12 +166,39 @@ export function WardScreen({ unitId }: WardScreenProps) {
   }
 
   const site = siteByCode(unit.siteCode);
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
+  // Visual-fix pass: the capacity board (`CapacityView` in `ward-management-modes.tsx`) was just
+  // corrected to source Confirmed/Predicted from `capacityBreakdown()` rather than `unitCapacity()`'s
+  // raw, state-and-timing-blind `potential` count — this screen used to be the one place still
+  // showing that raw count as "Potential", which is how the same unit could read "Potential 1" here
+  // and "Confirmed 1, Predicted 0" one screen over, for the exact same release. This screen now reads
+  // the same breakdown so both screens describe the same beds the same way. `unitCapacity()` itself
+  // is untouched — see its own doc comment on `potential` in `ward-derivations.ts`.
+  const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   // TypeScript's narrowing of `unit` above does not reach into the `submitDecline` /
   // `submitCapacity` closures defined further down (the same reason `shortlist-panel.tsx`'s
   // `handleRefer` closes over a plain `movementId` rather than re-checking `movement`), so this
   // plain string is what they close over instead.
   const wardUnitId = unit.id;
+
+  // Task 5: this unit's own bed releases, still pending — `released` is terminal and drops off
+  // this list (spec D10's "removes it from the pending list"), never rendered with dead controls.
+  const pendingBedReleases = bedReleases.filter(
+    (release) => release.unitId === unit.id && release.state !== "released",
+  );
+
+  // Task 5: this unit's own beds currently occupied by someone on approved leave — read here only
+  // to report the count on the leave-bed form below; never merged into any availability figure
+  // (spec D4), and `RECORD_LEAVE_BED` (submitted by that form) is the only writer this screen has.
+  const unitLeaveBeds = leaveBeds.filter((bed) => bed.unitId === unit.id);
+  const unitLeaveBedsUsable = unitLeaveBeds.filter((bed) => bed.usable).length;
+
+  // Task 5, spec D12: every REQUEST_CAPACITY_REFRESH raised against this unit, live from the
+  // provider. `refreshRequests` only ever grows (the reducer never removes an entry), so the last
+  // one in array order is always the most recent ask.
+  const unitRefreshRequests = refreshRequests.filter((request) => request.unitId === unit.id);
+  const latestRefreshRequest =
+    unitRefreshRequests.length > 0 ? unitRefreshRequests[unitRefreshRequests.length - 1] : undefined;
 
   // Awaiting an answer: this unit holds a live referral and nothing has been decided yet.
   const incoming = movements.filter(
@@ -143,13 +232,157 @@ export function WardScreen({ unitId }: WardScreenProps) {
     event.preventDefault();
     const parsed = Number(capacityValue);
     if (!Number.isFinite(parsed) || parsed < 0) return;
-    dispatch({ type: "CONFIRM_CAPACITY", role: "ward", now, unitId: wardUnitId, value: Math.floor(parsed) });
+    // `actingUnitId` is this screen's own route parameter — the unit this screen is displaying and
+    // acting as. It states which ward the caller says it is; it does not prove it, and the
+    // reducer's comment on the matching check says the same. On this screen the two ids are equal
+    // by construction (`unit` was resolved by matching the route id), so this guard is not what
+    // stops *this* caller misusing the event — it is what stops any other call site writing to a
+    // unit it did not claim to be acting as, and what puts that claim on the event where the
+    // reducer can compare it.
+    dispatch({
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      value: Math.floor(parsed),
+    });
+  }
+
+  function submitBedRelease(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!bedReleaseConfidence) return;
+    // Fix round 2 (P1): same parse-and-bail discipline as `submitLeaveBed`'s own
+    // `expectedReturn` below — an empty or malformed time input refuses the submit rather than
+    // guessing a value.
+    const expectedAt = parseTimeInputToInstant(bedReleaseExpectedAt);
+    if (expectedAt === undefined) return;
+    // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
+    // it states which ward the caller says it is; it does not prove it. FLAG_BED_RELEASE is
+    // ward-only, so this comparison always runs (see the reducer's own comment on the case).
+    // `blocker` is optional here (Phase 5, spec D3) — a bed flagged with a blocker records a
+    // held release; a bed flagged with none is a plain prediction. Task 5 redesigns this panel
+    // to make that choice explicit; this is the minimum needed to keep it compiling and honest.
+    dispatch({
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      confidence: bedReleaseConfidence,
+      expectedAt,
+      blocker: bedReleaseBlocker,
+    });
+    setBedReleaseConfidence(undefined);
+    setBedReleaseBlocker(undefined);
+    setBedReleaseExpectedAt("");
+  }
+
+  // Task 5 (spec D10): the ward moving its OWN bed release through its own lifecycle —
+  // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` and
+  // `submitBedRelease` above. `predicted -> confirmed` and `blocked -> confirmed` are the only
+  // transitions CONFIRM_BED_RELEASE accepts; this is only ever rendered on a row in one of those
+  // two states (see the legal-transition gating in the render below), so the reducer is never
+  // asked for a transition the row does not itself offer.
+  function confirmBedRelease(releaseId: string) {
+    dispatch({ type: "CONFIRM_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId });
+  }
+
+  // RELEASE_BED is the one transition here that changes a real bed count (see the reducer's own
+  // comment on the case) — `confirmed -> released` and `blocked -> released` only, both terminal.
+  function releaseBedRelease(releaseId: string) {
+    dispatch({ type: "RELEASE_BED", role: "ward", now, releaseId, actingUnitId: unitId });
+  }
+
+  function toggleBlockRelease(releaseId: string) {
+    setBlockOpenFor((current) => (current === releaseId ? undefined : releaseId));
+    setBlockChoice(undefined);
+  }
+
+  function submitBlockRelease(event: FormEvent<HTMLFormElement>, releaseId: string) {
+    event.preventDefault();
+    if (!blockChoice) return;
+    // `predicted -> blocked` and `confirmed -> blocked` are the only transitions BLOCK_BED_RELEASE
+    // accepts; this form only ever renders on a row in one of those two states.
+    dispatch({ type: "BLOCK_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId, blocker: blockChoice });
+    setBlockOpenFor(undefined);
+    setBlockChoice(undefined);
+  }
+
+  // Task 5 (spec D10): a small leave-bed form — unit implied by the route, exactly like
+  // `submitBedRelease` above never asking which ward it is acting as.
+  function submitLeaveBed(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const expectedReturn = parseTimeInputToInstant(leaveExpectedReturn);
+    if (expectedReturn === undefined) return;
+    dispatch({
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      usable: leaveUsable,
+      expectedReturn,
+    });
+    setLeaveUsable(false);
+    setLeaveExpectedReturn("");
+  }
+
+  // Task 5 addendum (binding spec's Data flow section: "Leave beds follow the same path with a
+  // two-state life: recorded, then ended on return."): the second half of that life. Same
+  // claim-not-proof discipline as every other control on this screen — `actingUnitId` is this
+  // screen's own route parameter, and the reducer compares it against the leave bed's own
+  // `unitId` before ending it.
+  function endLeaveBed(leaveBedId: string) {
+    dispatch({ type: "END_LEAVE_BED", role: "ward", now, leaveBedId, actingUnitId: unitId });
+  }
+
+  function toggleRelease(movementId: string) {
+    setReleaseOpenFor((current) => (current === movementId ? undefined : movementId));
+    setReleaseReason(undefined);
+  }
+
+  function submitRelease(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    if (!releaseReason) return;
+    // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
+    // it states which ward the caller says it is; it does not prove it.
+    dispatch({
+      type: "RELEASE_HOLD",
+      role: "ward",
+      now,
+      movementId,
+      actingUnitId: unitId,
+      reason: releaseReason,
+    });
+    setReleaseOpenFor(undefined);
+    setReleaseReason(undefined);
+  }
+
+  function toggleCancel(movementId: string) {
+    setCancelOpenFor((current) => (current === movementId ? undefined : movementId));
+    setCancelReason(undefined);
+  }
+
+  function submitCancel(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    if (!cancelReason) return;
+    dispatch({
+      type: "CANCEL_TRANSPORT",
+      role: "ward",
+      now,
+      movementId,
+      actingUnitId: unitId,
+      reason: cancelReason,
+    });
+    setCancelOpenFor(undefined);
+    setCancelReason(undefined);
   }
 
   return (
     <div className={styles.screen} data-testid="ward-unit-screen">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-unit-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -168,6 +401,26 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
         <section aria-label="Bed capacity" className={styles.bedSection}>
           <h2 className={styles.sectionHeading}>Bed capacity</h2>
+          {/* Task 5, spec D7/D12: when this unit's own allocatable count was last confirmed, and
+              (when one exists) the mark that a coordinator has since asked for it to be restated.
+              `unit.allocatable.source === "ward"` is the one place this model records who stood
+              behind a capacity figure — a ward-confirmed count reads as "Confirmed HH:MM · NUM
+              <ward>", the same role-attribution convention `bedReleases`/`leaveBeds` already use
+              for their own `confirmedBy`; an unconfirmed feed-only count reads as "As at HH:MM",
+              never as though a human had confirmed it. */}
+          <div className={styles.capacityFreshnessRow} data-testid="ward-unit-capacity-freshness">
+            <WardFreshness
+              confirmedAt={unit.allocatable.confirmedAt}
+              confirmedByRole={unit.allocatable.source === "ward" ? `NUM ${unit.name}` : undefined}
+              now={now}
+              derived={unit.allocatable.source !== "ward"}
+            />
+            {latestRefreshRequest ? (
+              <span className={styles.refreshRequestMark} data-testid="ward-refresh-request-mark">
+                Asked to refresh at {formatInstant(latestRefreshRequest.at)} by {latestRefreshRequest.byRole}
+              </span>
+            ) : null}
+          </div>
           <div className={styles.bedGrid} data-testid="ward-unit-beds">
             <span className={styles.bedChip} data-state="available">
               Ready {capacity.available}
@@ -181,13 +434,20 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <span className={styles.bedChip} data-state="occupied">
               Occupied {capacity.occupied}
             </span>
-            <span className={styles.bedChip} data-state="potential">
-              Potential {capacity.potential}
+            <span className={styles.bedChip} data-state="confirmed">
+              Confirmed {breakdown.confirmedToday}
+            </span>
+            <span className={styles.bedChip} data-state="predicted">
+              Predicted {breakdown.predictedToday}
+            </span>
+            <span className={styles.bedChip} data-state="leave">
+              Leave (usable) {breakdown.leaveUsable}
             </span>
           </div>
           <p className={styles.bedNote}>
-            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Potential is beds expected
-            to free up &mdash; it is never counted into the four above.
+            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, predicted and
+            leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been
+            released, so this figure is always one you can fill this minute.
           </p>
 
           <form className={styles.capacityForm} onSubmit={submitCapacity} data-testid="ward-capacity-form">
@@ -214,6 +474,277 @@ export function WardScreen({ unitId }: WardScreenProps) {
               {unit.name} only &mdash; never any other ward.
             </p>
           </form>
+
+          {/* Task 11 (spec item 9): a ward can now flag its own bed coming free, rather than
+              `potential` only ever moving through the frozen fixture. Always available — unlike
+              the incoming-referral and accepted-movement controls below, FLAG_BED_RELEASE carries
+              no movement-stage precondition to gate on, so this control renders unconditionally
+              rather than checking a `blocked` reason that does not exist. */}
+          <form className={styles.capacityForm} onSubmit={submitBedRelease} data-testid="ward-flag-bed-release">
+            <span className={styles.capacityLabel}>Flag a bed coming free at {unit.name}</span>
+            <div className={styles.capacityRow}>
+              <div>
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-confidence">
+                  Confidence
+                </label>
+                <select
+                  id="ward-bed-release-confidence"
+                  required
+                  className={styles.capacityInput}
+                  value={bedReleaseConfidence ?? ""}
+                  onChange={(event) => setBedReleaseConfidence(event.target.value as BedReleaseConfidence)}
+                >
+                  <option value="" disabled>
+                    Choose confidence
+                  </option>
+                  {BED_RELEASE_CONFIDENCE_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                {/* Fix round 2 (P1): the ward's own estimate of when this bed will be free,
+                    collected exactly like the leave-bed form's own "Expected return" input
+                    below — same `<input type="time">`, same `parseTimeInputToInstant` parse. */}
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-expected-at">
+                  Expected free
+                </label>
+                <input
+                  id="ward-bed-release-expected-at"
+                  data-testid="ward-bed-release-expected-at"
+                  type="time"
+                  required
+                  className={styles.capacityInput}
+                  value={bedReleaseExpectedAt}
+                  onChange={(event) => setBedReleaseExpectedAt(event.target.value)}
+                />
+              </div>
+              <div>
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-blocker">
+                  Blocker
+                </label>
+                <select
+                  id="ward-bed-release-blocker"
+                  className={styles.capacityInput}
+                  value={bedReleaseBlocker ?? ""}
+                  onChange={(event) =>
+                    setBedReleaseBlocker(
+                      event.target.value === "" ? undefined : (event.target.value as BedReleaseBlocker),
+                    )
+                  }
+                >
+                  <option value="">No blocker</option>
+                  {BED_RELEASE_BLOCKERS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                data-testid="ward-flag-bed-release-submit"
+                className={styles.capacitySubmit}
+                disabled={!bedReleaseConfidence}
+              >
+                Flag bed coming free
+              </button>
+            </div>
+            <p className={styles.capacityConfirmed}>
+              Records confidence, an expected free time and a blocker only &mdash; nothing about the departing patient.
+              Writes to {unit.name} only &mdash; never any other ward.
+            </p>
+          </form>
+
+          {/* Task 5 (spec D10): this unit's own bed releases moving through their own lifecycle.
+              Each row offers only the transitions CONFIRM_BED_RELEASE/BLOCK_BED_RELEASE/RELEASE_BED
+              would actually accept from its current state (ward-flow-reducer.ts's own case
+              comments) — never a control the reducer would refuse. `released` is terminal and
+              drops off this list entirely (`pendingBedReleases` above), so it renders no row and
+              no controls at all. */}
+          <div className={styles.capacityForm} data-testid="ward-bed-release-list">
+            <span className={styles.capacityLabel}>Bed releases at {unit.name}</span>
+            {pendingBedReleases.length === 0 ? (
+              <p className={styles.placeholder}>No bed release currently pending at {unit.name}.</p>
+            ) : (
+              <ul className={styles.cardList}>
+                {pendingBedReleases.map((release) => {
+                  const canConfirm = release.state === "predicted" || release.state === "blocked";
+                  const canBlock = release.state === "predicted" || release.state === "confirmed";
+                  const canRelease = release.state === "confirmed" || release.state === "blocked";
+                  const blockOpen = blockOpenFor === release.id;
+                  return (
+                    <li key={release.id} data-testid={`ward-bed-release-${release.id}`} className={styles.card}>
+                      <header className={styles.cardHeader}>
+                        <strong>{bedReleaseStateLabels[release.state]}</strong>
+                        <span className={styles.cardMeta}>Expected {formatInstant(release.expectedAt)}</span>
+                      </header>
+                      {release.blocker ? <span className={styles.cardMeta}>{release.blocker}</span> : null}
+                      <WardFreshness
+                        confirmedAt={release.confirmedAt}
+                        confirmedByRole={release.confirmedBy}
+                        now={now}
+                      />
+                      <div className={styles.actionRow}>
+                        {canConfirm ? (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-release-confirm-${release.id}`}
+                            className={styles.acceptButton}
+                            onClick={() => confirmBedRelease(release.id)}
+                          >
+                            Confirm
+                          </button>
+                        ) : null}
+                        {canBlock ? (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-release-block-toggle-${release.id}`}
+                            aria-expanded={blockOpen}
+                            className={styles.declineButton}
+                            onClick={() => toggleBlockRelease(release.id)}
+                          >
+                            Blocked
+                          </button>
+                        ) : null}
+                        {canRelease ? (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-release-release-${release.id}`}
+                            className={styles.declineButton}
+                            onClick={() => releaseBedRelease(release.id)}
+                          >
+                            Released
+                          </button>
+                        ) : null}
+                      </div>
+                      {canBlock && blockOpen ? (
+                        <form
+                          className={styles.declineForm}
+                          onSubmit={(event) => submitBlockRelease(event, release.id)}
+                          data-testid={`ward-bed-release-block-form-${release.id}`}
+                        >
+                          <label
+                            className={styles.declineLegend}
+                            htmlFor={`ward-bed-release-blocker-select-${release.id}`}
+                          >
+                            Blocker for this release
+                          </label>
+                          <select
+                            id={`ward-bed-release-blocker-select-${release.id}`}
+                            data-testid={`ward-bed-release-blocker-${release.id}`}
+                            required
+                            className={styles.capacityInput}
+                            value={blockChoice ?? ""}
+                            onChange={(event) => setBlockChoice(event.target.value as BedReleaseBlocker)}
+                          >
+                            <option value="" disabled>
+                              Choose a blocker
+                            </option>
+                            {BED_RELEASE_BLOCKERS.map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            data-testid={`ward-bed-release-block-submit-${release.id}`}
+                            disabled={!blockChoice}
+                            className={styles.declineSubmit}
+                          >
+                            Confirm blocked
+                          </button>
+                        </form>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Task 5 (spec D10): a small form for a bed occupied by someone on approved leave —
+              unit implied by the route, exactly like the two forms above. Never asks anything
+              about the person on leave (spec D11): `usable` and `expectedReturn` are both facts
+              about the BED. */}
+          <form className={styles.capacityForm} onSubmit={submitLeaveBed} data-testid="ward-leave-bed-form">
+            <span className={styles.capacityLabel}>Record a bed on leave at {unit.name}</span>
+            <div className={styles.capacityRow}>
+              <label className={styles.declineOption} htmlFor="ward-leave-bed-usable">
+                <input
+                  id="ward-leave-bed-usable"
+                  data-testid="ward-leave-bed-usable"
+                  type="checkbox"
+                  checked={leaveUsable}
+                  onChange={(event) => setLeaveUsable(event.target.checked)}
+                />
+                Usable while away
+              </label>
+              <div>
+                <label className={styles.declineLegend} htmlFor="ward-leave-bed-expected-return">
+                  Expected return
+                </label>
+                <input
+                  id="ward-leave-bed-expected-return"
+                  data-testid="ward-leave-bed-expected-return"
+                  type="time"
+                  required
+                  className={styles.capacityInput}
+                  value={leaveExpectedReturn}
+                  onChange={(event) => setLeaveExpectedReturn(event.target.value)}
+                />
+              </div>
+              <button type="submit" data-testid="ward-leave-bed-submit" className={styles.capacitySubmit}>
+                Record leave bed
+              </button>
+            </div>
+            <p className={styles.capacityConfirmed}>
+              {unitLeaveBeds.length} bed{unitLeaveBeds.length === 1 ? "" : "s"} currently on leave at {unit.name}
+              {unitLeaveBeds.length > 0 ? `, ${unitLeaveBedsUsable} usable while away` : ""}. Never merged into
+              available beds. Records nothing about the person on leave.
+            </p>
+          </form>
+
+          {/* Task 5 addendum: the second half of a leave bed's two-state life (binding spec's
+              Data flow section) — recorded above, ended here. Each row is about the BED only:
+              usable or not, and when it is expected back. Nothing about the person on leave
+              appears anywhere below (spec D11), and `unitLeaveBeds` is read live from
+              `useWardFlow()`, never a frozen fixture. */}
+          <div className={styles.capacityForm} data-testid="ward-leave-bed-list">
+            <span className={styles.capacityLabel}>Beds currently on leave at {unit.name}</span>
+            {unitLeaveBeds.length === 0 ? (
+              <p className={styles.placeholder}>No bed currently on leave at {unit.name}.</p>
+            ) : (
+              <ul className={styles.cardList}>
+                {unitLeaveBeds.map((leaveBed) => (
+                  <li key={leaveBed.id} data-testid={`ward-leave-bed-${leaveBed.id}`} className={styles.card}>
+                    <header className={styles.cardHeader}>
+                      <strong>{leaveBed.usable ? "Usable while away" : "Not usable while away"}</strong>
+                      <span className={styles.cardMeta}>Expected return {formatInstant(leaveBed.expectedReturn)}</span>
+                    </header>
+                    <WardFreshness
+                      confirmedAt={leaveBed.confirmedAt}
+                      confirmedByRole={leaveBed.confirmedBy}
+                      now={now}
+                    />
+                    <div className={styles.actionRow}>
+                      <button
+                        type="button"
+                        data-testid={`ward-leave-bed-end-${leaveBed.id}`}
+                        className={styles.declineButton}
+                        onClick={() => endLeaveBed(leaveBed.id)}
+                      >
+                        Ended
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
 
         <section aria-label="Incoming referrals" className={styles.listSection}>
@@ -336,6 +867,16 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 const notice = restrictionNotice(movement, unit);
                 const canHold = movement.stage === "accepted_awaiting_bed";
                 const blocked = canHold ? holdBlockedReason(movement, unit) : undefined;
+                // Task 3: each control renders ONLY when the reducer would accept it — never
+                // dispatched optimistically and left for the reducer to refuse silently.
+                const canRelease = movement.stage === "bed_held";
+                const canCancel =
+                  movement.transport !== undefined &&
+                  movement.transport.cancelledAt === undefined &&
+                  movement.transport.collectedAt === undefined &&
+                  movement.transport.arrivedAt === undefined;
+                const releaseOpen = releaseOpenFor === movement.id;
+                const cancelOpen = cancelOpenFor === movement.id;
                 return (
                   <li key={movement.id} data-testid={`ward-accepted-${movement.id}`} className={styles.card}>
                     <header className={styles.cardHeader}>
@@ -386,6 +927,92 @@ export function WardScreen({ unitId }: WardScreenProps) {
                           </span>
                         ) : null}
                       </div>
+                    ) : null}
+                    {canRelease ? (
+                      <div className={styles.actionRow}>
+                        <button
+                          type="button"
+                          data-testid={`ward-release-hold-toggle-${movement.id}`}
+                          aria-expanded={releaseOpen}
+                          className={styles.declineButton}
+                          onClick={() => toggleRelease(movement.id)}
+                        >
+                          Release the held bed
+                        </button>
+                      </div>
+                    ) : null}
+                    {canRelease && releaseOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitRelease(event, movement.id)}
+                        data-testid={`ward-release-hold-${movement.id}`}
+                      >
+                        <label className={styles.declineLegend} htmlFor={`ward-release-hold-reason-${movement.id}`}>
+                          Reason for releasing the held bed for {movement.id}
+                        </label>
+                        <select
+                          id={`ward-release-hold-reason-${movement.id}`}
+                          required
+                          className={styles.capacityInput}
+                          value={releaseReason ?? ""}
+                          onChange={(event) => setReleaseReason(event.target.value as ReleaseHoldReason)}
+                        >
+                          <option value="" disabled>
+                            Choose a reason
+                          </option>
+                          {RELEASE_HOLD_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>
+                              {changeReasonLabels[reason]}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" disabled={!releaseReason} className={styles.declineSubmit}>
+                          Confirm release
+                        </button>
+                      </form>
+                    ) : null}
+                    {canCancel ? (
+                      <div className={styles.actionRow}>
+                        <button
+                          type="button"
+                          data-testid={`ward-cancel-transport-toggle-${movement.id}`}
+                          aria-expanded={cancelOpen}
+                          className={styles.declineButton}
+                          onClick={() => toggleCancel(movement.id)}
+                        >
+                          Cancel transport
+                        </button>
+                      </div>
+                    ) : null}
+                    {canCancel && cancelOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitCancel(event, movement.id)}
+                        data-testid={`ward-cancel-transport-${movement.id}`}
+                      >
+                        <label className={styles.declineLegend} htmlFor={`ward-cancel-transport-reason-${movement.id}`}>
+                          Reason for cancelling transport for {movement.id}
+                        </label>
+                        <select
+                          id={`ward-cancel-transport-reason-${movement.id}`}
+                          required
+                          className={styles.capacityInput}
+                          value={cancelReason ?? ""}
+                          onChange={(event) => setCancelReason(event.target.value as CancelTransportReason)}
+                        >
+                          <option value="" disabled>
+                            Choose a reason
+                          </option>
+                          {CANCEL_TRANSPORT_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>
+                              {changeReasonLabels[reason]}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" disabled={!cancelReason} className={styles.declineSubmit}>
+                          Confirm cancellation
+                        </button>
+                      </form>
                     ) : null}
                   </li>
                 );

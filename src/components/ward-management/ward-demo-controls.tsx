@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { WARD_SCENARIOS, scenarioLabels } from "@/components/ward-management/ward-scenarios";
 
 import styles from "./ward-demo-controls.module.css";
 
@@ -18,7 +19,7 @@ import styles from "./ward-demo-controls.module.css";
  * watched expiring, the one thing §5 says the control exists to demonstrate.
  *
  * Mounted once in `ClinicalRail` (`ward-management-navigation.tsx`, next to `WardRoleSwitcher`),
- * so it is present on every `/ward-management/*` route without any per-screen wiring — the clock
+ * so it is present on every `/mockups/ward-flow/*` route without any per-screen wiring — the clock
  * is shared state, not a per-screen concern.
  *
  * **This must never be mistaken for a clinical action.** Three distinct signals carry that,
@@ -37,7 +38,7 @@ import styles from "./ward-demo-controls.module.css";
  * `*BlockedReason` guard: raised with `role: "demo"`, the reducer can never refuse either.
  */
 export function WardDemoControls() {
-  const { now, dispatch } = useWardFlow();
+  const { now, scenario, dispatch } = useWardFlow();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +69,10 @@ export function WardDemoControls() {
   function reset() {
     dispatch({ type: "RESET_SCENARIO", role: "demo", now });
     setOpen(false);
+  }
+
+  function selectScenario(next: (typeof WARD_SCENARIOS)[number]) {
+    dispatch({ type: "SET_SCENARIO", role: "demo", now, scenario: next });
   }
 
   return (
@@ -113,6 +118,26 @@ export function WardDemoControls() {
             >
               +1 hour
             </button>
+          </div>
+          {/* `menuitemradio` + `aria-checked`, not `menuitem` + `aria-pressed`. The scenarios are
+              mutually exclusive — exactly one night is loaded — which is what `menuitemradio`
+              means, and `menuitem` does not support `aria-pressed` at all, so the state was being
+              announced to nobody. `role="radiogroup"` on the wrapper is what makes the set
+              coherent to a screen reader rather than two unrelated checkable items. */}
+          <div className={styles.scenarioRow} role="radiogroup" aria-label="Demo scenario">
+            {WARD_SCENARIOS.map((candidate) => (
+              <button
+                type="button"
+                role="menuitemradio"
+                key={candidate}
+                data-testid={`ward-demo-scenario-${candidate}`}
+                className={styles.scenarioButton}
+                aria-checked={scenario === candidate}
+                onClick={() => selectScenario(candidate)}
+              >
+                {scenarioLabels[candidate]}
+              </button>
+            ))}
           </div>
           <div className={styles.resetRow}>
             <button

@@ -1,7 +1,20 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
+import type { WorkspaceOverlayDefinition } from "./definitions";
+import {
+  clearStagedWorkspaceOverlayCommit,
+  commitForHistoryEntry,
+  consumeWorkspaceOverlayCommit,
+  commitRefusalFor,
+  nextWorkspaceOverlayCommitToken,
+  noStagedWorkspaceOverlayCommit,
+  readStagedWorkspaceOverlayCommit,
+  stageWorkspaceOverlayCommit,
+  subscribeToStagedWorkspaceOverlayCommit,
+  type WorkspaceOverlayCommit,
+} from "./overlay-commits";
 import { OverlayHost } from "./overlay-host";
 
 /**
@@ -91,18 +104,61 @@ function overlayUrl(id: string | null) {
  */
 const OVERLAY_HISTORY_MARKER = "caringContactsOverlayEntry";
 
-function currentEntryWasPushedByThisModule(): boolean {
+/**
+ * The token naming the staged commit this entry was opened with, if a control
+ * opened it.
+ *
+ * It lives beside the marker above and for the identical reason, which is worth
+ * stating rather than inheriting: it is per-ENTRY. A module variable would
+ * describe the top of the stack only, and Back, Forward, a second mount or a test
+ * traversing history directly would each leave it stale — and a stale token means
+ * a commit answering an overlay it was never staged for. `history.state` brings
+ * its own answer along with every traversal, so there is nothing to reset.
+ *
+ * Absent on an entry nobody opened from a control: a deep link, the entry the user
+ * arrived on, or the entry `history.back()` unwinds to. That absence IS the
+ * deep-link case, and the host reads it as "nothing is staged for this".
+ */
+const OVERLAY_COMMIT_TOKEN = "caringContactsOverlayCommitToken";
+
+function overlayHistoryState(): Record<string, unknown> | null {
   const state: unknown = window.history.state;
-  return typeof state === "object" && state !== null && OVERLAY_HISTORY_MARKER in state;
+  return typeof state === "object" && state !== null ? (state as Record<string, unknown>) : null;
+}
+
+function currentEntryWasPushedByThisModule(): boolean {
+  const state = overlayHistoryState();
+  return state !== null && OVERLAY_HISTORY_MARKER in state;
+}
+
+/** The commit token the current history entry carries, or null. */
+function readEntryCommitToken(): string | null {
+  const token = overlayHistoryState()?.[OVERLAY_COMMIT_TOKEN];
+  return typeof token === "string" ? token : null;
+}
+
+/** The server has no history to read, so no entry ever carries a token there. */
+function noEntryCommitToken(): string | null {
+  return null;
+}
+
+function pushOverlayEntry(id: string, commitToken: string | null) {
+  const state: Record<string, string> = { [OVERLAY_HISTORY_MARKER]: id };
+  if (commitToken !== null) state[OVERLAY_COMMIT_TOKEN] = commitToken;
+  window.history.pushState(state, "", overlayUrl(id));
+  window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
 }
 
 /**
  * Opening pushes, so Back closes the overlay — that is the browser-history
  * support rule 7 asks for.
+ *
+ * This form carries NO commit, so the overlay it opens is in the same position as
+ * a deep link: its decision cannot be recorded, and a recording row says so. Use
+ * `openWorkspaceOverlayWithCommit` from a control.
  */
 export function openWorkspaceOverlay(id: string) {
-  window.history.pushState({ [OVERLAY_HISTORY_MARKER]: id }, "", overlayUrl(id));
-  window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
+  pushOverlayEntry(id, null);
 }
 
 /**
@@ -131,25 +187,120 @@ export function closeWorkspaceOverlay() {
   window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
 }
 
+/**
+ * Opens an overlay AND states what confirming it does, in that order.
+ *
+ * This is the only way a control in the workspace opens an overlay: `commit` is
+ * required, so a control cannot raise a decision surface it has not wired
+ * (Ruling 87). `openWorkspaceOverlay` above stays available unchanged for the
+ * URL-only case its own tests cover, and is deliberately NOT the trigger's route.
+ *
+ * Staging first is the ordering `overlay-commits.ts` documents: both writes are
+ * synchronous, so the host's first render carrying the new entry already carries
+ * its commit and never passes through a frame where the overlay is open with
+ * nothing staged. The token binds the two together, so the commit answers THIS
+ * entry and no other.
+ */
+export function openWorkspaceOverlayWithCommit(id: string, commit: WorkspaceOverlayCommit) {
+  const token = nextWorkspaceOverlayCommitToken();
+  stageWorkspaceOverlayCommit(token, commit);
+  pushOverlayEntry(id, token);
+}
+
 export function WorkspaceOverlays() {
   const openOverlayId = useSyncExternalStore(subscribeToOverlayParam, readOverlayParam, noOverlayParam);
+  const entryCommitToken = useSyncExternalStore(subscribeToOverlayParam, readEntryCommitToken, noEntryCommitToken);
+  const slot = useSyncExternalStore(
+    subscribeToStagedWorkspaceOverlayCommit,
+    readStagedWorkspaceOverlayCommit,
+    noStagedWorkspaceOverlayCommit,
+  );
+
+  /**
+   * A failure from an asynchronous `record`, held so it can be raised during
+   * render (fix round 1, Important 4).
+   *
+   * A rejection cannot be allowed to stay in the promise: the overlay has already
+   * closed by then, so the clinician would be looking at a screen that gave every
+   * appearance of having recorded the decision while nothing was written and
+   * nothing was said. Re-raising it during render is what puts it in front of
+   * `src/app/caring-contacts/error.tsx`, which states plainly that nothing was
+   * sent and nothing was changed. It is stored wrapped, because a promise may
+   * reject with `undefined` and a bare `unknown` could not then be told apart
+   * from "no failure".
+   */
+  const [commitFailure, setCommitFailure] = useState<{ readonly error: unknown } | null>(null);
+  if (commitFailure !== null) throw commitFailure.error;
+
+  /**
+   * What the control that opened THIS history entry said confirming it does — or
+   * null, when nothing was staged for it and the decision cannot be recorded.
+   */
+  const commit = commitForHistoryEntry(slot, entryCommitToken);
+  const commitRefusal = commitRefusalFor(commit);
+
+  /**
+   * The slot belongs to one history entry, and this is the ONE place it is
+   * emptied (fix round 1, Importants 2 and 3).
+   *
+   * Reconciling here rather than clearing inline is what makes both of those
+   * true at once. Inline clearing at the end of a confirm handler ran while the
+   * URL still named the overlay — `history.back()` fires `popstate`
+   * asynchronously — so React re-rendered the still-open overlay with an empty
+   * slot and flashed the refusal at a clinician who had just confirmed a
+   * withdrawal. And clearing in `close` covered only the Sheet's own dismissals:
+   * Back, the workspace's primary route out, closes through `popstate` and never
+   * calls `onClose` at all, so the slot outlived it.
+   *
+   * A traversal changes the entry, the entry changes the token, and a slot that no
+   * longer names the current entry is emptied — whatever route got us here.
+   */
+  useEffect(() => {
+    if (slot !== null && slot.token !== entryCommitToken) clearStagedWorkspaceOverlayCommit();
+  }, [slot, entryCommitToken]);
 
   const close = useCallback(() => {
     closeWorkspaceOverlay();
   }, []);
 
   /**
-   * Confirming an overlay closes it, and records nothing yet.
-   *
-   * Stated plainly rather than left to look finished: the screens that raise
-   * these overlays, and the stores their decisions are written to, are later
-   * tasks. Nothing in the workspace opens an overlay yet either — `?overlay=<id>`
-   * is reachable only by typing it — so no control in the interface currently
-   * advertises an action this does not perform.
+   * Read-only rows are exits and recovery actions, not records. Mutating rows
+   * atomically claim the staged commit before invoking it, so a second activation
+   * while history.back() is still pending cannot produce a duplicate write.
    */
-  const commit = useCallback(() => {
-    closeWorkspaceOverlay();
-  }, []);
+  const recordDecision = useCallback(
+    (definition: WorkspaceOverlayDefinition) => {
+      if (!definition.mutatesState) {
+        closeWorkspaceOverlay();
+        return;
+      }
 
-  return <OverlayHost openOverlayId={openOverlayId} onClose={close} onCommit={commit} blockReason={null} />;
+      const activeCommit = consumeWorkspaceOverlayCommit(entryCommitToken);
+      // A consumed or stale token means another activation has already started
+      // closing this entry. It is intentionally a no-op.
+      if (activeCommit === null) return;
+      if (activeCommit.kind !== "record") {
+        throw new Error(`The overlay "${definition.id}" attempted to record from a non-recording commit.`);
+      }
+
+      // Promise.resolve rather than instanceof Promise: a Server Action's return
+      // value need only be thenable, and a synchronous record returning undefined
+      // costs one already-resolved promise.
+      void Promise.resolve(activeCommit.record(definition.id)).catch((error: unknown) => {
+        setCommitFailure({ error });
+      });
+      closeWorkspaceOverlay();
+    },
+    [entryCommitToken],
+  );
+
+  return (
+    <OverlayHost
+      openOverlayId={openOverlayId}
+      onClose={close}
+      onCommit={recordDecision}
+      blockReason={null}
+      commitRefusal={commitRefusal}
+    />
+  );
 }

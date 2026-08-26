@@ -1,4 +1,4 @@
-import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { appModeHomeHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -60,24 +60,22 @@ export const modeSecondaryNavigationRegistry = {
     { id: "recommend", label: "Recommend", href: "/therapy-compass/recommend" },
     { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
     { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
+    { id: "review", label: "Review", href: "/therapy-compass/review" },
   ],
-  // Two genuinely distinct surfaces: the mode home and `/factsheets/search`, a
-  // separate component with filters, a view toggle and result rows.
-  // `/factsheets/[slug]` is a record and never reaches here —
-  // `hasLocalInformationPageNavigation` returns null for it first.
+  // Two genuinely distinct surfaces: `/factsheets/search` (query + filters +
+  // result rows) and `/factsheets/topics` (category browse). Search leads, the
+  // same way Dictionary leads with Terms then Topics. `/factsheets/[slug]` is a
+  // record and never reaches here — `hasLocalInformationPageNavigation` returns
+  // null for it first.
   //
-  // Topics resolves through `appModeHomeHref`, so it followed factsheets onto the
-  // shared lightweight home when `/factsheets` became a redirect. The label still
-  // says Topics while the destination is that home; renaming it is a copy decision
-  // left to the owner rather than folded into the consolidation.
   // No `focus: true` on Topics, unlike the Search/Find entry of every mode
   // above. Those tabs are the mode's search affordance, so focusing the composer
   // on arrival is the point. Topics is a browse destination — autofocusing there
   // would open the phone keyboard over the topics the user asked to see. The
   // search affordance for this mode is the Search tab.
   factsheets: [
-    { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
-    { id: "search", label: "Search", href: "/factsheets/search" },
+    { id: "search", label: "Search", href: factsheetsSearchHref },
+    { id: "topics", label: "Topics", href: factsheetsTopicsHref },
   ],
   // Search and Browse were one catalogue behind two destinations: the same
   // entries, the same rows, the same data, so a reader who typed a term while on
@@ -180,10 +178,10 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   }
   if (modeId === "factsheets") {
     if (pathname === "/factsheets/search" || pathname.startsWith("/factsheets/search?")) return "search";
-    if (pathname === "/factsheets" || pathname.startsWith("/factsheets?")) return "topics";
-    // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
-    // `hasLocalInformationPageNavigation` returns null for it first — but
-    // without this branch it would inherit the mode's first entry.
+    if (pathname === "/factsheets/topics" || pathname.startsWith("/factsheets/topics?")) return "topics";
+    // `/factsheets` redirects to the shared home and never renders ModeNav.
+    // `/factsheets/<slug>` is a record. Neither path is Search or Topics;
+    // without this explicit null they would inherit the mode's first entry.
     return null;
   }
   if (modeId === "therapy-compass") {
@@ -191,6 +189,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/therapy-compass/recommend") return "recommend";
     if (pathname === "/therapy-compass/compare") return "compare";
     if (pathname === "/therapy-compass/pathways") return "pathways";
+    if (pathname === "/therapy-compass/review") return "review";
     return null;
   }
   if (modeId === "dictionary") {
@@ -240,11 +239,11 @@ export function isModeSecondaryNavigationRoute(params: {
       pathname === "/formulation/builder" || pathname === "/formulation/compare" || pathname === "/formulation/map"
     );
   }
-  // Same shape as `dsm` above: list the routed destination that is not the mode
-  // home. The clean `/factsheets` home stays out so its `ModeHomeTemplate` tiles
-  // remain the single answer to "where can I go"; it reaches the bar through the
-  // `hasSubmittedSearch` early return, and Topics is marked current there.
-  if (modeId === "factsheets") return pathname === "/factsheets/search";
+  // Same shape as `dsm` above: list the routed destinations that are not the
+  // mode home. The clean `/factsheets` home stays out so the shared home remains
+  // the single answer to "where can I go"; it reaches the bar through the
+  // `hasSubmittedSearch` early return. Topics browse and Search both show the bar.
+  if (modeId === "factsheets") return pathname === "/factsheets/search" || pathname === "/factsheets/topics";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
   if (modeId === "dictionary") {
     return ["/dictionary/search", "/dictionary/topics", "/dictionary/compare", "/dictionary/sources"].includes(
@@ -379,8 +378,8 @@ export function modeSecondaryNavigationHref(params: {
 
   if (modeId === "factsheets") {
     // Search carries the live query and category filter so switching tabs does
-    // not silently discard them. Topics goes to the clean browse home: it reads
-    // neither param, so appending them would only produce a misleading URL.
+    // not silently discard them. Topics goes to the clean category browse: it
+    // reads neither param, so appending them would only produce a misleading URL.
     if (itemId !== "search") return href;
     const category = currentSearchParams.get("category");
     return navigationHrefWithParams(href, [

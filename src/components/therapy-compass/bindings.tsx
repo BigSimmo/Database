@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, useDeferredValue, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useDeferredValue,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -15,6 +24,7 @@ import {
   type TherapySheetSection,
   type TherapyWorkspaceState,
 } from "@/lib/therapy-compass-navigation";
+import { readTherapyCompareMemory, writeTherapyCompareMemory } from "@/lib/therapy-compare-memory";
 
 import { useTherapyData } from "./data/use-therapy-data";
 import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
@@ -90,7 +100,6 @@ export type TcBindings = {
   // ---- compare --------------------------------------------------------
   compareSlugs: string[];
   compareTherapies: Therapy[];
-  toggleCompare: (slug: string) => void; // add/remove + navigate
   addCompare: (slug: string) => void;
   replaceCompareSlugs: (slugs: readonly string[]) => void;
   removeCompare: (slug: string) => void;
@@ -485,15 +494,6 @@ export function TcProvider({ children }: { children: ReactNode }) {
 
       compareSlugs,
       compareTherapies,
-      toggleCompare: (slug) => {
-        const next = compareSlugs.includes(slug)
-          ? compareSlugs.filter((value) => value !== slug)
-          : compareSlugs.length >= THERAPY_MAX_COMPARE
-            ? compareSlugs
-            : [...compareSlugs, slug];
-        setCompareSlugs(next);
-        pushWorkspace(therapyScreenHref("compare"), { compareSlugs: next });
-      },
       addCompare: (slug) => {
         const next =
           compareSlugs.includes(slug) || compareSlugs.length >= THERAPY_MAX_COMPARE
@@ -677,6 +677,40 @@ export function TcProvider({ children }: { children: ReactNode }) {
     sheetSections,
     sheetClinician,
   ]);
+
+  // ---- Device memory for the compare set -------------------------------
+  //
+  // The URL stays the source of truth. Memory only fills the gap when you
+  // arrive with no `ids` at all, so an interrupted comparison is not lost. Both
+  // effects run after mount and never during render, so server HTML, the first
+  // client render and hydration stay identical whatever is in storage.
+  //
+  // "Decided" is a ref, not state, and that ordering is load-bearing: effects in
+  // one commit run in declaration order, so the restore below always resolves
+  // before the mirror reads it, without a second render to carry a flag.
+  const compareRestoreDecided = useRef(false);
+
+  useEffect(() => {
+    if (compareRestoreDecided.current) return;
+    // A shared link always wins, and can be decided without the catalogue.
+    if (workspaceFromUrl.compareSlugs.length > 0) {
+      compareRestoreDecided.current = true;
+      return;
+    }
+    // Restoring needs the catalogue: a slug from an older data generation must
+    // be dropped rather than resurrected as a therapy that no longer exists.
+    if (therapies.length === 0) return;
+    compareRestoreDecided.current = true;
+    const remembered = readTherapyCompareMemory().filter((slug) => bySlug.has(slug));
+    if (remembered.length > 0) value.replaceCompareSlugs(remembered);
+  }, [workspaceFromUrl.compareSlugs.length, therapies.length, bySlug, value]);
+
+  useEffect(() => {
+    // Writing before the restore has decided would clobber the remembered set
+    // with the empty one this tab started from.
+    if (!compareRestoreDecided.current) return;
+    writeTherapyCompareMemory(compareSlugs);
+  }, [compareSlugs]);
 
   return <TcContext.Provider value={value}>{children}</TcContext.Provider>;
 }

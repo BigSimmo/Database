@@ -7,7 +7,7 @@ of `b2e0a92aa`). Nothing else on the branch was touched.
 
 - Created: `src/components/ward-management/ed/ed-screen.tsx`
 - Created: `src/components/ward-management/ed/ed.module.css`
-- Created: `src/app/ward-management/ed/[edId]/page.tsx`
+- Created: `src/app/mockups/ward-flow/ed/[edId]/page.tsx`
 - Modified: `tests/ui-ward-roles.spec.ts` (appended the brief's test plus five more)
 - Modified: `src/components/ward-management/ward-management-navigation.tsx` (rail link)
 - Modified: `docs/design-system/adoption-contract.json`, `docs/design-system/adoption-manifest.json`,
