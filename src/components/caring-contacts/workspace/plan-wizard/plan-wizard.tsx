@@ -419,12 +419,17 @@ export function PlanWizard({
    */
   function decisionCommit(overlayId: string, perform: () => void): WorkspaceOverlayCommit {
     const needs = wizardDecisionConditions(overlayId);
-    const refusedNow = wizardDecisionRefusal(needs, decisionStateNow);
+    // The same value twice, because at this moment nothing has changed yet. That is the honest
+    // answer rather than a placeholder: `sign-up-still-here` is a comparison and has nothing to
+    // compare against until the decision is confirmed.
+    const refusedNow = wizardDecisionRefusal(needs, decisionStateNow, decisionStateNow);
     if (refusedNow !== null) return { kind: "unavailable", reason: refusedNow };
     return {
       kind: "record",
       record: () => {
-        const refusedAtCommit = wizardDecisionRefusal(needs, liveDecisionState());
+        // `decisionStateNow` is what was true when this control was ACTIVATED -- the commit was
+        // staged from that render -- and `liveDecisionState()` reads the store now.
+        const refusedAtCommit = wizardDecisionRefusal(needs, decisionStateNow, liveDecisionState());
         if (refusedAtCommit !== null) {
           // NOTHING IS MUTATED ON THIS PATH, and that is the clause the frozen contract states and
           // that a test is easiest to write without: `perform` is simply not called.
@@ -450,20 +455,22 @@ export function PlanWizard({
    * Records a decision onto the draft the tab holds NOW, never onto the one this render closed over.
    *
    * This is the mechanism the commit-time recheck exists to make honest, not a second copy of it.
-   * The guard decides whether to write at all; this decides WHAT is written on top of, and reading
-   * the captured `draft` here would reinstate exactly the staleness the guard was added to prevent
-   * — including writing a whole draft back into storage after it had been removed.
+   * The guard decides WHETHER to write at all; this decides what is written on top of, and reading
+   * the captured `draft` here would reinstate exactly the staleness the guard was added to prevent.
    *
-   * The null branch is unreachable through the interface: `decisionCommit` has already refused in
-   * plain words when no draft is held, and nothing asynchronous separates the two. It is guarded
-   * rather than asserted because a caller is one edit away, and it does nothing rather than throwing
-   * because a decision that records nothing is the conservative outcome here.
+   * THE FALLBACK IS THE SAME EXPRESSION THE RENDER USES, and deliberately so: a screen nobody has
+   * typed into yet holds no stored draft, so a decision confirmed there writes the first one, which
+   * is what the ordinary controls already do on their first keystroke. Doing nothing instead would
+   * make this the silent no-op Ruling 87 exists to prevent -- a control that opens a decision
+   * surface, is confirmed, and records nothing. The case the guard refuses is different and is
+   * already refused before this runs: a draft that WAS there and has since been removed.
    */
   function recordOnLiveDraft(change: (current: PlanDraft) => PlanDraft) {
     const held = planDraftSnapshot();
-    if (held === null || held.referralId !== referralId) return;
+    const base =
+      held !== null && held.referralId === referralId ? held : emptyPlanDraft(referralId, referralPathwayVersionId);
     setDiscarded(false);
-    writePlanDraft(change(held));
+    writePlanDraft(change(base));
   }
 
   /**

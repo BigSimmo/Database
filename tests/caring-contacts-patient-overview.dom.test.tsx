@@ -1195,9 +1195,13 @@ describe("the patient overview - the delivery detail overlay is wired only where
       <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
     );
 
-    const triggers = screen.getAllByTestId("workspace-overlay-trigger");
+    // FILTERED BY ROW, not counted across the screen. Task 11a added the `activation-success`
+    // control to the confirmations card above, so a bare count is no longer a statement about this
+    // row -- and a bare count that quietly absorbed a second row would be worse than no count.
+    const triggers = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "delivery-detail");
     expect(triggers).toHaveLength(1);
-    expect(triggers[0]).toHaveAttribute("data-overlay-trigger", "delivery-detail");
     // The row appears as the control's ORIGIN, so ten of these are told apart by a reader who
     // cannot see which row each sits in.
     expect(triggers[0]).toHaveAccessibleName(/opened from the Day 1 row/);
@@ -1220,7 +1224,11 @@ describe("the patient overview - the delivery detail overlay is wired only where
       <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
     );
 
-    expect(screen.queryAllByTestId("workspace-overlay-trigger")).toHaveLength(0);
+    expect(
+      screen
+        .queryAllByTestId("workspace-overlay-trigger")
+        .filter((element) => element.getAttribute("data-overlay-trigger") === "delivery-detail"),
+    ).toHaveLength(0);
   });
 
   it("refuses to be the workspace's escape hatch from Ruling 87 on a row that records something", () => {
@@ -1243,5 +1251,74 @@ describe("the patient overview - the delivery detail overlay is wired only where
     expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull();
     expect(() => exitOnlyOverlayCommit("withdrawal")).toThrow(/records a decision/i);
     expect(() => exitOnlyOverlayCommit("not-an-overlay")).toThrow(/No overlay is defined/i);
+  });
+});
+
+/**
+ * `activation-success`'s inbound path (`docs/caring-contacts/interaction-matrix.md`, "Patient
+ * overview outcome"): bottom sheet on a phone, dialog on a desktop, `mutation: No`.
+ *
+ * WHY IT IS OFFERED ON A RUNNING PLAN AND NOWHERE ELSE. The wizard clears its draft and navigates
+ * the instant both writes land, so a control rendered there would exist for the width of a
+ * navigation; the frozen row puts it on this screen instead. And on a plan that is NOT running, a
+ * confirmation that the plan is recorded and started would contradict `planNotRunningNote` a few
+ * sections below — two statements about one fact disagreeing on one screen is the defect Task 9
+ * found in the wizard's own copy.
+ */
+describe("the patient overview - the activation outcome is offered only while the plan is running", () => {
+  it("offers it beside the confirmations on a running plan, promising only what the drawer holds", () => {
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record: planRecordFixture(), episode: null, otherPlanCount: 0 }}
+      />,
+    );
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    const triggers = within(card)
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "activation-success");
+    expect(triggers, "the activation outcome has no inbound path on a running plan").toHaveLength(1);
+    // Generic, because the drawer is: `OverlayHost` takes no children and renders only the row's
+    // frozen summary, so a label naming THIS plan would advertise something the surface it opens
+    // does not contain. Same limit `delivery-detail` records above.
+    expect(triggers[0]).toHaveAccessibleName(/^What starting a plan puts on the record/);
+    expect(triggers[0].className, "the outcome control is not a production tap target").toContain("min-h-tap");
+    expect(triggers[0].className).not.toContain("min-h-11");
+  });
+
+  for (const notRunning of [pausedPlanFixture(), draftPlanFixture()] as const) {
+    it(`offers none on a ${notRunning.state} plan, which this screen says is not running`, () => {
+      render(
+        <PatientOverview
+          patientId={PATIENT}
+          view={{
+            kind: "episode",
+            record: planRecordFixture({ plan: notRunning }),
+            episode: null,
+            otherPlanCount: 0,
+          }}
+        />,
+      );
+
+      expect(
+        screen
+          .queryAllByTestId("workspace-overlay-trigger")
+          .filter((element) => element.getAttribute("data-overlay-trigger") === "activation-success"),
+      ).toHaveLength(0);
+    });
+  }
+
+  it("takes the exit commit, which refuses any row that records something", () => {
+    // The same guard `delivery-detail` leans on, asked of this row: `exitOnlyOverlayCommit` is
+    // legitimate ONLY because the row's decision is an exit and the host performs the close itself.
+    // "Does not throw" says nothing about WHICH commit comes back, so the second line decides it:
+    // an `unavailable` commit answers with an `every-row` refusal the host would render as an
+    // aria-disabled EXIT, which is the defect Ruling [90] fixed. Only a `record` commit answers null.
+    expect(() => exitOnlyOverlayCommit("activation-success")).not.toThrow();
+    expect(commitRefusalFor(exitOnlyOverlayCommit("activation-success"))).toBeNull();
+    // And the guard still bites for the plan actions on this same screen's roadmap, so this is not
+    // a universal escape hatch from Ruling 87.
+    expect(() => exitOnlyOverlayCommit("pause")).toThrow(/records a decision/i);
   });
 });

@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -39,7 +39,9 @@ import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
   readPlanDraft,
+  writePlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import { WIZARD_DECISION_REFUSALS } from "@/components/caring-contacts/workspace/plan-wizard/overlay-guards";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
@@ -466,11 +468,15 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
 
   it("removes everything when the draft is discarded, and says it did", async () => {
     const user = userEvent.setup();
-    renderWizard();
+    // WITH THE OVERLAY HOST, because Task 11a put `discard-changes` in front of this. The control
+    // now RAISES the frozen confirmation and the confirmation is what discards, so a case that
+    // pressed the control alone would prove a history entry rather than a discard.
+    renderWizardWithOverlays();
     await reachPathwayStage(user);
     expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: /Discard draft/ }));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
 
     expect(
       window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY),
@@ -1760,4 +1766,322 @@ describe("stage 4 — the draft survives every shape of failed write (Ruling [11
       expect(navigation.push, "the screen navigated away from a plan that was not created").not.toHaveBeenCalled();
     });
   }
+});
+
+/**
+ * Task 11a — the seven decision overlays this wizard now offers, and the two moments each is
+ * guarded at.
+ *
+ * WHY EVERY CASE HERE RENDERS THE HOST. `WorkspaceOverlays` is mounted by the shell in production
+ * and takes no props, so rendering it beside the wizard is what lets a case press the frozen
+ * decision control rather than reach past it and call the commit directly. A case that called the
+ * commit itself would prove the write and skip the confirmation step, which is the half the frozen
+ * matrix is actually about.
+ */
+describe("the caring-contacts plan wizard — Task 11a's decision overlays", () => {
+  /** The one trigger for a row, found by the id it stamps rather than by its visible words. */
+  function decisionTrigger(overlayId: string): HTMLElement {
+    const matches = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === overlayId);
+    if (matches.length !== 1) {
+      throw new Error(`expected exactly one trigger for "${overlayId}" on screen, found ${matches.length}`);
+    }
+    return matches[0];
+  }
+
+  /** Raises a row and returns its decision control, having checked the host raised the right row. */
+  async function openDecision(user: ReturnType<typeof userEvent.setup>, overlayId: string): Promise<HTMLElement> {
+    await user.click(decisionTrigger(overlayId));
+    const content = await screen.findByTestId("workspace-overlay-content");
+    expect(content, "the host opened a different row from the one the trigger names").toHaveAttribute(
+      "data-overlay-id",
+      overlayId,
+    );
+    return screen.getByTestId("workspace-overlay-action");
+  }
+
+  /**
+   * The seven rows and how a coordinator reaches each, in the stage order the wizard walks.
+   *
+   * `discard-changes` and `save-draft` sit in the draft notice, which every stage renders, so they
+   * are reachable from the first screen — the pair is how a coordinator steps away from a
+   * half-finished sign-up, and only one of the two leaves a patient's details on the machine.
+   */
+  const DECISION_ROWS: readonly {
+    id: string;
+    reach: (user: ReturnType<typeof userEvent.setup>) => Promise<unknown>;
+  }[] = [
+    { id: "verify-identity", reach: async () => undefined },
+    { id: "change-patient", reach: async () => undefined },
+    { id: "discard-changes", reach: async () => undefined },
+    { id: "save-draft", reach: async () => undefined },
+    { id: "pathway-preview", reach: reachPathwayStage },
+    { id: "communication-preference", reach: reachPersonalisationStage },
+    { id: "message-preview", reach: reachPersonalisationStage },
+  ];
+
+  for (const row of DECISION_ROWS) {
+    it(`reaches ${row.id} from a control, and its decision is wired rather than refused`, async () => {
+      const user = userEvent.setup();
+      renderWizardWithOverlays();
+      await row.reach(user);
+
+      const trigger = decisionTrigger(row.id);
+      // The production tap floor and the forced-colors border come from the trigger's own base
+      // class. Asserted here because these call sites pass a `className`, and a caller that
+      // replaced the base rather than adding to it would lose both silently.
+      expect(trigger.className, `${row.id}'s control is not a production tap target`).toContain("min-h-tap");
+      expect(trigger.className, `${row.id}'s control was narrowed to the 44px guidance`).not.toContain("min-h-11");
+      expect(trigger.className, `${row.id}'s control disappears under forced colours`).toContain("forced-colors:");
+
+      const action = await openDecision(user, row.id);
+      // THE WHOLE POINT OF RULING 87, ASKED OF EVERY ROW: a decision surface a screen has opened
+      // without wiring shows its control refused. None of these is.
+      expect(action, `${row.id} opened a decision the screen has not wired`).not.toHaveAttribute("aria-disabled");
+    });
+  }
+
+  it("CONTROL: the same assertion goes red for a row opened by address, with no control behind it", async () => {
+    // The positive control for the loop above. `?overlay=` typed or pasted stages no commit, so a
+    // MUTATING row's decision is refused with the named reason and `aria-disabled` — which is what
+    // proves `not.toHaveAttribute("aria-disabled")` is capable of failing rather than decorative.
+    renderWizardWithOverlays();
+    window.history.pushState(null, "", "/caring-contacts/plans/new?overlay=verify-identity");
+    window.dispatchEvent(new Event("popstate"));
+
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).toHaveAttribute("aria-describedby");
+  });
+
+  it("refuses a decision confirmed after the sign-up was removed, and puts nothing back", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    // A sign-up exists on this computer: the first tick writes it.
+    await user.click(screen.getAllByRole("checkbox")[0]);
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
+
+    const action = await openDecision(user, "verify-identity");
+    // AT OPEN TIME IT WAS PERMITTED, and this line is the reason the case is shaped this way: an
+    // overlay that only checked when it opened passes here and fails everything below.
+    expect(action, "the decision was already refused before the state changed").not.toHaveAttribute("aria-disabled");
+
+    // The state changes while the surface sits open — what `change-patient`, a successful
+    // activation, or a draft belonging to another referral each do.
+    act(() => {
+      clearPlanDraft();
+    });
+
+    await user.click(action);
+
+    const refusal = await screen.findByTestId("caring-contacts-decision-refusal");
+    // Named from the frozen table, so a clinician is told WHICH decision did not happen.
+    expect(refusal).toHaveTextContent(/Verify identity was not carried out/);
+    // Held to expected content rather than to the module's own value: an assertion reading the
+    // constant on both sides agrees with itself however the constant is emptied.
+    expect(refusal).toHaveTextContent("This sign-up was removed from this computer while this was open");
+    expect(refusal).toHaveTextContent(/nothing was put back/i);
+    // THE CLAUSE NOBODY WRITES. A refusal that appeared while the commit still ran would satisfy
+    // every line above. A commit built on the draft it closed over would have written a whole
+    // sign-up — a patient's name and mobile number included — back into this tab's storage after
+    // something had deliberately removed it.
+    expect(
+      window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY),
+      "the refused decision put the sign-up back on the machine",
+    ).toBeNull();
+  });
+
+  it("pins the refusal wording it renders to the module that owns it", () => {
+    // The other half of the pair above, and the reason both exist: the case above holds the SCREEN
+    // to literal words, and this holds the MODULE to the same words. Emptying the constant reddens
+    // this one; rendering something else reddens that one. One assertion reading the constant on
+    // both sides would survive either.
+    expect(WIZARD_DECISION_REFUSALS["sign-up-still-here"]).toContain(
+      "This sign-up was removed from this computer while this was open",
+    );
+    expect(WIZARD_DECISION_REFUSALS["draft-survives-leaving-this-screen"]).toContain(
+      "This browser is not writing this sign-up down",
+    );
+  });
+
+  it("CONTROL: records the identity check when nothing changed while the surface was open", async () => {
+    // The positive control for the refusal above. Without it, a commit that recorded nothing at all
+    // would satisfy every assertion in that case — "nothing was written" is exactly what a broken
+    // commit and a correctly refused one look like from storage.
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
+    const action = await openDecision(user, "verify-identity");
+    await user.click(action);
+
+    expect(screen.queryByTestId("caring-contacts-decision-refusal")).toBeNull();
+    expect(readPlanDraft(REFERRAL)?.decisions.identityChecked, "the confirmed decision recorded nothing").toBe(true);
+    // And the screen reads it back, naming the destination rather than only the act: this system
+    // distinguishes held in a tab's storage from written onto a plan, and ordinary English does not.
+    const state = await screen.findByTestId("caring-contacts-identity-check-state");
+    expect(state).toHaveTextContent(/confirmed that this is the right person/i);
+    expect(state).toHaveTextContent(/kept on this computer for this tab/i);
+    expect(state).toHaveTextContent(/written onto no plan/i);
+  });
+
+  it("refuses Leave this for now once the browser stops writing the sign-up down, and does not navigate", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
+    const action = await openDecision(user, "save-draft");
+    expect(action, "the decision was already refused before the browser changed its answer").not.toHaveAttribute(
+      "aria-disabled",
+    );
+
+    // Safari private browsing hands out a real `sessionStorage` whose `setItem` throws, and
+    // `plan-draft.ts` falls back to a draft that lasts as long as the PAGE. `Storage.prototype`,
+    // not the instance — jsdom's storage is a Proxy that answers from the prototype, so an
+    // instance spy is never consulted and the test would pass inert.
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError", "QuotaExceededError");
+    });
+    act(() => {
+      const current = readPlanDraft(REFERRAL);
+      if (current === null) throw new Error("the fixture sign-up was never written down");
+      writePlanDraft(current);
+    });
+    expect(setItem, "the storage refusal was never actually exercised").toHaveBeenCalled();
+
+    await user.click(action);
+
+    const refusal = await screen.findByTestId("caring-contacts-decision-refusal");
+    expect(refusal).toHaveTextContent(/Save draft was not carried out/);
+    expect(refusal).toHaveTextContent("This browser is not writing this sign-up down");
+    // Leaving is the whole of this decision, so proving it did not happen is proving the refusal.
+    expect(navigation.push, "the screen left a sign-up the browser had stopped keeping").not.toHaveBeenCalled();
+  });
+
+  it("CONTROL: Leave this for now leaves the sign-up where it is and goes to this team's plans", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await user.click(screen.getAllByRole("checkbox")[0]);
+    const before = window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY);
+    expect(before).not.toBeNull();
+
+    await user.click(await openDecision(user, "save-draft"));
+
+    expect(screen.queryByTestId("caring-contacts-decision-refusal")).toBeNull();
+    expect(navigation.push).toHaveBeenCalledWith(CARING_CONTACTS_ROUTES.patients);
+    // The pair's whole distinction: this one keeps what `discard-changes` removes.
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY), "leaving threw the sign-up away").toBe(before);
+  });
+
+  it("removes the sign-up before it leaves when the patient is the wrong one", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await user.click(screen.getAllByRole("checkbox")[0]);
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBeNull();
+
+    await user.click(await openDecision(user, "change-patient"));
+
+    // Ordered as Ruling [117] orders the activation pair, pointed the other way: the draft holds a
+    // patient's name and mobile number from stage 3 onward, so it goes before the screen does.
+    expect(
+      window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY),
+      "the wrong patient's sign-up was left on the machine",
+    ).toBeNull();
+    expect(navigation.push).toHaveBeenCalledWith(CARING_CONTACTS_ROUTES.patients);
+  });
+
+  it("chooses the version a pathway preview was opened from, and says which row it came from", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await reachPathwayStage(user);
+    // The referral names one already (Ruling [113]), so choosing the other is a real change rather
+    // than a first choice agreeing with what was already there.
+    expect(readPlanDraft(REFERRAL)?.pathwayVersionId).toBe(NAMED_PATHWAY);
+
+    const triggers = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "pathway-preview");
+    expect(triggers, "one preview control per approved version").toHaveLength(2);
+    // One row's control is told from another's by its accessible name, because the drawer they
+    // open is generic and cannot name the version itself.
+    const other = triggers.find((element) => element.textContent?.includes(OTHER_PATHWAY));
+    expect(other, `no preview control named the ${OTHER_PATHWAY} row`).toBeDefined();
+
+    await user.click(other!);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    expect(readPlanDraft(REFERRAL)?.pathwayVersionId, "confirming the preview chose nothing").toBe(OTHER_PATHWAY);
+    expect(screen.getByRole("radio", { name: new RegExp(OTHER_PATHWAY) })).toBeChecked();
+  });
+
+  it("tells a read-only row from a recording one by what each leaves behind", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await reachPersonalisationStage(user);
+    const before = window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY);
+    expect(before).not.toBeNull();
+
+    // NO CHANGE. `message-preview` is `mutatesState: false`; its decision is an exit and the host's
+    // own close is the whole of it, so the sign-up is untouched.
+    await user.click(await openDecision(user, "message-preview"));
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY), "a read-only row changed the sign-up").toBe(before);
+    expect(readPlanDraft(REFERRAL)?.decisions.preferenceGivenOnStaffedLine).toBe(false);
+
+    // AND SUCCESS, so that "unchanged" above means something. Held to expected content on this
+    // side, then compared on the other: two reads of one store that only agree with each other
+    // would agree perfectly however the store was emptied.
+    await user.click(await openDecision(user, "communication-preference"));
+    expect(readPlanDraft(REFERRAL)?.decisions.preferenceGivenOnStaffedLine, "the recording row recorded nothing").toBe(
+      true,
+    );
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).not.toBe(before);
+
+    const source = await screen.findByTestId("caring-contacts-preference-source");
+    expect(source).toHaveTextContent(/asked for this time through the staffed programme phone/i);
+    expect(source).toHaveTextContent(/written onto no plan/i);
+  });
+
+  it("states beside the preview that no external action occurred, in words rather than by omission", async () => {
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    const stage = await reachPersonalisationStage(user);
+
+    // The frozen `message-preview` summary says what a preview shows and says nothing about
+    // sending, so the screen that offers it carries that sentence. `OverlayHost` renders each row's
+    // frozen copy and takes no children, so the surface itself cannot be made to carry it.
+    expect(stage).toHaveTextContent(/Nothing in this prototype is ever sent to any number/i);
+    expect(stage).toHaveTextContent(/It is a specimen/i);
+  });
+
+  it("renders the patient-visible wording it is handed, rather than one of its own", async () => {
+    const user = userEvent.setup();
+    // A stand-in the sealed domain does not contain. Passing the real constant here would compare
+    // the prop with itself: the assertion could not fail, whatever the screen rendered.
+    render(
+      <>
+        <PlanWizard {...wizardProps({ patientVisibleMessageSpecimen: "SYNTHETIC-SPECIMEN-WORDING-11A" })} />
+        <WorkspaceOverlays />
+      </>,
+    );
+    await reachPersonalisationStage(user);
+
+    expect(screen.getByTestId("caring-contacts-message-specimen")).toHaveTextContent("SYNTHETIC-SPECIMEN-WORDING-11A");
+  });
+
+  it("keeps the sealed message module out of this client component altogether", () => {
+    // The other half of the case above, and the one a screen author would actually break: rendering
+    // what it is handed is only half of "never author patient-visible copy". A wizard that imported
+    // `message-copy` could hold a second copy of the wording — and would pull that module and the
+    // GSM-7 machinery it imports into this route's client chunk.
+    const wizardSource = stripSourceComments(
+      readFileSync(
+        path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", "plan-wizard.tsx"),
+        "utf8",
+      ),
+    );
+    expect(wizardSource, "the wizard reaches for the sealed message module itself").not.toContain("message-copy");
+    // And the words themselves are not written out here under another name.
+    expect(wizardSource, "a patient-visible greeting was written into the wizard").not.toMatch(/thinking of you/i);
+  });
 });
