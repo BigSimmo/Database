@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "bf415957c82a3e03ef9c740b24e88832fe84a984",
-    "committed_at": "2026-08-26T11:16:25+08:00"
+    "sha": "8ad4133fb05f0a47bd2618cd75bd86db973798ad",
+    "committed_at": "2026-08-26T11:42:26+08:00"
   },
   "routes": {
     "modes": [
@@ -3640,6 +3640,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-26",
+        "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
+        "head": "8ad4133fb05f0a47bd2618cd75bd86db973798ad",
+        "scope": "PR #2382 full changed scope",
+        "outcome": "Fixed the valid P2 by removing a spurious request that would duplicate already-resolved #NPQJKP work; merged current main and regenerated the conflicted issues snapshot from canonical inputs; no other P0-P2 findings; one review thread pending reply and resolution after push.",
+        "checks": "check:outstanding-issues PASS (503 rows, 91 open, 7 pending); docs:check-links PASS (3433 references); exact-head hosted CI before repair was green but must rerun after push; provider-backed gates not run."
+      },
       {
         "date": "2026-08-26",
         "ref": "codex/medication-risk-highlights",
@@ -24586,8 +24594,8 @@
       }
     ],
     "counts": {
-      "records": 2618,
-      "refs": 1597
+      "records": 2619,
+      "refs": 1598
     }
   }
 }
