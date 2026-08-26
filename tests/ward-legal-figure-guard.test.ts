@@ -530,6 +530,70 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
           })),
         ),
       );
+    case "CONFIRM_BED_RELEASE":
+      // `actingUnitId` must mirror the RELEASE's own unit, not merely any unit id — the reducer
+      // compares against `release.unitId`, same claim-not-proof discipline FLAG_BED_RELEASE's own
+      // doc comment sets out. One candidate per release already in `state.bedReleases`, generated
+      // against the current state rather than hard-coded, so a fixture change cannot silently
+      // make this untestable.
+      return state.bedReleases.map((release) => ({
+        type,
+        role,
+        now,
+        releaseId: release.id,
+        actingUnitId: release.unitId,
+      }));
+    case "BLOCK_BED_RELEASE":
+      // One candidate per release crossed with every blocker — the same "one candidate per real
+      // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO/FLAG_BED_RELEASE
+      // set, so a branch keyed on the chosen blocker cannot go unentered.
+      return state.bedReleases.flatMap((release) =>
+        BED_RELEASE_BLOCKERS.map((blocker) => ({
+          type,
+          role,
+          now,
+          releaseId: release.id,
+          actingUnitId: release.unitId,
+          blocker,
+        })),
+      );
+    case "RELEASE_BED":
+      return state.bedReleases.map((release) => ({
+        type,
+        role,
+        now,
+        releaseId: release.id,
+        actingUnitId: release.unitId,
+      }));
+    case "RECORD_LEAVE_BED":
+      // One candidate per unit crossed with BOTH `usable` values — the ward's usable/not-usable
+      // statement is a real domain value the reducer stores verbatim, same precedent as above, so
+      // neither branch goes untested.
+      return unitIds.flatMap((unitId) =>
+        [true, false].map((usable) => ({
+          type,
+          role,
+          now,
+          unitId,
+          actingUnitId: unitId,
+          usable,
+          expectedReturn: now,
+        })),
+      );
+    case "END_LEAVE_BED":
+      // `actingUnitId` must mirror the found leave bed's own unit, same discipline as
+      // CONFIRM_BED_RELEASE above. One candidate per leave bed already in `state.leaveBeds`.
+      return state.leaveBeds.map((leaveBed) => ({
+        type,
+        role,
+        now,
+        leaveBedId: leaveBed.id,
+        actingUnitId: leaveBed.unitId,
+      }));
+    case "REQUEST_CAPACITY_REFRESH":
+      // Coordinator-scoped (spec D12): one candidate per unit, no `actingUnitId` field exists on
+      // this event at all.
+      return unitIds.map((unitId) => ({ type, role, now, unitId }));
   }
 }
 
