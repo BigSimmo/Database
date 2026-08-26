@@ -93,11 +93,7 @@ const CaringContactsShell = dynamic(() =>
  * record rendered from a failed read of its own contents would claim a governance record that was
  * never read -- on the one screen whose whole subject is what has and has not been approved.
  */
-export default async function CaringContactsTemplateDetailPage({
-  params,
-}: {
-  params: Promise<{ pathwayId: string }>;
-}) {
+export default async function CaringContactsTemplateDetailPage({ params }: { params: Promise<{ pathwayId: string }> }) {
   if (!isCaringContactsDemoEnabled()) notFound();
   const { pathwayId } = await params;
   // Before the store, before the actor, before any audit event exists to be thrown by. See the

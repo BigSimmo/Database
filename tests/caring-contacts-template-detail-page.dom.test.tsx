@@ -123,9 +123,7 @@ describe("the template detail page refuses a segment that is not an identifier, 
 
     const DetailPage = await importPage();
 
-    await expect(DetailPage({ params: Promise.resolve({ pathwayId: "not an id" }) })).rejects.toThrow(
-      "NEXT_NOT_FOUND",
-    );
+    await expect(DetailPage({ params: Promise.resolve({ pathwayId: "not an id" }) })).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mocks.notFound).toHaveBeenCalled();
     // The point of the ordering, not a side effect of it: `buildAccessAuditEvent` throws on an
     // objectId that is not identifier-shaped, so a page that read first would turn a mistyped URL

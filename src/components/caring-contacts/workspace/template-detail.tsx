@@ -121,9 +121,7 @@ const proseClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--t
  * `null`, on purpose, so nobody can find out a record exists by being refused it.
  */
 export type TemplateDetailView =
-  | { kind: "not-permitted" }
-  | { kind: "not-held"; pathwayId: string }
-  | { kind: "version"; version: PathwayVersion };
+  { kind: "not-permitted" } | { kind: "not-held"; pathwayId: string } | { kind: "version"; version: PathwayVersion };
 
 export function TemplateDetail({ view }: { view: TemplateDetailView }) {
   return (
@@ -331,9 +329,7 @@ function MessageWordingRecord({ version }: { version: PathwayVersion }) {
         <dl className="mt-3 flex min-w-0 flex-col gap-3">
           {held.map((type) => (
             <div key={type} className="min-w-0">
-              <dt className="text-xs text-[color:var(--text-muted)]">
-                Wording held for {MESSAGE_TYPE_WORDING[type]}
-              </dt>
+              <dt className="text-xs text-[color:var(--text-muted)]">Wording held for {MESSAGE_TYPE_WORDING[type]}</dt>
               <dd className="mt-1 min-w-0">
                 <blockquote
                   data-testid={`caring-contacts-template-detail-wording-${type}`}
@@ -391,9 +387,7 @@ function ReplyHandling() {
   return (
     <div className={cardClass}>
       <h3 className={cardHeadingClass}>If someone replies</h3>
-      <p className={`mt-1 ${proseClass}`}>
-        Every message carries this sentence about replies:
-      </p>
+      <p className={`mt-1 ${proseClass}`}>Every message carries this sentence about replies:</p>
       <blockquote
         data-testid="caring-contacts-template-detail-no-reply-notice"
         className="mt-2 min-w-0 break-words rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 text-sm leading-6 text-[color:var(--text)] forced-colors:border-[CanvasText]"
@@ -450,9 +444,7 @@ function AvailabilityForANewPlan({ version, lifecycle }: { version: PathwayVersi
           here — nothing on this screen changes any plan.
         </p>
         {held.length === 0 ? (
-          <p className={`mt-3 ${proseClass}`}>
-            There is no wording to preview: this record holds none.
-          </p>
+          <p className={`mt-3 ${proseClass}`}>There is no wording to preview: this record holds none.</p>
         ) : (
           <div className="mt-3">
             <ExitOnlyOverlayTrigger overlayId="message-preview">Open message preview</ExitOnlyOverlayTrigger>
