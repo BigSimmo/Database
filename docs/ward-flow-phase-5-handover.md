@@ -192,9 +192,30 @@ FAIL — mockups scratch +25.7% vs baseline (tolerance 25%).
 - It is over by **0.7 percentage points**.
 - The growth is **not all Phase 5's**. `main` gained the entire Care Plan synthetic prototype
   during this branch's life. A comparison build on clean `origin/main` was started to apportion it
-  but **was not completed** — that measurement is the first thing to finish.
+  **has since been completed, and it settles the question** — see the apportionment below.
 - The check also warns that baseline commit `0764fb581356` does not resolve locally (shallow
   clone). `git fetch --deepen=2000` before trusting any ancestry claim.
+
+### Apportionment — measured, not estimated
+
+Both numbers come from a clean `rm -rf .next && npm run build` at the named ref, read from the
+per-route client-reference manifests:
+
+| Ref                      | mockups bucket | vs baseline 487.6 KiB |
+| ------------------------ | -------------- | --------------------- |
+| clean `origin/main`      | 608.1 KiB      | **+24.7%**            |
+| this branch (`400cedd9`) | 613.1 KiB      | **+25.7%**            |
+| ceiling                  | —              | 25%                   |
+
+**`main` is already at +24.7%, three-tenths of a point under the ceiling and already inside the
+check's own 15% drift-warning band.** Phase 5 adds 5.0 KiB, which is **one percentage point** — so
+roughly **96% of the overage was on `main` before this branch existed**, and Phase 5 is merely the
+point that tips it over. That is `#QSHHGK` happening, word for word.
+
+Production tells the same story: `main` 1660.7 KiB, this branch 1661.2 KiB. Phase 5 adds 0.5 KiB —
+0.03% — and both sit just above the 1656.0 KiB production baseline, so `main` carries production
+drift of its own too.
+
 - This is already a known, recorded problem: outstanding issue **`#QSHHGK`** — "Nothing schedules a
   bundle-budget baseline refresh, so accumulated growth fails whichever unrelated PR lands last."
   Phase 5 is simply the PR that happened to land last.
@@ -209,10 +230,24 @@ FAIL — mockups scratch +25.7% vs baseline (tolerance 25%).
 3. **Not permitted:** refreshing the _production_ baseline to clear a _production_ failure. That is
    not the situation here, but do not let the two get conflated.
 
-**Recommended:** finish the `origin/main` measurement first. If most of the growth arrived with
-main's own mockups, option 2 with an honest explanation is right and cheap, and it closes `#QSHHGK`
-for this cycle. If Phase 5's own three screens are the bulk of it, look at what they pull in before
-refreshing anything.
+**Recommended, now that the apportionment is measured: option 2, with one important caveat.**
+Pruning is not available to this branch — the growth is `main`'s, not Phase 5's, and pruning other
+people's mockups is well outside this change.
+
+**The caveat matters.** `--update` rewrites **every** baseline in `bundle-budget.json` —
+production, per-route, and mockups alike (`scripts/check-bundle-budget.mjs`, "refresh every
+baseline"). Running it here would silently re-baseline production's own 4.7 KiB of accumulated
+drift as the new normal, which is precisely the hiding-a-regression failure the production bucket's
+"do not refresh the baseline to clear it" rule exists to prevent. So either:
+
+- run `--update` and state in the PR body that the production baseline moved too, and by how much;
+  or
+- refresh **only** `mockups.gzipBytes`, leaving production and per-route baselines untouched. This
+  is the more conservative option and the one to prefer, because it changes exactly the number the
+  evidence justifies changing and nothing else.
+
+Either way, **this is the owner's call, not an agent's** — it is a repo-wide config change that
+governs every future pull request, and no measurement makes that decision automatic.
 
 ### Reproducing it
 
