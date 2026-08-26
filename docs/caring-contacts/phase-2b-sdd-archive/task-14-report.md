@@ -26,8 +26,15 @@ task; the branch log is the authority for the rows this table cannot name before
 
 ## The finding that shapes the whole task, and it is not the one the brief predicted
 
-**The brief says Task 10 established that no per-attempt record exists in the domain. That is not
+**The brief said Task 10 established that no per-attempt record exists in the domain. That is not
 what the tree holds, and the difference matters.**
+
+**Corrected after review, and this is the version to inherit.** The coordinator checked it against
+the tree and found the generalisation was theirs rather than Task 10's: **Task 10 found that it could
+not reach a per-attempt record from its screen**, and that was written up as "no per-attempt record
+exists in the domain." Those are different claims and only the first is true. The paragraphs below
+were written against the brief's wording; read them as answering the true claim — the record exists,
+and no schedule surface can reach it.
 
 `repository.ts` declares `DispatchRecord`, keyed by `(contactId, attempt)`, with `startedAt`,
 `expectedStatus`, `reportedStatus`, and a `discrepancyResolution` that `resolveDispatchDiscrepancy`
@@ -269,6 +276,11 @@ in the isolated server rather than writing assertions around its absence.
 
 ### The mutation ledger
 
+**SUPERSEDED BY ROUND 2 — every row below ran, and the results are in that ledger.** This section is
+left standing rather than rewritten, because what it records about the shared machine is true and is
+the reason the remedy was needed: the wide selection could not get a lease, and the narrow one could.
+Read the outcome in Round 2; read this for why it took two rounds.
+
 **The suite-borne rows are UNRUN, and that is the honest result rather than a shortfall dressed up.**
 The shared focused-test capacity was continuously full for the whole window this task had: the
 coordinator named `C:\Users\joshs\.codex\worktrees\document-viewer-workspace-20260826\Database`
@@ -324,9 +336,9 @@ either suite asserted that the move control is ABSENT on a contact that has alre
 screen offering to change the send time of a delivered message would have been green. The assertion
 now exists — "offers no move control on a contact that has already been sent", with the still-to-send
 day as its positive control, because an absence check against a screen that renders nothing passes for
-the wrong reason. **That assertion is green in the FINAL TREE run above**; what has not been run is its own
-falsifying mutation (T17), for the same lease reason as the rest of the table. So the assertion exists
-and passes, and the claim that it would go red on the screen it is written against is untested.
+the wrong reason. **That assertion is green in the FINAL TREE run above**, and **its falsifying mutation T17 ran in
+Round 2 and went red** — `expected <div ...(3)>...(4)</div> to be null`. The claim that it would go
+red on the screen it is written against is no longer untested.
 
 ### The driver, and its four guards
 
@@ -408,3 +420,184 @@ a later round more than twenty. Every refusal is recorded as UNRUN and retried; 
    gate on plan state, so setting the time a paused plan's contact would send at if it resumed is
    something the domain allows; the day already states above the windows that the plan is holding it.
    It is a product judgement, not a rule I found written down.
+
+---
+
+# Round 2 — after review
+
+The review accepted the task and named one blocking item: fifteen of seventeen mutations had not run,
+so this task's guard-rejection and commit-time-recheck assertions were **described rather than
+proven**. They are proven now. Nothing is UNRUN.
+
+## Commits
+
+| SHA          | What                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------- |
+| _(this one)_ | This round: the corrected premise, the completed ledger, and the four accepted notes. |
+
+No source file changed in this round. Every SHA in both rounds was re-checked with
+`git cat-file -e <sha>^{commit}` after the last commit of this round.
+
+## 1 — the premise, corrected where the next task will read it
+
+The coordinator verified my finding against the tree rather than relaying it back, and corrected the
+brief: **Task 10 found it could not reach a per-attempt record from its screen, and that was written
+up as "no per-attempt record exists in the domain."** Only the first is true. The correction is made
+in place at the top of this report rather than only here, so a reader who never reaches Round 2 does
+not inherit the false version.
+
+The resolution stands unchanged: `resolve-failed-delivery` wired `unavailable`, with the correction
+to the row's "all three attempts" copy **on the same surface that makes the claim**.
+
+## 2 — the remedy that made the ledger runnable
+
+The blocker was never the driver; it was the selection. Each row now runs
+`node scripts/run-vitest.mjs run --reporter=dot tests/<the-suite>` instead of the twenty-seven-file
+set — explicit paths still take the shared focused lease, so the round stays coordinated, and a run
+that finishes in seconds holds the slot for seconds. **Twenty-one rows ran without a single refusal**,
+against twenty-three consecutive refusals for one row under the wide selection.
+
+Two selections are wider on purpose:
+
+- **`SUITES.OVERLAYS`** — the overlay definitions, trigger and host suites plus the two screens — for
+  a mutation to `definitions.ts` or `overlay-trigger.tsx`. Those are shared mechanisms every overlay
+  consumer reads through, and a per-screen selection there would report green on damage it never
+  looked at. Five suites, not twenty-seven.
+- **`gate: "tsc"`** — for a mutation whose only effect is on a type. Vitest does not typecheck, so
+  such a row is invisible to every suite; that is a fact about where the guard lives, not a gap. Each
+  is paired with a `*G` row that runs the identical mutation against the suites, recorded as an
+  over-sensitivity control rather than as coverage.
+
+## The mutation ledger
+
+Every row ran. `git status --porcelain` was asserted empty before each mutation and after each restore
+by the driver, which throws rather than continuing; it was empty every time, and the tree was
+separately checked after every row. Presence was checked in process, whole-file against the
+post-image, and reported `true` for all twenty-one.
+
+| #    | Selection          | Mutation                                                        | Predicted                                                                                   | Result | The line it printed                                                                                                                               |
+| ---- | ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1   | move UI            | the commit-time recheck stops re-reading the acting role        | the role case loses "auditor"; the unreadable-role case's record changes; the recovery case | RED    | `expected 'The role you are acting in is not gra…' to contain 'auditor'` — `3 failed / 7 passed (10)`                                             |
+| T2   | move UI            | the commit ignores the refusal its own recheck produced         | two cases — **and this was wrong, see below**                                               | RED    | `expected 'The role you are acting in is not gra…' to contain 'auditor'` — `3 failed / 7 passed (10)`                                             |
+| T3   | move UI            | the connectivity check is dropped                               | the offline case's record changes — the write lands                                         | RED    | `expected '{"sendAt":"2026-08-31T03:30:00.000Z",…' to be '{"sendAt":"2026-08-31T02:00:00.000Z",…'` — `1 failed / 9 passed (10)`                   |
+| T4   | move UI            | the success wording stops saying the outcome is synthetic       | the success case's disclosure assertion, and only it                                        | RED    | `expected 'Recorded on the plan: this contact no…' to contain 'no message was sent and no number was…'` — `1 failed / 9 passed (10)`              |
+| T5   | move UI            | the write sends a version one ahead of the rendered one         | success becomes stale; the stale case succeeds — two cases                                  | RED    | `expected 'Somebody else changed this contact wh…' to contain '11:30 AWST'` — `2 failed / 8 passed (10)`                                          |
+| T6   | move UI            | the window rule is ignored, so the warning is never raised      | 18:00 opens `adjust-date-time`; the No change case — two cases                              | RED    | `expected 'adjust-date-time' to be 'outside-window-warning'` — `2 failed / 8 passed (10)`                                                         |
+| T7   | move UI            | the window wording becomes a closed range                       | the exclusive-bound assertion, and only it                                                  | RED    | `expected 'A contact’s send time may be changed …' to contain 'up to but not including 6:00 pm AWST'` — `1 failed / 9 passed (10)`                |
+| T8   | move UI            | the No change outcome borrows the success sentence              | the `not.toContain("Recorded on the plan")` assertion                                       | RED    | `expected 'Recorded on the plan. No message was …' not to contain 'Recorded on the plan'` — `1 failed / 9 passed (10)`                            |
+| T9   | move UI            | keeping the approved time no longer returns the field           | the recovery assertion on the field's value                                                 | RED    | `expected '07:15' to be '10:00'` — `1 failed / 9 passed (10)`                                                                                     |
+| T10  | move UI            | the recovery clears the guard whether or not the recheck passed | the still-refused re-open finds no `aria-disabled`                                          | RED    | `expected '' to contain 'not granted the action that moves a c…'` — `1 failed / 9 passed (10)`                                                    |
+| T11  | move UI            | a standing guard no longer reaches the decision control         | both `aria-disabled` assertions — two cases                                                 | RED    | `expected null to be 'true'`, twice — `2 failed / 8 passed (10)`                                                                                  |
+| T12  | screen             | a provider outcome states nothing at all                        | the transport-receipt group is not found; the overlay case finds no trigger                 | RED    | `Unable to find an accessible element with the role "group" and name "Transport receipt unavailable"` — `2 failed / 19 passed (21)`               |
+| T13  | screen             | the panel stops saying an attempt history is not held           | the positive half of the absence case                                                       | RED    | `expected 'What this screen holds is what the pr…' to contain 'a history of sending attempts'` — `1 failed / 20 passed (21)`                      |
+| T14  | screen             | the overlay refusal drops the correction to its frozen summary  | the `aria-describedby` text assertion                                                       | RED    | `expected 'Nothing can be recorded here yet. It …' to contain 'does not keep a history of sending at…'` — `1 failed / 20 passed (21)`             |
+| T15  | view + screen      | the entry publishes a constant version                          | the view suite's version pair                                                               | RED    | `expected 1 to be 2` — `1 failed / 46 passed (47)`                                                                                                |
+| T16  | route              | the route ignores the version the caller sent                   | the stale-version case gets 200                                                             | RED    | `expected 200 to be 409` — `1 failed / 6 passed (7)`                                                                                              |
+| T17  | screen             | the move control is offered on a contact already sent           | **the assertion added because of this row goes red**                                        | RED    | `expected <div …(3)>…(4)</div> to be null` — `1 failed / 20 passed (21)`                                                                          |
+| T18  | `tsc`              | the derived id union is widened back to `string`                | the trigger suite's `@ts-expect-error` has nothing left to expect                           | RED    | `tests/caring-contacts-overlay-trigger.dom.test.tsx(108,7): error TS2578: Unused '@ts-expect-error' directive.`                                   |
+| T18G | overlays, 5 suites | OVER-SENSITIVITY CONTROL: the same widening, against the suites | GREEN — vitest does not typecheck                                                           | GREEN  | `Test Files  5 passed (5)` and `Tests  80 passed (80)`                                                                                            |
+| T19  | `tsc`              | a non-mutating row wired into the control                       | the `satisfies readonly MutatingOverlayId[]` refuses it                                     | RED    | `contact-time-adjustment.tsx(75,3): error TS2322: Type '"delivery-detail"' is not assignable to type '"verify-identity" \| … \| "team-switcher"'` |
+| T19G | overlays, 5 suites | the same swap, against the suites                               | GREEN — **and this was wrong, see below**                                                   | RED    | `expected 'delivery-detail' to be 'outside-window-warning'`, twice — `2 failed / 78 passed (80)`                                                  |
+
+### Where a prediction was not what fired
+
+Four misses, each stated with what it means rather than absorbed:
+
+- **T2 reddened three cases where I predicted two.** T2 makes `commitMove` ignore the refusal its own
+  recheck produced — and that refusal is produced for EVERY guard, not only the role one. So the
+  connectivity case fell with it. The prediction was reasoning about the role check while the mutation
+  was disabling the whole gate; obvious in hindsight, which is why it is written down.
+- **T10, and T1's third case, fired one assertion earlier than predicted.** I named the
+  `aria-disabled` re-open assertion in "clears a standing refusal only when the recheck passes"; what
+  fired was the outcome assertion above it, `expected '' to contain 'not granted…'`. That is the
+  mutation behaving correctly: clearing the guard also clears the outcome to nothing. **I checked this
+  rather than accepting it**, because an empty string where a sentence was expected reads exactly like
+  a flaky wait — it is not. T10 touches only `checkAgain`, and `checkAgain` sets the outcome to
+  `none`.
+- **T6's second case fired at its overlay-id assertion**, not at the outcome text I predicted. The No
+  change case asserts which overlay opened before it confirms anything, so it never reaches the
+  wording. Same conclusion, one line earlier.
+- **T19G was predicted GREEN and came back RED**, which is the useful one. I had reasoned that swapping
+  the id was a type-level change; it is not — it also changes which overlay the control OPENS. So
+  `MutatingOverlayId` is proved twice, at the type level by T19 and at the behaviour level by T19G,
+  and only T18/T18G is a genuine type-only pair.
+
+**T18G is the one green, honestly.** It is recorded as an over-sensitivity control and nothing more:
+widening `WorkspaceOverlayId` back to `string` cannot move a runtime assertion, because vitest does
+not typecheck. Its red sibling T18 is where the claim lives, and that is the whole of Ruling [130]
+landing — before the narrowing, that `@ts-expect-error` did not compile as an error at all.
+
+**T17 is the row the review would not let pass, and it earned that.** Designing it found the gap
+before running it: nothing asserted the move control is ABSENT on a contact already sent, so a screen
+offering to change the send time of a delivered message would have been green. The assertion now
+exists, has a still-to-send positive control, and **goes red on the mutation it was written for**.
+
+## The four notes the review accepted, recorded so nobody undoes them
+
+1. **There is no fourth commit-time recheck, and one must not be added.** Connectivity, acting role
+   and record version are rechecked at the commit. Authentication is not, because this prototype has
+   no credential and no session that can expire — `session.ts` says of itself that the role switcher
+   is deliberately not a login. **A later reader must not "fix" this by adding a hollow check**: a
+   check that cannot fail is worse than a documented absence, because it reads as coverage.
+2. **`schedule-view.ts` gained one line by a DELIBERATE UNFREEZE, not by drift.** The controller froze
+   that module for Task 13 and accepted `ScheduleEntry.contactVersion` here, because without it a
+   screen cannot perform the version recheck the matrix requires, and the alternative — refetching the
+   plan at commit time — reintroduces the race it exists to close.
+3. **Task 13's whole-screen ban on "moved" was kept, not narrowed.** The ruling is about claiming a
+   contact WAS moved; my helper text did not. Weakening a whole-screen guard to admit one's own
+   sentence is how guards die, so the sentence changed instead.
+4. **`RescheduleContactInput.change.contact` is dead input** on the repository contract — reported,
+   not fixed, because narrowing it touches both stores and the shared contract suite.
+
+## The browser gate — what the block would assert, once a seeded server exists
+
+Concern 9 is the coordinator's to carry: Task 15 established that switching the seed on for the
+existing isolated Playwright server breaks the empty-state tests, which `emptyStateColours` throws on
+— so the answer is a **second server with the seed enabled**, and that is a merge-point job. What the
+block should assert against it, stated now so it does not have to be re-derived:
+
+- **A contact row carries a time field and one trigger**, and the trigger's accessible name names the
+  synthetic patient identifier — a day of rows must not produce a column of identically named
+  controls.
+- **320px.** No horizontal overflow with the field, the trigger and (after a refusal) the recovery
+  control on one wrapping row; each of the three at or above the 48px production tap floor. This is
+  the tightest content on the screen and the DOM suite cannot measure it.
+- **The domain's own boundary, end to end**: 17:59 opens `adjust-date-time`, 18:00 opens
+  `outside-window-warning`. The exclusive latest hour is the fact two corrections in this programme
+  have already been made about; a browser check costs one extra assertion.
+- **Forced colours on the refusal.** The DOM suite pins the `aria-disabled` + `aria-describedby`
+  pairing, which is what carries the reason when the accent colour is dropped; what it cannot show is
+  that the paragraph and the panel border survive with the tokens replaced.
+- **Focus returns to the trigger** when the overlay closes, and overlay-only navigation does not move
+  focus to the page heading. The shared host owns this and Task 19 proves it across all twenty-four
+  rows; the value here is proving it for a trigger inside a list row rather than a page-level control.
+- **A confirmed move updates the day.** The success path against a real server is the one thing no DOM
+  test can show: the statement announces the new time AND the row beneath re-renders at it.
+
+## Gates, after the final edit of this round
+
+| Gate                                                           | Evidence                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------ |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  525 passed (525)`   |
+| The 21 mutation selections, all coordinated                    | every row above carries its own `N passed` / `N failed` line |
+| `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                        |
+| `npx eslint --no-cache`, the 13 changed TypeScript files       | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)   |
+| `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`                 |
+
+**No tracked source file changed in this round.** The full-gate run above is the one taken on the
+final code tree; everything since is prose in this report, which is where the re-verification regress
+stops. The driver itself changed — it is a scratchpad file and is not committed — and its four guards
+were re-run after that change: `CTRL_ABSENT` and `CTRL_NOOP` both threw on their own lines again.
+
+## Concerns from round 2
+
+1. **The DOM suite still mirrors the route rather than executing it**, unchanged by this round. T16
+   proves the real handler's version check, so the two are pinned independently — but a divergence
+   between the mirror and the handler would still be invisible to both.
+2. **Two assertions are strengthenings rather than independently proven claims**, and are labelled so
+   in the code: the "no contact-endpoint request" check behind the record-unchanged check in the
+   unreadable-role case, and the panel-length assertion beside T14. Nothing falsifies either without
+   also falsifying the assertion above it.
+3. **T19G shows my reasoning about what is "type-only" is not reliable.** I predicted green on a
+   mutation that changes runtime behaviour. The lesson generalises past this row: a constant named as
+   a type-level pin is still a value somebody reads.
