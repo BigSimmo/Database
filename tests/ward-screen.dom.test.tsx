@@ -191,6 +191,24 @@ describe("ward screen bed release controls", () => {
     expect(wr001?.state).toBe("confirmed");
   });
 
+  it("renders the bed release state as a sentence-case display label, never the raw lowercase union value", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="scgh-adult-open" />
+      </WardFlowProvider>,
+    );
+
+    // WR-002 is `predicted` in the fixture (asserted above). The screen must show the display
+    // label "Predicted", never the raw union value "predicted" — a coordinator reading this row
+    // sees the same sentence-case convention every other status label on this screen uses.
+    const row = screen.getByTestId("ward-bed-release-WR-002");
+    const stateText = row.querySelector("strong")?.textContent ?? "";
+    expect(stateText).toBe("Predicted");
+    // Guards the actual defect directly: the raw lowercase value must not be what is rendered.
+    expect(stateText).not.toBe("predicted");
+    expect(stateText).not.toMatch(/^[a-z]/);
+  });
+
   it("confirming a predicted release updates the row", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
@@ -198,11 +216,11 @@ describe("ward screen bed release controls", () => {
       </WardFlowProvider>,
     );
 
-    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("predicted");
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Predicted");
 
     fireEvent.click(screen.getByTestId("ward-bed-release-confirm-WR-002"));
 
-    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("confirmed");
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Confirmed");
     // A confirmed release offers no Confirm control any more.
     expect(screen.queryByTestId("ward-bed-release-confirm-WR-002")).not.toBeInTheDocument();
   });
@@ -220,9 +238,9 @@ describe("ward screen bed release controls", () => {
     // No blocker chosen yet: the submit control is natively disabled, not merely advisory.
     expect(submit).toBeDisabled();
 
-    // Clicking a disabled submit dispatches nothing — the row must still read "predicted".
+    // Clicking a disabled submit dispatches nothing — the row must still read "Predicted".
     fireEvent.click(submit);
-    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("predicted");
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("Predicted");
 
     fireEvent.change(screen.getByTestId("ward-bed-release-blocker-WR-002"), {
       target: { value: "Awaiting clean" },
@@ -232,7 +250,7 @@ describe("ward screen bed release controls", () => {
     fireEvent.click(submit);
 
     const row = screen.getByTestId("ward-bed-release-WR-002");
-    expect(row).toHaveTextContent("blocked");
+    expect(row).toHaveTextContent("Blocked");
     expect(row).toHaveTextContent("Awaiting clean");
   });
 

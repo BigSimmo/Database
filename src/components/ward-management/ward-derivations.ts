@@ -30,6 +30,7 @@ import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
   type BedRelease,
+  type BedReleaseState,
   type HealthService,
   type Movement,
   type MovementStage,
@@ -50,6 +51,16 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
   handover_ready: { label: "Handover ready", shortLabel: "Ready" },
   moving: { label: "Moving", shortLabel: "Moving" },
   arrived: { label: "Arrived", shortLabel: "Arrived" },
+};
+
+/** Same reason `stageCopy` exists: `BedReleaseState`'s own values (`BED_RELEASE_STATES` in
+ *  ward-model.ts) are raw lowercase lifecycle identifiers, never sentence-case display text.
+ *  A screen renders this label, never `release.state` directly (defect fix, visual pass). */
+export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
+  predicted: "Predicted",
+  confirmed: "Confirmed",
+  blocked: "Blocked",
+  released: "Released",
 };
 
 /** Counts are derived from whatever `movements` list the caller passes — every screen now

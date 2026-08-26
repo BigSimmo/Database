@@ -184,7 +184,6 @@ function DischargeGroupSection({
                   <th scope="col">Health service</th>
                   <th scope="col">Expected</th>
                   <th scope="col">Blocker</th>
-                  <th scope="col">Confirmed by</th>
                   <th scope="col">Freshness</th>
                 </tr>
               </thead>
@@ -198,7 +197,6 @@ function DischargeGroupSection({
                       <td>{healthServiceLabel(unit)}</td>
                       <td>{BAND_LABELS[band]}</td>
                       <td>{release.blocker ?? "—"}</td>
-                      <td>{release.confirmedBy}</td>
                       <td>
                         <WardFreshness confirmedAt={release.confirmedAt} confirmedByRole={release.confirmedBy} now={now} />
                       </td>
@@ -221,7 +219,6 @@ function DischargeGroupSection({
                   </div>
                   <p className={styles.cardService}>{healthServiceLabel(unit)}</p>
                   {release.blocker && <p className={styles.cardBlocker}>{release.blocker}</p>}
-                  <p className={styles.cardConfirmedBy}>{release.confirmedBy}</p>
                   <WardFreshness confirmedAt={release.confirmedAt} confirmedByRole={release.confirmedBy} now={now} />
                 </li>
               );

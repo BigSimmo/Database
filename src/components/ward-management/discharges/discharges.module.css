@@ -204,12 +204,6 @@
   font-weight: 700;
 }
 
-.cardConfirmedBy {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-3xs);
-}
-
 .footer {
   border-top: 0.0625rem solid var(--border);
   padding-top: var(--dc-space-12);

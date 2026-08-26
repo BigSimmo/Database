@@ -14,8 +14,10 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
+import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
 
 /** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch — the same
@@ -121,6 +123,35 @@ describe("ward capacity board", () => {
     expect(screen.getByTestId("ward-capacity-sexmix-scgh-adult-open")).toHaveTextContent("Female 10 · Male 9");
     expect(screen.getByTestId("ward-capacity-specialling-scgh-adult-open")).toHaveTextContent("3");
     expect(authorisedRow).toBeInTheDocument();
+  });
+
+  it("replaces the per-unit row's undifferentiated Potential lump with its own Confirmed/Predicted breakdown", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardModeWorkspace mode="capacity" />
+      </WardFlowProvider>,
+    );
+
+    const bedStates = screen.getByTestId("ward-capacity-bed-states-rph-adult-secure");
+
+    // The raw `unitCapacity().potential` figure — every release for this unit regardless of
+    // state or timing — must never appear on this row again: the headline above already
+    // separates it into Confirmed today / Predicted today, and this row must agree rather than
+    // showing an undifferentiated lump the headline no longer shows.
+    expect(bedStates).not.toHaveTextContent("Potential");
+
+    // The row must show the SAME per-unit Confirmed/Predicted figures `capacityBreakdown` (the
+    // headline's own source of truth) computes for this unit — not merely the labels, but the
+    // real numbers, computed independently here from the live fixture rather than read back off
+    // the screen.
+    const unit = unitById("rph-adult-secure");
+    expect(unit).toBeDefined();
+    const expected = capacityBreakdown(unit!, bedReleases, leaveBeds, NOW_ANCHOR);
+
+    const confirmedSpan = within(bedStates).getByText("Confirmed").closest("span");
+    const predictedSpan = within(bedStates).getByText("Predicted").closest("span");
+    expect(confirmedSpan).toHaveTextContent(String(expected.confirmedToday));
+    expect(predictedSpan).toHaveTextContent(String(expected.predictedToday));
   });
 });
 

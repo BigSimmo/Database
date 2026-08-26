@@ -13,6 +13,7 @@ import {
 } from "@/components/ward-management/ward-change-reasons";
 import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
 import {
+  bedReleaseStateLabels,
   elapsedLabel,
   isOpen,
   restrictionNotice,
@@ -532,7 +533,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                   return (
                     <li key={release.id} data-testid={`ward-bed-release-${release.id}`} className={styles.card}>
                       <header className={styles.cardHeader}>
-                        <strong>{release.state}</strong>
+                        <strong>{bedReleaseStateLabels[release.state]}</strong>
                         <span className={styles.cardMeta}>Expected {formatInstant(release.expectedAt)}</span>
                       </header>
                       {release.blocker ? <span className={styles.cardMeta}>{release.blocker}</span> : null}

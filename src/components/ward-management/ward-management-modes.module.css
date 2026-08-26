@@ -549,7 +549,7 @@
 
 .bedStates {
   display: grid;
-  grid-template-columns: repeat(5, minmax(3rem, 1fr));
+  grid-template-columns: repeat(6, minmax(3rem, 1fr));
   gap: var(--ward-space-4);
 }
 

@@ -381,19 +381,25 @@ function QueueView({ role }: { role: WardRole }) {
 
 function CapacityView() {
   const { units, bedReleases, leaveBeds, now, dispatch } = useWardFlow();
-  // Row-level "Five bed states" grid below still reads `unitCapacity()` unchanged — that is the
-  // physical bed-state partition (available/held/blocked/occupied plus the raw `potential`
-  // release count), a different concept from the headline this task rebuilds. See
-  // `unitCapacity`'s own `potential` field doc comment in ward-derivations.ts for why that field
-  // is untouched here.
+  // Row-level bed-states grid below still reads `unitCapacity()` unchanged for available/held/
+  // blocked/occupied — those four sum to the unit's total beds
+  // (`tests/ward-capacity-reconciliation.test.ts` asserts that identity). Its own raw `potential`
+  // field is no longer rendered here (defect fix, visual pass): it counted every bed release for
+  // the unit regardless of state or timing, which duplicated and contradicted the headline's own
+  // careful `confirmedToday`/`predictedToday` split. The row now sources Confirmed/Predicted from
+  // the same per-unit `breakdown` the headline already computes below, rather than calling
+  // `unitCapacity` a second time for a figure it does not distinguish. See `unitCapacity`'s own
+  // `potential` field doc comment in ward-derivations.ts for why the field itself is untouched.
   const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit, bedReleases) }));
 
   // Task 7 (Phase 5, spec D6): the headline above the table used to be a single `unitCapacity()`
   // total. It is replaced here by `capacityBreakdown()`'s five figures, summed across every unit
   // — and only those five are ever shown as a card. `availableNow` is never added to anything:
   // that is the one rule this whole task exists to protect (see the file-level rule in
-  // ward-bed-availability.ts).
+  // ward-bed-availability.ts). The per-unit `breakdown` computed here also feeds the per-unit
+  // row's Confirmed/Predicted chips below, so both places read the same figures.
   const breakdowns = units.map((unit) => ({ unit, breakdown: capacityBreakdown(unit, bedReleases, leaveBeds, now) }));
+  const breakdownByUnitId = new Map(breakdowns.map((entry) => [entry.unit.id, entry.breakdown]));
   const headline = {
     availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
     confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
@@ -446,7 +452,7 @@ function CapacityView() {
             <th scope="col">Unit</th>
             <th scope="col">Health service</th>
             <th scope="col">Capability cue</th>
-            <th scope="col">Five bed states</th>
+            <th scope="col">Bed states</th>
             <th scope="col">Sex mix</th>
             <th scope="col">Specialling</th>
             <th scope="col">MHA authorised</th>
@@ -455,7 +461,9 @@ function CapacityView() {
           </tr>
         </thead>
         <tbody>
-          {capacities.map(({ unit, capacity }) => (
+          {capacities.map(({ unit, capacity }) => {
+            const breakdown = breakdownByUnitId.get(unit.id);
+            return (
             <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
               <td>
                 <strong>{unit.name}</strong>
@@ -466,7 +474,7 @@ function CapacityView() {
                 {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
               </td>
               <td>
-                <div className={styles.bedStates}>
+                <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
                   <span>
                     <strong>{capacity.available}</strong>Now
                   </span>
@@ -474,7 +482,10 @@ function CapacityView() {
                     <strong>{capacity.held}</strong>Held
                   </span>
                   <span>
-                    <strong>{capacity.potential}</strong>Potential
+                    <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
+                  </span>
+                  <span>
+                    <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
                   </span>
                   <span>
                     <strong>{capacity.blocked}</strong>Blocked
@@ -510,7 +521,8 @@ function CapacityView() {
                 </small>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       <p className={styles.notice}>

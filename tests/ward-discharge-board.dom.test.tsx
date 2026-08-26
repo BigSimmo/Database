@@ -74,6 +74,23 @@ describe("DischargeBoard", () => {
     expect(within(blockedTable).getByText("Awaiting accommodation")).toBeInTheDocument();
   });
 
+  it("renders each row's confirming role exactly once — never duplicated alongside the freshness stamp", () => {
+    renderBoard();
+
+    // WR-007 (fixture: ward-movements.ts) is blocked at fsh-adult-secure with
+    // confirmedBy "NUM FSH Adult Secure". `WardFreshness` already renders that role inside its
+    // own "Confirmed HH:MM · <role>" stamp, so the role string must appear exactly once per
+    // rendering (table row, and separately the phone card) — a count, not mere presence, so a
+    // reintroduced standalone `{release.confirmedBy}` line is caught rather than tolerated.
+    const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
+    const tableOccurrences = blockedTable.textContent?.match(/NUM FSH Adult Secure/g) ?? [];
+    expect(tableOccurrences).toHaveLength(1);
+
+    const blockedCards = screen.getByTestId("ward-discharge-cards-blocked");
+    const cardOccurrences = blockedCards.textContent?.match(/NUM FSH Adult Secure/g) ?? [];
+    expect(cardOccurrences).toHaveLength(1);
+  });
+
   it("states the excluded-beyond-today count as the literal digit 0 when nothing is excluded", () => {
     renderBoard();
 
