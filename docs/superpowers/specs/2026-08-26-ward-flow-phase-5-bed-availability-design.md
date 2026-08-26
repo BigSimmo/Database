@@ -14,6 +14,11 @@ The capacity board answers "how many beds exist right now", which is not the que
 coordinator asks. The question is "will there be a bed tonight", and that is a discharge question,
 not an admission question.
 
+The phase order after this one changed on 2026-08-26: the morning state-of-the-state page moves
+from Phase 8 to **Phase 6**, ahead of the community front door. It is built entirely from the
+numbers this phase produces, it is small, and it is the artefact that can be put in front of
+colleagues. Finding out whether any of this is right is worth more than the next feature.
+
 Every other item on the Phase 6–8 list — the morning page, escalation tiers, the closest-suitable-
 bed measure, the retrospective — needs a trustworthy availability number underneath it. Building
 any of those first means building them twice: once against guesses, then again once the guesses are
@@ -121,7 +126,13 @@ figure. Merging it would inflate the one number the whole hub depends on.
 - **Now** — already released.
 - **By midday**
 - **By 1600**
-- **Tonight** — the rest of today.
+- **Tonight** — up to the end of the evening shift, taken as **22:00**.
+
+**Why 22:00 and not midnight.** Midnight is a calendar boundary; nobody hands over at midnight. The
+band has to end where the working day ends, or "beds tonight" means something different to the
+person reading it than to the ward that entered it. 22:00 is this prototype's choice, recorded here
+so it can be changed in one place, and it is a synthetic convenience rather than a claim about how
+any real service runs its shifts.
 
 Anything expected beyond tonight is **excluded from every count and the board says how many were
 excluded**. Silent truncation reads as "we counted everything" when we did not, and a bed
@@ -201,6 +212,38 @@ modelled. Adding sex to a bed release for arithmetic convenience would break the
 test Phase 4 wrote against the type's own field set, and that test is worth more than a column that
 refreshes an hour earlier.
 
+### D12 — A coordinator may ask a ward to refresh, and may do nothing else
+
+A coordinator can mark a unit's bed count as **refresh requested**. The ward sees that mark on its
+own screen, next to its own capacity, with the time it was asked and by which role.
+
+Nothing leaves the sandbox and no message is sent. This is the most common real interaction in bed
+management — the phone call that says "is that still right?" — and modelling it as a visible mark
+rather than a message makes the hub useful before notifications exist (Phase 8), without acquiring
+any of notification's governance weight.
+
+It remains the only thing a coordinator can do to a ward's bed data, and it changes no number. D2
+still holds: the ward owns its beds.
+
+### D13 — The seeded scenario opens on its worst case, not its best
+
+The default scenario seeds bed releases across **every** state, including at least two `blocked`
+ones and at least one leave bed marked unusable. A discharge board that opens empty demonstrates
+nothing, and a board that opens with everything confirmed demonstrates the wrong thing — the
+screen's whole purpose is the awkward cases.
+
+### D14 — The four states are the prototype's model, and are not yet clinically validated
+
+`predicted → confirmed → blocked → released` is a software model of how a bed comes free. It has
+not been checked against how a ward charge nurse actually thinks, and it may be a tidy version of
+something messier — a bed can be simultaneously confirmed and blocked in reality, and "predicted"
+may compress several distinct real states.
+
+It is built as specified because a working model beats an unbuilt one, and because the model is
+cheap to change while it is synthetic. **This is recorded as the single most valuable thing to check
+with a ward clinician**, not as a defect. If it turns out to be wrong, the states change; nothing
+else in this phase depends on there being exactly four.
+
 ---
 
 ## Data flow
@@ -251,5 +294,7 @@ guessing more:
   than to nag.
 - **Replacing `potential` changes an existing rendered figure.** It is the one behavioural change in
   this phase and must be called out where it happens, not folded in silently.
+- **The state model is unvalidated (D14).** A ward clinician has not yet checked it, and it is the
+  assumption most likely to be wrong.
 - **The four bands are a synthetic convenience.** They are the prototype's choice, not a clinical
   standard, and the board should not imply otherwise.
