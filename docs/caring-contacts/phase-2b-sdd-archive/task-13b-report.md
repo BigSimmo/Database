@@ -1,9 +1,52 @@
-# Task 13b — stopped before building: the read this design needs does not exist
+# Task 13b - the per-row name reveal, deferred on this task's own finding
 
-**Status: STOPPED, no code written.** The brief instructed me to establish which name-reading surfaces
-exist before building anything, and to say so before building if neither fits. Neither fits, and the gap
-is wider than one repository method. Nothing under `src/`, `tests/` or `package.json` was touched; this
-report is the only file this task added.
+## Owner decision, 2026-08-26: DEFER. The Schedule screen keeps identifiers.
+
+**This is not work that was never attempted. The finding below is what produced the decision.**
+
+The reveal was chosen believing it was a screen change. Establishing the ground first - which the
+brief instructed, and which is the whole of what this task did - showed it is three contract changes
+that do not decompose: a per-plan name lookup that **reverses a recorded decision**
+(`PatientNameProjection`'s own "WHY A LIST, NOT A LOOKUP PER PLAN"), **the first HTTP surface in this
+workspace whose response body is a patient's name**, and a client boundary on a screen that states it
+has none.
+
+**The argument that settled it**, put plainly by the controller once the finding was in front of the
+owner: tapping through to the patient record **already** yields the name and **already** writes exactly
+the audit row the design wants - one act, one patient. So the reveal's real benefit over what exists is
+saving a page change, weighed against creating the first patient-name endpoint in the system.
+
+Deferred, to be revisited once the owner has actually used the screen. Building that endpoint is a step
+to take deliberately, not one to take to save a tap.
+
+**Status: STOPPED before implementing, no code written.** Nothing under `src/`, `tests/` or
+`package.json` was touched; this report is the only file this task added. Task 13's screen stands as it
+is and needs nothing.
+
+## The three findings that outlive the decision
+
+They will be true whenever this is revisited, and two of them are true whether or not it ever is:
+
+1. **The three-part contract change**, with the assessment that the first objection is answerable -
+   `getEpisode` is already a per-plan lookup releasing a name, and it defuses the existence-oracle
+   concern by returning `null` for absent, cross-team and unpermitted alike. Detail below.
+2. **`NamesNotShownNotice`'s wording is a defect in a shared component's contract**, and the most
+   durable of the three: on the schedule, _"Names are not shown in this role"_ would be **false** for a
+   coordinator who could reveal one. That slot needs a second statement rather than a reworded first,
+   and the shared component should carry only the role restriction. **This stands whether or not the
+   reveal is ever built.**
+3. **The payload assertion must be made against served HTML, not the rendered DOM** - the only place
+   "the name is not in the page payload" is a property at all. Asserting it in the DOM is the
+   _absence over a fixture that never held one_ failure.
+
+Two decisions recorded here also stand and need no re-derivation: **reuse the `patientName`
+`AccessedObjectType` member, mint no new one** (a `scheduleNameReveal` member would name a screen, and
+`objectId` carrying the plan id is what makes the row name that patient); and **`NamesNotShownNotice`
+stays where it is**, since with no reveal there is no second use.
+
+---
+
+## What was established, in full
 
 ## The one-line answer
 
@@ -169,22 +212,30 @@ form a verdict about that the tree they last saw did not already cover. Running 
 report a green that belongs to the previous commit would be the "mechanism you have not seen run,
 reported as coverage" failure aimed at my own work.
 
-`prettier --check` **was** run against this report, because a Markdown file is exactly the kind of change
-that is in none of `test`, `typecheck` or `lint`. Its line is quoted in the commit that adds this file.
+`prettier --check` **was** run against this report, and again after the owner's decision was recorded
+at the top of it, because a Markdown file is exactly the kind of change that is in none of `test`,
+`typecheck` or `lint`. Both runs printed `All matched files use Prettier code style!`, and each line is
+quoted in the commit it belongs to.
 
-`git status --porcelain` was empty before this report was written, and the branch tip it was written
-against is `5c500b84a`.
+`git status --porcelain` was empty before this report was written. It was written against branch tip
+`5c500b84a`; the deferral above was added on top of `83d398e57`, which carried the finding alone.
 
-## What I recommend
+## If this is revisited
 
-Approve the three changes above as one unit, or reject the design. **They do not decompose**: the
-repository method with no request surface releases nothing to a screen, the request surface without the
-method has nothing to read, and either one without the client boundary cannot be pressed. A partial
-approval produces a half-built name-release path, which is worse than none.
+The decision above closes it for now, so nothing here is awaiting an answer. What follows is the
+sequence, kept so a later session does not re-derive it.
 
-If the answer is yes, the smallest correct sequence is: the contract method and its case in the shared
-contract suite first, so both stores are held to it before anything can call it; then the request surface
-with its `{ view, patientName, <planId> }` record; then the control — with the trail assertions written
-before the control, because the audit row is the deliverable.
+The three changes **do not decompose**: the repository method with no request surface releases nothing
+to a screen, the request surface without the method has nothing to read, and either one without the
+client boundary cannot be pressed. A partial build produces a half-finished name-release path, which is
+worse than none - which is part of why deferring the whole of it was the coherent choice rather than a
+postponement of one piece.
 
-If the answer is no, Task 13's screen is already correct as it stands and needs nothing.
+The smallest correct order is: the contract method and its case in the shared contract suite first, so
+both stores are held to it before anything can call it; then the request surface with its
+`{ view, patientName, <planId> }` record; then the control - with the trail assertions written **before**
+the control, because the audit row is the deliverable rather than a side effect of it.
+
+Whoever picks this up should also re-check the premise the deferral rests on: that tapping through to
+the patient record still yields the name and still writes one act, one patient into the trail. If that
+route ever changes, the weighing changes with it.
