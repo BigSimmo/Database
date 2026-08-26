@@ -25,7 +25,9 @@ git checkout claude/ward-flow-phase-5-p8rwcm
 
 - **Branch:** `claude/ward-flow-phase-5-p8rwcm`
 - **Pull request:** [#2390](https://github.com/BigSimmo/Database/pull/2390), open, not draft
-- **Head at handover:** `400cedd9` — 20 commits ahead of `main`, 52 files, +4052 / −166
+- **Last commit that changed code:** `400cedd9` — 20 commits ahead of `main`, 52 files,
+  +4052 / −166. Anything after it on this branch is this handover document; check the branch tip
+  rather than assuming that SHA is still the head.
 - **Phase 5 is functionally complete.** Every task in the plan is built, reviewed and pushed.
 - **One check is still red and is this branch's to fix:** `Build`, on the mockups bundle budget.
   Section 6 has the full diagnosis and the decision it needs. Nothing else is known-red.
