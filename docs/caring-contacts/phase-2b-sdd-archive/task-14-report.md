@@ -201,14 +201,14 @@ both stores and the shared contract suite, so it is reported rather than done he
 
 ### Gates
 
-| Gate                                                                | Evidence                                                       |
-| ------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), at `b74500d02`  | `Test Files  27 passed (27)` and `Tests  523 passed (523)`     |
-| The four suites this task can move (`GATE_RECEIPTS=refresh`), later | `Test Files  4 passed (4)` and `Tests  63 passed (63)`         |
-| `npm run test:cc-guards`, FINAL TREE                                | see "the shared machine" below — this is the row to read first |
-| `npx tsc --noEmit`, final tree                                      | exit 0, zero `error TS` lines emitted                          |
-| `npx eslint --no-cache`, the 13 changed TypeScript files            | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)     |
-| `prettier --check`, every file this task changed                    | `All matched files use Prettier code style!`                   |
+| Gate                                                                | Evidence                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), at `b74500d02`  | `Test Files  27 passed (27)` and `Tests  523 passed (523)` |
+| The four suites this task can move (`GATE_RECEIPTS=refresh`), later | `Test Files  4 passed (4)` and `Tests  63 passed (63)`     |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), FINAL TREE      | `Test Files  27 passed (27)` and `Tests  525 passed (525)` |
+| `npx tsc --noEmit`, final tree                                      | exit 0, zero `error TS` lines emitted                      |
+| `npx eslint --no-cache`, the 13 changed TypeScript files            | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON) |
+| `prettier --check`, every file this task changed                    | `All matched files use Prettier code style!`               |
 
 `typecheck` prints nothing on success, so its row is an exit code and an absence of diagnostics
 rather than a summary line. The ESLint cache directory was deleted before that run and `--no-cache`
@@ -216,12 +216,19 @@ passed, because the per-file cache is what hides a failure caused by a different
 `prettier --check` was run because formatting is in none of the other three, and it caught two files
 (`tests/caring-contacts-contact-route.test.ts` and this report), repaired in `82e9c1487`.
 
-**What the two suite rows cover between them, precisely.** The full run at `b74500d02` covers every
+The FINAL TREE row is the one to read: it ran after the last commit, on the tree as it stands, and
+its `525` is `523` plus the two cases added since — the role-recheck split and the already-sent
+absence case. **It is what covers the assertion the four-suite row could not**, and it is the run that
+catches collateral damage a per-suite mutation run structurally cannot see. It took nineteen
+consecutive lease refusals before a run produced a summary line.
+
+**What the two earlier suite rows cover between them, precisely.** The full run at `b74500d02` covers every
 source change this task made — no source file has been touched since. Three commits followed it:
 `f4769b8d9` (the DOM test restructure), `b6a151b85` (this report) and `82e9c1487` (formatting), and
 the first of those is what the four-suite run covers. **The one thing neither covers is the assertion
 added last** — "offers no move control on a contact that has already been sent" — which is stated in
-its own right below rather than folded into a green.
+its own right below rather than folded into a green — and the FINAL TREE row above is where it
+finally was.
 
 The full `npm run test` was **not** run: the controller owns it at the merge point.
 
@@ -311,8 +318,9 @@ either suite asserted that the move control is ABSENT on a contact that has alre
 screen offering to change the send time of a delivered message would have been green. The assertion
 now exists — "offers no move control on a contact that has already been sent", with the still-to-send
 day as its positive control, because an absence check against a screen that renders nothing passes for
-the wrong reason. **That assertion has not been run**, for the same lease reason as the table above,
-and it is the one thing in this diff that neither suite row in the gates table covers.
+the wrong reason. **That assertion is green in the FINAL TREE run above**; what has not been run is its own
+falsifying mutation (T17), for the same lease reason as the rest of the table. So the assertion exists
+and passes, and the claim that it would go red on the screen it is written against is untested.
 
 ### The driver, and its four guards
 
