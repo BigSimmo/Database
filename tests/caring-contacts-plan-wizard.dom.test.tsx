@@ -41,7 +41,10 @@ import {
   readPlanDraft,
   writePlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
-import { WIZARD_DECISION_REFUSALS } from "@/components/caring-contacts/workspace/plan-wizard/overlay-guards";
+import {
+  WIZARD_DECISION_REFUSALS,
+  WIZARD_DECISION_REFUSAL_OVERRIDES,
+} from "@/components/caring-contacts/workspace/plan-wizard/overlay-guards";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
@@ -1925,6 +1928,10 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     // constant on both sides agrees with itself however the constant is emptied.
     expect(refusal).toHaveTextContent("This sign-up was removed from this computer while this was open");
     expect(refusal).toHaveTextContent(/nothing was put back/i);
+    // The remedy this row's refusal offers, pinned HERE so the discard case below can assert its
+    // absence and mean something. Without this line "does not say start the sign-up again" would be
+    // satisfied by a screen that never says it anywhere.
+    expect(refusal).toHaveTextContent(/Start the sign-up again/i);
     // THE CLAUSE NOBODY WRITES. A refusal that appeared while the commit still ran would satisfy
     // every line above. A commit built on the draft it closed over would have written a whole
     // sign-up — a patient's name and mobile number included — back into this tab's storage after
@@ -1945,6 +1952,10 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     );
     expect(WIZARD_DECISION_REFUSALS["draft-survives-leaving-this-screen"]).toContain(
       "This browser is not writing this sign-up down",
+    );
+    // And the one row whose words differ, held to its own literal for the same reason.
+    expect(WIZARD_DECISION_REFUSAL_OVERRIDES["discard-changes"]?.["sign-up-still-here"]).toContain(
+      "there was nothing left to discard",
     );
   });
 
@@ -2110,6 +2121,72 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     expect(screen.getByTestId("caring-contacts-message-specimen")).toHaveTextContent("SYNTHETIC-SPECIMEN-WORDING-11A");
   });
 
+  it("says where Leave this for now takes you, which the frozen drawer it opens does not", async () => {
+    // THE AGREEMENT CASE THIS ROW LACKED — the equivalent of stage 4's "labels the control for both
+    // writes, agreeing with the overlay it opens". `save-draft` is a three-way statement: the
+    // control says "Leave this for now", the frozen drawer says "Save this activation draft" /
+    // "Save draft" / "The draft is kept as it stands", and confirming writes nothing and NAVIGATES.
+    // The matrix's Navigation clause asks for the destination to be announced, and the drawer copy
+    // is the approved design, so the screen is what has to carry it.
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+
+    // In the control's own accessible name, so it is heard before anything is opened.
+    const trigger = decisionTrigger("save-draft");
+    expect(trigger).toHaveAccessibleName(/takes you to this team's plans/i);
+
+    // And in the flow of the page, beside the control it contrasts with — the pair differs in
+    // whether a patient's details stay on this machine AND in whether the screen changes.
+    const destinations = screen.getByTestId("caring-contacts-draft-exit-destinations");
+    expect(destinations).toHaveTextContent(
+      /Leave this for now keeps this sign-up on this computer and takes you to this team's plans/i,
+    );
+    expect(destinations).toHaveTextContent(/Discard draft removes it and stays on this screen/i);
+
+    // THE GAP THIS CLOSES, ASSERTED RATHER THAN DESCRIBED. The frozen drawer never mentions leaving,
+    // so a coordinator who read only the confirmation would not know the screen was about to change.
+    // If the owner ever amends that copy to say so, this goes red and names the remedy — the
+    // announcement should then move into the drawer rather than being said twice.
+    await user.click(trigger);
+    const content = await screen.findByTestId("workspace-overlay-content");
+    expect(content).toHaveAttribute("data-overlay-id", "save-draft");
+    expect(
+      content.textContent ?? "",
+      "the frozen drawer now mentions leaving — move the announcement into it rather than saying it twice",
+    ).not.toMatch(/leav|takes? you|team's plans/i);
+  });
+
+  it("refuses an already-gone discard in words that are true of a discard", async () => {
+    // THE DEFECT: `sign-up-still-here` fires when the sign-up has gone while the surface was open,
+    // and its own sentence ends "Start the sign-up again from this team's plans." On every other row
+    // that is the remedy. On this one the coordinator ASKED for the sign-up to go, it has gone, and
+    // they were being refused and told to restart — for the outcome they wanted and already have.
+    const user = userEvent.setup();
+    renderWizardWithOverlays();
+    await user.click(screen.getAllByRole("checkbox")[0]);
+
+    const action = await openDecision(user, "discard-changes");
+    expect(action, "the decision was already refused before the state changed").not.toHaveAttribute("aria-disabled");
+
+    act(() => {
+      clearPlanDraft();
+    });
+    await user.click(action);
+
+    const refusal = await screen.findByTestId("caring-contacts-decision-refusal");
+    expect(refusal).toHaveTextContent(/Discard changes was not carried out/);
+    expect(refusal).toHaveTextContent("there was nothing left to discard");
+    expect(refusal).toHaveTextContent(/which is what you were asking for/i);
+    // The half that was wrong. Its counterpart is pinned on the verify-identity case above, so this
+    // absence is a contrast between two rows rather than a sentence nothing says anywhere.
+    expect(refusal, "a coordinator who got what they asked for is told to undo it").not.toHaveTextContent(
+      /Start the sign-up again/i,
+    );
+    // Still a refusal rather than silent success: this press did not perform the removal, so
+    // reporting it as done would claim an action it did not take. And nothing was put back.
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
+  });
+
   it("keeps the sealed message module out of this client component altogether", () => {
     // The other half of the case above, and the one a screen author would actually break: rendering
     // what it is handed is only half of "never author patient-visible copy". A wizard that imported
@@ -2120,6 +2197,13 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
         path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", "plan-wizard.tsx"),
         "utf8",
       ),
+    );
+    // THE POSITIVE CONTROL FOR BOTH ABSENCES BELOW, and it is the one that got away first time.
+    // `stripSourceComments` is a helper with no test of its own, so a regression that made it return
+    // an empty string would silence every `not.toContain` here while the case stayed green. This
+    // asserts the scan actually read the component before concluding anything about what it lacks.
+    expect(wizardSource, "the source scan read nothing, so the two absences below are vacuous").toContain(
+      "export function PlanWizard",
     );
     expect(wizardSource, "the wizard reaches for the sealed message module itself").not.toContain("message-copy");
     // And the words themselves are not written out here under another name.

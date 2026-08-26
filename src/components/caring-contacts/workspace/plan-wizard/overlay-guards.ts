@@ -100,7 +100,7 @@ export type WizardDecisionState = {
 };
 
 /**
- * The plain words each refusal is shown in.
+ * The plain words each refusal is shown in, on the rows it reads the same way on.
  *
  * Written by hand, per condition, and rendered verbatim -- Ruling 61's rule applied one layer up.
  * There is no default branch and nothing is derived from the identifier, so a condition added to
@@ -117,34 +117,89 @@ export const WIZARD_DECISION_REFUSALS: Readonly<Record<WizardDecisionCondition, 
 });
 
 /**
- * The first condition this decision depends on that is not met, in plain words -- or null.
+ * Where one row needs different words from its condition's own, because the same fact means
+ * something different on it.
+ *
+ * ONE ENTRY, AND IT IS A REAL DEFECT RATHER THAN A REFINEMENT. `sign-up-still-here` fires when the
+ * sign-up has gone while the surface was open, and the sentence above is right for every row that
+ * wanted to RECORD something onto it: there is nothing left to record against, and starting again is
+ * the remedy. On `discard-changes` it is wrong twice over. The coordinator asked for the sign-up to
+ * go; it has gone; and they are then refused and told to start a sign-up again -- for an outcome
+ * they wanted and already have. A refusal that reads as a failure when the thing they asked for is
+ * already true is worse than no refusal, because it invites them to undo it.
+ *
+ * The row still gets a refusal rather than silent success, and that is deliberate: nothing on this
+ * press performed the removal, so reporting it as done would claim an action this control did not
+ * take. What the override changes is the sentence, never the outcome.
+ *
+ * Keyed by `overlayId` then condition, both looked up with `Object.hasOwn` for the reason
+ * `overlay-host.tsx` records: an object literal inherits `toString`, and a `=== undefined` guard
+ * would resolve it to a FUNCTION that React renders as nothing.
+ */
+export const WIZARD_DECISION_REFUSAL_OVERRIDES: Readonly<
+  Record<string, Readonly<Partial<Record<WizardDecisionCondition, string>>>>
+> = Object.freeze({
+  "discard-changes": Object.freeze({
+    "sign-up-still-here":
+      "This sign-up had already gone from this computer, so there was nothing left to discard. Nothing was put back and nothing of it remains here, which is what you were asking for. This press is not what removed it, so this says so rather than reporting it as done.",
+  }),
+});
+
+/**
+ * The sentence this row shows for this unmet condition.
+ *
+ * Total: the override is consulted first, the per-condition wording answers everywhere else, and a
+ * condition with no wording throws rather than falling back to something merely plausible.
+ */
+export function wizardDecisionRefusalWording(overlayId: string, condition: WizardDecisionCondition): string {
+  if (Object.hasOwn(WIZARD_DECISION_REFUSAL_OVERRIDES, overlayId)) {
+    const overrides = WIZARD_DECISION_REFUSAL_OVERRIDES[overlayId];
+    if (Object.hasOwn(overrides, condition)) {
+      const wording = overrides[condition];
+      // Narrowing only. `Object.hasOwn` cannot tell TypeScript the value is present, and a
+      // `Partial` records it as possibly undefined; this is reached only for an entry written as
+      // an explicit `undefined`, which would be a mistake worth falling through rather than
+      // rendering nothing.
+      if (wording !== undefined) return wording;
+    }
+  }
+  // `Object.hasOwn`, not `WIZARD_DECISION_REFUSALS[condition] === undefined`. The map is an object
+  // literal, so it inherits from `Object.prototype` and `"toString"` would resolve to a FUNCTION
+  // that React renders as nothing -- a control refused with an empty reason beside it. The key is a
+  // closed union today, so this is belt-and-braces; `overlay-host.tsx` records why a per-lookup fix
+  // does not travel between lookups, and this is the lookup at this end of it.
+  if (!Object.hasOwn(WIZARD_DECISION_REFUSALS, condition)) {
+    throw new Error(
+      `No plain-words refusal for the wizard decision condition "${condition}". Add an entry to ` +
+        `WIZARD_DECISION_REFUSALS deliberately; do not derive one from the identifier.`,
+    );
+  }
+  return WIZARD_DECISION_REFUSALS[condition];
+}
+
+/**
+ * The first condition this row's decision depends on that is not met, in plain words -- or null.
  *
  * TWO STATES, NOT ONE, and that is the mechanism rather than an interface convenience. `opened` is
  * what was true when the surface was raised and `now` is what is true as it is confirmed. A caller
  * asking at open time passes the same value twice, which is the honest answer there because nothing
  * has changed yet.
  *
+ * THE ROW IS THE PARAMETER RATHER THAN ITS CONDITION LIST. The list is read here, from the one table
+ * that declares it, so a caller cannot pair one row's id with another row's needs -- and the row is
+ * what the wording lookup needs, because the same unmet fact does not mean the same thing on every
+ * row (see the overrides above).
+ *
  * TOTAL over the union, and ordered, so the sentence a clinician reads is the earliest true
  * obstacle rather than whichever check happened to be written first.
  */
 export function wizardDecisionRefusal(
-  needs: readonly WizardDecisionCondition[],
+  overlayId: string,
   opened: WizardDecisionState,
   now: WizardDecisionState,
 ): string | null {
-  for (const need of needs) {
-    // `Object.hasOwn`, not `WIZARD_DECISION_REFUSALS[need] === undefined`. The map is an object
-    // literal, so it inherits from `Object.prototype` and `"toString"` would resolve to a FUNCTION
-    // that React renders as nothing -- a control refused with an empty reason beside it. The key is
-    // a closed union today, so this is belt-and-braces; `overlay-host.tsx` records why a per-lookup
-    // fix does not travel between lookups, and this is the lookup at this end of it.
-    if (!Object.hasOwn(WIZARD_DECISION_REFUSALS, need)) {
-      throw new Error(
-        `No plain-words refusal for the wizard decision condition "${need}". Add an entry to ` +
-          `WIZARD_DECISION_REFUSALS deliberately; do not derive one from the identifier.`,
-      );
-    }
-    if (!conditionIsMet(need, opened, now)) return WIZARD_DECISION_REFUSALS[need];
+  for (const need of wizardDecisionConditions(overlayId)) {
+    if (!conditionIsMet(need, opened, now)) return wizardDecisionRefusalWording(overlayId, need);
   }
   return null;
 }

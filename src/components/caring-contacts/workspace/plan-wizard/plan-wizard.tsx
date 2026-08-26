@@ -30,7 +30,7 @@ import { ExitOnlyOverlayTrigger } from "../overlays/exit-only-overlay-trigger";
 import type { WorkspaceOverlayCommit } from "../overlays/overlay-commits";
 import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
-import { wizardDecisionConditions, wizardDecisionRefusal, type WizardDecisionState } from "./overlay-guards";
+import { wizardDecisionRefusal, type WizardDecisionState } from "./overlay-guards";
 import {
   clearPlanDraft,
   emptyPlanDraft,
@@ -236,6 +236,17 @@ const mutedTextClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var
 const MOBILE_CAUTION_ID = "caring-contacts-patient-mobile-caution";
 
 /**
+ * Where `save-draft` takes a coordinator, in the words the screen owes the matrix's Navigation
+ * clause -- and in ONE place, because the control's accessible name and the sentence beside it must
+ * not be able to drift apart.
+ *
+ * The frozen drawer says "Save this activation draft" / "Save draft" / "The draft is kept as it
+ * stands. Nothing is sent and no plan starts." Not one of those mentions leaving this screen, and
+ * they are the approved copy, so the announcement lives here instead of being edited into them.
+ */
+const SAVE_DRAFT_DESTINATION = "keeps this sign-up on this computer and takes you to this team's plans";
+
+/**
  * A text input or textarea. `min-h-tap` for the same reason every other control here carries it:
  * a production tap target is 48px, and never `min-h-11` — 44px hit a sub-pixel rounding flake in
  * `ui-smoke`, so this repo's floor exceeds even the AAA-level criterion deliberately.
@@ -414,18 +425,17 @@ export function PlanWizard({
    * then the tab may hold a different draft or none.
    */
   function decisionCommit(overlayId: string, perform: () => void): WorkspaceOverlayCommit {
-    const needs = wizardDecisionConditions(overlayId);
     // The same value twice, because at this moment nothing has changed yet. That is the honest
     // answer rather than a placeholder: `sign-up-still-here` is a comparison and has nothing to
     // compare against until the decision is confirmed.
-    const refusedNow = wizardDecisionRefusal(needs, decisionStateNow, decisionStateNow);
+    const refusedNow = wizardDecisionRefusal(overlayId, decisionStateNow, decisionStateNow);
     if (refusedNow !== null) return { kind: "unavailable", reason: refusedNow };
     return {
       kind: "record",
       record: () => {
         // `decisionStateNow` is what was true when this control was ACTIVATED -- the commit was
         // staged from that render -- and `liveDecisionState()` reads the store now.
-        const refusedAtCommit = wizardDecisionRefusal(needs, decisionStateNow, liveDecisionState());
+        const refusedAtCommit = wizardDecisionRefusal(overlayId, decisionStateNow, liveDecisionState());
         if (refusedAtCommit !== null) {
           // NOTHING IS MUTATED ON THIS PATH, and that is the clause the frozen contract states and
           // that a test is easiest to write without: `perform` is simply not called.
@@ -496,11 +506,18 @@ export function PlanWizard({
       })),
     ),
     saveDraft: decisionCommit("save-draft", () => {
-      // The draft is deliberately NOT written again here. Every change already goes through
-      // `update`, so this sign-up is on this computer as it stands; writing an identical value
-      // would be a gesture rather than an action, and the frozen row's decision is to leave it as
-      // it stands rather than to store it afresh. What this decision does is LEAVE, which is why
-      // its guard is the one that asks whether the browser will still be holding it afterwards.
+      // THE DRAFT IS DELIBERATELY NOT WRITTEN AGAIN HERE, and the reason is narrow: every change
+      // already goes through `update`, so this sign-up is on this computer as it stands and an
+      // identical write would be a gesture rather than an action.
+      //
+      // WHAT CONFIRMING DOES IS LEAVE, AND THE SCREEN SAYS SO BEFORE IT IS PRESSED -- see
+      // `SAVE_DRAFT_DESTINATION` and the control's own accessible name. The frozen drawer cannot:
+      // its title, decision and summary are the approved design and none of them mentions leaving,
+      // and `OverlayHost` renders that copy and takes no children. The matrix's Navigation clause
+      // is a contract this SCREEN owes, so the screen discharges it in the two places a coordinator
+      // reads before confirming, rather than the frozen copy being amended to fit an
+      // implementation detail. An unannounced navigation was the defect; announcing it is additive
+      // and reversible, where editing the drawer would be neither.
       router.push(CARING_CONTACTS_ROUTES.patients);
     }),
     discardChanges: decisionCommit("discard-changes", discard),
@@ -999,6 +1016,12 @@ function DraftNotice({
         <WorkspaceOverlayTrigger overlayId="save-draft" commit={saveCommit} className={secondaryControlClass}>
           <FileCheck2 aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="truncate">Leave this for now</span>
+          {/*
+            The destination in the control's own accessible name. "Leave this for now" says a
+            coordinator is going somewhere and not where, and the confirmation they open next cannot
+            tell them either -- the frozen drawer's copy does not mention leaving at all.
+          */}
+          <span className="sr-only"> &mdash; {SAVE_DRAFT_DESTINATION}</span>
         </WorkspaceOverlayTrigger>
         {/*
           WHICH OF THE TWO THIS DISCARDS, said without leaving it to be inferred. This system
@@ -1011,6 +1034,16 @@ function DraftNotice({
         <p className={mutedTextClass}>
           Discarding removes this sign-up from this computer. It changes no plan and no record: nothing has been written
           onto a plan yet, because the plan is created at the last stage.
+        </p>
+        {/*
+          THE PAIR, AND WHERE EACH ONE LEAVES YOU. The two controls above differ in one thing a
+          coordinator cares about and one they cannot see: whether a patient's details stay on this
+          machine, and whether the screen changes. The second is the matrix's Navigation clause --
+          "announce the destination" -- and it is stated here because the confirmation that opens
+          next carries the approved drawer copy, which does not mention leaving.
+        */}
+        <p className={mutedTextClass} data-testid="caring-contacts-draft-exit-destinations">
+          Leave this for now {SAVE_DRAFT_DESTINATION}. Discard draft removes it and stays on this screen.
         </p>
         <p role="status" className="min-w-0 text-sm text-[color:var(--text-muted)]">
           {discarded ? "The draft was discarded. Nothing from it is left on this computer." : ""}
