@@ -1521,17 +1521,15 @@ describe("the plan actions - Ruling [129]: a hold is not a cancellation, and the
     await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
 
     const after = await planShape(store, plan);
-    // The plan moved. Held to expected content on BOTH sides rather than compared with itself.
-    expect(before.state).toBe("active");
-    expect(after.state).toBe("paused");
-    expect(after.version).toBe(before.version + 1);
-    // And not one contact moved with it -- the domain's "holds without cancelling" contract, read
-    // from the store rather than inferred from a sentence on the screen.
-    // Held to expected content on one side, then the other compared to it -- three empty lists
-    // agree perfectly, so "these agree" alone would prove nothing.
+    // THE CLAIM, FIRST: not one contact moved. Held to expected content on one side, then the other
+    // compared to it -- three empty lists agree perfectly, so "these agree" alone proves nothing.
     expect(before.contacts).toContainEqual(["Day 1", "scheduled"]);
     expect([...new Set(before.contacts.map(([, state]) => state))]).toEqual(["scheduled"]);
     expect(after.contacts).toEqual(before.contacts);
+    // And the plan itself moved, which is what a hold is.
+    expect(before.state).toBe("active");
+    expect(after.state).toBe("paused");
+    expect(after.version).toBe(before.version + 1);
   });
 
   it("withdraws by cancelling every message not already gone, which is the opposite shape", async () => {
@@ -1658,6 +1656,37 @@ describe("the plan actions - a guard rejection does not mutate", () => {
     expect(await screen.findByTestId("workspace-overlay-action")).not.toHaveAttribute("aria-disabled");
   });
 
+  it("refuses a move on a plan nobody is carrying, saying which fact that is", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store, "plan-unclaimed");
+    const before = await planShape(store, plan, "teamLead");
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    expect(card).toHaveTextContent(/nobody has taken this plan on/i);
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(document.getElementById(action.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["somebody-is-carrying-this-plan"].heading,
+    );
+    await user.click(action);
+
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan, "teamLead")).toEqual(before);
+    expect(await store.getAssignment(plan, { actor: demoActorForRole("teamLead") })).toEqual({
+      ownerId: null,
+      claimedAt: null,
+      coveredBy: null,
+      reassignmentHistory: [],
+    });
+  });
+
   it("refuses a hold on a plan that is not running, and sends nothing", async () => {
     const user = userEvent.setup();
     const { store } = spiedStore();
@@ -1705,7 +1734,31 @@ describe("the plan actions - the commit-time recheck actually rechecks", () => {
         PLAN_ACTION_CONDITION_REFUSALS["the-acting-account-has-not-changed"].heading,
       ),
     );
-    // Nothing reached the plan route, and the record is unchanged.
+    void before;
+    void writes;
+  });
+
+  /**
+   * THE CLAUSE NOBODY WRITES, ON ITS OWN, AND FIRST. The case above proves the refusal is shown and
+   * named; this one proves the refused decision CHANGED NOTHING, with that assertion ahead of every
+   * other so it is the one a mutation reddens rather than a sibling that fails before it is reached.
+   */
+  it("and that refused withdrawal reaches the service not at all, leaving the record where it was", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("withdrawal"));
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    // Settle on the outcome region existing at all, rather than on what it says -- what it says is
+    // the case above's claim, and asserting it here would put a sibling in front of this one.
+    await waitFor(() => expect(outcomeRegion()).toBeInTheDocument());
+
     expect(writes()).toEqual([]);
     expect(await planShape(store, plan)).toEqual(before);
   });
@@ -1879,17 +1932,39 @@ describe("the plan actions - a repeated submission does not act twice", () => {
     await confirmPlanAction(user, "reassignment", 2);
     await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
 
-    // ONE KEY ACROSS BOTH ATTEMPTS -- which is what makes the second a replay rather than a move.
-    const keys = writes().map((entry) => entry.body.idempotencyKey);
-    expect(keys).toHaveLength(2);
-    expect(keys[0]).toBe(keys[1]);
-
-    // AND ONE RECORD, held to expected content rather than to a count of presses.
+    // ONE RECORD, held to expected CONTENT rather than to a count of presses, and asserted before
+    // anything about the key: a second press that moved the plan twice must redden here.
     const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
-    expect(assignment?.ownerId).toBe("demo-coordinator");
     expect(assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId, entry.reason])).toEqual([
       ["demo-teamLead", "demo-coordinator", "Going on leave from Friday."],
     ]);
+    expect(assignment?.ownerId).toBe("demo-coordinator");
+    void writes;
+  });
+
+  it("carries ONE key across both attempts, which is what makes the second a replay", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-replay-key") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    const { writes } = routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const keys = writes().map((entry) => entry.body.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(typeof keys[0]).toBe("string");
   });
 });
 
