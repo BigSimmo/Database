@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 139,
+    "pending": 144,
     "resolved": 376
   },
   "queue": [
@@ -996,6 +996,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "3eebb95f-3671-41d0-afa8-85460a9b5ff3",
+      "action": "done",
+      "summary": "#321: Standardized control focus rings and ARIA descriptors across modal and drawer surfaces.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "421ff6e8-4cb3-4456-b918-d71218b973d5",
       "action": "cancel",
       "summary": "Cancel request e7909949-2a75-44fc-92b0-b978f08546c6: Mitigated by PR #2327: the clinical-decision hold now runs before routing with no override, so these surfaces cannot receive unattended Codex repair.",
@@ -1086,6 +1092,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "531e6569-42da-4bb6-9c0f-6a410e207aea",
+      "action": "cancel",
+      "summary": "Cancel request 854ca9ba-ba3b-442b-be6d-6f5873ed60ed: Wired connection and permission unavailable recovery screens in Caring Contacts.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "561c9187-f8c7-4381-ad31-528b408c0669",
       "action": "done",
       "summary": "#JZM7RM: Harmonized and documented automated PR review fixer governance in docs/agents-guide.md; established repository GitHub workflow as authoritative responder with deduplication markers and client watcher throttling.",
@@ -1102,6 +1114,12 @@
       "action": "done",
       "summary": "#099: Eliminated duplicate server auth round-trips via proxy claims header forwarding (x-proxy-auth-user) with anti-spoofing stripping; batched anonymous dual-quota rate limit deny cache checks; converted 8 setCachedSearch calls to concurrent non-blocking execution with upfront synchronous result cloning.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "5fa0b2ee-38ea-4a6a-bada-815b021b5aac",
+      "action": "cancel",
+      "summary": "Cancel request a0548b2c-2c80-44f9-9440-5b983e169a13: Repaired closing-message refusal guard in Caring Contacts service state.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "608150d5-7aa4-4b98-b497-1a9f1feaf4b5",
@@ -1152,6 +1170,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "6e929764-e281-4941-9ef4-062ec5a08497",
+      "action": "cancel",
+      "summary": "Cancel request 1838b99a-9323-4e3b-84a5-8e52535ecec8: Connected governed-message validator to outbound dispatch routes with fail-closed enforcement.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "73810780-d91c-403f-96ab-e659a75c8688",
       "action": "add",
       "summary": "Caring Contacts hospital referral feed feasibility is unconfirmed and is the largest programme risk",
@@ -1162,6 +1186,12 @@
       "action": "cancel",
       "summary": "Cancel request 67381059-b223-450e-8f4e-2e0bd088f45d: PR #2302 applied update b9f8c826 and changed canonical #NPQJKP before this branch synchronized, so this closure carries the pre-update baseRowFingerprint. Cancel it and use the fresh closure queued against the post-PR #2302 row.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "76744c9f-6e7f-4390-a202-756e50be0cd1",
+      "action": "done",
+      "summary": "#243HCC: Emitted data-settings-nav-target on sub-navigation tabs in settings-dialog.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "7698edb7-af3e-4618-97f6-b70f74b803fb",
