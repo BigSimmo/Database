@@ -414,17 +414,39 @@ describe("the templates library navigates and sizes the way this workspace requi
    * `tests/ui-caring-contacts-workspace.spec.ts`, which has no proof block for this route yet.
    */
   it("gives every bordered surface a forced-colors fallback, so none of them vanishes", () => {
-    const { container } = renderLibrary([version("SYN-PATHWAY-RETIRED", "retired")], { lifecycle: "pending" });
-    const bordered = [...container.querySelectorAll("[class*='border-[color:var(--border)]']")];
-    expect(bordered.length, "nothing on this screen draws a border — the check would be vacuous").toBeGreaterThan(0);
-    for (const element of bordered) {
-      // `getAttribute("class")`, not `.className`: on an SVG element the latter is an
-      // `SVGAnimatedString` object rather than a string, and every matcher below would be reading
-      // the wrong thing without saying so.
-      expect(
-        element.getAttribute("class") ?? "",
-        `${element.tagName} draws a border with no forced-colors fallback`,
-      ).toContain("forced-colors:border-[CanvasText]");
+    // TWO SCENARIOS, AND THE SECOND VACUITY GUARD, BOTH BOUGHT BY A MUTATION. The first version of
+    // this check rendered ONE library — a retired version under a Pending filter — which is an
+    // empty list, so no row was in the document at all. Stripping the fallback from the row then
+    // left the check green: `bordered.length > 0` was satisfied by the chips and the empty state,
+    // and the surface the mutation attacked was never examined. A "there is something here" guard
+    // does not establish that the RIGHT something is here.
+    const scenarios: readonly { name: string; open: () => ReturnType<typeof renderLibrary> }[] = [
+      { name: "a version row", open: () => renderLibrary([version("SYN-PATHWAY-CURRENT", "approved")]) },
+      {
+        name: "an empty state and the all-retired notice",
+        open: () => renderLibrary([version("SYN-PATHWAY-RETIRED", "retired")], { lifecycle: "pending" }),
+      },
+    ];
+
+    for (const { name, open } of scenarios) {
+      const { container, unmount } = open();
+      if (name === "a version row") {
+        expect(container.querySelectorAll("li").length, "no row rendered — the check would be vacuous").toBeGreaterThan(
+          0,
+        );
+      }
+      const bordered = [...container.querySelectorAll("[class*='border-[color:var(--border)]']")];
+      expect(bordered.length, `${name} draws no border — the check would be vacuous`).toBeGreaterThan(0);
+      for (const element of bordered) {
+        // `getAttribute("class")`, not `.className`: on an SVG element the latter is an
+        // `SVGAnimatedString` object rather than a string, and the matcher would be reading the
+        // wrong thing without saying so.
+        expect(
+          element.getAttribute("class") ?? "",
+          `${name}: ${element.tagName} draws a border with no forced-colors fallback`,
+        ).toContain("forced-colors:border-[CanvasText]");
+      }
+      unmount();
     }
   });
 
