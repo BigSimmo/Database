@@ -4,8 +4,48 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const coverAuth = vi.hoisted(() => ({
+  authorizationHeader: { Authorization: "Bearer cover-test" },
+  session: { user: { id: "cover-test-user" } },
+}));
+
+vi.mock("@/lib/supabase/client", () => ({
+  // The real provider memoizes this value until credentials change. Keeping
+  // the mock stable prevents an ordinary state update from masquerading as a
+  // token refresh and starting a new cover lookup in the same open drawer.
+  useAuthSession: () => coverAuth,
+}));
+
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
-  SignedImage: ({ caption, alt }: { caption?: string; alt?: string }) => <p>{caption ?? alt}</p>,
+  SignedImage: ({
+    caption,
+    alt,
+    failurePresentation,
+    onSettledFailure,
+  }: {
+    caption?: string;
+    alt?: string;
+    failurePresentation?: "message" | "hidden";
+    onSettledFailure?: (failure: {
+      source: "response";
+      status: number;
+      retryable: boolean;
+      retryAfterMs: null;
+    }) => void;
+  }) => (
+    <>
+      <p>{caption ?? alt}</p>
+      {failurePresentation === "hidden" && onSettledFailure ? (
+        <button
+          type="button"
+          data-testid="settle-hidden-signed-image"
+          onClick={() => onSettledFailure({ source: "response", status: 404, retryable: false, retryAfterMs: null })}
+        >
+          Settle hidden image failure
+        </button>
+      ) : null}
+    </>
+  ),
 }));
 
 import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
@@ -606,5 +646,27 @@ describe("answer source drawer cover", () => {
     // The citation itself is untouched: a missing decoration must never take the
     // passage down with it.
     expect(screen.getByTestId("answer-source-drawer-passage")).toBeInTheDocument();
+  });
+
+  it("removes only a failed optional cover while preserving source evidence and actions", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    render(
+      <RailAndDrawer
+        sources={SOURCES}
+        visualEvidence={[visualCard({ id: "evidence-1", source_chunk_id: "s1", caption: "Ordinary evidence" })]}
+      />,
+    );
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+
+    const cover = await screen.findByTestId("answer-source-drawer-cover");
+    await user.click(within(cover).getByTestId("settle-hidden-signed-image"));
+
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-passage")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-pager")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-menu-trigger")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View original PDF" })).toBeInTheDocument();
+    expect(screen.getByText("Ordinary evidence")).toBeInTheDocument();
   });
 });

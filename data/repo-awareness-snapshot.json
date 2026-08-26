@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "890804ac2a21e4ef0091c82827685c7ef623d344",
-    "committed_at": "2026-08-26T22:38:53+08:00"
+    "sha": "c19d2cb01243ef93dbd8464d756fe0b6c21c3b5c",
+    "committed_at": "2026-08-26T22:58:40+08:00"
   },
   "routes": {
     "modes": [
@@ -3834,6 +3834,22 @@
         "scope": "PR #2389",
         "outcome": "fixes-applied",
         "checks": "PR policy body canonicalized; DocumentViewer 1694/1734 via state-surface extract; vitest 20/20 shell+section+recovery; Bugbot threads resolved; CI watching"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "09ff8ca36489411f26408d6b557888459151bb4a",
+        "scope": "authenticated document cover selection, retry lifecycle, optional preview failure, and source evidence preservation",
+        "outcome": "All substantiated P2 findings fixed; no remaining P0-P2 findings",
+        "checks": "lint pass; typecheck pass; focused preview 79/79; production build pass; full suite 10489 pass with six unrelated Windows Claude-cloud failures after the one preview failure was fixed; offline fixture contracts pass; snapshot and medication checks pass"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "57ab01cbe28977ed3e0db830c45a00749977e351",
+        "scope": "PR #2391",
+        "outcome": "fixes-applied",
+        "checks": "PR policy body canonicalized; cover in-flight keyed by credential; vitest use-document-cover 9/9; snapshot regenerated; threads resolved; CI watching"
       },
       {
         "date": "2026-08-26",
@@ -24805,8 +24821,8 @@
       }
     ],
     "counts": {
-      "records": 2626,
-      "refs": 1604
+      "records": 2628,
+      "refs": 1605
     }
   }
 }
