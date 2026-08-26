@@ -268,6 +268,13 @@ describe("POST /api/caring-contacts/plans/[planId]/contacts/[contactId]", () => 
     expect(dateChange.status).toBe(400);
     expect(await response(dateChange)).toEqual({ refusal: "invalid-request" });
 
+    // An EXTRA field, which `.strict()` refuses. A schema that quietly dropped it would accept a
+    // request carrying more than this route acts on, and the caller would never learn that half of
+    // what it sent was ignored.
+    const extraField = await callPost(PLAN_ID, before.contact.id, { ...moveBody(), toSecond: 30 });
+    expect(extraField.status).toBe(400);
+    expect(await response(extraField)).toEqual({ refusal: "invalid-request" });
+
     const freeText = await callPost(PLAN_ID, "not an identifier", moveBody());
     expect(freeText.status).toBe(400);
 
