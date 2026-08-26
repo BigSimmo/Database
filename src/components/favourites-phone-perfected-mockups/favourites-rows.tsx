@@ -5,7 +5,9 @@ import {
   Check,
   CircleAlert,
   Copy,
+  ExternalLink,
   FolderInput,
+  History,
   ListFilter,
   MoreHorizontal,
   Pin,
@@ -42,10 +44,14 @@ import { kindIdentity, setLabels, setOrder, type FavouriteRow, type FavouriteSet
 export function FavouriteListRow({
   row,
   showPinGlyph,
+  typeAs = "word",
   onOpen,
   onOpenActions,
 }: {
   row: FavouriteRow;
+  /** `chip` is the pill the shipped Recent card uses. It scans faster and
+   *  costs about 14px of the metadata line's width. */
+  typeAs?: "word" | "chip";
   /** Only when the list is ungrouped. Inside the Pinned group the glyph
    *  repeats the label above it, and a title that wraps to two lines leaves it
    *  stranded on a line of its own. */
@@ -83,12 +89,23 @@ export function FavouriteListRow({
             {showPinGlyph && row.pinned ? (
               <Pin className="size-icon-xs shrink-0 text-[color:var(--clinical-accent)]" aria-label="Pinned" />
             ) : null}
-            <span className="shrink-0" style={{ color: identity.ink }}>
-              {identity.label}
-            </span>
-            <span aria-hidden className="text-[color:var(--decoration-soft)]">
-              ·
-            </span>
+            {typeAs === "chip" ? (
+              <span
+                className="shrink-0 rounded-pill border px-1.5 py-px text-3xs font-extrabold"
+                style={{ background: identity.soft, borderColor: identity.border, color: identity.ink }}
+              >
+                {identity.label}
+              </span>
+            ) : (
+              <>
+                <span className="shrink-0" style={{ color: identity.ink }}>
+                  {identity.label}
+                </span>
+                <span aria-hidden className="text-[color:var(--decoration-soft)]">
+                  ·
+                </span>
+              </>
+            )}
             <span className="truncate">{row.detail}</span>
             <span aria-hidden className="text-[color:var(--decoration-soft)]">
               ·
@@ -114,6 +131,60 @@ export function FavouriteListRow({
   );
 }
 
+/**
+ * Continue — resume what you were last doing.
+ *
+ * This is the one derived card from the shipped page that survives, because it
+ * answers a different question from the list beneath it: "what was I in the
+ * middle of" rather than "what have I saved". It sits above the pinned group
+ * and does not scroll away, which is the whole point of a resume affordance.
+ *
+ * The shipped Continue card measures 113px because the title, the metadata and
+ * a full-width Continue button are three stacked things. Here the strip IS the
+ * button, so it costs 72px — one row — and keeps a 48px target.
+ *
+ * The Recent card deliberately did not survive: it measures 277px to show the
+ * three most recently opened items, and the list below it is already sorted by
+ * recency, so those same three are the first three rows. It buys nothing.
+ */
+export function ContinueStrip({ row, onOpen }: { row: FavouriteRow; onOpen: (row: FavouriteRow) => void }) {
+  const identity = kindIdentity[row.kind];
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(row)}
+      className={cn(
+        "flex w-full min-h-18 items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] py-3 pl-3 pr-2 text-left hover:brightness-[0.98]",
+        focusRing,
+      )}
+      style={{ boxShadow: "inset 3px 0 0 0 var(--clinical-accent)" }}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
+          <History className="size-icon-xs shrink-0" aria-hidden />
+          Continue
+          <span aria-hidden className="text-[color:var(--decoration-soft)]">
+            ·
+          </span>
+          <span className="truncate font-bold normal-case tracking-normal text-[color:var(--text-muted)]">
+            {setLabels[row.setId]} · {row.lastOpened}
+          </span>
+        </span>
+        <span className="mt-1 line-clamp-1 block text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
+          {row.title}
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border"
+        style={{ background: identity.soft, borderColor: identity.border, color: identity.ink }}
+      >
+        <ExternalLink className="size-icon-md" aria-hidden />
+      </span>
+    </button>
+  );
+}
+
 function GroupLabel({ children }: { children: ReactNode }) {
   return (
     <p className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-1.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
@@ -133,11 +204,13 @@ function GroupLabel({ children }: { children: ReactNode }) {
 export function FavouritesList({
   rows,
   showPinnedGroup,
+  typeAs = "word",
   onOpen,
   onOpenActions,
 }: {
   rows: readonly FavouriteRow[];
   showPinnedGroup: boolean;
+  typeAs?: "word" | "chip";
   onOpen: (row: FavouriteRow) => void;
   onOpenActions: (row: FavouriteRow) => void;
 }) {
@@ -155,6 +228,7 @@ export function FavouritesList({
                 key={row.id}
                 row={row}
                 showPinGlyph={!showPinnedGroup}
+                typeAs={typeAs}
                 onOpen={onOpen}
                 onOpenActions={onOpenActions}
               />
@@ -172,6 +246,7 @@ export function FavouritesList({
                 key={row.id}
                 row={row}
                 showPinGlyph={!showPinnedGroup}
+                typeAs={typeAs}
                 onOpen={onOpen}
                 onOpenActions={onOpenActions}
               />

@@ -16,6 +16,7 @@ import {
   focusRing,
 } from "./favourites-phone-shell";
 import {
+  ContinueStrip,
   FavouritesList,
   ItemActionsSheetBody,
   NoMatchesState,
@@ -49,8 +50,10 @@ import {
  * strip, an in-flow composer, a privacy notice, a results band, a Continue
  * card and a Recent card. None of the library itself is on the first screen.
  *
- * This design puts 165px of app chrome above the list and 72px rows under it:
- * seven rows fully visible, an eighth partly.
+ * This design puts 165px of app chrome above the list and 72px rows under it.
+ * Measured: the Continue strip plus six saved rows sit fully above the fold
+ * and a seventh is partly visible; with Continue removed it is seven rows.
+ * The strip costs exactly one row.
  *
  * The argument here is one sentence: for a surface whose entire content is
  * things you already chose, THE LIST IS THE PAGE, and a band earns its
@@ -61,10 +64,13 @@ import {
  *  1. One header, not six bands. Title, live count, one ellipsis sheet.
  *  2. Sets are the navigation, as a scrolling chip rail. The weighted segment
  *     track was tried and dropped - see `SetRail` for why.
- *  3. A row costs one line: ~72px, nine on the first screen instead of two.
+ *  3. A row costs one line: 72px against the shipped card's measured 228px.
  *  4. Pinning finally gets a control. `pinnedAt` has been in the schema and
  *     the PATCH contract with no UI anywhere.
  *  5. The shared composer stays the only input. No search field in the header.
+ *  6. Continue survives from the shipped page, at 72px instead of 113px. The
+ *     Recent card does not: it costs 277px to show three items the
+ *     recency-sorted list already has as its first three rows.
  *
  * WHAT IT REFUSES TO DRAW
  *
@@ -76,7 +82,17 @@ import {
  */
 
 type FrameState =
-  "library" | "set" | "filtering" | "no-matches" | "empty" | "item-sheet" | "sets-sheet" | "partial" | "signed-out";
+  | "library"
+  | "set"
+  | "filtering"
+  | "no-matches"
+  | "empty"
+  | "item-sheet"
+  | "sets-sheet"
+  | "partial"
+  | "signed-out"
+  | "no-continue"
+  | "type-chips";
 
 type SortMode = "recent" | "title" | "set";
 
@@ -93,7 +109,7 @@ const frames: ReadonlyArray<{
     number: "01",
     name: "The library",
     summary:
-      "32 saved items, four pinned. Seven rows sit fully above the fold and an eighth is partly visible, where the shipped page shows none of the library at all. The rail, the header and the composer are the entire chrome budget.",
+      "32 saved items, four pinned. Continue plus six saved rows sit fully above the fold and a seventh is partly visible, where the shipped page shows none of the library at all. The rail, the header, Continue and the composer are the entire chrome budget.",
     cost: "A row carries no description, so two similarly named forms are told apart by their code and set rather than by a summary line.",
     note: "interactive",
   },
@@ -163,6 +179,22 @@ const frames: ReadonlyArray<{
       "The boundary of the whole feature: `canAccessFavouritesMode` is demo mode or authenticated. Drawn once so the gate is designed rather than inherited.",
     cost: "Nothing here hints at what is behind the gate beyond naming the four kinds.",
   },
+  {
+    id: "no-continue",
+    number: "10",
+    name: "Without Continue",
+    summary:
+      "The same library with the resume strip removed, for comparison. One more row fits. The question is whether resuming what you were doing is worth a row of what you saved.",
+    cost: "Resuming costs a scan of the list instead of a tap, and after a set filter the item you were on may not be in view at all.",
+  },
+  {
+    id: "type-chips",
+    number: "11",
+    name: "Type as a chip",
+    summary:
+      "The metadata line carries the shipped Recent card's pill instead of a coloured word. It scans faster down a column of mixed kinds, which is what the shipped card got right.",
+    cost: "The pill costs about 14px of a line that also holds the qualifier and the timestamp, so a long service name truncates sooner.",
+  },
 ];
 
 /* ═══════════════════════  the screen  ═══════════════════════ */
@@ -176,6 +208,10 @@ function sortRows(rows: readonly FavouriteRow[], sort: SortMode) {
 }
 
 function FavouritesPhoneScreen({ state }: { state: FrameState }) {
+  // Continue is suppressed only in the comparison frame and in the states
+  // where there is nothing to resume.
+  const showContinue = !["no-continue", "empty", "signed-out", "no-matches"].includes(state);
+  const typeAs = state === "type-chips" ? "chip" : "word";
   const [activeSet, setActiveSet] = useState<FavouriteSetId>(state === "set" ? "ward-round" : "all");
   const [sort, setSort] = useState<SortMode>("recent");
   const [sheet, setSheet] = useState<null | "item" | "sets" | "page">(
@@ -193,10 +229,26 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   const loadedRows = useMemo(() => (partial ? favouriteRows.slice(0, 26) : favouriteRows), [partial]);
 
   const queryMatched = useMemo(() => loadedRows.filter((row) => matchesQuery(row, query)), [loadedRows, query]);
+  // The item Continue is offering to resume.
+  const resumeRow = useMemo(() => [...loadedRows].sort((a, b) => a.recency - b.recency)[0], [loadedRows]);
+
+  // What the search and the set actually matched, counted BEFORE Continue is
+  // lifted out of the list. Counting after it made an unfiltered library read
+  // "31 of 32 saved" while the All chip still said 32 — two answers to one
+  // question, which is a defect #164 removed from this page once already.
+  const matchedCount = useMemo(
+    () => (activeSet === "all" ? queryMatched : queryMatched.filter((row) => row.setId === activeSet)).length,
+    [queryMatched, activeSet],
+  );
+
   const visible = useMemo(() => {
     const inSet = activeSet === "all" ? queryMatched : queryMatched.filter((row) => row.setId === activeSet);
-    return sort === "recent" ? pinnedFirst(inSet) : sortRows(inSet, sort);
-  }, [queryMatched, activeSet, sort]);
+    // Drawn once. The shipped page shows the resumed item in Continue AND
+    // again in Recent AND again in the table; on a phone that is the same
+    // 72px row spent twice on the same thing, and it reads as a bug.
+    const withoutResume = showContinue ? inSet.filter((row) => row.id !== resumeRow.id) : inSet;
+    return sort === "recent" ? pinnedFirst(withoutResume) : sortRows(withoutResume, sort);
+  }, [queryMatched, activeSet, sort, showContinue, resumeRow]);
 
   // Rail counts reflect the search, so a chip never promises rows the query
   // has already excluded.
@@ -225,16 +277,26 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
         </>
       ) : (
         <>
-          <PageHeader matched={visible.length} total={loadedRows.length} onOpenActions={() => setSheet("page")} />
+          <PageHeader matched={matchedCount} total={loadedRows.length} onOpenActions={() => setSheet("page")} />
           <SetRail sets={rails} activeId={activeSet} onSelect={(id) => setActiveSet(id as FavouriteSetId)} />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--surface)]">
             {partial ? <PartialLoadNotice failed={5} /> : null}
+            {showContinue && visible.length > 0 ? (
+              <ContinueStrip
+                row={resumeRow}
+                onOpen={(row) => {
+                  setActiveRow(row);
+                  setSheet("item");
+                }}
+              />
+            ) : null}
             {visible.length === 0 ? (
               <NoMatchesState query={query} total={loadedRows.length} />
             ) : (
               <FavouritesList
                 rows={visible}
                 showPinnedGroup={sort === "recent"}
+                typeAs={typeAs}
                 onOpen={(row) => {
                   setActiveRow(row);
                   setSheet("item");
@@ -441,6 +503,11 @@ const decisions: ReadonlyArray<{ n: string; head: string; body: string }> = [
     head: "The composer stays the only input",
     body: "Typing filters in place; the count becomes a matched-of-total pair and the rail counts re-weight. No header search field. The six existing favourites mockups each draw a second search bar, which the one-composer contract forbids.",
   },
+  {
+    n: "6",
+    head: "Continue stays; Recent does not",
+    body: "The shipped Continue card measures 113px because the title, the metadata and a full-width button are three stacked things. Here the strip is the button, so it costs 72px — one row. The Recent card measures 277px to show three items the recency-sorted list already has as its first three rows.",
+  },
 ];
 
 export function FavouritesPhonePerfectedMockupsPage() {
@@ -462,8 +529,8 @@ export function FavouritesPhonePerfectedMockupsPage() {
             page puts the first row of your saved list at <strong>y = 1141</strong> — about 300px below the fold —
             behind a hint strip, a composer, a privacy notice, a results band, a Continue card and a Recent card, and
             then spends <strong>228px</strong> on each item. Nothing of the library is on the first screen. This
-            direction spends <strong>165px</strong> of chrome and <strong>72px</strong> a row, which puts seven items
-            above the fold, and it is drawn across every state that actually occurs.
+            direction spends <strong>165px</strong> of chrome and <strong>72px</strong> a row, which puts Continue plus
+            six saved rows above the fold, and it is drawn across every state that actually occurs.
           </p>
 
           <ol className="mt-6 grid max-w-5xl gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">

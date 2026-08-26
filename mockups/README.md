@@ -111,20 +111,32 @@ notice, a results band, a Continue card and a Recent card. Each item card is **2
 the library itself is on the first screen. This direction spends **165px** of app chrome and **72px**
 a row, which puts **seven rows fully above the fold and an eighth partly**.
 
-| Decision                                 | Trade-off                                                              |
-| ---------------------------------------- | ---------------------------------------------------------------------- |
-| One header, not six bands                | Sort, sets and clear-all cost a tap behind the ellipsis sheet          |
-| Sets as a scrolling chip rail            | Later sets sit off-screen until the rail is scrolled                   |
-| One-line rows                            | No description, so near-identical forms are told apart by code and set |
-| Pinned rows lead, with a real toggle     | One 28px group label, which disappears when nothing is pinned          |
-| The shared composer stays the only input | The input is at the far end of the phone from the count it changes     |
+| Decision                                   | Trade-off                                                                  |
+| ------------------------------------------ | -------------------------------------------------------------------------- |
+| One header, not six bands                  | Sort, sets and clear-all cost a tap behind the ellipsis sheet              |
+| Sets as a scrolling chip rail              | Later sets sit off-screen until the rail is scrolled                       |
+| One-line rows                              | No description, so near-identical forms are told apart by code and set     |
+| Pinned rows lead, with a real toggle       | One 28px group label, which disappears when nothing is pinned              |
+| The shared composer stays the only input   | The input is at the far end of the phone from the count it changes         |
+| Continue survives at 72px; Recent does not | Continue costs exactly one saved row (six above the fold instead of seven) |
 
 A **weighted segment track** (the `DocumentSectionTrack` shape the in-page navigation template
 prescribes) was tried first and dropped: eight sets across 390px leaves each segment about 48px,
 under the width a set name needs, so the track degrades to unlabelled slivers.
 
-Nine phone frames cover library, one set selected, filtering, no matches, first run, item actions,
-set management, partial load and signed out; one 1280px frame shows the desktop translation.
+**What survived from the shipped page.** Measured at 390px, the three derived cards above the list are
+Continue 113px, Recent 277px and Your sets 255px — 645px of the 1141px. Continue is kept because it
+answers a different question from the list ("what was I in the middle of", not "what have I saved"),
+rebuilt so the strip _is_ the button rather than stacking a button under a title: 72px, exactly one
+row, and it does not scroll away. The resumed item is then drawn once — the shipped page shows it in
+Continue, again in Recent and again in the table. Recent is dropped: the list below it is already
+sorted by recency, so its three rows are the first three rows. Your sets is replaced by the rail,
+which is always visible for 53px instead of 255px.
+
+Eleven phone frames cover library, one set selected, filtering, no matches, first run, item actions,
+set management, partial load, signed out, and two comparisons — the library without Continue, and the
+type shown as the shipped Recent card's pill instead of a coloured word. One 1280px frame shows the
+desktop translation.
 
 **Content honesty.** Only `service | form | differential | therapy` are drawn, because
 `favouriteContentTypeSchema` permits nothing else. The six earlier favourites mockups draw saved
