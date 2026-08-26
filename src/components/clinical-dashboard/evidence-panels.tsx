@@ -106,6 +106,12 @@ export {
 type AnswerSupportPriority = {
   title: string;
   detail: string;
+  /**
+   * The finding's own severity word ("Red flag", "Contraindication"), split out
+   * of `detail` so the row can set it as a chip instead of running it into the
+   * citation. Only the safety-findings priority has one.
+   */
+  severityLabel?: string;
   sourceLabel?: string;
   tone: "priority" | "caution";
 };
@@ -138,7 +144,8 @@ export function answerSupportPriority(
   if (firstSafetyFinding) {
     return {
       title: "Safety findings",
-      detail: formatSafetyFindingLabel(firstSafetyFinding),
+      severityLabel: firstSafetyFinding.label,
+      detail: formatCitationLabel(firstSafetyFinding.citation),
       tone: "caution",
     };
   }
@@ -252,18 +259,25 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
-            className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
+            className={cn(supportButtonClass, "w-full")}
             aria-label="Open safety-critical source findings"
           >
             <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
               aria-hidden="true"
             >
               <CircleAlert aria-hidden="true" className="h-5 w-5" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
-              <span className={cn("mt-1 block line-clamp-2 text-xs leading-5", textMuted)}>{priority.detail}</span>
+              <span className={cn("mt-1 flex min-w-0 items-center gap-1.5 text-xs leading-5", textMuted)}>
+                {priority.severityLabel ? (
+                  <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
+                    {priority.severityLabel}
+                  </span>
+                ) : null}
+                <span className="line-clamp-2">{priority.detail}</span>
+              </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
               <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{safetyFindingsCount}</span>
@@ -271,18 +285,13 @@ export function AnswerSupportSummaryCard({
             </span>
           </button>
         ) : (
-          <div
-            className={cn(
-              "grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-t-2 px-3 py-2",
-              priority.tone === "caution"
-                ? "border-t-[color:var(--warning)]"
-                : "border-t-[color:var(--clinical-accent)]",
-            )}
-          >
+          <div className="grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2">
             <span
               className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-md",
-                priority.tone === "caution" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
+                "grid h-7 w-7 shrink-0 place-items-center rounded-md border",
+                priority.tone === "caution"
+                  ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                  : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
               )}
               aria-hidden="true"
             >

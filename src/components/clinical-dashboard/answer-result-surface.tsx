@@ -300,22 +300,24 @@ function StagedAnswerResultSurfaceImpl({
               />
             ) : null}
 
-            {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection
-                queries={crossModeQueries}
-                onModeSearch={onCrossModeSearch}
-                variant="responsive-compact"
+            {/* Follow-ups first, and on every width. They were wrapped in
+                `hidden sm:block`, so the most likely next tap on this surface
+                was desktop-only — the phone got the two "where else does this
+                appear" panels and none of the questions. Asking the next
+                question is the clinical step; browsing the library is not, so
+                the questions lead and the matches collapse to one line beneath
+                them (owner decision, 2026-08-26, "direction B"). */}
+            {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
+              <AnswerFollowUpSuggestions
+                suggestions={followUpSuggestions}
+                onPick={onPickFollowUpSuggestion}
+                disabled={followUpSuggestionsDisabled}
+                layout="rows"
               />
             ) : null}
 
-            {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
-              <div className="hidden sm:block">
-                <AnswerFollowUpSuggestions
-                  suggestions={followUpSuggestions}
-                  onPick={onPickFollowUpSuggestion}
-                  disabled={followUpSuggestionsDisabled}
-                />
-              </div>
+            {crossModeQueries?.length && onCrossModeSearch ? (
+              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} variant="line" />
             ) : null}
           </div>
         </div>

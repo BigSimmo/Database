@@ -151,7 +151,7 @@ export function AnswerCard({
               // describes the message beside the assistant badge, so it has to
               // start where that message starts. Token, because the badge is
               // declared in a different component.
-              "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 ps-[var(--answer-message-gutter)]"
+              "flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
             : cn("space-y-2 border-b border-[color:var(--border)]", panelX, panelY),
         )}
       >
