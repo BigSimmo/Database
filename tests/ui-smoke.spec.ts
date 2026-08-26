@@ -3624,6 +3624,57 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(workspace).toBeVisible({ timeout: 30_000 });
   });
 
+  test("opening a document reveals phone chrome hidden by the search route", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
+
+    const firstResult = page.getByTestId("document-result-card").first();
+    const openDocument = firstResult.getByRole("link", { name: /^Open / });
+    const collapse = page.getByTestId("universal-header-collapse");
+    await expect(openDocument).toBeVisible({ timeout: 30_000 });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2_000 });
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => {
+      const state = window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean };
+      const detectStaleHeader = () => {
+        const onDocumentDetail =
+          window.location.pathname.startsWith("/documents/") && window.location.pathname !== "/documents/search";
+        const documentReady = Boolean(document.querySelector('[data-testid="document-viewer-content"]'));
+        const headerHidden =
+          document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
+          "true";
+        if (onDocumentDetail && documentReady && headerHidden) {
+          state.__documentRoutePaintedWithHiddenHeader = true;
+        }
+      };
+      new MutationObserver(detectStaleHeader).observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        attributeFilter: ["data-scroll-hidden"],
+      });
+    });
+
+    // Invoke the already-rendered link without Playwright scrolling it back
+    // into view first; the navigation must reset the genuinely hidden state.
+    await openDocument.evaluate((element) => (element as HTMLElement).click());
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
+    await expect(page.getByTestId("document-viewer-content")).toBeVisible({ timeout: 30_000 });
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean })
+            .__documentRoutePaintedWithHiddenHeader ?? false,
+      ),
+    ).toBe(false);
+  });
+
   test("newer routed differential context wins over an older response", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
