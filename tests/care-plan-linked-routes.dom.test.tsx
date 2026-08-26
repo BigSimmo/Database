@@ -3378,6 +3378,7 @@ describe("Care Plan Patient Plan", () => {
     renderJourney(carePlanRoute.patientPlan("SYN-PATIENT-001"));
 
     expect(screen.getByTestId("care-plan-patient-plan-no-current")).toHaveTextContent(/no approved Patient Plan/i);
+    expect(screen.queryByTestId("care-plan-patient-plan-ownership")).toBeNull();
     await createDraft(user);
 
     const draftNotice = screen.getByTestId("care-plan-patient-plan-draft-notice");
@@ -3690,6 +3691,8 @@ describe("Care Plan Patient Plan", () => {
 
     // Nothing on the reading surface says otherwise.
     goTo(carePlanRoute.patientPlan("SYN-PATIENT-001"));
+    expect(screen.getByTestId("care-plan-patient-plan-ownership")).toHaveTextContent(/own voice/i);
+    expect(screen.getByTestId("care-plan-patient-plan-ownership")).toHaveTextContent(/same agreement/i);
     expect(
       within(screen.getByTestId("care-plan-patient-plan-version")).queryByText(
         "Written without this person's involvement",
@@ -3771,6 +3774,10 @@ describe("Care Plan Patient Plan", () => {
         "Written without this person's involvement",
       ),
     ).toBeInTheDocument();
+    const ownership = screen.getByTestId("care-plan-patient-plan-ownership");
+    expect(ownership).toHaveTextContent(/the team wrote/i);
+    expect(ownership).not.toHaveTextContent(/own voice/i);
+    expect(ownership).not.toHaveTextContent(/same agreement/i);
 
     /*
      * On screen too, not only on paper. A clinician reads these same eight
