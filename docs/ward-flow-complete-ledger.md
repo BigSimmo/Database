@@ -285,7 +285,7 @@ two-lists-drifting defect (D8/D9) that file exists to prevent.
 3. `node scripts/run-playwright.mjs` exits `0` when tests fail and when it refuses to run at all.
    Read the `N passed` line; never the exit code.
 
-## 5d. Phase 5 — designed 2026-08-26, not yet built
+## 5d. Phase 5 — designed and BUILT 2026-08-26
 
 Direction settled across one long conversation: Ward Flow becomes a bed-flow hub covering the whole
 pipe, from the community mental health team's decision to admit through to discharge — not the
@@ -303,6 +303,203 @@ Cold-start handover: `docs/ward-flow-phase-5-handover.md`.
 **The assumption most likely to be wrong**, recorded as spec D14: predicted, confirmed, blocked,
 released is a software model of how a bed comes free, and no ward clinician has checked it. A bed
 may be confirmed and blocked simultaneously in reality. It is cheap to change while synthetic.
+
+### What was built, 2026-08-26
+
+Eight tasks, subagent-driven, one implementer per task with an independent review after each.
+
+- A bed release gained the lifecycle. `confidence` narrowed to `likely | possible` and now means
+  something only while a release is predicted; `blocker` became state-dependent and typed, legal
+  only while blocked. `LeaveBed` is its own type and a usable leave bed is never merged into
+  availability. The blocker list grew to seven, all operational, none describing a person.
+- Five capacity figures, derived in one place. `availableNow` is computed before any release or
+  leave bed is looked at, so a prediction is **structurally** incapable of inflating it — not
+  merely tested against, unable to happen. `availableNow` and `held` are copied verbatim from
+  `unitCapacity` so the number a coordinator acts on cannot drift.
+- Only a ward moves its own beds. A coordinator attempting any transition gets a visible
+  `Rejection`; the one thing it may do — request a refresh — changes no number.
+- The discharge and egress board at `/mockups/ward-flow/discharges`, blocked rows first, cards
+  rather than a squeezed table below 40rem, and the beyond-tonight exclusion count stated even at
+  zero.
+- One freshness stamp, used by every board.
+
+**The boundary went 22:00 → 24:00 → 22:00** in one session. The owner asked for midnight; on being
+shown D5's reasoning (midnight is a calendar boundary, nobody hands over at midnight) they reverted.
+The spec is byte-identical to what it was. Recorded because the round trip is the useful part: D5
+had written the boundary down "so it can be changed in one place", and that is exactly how it
+behaved — one constant, one assertion, no code shipped at the wrong value.
+
+### What the screenshots caught that every test passed
+
+The sweep ran after the first visible change rather than at the end, and found four defects that
+were invisible to 10,000+ passing tests. This is section 7's recurring failure, caught mid-phase for
+the first time instead of after later work was built on top:
+
+1. The discharge board printed each confirming ward twice per row — a bare line above the freshness
+   stamp that already names it. Same class as the Phase 4 sidebar that duplicated its own title.
+2. **The capacity board contradicted its own headline.** The headline carefully separates confirmed
+   from predicted and excludes beyond-tonight; the per-unit row three columns away still showed
+   `potential`, which lumps all of it together including the excluded ones. One screen, two
+   incompatible answers.
+3. A raw union value rendered as user-facing text — a release read `confirmed` in lowercase.
+4. Fixing (2) exposed a fourth: the ward screen still said "Potential 1" for the same unit the
+   capacity board now described as "Confirmed 1, Predicted 0", directly above an itemised list
+   showing that release as Confirmed. Two vocabularies for the same beds.
+
+Each fix carries an assertion that would catch its return, and each was mutation-tested.
+
+### Two gates that hid, and one pre-existing failure
+
+- **Formatting is in none of `test`, `typecheck` or `lint`.** Five files were unformatted after all
+  three passed. Nothing verified during the phase could have caught it; only CI would have.
+- **The legal-figure guard failed the build, correctly.** `candidateEvents` must switch
+  exhaustively over every event type, so adding six events without extending
+  `tests/ward-legal-figure-guard.test.ts` refused to compile rather than letting six actions pass
+  through the Mental Health Act sweep unchecked. Extended, and proven non-vacuous by emptying one
+  candidate list and watching the traversal assertion name the event that stopped being reached.
+- Three failures in `clinical-hazard-controls`, `privacy-readiness-contract` and
+  `rag-plan-package-parity` fail identically on clean `origin/main` — verified in a worktree at
+  that ref. Pre-existing, unrelated to Ward Flow, deliberately not touched.
+
+### Still true after Phase 5
+
+Not one new fact about any patient entered the system. `BedRelease` and `LeaveBed` both remain free
+of anything describing a person, asserted structurally against each type's own field set rather
+than against fixture content — a future field named `patientId` would fail it. No legal figure was
+invented anywhere.
+
+### 5d-ii. Automated review round, and the role-screen flake it uncovered (2026-08-26)
+
+Four findings were raised against PR #2390 by automated review after the phase was assembled.
+Three were real and are fixed; one was rejected. All three fixes carry a new test that was
+mutation-tested — the guarded behaviour was deliberately broken, the test watched to go red with
+the failure line quoted, then restored.
+
+1. **P1 — every ward-entered prediction landed in the wrong band.** `FLAG_BED_RELEASE` carried no
+   expected time, so the reducer stamped `expectedAt` with the moment the ward _reported_ the
+   release. `releaseBand()` then classified it `now` every time, because `expectedAt <= now` is
+   trivially true when the two are equal. The four planning bands therefore worked only for the
+   hand-authored fixture and never for anything a ward actually flagged — the single most
+   consequential defect found in the phase. Fixed by collecting an "Expected free" time on the
+   ward's flag form, parsed by the same helper the leave-bed form already uses, and carrying it
+   through unchanged. `confirmedAt` deliberately stays the moment of the report: they are
+   different facts, and conflating them was the bug. Neither carries anything about the departing
+   patient — `expectedAt` is an operational estimate about the **bed**, the same category
+   `expectedReturn` already occupies.
+2. **P2 — leave-bed identifiers collided, and ending one deleted two.** The identifier was derived
+   from the array's length, but ending a leave bed _removes_ an entry. Record two, end the first,
+   record a third, and the third is handed the first's identifier back; the removal filter then
+   deletes both. Fixed with a monotonic sequence that only ever increases, mirroring the existing
+   referral sequence. Bed releases were checked for the same flaw and do **not** have it: nothing
+   ever removes a release, so its length-derived identifier is safe — that reasoning is now a
+   comment on the identifier itself so nobody has to re-derive it.
+3. **P2 — the freshness stamp reported the wrong time after a transition.** Confirming, blocking
+   and releasing all spread the existing record and kept the original `confirmedAt`, so a row went
+   on reporting when it was first flagged rather than when its current state became true — which
+   defeats the whole point of spec D7. All three now restate `confirmedAt`. `confirmedBy` is
+   deliberately left alone: each case already refuses any acting unit other than the release's own
+   ward, so it can only ever be rewritten to the identical string.
+4. **P2 — REJECTED, with reasons, rather than applied.** The reviewer wanted a released bed to stop
+   banding `now` once the clock passes the day boundary. That value feeds the discharge board's
+   excluded count, whose footer reads "expected beyond tonight" — and a bed that has already been
+   released is not _expected_ at any future time. The fix would have traded a cosmetic ordering nit
+   for a board making a false statement about a real record, reachable in three clicks of the demo
+   clock. The premise is also weak: there is no next operating day in this prototype, so "Released
+   today" never needs to empty, and `now` is the honest band for the one category of bed that
+   genuinely is available this minute (spec D1). Recorded here because a later session will meet
+   the same finding and should not silently re-apply it.
+
+**The role-screen browser flake is pre-existing and is not Phase 5's.** `tests/ui-ward-roles.spec.ts`
+intermittently fails with a Playwright strict-mode violation — a role screen's own test identifier
+resolving to two elements rather than one. Measured deliberately, on a quiet tree, against the
+isolated production server the runner builds:
+
+| Ref                 | Runs | Failing runs | Signature                                 |
+| ------------------- | ---- | ------------ | ----------------------------------------- |
+| This branch         | 3    | 1            | `ward-unit-screen` resolved to 2 elements |
+| Clean `origin/main` | 7    | 1            | `ward-ed-screen` resolved to 2 elements   |
+
+The identical failure class reproduces on `origin/main`, on the **emergency department** screen,
+which Phase 5 does not touch in any way — and `tests/ui-ward-roles.spec.ts` is byte-identical
+between the two refs. So the mechanism is generic to the ward-flow role screens rather than
+anything Phase 5 introduced. Both render sites of each identifier are mutually exclusive branches
+of a single early `return`, so two elements can only mean two component instances or streamed
+markup briefly present in the document at once; that mechanism is **not yet established**, and
+saying otherwise would be a guess.
+
+Honest caveat on the numbers: 1-in-3 against 1-in-7 is too small a sample to claim Phase 5 made it
+either more or less frequent. The attribution that _is_ safe is the one that matters — it happens
+without Phase 5's code.
+
+Nothing was quarantined, skipped or loosened. The repository's flake policy requires three
+reproductions on the same commit before quarantine, which has not happened, and the assertion is
+correct as written: the screen genuinely should appear once. Captured for a later session rather
+than papered over here.
+
+### 5d-iii. Final whole-branch review (2026-08-26)
+
+One review covered the whole branch and stood in for the per-task reviews of Tasks 5, 6 and 7 and
+both visual-fix rounds, which were deliberately deferred into it. Verdict: **approved with
+findings — no P0, no P1, seven P2.** All seven are fixed, each with a new or strengthened test that
+was mutation-tested.
+
+What it confirmed, rather than assumed, is worth recording because these are the phase's own
+promises:
+
+- **Nothing predicted, confirmed-but-unreleased or on leave can reach "available now".** The
+  reviewer traced every producer and every one of the eight consumers rather than trusting the
+  comments. `availableNow` is computed before any release or leave bed is examined, so this is
+  structural blindness rather than arithmetic that merely happens to agree today. The only door by
+  which a release ever moves an availability number is the terminal `released` transition, which is
+  what spec D1 defines as the bed actually being free, and it is clamped to the unit's bed total.
+- **No patient attribute, identifying timing or free text reached `BedRelease` or `LeaveBed`.**
+  Both field sets are exactly the spec's, neither carries sex, and every `confirmedBy` is a role
+  string the caller cannot supply.
+- **The `expectedAt` field added during the review round is a fact about the bed and should stay.**
+  It is mandated by spec D1 and D5 rather than invented; the four planning bands are underivable
+  without it; the record carries no key of any kind linking it to a person; and it sits below the
+  bar spec D4 already set for a leave bed's expected return. The network-wide board renders a band,
+  never the instant — only the owning ward, which already knows who is in the bed, sees the time.
+
+The seven fixed findings, in the order they were worked:
+
+1. The ward screen's chip read `Leave` while counting only _usable_ leave beds, so one screen
+   contradicted itself twice over on seeded data. Now `Leave (usable)`, matching spec D6 and the
+   capacity board.
+2. A `Potential` chip on the network view and the coordinator flow diagram still counted every
+   release regardless of state or timing — advertising an **already released** bed as "may become
+   available", with no clicks, on seeded data. Both surfaces now read the same Confirmed/Predicted
+   breakdown the capacity board and ward screen already use. `unitCapacity()`'s arithmetic is
+   untouched.
+3. `blocker` was still an unconstrained `string` at every layer that spec D3 says must constrain it,
+   and the reducer's guard was a truthiness test rather than a membership test. Both tightened.
+4. The capacity board asserted a confirming ward unconditionally, so spec D7's "Never confirmed"
+   floor was unreachable and a ward could be credited with confirming a figure it never confirmed.
+   It now carries the same guarded props the ward screen already had.
+5. The leave bed's only structural privacy guard inspected one hand-authored fixture object, so
+   adding an optional `sex` field to `LeaveBed` would have passed the whole suite. It now asserts
+   the allowed field set over every seeded record **and** one the reducer produced.
+6. A freshness test's regex accepted both possible outputs, so it could not fail for the behaviour
+   its own title claimed. Pinned to the exact string.
+7. Releasing a bed lowered derived occupancy without touching the sex-mix figure, which every other
+   occupancy-changing event maintains — so the capacity board's own row contradicted itself three
+   clicks in. Sex was **not** added to `BedRelease` (spec D11 forbids it) and no sex was guessed at:
+   the model genuinely cannot know who left, so the cell now says so in visible words when the two
+   no longer agree. Saying less is the phase's stated failure behaviour.
+
+**Follow-up the review found and this phase did not close.** Spec D9 says the discharge board is
+reached "from the sidebar's Boards group **and from the capacity board's own figures**". Only the
+sidebar entry exists. That is an unimplemented spec clause rather than a defect, and it is small —
+worth doing at the start of Phase 6 while the numbers are fresh.
+
+**Third observation on the role-screen flake, and it narrows the cause.** Running three ward specs
+in one invocation, the same strict-mode duplicate-element failure struck the _discharge_ journey's
+own `ward-unit-screen` assertion; the same spec then passed twice in a row immediately afterwards.
+So the condition has now been seen on three different identifiers across two refs. What every
+instance shares is the shape of the assertion, not the screen: an expectation placed immediately
+after `page.goto(..., { waitUntil: "domcontentloaded" })`, and it is likelier under load. That is
+consistent with streamed markup being briefly present in the document twice — but consistent is not
+established, and the mechanism is still unproven. Nothing was quarantined, skipped or loosened.
 
 ## 8. Where everything is
 
