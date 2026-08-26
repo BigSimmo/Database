@@ -6,6 +6,7 @@ import { demoImages } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError, publicErrorResponse } from "@/lib/http";
 import { fetchDocumentCoverImageIds } from "@/lib/document-enrichment";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { parseRouteParams } from "@/lib/validation/params";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +15,7 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 export const runtime = "nodejs";
 
 const coverRouteParamsSchema = z.object({ id: z.string().uuid() });
+const coverImageIdSchema = z.string().uuid();
 
 /**
  * The document's first-page cover thumbnail id, for surfaces that show what a
@@ -73,13 +75,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
      * uncommitted, silently losing the thumbnail — or an obsolete duplicate,
      * which shows the wrong front page beside a citation.
      */
-    const metadata = document.metadata;
-    const pointer =
-      metadata && typeof metadata === "object" && !Array.isArray(metadata)
-        ? (metadata as Record<string, unknown>).cover_image_id
+    const metadata =
+      document.metadata && typeof document.metadata === "object" && !Array.isArray(document.metadata)
+        ? (document.metadata as Record<string, unknown>)
         : null;
-    if (typeof pointer === "string" && pointer.length > 0) {
-      return NextResponse.json({ coverImageId: pointer });
+    if (metadata && Object.hasOwn(metadata, "cover_image_id")) {
+      const parsedPointer = coverImageIdSchema.safeParse(metadata.cover_image_id);
+      if (!parsedPointer.success) return NextResponse.json({ coverImageId: null });
+
+      const { data: cover, error: coverError } = await supabase
+        .from("document_images")
+        .select("id,metadata")
+        .eq("id", parsedPointer.data)
+        .eq("document_id", id)
+        .eq("source_kind", "cover_page")
+        .abortSignal(request.signal)
+        .maybeSingle();
+      if (coverError) throw new Error(coverError.message);
+      if (
+        !cover ||
+        !isCommittedGenerationMetadata({
+          rowMetadata: cover.metadata,
+          committedGeneration: committedIndexGeneration(metadata),
+        })
+      ) {
+        return NextResponse.json({ coverImageId: null });
+      }
+
+      return NextResponse.json({ coverImageId: cover.id });
     }
 
     // Documents indexed before the pointer existed carry no such key. Fall back
