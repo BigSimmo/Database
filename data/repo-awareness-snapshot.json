@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "c391de340e5946a35d5c7d9bf580ebe019e90c31",
-    "committed_at": "2026-08-26T00:26:15+00:00"
+    "sha": "ecae1752e52dd2cd363bfaaafe2491df24769606",
+    "committed_at": "2026-08-26T04:01:20+00:00"
   },
   "routes": {
     "modes": [
@@ -3640,6 +3640,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-26",
+        "ref": "claude/therapy-compare-tray",
+        "head": "9b34a0149759b2c2f1e8ed5d37f02ba1ac35cf39",
+        "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
+        "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
+        "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
+      },
       {
         "date": "2026-08-25",
         "ref": "backup/pr-2333-prelinear-20260824",
@@ -24570,8 +24578,8 @@
       }
     ],
     "counts": {
-      "records": 2616,
-      "refs": 1595
+      "records": 2617,
+      "refs": 1596
     }
   }
 }
