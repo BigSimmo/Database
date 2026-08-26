@@ -1,14 +1,25 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
+import type { PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
 import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_PLAN_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import {
+  DEMO_ROLES,
+  demoActorForRole,
+  isCaringContactsDemoEnabled,
+  resolveDemoActor,
+} from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Episode } from "@/lib/caring-contacts/episode";
 import { planId as toPlanId } from "@/lib/caring-contacts/ids";
-import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
+import type { PlanAssignment } from "@/lib/caring-contacts/assignment";
+import {
+  canPerformCaringContactAction,
+  CARING_CONTACT_ROLE_WORDING,
+  type CaringContactRole,
+} from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
@@ -259,13 +270,97 @@ export default async function CaringContactsPatientOverviewPage({
       throw new Error("caring-contacts episode read released nothing for a plan this actor may read.");
     }
 
+    // WHO IS CARRYING THIS PLAN, read here because the plan actions need it and no other read on
+    // this page answers it. Its access identity is the one `assignments/[planId]/route.ts` already
+    // records for the same read -- `{ view, plan, <planId> }` -- so no new `AccessedObjectType`
+    // member is owed: an assignment is a fact ABOUT a plan, and this is that plan being looked at.
+    const assignmentRead = await auditedRead<PlanAssignment | null>(
+      store,
+      actor,
+      { kind: "view", objectType: "plan", objectId: chosen.plan.id },
+      () => store.getAssignment(toPlanId(chosen.plan.id), { actor }),
+    );
+    if (assignmentRead.outcome === "failed") {
+      throw assignmentRead.error instanceof Error
+        ? assignmentRead.error
+        : new Error("Failed to read who is carrying this plan.");
+    }
+    if (!assignmentRead.recorded) {
+      throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+    }
+    if (assignmentRead.released == null) {
+      // `getAssignment` answers null only for a plan this actor cannot see, and this plan was
+      // listed for this actor a moment ago. Failing closed rather than rendering plan actions
+      // against an assignment nothing read.
+      throw new Error("caring-contacts assignment read released nothing for a plan this actor may read.");
+    }
+
     return {
       kind: "episode",
       record: chosen,
       episode: episodeRead.released,
       otherPlanCount: plansForPatient.length - 1,
+      actions: planActionsContext(chosen, assignmentRead.released),
     };
   }
+
+  /**
+   * Everything the plan-actions surface is handed, decided HERE from the actor and the domain.
+   *
+   * Three things are resolved on this side of the client boundary and none of them may move:
+   *
+   *   * WHETHER EACH ACTION IS GRANTED, asked of `canPerformCaringContactAction` per action rather
+   *     than of one broader stand-in. The service checks the same capability at the write, so this
+   *     is what the screen SHOWS rather than what enforces it -- and `reassignPlan` is granted to a
+   *     narrower set of roles than the other three, which is why they are asked separately.
+   *   * ROLE WORDING, from `CARING_CONTACT_ROLE_WORDING` in the sealed domain. Actor identifiers in
+   *     this workspace are `demo-<role>`, and a raw role identifier is never put in front of a
+   *     clinician. The reverse lookup goes through `demoActorForRole`, the session module's own
+   *     constructor, rather than by re-deriving its `demo-` prefix here.
+   *   * WHERE A PLAN MAY MOVE TO: every demo role granted the action of taking a plan on, minus
+   *     whoever is already carrying it. Asked of the domain rather than restated from its grants.
+   */
+  function planActionsContext(plan: PlanRecord, assignment: PlanAssignment): PlanActionsContext {
+    const grants = (role: CaringContactRole, action: Parameters<typeof canPerformCaringContactAction>[1]) =>
+      canPerformCaringContactAction(demoActorForRole(role), action, { teamId: actor.teamId }).allowed;
+    const actingRole: CaringContactRole = actor.roles[0] ?? "coordinator";
+    const ownerRole = assignment.ownerId === null ? null : roleOfDemoActor(assignment.ownerId);
+
+    return {
+      planId: plan.plan.id,
+      planState: plan.plan.state,
+      planVersion: plan.plan.version,
+      actingAccount: actingRole,
+      actingAccountWording: CARING_CONTACT_ROLE_WORDING[actingRole],
+      carriedBy: {
+        held: assignment.ownerId !== null,
+        wording: ownerRole === null ? null : CARING_CONTACT_ROLE_WORDING[ownerRole],
+      },
+      destinations: DEMO_ROLES.filter((role) => grants(role, "claimPlan") && role !== ownerRole).map((role) => ({
+        actorId: demoActorForRole(role).id,
+        wording: CARING_CONTACT_ROLE_WORDING[role],
+      })),
+      granted: {
+        pause: canPerformCaringContactAction(actor, "pausePlan", { teamId: actor.teamId }).allowed,
+        resume: canPerformCaringContactAction(actor, "resumePlan", { teamId: actor.teamId }).allowed,
+        withdrawal: canPerformCaringContactAction(actor, "withdrawPlan", { teamId: actor.teamId }).allowed,
+        reassignment: canPerformCaringContactAction(actor, "reassignPlan", { teamId: actor.teamId }).allowed,
+      },
+    };
+  }
+}
+
+/**
+ * The demo role an actor identifier names, or null.
+ *
+ * Resolved by asking `demoActorForRole` for each role and comparing, rather than by taking the
+ * identifier apart: the `demo-<role>` shape is the session module's, and a screen that re-derived it
+ * would hold a second copy of a rule that module owns. Null for an identifier no demo role produces,
+ * which no write in this workspace makes today -- the caller states that absence rather than
+ * reporting it as "nobody is carrying this plan", which is a different fact.
+ */
+function roleOfDemoActor(id: string): CaringContactRole | null {
+  return DEMO_ROLES.find((role) => demoActorForRole(role).id === id) ?? null;
 }
 
 /**

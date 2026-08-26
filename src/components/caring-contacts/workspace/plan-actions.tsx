@@ -1,0 +1,568 @@
+"use client";
+
+import { CircleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+
+import { cn, controlBase, ignoreUnavailableActivation } from "@/components/ui-primitives";
+
+import type { WorkspaceOverlayCommit } from "./overlays/overlay-commits";
+import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
+import {
+  ACTING_ACCOUNT_ENDPOINT,
+  ACTING_ACCOUNT_UNREADABLE,
+  actingAccountFrom,
+  planActionLabel,
+  planActionRefusal,
+  planActionRefusalNameFrom,
+  planActionRefusalSentence,
+  planActionRefusalWording,
+  planAssignmentEndpoint,
+  planFromWriteAnswer,
+  planLifecycleEndpoint,
+  planLifecycleRequestBody,
+  PLAN_ACTION_TRANSPORT_REFUSALS,
+  mintPlanActionIdempotencyKey,
+  reassignmentRequestBody,
+  type PlanActionId,
+  type PlanActionRefusal,
+  type PlanActionState,
+  type PlanActionsContext,
+} from "./plan-action-rules";
+import { StatedReason } from "./plan-wizard/stated-reason";
+
+/**
+ * The three plan actions of the frozen matrix, and the resume that pause owes.
+ *
+ * THESE ARE THE ONLY CONTROLS IN THIS WORKSPACE THAT STOP A SUICIDE-PREVENTION PROGRAMME FOR A
+ * PERSON, which is why two of them are two-stage in the frozen table and why every sentence below
+ * is derived from what the domain does rather than from what a summary says about it.
+ *
+ * WHAT PAUSING IS, IN ONE LINE: A HOLD. `pausePlan` moves the plan and touches no contact — the
+ * domain's own contract test is named "holds without cancelling for a readmission" — so no dated
+ * message is removed, no date shifts, and the plan can be let run again. Withdrawal is the other
+ * shape: it ends the plan and the service moves every message that had not gone to `cancelled`.
+ * `plan-action-rules.ts` holds that reasoning in full, and this file states it to the reader.
+ *
+ * AND NOTHING HERE CLAIMS A PAUSE STOPPED A MESSAGE GOING OUT. There is no telephony provider in
+ * this system, so there is no sender to stop. That claim has been made wrongly on a screen in this
+ * programme before, in both directions, and it is the one sentence this surface must never write.
+ *
+ * WHY THIS IS A CLIENT COMPONENT, structurally rather than by preference. Its four controls perform
+ * writes over the network, and `WorkspaceOverlayCommit`'s `record` member is a FUNCTION position — a
+ * Server Component cannot pass one across this boundary at all (Next 16: props passed to Client
+ * Components must be serializable). So a mutating row's commit has to be constructed on the client
+ * side of the seam. Everything it is handed is plain data, `PlanActionsContext` says so, and the
+ * service-wide safety-stop record and its incident note never come near it.
+ *
+ * THE TWO MOMENTS, AND WHY THE COMMIT DOES NOT TRUST THE ONE IT WAS BUILT IN
+ * -------------------------------------------------------------------------
+ * `openWorkspaceOverlayWithCommit` stages the commit when the TRIGGER is activated, and the closure
+ * it stages was built during a render. A coordinator can then sit on the confirmation for an hour.
+ * So the guard is asked twice, exactly as `plan-wizard/overlay-guards.ts` is asked twice:
+ *
+ *  * at RENDER, with one state passed as both moments — the honest answer there, since nothing has
+ *    changed yet. A condition already unmet makes the commit `{ kind: "unavailable", reason }`,
+ *    which the host renders as the frozen matrix's guard-rejection shape: the decision control keeps
+ *    its tab stop, carries `aria-disabled`, and points at the named reason. The same reason is
+ *    stated on THIS screen beside the control, so it does not have to be opened to be read;
+ *  * inside the COMMIT, against the render-time values and values read at that instant — the live
+ *    ones from `liveState()`, and for the two rows the frozen table marks
+ *    `requiresFreshAuthentication`, the account the service is acting as, read from the service.
+ *    A refusal there calls nothing, so nothing is changed.
+ *
+ * WHAT A SUCCESSFUL WRITE DOES TO THE VERSION THIS SCREEN HOLDS, AND WHY IT IS THE POINT
+ * -------------------------------------------------------------------------------------
+ * `planVersion` arrives as a PROP, and a prop cannot change without a server render. A screen that
+ * kept acting on the version it was rendered with would send a stale one for its SECOND action —
+ * and the service would refuse it as `stale-version`, whose honest wording is that the plan moved
+ * after this screen read it. The coordinator would be told somebody else had changed a
+ * suicide-prevention plan when nobody had. So a successful lifecycle write updates the state AND
+ * the version this screen holds, from the answer the service gave, and `router.refresh()` asks the
+ * server for the rest of the screen. The two-actions-in-a-row case is what proves it.
+ */
+export type PlanActionsProps = {
+  context: PlanActionsContext;
+};
+
+/** What this screen last did, held so it can be stated where the coordinator is looking. */
+type PlanActionOutcome =
+  | { readonly kind: "recorded"; readonly action: PlanActionId; readonly announcement: string }
+  | { readonly kind: "refused"; readonly action: PlanActionId; readonly refusal: PlanActionRefusal };
+
+const mutedTextClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]";
+const fieldClass =
+  "min-h-tap w-full min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
+const blockClass =
+  "min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 forced-colors:border-[CanvasText]";
+const blockHeadingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
+
+/** Nothing this surface records leaves this demonstration, and every control says so once. */
+const NOTHING_LEAVES_THIS_SYSTEM =
+  "Everything below is recorded in this demonstration only. There is no messaging provider connected to this workspace at all, so nothing any of these controls does can send a message to anybody or stop one being sent.";
+
+export function PlanActions({ context }: PlanActionsProps) {
+  const router = useRouter();
+  const [plan, setPlan] = useState<{ state: PlanActionsContext["planState"]; version: number } | null>({
+    state: context.planState,
+    version: context.planVersion,
+  });
+  const [changeOnItsWay, setChangeOnItsWay] = useState(false);
+  const [destination, setDestination] = useState("");
+  const [handoverNote, setHandoverNote] = useState("");
+  const [outcome, setOutcome] = useState<PlanActionOutcome | null>(null);
+
+  /**
+   * One key per action, minted at the FIRST confirmation and reused for every retry of it.
+   *
+   * Cleared only when that action's write succeeds, so the whole retry chain of one submission
+   * shares a key and the service answers a second press with the first press's own answer instead of
+   * withdrawing a patient twice. A key names one write: `runWrite` fingerprints the method and input
+   * under it and refuses a key that answered a different request, so the four actions never share.
+   *
+   * A ref rather than state: nothing renders from it, and a re-render between minting and sending
+   * would be an opportunity for the value to be lost.
+   */
+  const keys = useRef<Partial<Record<PlanActionId, string>>>({});
+
+  /**
+   * What is true NOW, for the commit to read.
+   *
+   * A ref because the commit closure was built in an earlier render and would otherwise close over
+   * that render's values — which is the whole failure the commit-time recheck exists to catch.
+   * Written in an effect rather than during render: reading or writing a ref during render is what
+   * `react-hooks/refs` forbids, and it is right to, and an effect has run long before a click.
+   */
+  const live = useRef({ plan, changeOnItsWay, destination, handoverNote });
+  useEffect(() => {
+    live.current = { plan, changeOnItsWay, destination, handoverNote };
+  }, [plan, changeOnItsWay, destination, handoverNote]);
+
+  const stateFor = useCallback(
+    (action: PlanActionId, from: typeof live.current, actingAccount: string): PlanActionState => ({
+      planIsKnown: from.plan !== null,
+      roleHoldsThisAction: context.granted[action],
+      // The last state this screen knew, which is what the guard is about. A plan this screen has
+      // lost track of is refused by `this-screen-still-knows-the-plan` before any state is read.
+      planState: from.plan?.state ?? context.planState,
+      changeOnItsWay: from.changeOnItsWay,
+      planIsCarried: context.carriedBy.held,
+      chosenDestination: from.destination,
+      handoverNote: from.handoverNote,
+      actingAccount,
+    }),
+    [context.carriedBy.held, context.granted, context.planState],
+  );
+
+  /** The render-time answer: one moment, passed as both, because nothing has changed yet. */
+  const renderState = useCallback(
+    (action: PlanActionId): PlanActionState =>
+      stateFor(action, { plan, changeOnItsWay, destination, handoverNote }, context.actingAccount),
+    [changeOnItsWay, context.actingAccount, destination, handoverNote, plan, stateFor],
+  );
+
+  const refusalAtOpen = useCallback(
+    (action: PlanActionId): PlanActionRefusal | null => {
+      const opened = renderState(action);
+      return planActionRefusal(action, opened, opened);
+    },
+    [renderState],
+  );
+
+  /**
+   * Carries out one action: recheck, send, then say what happened.
+   *
+   * It never rejects. The overlay host re-raises a rejected commit during render, which lands on
+   * `error.tsx` — a whole-screen error for something this surface can state in place.
+   */
+  const carryOut = useCallback(
+    async (action: PlanActionId, opened: PlanActionState) => {
+      const refuse = (refusal: PlanActionRefusal) => setOutcome({ kind: "refused", action, refusal });
+
+      // FIRST RECHECK: everything knowable without asking anybody, read live rather than from the
+      // render this closure was built in.
+      const now = stateFor(action, live.current, opened.actingAccount);
+      const refusedNow = planActionRefusal(action, opened, now);
+      if (refusedNow !== null) {
+        refuse(refusedNow);
+        return;
+      }
+
+      // SECOND RECHECK, on the two rows the frozen table marks `requiresFreshAuthentication`: which
+      // account the service is acting as, asked of the service at this instant. See the condition's
+      // own note for why this is not, and must never be described as, an authentication check.
+      if (planActionNeedsTheAccountChecked(action)) {
+        const acting = await readActingAccount();
+        if (acting === null) {
+          refuse(ACTING_ACCOUNT_UNREADABLE);
+          return;
+        }
+        const refusedByAccount = planActionRefusal(action, opened, stateFor(action, live.current, acting));
+        if (refusedByAccount !== null) {
+          refuse(refusedByAccount);
+          return;
+        }
+      }
+
+      const destinationWording = (): string =>
+        context.destinations.find((entry) => entry.actorId === live.current.destination)?.wording ?? "";
+
+      const held = live.current.plan;
+      if (held === null) return;
+
+      const key = keys.current[action] ?? mintPlanActionIdempotencyKey(action);
+      keys.current[action] = key;
+
+      setChangeOnItsWay(true);
+      try {
+        const sent =
+          action === "reassignment"
+            ? await post(
+                planAssignmentEndpoint(context.planId),
+                reassignmentRequestBody({
+                  toActorId: live.current.destination,
+                  handoverNote: live.current.handoverNote,
+                  idempotencyKey: key,
+                }),
+              )
+            : await post(
+                planLifecycleEndpoint(context.planId),
+                planLifecycleRequestBody({ action, expectedVersion: held.version, idempotencyKey: key }),
+              );
+
+        if (!sent.ok) {
+          refuse(planActionRefusalWording(sent.refusal));
+          return;
+        }
+
+        // Only now. The key is spent, so a later action of the same kind is a new submission rather
+        // than a replay of this one.
+        delete keys.current[action];
+
+        if (action === "reassignment") {
+          setOutcome({ kind: "recorded", action, announcement: reassignmentAnnouncement(destinationWording()) });
+        } else {
+          // The version this screen acts on next comes from the answer the service just gave, never
+          // from the prop it was rendered with — see the module note.
+          const answered = planFromWriteAnswer(sent.payload);
+          setPlan(answered);
+          setOutcome({ kind: "recorded", action, announcement: lifecycleAnnouncement(action, answered !== null) });
+        }
+        // The rest of this screen was rendered on the server before this change, so it is asked for
+        // again. What that refresh brings back is the server's business; this card states the
+        // outcome itself so the announcement does not depend on it.
+        router.refresh();
+      } finally {
+        setChangeOnItsWay(false);
+      }
+    },
+    [context.destinations, context.planId, router, stateFor],
+  );
+
+  /**
+   * What the trigger for one row says confirming it does.
+   *
+   * `{ kind: "unavailable" }` at open time is the frozen matrix's guard-rejection shape, implemented
+   * by the HOST rather than re-derived here: the decision control keeps its tab stop, carries
+   * `aria-disabled`, and points at the named reason.
+   */
+  const commitFor = useCallback(
+    (action: PlanActionId): WorkspaceOverlayCommit => {
+      const refused = refusalAtOpen(action);
+      if (refused !== null) return { kind: "unavailable", reason: planActionRefusalSentence(refused) };
+      const opened = renderState(action);
+      return { kind: "record", record: () => carryOut(action, opened) };
+    },
+    [carryOut, refusalAtOpen, renderState],
+  );
+
+  const resumeRefusal = refusalAtOpen("resume");
+  const resumeReasonId = "caring-contacts-plan-action-resume-reason";
+  const heldPlanState = plan?.state ?? context.planState;
+
+  return (
+    <section aria-labelledby="caring-contacts-plan-actions-heading" data-testid="caring-contacts-plan-actions">
+      <h2
+        id="caring-contacts-plan-actions-heading"
+        className="text-base font-semibold text-[color:var(--text-heading)]"
+      >
+        Plan actions
+      </h2>
+      <p className={cn(mutedTextClass, "mt-2")}>{NOTHING_LEAVES_THIS_SYSTEM}</p>
+      <p className={cn(mutedTextClass, "mt-2")}>
+        <span className="font-medium text-[color:var(--text)]">Recorded against: </span>
+        the account this screen is being read in, which is a {context.actingAccountWording} account.
+      </p>
+      <p className={mutedTextClass}>
+        <span className="font-medium text-[color:var(--text)]">Carried by: </span>
+        {!context.carriedBy.held
+          ? "nobody has taken this plan on, so it has no named coordinator."
+          : context.carriedBy.wording === null
+            ? "an account this demonstration cannot put a role to. It identifies accounts by an identifier rather than by a person."
+            : `a ${context.carriedBy.wording} account.`}
+      </p>
+
+      {outcome === null ? null : (
+        <div role="status" data-testid="caring-contacts-plan-action-outcome" className="mt-3 min-w-0">
+          {outcome.kind === "recorded" ? (
+            <StatedReason
+              heading={`${planActionLabel(outcome.action)} — recorded on the plan`}
+              because={outcome.announcement}
+              changedBy="Nothing further on this screen. The rest of this screen was read before this change and is being read again."
+            />
+          ) : (
+            <StatedReason
+              heading={`${planActionLabel(outcome.action)} — ${outcome.refusal.heading}`}
+              because={outcome.refusal.because}
+              changedBy={outcome.refusal.changedBy}
+              icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+            />
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 flex min-w-0 flex-col gap-3">
+        <div className={blockClass}>
+          <h3 className={blockHeadingClass}>Hold this plan</h3>
+          <p className={cn(mutedTextClass, "mt-1")}>
+            Holding a plan takes it out of running and keeps its whole schedule. No dated message is removed, no date
+            moves, and the plan can be let run again from this screen. What changes is the record: while a plan is not
+            running, the service refuses any attempt to dispatch one of its messages, by name.
+          </p>
+          <div className="mt-2 flex min-h-tap min-w-0 flex-wrap items-center gap-3">
+            <WorkspaceOverlayTrigger overlayId="pause" commit={commitFor("pause")} className="w-full sm:w-auto">
+              <span className="truncate">Hold this plan</span>
+            </WorkspaceOverlayTrigger>
+            <button
+              type="button"
+              data-testid="caring-contacts-plan-action-resume"
+              aria-disabled={resumeRefusal === null ? undefined : "true"}
+              aria-describedby={resumeRefusal === null ? undefined : resumeReasonId}
+              onClick={
+                resumeRefusal === null
+                  ? () => {
+                      void carryOut("resume", renderState("resume"));
+                    }
+                  : ignoreUnavailableActivation
+              }
+              className={cn(controlBase, "w-full border border-[color:var(--border)] px-5 sm:w-auto")}
+            >
+              Let this plan run again
+            </button>
+          </div>
+          {resumeRefusal === null ? null : (
+            <div id={resumeReasonId} className="mt-2 min-w-0">
+              <StatedReason
+                heading={resumeRefusal.heading}
+                because={resumeRefusal.because}
+                changedBy={resumeRefusal.changedBy}
+                icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+              />
+            </div>
+          )}
+          <p className={cn(mutedTextClass, "mt-2")}>
+            <span className="font-medium text-[color:var(--text)]">This plan is: </span>
+            {plan === null
+              ? "not known here any more — a change landed and its answer could not be read. Read this screen again."
+              : heldPlanState === "paused"
+                ? "being held. Letting it run again is offered above."
+                : heldPlanState === "active"
+                  ? "running."
+                  : "neither running nor being held, so neither control above applies to it."}
+          </p>
+        </div>
+
+        <ActionBlock
+          heading="Record a withdrawal the patient asked for"
+          explanation="A withdrawal ends the plan, and the service moves every message on it that had not already gone to cancelled. That is the opposite of holding it: nothing is kept to come back to, and it cannot be undone. This screen records only a withdrawal the patient asked for, because that is what the confirmation it opens is about."
+          refusal={refusalAtOpen("withdrawal")}
+          reasonId="caring-contacts-plan-action-withdrawal-reason"
+        >
+          <WorkspaceOverlayTrigger overlayId="withdrawal" commit={commitFor("withdrawal")} className="w-full sm:w-auto">
+            <span className="truncate">Record a withdrawal</span>
+          </WorkspaceOverlayTrigger>
+        </ActionBlock>
+
+        <ActionBlock
+          heading="Move this plan to another coordinator"
+          explanation="Moving a plan changes who is responsible for it. The coordinator carrying it now is not removed from the record: the move and the reason for it are kept with the plan, so who held it and who holds it are both still there afterwards."
+          refusal={refusalAtOpen("reassignment")}
+          reasonId="caring-contacts-plan-action-reassignment-reason"
+        >
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
+              <label
+                htmlFor="caring-contacts-plan-action-destination"
+                className="text-sm font-medium text-[color:var(--text-heading)]"
+              >
+                Who this plan moves to
+              </label>
+              <select
+                id="caring-contacts-plan-action-destination"
+                value={destination}
+                onChange={(event) => setDestination(event.target.value)}
+                className={fieldClass}
+              >
+                <option value="">Nobody chosen yet</option>
+                {context.destinations.map((entry) => (
+                  <option key={entry.actorId} value={entry.actorId}>
+                    {`a ${entry.wording} account`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <label
+                htmlFor="caring-contacts-plan-action-note"
+                className="text-sm font-medium text-[color:var(--text-heading)]"
+              >
+                Why this plan is changing hands
+              </label>
+              <textarea
+                id="caring-contacts-plan-action-note"
+                value={handoverNote}
+                onChange={(event) => setHandoverNote(event.target.value)}
+                rows={3}
+                className={fieldClass}
+              />
+              <p className={mutedTextClass}>
+                Kept with the move on this plan, for good. Write what a coordinator picking this plan up needs to know.
+              </p>
+            </div>
+            <div className="flex min-h-tap min-w-0 items-center">
+              <WorkspaceOverlayTrigger
+                overlayId="reassignment"
+                commit={commitFor("reassignment")}
+                className="w-full sm:w-auto"
+              >
+                <span className="truncate">Move this plan</span>
+              </WorkspaceOverlayTrigger>
+            </div>
+          </div>
+        </ActionBlock>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One action's block: what it does, the control, and the named reason when it cannot be carried out.
+ *
+ * The reason is stated HERE as well as inside the overlay the trigger raises, and that is
+ * deliberate rather than duplication: the trigger itself is always live (see `overlay-trigger.tsx`),
+ * so a coordinator who has not opened the surface would otherwise have to open it to find out why it
+ * will refuse. Both are fed from one value, so they cannot disagree.
+ */
+function ActionBlock({
+  heading,
+  explanation,
+  refusal,
+  reasonId,
+  children,
+}: {
+  heading: string;
+  explanation: string;
+  refusal: PlanActionRefusal | null;
+  reasonId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={blockClass}>
+      <h3 className={blockHeadingClass}>{heading}</h3>
+      <p className={cn(mutedTextClass, "mt-1")}>{explanation}</p>
+      <div className="mt-2 min-w-0">{children}</div>
+      {refusal === null ? null : (
+        <div id={reasonId} className="mt-2 min-w-0">
+          <StatedReason
+            heading={refusal.heading}
+            because={refusal.because}
+            changedBy={refusal.changedBy}
+            icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The rows the frozen table marks `requiresFreshAuthentication`, read from that table. */
+function planActionNeedsTheAccountChecked(action: PlanActionId): boolean {
+  return action === "withdrawal" || action === "reassignment";
+}
+
+const LIFECYCLE_ANNOUNCEMENTS: Readonly<Record<"pause" | "resume" | "withdrawal", string>> = Object.freeze({
+  pause:
+    "This plan is now being held, and the service says so. Its whole schedule is still on it: no dated message was removed and no date moved, so letting it run again resumes the plan it already had.",
+  resume: "This plan is running again, and the service says so. Its dates never moved while it was being held.",
+  withdrawal:
+    "This plan is withdrawn, and the service says so. Every message on it that had not already gone has been moved to cancelled, and a withdrawn plan takes no further change.",
+});
+
+/**
+ * The change that landed, plus what could not be read about it.
+ *
+ * TOTAL over the three lifecycle actions rather than a lookup with a fallback: an announcement that
+ * silently resolved to the empty string would report a withdrawal as a heading with nothing under
+ * it, which is the "plausible instead of visible" failure this workspace refuses everywhere else.
+ */
+function lifecycleAnnouncement(action: "pause" | "resume" | "withdrawal", answerWasReadable: boolean): string {
+  const landed = LIFECYCLE_ANNOUNCEMENTS[action];
+  return answerWasReadable
+    ? landed
+    : `${landed} The answer itself could not be read here, so this screen cannot say which version of the plan it now stands at, and will not guess one.`;
+}
+
+function reassignmentAnnouncement(wording: string): string {
+  return `This plan now moves to ${wording === "" ? "the coordinator chosen above" : `a ${wording} account`}, and the service says so. The coordinator who was carrying it, and the reason it changed hands, are both kept with the plan.`;
+}
+
+/**
+ * One write, and every way it can fail turned into a named refusal rather than a thrown error.
+ *
+ * `plan-wizard.tsx`'s own `post`, and the shape is deliberately the same: a failed `fetch` is what a
+ * lost connection looks like from here, and an unreadable answer says nothing about what the service
+ * did. What DIFFERS between the two screens is what a failure means, and that is decided by the
+ * caller.
+ */
+async function post(
+  url: string,
+  requestBody: unknown,
+): Promise<{ ok: true; payload: unknown } | { ok: false; refusal: string }> {
+  let answer: Response;
+  try {
+    answer = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+  } catch {
+    return { ok: false, refusal: PLAN_ACTION_TRANSPORT_REFUSALS.didNotReach };
+  }
+
+  let payload: unknown;
+  try {
+    payload = await answer.json();
+  } catch {
+    return { ok: false, refusal: PLAN_ACTION_TRANSPORT_REFUSALS.unreadableAnswer };
+  }
+
+  if (!answer.ok) return { ok: false, refusal: planActionRefusalNameFrom(payload) };
+  return { ok: true, payload };
+}
+
+/**
+ * Which account the service is acting as, asked at the moment a decision is confirmed.
+ *
+ * Null for anything that did not come back readable, and the caller refuses rather than proceeding:
+ * on the two rows that ask this, a change confirmed against an account this screen could not name is
+ * exactly what the question exists to prevent.
+ */
+async function readActingAccount(): Promise<string | null> {
+  try {
+    const answer = await fetch(ACTING_ACCOUNT_ENDPOINT, { method: "GET", headers: { Accept: "application/json" } });
+    if (!answer.ok) return null;
+    return actingAccountFrom(await answer.json());
+  } catch {
+    return null;
+  }
+}

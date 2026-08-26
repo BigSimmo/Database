@@ -18,6 +18,8 @@ import {
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
 import { ExitOnlyOverlayTrigger } from "./overlays/exit-only-overlay-trigger";
+import type { PlanActionsContext } from "./plan-action-rules";
+import { PlanActions } from "./plan-actions";
 
 /**
  * One patient's caring-contact episode -- who they are, which plan is running, what has happened
@@ -135,10 +137,20 @@ import { ExitOnlyOverlayTrigger } from "./overlays/exit-only-overlay-trigger";
  * because this system distinguishes held in a tab's storage from written onto the plan and ordinary
  * English does not.
  *
+ * THE PLAN ACTIONS ARE THIS SCREEN'S, AND THEY ARE THE ONLY CONTROLS THAT STOP THE PROGRAMME
+ * ------------------------------------------------------------------------------------------
+ * `docs/caring-contacts/interaction-matrix.md` puts `pause`, `withdrawal` and `reassignment` under
+ * "Plan actions" and "Plan/team actions", and plan detail is this screen (Ruling [128]). They write,
+ * so they live in `plan-actions.tsx` on the client side of the seam -- a Server Component cannot
+ * pass a commit function across it -- and everything that reaches them is plain data this file and
+ * the page resolved. In particular every role reaches them as WORDS: actor identifiers here are
+ * `demo-<role>`, and a raw role identifier is never put in front of a clinician.
+ *
  * A Server Component with no hooks of its own (Ruling 13). The chooser is a set of `<Link>`s that
- * put the choice in the URL; nothing on this screen needs JavaScript to READ it, and the one client
- * component it renders is `ExitOnlyOverlayTrigger` -- the smallest control that can raise the
- * `delivery-detail` drawer, and the module the commit-type tension is resolved in.
+ * put the choice in the URL; nothing on this screen needs JavaScript to READ it. Two client
+ * components are rendered beneath it: `ExitOnlyOverlayTrigger`, the smallest control that can raise
+ * the `delivery-detail` and `activation-success` drawers, and `PlanActions`, which owns the three
+ * mutating rows and the resume that pause owes.
  */
 
 const PLAN_STATE_LABELS: Readonly<Record<PlanState, string>> = Object.freeze({
@@ -208,6 +220,11 @@ export type PatientOverviewView =
       kind: "episode";
       record: PlanRecord;
       /**
+       * Everything the plan-actions surface needs, resolved by the page from the actor, the plan
+       * and the assignment. Serialisable throughout: it crosses a client boundary.
+       */
+      actions: PlanActionsContext;
+      /**
        * Null when the acting role may not read an episode -- decided by the page from the actor,
        * never inferred here. The plan is still shown; the person is not.
        */
@@ -260,6 +277,7 @@ export function PatientOverview({ patientId, view }: PatientOverviewProps) {
       record={view.record}
       episode={view.episode}
       otherPlanCount={view.otherPlanCount}
+      actions={view.actions}
     />
   );
 }
@@ -362,11 +380,13 @@ function EpisodeOverview({
   record,
   episode,
   otherPlanCount,
+  actions,
 }: {
   patientId: string;
   record: PlanRecord;
   episode: Episode | null;
   otherPlanCount: number;
+  actions: PlanActionsContext;
 }) {
   const name = episode !== null && episode.patientName !== "" ? episode.patientName : null;
   const entries = [...record.contacts].sort((left, right) => left.planned.sequence - right.planned.sequence);
@@ -512,6 +532,15 @@ function EpisodeOverview({
       </section>
 
       <PlanAssurances attestations={record.assuranceAttestations} planState={record.plan.state} />
+
+      {/*
+        The frozen matrix's three plan actions, on the screen its own "Plan actions" context names.
+        The card is this screen's; what each control does, and what it refuses, is decided in
+        `plan-action-rules.ts` from what the domain does.
+      */}
+      <section className={cardClass}>
+        <PlanActions context={actions} />
+      </section>
 
       <section aria-labelledby="caring-contacts-schedule-heading" className={cardClass}>
         <div className="min-w-0">
@@ -858,7 +887,8 @@ function planNotRunningNote(
       return {
         state: PLAN_STATE_LABELS.paused,
         because: `The messages below are dated and still to be sent, and this plan is paused. A paused plan is not running, ${notOnItsWay}`,
-        changedBy: "Resuming the plan. There is no control for that on this screen yet.",
+        changedBy:
+          "Letting the plan run again, which the plan actions on this screen offer to a role that is granted it.",
       };
     case "withdrawn":
     case "cancelled":

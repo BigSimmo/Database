@@ -56,8 +56,10 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 
 import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
 import { commitRefusalFor } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
-import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
+import type { PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
+import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
+import { CARING_CONTACT_ROLE_WORDING } from "@/lib/caring-contacts/permissions";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import {
   PLAN_ASSURANCES,
@@ -542,9 +544,7 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
     expect(note).toHaveTextContent(ABSORBING_FIRST_CONTACT_DAY);
@@ -679,9 +679,7 @@ describe("the patient overview - a contact suppressed by a later transition stil
   };
 
   it("subtracts it from the count, and explains it as the cause this screen does not hold", () => {
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
       "3 entries: 2 still to send, and 1 that will not be sent.",
@@ -777,9 +775,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     const cancelled = screen.getByRole("group", { name: "Cancelled" });
     expect(cancelled).toHaveTextContent(/does not hold what caused that/i);
@@ -830,9 +826,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     // All three buckets at once -- the only shape that proves the sentence is built from the
     // summary rather than from the absence of one state.
@@ -890,6 +884,44 @@ function pausedPlanFixture(): PlanRecord["plan"] {
 
 function draftPlanFixture(): PlanRecord["plan"] {
   return { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "draft", version: 1 };
+}
+
+/**
+ * The plan-actions context a hand-built episode view is given when a case is not about the actions.
+ *
+ * DELIBERATELY THE PERMITTED, RUNNING, CARRIED SHAPE -- the one where every control is live. A
+ * fixture that refused everything would let a case about some other part of the screen pass while
+ * the actions rendered nothing at all, which is the vacuous-fixture failure this file already
+ * guards against elsewhere. The cases that are about the actions build their own context or go
+ * through the page.
+ */
+function planActionsFixture(overrides: Partial<PlanActionsContext> = {}): PlanActionsContext {
+  return {
+    planId: FIXTURE_PLAN,
+    planState: "active",
+    planVersion: 1,
+    actingAccount: "coordinator",
+    actingAccountWording: CARING_CONTACT_ROLE_WORDING.coordinator,
+    carriedBy: { held: true, wording: CARING_CONTACT_ROLE_WORDING.coordinator },
+    destinations: [{ actorId: "demo-teamLead", wording: CARING_CONTACT_ROLE_WORDING.teamLead }],
+    granted: { pause: true, resume: true, withdrawal: true, reassignment: true },
+    ...overrides,
+  };
+}
+
+/** An episode view, with the plan-actions context defaulted for the cases that are not about it. */
+function episodeView(
+  view: Omit<Extract<PatientOverviewView, { kind: "episode" }>, "kind" | "actions"> & {
+    actions?: PlanActionsContext;
+  },
+): PatientOverviewView {
+  const { actions, ...rest } = view;
+  return {
+    kind: "episode",
+    ...rest,
+    actions:
+      actions ?? planActionsFixture({ planState: rest.record.plan.state, planVersion: rest.record.plan.version }),
+  };
 }
 
 function planRecordFixture(overrides: Partial<PlanRecord> = {}): PlanRecord {
@@ -975,12 +1007,11 @@ describe("the patient overview - a plan that is not running must not read as for
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{
-          kind: "episode",
+        view={episodeView({
           record: planRecordFixture({ plan: pausedPlanFixture() }),
           episode: null,
           otherPlanCount: 0,
-        }}
+        })}
       />,
     );
     // Positive control: both locators DO find a paused note when the plan is paused.
@@ -990,12 +1021,11 @@ describe("the patient overview - a plan that is not running must not read as for
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{
-          kind: "episode",
+        view={episodeView({
           record: planRecordFixture({ plan: draftPlanFixture() }),
           episode: null,
           otherPlanCount: 0,
-        }}
+        })}
       />,
     );
     // The group negative FIRST, so a mutated label reaches it rather than failing the line above it.
@@ -1018,12 +1048,11 @@ describe("the patient overview - a plan that is not running must not read as for
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{
-          kind: "episode",
+        view={episodeView({
           record: planRecordFixture({ plan: draftPlanFixture() }),
           episode: null,
           otherPlanCount: 0,
-        }}
+        })}
       />,
     );
     expect(screen.getByRole("group", { name: "Draft" })).toBeInTheDocument();
@@ -1123,7 +1152,7 @@ describe("the patient overview - the attestation is recorded on the plan, and is
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{ kind: "episode", record: planRecordFixture(), episode: null, otherPlanCount: 0 }}
+        view={episodeView({ record: planRecordFixture(), episode: null, otherPlanCount: 0 })}
       />,
     );
     const populated = screen.getByRole("region", { name: "What was confirmed before this plan started" });
@@ -1133,9 +1162,7 @@ describe("the patient overview - the attestation is recorded on the plan, and is
 
     const record = planRecordFixture({ assuranceAttestations: [] });
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
     expect(card).toHaveTextContent(/holds no record of those confirmations/i);
@@ -1191,9 +1218,7 @@ describe("the patient overview - the delivery detail overlay is wired only where
       ],
     });
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     // FILTERED BY ROW, not counted across the screen. Task 11a added the `activation-success`
     // control to the confirmations card above, so a bare count is no longer a statement about this
@@ -1220,9 +1245,7 @@ describe("the patient overview - the delivery detail overlay is wired only where
       ],
     });
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     expect(
       screen
@@ -1270,7 +1293,7 @@ describe("the patient overview - the activation outcome is offered only while th
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{ kind: "episode", record: planRecordFixture(), episode: null, otherPlanCount: 0 }}
+        view={episodeView({ record: planRecordFixture(), episode: null, otherPlanCount: 0 })}
       />,
     );
 
@@ -1292,12 +1315,7 @@ describe("the patient overview - the activation outcome is offered only while th
       render(
         <PatientOverview
           patientId={PATIENT}
-          view={{
-            kind: "episode",
-            record: planRecordFixture({ plan: notRunning }),
-            episode: null,
-            otherPlanCount: 0,
-          }}
+          view={episodeView({ record: planRecordFixture({ plan: notRunning }), episode: null, otherPlanCount: 0 })}
         />,
       );
 
