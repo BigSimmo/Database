@@ -32,7 +32,6 @@ import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-rout
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
 import {
-  PATIENTS_DIRECTORY_OVERLAY_PARAM,
   parsePatientsDirectoryFilter,
   readPatientsDirectoryAddress,
 } from "@/lib/caring-contacts/patients-directory-filter";
