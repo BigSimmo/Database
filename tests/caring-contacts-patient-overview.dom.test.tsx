@@ -623,6 +623,66 @@ describe("the patient overview - what it may show about the person", () => {
     expect(screen.getByRole("heading", { level: 2, name: PATIENT })).toBeInTheDocument();
     expect(screen.getByRole("note", { name: "No name is held for this patient" })).toBeInTheDocument();
   });
+
+  it("shows the name the messages open with", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    const identity = screen.getByRole("heading", { level: 2, name: "Rowan Sample" }).closest("section");
+    expect(identity).toHaveTextContent("Called this in messages: Rowan");
+  });
+
+  it("tells a CLEARED preferred name apart from one that was never held", async () => {
+    // Three values, three facts, and the two absences must not read as the same one. `""` is what
+    // `markRetentionCleared` writes; `null` is an episode that predates the column or whose caller
+    // supplied none. A screen that rendered both as one sentence would report a name a clinician
+    // recorded and retention removed as a name nobody ever gave.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+    const cleared = await store.markRetentionCleared(
+      { planId: id },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("clear-preferred-plan-solo") },
+    );
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    await renderPage();
+
+    const identity = screen.getByRole("heading", { level: 2, name: PATIENT }).closest("section");
+    expect(identity).toHaveTextContent("Called this in messages: removed when this episode was de-identified");
+    // Not the name itself, and not the wording reserved for an episode that never held one.
+    expect(identity).not.toHaveTextContent("Called this in messages: Rowan");
+    expect(identity).not.toHaveTextContent("none is held for this episode");
+  });
+
+  it("says none is held, without naming a cause, for an episode that never had one", async () => {
+    // The other side of the partition, and the reason both cases exist: a screen collapsing the two
+    // would pass whichever one it was tested against alone. This fixture is one the store cannot
+    // build today -- every plan it creates records a preferred name -- so the episode is handed to
+    // the component directly, exactly as the suppression fixture below is.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    const record = await store.getPlan(id, { actor: demoActorForRole("coordinator") });
+    const episode = await store.getEpisode(id, { actor: demoActorForRole("coordinator") });
+    if (record === null || episode === null) throw new Error("the fixture plan was not readable");
+
+    // Positive control: the episode the store really built DOES hold one, so the sentence below is
+    // the null case being rendered rather than this screen never showing a name at all.
+    expect(episode.preferredName).toBe("Rowan");
+
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record, episode: { ...episode, preferredName: null }, otherPlanCount: 0 }}
+      />,
+    );
+
+    const identity = screen.getByRole("heading", { level: 2, name: "Rowan Sample" }).closest("section");
+    expect(identity).toHaveTextContent("Called this in messages: none is held for this episode");
+    expect(identity).not.toHaveTextContent("removed when this episode was de-identified");
+  });
 });
 
 /**
