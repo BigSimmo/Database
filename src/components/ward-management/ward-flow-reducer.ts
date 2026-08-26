@@ -40,6 +40,18 @@ export type WardFlowState = {
   clockOffsetMinutes: number;
   /** Deterministic id source for referrals raised through RAISE_REFERRAL. No Math.random(). */
   referralSequence: number;
+  /**
+   * Fix round 2 (P2). Deterministic id source for leave beds raised through `RECORD_LEAVE_BED`,
+   * independent of `state.leaveBeds.length` for the same reason `referralSequence` is independent
+   * of `state.movements.length` — but here it actually matters, because `END_LEAVE_BED` REMOVES
+   * entries (referrals are never removed, so `movements.length` would have been safe too).
+   * Deriving the id from the array's length after removal makes ids repeat: record two, end the
+   * first, record a third, and the third gets the first's id back — React sees duplicate `key`s,
+   * and `END_LEAVE_BED`'s own id-filter then removes every leave bed sharing that id, silently
+   * deleting the wrong record. This field only ever increases, so an id is never reused. No
+   * `Math.random()`, same discipline as `referralSequence`.
+   */
+  leaveBedSequence: number;
   /** Which synthetic night is seeded — `ward-scenarios.ts`'s operational-numbers-only variants. */
   scenario: WardScenario;
   /**
@@ -76,6 +88,7 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     rejections: [],
     clockOffsetMinutes: 0,
     referralSequence: 0,
+    leaveBedSequence: 0,
     scenario,
     bedReleases: structuredClone(bedReleases),
     leaveBeds: structuredClone(leaveBeds),
@@ -168,6 +181,18 @@ function nextReferralId(sequence: number): string {
   // "WF-9NN" — the 9 prefix keeps runtime-raised referrals visibly distinct from the
   // hand-authored and generated WF-0xx/WF-1xx..WF-4xx fixture ids.
   return `WF-9${String(sequence).padStart(2, "0")}`;
+}
+
+/**
+ * Fix round 2 (P2). Mirrors `nextReferralId` above, but from `leaveBedSequence` rather than
+ * `state.leaveBeds.length` — see that field's own doc comment on `WardFlowState` for why the
+ * length-based id `RECORD_LEAVE_BED` used to derive collides once `END_LEAVE_BED` has removed an
+ * earlier entry.
+ */
+function nextLeaveBedId(sequence: number): string {
+  // "WL-9NN" mirrors FLAG_BED_RELEASE's own "WR-9NN" — visibly distinct from the hand-authored
+  // "WL-00N" fixture ids.
+  return `WL-9${String(sequence).padStart(2, "0")}`;
 }
 
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
@@ -606,17 +631,28 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // prediction. `event.confidence` is discarded on the blocked path rather than stored
       // alongside a blocker, and `event.blocker` is discarded on the predicted path, so the
       // produced `BedRelease` can never carry both at once.
+      // Fix round 2 (P1): `expectedAt` now carries the ward's own estimate of when the bed will
+      // actually be free (`event.expectedAt`, collected on the flag form exactly like
+      // `expectedReturn` on the leave-bed form) rather than `event.now`. Before this fix every
+      // release a ward flagged at runtime was stamped with the instant it was REPORTED, which
+      // `releaseBand()` (spec D5) then always classified `now` — the four planning bands
+      // (now / by-midday / by-1600 / tonight) only ever worked for the hand-authored fixture,
+      // never for anything a ward actually flagged.
+      //
+      // `confirmedAt` is deliberately kept as `event.now` — it is a genuinely different fact,
+      // when the ward made this report — while `expectedAt` is when the ward expects the bed to
+      // be free. The two can differ (a ward flagging now that a bed will be free by 1600), and
+      // conflating them was exactly the bug. Neither field carries anything about the departing
+      // PATIENT's own timing (binding spec §4): `expectedAt` is an operational estimate about the
+      // BED, the same category `expectedReturn` on `RECORD_LEAVE_BED` already sits in and is
+      // already permitted to carry — see that event's own doc comment and `LeaveBed`'s type.
       const release: BedRelease =
         event.blocker !== undefined
           ? {
               id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
               unitId: flaggedUnit.id,
               state: "blocked",
-              // FLAG_BED_RELEASE carries no estimated time from its caller (see the event's own
-              // doc comment) — nothing about the departing patient's own timing is permitted onto
-              // this record (binding spec §4), so this is the moment the WARD reported the
-              // release, not a projection about the patient.
-              expectedAt: event.now,
+              expectedAt: event.expectedAt,
               confidence: null,
               blocker: event.blocker,
               confirmedAt: event.now,
@@ -625,11 +661,16 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           : {
               // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
               // glance from the hand-authored "WR-00N" fixture ids, same reasoning as
-              // RAISE_REFERRAL's "WF-9NN".
+              // RAISE_REFERRAL's "WF-9NN". Safe to derive from `state.bedReleases.length` here
+              // (unlike `RECORD_LEAVE_BED`'s own id below, see that case's comment): nothing in
+              // this reducer ever removes an entry from `bedReleases` — `CONFIRM_BED_RELEASE`,
+              // `BLOCK_BED_RELEASE` and `RELEASE_BED` all transition a release in place via
+              // `replaceBedRelease`, so the array only ever grows and its length is a safe,
+              // collision-free id source.
               id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
               unitId: flaggedUnit.id,
               state: "predicted",
-              expectedAt: event.now,
+              expectedAt: event.expectedAt,
               confidence: event.confidence,
               blocker: null,
               confirmedAt: event.now,
@@ -658,7 +699,23 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (release.state !== "predicted" && release.state !== "blocked") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to confirmed`);
       }
-      const updated: BedRelease = { ...release, state: "confirmed", confidence: null, blocker: null };
+      // Fix round 2 (P2, spec D7): `confirmedAt` restates to `event.now` on every accepted
+      // transition, not just at creation — before this fix a transition spread `...release` and
+      // kept the ORIGINAL `confirmedAt`, so `WardFreshness` on this row kept reporting when the
+      // release was first flagged rather than when its current state was last reported, which
+      // defeats D7's whole point ("every screen states when its data was last true"). `confirmedBy`
+      // is deliberately NOT restated: the guard above already refuses this event whenever
+      // `event.actingUnitId !== release.unitId`, so the acting ward on every accepted transition
+      // is, by construction, always the same ward that produced the existing `confirmedBy` — there
+      // is no other unit's role this could ever become, so restating it would write back the exact
+      // same string it already holds.
+      const updated: BedRelease = {
+        ...release,
+        state: "confirmed",
+        confidence: null,
+        blocker: null,
+        confirmedAt: event.now,
+      };
       return replaceBedRelease(state, release.id, updated);
     }
 
@@ -683,7 +740,16 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (release.state !== "predicted" && release.state !== "confirmed") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to blocked`);
       }
-      const updated: BedRelease = { ...release, state: "blocked", confidence: null, blocker: event.blocker };
+      // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
+      // (see its comment in full) — `confirmedAt` moves to `event.now` on this transition too,
+      // and `confirmedBy` stays untouched for the same reason.
+      const updated: BedRelease = {
+        ...release,
+        state: "blocked",
+        confidence: null,
+        blocker: event.blocker,
+        confirmedAt: event.now,
+      };
       return replaceBedRelease(state, release.id, updated);
     }
 
@@ -705,7 +771,16 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const unit = findUnit(state, release.unitId);
       if (!unit) return reject(state, event, `no unit found for id ${release.unitId}`);
-      const updatedRelease: BedRelease = { ...release, state: "released", confidence: null, blocker: null };
+      // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
+      // (see its comment in full) — `confirmedAt` moves to `event.now` on this transition too,
+      // and `confirmedBy` stays untouched for the same reason.
+      const updatedRelease: BedRelease = {
+        ...release,
+        state: "released",
+        confidence: null,
+        blocker: null,
+        confirmedAt: event.now,
+      };
       // RELEASE_BED is the one event in this six-case group that changes an actual bed count,
       // not just a record about one — this is where the predicted/confirmed expectation
       // `FLAG_BED_RELEASE`/`CONFIRM_BED_RELEASE` only anticipated becomes the physical fact.
@@ -755,17 +830,16 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const unit = findUnit(state, event.unitId);
       if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      const sequence = state.leaveBedSequence + 1;
       const created: LeaveBed = {
-        // "WL-9NN" mirrors FLAG_BED_RELEASE's own "WR-9NN" — visibly distinct from the
-        // hand-authored "WL-00N" fixture ids.
-        id: `WL-9${String(state.leaveBeds.length).padStart(2, "0")}`,
+        id: nextLeaveBedId(sequence),
         unitId: unit.id,
         usable: event.usable,
         expectedReturn: event.expectedReturn,
         confirmedAt: event.now,
         confirmedBy: `NUM ${unit.name}`,
       };
-      return { ...state, leaveBeds: [...state.leaveBeds, created] };
+      return { ...state, leaveBeds: [...state.leaveBeds, created], leaveBedSequence: sequence };
     }
 
     case "END_LEAVE_BED": {

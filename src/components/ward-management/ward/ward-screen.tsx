@@ -136,6 +136,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // bed stock, so one form per screen is enough.
   const [bedReleaseConfidence, setBedReleaseConfidence] = useState<BedReleaseConfidence | undefined>(undefined);
   const [bedReleaseBlocker, setBedReleaseBlocker] = useState<BedReleaseBlocker | undefined>(undefined);
+  // Fix round 2 (P1): the ward's own estimate of when this bed will actually be free, collected
+  // exactly like `leaveExpectedReturn` below and parsed the same way via
+  // `parseTimeInputToInstant` — see `ward-flow-events.ts`'s `FLAG_BED_RELEASE.expectedAt` doc
+  // comment for why this is a fact about the BED, not the departing patient.
+  const [bedReleaseExpectedAt, setBedReleaseExpectedAt] = useState<string>("");
   // Task 5: the block form on an EXISTING release row. Keyed by release id, same one-open-at-a-time
   // pattern as `declineOpenFor`/`releaseOpenFor`/`cancelOpenFor` above.
   const [blockOpenFor, setBlockOpenFor] = useState<string | undefined>(undefined);
@@ -247,6 +252,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
   function submitBedRelease(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!bedReleaseConfidence) return;
+    // Fix round 2 (P1): same parse-and-bail discipline as `submitLeaveBed`'s own
+    // `expectedReturn` below — an empty or malformed time input refuses the submit rather than
+    // guessing a value.
+    const expectedAt = parseTimeInputToInstant(bedReleaseExpectedAt);
+    if (expectedAt === undefined) return;
     // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
     // it states which ward the caller says it is; it does not prove it. FLAG_BED_RELEASE is
     // ward-only, so this comparison always runs (see the reducer's own comment on the case).
@@ -260,10 +270,12 @@ export function WardScreen({ unitId }: WardScreenProps) {
       unitId: wardUnitId,
       actingUnitId: unitId,
       confidence: bedReleaseConfidence,
+      expectedAt,
       blocker: bedReleaseBlocker,
     });
     setBedReleaseConfidence(undefined);
     setBedReleaseBlocker(undefined);
+    setBedReleaseExpectedAt("");
   }
 
   // Task 5 (spec D10): the ward moving its OWN bed release through its own lifecycle —
@@ -493,6 +505,23 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 </select>
               </div>
               <div>
+                {/* Fix round 2 (P1): the ward's own estimate of when this bed will be free,
+                    collected exactly like the leave-bed form's own "Expected return" input
+                    below — same `<input type="time">`, same `parseTimeInputToInstant` parse. */}
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-expected-at">
+                  Expected free
+                </label>
+                <input
+                  id="ward-bed-release-expected-at"
+                  data-testid="ward-bed-release-expected-at"
+                  type="time"
+                  required
+                  className={styles.capacityInput}
+                  value={bedReleaseExpectedAt}
+                  onChange={(event) => setBedReleaseExpectedAt(event.target.value)}
+                />
+              </div>
+              <div>
                 <label className={styles.declineLegend} htmlFor="ward-bed-release-blocker">
                   Blocker
                 </label>
@@ -524,8 +553,8 @@ export function WardScreen({ unitId }: WardScreenProps) {
               </button>
             </div>
             <p className={styles.capacityConfirmed}>
-              Records confidence and blocker only &mdash; nothing about the departing patient. Writes to {unit.name}{" "}
-              only &mdash; never any other ward.
+              Records confidence, an expected free time and a blocker only &mdash; nothing about the departing patient.
+              Writes to {unit.name} only &mdash; never any other ward.
             </p>
           </form>
 

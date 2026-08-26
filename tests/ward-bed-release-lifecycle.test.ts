@@ -42,6 +42,29 @@ describe("ward bed release lifecycle", () => {
     expect(release(next, "WR-002").confidence).toBeNull();
   });
 
+  it("fix round 2 (Finding 3, P2, spec D7): confirming at a later instant moves confirmedAt to that instant, not the original flag time", () => {
+    // WR-002 is seeded predicted with `confirmedAt: NOW_ANCHOR - 25` — before the fix, every
+    // accepted transition spread `...release`, keeping that ORIGINAL confirmedAt forever, so
+    // `WardFreshness` on this row would report when the release was first flagged rather than
+    // when its current state (confirmed) was actually last reported.
+    const state = seeded();
+    const originalConfirmedAt = release(state, "WR-002").confirmedAt;
+    const laterInstant = NOW + 45;
+    expect(laterInstant).not.toBe(originalConfirmedAt);
+
+    const next = wardFlowReducer(state, {
+      type: "CONFIRM_BED_RELEASE",
+      role: "ward",
+      now: laterInstant,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+    });
+
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-002").confirmedAt).toBe(laterInstant);
+    expect(release(next, "WR-002").confirmedAt).not.toBe(originalConfirmedAt);
+  });
+
   it("2. a ward blocks a release with a blocker from the list", () => {
     const state = seeded();
     const [blocker] = BED_RELEASE_BLOCKERS;
@@ -220,6 +243,84 @@ describe("ward bed release lifecycle", () => {
     expect(afterEnd.rejections).toHaveLength(0);
     expect(afterEnd.leaveBeds).toHaveLength(startCount);
     expect(afterEnd.leaveBeds.some((bed) => bed.id === created.id)).toBe(false);
+  });
+
+  it("fix round 2 (Finding 2, P2): leave-bed ids never collide after one is ended — record, record, end the first, record", () => {
+    // Reviewer's exact repro: before the fix, `RECORD_LEAVE_BED` derived its id from
+    // `state.leaveBeds.length`. `END_LEAVE_BED` REMOVES entries, so the length falls back down
+    // and a later record can be assigned an id already in use by an earlier, still-live record.
+    // React then sees duplicate `key`s, and `END_LEAVE_BED`'s own id-filter removes EVERY leave
+    // bed sharing that id — ending one silently deletes two.
+    const state = seeded();
+    const unitId = "fsh-older-adult";
+
+    const afterFirst = wardFlowReducer(state, {
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      unitId,
+      actingUnitId: unitId,
+      usable: true,
+      expectedReturn: NOW + 100,
+    });
+    const first = afterFirst.leaveBeds.find((bed) => !state.leaveBeds.some((seed) => seed.id === bed.id));
+    if (!first) throw new Error("no first leave bed was created");
+
+    const afterSecond = wardFlowReducer(afterFirst, {
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      unitId,
+      actingUnitId: unitId,
+      usable: true,
+      expectedReturn: NOW + 200,
+    });
+    const second = afterSecond.leaveBeds.find(
+      (bed) => bed.id !== first.id && !state.leaveBeds.some((seed) => seed.id === bed.id),
+    );
+    if (!second) throw new Error("no second leave bed was created");
+    expect(second.id).not.toBe(first.id);
+
+    const afterEndFirst = wardFlowReducer(afterSecond, {
+      type: "END_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      leaveBedId: first.id,
+      actingUnitId: unitId,
+    });
+    // Ending the first removes EXACTLY that one record — the second, still-live record survives.
+    expect(afterEndFirst.leaveBeds.some((bed) => bed.id === first.id)).toBe(false);
+    expect(afterEndFirst.leaveBeds.some((bed) => bed.id === second.id)).toBe(true);
+
+    const afterThird = wardFlowReducer(afterEndFirst, {
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      unitId,
+      actingUnitId: unitId,
+      usable: false,
+      expectedReturn: NOW + 300,
+    });
+    const third = afterThird.leaveBeds.find(
+      (bed) => bed.id !== second.id && !state.leaveBeds.some((seed) => seed.id === bed.id) && bed.id !== first.id,
+    );
+    if (!third) throw new Error("no third leave bed was created");
+
+    // Three distinct ids across the whole sequence — the third must never reuse the first's id,
+    // which is exactly what a length-based id (2 live records -> length 2 -> same id as a record
+    // ended earlier) would do.
+    expect(new Set([first.id, second.id, third.id]).size).toBe(3);
+
+    // Ending the second now removes exactly that one record too — the third survives.
+    const afterEndSecond = wardFlowReducer(afterThird, {
+      type: "END_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      leaveBedId: second.id,
+      actingUnitId: unitId,
+    });
+    expect(afterEndSecond.leaveBeds.some((bed) => bed.id === second.id)).toBe(false);
+    expect(afterEndSecond.leaveBeds.some((bed) => bed.id === third.id)).toBe(true);
   });
 
   it("fix round 1 (Minor coverage): RECORD_LEAVE_BED refuses an unknown unit, leaving leaveBeds unchanged", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { releaseBand } from "../src/components/ward-management/ward-bed-availability";
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
@@ -1094,6 +1095,11 @@ describe("bed release flagging", () => {
     const potentialBefore = unitCapacity(unit, seeded.bedReleases).potential;
     const siblingPotentialBefore = unitCapacity(sibling, seeded.bedReleases).potential;
 
+    // Fix round 2 (P1): `expectedAt` deliberately differs from `NOW` here so this test actually
+    // proves the fix — before the fix the reducer discarded `event.expectedAt` entirely and
+    // always stamped `event.now`, so a test using the same value for both could never have
+    // caught it.
+    const EXPECTED_FREE = NOW + 90;
     const after = wardFlowReducer(seeded, {
       type: "FLAG_BED_RELEASE",
       role: "ward",
@@ -1101,6 +1107,7 @@ describe("bed release flagging", () => {
       unitId: unit.id,
       actingUnitId: unit.id,
       confidence: "likely",
+      expectedAt: EXPECTED_FREE,
       blocker: "Awaiting clean",
     });
 
@@ -1112,14 +1119,43 @@ describe("bed release flagging", () => {
     expect(flagged.state).toBe("blocked");
     expect(flagged.confidence).toBeNull();
     expect(flagged.blocker).toBe("Awaiting clean");
+    // `confirmedAt` is when the ward REPORTED this (event.now); `expectedAt` is the ward's own
+    // estimate of when the bed will be free (event.expectedAt) — the two are genuinely different
+    // facts and must not collapse onto the same value.
     expect(flagged.confirmedAt).toBe(NOW);
-    expect(flagged.expectedAt).toBe(NOW);
+    expect(flagged.expectedAt).toBe(EXPECTED_FREE);
 
     const unitAfter = after.units.find((candidate) => candidate.id === unit.id)!;
     expect(unitCapacity(unitAfter, after.bedReleases).potential).toBe(potentialBefore + 1);
     // Untouched: a sibling unit's own potential count must not move.
     const siblingAfter = after.units.find((candidate) => candidate.id === sibling.id)!;
     expect(unitCapacity(siblingAfter, after.bedReleases).potential).toBe(siblingPotentialBefore);
+  });
+
+  it("flagging with an expected time later today lands in the correct planning band, not 'now' (Finding 1, spec D5)", () => {
+    // Before the fix, `expectedAt` was stamped from `event.now` (the report instant), so
+    // `releaseBand()` always classified a runtime-flagged release as "now" — the four planning
+    // bands only ever worked for hand-authored fixture data. `NOW + 90` (732) lands strictly
+    // between MIDDAY_MINUTES (720) and LATE_AFTERNOON_MINUTES (960), which `releaseBand()` bands
+    // "by-1600" — a value the old, `event.now`-only code could never produce.
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+    const laterToday = NOW + 90;
+
+    const after = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: unit.id,
+      confidence: "likely",
+      expectedAt: laterToday,
+    });
+
+    const flagged = after.bedReleases.at(-1)!;
+    expect(flagged.expectedAt).toBe(laterToday);
+    expect(releaseBand(flagged, NOW)).toBe("by-1600");
+    expect(releaseBand(flagged, NOW)).not.toBe("now");
   });
 
   it("appends a predicted release when no blocker is given", () => {
@@ -1133,6 +1169,7 @@ describe("bed release flagging", () => {
       unitId: unit.id,
       actingUnitId: unit.id,
       confidence: "likely",
+      expectedAt: NOW + 60,
     });
 
     expect(after.rejections).toEqual([]);
@@ -1140,6 +1177,7 @@ describe("bed release flagging", () => {
     expect(flagged.state).toBe("predicted");
     expect(flagged.confidence).toBe("likely");
     expect(flagged.blocker).toBeNull();
+    expect(flagged.expectedAt).toBe(NOW + 60);
   });
 
   it("refuses a flag raised acting as one unit but targeting another, naming both", () => {
@@ -1154,6 +1192,7 @@ describe("bed release flagging", () => {
       unitId: unit.id,
       actingUnitId: otherUnit.id,
       confidence: "possible",
+      expectedAt: NOW + 60,
       blocker: "Awaiting pharmacy",
     });
 
@@ -1176,6 +1215,7 @@ describe("bed release flagging", () => {
       unitId: unit.id,
       actingUnitId: unit.id,
       confidence: "possible",
+      expectedAt: NOW + 60,
       blocker: "Awaiting service coordination",
     });
 
@@ -1219,6 +1259,7 @@ describe("bed release privacy", () => {
       unitId: seeded.units[0].id,
       actingUnitId: seeded.units[0].id,
       confidence: "likely",
+      expectedAt: NOW + 60,
       blocker: "Awaiting clean",
     });
     const reducerProduced = flagged.bedReleases.at(-1)!;

@@ -53,6 +53,13 @@ describe("ward bed release flag", () => {
     const blockerSelect = screen.getByLabelText("Blocker");
     expect(confidenceSelect.tagName).toBe("SELECT");
     expect(blockerSelect.tagName).toBe("SELECT");
+
+    // Fix round 2 (P1): the ward's own estimate of when the bed will be free is a plain
+    // `<input type="time">`, same as the leave-bed form's "Expected return" — not a picker, but
+    // also never free text.
+    const expectedAtInput = screen.getByLabelText("Expected free");
+    expect(expectedAtInput.tagName).toBe("INPUT");
+    expect(expectedAtInput).toHaveAttribute("type", "time");
   });
 
   it("starts with the submit button disabled until confidence is chosen, then flags a release that raises the predicted count by one", () => {
@@ -82,6 +89,12 @@ describe("ward bed release flag", () => {
 
     fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "Awaiting clean" } });
     expect(submit).not.toBeDisabled();
+
+    // The expected-free time is required for the dispatch to actually go through (the reducer's
+    // own comment on `FLAG_BED_RELEASE` explains why an estimate matters), but is deliberately
+    // NOT wired into the submit button's own `disabled` state — same precedent the leave-bed
+    // form's "Expected return" already sets, where only `bedReleaseConfidence` gates the button.
+    fireEvent.change(screen.getByLabelText("Expected free"), { target: { value: "16:30" } });
 
     // Clear the blocker back to "No blocker" before submitting. Spec D3 makes blocker and
     // confidence mutually exclusive on the produced record — a release flagged with a blocker is
@@ -132,6 +145,7 @@ describe("ward bed release flag", () => {
     // Confidence alone keeps the flagged release a plain prediction, which does move a real,
     // visible number.
     fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "likely" } });
+    fireEvent.change(screen.getByLabelText("Expected free"), { target: { value: "16:30" } });
     fireEvent.click(screen.getByTestId("ward-flag-bed-release-submit"));
 
     // rph-adult-secure's own row moved from Predicted 0 to Predicted 1 (the same figure proved on

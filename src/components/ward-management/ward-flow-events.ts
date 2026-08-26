@@ -161,6 +161,15 @@ export type WardFlowEvent =
       actingUnitId: string;
       confidence: BedReleaseConfidence;
       /**
+       * The ward's own estimate of when this bed will actually be free — a fact about the BED,
+       * the same category `expectedReturn` on `RECORD_LEAVE_BED` already sits in (binding spec
+       * §4 forbids timing that could identify the departing PATIENT, not an operational estimate
+       * about the bed itself). Collected on the ward screen's flag form exactly like
+       * `expectedReturn` is, and carried through to `BedRelease.expectedAt` unchanged — see the
+       * reducer's own comment on this case for why `confirmedAt` stays a separate field.
+       */
+      expectedAt: Instant;
+      /**
        * Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
        * BED, never about the departing patient (binding spec §4). Optional (Phase 5, spec D3):
        * a release is legally `blocked` xor `predicted`, never both, so the reducer reads this

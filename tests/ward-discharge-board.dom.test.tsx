@@ -30,11 +30,11 @@ function renderBoard() {
 /**
  * Raises a real `FLAG_BED_RELEASE` reducer event — the same mechanism `ward-handover.dom.test.tsx`'s
  * `ClockAdvancer` uses to move shared state without reaching into the reducer directly — carrying
- * an event `now` safely beyond `EVENING_SHIFT_END_MINUTES` (1320). The reducer stamps the produced
- * `BedRelease.expectedAt` from this event `now` (see `ward-flow-reducer.ts`'s `FLAG_BED_RELEASE`
- * case: "this is the moment the WARD reported the release"), so this is a real, reducer-produced
- * `BedRelease` whose `expectedAt` genuinely falls beyond tonight — not a fixture or component
- * change, and independent of the board's own live `now` (pinned at `NOW_ANCHOR`).
+ * an explicit `expectedAt` safely beyond `EVENING_SHIFT_END_MINUTES` (1320). `FLAG_BED_RELEASE`
+ * carries the ward's own estimate as `event.expectedAt` (see `ward-flow-events.ts`'s own doc
+ * comment); this is a real, reducer-produced `BedRelease` whose `expectedAt` genuinely falls
+ * beyond tonight — not a fixture or component change, and independent of the board's own live
+ * `now` (pinned at `NOW_ANCHOR`).
  */
 function FarFutureReleaseFlagger() {
   const { dispatch } = useWardFlow();
@@ -49,6 +49,7 @@ function FarFutureReleaseFlagger() {
           unitId: "rph-adult-secure",
           actingUnitId: "rph-adult-secure",
           confidence: "possible",
+          expectedAt: EVENING_SHIFT_END_MINUTES + 100,
         })
       }
     >

@@ -39,12 +39,14 @@ function ClockAdvancer({ minutes }: { minutes: number }) {
 
 /**
  * Raises a real `FLAG_BED_RELEASE` with no `blocker` — Phase 5 spec D3: a flag with no blocker
- * is a plain prediction — for `unitId`, at the live `now`. `FLAG_BED_RELEASE` never carries an
- * estimated time from its caller (ward-flow-events.ts's own doc comment); the reducer always
- * stamps `expectedAt` as the instant the ward reported it, i.e. `now`. That is what lets
- * `<ClockAdvancer>` push a later flag past 22:00 for the excluded-count test below.
+ * is a plain prediction — for `unitId`, at the live `now`. `expectedAt` is an optional override;
+ * every existing call site below omits it and gets `now` by default, matching this suite's
+ * original behaviour, which is exactly what lets `<ClockAdvancer>` push a later flag past 22:00
+ * for the excluded-count test below (`FLAG_BED_RELEASE.expectedAt` no longer has to equal
+ * `event.now` — see `ward-flow-events.ts`'s own doc comment — but nothing stops a caller choosing
+ * to make them equal, which is what a default of `now` does here).
  */
-function PredictedReleaseFlagger({ unitId }: { unitId: string }) {
+function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expectedAt?: number }) {
   const { now, dispatch } = useWardFlow();
   return (
     <button
@@ -58,6 +60,7 @@ function PredictedReleaseFlagger({ unitId }: { unitId: string }) {
           unitId,
           actingUnitId: unitId,
           confidence: "likely",
+          expectedAt: expectedAt ?? now,
         })
       }
     >

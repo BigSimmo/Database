@@ -97,6 +97,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
 
     // --- Step 1: flag a bed coming free. No blocker chosen — a plain prediction. ---
     await page.locator("#ward-bed-release-confidence").selectOption("likely");
+    await page.locator("#ward-bed-release-expected-at").fill("16:30");
     await page.getByTestId("ward-flag-bed-release-submit").click();
 
     await expect(releaseRows).toHaveCount(idsBefore.size + 1);

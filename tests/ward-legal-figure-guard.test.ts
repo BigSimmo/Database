@@ -526,6 +526,7 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
             unitId,
             actingUnitId: unitId,
             confidence,
+            expectedAt: now + 60,
             blocker,
           })),
         ),
