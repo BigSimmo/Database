@@ -223,10 +223,10 @@ describe("developer-area header (x-developer-area)", () => {
 
 describe("static compatibility redirects", () => {
   it("forwards retired constellation deep-links to the network destination", async () => {
-    const response = await proxy(requestFor("/ward-management/constellation"));
+    const response = await proxy(requestFor("/mockups/ward-flow/constellation"));
     expect(response.status).toBe(307);
     const location = new URL(response.headers.get("location")!);
-    expect(location.pathname).toBe("/ward-management/network");
+    expect(location.pathname).toBe("/mockups/ward-flow/network");
   });
 });
 

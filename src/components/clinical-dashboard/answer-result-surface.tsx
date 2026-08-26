@@ -1,13 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { memo, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { isPreformattedGroundedAnswer, NaturalLanguageAnswer } from "@/components/clinical-dashboard/answer-content";
+import {
+  isPreformattedGroundedAnswer,
+  NaturalLanguageAnswer,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
 import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
@@ -16,8 +20,9 @@ import {
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
+import { useAnswerSourceSelection } from "@/components/clinical-dashboard/use-answer-source-selection";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
-import { buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
+import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
 import { Sheet } from "@/components/ui/sheet";
@@ -60,6 +65,7 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestionsDisabled = false,
   crossModeQueries,
   onCrossModeSearch,
+  onScopeDocument,
 }: {
   answer: RagAnswer;
   query: string;
@@ -81,6 +87,8 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestionsDisabled?: boolean;
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
+  /** Narrows the search to one document, from the source drawer's overflow menu. */
+  onScopeDocument?: (documentId: string) => void;
 }) {
   const router = useRouter();
   const sourceCount =
@@ -96,8 +104,12 @@ function StagedAnswerResultSurfaceImpl({
    * than each re-deriving from `primarySources` and drifting apart.
    */
   const railSources = useMemo(
-    () => buildAnswerSourceRows(bestSource, sources, renderModel.primarySources),
-    [bestSource, sources, renderModel.primarySources],
+    () =>
+      annotateSourceAttachments(buildAnswerSourceRows(bestSource, sources, renderModel.primarySources), {
+        tables: renderModel.tables,
+        visualEvidence: renderModel.visualEvidence,
+      }),
+    [bestSource, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
@@ -113,8 +125,31 @@ function StagedAnswerResultSurfaceImpl({
           : "unassessed";
   const centralVisualEvidence = primaryVisualTable(answer);
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
-  /** Which rail row the source drawer is showing; `null` while it is closed. */
-  const [openSourceIndex, setOpenSourceIndex] = useState<number | null>(null);
+  /**
+   * Which source the drawer is showing, whether a claim put it there, and that
+   * claim's own support status — reset whenever the answer beneath them changes,
+   * because all three are indices into one answer. See the hook for why that
+   * reset is structural rather than left to the drawer's close handlers.
+   */
+  const {
+    openIndex: openSourceIndex,
+    claimIndex: claimSourceIndex,
+    claimSupport,
+    openFromRail: openSourceFromRail,
+    openFromClaim: openSourceFromClaim,
+    close: closeSourceDrawer,
+  } = useAnswerSourceSelection(answer.interactionId ?? answer.answer);
+  /**
+   * "This page doesn't support the claim", from the drawer's overflow menu.
+   *
+   * It rides the answer feedback channel that already exists rather than a new
+   * one: `wrong_source` is exactly this report in the shipped taxonomy
+   * (`src/lib/answer-feedback.ts`), and reusing it means the report lands in the
+   * same place a clinician's other answer feedback does.
+   */
+  const reportSourceMismatch = useCallback(() => {
+    onSubmitFeedback("wrong_source");
+  }, [onSubmitFeedback]);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
   function openSafetyFindings() {
     setSafetyFindingsOpen(true);
@@ -165,9 +200,16 @@ function StagedAnswerResultSurfaceImpl({
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
+      // Server-assessed, per-sentence. This is what lets a number in the prose
+      // restate an attribution the answer pipeline already made rather than one
+      // this layer invented; where it is absent the prose renders unmarked.
+      claims={answer.supportedClaims}
+      railRows={railSources}
       copied={copiedAnswer}
       onCopy={onCopyAnswer}
-      onOpenSource={setOpenSourceIndex}
+      onOpenSource={openSourceFromClaim}
+      onOpenRailSource={openSourceFromRail}
+      openSourceIndex={openSourceIndex}
     />
   );
   /**
@@ -209,8 +251,16 @@ function StagedAnswerResultSurfaceImpl({
                 `stale_evidence`/`partial_retrieval` — the two kinds that say
                 something the notice cannot (#227 over #207; see answer-card.tsx).
                 This surface no longer decides that. */}
+            {/* The question is a chat bubble on the current turn, exactly as it is
+                on every prior turn. It used to be a muted echo inside the card
+                header, which made the newest exchange read as a document with a
+                subtitle while the ones above it read as a conversation.
+                `AnswerCardQueryEcho`'s sr-only "Question: " prefix travels with
+                it (see UserQuestionBubble) so the framing change costs a screen
+                reader nothing. */}
+            <UserQuestionBubble query={query} />
             {answerState.kind === "ready" ? (
-              <AnswerCard state={answerState} verification={answerVerification} support={answerSupport} query={query}>
+              <AnswerCard state={answerState} verification={answerVerification} support={answerSupport}>
                 {answerProse}
               </AnswerCard>
             ) : (
@@ -218,7 +268,6 @@ function StagedAnswerResultSurfaceImpl({
                 state={answerState}
                 verification={answerVerification}
                 support={answerSupport}
-                query={query}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -278,13 +327,19 @@ function StagedAnswerResultSurfaceImpl({
         <AnswerSourceDrawer
           sources={railSources}
           openIndex={openSourceIndex}
-          onOpenIndexChange={setOpenSourceIndex}
-          onClose={() => setOpenSourceIndex(null)}
+          activeSupportIndex={claimSourceIndex}
+          activeClaimSupport={claimSupport}
+          // Paging past the source a claim pointed at drops the claim, so the
+          // support sentence stops describing a page the reader is no longer on.
+          onOpenIndexChange={openSourceFromRail}
+          onClose={closeSourceDrawer}
           query={query}
           tables={centralTables}
           visualEvidence={renderModel.visualEvidence}
           quoteCards={renderModel.quoteCards}
           onFollowUpQuote={onFollowUpQuote}
+          onScopeDocument={onScopeDocument}
+          onReportSource={reportSourceMismatch}
         />
 
         {safetyFindings.length > 0 ? (

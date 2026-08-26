@@ -294,6 +294,32 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     },
   },
   {
+    className: "answer-source-mark",
+    description: "in-prose source mark renders as the raised bordered box, not bare text",
+    // Demo mode answers this question with two cited sources, so the prose
+    // carries a real mark cluster rather than a single mark.
+    route: "/?mode=answer&q=What+clozapine+monitoring+items+are+shown+in+the+table+image%3F&run=1",
+    selector: '[data-testid="plain-answer-prose"] [data-testid="answer-source-mark"]',
+    // The whole of this mark's geometry lives in the unlayered class: the
+    // component sets colour and state only. If the rule goes inert the control
+    // does not disappear — it degrades to a full-size inline button showing a
+    // bare digit in the middle of a clinical sentence, which reads as a typo
+    // rather than as a reference. Every value here is a declaration of that rule.
+    computed: {
+      position: "relative",
+      display: "inline-block",
+      borderTopWidth: "1px",
+      borderTopStyle: "solid",
+      textAlign: "center",
+      verticalAlign: "baseline",
+    },
+    // Colour is the component's, not the rule's, and it is asserted here because
+    // the resting mark is deliberately one hue whatever the document's status:
+    // staleness belongs to the rail card and the drawer, never to the reference.
+    nonInert: ["borderTopColor", "backgroundColor"],
+    colorToken: { property: "borderTopColor", token: "--clinical-accent-border" },
+  },
+  {
     className: "answer-suggestion-label",
     description: "home recent-search labels use readable text contrast when nested under compact rail",
     route: "/",

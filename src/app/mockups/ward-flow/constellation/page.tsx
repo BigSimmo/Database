@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
  * live main URL does not 404 after Phase 3 lands.
  */
 export default function WardConstellationRedirect() {
-  redirect("/ward-management/network");
+  redirect("/mockups/ward-flow/network");
 }

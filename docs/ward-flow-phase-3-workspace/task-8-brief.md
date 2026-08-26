@@ -3,7 +3,7 @@
 **Files:**
 
 - Create: `src/components/ward-management/ward/ward-screen.tsx`
-- Create: `src/app/ward-management/ward/[unitId]/page.tsx`
+- Create: `src/app/mockups/ward-flow/ward/[unitId]/page.tsx`
 - Create: `tests/ui-ward-roles.spec.ts`
 - Modify: `playwright.config.ts`, `docs/design-system/adoption-contract.json`, `ward-management-navigation.tsx`
 

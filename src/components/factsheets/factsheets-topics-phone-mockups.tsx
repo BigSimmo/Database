@@ -128,11 +128,11 @@ export function FactsheetsTopicsPhoneMockupsPage() {
       className="min-h-full bg-[color:var(--background)] text-[color:var(--text)]"
     >
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
-        <div className="mx-auto max-w-[92rem] px-4 py-7 sm:px-6 lg:px-8">
-          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
+        <div className="mx-auto max-w-mockup-wide px-4 py-7 sm:px-6 lg:px-8">
+          <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
             Factsheets · Topics · phone
           </p>
-          <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-[-0.03em] text-[color:var(--text-heading)] sm:text-4xl">
+          <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-display text-[color:var(--text-heading)] sm:text-4xl">
             Topics on a 390 px phone
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
@@ -142,10 +142,10 @@ export function FactsheetsTopicsPhoneMockupsPage() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[92rem] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-3 lg:px-8">
+      <div className="mx-auto grid max-w-mockup-wide gap-8 px-4 py-8 sm:px-6 lg:grid-cols-3 lg:px-8">
         {variants.map((variant) => (
           <article key={variant.id} className="min-w-0">
-            <p className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
+            <p className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
               {variant.number}
               {variant.recommended ? " · recommended" : ""}
             </p>
@@ -166,9 +166,7 @@ function PhoneFrame({ label, variant }: { label: string; variant: VariantId }) {
   return (
     <figure className="mx-auto w-full max-w-phone-frame">
       <figcaption className="mb-2 flex items-center justify-between">
-        <span className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
-          {label}
-        </span>
+        <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">{label}</span>
         <span className="text-3xs font-bold text-[color:var(--text-soft)]">scrollable</span>
       </figcaption>
       <div className="relative flex h-phone-frame flex-col overflow-hidden rounded-phone-frame border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]">

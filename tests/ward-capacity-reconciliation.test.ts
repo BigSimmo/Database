@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
+import { bedReleases } from "../src/components/ward-management/ward-movements";
 import { allUnits } from "../src/components/ward-management/ward-sites";
 
 /**
@@ -28,7 +29,7 @@ describe("unit bed-state reconciliation", () => {
   it.each(units.map((unit) => [unit.id, unit] as const))(
     "partitions %s's beds exactly across available, held, blocked and occupied — potential excluded",
     (_id, unit) => {
-      const capacity = unitCapacity(unit);
+      const capacity = unitCapacity(unit, bedReleases);
       // The identity ruling 3 requires. `potential` is deliberately left out of this sum: it is
       // drawn from `bedReleases`, not from `unit.beds`, and folding it in here is exactly the
       // regression shape the whole-branch review found on 10 of 22 units.
@@ -38,7 +39,7 @@ describe("unit bed-state reconciliation", () => {
 
   it("never reports a negative figure in any of the five states", () => {
     for (const unit of units) {
-      const capacity = unitCapacity(unit);
+      const capacity = unitCapacity(unit, bedReleases);
       expect(capacity.available).toBeGreaterThanOrEqual(0);
       expect(capacity.held).toBeGreaterThanOrEqual(0);
       expect(capacity.blocked).toBeGreaterThanOrEqual(0);
