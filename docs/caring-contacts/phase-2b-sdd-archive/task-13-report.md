@@ -472,6 +472,12 @@ through the `sr-only` span. The other walks **every** day of the strip and asser
 contained in that day's name, with a premise that exactly one day carries the "Today" face, so the loop
 cannot pass by inspecting nothing.
 
+**What the walk proves is LABEL containment, not count containment**, and the difference is worth
+naming because the walk reads as though it covered both. Its per-face `toContain` is trivially
+satisfiable for the numeric face — `"1"` is inside `"Mon 31 Aug 2026"` and `"0"` is inside `"…2026"` —
+so a wrong number in the name would pass it. The exact-name assertion beside it and M25 are what carry
+the number; the walk carries the day label and the "Today" marker.
+
 ## 5 — the two small ones
 
 - `scripts/generate-site-map.ts` gained a `routeDescriptions` entry, so `docs/site-map.md:14` carries
@@ -487,6 +493,10 @@ Adopted exactly: compute the post-image in process (`const expected = before.rep
 write it, re-read the file from disk, and assert `onDisk === expected` byte for byte. Occurrence
 counting is not the fix, for the reason given: an additive edit leaves the anchor's count unchanged, so
 it fails identically.
+
+**As written here, that was incomplete, and round 3 below adds the missing line.** `String.replace`
+returns its input unchanged when the anchor is absent, so `expected === before`, the write is a no-op,
+and the byte comparison passes on a mutation that never applied.
 
 **Confirmed by re-running M17 under it**, the mutation that reported absent while landing perfectly: it
 now reports `mutation present on disk: true` and produces the same three reds.
@@ -546,3 +556,128 @@ asserts, and the `aria-label` it never read is the only removed attribute.
 4. **`middayOf` and `awstCalendarDayOffset` still both spell midday.** Instructed, and defensible —
    `daysBetween` needs the instant — but it is the one remaining place the two modules agree by
    coincidence rather than by construction.
+
+---
+
+# Round 3 — after review
+
+Round 2 closed all five findings and the presence-check fix. Two things left, and the first is about
+that fix.
+
+## Commits
+
+| SHA          | What                                                                  |
+| ------------ | --------------------------------------------------------------------- |
+| `2bbfaa3c9`  | The day's counts readout pinned, which nothing in the suite asserted. |
+| _(this one)_ | This round, and two corrections to round 2 made in place.             |
+
+The driver is a scratchpad file and is not committed; its correction is described below. Every SHA in
+this report, all three rounds, was re-checked with `git cat-file -e <sha>^{commit}` after the last
+commit of this round.
+
+## 1 — the corrected presence check could not fail in the case it exists for
+
+`const expected = before.replace(find, replace)` → write → re-read → `onDisk === expected`. If `find`
+is absent, `String.replace` returns `before` unchanged, `expected === before`, the write is a no-op,
+and the comparison passes on a mutation that never landed. **And that is the only case the check is
+for**: a red proves its own presence, so a presence check is load-bearing for a GREEN and nowhere else.
+The heuristic it replaced was structurally wrong for additive edits, but its `includes(replace)` half
+did catch a missed anchor, and nothing replaced that half.
+
+**My driver did not already do this.** The line is added:
+
+```js
+if (expected === before) {
+  throw new Error(`cc-schedule ${id}: the post-image is identical to the file -- this mutation changes nothing`);
+}
+```
+
+Round 2's description of the check is corrected in place above rather than left to be read as complete.
+
+**Both of the driver's own guards now have a positive control**, because "could this possibly go red?"
+applies to a check that was written to fix a check:
+
+| Control       | What it applies                              | Where it must fire                        | What was printed                                                                                  |
+| ------------- | -------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `CTRL_NOOP`   | a mutation whose `replace` equals its `find` | the new line                              | `cc-schedule CTRL_NOOP: the post-image is identical to the file -- this mutation changes nothing` |
+| `CTRL_ABSENT` | an anchor that is not in the file at all     | the occurrence guard, before the new line | `cc-schedule CTRL_ABSENT: the anchor matched 0 times, not once`                                   |
+
+Both threw, each on the line it should. **Stated precisely, because the two guards do not cover the
+same case:** the occurrence guard already catches an ABSENT anchor and fires first, so the new line is
+not what saves that case — it catches a mutation that matches its anchor and changes nothing anyway, a
+no-op the count cannot see. Two guards, two failure modes, and neither one alone is the whole check.
+Both controls were removed from the table afterwards.
+
+## 2 — I removed the last pin on a rendered `due` and cited coverage that did not exist
+
+Correct on both halves, and the second is the worse one. Dropping `due` from the accessible name was
+right, but the two deleted `aria-label` assertions were the only place the suite pinned a rendered
+`due` value — and round 2 justified the removal by saying the number "is on the day itself, in the
+readout above its windows". **Nothing asserted that readout.** A `counts.due` → `counts.held` swap in
+`DayCounts` was green.
+
+Pinned now, in a new case, _"what the day holds, as numbers"_. **The fixture's shape is the assertion**:
+thirteen plans are seeded so that no two of the six rendered numbers are equal — 13, 5, 3, 4, 1, 2 — so
+a value rendered against the wrong label cannot hide behind a coincidence, which a fixture of ones and
+zeroes would have let it do. Reaching that shape needs `driveContactTo` to know `statusUnavailable`,
+which it now does, so "already sent" and "named exceptions" can differ.
+
+Three assertions, each doing something the others cannot:
+
+- the six label/value pairs, **written out** rather than derived from the same view the screen was
+  handed — a readout compared against its own input agrees with itself however it is mislabelled;
+- the partition, asserted from the RENDERED numbers rather than from the type's doc comment: due plus
+  held plus already-sent plus will-not-be-sent equals the total;
+- named exceptions against the panel's own length, which is what makes that row's cross-cutting status
+  a checked claim rather than a comment.
+
+## Mutation ledger, continued
+
+Numbering continues. Both suites ran through `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`),
+presence was checked by whole-file comparison in process against a post-image now proven to differ from
+the original, and `git status --porcelain` was asserted empty before each mutation and after each
+restore by the driver. It was empty every time.
+
+| #   | Mutation                                        | Predicted                                                                    | Result | The line the suite printed                                                                                                   |
+| --- | ----------------------------------------------- | ---------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| M26 | "Due to send" renders `counts.held`             | the due row shows the held value; no coincidence can hide it in this fixture | RED    | `expected [ [ 'On this day', '13' ], …(5) ] to deeply equal […]`, diffing `- "5"` / `+ "3"` — `1 failed / 461 passed (462)`  |
+| M27 | The named-exceptions row renders `counts.total` | the cross-cutting row stops matching the panel it is labelled for            | RED    | `expected [ [ 'On this day', '13' ], …(5) ] to deeply equal […]`, diffing `- "2"` / `+ "13"` — `1 failed / 461 passed (462)` |
+
+Both predictions were exact, including which number moved and to what. The two elided assertion
+messages are the same shape because both mutations move one value inside the same six-row comparison;
+the diff lines are quoted rather than the summary, because the summary alone would not tell the two
+apart.
+
+## Gates
+
+| Gate                                                           | Evidence                                                   |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  23 passed (23)` and `Tests  462 passed (462)` |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`), final tree      | exit 0, zero `error TS` lines emitted                      |
+| `npx eslint --no-cache`, the file this round changed           | `files linted: 1`, `errorCount: 0 warningCount: 0` (JSON)  |
+| `prettier --check`, every file this task has changed           | `All matched files use Prettier code style!`               |
+
+Run **after** the final edit of this round, which is this section. The one-count difference from round
+2's 461 is the readout case.
+
+**The shared machine.** This round's first suite run was refused by the coordinator eight times in a
+row — `Database focused-test capacity is full`, owned in turn by `dev-hub-phase-1` and
+`care-plan-impl`. Retried on the coordinator's own markers, never forced, and the row above is from a
+run that printed a summary line.
+
+`tests/ui-caring-contacts-workspace.spec.ts` is untouched by this round and I still have not run it.
+Nothing here changes anything that block asserts.
+
+## Concerns from round 3
+
+1. **The counts fixture seeds thirteen plans to buy six distinct numbers.** It is the slowest case in
+   either suite and it exists for the shape of its numbers rather than for a clinical scenario. If it
+   becomes a drag, the honest shrink is fewer plans with a documented note about which two values then
+   coincide — not a quieter assertion.
+2. **`M27` proves the exceptions row is not `total`; it does not prove it is `needsReview`** rather
+   than some other value that happens to be 2 here. The panel-length assertion beside it is what ties
+   the row to the thing it counts, and that is an argument from two assertions rather than from one
+   mutation.
+3. **The driver's two guards are still separate lines with separate messages.** That is deliberate —
+   they catch different failures — but it means a future edit could remove one and leave the other
+   looking sufficient, which is exactly how the gap this round closed was created.
