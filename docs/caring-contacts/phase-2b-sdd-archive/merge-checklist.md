@@ -315,3 +315,41 @@ costs nothing in sequence and buys a table that is true.
 
 **Cost if wrong:** the merge happens without two more sets of eyes on it. Against that: both tasks are
 verification tasks, and verification of the wrong tree is not verification.
+
+## 9. The rounds that were never re-reviewed — Ruling [136]
+
+Applying the controller rule added to `STANDING-DISCIPLINE.md` ("name the review that closed a task's **last**
+round, not its first") to every task already recorded as accepted. The rule permitting a skipped re-review
+applies to **prose-only** rounds. Reading the diffs rather than the commit subjects:
+
+| Task     | Final round | Contains                                                               | Re-reviewed?                          |
+| -------- | ----------- | ---------------------------------------------------------------------- | ------------------------------------- |
+| Task 10  | round 3     | `9f49d997a fix(…): retract the second site, correct the proof, format` | **no**                                |
+| Task 11a | round 2     | `ae8c4a73c fix(…): announce save-draft's destination…` + two `test(…)` | **no**                                |
+| Task 19  | round 3     | `2ab079db8 fix(…): …close four gaps review found`                      | **no**                                |
+| Task P   | round 2     | 49 lines across `message-copy.ts`, `patient-detail.ts`, two test files | **running now**                       |
+| Task 13  | not pinned  | —                                                                      | unknown; **do not assume either way** |
+| Task 14  | round 5     | re-reviewed at round 4; round 5 was one item with a pasted `error TS`  | yes                                   |
+| Task 16  | round 1     | in flight                                                              | n/a                                   |
+
+**So the skip was applied on a wrong premise at least three times.** None of those rounds was prose-only; each
+carried a `fix(` commit written in response to review findings — which is precisely the code nobody has looked
+at, because the round that answers a review is the round no review has seen.
+
+**Ruling [136]: do not dispatch three retrospective scoped re-reviews. Hand this list to the final
+whole-branch review instead**, which the method already owes and which has not yet been run.
+
+- It runs on the **merged tree**, where these four tasks' code sits together — and interactions between them
+  are exactly what a per-task re-review cannot see.
+- Three separate reviews of three small diffs cost more and see less than one review told where to look.
+- Nothing is pushed, so the cost of finding something after the merge is a commit on a local branch.
+
+**The one exception, and the reason it is an exception: Task P.** Its unreviewed round changed
+`message-copy.ts` — the module holding the words a discharged patient reads. That is the highest-consequence
+surface in the phase, the merge order puts it first, and waiting until after the merge to look at it would
+mean merging unreviewed patient-visible wording. It gets its own scoped re-review now, and **nothing merges
+until that returns.**
+
+**The final whole-branch review must be told this list explicitly**, by task and by round, and asked to treat
+those diffs as unreviewed rather than as already-covered ground. A broad review that assumes prior coverage
+gives exactly the coverage that was assumed.
