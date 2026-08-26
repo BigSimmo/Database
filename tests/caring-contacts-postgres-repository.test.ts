@@ -39,7 +39,10 @@ import {
   applyCaringContactsMigrations,
   createCaringContactsTestPool,
   dropCaringContactsSchema,
+  insertAuditEvent,
+  nextAuditToken,
   poolAsSqlConnectionPool,
+  runInTeamSession,
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
@@ -324,8 +327,24 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
       PREFERRED_NAME,
     );
 
-    // The pre-0007 shape, made directly because no route into this store can produce it.
-    await pool.query("update caring_contacts.plans set preferred_name = null where id = $1", ["NULLNAME-PLAN"]);
+    // The pre-0007 shape, made directly because no route into this store can produce it -- and made
+    // INSIDE AN AUDITED TEAM SESSION, because the schema refuses a bare `update` on this table
+    // outside one (`caring-contacts-audit-required`). A first draft used `pool.query` and failed on
+    // exactly that trigger; the failure looked like the assertion below and was not, which is why
+    // this note is here rather than only the fix.
+    await runInTeamSession(pool, { teamId: COORDINATOR.teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId: COORDINATOR.teamId,
+        actorId: COORDINATOR.id,
+        actorRoles: ["coordinator"],
+        action: "createPlan",
+        objectType: "plan",
+        objectId: "NULLNAME-PLAN",
+        outcome: "allowed",
+        idempotencyKey: "nullname-strip",
+      });
+      await client.query("update caring_contacts.plans set preferred_name = null where id = $1", ["NULLNAME-PLAN"]);
+    });
 
     expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBeNull();
   });
