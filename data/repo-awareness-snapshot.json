@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "327f3aac436d80ddeef27b452d16ccd14ccbeb01",
-    "committed_at": "2026-08-26T05:22:31+00:00"
+    "sha": "38fb26025fe7dfb4d007182c319769dd42ed861d",
+    "committed_at": "2026-08-26T08:43:32+00:00"
   },
   "routes": {
     "modes": [
@@ -1683,12 +1683,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/accessibility-acceptance.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
         "section": "care-plan",
         "catalogued": false
       },
       {
         "path": "docs/care-plan/CLAUDE-START-HERE.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/clinical-language-trace.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -1703,6 +1713,111 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/HANDOFF-START-HERE.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/implementation-handoff.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/interaction-matrix.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/final-fix-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-10-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-11-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-3-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-3-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-4-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-4-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-5-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-5-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-6-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-6-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-7-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-7-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-8-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-8-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-9-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-9-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-d1-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/sdd-ledger.md",
         "section": "care-plan",
         "catalogued": false
@@ -1713,7 +1828,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/session-handoff-2026-08-23.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/verification-log-2026-08-21.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/verification-report.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -3655,9 +3780,9 @@
       }
     ],
     "counts": {
-      "documents": 441,
+      "documents": 466,
       "catalogued": 102,
-      "uncatalogued": 339,
+      "uncatalogued": 364,
       "sections": 18
     }
   },
@@ -3688,6 +3813,14 @@
       },
       {
         "date": "2026-08-26",
+        "ref": "claude/ward-flow-phase-5-p8rwcm",
+        "head": "47b51405bf3938096411895d28a4bba351d7d050",
+        "scope": "Ward Flow Phase 5 — bed availability lifecycle, leave beds, discharge board, capacity bands, freshness",
+        "outcome": "Whole-branch review: approved with findings, 0 P0, 0 P1, 7 P2 — all seven fixed and mutation-tested. Four earlier automated findings: three fixed, one rejected with reasons.",
+        "checks": "npm run test (3 pre-existing failures, identical on clean origin/main); npm run typecheck; npm run lint (eslint cache cleared); prettier --check on all changed files; chromium-mockups ward-management + ward-coordinator + ward-discharges; screenshots at 390/820/1440 on five screens, looked at"
+      },
+      {
+        "date": "2026-08-26",
         "ref": "codex/medication-risk-highlights",
         "head": "4a6ca72858752cc59e99ba17c8a9f00baa603ac5",
         "scope": "PR #2380 CI blocker: medication verdict signal",
@@ -3701,6 +3834,30 @@
         "scope": "PR #2380 full changed scope",
         "outcome": "No P0-P2 findings; corrected the stale six-item governance body with the required Supabase-target attestation; merged current main cleanly; zero unresolved review threads.",
         "checks": "Hosted CI at 2062e6563dbab390e4442ed42eaeb908bd509864: PR required success; post-sync medication Vitest 3 files/60 tests passed; installed-lock parity, outstanding-issues, and repo-awareness checks passed; provider-backed clinical gates not run."
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "PR #2383",
+        "head": "82721bc5c2ade304cc9041517755d89fc3f72883",
+        "scope": "PR #2383 Care Plan synthetic clinical prototype changed scope",
+        "outcome": "Fixed four review findings and merge conflicts with minimal root-cause changes; preserved current-main handoff corrections; no unresolved P0-P2 findings in changed scope",
+        "checks": "exact-head format:changed and docs:check-links passed; focused Care Plan suite 362/362 passed before final ref-only approval refinement; exact regression, lint, and typecheck pending repository coordinator and hosted exact-head CI"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "PR #2384",
+        "head": "37313af8b59c1a673fc1157c8a0ac738e92ffdb2",
+        "scope": "PR #2384 Ward Flow Phase 5 docs and sidebar changed scope",
+        "outcome": "Post-merge review: original head tree matches squash merge; two review threads fixed and resolved; nonblocking Advisory UI exposed exact-minute countdown test flake fixed in follow-up. CodeRabbit breakpoint-token nitpick dispositioned: the selector must remain coupled to the Ward sidebar's shared literal 64rem contract.",
+        "checks": "Hosted PR required aggregate passed; 94/96 advisory UI tests passed with one skipped and one exact-minute assertion failure; local focused rerun initially blocked by coordinator EPERM while queued behind an active exclusive Playwright lease."
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "PR #2385",
+        "head": "0abca58a554adeba03299363d436c4fed843618e",
+        "scope": "privacy trust brief changed scope",
+        "outcome": "No unresolved findings; named design-value review comment fixed",
+        "checks": "design-system contract passed; privacy DOM 7/7 passed; privacy Playwright 5/5 passed with production build and TypeScript; full unit suite 10556 passed with 6 unrelated Windows absolute-path failures"
       },
       {
         "date": "2026-08-25",
@@ -24632,8 +24789,8 @@
       }
     ],
     "counts": {
-      "records": 2620,
-      "refs": 1599
+      "records": 2624,
+      "refs": 1603
     }
   }
 }
