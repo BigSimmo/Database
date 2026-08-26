@@ -237,6 +237,15 @@ test. The distinction the whole "cleared versus never held" requirement rests on
 one layer that reads it out of a real column. A case was added that makes the row directly, and
 `M20b` is the same mutation re-run against it: RED.
 
+**`M20b` is a VOID row, kept rather than deleted, and it is the most useful thing in this table.**
+It went red for the right test name and the wrong reason. The case I had just added made its
+pre-0007 row with a bare `pool.query`, and this schema refuses a bare `update` on `plans` outside an
+audited transaction — so the case failed _unmutated_, and the mutation's red proved nothing. I only
+found it because the final gate run on the whole database suite went red on a clean tree: the
+mutation ledger alone would have carried a false green through to review. `M20c` is the same
+mutation re-run after the case was fixed to open an audited team session, against a suite that is
+`204 passed` unmutated.
+
 **`M11` is coarser than one assertion.** It disables the whole preferred-name reporting block in
 `personalisationIssues`, so it reddens the field-order case and both cap cases together. The three
 refusals underneath are separately mutated at their source — `M2` for too-long, `M16` for
@@ -255,9 +264,44 @@ fix, because the next reader would otherwise inherit it.
 
 ## Verification
 
-Gates run on the final tree. Every lock refusal is recorded as UNRUN and retried; nothing was forced.
+Every gate below ran on `5c78c0dcf`, the last commit that changes code; the only commit after it
+touches this report and nothing else. Lock refusals are recorded as UNRUN and retried; none was ever
+forced past another worktree's lease.
 
-<!-- GATE EVIDENCE -->
+| gate                                                                                          | result                                                   |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `npx tsc --noEmit -p tsconfig.json`                                                           | `typecheck exit=0` (the config includes `tests/**`)      |
+| `npx eslint <29 changed .ts/.tsx>` — **uncached**, `node_modules/.cache/eslint` removed first | `eslint exit=0 over 29 files`                            |
+| `npx prettier --check <every changed non-SQL path>`                                           | `All matched files use Prettier code style!`             |
+| `test:cc-guards` selection (18 files)                                                         | `Test Files  18 passed (18)` / `Tests  432 passed (432)` |
+| the affected suites `cc-guards` does not cover (12 files)                                     | `Test Files  12 passed (12)` / `Tests  328 passed (328)` |
+| `caring-contacts:db:test` against local Postgres                                              | `Test Files  2 passed (2)` / `Tests  204 passed (204)`   |
+
+**The migration replays from empty**, not merely against an existing database:
+`tests/helpers/caring-contacts-postgres.ts` runs `drop schema if exists caring_contacts cascade` and
+then applies every file in `caring-contacts/supabase/migrations` in order before the suite starts, so
+the `204 passed` above is a full replay including `0007`. The container is the local disposable one
+named in the brief; nothing here touched a hosted service.
+
+**The 12-file selection is not in `test:cc-guards` and had to be run anyway.** `cc-guards` does not
+include `caring-contacts-message-copy`, `-repository`, `-audit`, `-api-handler`, `-fingerprint`,
+`-simulation`, `-message-policy`, `-model`, the mockup DOM suites, or the two access-audit suites —
+every one of which this diff touches. Reporting `cc-guards` green while `caring-contacts-repository`
+was red would have been a true sentence about a broken tree.
+
+**Two rounds went red before these numbers, and both were mine.** The first `cc-guards` run reported
+`Tests  37 failed | 395 passed` — three wizard fixtures reached stage 4 without the field stage 3 now
+requires, and the retention sibling scan caught the new `episode.ts` doc comment using the word
+"retention", which that gate forbids outside `retention.ts`. The comment was reworded to name the
+clearance instead; the gate was not weakened and `episode.ts` was not added to its allowlist. The
+first database run reported `Tests  1 failed | 203 passed` for the reason `M20b` records above.
+
+**Every SHA in this report was checked to still exist** with `git cat-file -e <sha>^{commit}`.
+
+**Not run, and why.** No build (see the boundary section — assessed, not checked). No Playwright: no
+route, no chrome, and no phone-composer behaviour changed. No `verify:cheap`, `verify:pr-local`, or
+`verify:release`: the brief names the gate set, and the broad ones are provider-backed or would
+re-derive the same verdict on a shared machine already at capacity.
 
 ## Concerns and follow-ups
 
