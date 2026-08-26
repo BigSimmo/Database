@@ -366,7 +366,9 @@ One new block, `caring-contacts guidance and reports`, with seven tests:
 1. Guidance serves 200, renders its `h1`, and states the one-way boundary.
 2. Reports serves 200, renders its `h1`, and the reach section states the field is not collected —
    with `caring-contacts-reach-breakdown` at count 0 and no `Suppressed` anywhere in the section.
-   **This is the end-to-end form of the assertion the task turns on.**
+   **This is the end-to-end form of the assertion the task turns on.** It also asserts that the
+   governance-set minimum cell size is stated on the same screen, so a reader can see that what is
+   waiting is the categories and not the rule.
 3. Reports is reached by clicking the More panel at 1024px.
 4. **Templates, Guidance and Reports are all reachable at 390px**, with the rail hidden and the dock
    visible, and Templates is clicked through. This is the defect closed in a browser.
