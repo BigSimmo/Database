@@ -17,6 +17,7 @@ import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
 import { InteractiveRow, interactiveRowBase } from "@/components/ui/interactive-row";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
+import { TherapyCompareAction } from "../record/compare-action";
 import { TherapySaveNotice } from "../record/save-notice";
 import { useTherapyFavourite } from "../use-therapy-favourite";
 
@@ -61,6 +62,10 @@ export function SheetsScreen() {
               description="Design, personalise and print a plain-language handout from a source-grounded record."
               actions={<BrowserPrintButton label="Print / PDF" />}
             />
+          </div>
+
+          <div data-therapy-no-print className="mb-5">
+            <TherapyCompareAction therapy={t} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">

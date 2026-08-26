@@ -67,3 +67,15 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 14535ffc5f05d559f6bccac84099f9e6874bba6a:.gitleaksignore:generic-api-key:49
 # Reviewed false positive: a localhost example URL with a dummy API key in a removed handoff document.
 92097e53e096bc33c8b23f73874981b2e3214af3:docs/ed-care-plans/claude-build-handover-2026-08-21.md:generic-api-key:360
+# Reviewed false positive: the exported browser-storage key name for the Therapy
+# compare set. It is a `localStorage` key, visible in any browser's devtools and
+# never a credential; `generic-api-key` matched it only because the identifier
+# ends in "Key" and the hyphenated slug measures 3.99 Shannon entropy. Its five
+# siblings (answer-thread, recent-queries, saved-*, search-pins) are the same
+# shape and sit at 3.72-3.78, just under the rule's threshold, so this is a
+# margin artefact rather than a new class of finding. Rewording the slug to duck
+# the threshold was rejected: it is tuning an unverifiable number (gitleaks is
+# not installed locally) and would leave a worse name behind. The value is not
+# quoted in this comment, because a previous allowlist entry that quoted its own
+# pattern tripped the same rule (see line 49 above).
+9b34a0149759b2c2f1e8ed5d37f02ba1ac35cf39:src/lib/therapy-compare-memory.ts:generic-api-key:24
