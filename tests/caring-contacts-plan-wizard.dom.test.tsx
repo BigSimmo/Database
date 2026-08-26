@@ -2142,6 +2142,13 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
       /Leave this for now keeps this sign-up on this computer and takes you to this team's plans/i,
     );
     expect(destinations).toHaveTextContent(/Discard draft removes it and stays on this screen/i);
+    // POSITIVE CONTROL FOR THE ABSENCE BELOW. The drawer assertion is a `not.toMatch`, and a
+    // regex that matches nothing would satisfy it however the drawer read. The same regex is
+    // asserted to MATCH this paragraph first, so its absence from the drawer means something.
+    expect(
+      destinations.textContent ?? "",
+      "the regex used below matches nothing, so its absence from the drawer proves nothing",
+    ).toMatch(/leav|takes? you|team's plans/i);
 
     // THE GAP THIS CLOSES, ASSERTED RATHER THAN DESCRIBED. The frozen drawer never mentions leaving,
     // so a coordinator who read only the confirmation would not know the screen was about to change.
