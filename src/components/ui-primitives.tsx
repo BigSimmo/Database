@@ -102,11 +102,16 @@ export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-
 // case, label weight, full-strength ink.
 export const fieldLabel = "mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]";
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
+  "field-control h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
   "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--decoration-soft)]";
+/** Rounded search container that owns focus. Pair with `searchShellInput`. */
+export const searchShell =
+  "search-shell flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3";
+/** Transparent nested search input. Unlayered CSS, not Tailwind `outline-none`. */
+export const searchShellInput = "search-shell-input min-w-0 flex-1 bg-transparent outline-none";
 export const shellChip =
   "inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
 export const navPill = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
@@ -175,6 +180,29 @@ const statusMarkerBase = "inline-block h-2 w-2 shrink-0";
 export const statusDotReady = `${statusMarkerBase} rounded-full border-2 border-[color:var(--text-heading)] bg-transparent`;
 export const statusDotReview = `${statusMarkerBase} rotate-45 rounded-sm bg-[color:var(--warning)]`;
 export const statusDotMuted = `${statusMarkerBase} rounded-full bg-[color:var(--decoration-soft)]`;
+export type StatusDotTone = "ready" | "review" | "muted";
+const STATUS_DOT_CLASS = {
+  ready: statusDotReady,
+  review: statusDotReview,
+  muted: statusDotMuted,
+} as const;
+
+export function StatusDotMarker({
+  tone,
+  label,
+  labelClassName,
+}: {
+  tone: StatusDotTone;
+  label: string;
+  labelClassName?: string;
+}) {
+  return (
+    <>
+      <span className={STATUS_DOT_CLASS[tone]} aria-hidden="true" />
+      <span className={labelClassName}>{label}</span>
+    </>
+  );
+}
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
@@ -366,8 +394,10 @@ export function ToggleSwitch({
   "aria-label": ariaLabel,
 }: ToggleSwitchProps) {
   const track = cn(
-    "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
-    enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+    "relative inline-flex h-6 w-10 shrink-0 box-content rounded-full border shadow-[var(--shadow-inset)] transition",
+    enabled
+      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
+      : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]",
     className,
   );
   const knob = (
@@ -375,8 +405,9 @@ export function ToggleSwitch({
       aria-hidden
       className={cn(
         // Gate 9: the knob travels on `transform`, never on `left`/`right`. Track is w-10
-        // (40px) with a 16px knob inset 4px each side, so the throw is 40-4-4-16 = 16px.
-        "absolute top-1 left-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm",
+        // (40px content box; `box-content` keeps the 1px border outside it) with a
+        // 16px knob inset 4px each side, so the throw is 40-4-4-16 = 16px.
+        "absolute top-1 left-1 h-4 w-4 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm",
         "transition-transform duration-[var(--duration-base)] motion-reduce:transition-none",
         enabled ? "translate-x-4" : "translate-x-0",
       )}
@@ -393,7 +424,7 @@ export function ToggleSwitch({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "inline-grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full",
+          "inline-grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           controlDisabled,
         )}

@@ -38,9 +38,12 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 ## 0. Pre-flight (read-only)
 
 ```bash
-npm run check:supabase-project     # must report Clinical KB Database / sjrfecxgysukkwxsowpy
+node -v                              # must report >= 24.15.0 < 25 (Node 24 engine floor)
+npm -v                               # must report >= 11.0.0 < 12 (npm 11)
+npm run check:runtime                # validates Node 24 and npm 11 engines
+npm run check:supabase-project       # must report Clinical KB Database / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked
-npm run reindex:health             # note jobs_pending / jobs_processing (needed for step 1 R17)
+npm run reindex:health               # note jobs_pending / jobs_processing (needed for step 1 R17)
 ```
 
 ## 1. Confirm migration state; apply only unresolved controls 🧑 Supabase
@@ -114,27 +117,40 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
 
 ## 4. Staging soak + rollback rehearsal 🧑 Railway
 
-1. Build image (real staging publishable key inlines into the client bundle):
+1. Name one candidate SHA and build one image from that exact checkout (real
+   staging publishable key inlines into the client bundle). Tag it with the full SHA:
    ```bash
    docker build --build-arg NEXT_PUBLIC_SUPABASE_URL=https://<staging-ref>.supabase.co \
      --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging sb_publishable_…> \
-     -t clinical-kb-app:staging .
+     -t clinical-kb-app:<candidate-sha> .
    ```
    (Local Docker can OOM on the 8 GiB Next heap — prefer the CI image-build workflow if it wedges.)
-2. **⏸ PAUSE** deploy to Railway staging + set runtime secrets (staging values, distinct from prod):
-   `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
+2. **⏸ PAUSE** deploy that candidate image in the tenancy profile. Set staging-only
+   secrets, but omit `OPENAI_API_KEY` and set `RAG_PROVIDER_MODE=offline`:
+   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
    `SUPABASE_PROJECT_NAME=Clinical KB Staging`, `SUPABASE_STAGING_PROJECT_REF=<staging-ref>`,
    `SUPABASE_STAGING_PROJECT_NAME=Clinical KB Staging`, `RAG_QUERY_HASH_SECRET` (staging),
-   `RAG_PROVIDER_MODE=auto`. Keep one warm instance (no scale-to-zero); Railway
-   health `/api/health/ready` (manual smoke: `GET /api/health`).
-3. **✅ verify** boot + soak (soak is hard-guarded against production):
+   `RAG_PROVIDER_MODE=offline`. Keep one warm instance. Confirm `GET /api/health`
+   reports `deploymentCommitSha=<candidate-sha>`, then dispatch the SHA-bound
+   tenancy workflow from a Git ref that resolves to that same `<candidate-sha>`
+   (`CROSS_TENANT_CHECKOUT_COMMIT_SHA` is `${{ github.sha }}`) and retain its
+   evidence artifact.
+3. **⏸ PAUSE** transition the same candidate image to the load profile: add the
+   staging-only `OPENAI_API_KEY`, set `RAG_PROVIDER_MODE=auto`, redeploy, and confirm
+   `/api/health` still reports the identical full candidate SHA. Run the authenticated
+   soak (hard-guarded against production and redirects):
    ```bash
-   npx tsx scripts/soak-test.ts --target https://<staging-host> --confirm-staging \
+   SOAK_BEARER_TOKEN="$STAGING_ACCESS_TOKEN" npx tsx scripts/soak-test.ts \
+     --target https://<staging-host> --confirm-staging \
      --users 30 --duration-s 600 --ramp-s 120
    ```
    Targets ([capacity-review.md](audit/capacity-review.md) §4): search p95 ≤ 3 s, **answer p95 ≤ 25 s**
-   (watch this given the Railway↔Sydney hop), non-429 error rate < 1 %.
-4. Rehearse rollback = redeploy the previous Railway image tag; confirm health returns.
+   (watch this given the Railway↔Sydney hop), non-429 error rate < 1 %, 429 rate ≤ 5 %,
+   and zero auth failures.
+4. Rehearse rollback by redeploying the previous image and recording its expected
+   health SHA. If one shared staging service backs the nightly tenancy check, restore
+   the same candidate image afterwards in `offline` mode, remove the OpenAI key, and
+   verify the candidate SHA again. A separate offline tenancy deployment is preferred.
 
 ## 5. Production deploy 🧑 Railway
 
@@ -179,12 +195,12 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 - **Concurrent Document Index Recipe (#102):** When applying additive document index optimizations on a busy database (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`, and `documents_status_id_idx`), pre-create indexes concurrently (`CREATE INDEX CONCURRENTLY IF NOT EXISTS`) before applying the committed migration and registering in `search_schema_health()` to avoid write lock contention. Validate each index with `pg_index.indisvalid`. Note that bare-column trigrams and composite `(status, id)` indexes on the RAG path are canary-gated due to unordered `LIMIT 12` selection in candidate retrieval ([operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md)).
 - **Canary Latency & Cost Boundaries (#305):** Retrieval latency p90 SLO is ≤ 20s. Canary cost metrics provide lower-bound estimates without cache warmup.
 - **UI Smoke Reporter Stranding (#315):** When debugging rare UI smoke test timeouts, inspect reporter stranding in Playwright hooks rather than assuming layout regressions.
-- **Dev Drive Trusted Package Cache (#6SMMB4):** On Windows workstations hosting worktrees on a Dev Drive (e.g. `D:`, ReFS), verify that the local npm package cache (`D:\.npm-cache`) is registered as a trusted Dev Drive cache. If unverified or not registered, Microsoft Defender real-time scanning runs over every `npm ci` across all worktrees. From an **elevated administrator prompt**, inspect and register the trusted cache:
-  ```cmd
-  fsutil devdrv query D:
+- **Dev Drive Trusted Package Cache (#6SMMB4):** On Windows workstations hosting worktrees on a Dev Drive (e.g. `D:`, ReFS), verify that the local npm package cache (`D:\.npm-cache`) is registered as a trusted Dev Drive cache. If unverified or not registered, Microsoft Defender real-time scanning runs over every `npm ci` across all worktrees. From an **elevated administrator prompt**, register and verify the trusted cache:
+  ```powershell
   fsutil devdrv trust D:\.npm-cache
+  fsutil devdrv query D:
   ```
-  Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
+  Non-elevated prompts return `Error 5: Access is denied`. For fallback or non-elevated registry diagnostics, probe `Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue` or verify `(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`. Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
 
 ## 9. Ledger queue derivation & credential discipline (#327, #042)
 

@@ -2,7 +2,6 @@
 export const THERAPY_CATALOGUE_ASSETS = {
   full: "therapies.09b25b0fff3a2b44.json",
   index: "therapies-index.211dab554c4ec62d.json",
-  home: "therapies-home.211dab554c4ec62d.json",
 } as const;
 
 // The generation this one replaced. Retained on disk across one content-
@@ -13,7 +12,6 @@ export const THERAPY_CATALOGUE_ASSETS = {
 export const THERAPY_CATALOGUE_ASSETS_PREVIOUS = {
   full: "therapies.d0358686e452b00b.json",
   index: "therapies-index.8455f92cf736cbfa.json",
-  home: "therapies-home.211dab554c4ec62d.json",
 } as const;
 
 // First-paint metadata for the Therapy home. The landing page renders only

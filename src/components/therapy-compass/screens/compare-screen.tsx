@@ -1,37 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Check,
   CirclePlay,
   Clock,
   Copy,
   Info,
-  Plus,
   Scale,
-  Search,
   Shield,
   Target,
   TriangleAlert,
-  X,
   type LucideIcon,
 } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer } from "@/components/ui-primitives";
+import { CompareIdsChrome, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
-
-import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+import { THERAPY_MAX_COMPARE, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
-import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
+import { needsReviewCount, parseSteps, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
-import { EmptyState } from "../ui";
 import { useClipboard } from "../use-clipboard";
+
+const CBT_SLUG = "cognitive-behavioural-therapy-cbt";
+const ACT_SLUG = "acceptance-and-commitment-therapy-act";
 
 type Row = {
   key: string;
@@ -81,6 +79,23 @@ export function CompareScreen() {
   const b = useTcBindings();
   const items = b.compareTherapies;
   const { copied, copy } = useClipboard();
+  const catalogItems: CompareCatalogItem[] = useMemo(
+    () =>
+      b.therapies.map((therapy) => ({
+        id: therapy.slug,
+        title: therapy.name,
+        snippet: therapy.clinicalSummary ?? undefined,
+        tag: therapy.category,
+      })),
+    [b.therapies],
+  );
+  const starterChips: CompareStarterChip[] = [
+    {
+      id: "cbt-act",
+      label: "CBT vs ACT",
+      href: b.workspaceHref(therapyScreenHref("compare"), { compareSlugs: [CBT_SLUG, ACT_SLUG] }),
+    },
+  ];
 
   const rows = useMemo(() => {
     if (b.cmpTab === "priorities") return ROWS.filter((r) => r.priority);
@@ -114,7 +129,7 @@ export function CompareScreen() {
         // count that grows cannot share a line with a title that wraps.
         meta={
           <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
-            {items.length} of 4 selected
+            {items.length} of {THERAPY_MAX_COMPARE} selected
           </span>
         }
         actions={
@@ -144,44 +159,26 @@ export function CompareScreen() {
         }
       />
 
-      <div className="flex gap-3 my-[18px] mx-0 flex-wrap items-center">
-        <AddPicker />
-        {items.map((t) => (
-          <span
-            key={t.slug}
-            className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)]"
-          >
-            <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
-            <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
-              {t.name}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={X}
-              className="h-tap w-tap gap-0 px-0 text-[color:var(--decoration-soft)]"
-              onClick={() => b.removeCompare(t.slug)}
-              title={`Remove ${t.name}`}
-              aria-label={`Remove ${t.name}`}
-            >
-              <span className="sr-only">Remove {t.name}</span>
-            </Button>
-          </span>
-        ))}
-      </div>
+      <CompareIdsChrome
+        selectedIds={b.compareSlugs}
+        maxCount={THERAPY_MAX_COMPARE}
+        items={catalogItems}
+        starters={starterChips}
+        emptyTitle="Add therapies to compare"
+        emptyDescription="Search the therapy catalogue, or start from CBT vs ACT. You can still add from search results or a therapy record."
+        actionLabel="Add therapies"
+        searchPlaceholder="Search therapy"
+        pickerTitle="Add therapies to compare"
+        pickerDescription="Assign up to four therapies. Duplicates are blocked."
+        pickerId="therapy-compare-picker"
+        pickerTestId="therapy-compare-picker"
+        changeLabel="Change therapies"
+        slotPlaceholder="Choose therapy"
+        icon={Scale}
+        onCommit={(ids) => b.replaceCompareSlugs(ids.filter((id): id is string => Boolean(id)))}
+      />
 
-      {items.length < 2 ? (
-        <EmptyState
-          icon={Scale}
-          title={items.length === 0 ? "Add therapies to compare" : "Add one more therapy"}
-          body="Pick two to four therapies — from search results, a therapy record, or the add box above — to compare fit, cautions, delivery and evidence side by side."
-          action={
-            <Button variant="primary" icon={Search} onClick={b.goSearch}>
-              Find therapies to compare
-            </Button>
-          }
-        />
-      ) : (
+      {items.length < 2 ? null : (
         <>
           {/* decision summary */}
           <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5")}>
@@ -211,13 +208,13 @@ export function CompareScreen() {
               { id: "all", label: "All fields" },
             ]}
           >
-            {/* table */}
+            {/* Phones read the same rows stacked; see TherapyCompareStack below. */}
             <div
-              data-therapy-scroll-sm
+              data-testid="therapy-compare-table"
               role="region"
               aria-label="Therapy comparison table"
               tabIndex={0}
-              className="overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)]"
+              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)] md:block"
             >
               <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
                 <caption className="sr-only">Therapy comparison by clinical field</caption>
@@ -286,6 +283,7 @@ export function CompareScreen() {
                 </tbody>
               </table>
             </div>
+            <TherapyCompareStack items={items} rows={rows} dense={dense} />
             <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
               <Info aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Comparisons are source-grounded. Review status reflects the latest source checks.
@@ -294,6 +292,79 @@ export function CompareScreen() {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The phone comparison.
+ *
+ * The table above is `min-w-[720px]` inside a horizontal scroller, which on a
+ * 390px phone shows about two thirds of one column at a time and — worse —
+ * scrolls the field labels away from the values they label. Below `md` the same
+ * `rows` are turned inside out instead: one card per field, every therapy listed
+ * against it, so the label never leaves the value and nothing scrolls sideways.
+ *
+ * The fork is `md` (768px), not `sm` (640px): at 640–767px the 720px table would
+ * still scroll sideways, which is the exact defect being fixed.
+ *
+ * One `rows` memo, two presentations — deliberately in this file rather than
+ * extracted, because moving the table out has twice silently dropped the
+ * responsive-stack count that `tests/therapy-compass-responsive-contract.test.ts`
+ * measures.
+ */
+function TherapyCompareStack({
+  items,
+  rows,
+  dense,
+}: {
+  items: readonly Therapy[];
+  rows: readonly Row[];
+  dense: boolean;
+}) {
+  return (
+    <div data-testid="therapy-compare-stack" className="flex flex-col gap-2.5 md:hidden">
+      {rows.map((r) => {
+        const warn = r.tone === "warning";
+        return (
+          <section
+            key={r.key}
+            aria-label={r.label}
+            className={cn(
+              "rounded-xs border",
+              dense ? "p-3" : "p-4",
+              warn
+                ? "border-[color:var(--border-strong)] bg-[color:var(--warning-bg)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)]",
+            )}
+          >
+            <h3
+              className={cn(
+                "m-0 flex items-center gap-2 text-2xs font-bold tracking-eyebrow uppercase",
+                warn ? "text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]",
+              )}
+            >
+              <r.icon aria-hidden="true" size={15} strokeWidth={1.8} />
+              {r.label}
+            </h3>
+            <dl className={cn("m-0 grid gap-x-3", dense ? "mt-2 gap-y-1.5" : "mt-2.5 gap-y-2")}>
+              {items.map((t) => (
+                <div key={t.slug} className="grid grid-cols-1 gap-0.5">
+                  <dt className="text-2xs font-bold text-[color:var(--text-heading)]">{t.name}</dt>
+                  <dd
+                    className={cn(
+                      "m-0 text-sm-minus leading-normal",
+                      warn ? "text-[color:var(--warning-text)]" : "text-[color:var(--text)]",
+                    )}
+                  >
+                    {r.get(t)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -314,59 +385,6 @@ function SummaryCell({
     >
       <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
-    </div>
-  );
-}
-
-function AddPicker() {
-  const b = useTcBindings();
-  const [q, setQ] = useState("");
-  const atLimit = b.compareSlugs.length >= THERAPY_MAX_COMPARE;
-  const matches = useMemo(() => {
-    if (atLimit || !q.trim()) return [];
-    return searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
-      .filter((t) => !b.isInCompare(t.slug))
-      .slice(0, 6);
-  }, [q, b, atLimit]);
-
-  return (
-    <div className="relative flex-1 min-w-[260px]">
-      <label className="relative flex items-center">
-        <Search
-          aria-hidden="true"
-          size={17}
-          strokeWidth={1.8}
-          className="absolute left-[14px] text-[color:var(--decoration-soft)]"
-        />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          disabled={atLimit}
-          placeholder={
-            atLimit ? "Maximum of 4 selected — remove one to add another" : "Add a therapy to the comparison…"
-          }
-          aria-label="Add a therapy to compare"
-          className="h-[46px] w-full rounded-md border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm"
-        />
-      </label>
-      {matches.length ? (
-        <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
-          {matches.map((t) => (
-            <button
-              key={t.slug}
-              type="button"
-              className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex items-center gap-2.5 w-full py-[11px] px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer`}
-              onClick={() => {
-                b.addCompare(t.slug);
-                setQ("");
-              }}
-            >
-              <Plus aria-hidden="true" size={15} className="text-[color:var(--clinical-accent)] flex-none" />
-              <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

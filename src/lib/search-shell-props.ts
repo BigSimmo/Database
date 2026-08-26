@@ -80,7 +80,14 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
   }
 
   if (pathname.startsWith("/therapy-compass")) {
-    return { initialMode: "therapy-compass", desktopSearchPlacement: "hero" };
+    // Recommend owns an in-flow clinical-situation composer. The shared phone
+    // dock would be a second search on the same page, so this exact route
+    // hides the shell composer the same way `/dictionary/sources` does.
+    return {
+      initialMode: "therapy-compass",
+      desktopSearchPlacement: "hero",
+      ...(pathname === "/therapy-compass/recommend" ? { searchComposerVisible: false } : {}),
+    };
   }
 
   if (pathname.startsWith("/factsheets")) {

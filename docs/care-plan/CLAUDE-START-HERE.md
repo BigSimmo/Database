@@ -37,7 +37,7 @@ The previous localhost visual server is no longer running. Open the HTML file di
 ## Copy/paste prompt for Claude
 
 ```text
-Resume the Care Plan build in D:\Repos\Database\.claude\worktrees\ed-care-plans-impl-7f44cd
+Resume the Care Plan build in D:\Worktrees\Database\care-plan
 on branch claude/ed-care-plans-impl-7f44cd.
 
 Read, in order: docs/superpowers/specs/2026-08-20-care-plan-design.md (binding),

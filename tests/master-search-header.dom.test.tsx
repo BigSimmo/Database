@@ -1,9 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { factsheetsTopicsHref } from "@/lib/app-modes";
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 const router = vi.hoisted(() => ({
@@ -72,6 +74,60 @@ describe("MasterSearchHeader DOM", () => {
   beforeEach(() => {
     installMatchMediaStub(false);
     vi.clearAllMocks();
+  });
+
+  it("disables the query input when private answer search is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("disables the query input for documents search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="documents" realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("keeps the query input enabled for local forms search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="forms" realDataReady={false} />);
+    expect(screen.getByTestId("global-search-input")).toBeEnabled();
+  });
+
+  it("keeps ordinary Search as the only composer action for former Clinical Ask modes", () => {
+    const props = defaultHeaderProps();
+    props.query = "synthetic question";
+    const modes = [
+      "services",
+      "forms",
+      "differentials",
+      "formulation",
+      "dsm",
+      "specifiers",
+      "therapy-compass",
+    ] as const;
+    const { rerender } = render(<MasterSearchHeader {...props} searchMode={modes[0]} />);
+
+    for (const searchMode of modes) {
+      rerender(<MasterSearchHeader {...props} searchMode={searchMode} />);
+      expect(screen.queryByRole("button", { name: /^Ask / })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Dictate question|Stop recording/ })).not.toBeInTheDocument();
+      expect(document.querySelector("[data-clinical-ask-actions]")).toBeNull();
+    }
+
+    fireEvent.submit(screen.getByRole("search"));
+    expect(props.onAsk).toHaveBeenCalledOnce();
+  });
+
+  it("routes Factsheets Browse all sheets to the Topics page", async () => {
+    const user = userEvent.setup();
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="factsheets" />);
+
+    await user.click(screen.getByRole("button", { name: "Open factsheets options" }));
+    await user.click(screen.getByRole("menuitem", { name: "Browse all sheets" }));
+
+    expect(router.push).toHaveBeenCalledWith(factsheetsTopicsHref);
   });
 
   describe("#WJDQ0X - privacy notice landmark / role=group wrapping", () => {

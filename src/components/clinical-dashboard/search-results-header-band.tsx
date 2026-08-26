@@ -147,6 +147,8 @@ export function SearchResultsHeaderBand({
   filterLabel = "Filter search results",
   headingLevel = 2,
   resultNoun: resultNounOverride,
+  hideEmptyQuery = false,
+  emptyQueryLabel,
   className,
 }: {
   modeId: AppModeId;
@@ -208,6 +210,14 @@ export function SearchResultsHeaderBand({
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
   /**
+   * Hide the query subject when `query` is empty instead of falling back to
+   * "All". Dictionary browse keeps this band as count + Filter with no
+   * invented query chip.
+   */
+  hideEmptyQuery?: boolean;
+  /** Accessible region name used when `hideEmptyQuery` omits the subject. */
+  emptyQueryLabel?: string;
+  /**
    * What this count counted, when the mode registry's noun is not specific
    * enough to be true.
    *
@@ -222,7 +232,10 @@ export function SearchResultsHeaderBand({
   resultNoun?: string;
   className?: string;
 }) {
-  const displayQuery = query.trim() || "All";
+  const trimmedQuery = query.trim();
+  const displayQuery = trimmedQuery || "All";
+  const showQuerySubject = Boolean(trimmedQuery) || !hideEmptyQuery;
+  const regionLabel = showQuerySubject ? `Search results for ${displayQuery}` : (emptyQueryLabel ?? "Catalogue");
   // `status` wins when both are passed; `loading` is the deprecated shim.
   const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
   // The clinical invariant, expressed once: a search that failed has no count to
@@ -297,7 +310,7 @@ export function SearchResultsHeaderBand({
 
   return (
     <section
-      aria-label={`Search results for ${displayQuery}`}
+      aria-label={regionLabel}
       aria-busy={busy}
       data-status={resolvedStatus}
       data-testid="search-query-ribbon"
@@ -437,15 +450,21 @@ export function SearchResultsHeaderBand({
               always rendered rather than appearing on scroll — conditional chrome
               is what this band spent its last redesign removing — and it is the
               part that truncates when the line runs out, never the number. */}
-          <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden />
-          <QueryHeading
-            // `min-w-[2rem]` keeps a non-empty box at 320px, so the heading stays
-            // findable and visible when a wide page control squeezes the line.
-            className="search-band-subject min-w-[2rem] truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
-            title={displayQuery}
-          >
-            {displayQuery}
-          </QueryHeading>
+          {showQuerySubject ? (
+            <>
+              <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden />
+              <QueryHeading
+                // `min-w-[2rem]` keeps a non-empty box at 320px, so the heading stays
+                // findable and visible when a wide page control squeezes the line.
+                className="search-band-subject min-w-[2rem] truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
+                title={displayQuery}
+              >
+                {displayQuery}
+              </QueryHeading>
+            </>
+          ) : (
+            <span className="min-w-0 flex-1" aria-hidden="true" />
+          )}
         </div>
 
         {hasUtilities ? (

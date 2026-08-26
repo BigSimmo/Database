@@ -67,3 +67,10 @@ export const IngestionQualityConsole = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading ingestion quality" /> },
 );
+
+export const ClinicalAskWorkspace = dynamic(
+  () => import("@/components/clinical-dashboard/clinical-ask-workspace").then((m) => m.ClinicalAskWorkspace),
+  // Empty-home idle render is null. A skeleton here shifts SharedHomeEmptyState
+  // (Lighthouse CLS on `/`) and pushes the in-flow composer into the PWA sheet.
+  { ssr: false, loading: () => null },
+);

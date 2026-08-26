@@ -96,7 +96,7 @@ export function buildSecurityHeaders(flags: SecurityHeaderFlags): SecurityHeader
     { key: "Cross-Origin-Resource-Policy", value: "same-site" },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
     // No Cross-Origin-Embedder-Policy — see module header note.
-    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=()" },
     { key: "Origin-Agent-Cluster", value: "?1" },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
     ...(flags.isLocalHttpRuntime

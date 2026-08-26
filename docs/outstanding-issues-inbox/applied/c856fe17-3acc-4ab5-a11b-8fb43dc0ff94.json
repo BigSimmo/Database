@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c856fe17-3acc-4ab5-a11b-8fb43dc0ff94",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "36b358f7-0fa8-46ab-9b72-585c7d2ceca9",
+    "reason": "Superseded by the current-main PWA resolution request 3a2cac06-0076-4e83-81fa-f98be7285444, which records the accepted whole-file selector contract."
+  }
+}

@@ -80,7 +80,7 @@ function waitForDifferentialCatalogQuery(page: Page, query: string) {
 }
 
 async function submitDifferentialSearch(page: Page, query: string) {
-  const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+  const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
   const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
 
   // Own the fill here rather than leaving it to callers. The server-rendered
@@ -174,14 +174,17 @@ async function mockAnswerDashboardApi(page: Page) {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get("kind");
+    const view = url.searchParams.get("view") ?? "full";
     const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
         total: records.length,
+        verifiedCount: 0,
+        ...(view === "full" ? { governance: {} } : {}),
         demoMode: true,
-        governance: {},
       },
     });
   });
@@ -309,6 +312,40 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
+  await expect(page.getByTestId(homeTestId)).toBeVisible();
+  const geometry = await page.evaluate((homeTestId) => {
+    const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    });
+    const canvas = document.querySelector("[data-mode-home-canvas]");
+    const main = document.getElementById("main-content");
+    if (!home || !canvas || !main) return null;
+    const homeRect = home.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    return {
+      homeMidX: homeRect.left + homeRect.width / 2,
+      homeMidY: homeRect.top + homeRect.height / 2,
+      canvasMidX: canvasRect.left + canvasRect.width / 2,
+      canvasMidY: canvasRect.top + canvasRect.height / 2,
+      canvasHeight: canvasRect.height,
+      docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+      mainOverflowY: main.scrollHeight - main.clientHeight,
+    };
+  }, homeTestId);
+
+  expect(geometry).not.toBeNull();
+  expect(geometry!.docOverflowY).toBeLessThanOrEqual(2);
+  expect(geometry!.mainOverflowY).toBeLessThanOrEqual(2);
+  expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(
+    Math.max(24, geometry!.canvasHeight * 0.12),
+  );
+  expect(Math.abs(geometry!.homeMidX - geometry!.canvasMidX)).toBeLessThanOrEqual(24);
+  await expectNoPageHorizontalOverflow(page);
+}
+
 async function expectMapLabelsContained(canvas: Locator) {
   await expect
     .poll(async () =>
@@ -434,7 +471,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await toolsOption.scrollIntoViewIfNeeded();
       await Promise.all([page.waitForURL(/\/tools$/), toolsOption.click()]);
 
-      await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+      await expect(visibleByTestId(page, "tools-search-results-page")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
@@ -490,11 +527,19 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/tools");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
+    await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
+      "href",
+      "/medications",
+    );
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
@@ -518,13 +563,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.getByTestId("tools-home")).toHaveCount(0);
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
     await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
 
@@ -540,7 +586,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=unknown&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     const showAll = results.getByRole("link", { name: "Show all tools" });
@@ -555,7 +601,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
@@ -569,6 +615,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
@@ -631,7 +678,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/tools?q=medication");
 
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
@@ -645,7 +692,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
     await expect(results.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
@@ -863,13 +910,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(headingBox).not.toBeNull();
       expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // The home centres its hero+search block in the scrollable main pane on
-      // phones (below the sticky header), not necessarily the full viewport.
+      // Search sits in the lower half of the centred cluster, so its midpoint
+      // is not the optical centre. Keep a coarse pane bound here; the helper
+      // below pins the whole home cluster to the leftover canvas.
       const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
       const mainTop = mainBox?.y ?? 0;
       const mainHeight = mainBox?.height ?? 844;
       expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
       expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
+      await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
       const metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -888,6 +937,24 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
     // The home hero is the only phone surface with the APP-5 privacy notice.
     await expect(page.getByTestId("answer-composer-privacy-warning")).toBeVisible();
+  });
+
+  test("idle phone mode homes stay centered without scrolling", async ({ page }) => {
+    const sizes = [
+      { width: 320, height: 720 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+    ] as const;
+    const homes = ["/?mode=answer", "/?mode=documents"] as const;
+
+    for (const size of sizes) {
+      await page.setViewportSize(size);
+      for (const path of homes) {
+        await mockAnswerDashboardApi(page);
+        await gotoLauncher(page, path);
+        await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
+      }
+    }
   });
 
   test("320px shared-home presentation wraps the longest mode copy without overflow", async ({ page }) => {
@@ -1860,15 +1927,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     expect(searchBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.65);
+    // The shared home keeps one search row with no auxiliary action rail. Keep
+    // the field in the upper viewport without encoding a brittle pixel height.
+    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.7);
     await expectNoPageHorizontalOverflow(page);
   });
 
   // `/differentials` no longer renders a home of its own: it redirects onto the
   // shared one, which is where a direct link, a bookmark and the sidebar's "More
-  // modes" sheet all now land. The detailed home this used to assert (Recent
-  // work, Library matches, the Compare action row) is design scratch at
-  // /mockups/differentials-home-detailed and 404s in production.
+  // modes" sheet all now land.
   test("a direct link to the differentials home lands on the shared home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/differentials");
@@ -1884,7 +1951,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const heroSearch = sharedHome.getByTestId("global-search-input");
     await expect(heroSearch).toBeVisible();
-    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation");
+    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation...");
 
     // The hero heading sits above the composer, and the composer stays in the
     // upper two thirds — the same geometry contract every mode home is held to.
@@ -2332,7 +2399,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
+    const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(input).toHaveCount(1, { timeout: 15_000 });
     await expect(submit).toHaveCount(1, { timeout: 15_000 });
@@ -2668,10 +2735,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "1 diagnosis selected" })).toBeVisible();
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
-    await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
-      "href",
-      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
-    );
+    await page.getByTestId("differential-compare-edit-selection").click();
+    await expect(page.getByTestId("differential-compare-picker")).toBeVisible();
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
     await page.getByTestId("differential-compare-open").click();
@@ -2771,7 +2836,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/tools");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     const detailsButton = results.getByRole("button", { name: "View details for Medication Prescribing" });
     await detailsButton.click();
     const detailSheet = page.getByTestId("tools-search-detail-sheet");
@@ -3007,12 +3072,15 @@ test.describe("Responsive layout guards", () => {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
       await gotoLauncher(page, "/medications");
-      const home = page.getByTestId("medication-home");
+      const home = visibleByTestId(page, "medication-home");
+      await expect(home).toHaveCount(1);
       await expect(home).toBeVisible();
       await settleLayout(page);
       const measure = () =>
         page.evaluate(() => {
-          const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+          const rect = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="medication-home"]'))
+            .map((node) => node.getBoundingClientRect())
+            .find((candidate) => candidate.width > 0 && candidate.height > 0);
           if (!rect) return null;
           return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
         });
@@ -3050,7 +3118,7 @@ test.describe("Responsive layout guards", () => {
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/medications");
 
-    const home = page.getByTestId("medication-home");
+    const home = visibleByTestId(page, "medication-home");
     await expect(home).toBeVisible();
     await expect(home).toContainText("Check renal dosing and contraindications.");
     await expect(home).toContainText("Review opioid-use precautions before prescribing.");
@@ -3081,9 +3149,9 @@ test.describe("Responsive layout guards", () => {
 
     for (const [label, query] of capabilitySearches) {
       await gotoLauncher(page, "/medications");
-      await page.getByTestId("medication-home").getByRole("button", { name: label, exact: true }).click();
+      await visibleByTestId(page, "medication-home").getByRole("button", { name: label, exact: true }).click();
       await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
-      await expect(page.getByTestId("medication-home")).toHaveCount(0);
+      await expect(visibleByTestId(page, "medication-home")).toHaveCount(0);
     }
 
     await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
@@ -3180,33 +3248,5 @@ test.describe("Responsive layout guards", () => {
       .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
       .toBe(true);
     expect(appRequests).toEqual([]);
-  });
-
-  // Tagged @mockup because the surface moved, not because the contract lapsed:
-  // the detailed differentials home was retired to /mockups when the mode moved
-  // onto the shared home, and /mockups 404s in production. The scroll row and its
-  // touch targets still ship in the bundle, so they are still worth guarding —
-  // just in the project that can reach them.
-  test("differentials recent work remains touch-sized inside its mobile scroll row @mockup", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 760 });
-    await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/mockups/differentials-home-detailed");
-
-    const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
-    await expect(recentWork).toBeVisible();
-    const recentButtons = recentWork.locator(".answer-suggestion-row-scroll").getByRole("button");
-    expect(await recentButtons.count()).toBeGreaterThan(1);
-    for (const button of await recentButtons.all()) await expectMinTouchTarget(button);
-
-    const rowMetrics = await recentWork.locator(".answer-suggestion-row-scroll").evaluate((row) => {
-      const style = getComputedStyle(row);
-      return {
-        overflows: row.scrollWidth > row.clientWidth + 1,
-        maskImage: style.maskImage || style.webkitMaskImage,
-      };
-    });
-    expect(rowMetrics.overflows).toBe(true);
-    expect(rowMetrics.maskImage).not.toBe("none");
-    await expectNoPageHorizontalOverflow(page);
   });
 });

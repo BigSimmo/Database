@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, useDeferredValue, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useDeferredValue,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -15,14 +24,17 @@ import {
   type TherapySheetSection,
   type TherapyWorkspaceState,
 } from "@/lib/therapy-compass-navigation";
+import { readTherapyCompareMemory, writeTherapyCompareMemory } from "@/lib/therapy-compare-memory";
 
 import { useTherapyData } from "./data/use-therapy-data";
 import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
+import { relatedTherapies, type RelatedTherapy } from "./data/related";
 import {
   EMPTY_SEARCH,
   RECOMMEND_CONSTRAINTS,
+  inferRecommendConstraints,
+  resolveRecommendConstraints,
   rankRecommendations,
-  relatedTherapies,
   searchTherapies,
   type Ranked,
   type SearchOptions,
@@ -53,14 +65,14 @@ export type TcBindings = {
   goPathways: () => void;
   goDetail: () => void;
   goReview: () => void;
-  workspaceHref: (href: string) => string;
+  workspaceHref: (href: string, patch?: Partial<TherapyWorkspaceState>) => string;
   isHome: boolean;
   isOther: boolean;
   otherLabel: string;
   // ---- active therapy (detail / brief / sheet) ------------------------
   selectedSlug: string | null;
   selectedTherapy: Therapy | null;
-  relatedForSelected: Therapy[];
+  relatedForSelected: RelatedTherapy[];
   open: (slug: string) => void; // → detail
   openBrief: (slug: string) => void;
   openSheet: (slug: string) => void;
@@ -88,8 +100,8 @@ export type TcBindings = {
   // ---- compare --------------------------------------------------------
   compareSlugs: string[];
   compareTherapies: Therapy[];
-  toggleCompare: (slug: string) => void; // add/remove + navigate
   addCompare: (slug: string) => void;
+  replaceCompareSlugs: (slugs: readonly string[]) => void;
   removeCompare: (slug: string) => void;
   clearCompare: () => void;
   isInCompare: (slug: string) => boolean;
@@ -98,6 +110,9 @@ export type TcBindings = {
   recQuery: string;
   setRecQuery: (q: string) => void;
   recConstraints: string[];
+  inferredConstraintKeys: string[];
+  isConstraintActive: (key: string) => boolean;
+  isConstraintInferred: (key: string) => boolean;
   toggleConstraint: (key: string) => void;
   recommendations: Ranked[];
 
@@ -161,6 +176,17 @@ function chipStyle(active: boolean): string {
     .join(" ");
 }
 
+function uniqueConstraintKeys(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const key of keys) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(key);
+  }
+  return result;
+}
+
 export function TcProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -206,6 +232,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
   }));
   const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
   const [recConstraints, setRecConstraints] = useState<string[]>(workspaceFromUrl.constraints);
+  const [dismissedConstraintKeys, setDismissedConstraintKeys] = useState<string[]>([]);
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(workspaceFromUrl.pathwaySlug);
 
   // Seed the search query from a `?q=` deep link (universal-search "view all" or a
@@ -308,9 +335,21 @@ export function TcProvider({ children }: { children: ReactNode }) {
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],
   );
+  const inferredConstraintKeys = useMemo(() => inferRecommendConstraints(recQuery), [recQuery]);
+  const prunedDismissedKeys = useMemo(
+    () => dismissedConstraintKeys.filter((key) => inferredConstraintKeys.includes(key)),
+    [dismissedConstraintKeys, inferredConstraintKeys],
+  );
+  if (prunedDismissedKeys.length !== dismissedConstraintKeys.length) {
+    setDismissedConstraintKeys(prunedDismissedKeys);
+  }
+  const effectiveConstraintKeys = useMemo(
+    () => resolveRecommendConstraints(recQuery, recConstraints, prunedDismissedKeys),
+    [recQuery, recConstraints, prunedDismissedKeys],
+  );
   const recommendations = useMemo(
-    () => rankRecommendations(therapies, recQuery, recConstraints),
-    [therapies, recQuery, recConstraints],
+    () => rankRecommendations(therapies, recQuery, effectiveConstraintKeys),
+    [therapies, recQuery, effectiveConstraintKeys],
   );
   const relatedForSelected = useMemo(
     () => (selectedTherapy ? relatedTherapies(therapies, selectedTherapy) : []),
@@ -385,7 +424,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goPathways: () => go("pathways"),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
-      workspaceHref: (href) => therapyHrefWithSearchParams(href, workspaceParams()),
+      workspaceHref: (href, patch) => therapyHrefWithSearchParams(href, workspaceParams(patch)),
       isHome: screen === "home",
       isOther: !THERAPY_KNOWN_SCREENS.includes(screen as (typeof THERAPY_KNOWN_SCREENS)[number]),
       otherLabel: screen.charAt(0).toUpperCase() + screen.slice(1),
@@ -455,20 +494,22 @@ export function TcProvider({ children }: { children: ReactNode }) {
 
       compareSlugs,
       compareTherapies,
-      toggleCompare: (slug) => {
-        const next = compareSlugs.includes(slug)
-          ? compareSlugs.filter((value) => value !== slug)
-          : compareSlugs.length >= THERAPY_MAX_COMPARE
-            ? compareSlugs
-            : [...compareSlugs, slug];
-        setCompareSlugs(next);
-        pushWorkspace(therapyScreenHref("compare"), { compareSlugs: next });
-      },
       addCompare: (slug) => {
         const next =
           compareSlugs.includes(slug) || compareSlugs.length >= THERAPY_MAX_COMPARE
             ? compareSlugs
             : [...compareSlugs, slug];
+        setCompareSlugs(next);
+        replaceWorkspace({ compareSlugs: next });
+      },
+      replaceCompareSlugs: (slugs) => {
+        const next: string[] = [];
+        for (const slug of slugs) {
+          const trimmed = slug.trim();
+          if (!trimmed || next.includes(trimmed)) continue;
+          next.push(trimmed);
+          if (next.length >= THERAPY_MAX_COMPARE) break;
+        }
         setCompareSlugs(next);
         replaceWorkspace({ compareSlugs: next });
       },
@@ -486,10 +527,33 @@ export function TcProvider({ children }: { children: ReactNode }) {
       recQuery,
       setRecQuery,
       recConstraints,
+      inferredConstraintKeys,
+      isConstraintActive: (key) => effectiveConstraintKeys.includes(key),
+      isConstraintInferred: (key) =>
+        inferredConstraintKeys.includes(key) && !recConstraints.includes(key) && !prunedDismissedKeys.includes(key),
       toggleConstraint: (key) => {
-        const next = recConstraints.includes(key)
-          ? recConstraints.filter((value) => value !== key)
-          : [...recConstraints, key];
+        const inferred = inferredConstraintKeys.includes(key);
+        const explicit = recConstraints.includes(key);
+        const dismissed = prunedDismissedKeys.includes(key);
+        if (explicit) {
+          const next = recConstraints.filter((value) => value !== key);
+          setRecConstraints(next);
+          replaceWorkspace({ constraints: next });
+          if (inferred) setDismissedConstraintKeys(uniqueConstraintKeys([...prunedDismissedKeys, key]));
+          return;
+        }
+        if (dismissed) {
+          setDismissedConstraintKeys(prunedDismissedKeys.filter((value) => value !== key));
+          const next = uniqueConstraintKeys([...recConstraints, key]);
+          setRecConstraints(next);
+          replaceWorkspace({ constraints: next });
+          return;
+        }
+        if (inferred) {
+          setDismissedConstraintKeys(uniqueConstraintKeys([...prunedDismissedKeys, key]));
+          return;
+        }
+        const next = uniqueConstraintKeys([...recConstraints, key]);
         setRecConstraints(next);
         replaceWorkspace({ constraints: next });
       },
@@ -599,6 +663,9 @@ export function TcProvider({ children }: { children: ReactNode }) {
     compareTherapies,
     recQuery,
     recConstraints,
+    inferredConstraintKeys,
+    prunedDismissedKeys,
+    effectiveConstraintKeys,
     recommendations,
     effectivePathwaySlug,
     selectedPathwaySlug,
@@ -610,6 +677,40 @@ export function TcProvider({ children }: { children: ReactNode }) {
     sheetSections,
     sheetClinician,
   ]);
+
+  // ---- Device memory for the compare set -------------------------------
+  //
+  // The URL stays the source of truth. Memory only fills the gap when you
+  // arrive with no `ids` at all, so an interrupted comparison is not lost. Both
+  // effects run after mount and never during render, so server HTML, the first
+  // client render and hydration stay identical whatever is in storage.
+  //
+  // "Decided" is a ref, not state, and that ordering is load-bearing: effects in
+  // one commit run in declaration order, so the restore below always resolves
+  // before the mirror reads it, without a second render to carry a flag.
+  const compareRestoreDecided = useRef(false);
+
+  useEffect(() => {
+    if (compareRestoreDecided.current) return;
+    // A shared link always wins, and can be decided without the catalogue.
+    if (workspaceFromUrl.compareSlugs.length > 0) {
+      compareRestoreDecided.current = true;
+      return;
+    }
+    // Restoring needs the catalogue: a slug from an older data generation must
+    // be dropped rather than resurrected as a therapy that no longer exists.
+    if (therapies.length === 0) return;
+    compareRestoreDecided.current = true;
+    const remembered = readTherapyCompareMemory().filter((slug) => bySlug.has(slug));
+    if (remembered.length > 0) value.replaceCompareSlugs(remembered);
+  }, [workspaceFromUrl.compareSlugs.length, therapies.length, bySlug, value]);
+
+  useEffect(() => {
+    // Writing before the restore has decided would clobber the remembered set
+    // with the empty one this tab started from.
+    if (!compareRestoreDecided.current) return;
+    writeTherapyCompareMemory(compareSlugs);
+  }, [compareSlugs]);
 
   return <TcContext.Provider value={value}>{children}</TcContext.Provider>;
 }

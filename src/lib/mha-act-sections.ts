@@ -61,11 +61,18 @@ const normalizeFormCode = (value: string) => value.trim().toLowerCase().replace(
  * Governing sections for the seven official forms that the archive never indexed, so
  * they carry no `sourceFacts.sectionCue`. Each entry states its basis in
  * `data/forms-act-section-cues.json` so the mapping can be checked.
+ *
+ * A cue is a citation — which sections govern this form — not a clinical claim, and its
+ * `basis` is what makes it checkable. The review caution belongs on the summary text,
+ * which already carries "awaiting clinical review" until signed off. Gating the cue as
+ * well would hide these seven forms twice over and leave them dark even after their Act
+ * summaries were reviewed. `status` stays in the data as provenance; it is not a gate.
  */
 const supplementalCueByCode = new Map(
-  (formsActSectionCues as FormsActSectionCuesFile).forms
-    .filter((form) => form.status === "reviewed")
-    .map((form) => [normalizeFormCode(form.code), form.sections.join(", ")]),
+  (formsActSectionCues as FormsActSectionCuesFile).forms.map((form) => [
+    normalizeFormCode(form.code),
+    form.sections.join(", "),
+  ]),
 );
 
 /** The section cue for a form: its own if the archive indexed one, else the supplemental map. */
@@ -95,9 +102,16 @@ export function mhaActSection(section: string): MhaActSection | undefined {
  * Renderable Act sections for a form's cue, or `undefined` to leave the Source status
  * card in place.
  *
- * Returns `undefined` unless EVERY cited section has a clinically reviewed summary.
- * Drafted summaries remain in the review artifact, but they cannot replace the
- * conservative Source status card in the clinical UI.
+ * Returns `undefined` unless EVERY cited section has a summary (drafted or reviewed).
+ * That is the staged-rollout gate: a form flips to the Act-sections card only once its
+ * whole citation list is written, so it can never show a half-populated authority card.
+ *
+ * Drafted summaries DO render. They are written from the statutory text and hash-pinned
+ * to it, and both the card face and the section sheet say "awaiting clinical review", so
+ * a reader is never told a summary carries review it does not have. Withholding them
+ * instead would leave 53 of 54 forms with no authority content at all — the repository
+ * owner weighed that and chose the labelled rollout. `reviewStatus` carries the
+ * distinction through to the UI; do not hardcode it.
  *
  * Throws for a cue naming a section absent from the curated file — that is a data
  * defect the build gate also catches, and it must never render as a dead chip.
@@ -114,12 +128,12 @@ export function actSectionsForCue(cue: string | undefined | null): FormActSectio
     return entry;
   });
 
-  if (sections.some((entry) => entry.status !== "reviewed" || !entry.summary?.trim())) return undefined;
+  if (sections.some((entry) => entry.status === "pending" || !entry.summary?.trim())) return undefined;
 
   return sections.map((entry) => ({
     section: entry.section,
     title: entry.title,
     summary: entry.summary,
-    reviewStatus: "reviewed",
+    reviewStatus: entry.status === "reviewed" ? "reviewed" : "drafted",
   }));
 }

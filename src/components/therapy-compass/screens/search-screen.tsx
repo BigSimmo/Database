@@ -19,8 +19,10 @@ import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { matchesAvailability, matchesTopics } from "../data/select";
+import { hasSearchableTherapyQuery } from "@/lib/therapy-ranking";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
+import { TherapyReviewNotice } from "../therapy-review-notice";
 
 // Curated quick-filter tags surfaced as chips (all exist in the tag set).
 // None of the six is ever zero across the whole 205-therapy catalogue, so the
@@ -35,6 +37,10 @@ export function SearchScreen() {
   const q = b.search.query;
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
+  // An empty query gives every record the same baseline score and then sorts
+  // alphabetically, so only call out a best match when the scorer had real
+  // query evidence to rank. Facets narrow the list but do not rank it.
+  const hasRankedQuery = hasSearchableTherapyQuery(q);
   const topics = useMemo(() => new Set(b.search.tags), [b.search.tags]);
   // Filters only — the query is deliberately excluded. It counts toward the
   // sheet's Clear all (see below), because `clearSearch` resets it, but the
@@ -143,6 +149,7 @@ export function SearchScreen() {
 
   return (
     <section data-screen-label="Search" className={`${pageContainer} space-y-2.5 sm:space-y-3`}>
+      <TherapyReviewNotice className="mb-2.5 sm:mb-3" />
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
@@ -234,8 +241,8 @@ export function SearchScreen() {
             />
           ) : (
             <div className="flex flex-col gap-3.5">
-              {shown.map((t) => (
-                <ResultCard key={t.slug} therapy={t} />
+              {shown.map((t, index) => (
+                <ResultCard key={t.slug} therapy={t} featured={hasRankedQuery && index === 0} />
               ))}
             </div>
           )}

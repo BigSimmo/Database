@@ -268,7 +268,7 @@ const modeConfigs: Record<CommandMockModeId, ModeConfig> = {
     id: "differentials",
     label: "Differentials",
     icon: BrainCircuit,
-    placeholder: "Ask or search a presentation",
+    placeholder: "Ask or search a presentation...",
     defaultQuery: "confusion",
     examples: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
     recents: ["confusion", "serotonin syndrome", "alcohol withdrawal"],

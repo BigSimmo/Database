@@ -104,6 +104,13 @@ const mockupPatterns = [
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
+  // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
+  // and the three ui-ward-*.spec.ts journeys carry no "mockup" in the path, so
+  // every rule above misses them. After those specs moved into chromium-mockups,
+  // a component-only or spec-only edit left advisory_ui_changed=false and the
+  // 46 journeys ran in neither lane.
+  "src/components/ward-management",
+  /^tests\/ui-ward-(?:management|coordinator|roles)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -218,8 +225,8 @@ const perfPatterns = [
   // render tree, so a path-based split would fail open.
   "src",
   // Route payload, both forms: data/** is imported into route chunks and public/** is
-  // fetched on the critical path (#117 therapies-home ~136 KB, #013 forms-catalog
-  // ~132 KB).
+  // fetched by route journeys (the Therapy browse index is ~136 KB; #013
+  // forms-catalog is ~132 KB).
   "data",
   "public",
   // These rewrite the emitted bundle/CSS for every route, so a change invalidates the
@@ -270,6 +277,15 @@ const perfExclusionPatterns = [
   "src/instrumentation.ts",
   "src/sentry.server.config.ts",
   "src/sentry.edge.config.ts",
+  // Developer-hub payload only. `src/lib/developer-area/ledger-snapshot.ts`
+  // imports this JSON, and the only route importers are under
+  // `src/app/mockups/development/` (already excluded; 404 in production). A
+  // ledger reconcile that closes the last P1 must not pay a 7-minute
+  // Lighthouse budget run, and must not fail merge on TBT noise from
+  // `/documents/search`. Measured on PR #2302: this file alone flipped
+  // perf_changed and the job failed mobile TBT +32.7% against a baseline
+  // the same change cannot move.
+  "data/outstanding-issues-snapshot.json",
 ];
 
 function isPerfChangedPath(filePath) {
@@ -750,6 +766,23 @@ function selfTest() {
   assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
     advisory_ui_changed: true,
   });
+  // Ward Flow: gated prototype whose specs and implementation tree have no
+  // "mockup" in the path. Both a spec-only edit and a component edit without
+  // the route wrapper must start the advisory lane; a vitest file must not.
+  assertScope("advisory-on-for-ward-spec", ["tests/ui-ward-management.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  assertScope(
+    "advisory-on-for-ward-management-component",
+    ["src/components/ward-management/coordinator/coordinator-screen.tsx"],
+    {
+      ui_changed: true,
+      advisory_ui_changed: true,
+    },
+  );
+  assertScope("advisory-off-for-ward-unit-test", ["tests/ward-management.test.ts"], {
+    advisory_ui_changed: false,
+  });
   // The directory rule must not swallow ordinary component paths.
   assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {
     ui_changed: true,
@@ -980,9 +1013,15 @@ function selfTest() {
   assertScope("perf-on-for-css-entrypoints", ["src/app/globals.css"], { perf_changed: true });
   assertScope(
     "perf-on-for-route-payload",
-    ["public/therapy-compass-data/therapies-home.json", "data/medications-snapshot.json"],
+    ["public/therapy-compass-data/pathways.json", "data/medications-snapshot.json"],
     { perf_changed: true },
   );
+  // Mockup-only ledger snapshot: same `data/` root as medications, but it
+  // cannot reach a budgeted route. Closing the last P1 on PR #2302 otherwise
+  // forced Lighthouse onto a docs/ledger reconcile.
+  assertScope("perf-off-for-outstanding-issues-snapshot", ["data/outstanding-issues-snapshot.json"], {
+    perf_changed: false,
+  });
   assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
     perf_changed: true,
   });

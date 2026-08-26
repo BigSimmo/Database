@@ -284,6 +284,15 @@ describe("in-page navigation section contracts", () => {
     // sections unguarded, which is the whole failure mode. Nine anchor-scrolling
     // routes plus one factsheet case per `kind`; the medication page swaps
     // panels rather than scrolling and is guarded by the suite below.
+    //
+    // Therapy's record header is in neither list on purpose. Its sections are
+    // that therapy's own *routes* — record, patient sheet, brief intervention,
+    // comparison — so there is no anchor to scroll to and no panel to swap, and
+    // a declared destination resolves to a navigation call rather than to
+    // rendered DOM. That resolution is guarded in
+    // `tests/therapy-record-nav.dom.test.tsx`, including the case this file's
+    // conditional-anchor rule covers elsewhere: a record with no patient sheet
+    // must drop the slot rather than offer a route that 404s.
     expect(routes).toHaveLength(14);
   });
 

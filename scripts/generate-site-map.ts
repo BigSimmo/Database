@@ -57,7 +57,7 @@ const consolidatedRedirectTargets = Object.fromEntries(
 );
 
 /*
- * The four `<mode>/search` routes with no browse view. Conditional, not absolute:
+ * The `<mode>/search` routes with no browse view. Conditional, not absolute:
  * they forward only when the query is empty, and render results otherwise — so
  * they are described rather than listed as plain redirects.
  */
@@ -80,12 +80,19 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
+  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
 const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
+  "/caring-contacts":
+    "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
+  "/caring-contacts/patients":
+    "The team's permission-scoped caring-contact caseload: one row per plan with a separately authorised patient-name projection. Plan state is URL-driven; name and synthetic-identifier search stays in browser memory so identifying text never enters the URL.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
+  "/calculators/search":
+    "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
   "/dictionary/browse":
@@ -113,9 +120,10 @@ const routeDescriptions: Record<string, string> = {
   "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
   "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
   "/dsm/search": "DSM diagnosis search and catalogue browser.",
-  "/factsheets": "Patient information factsheets home and topic browser.",
+  "/factsheets": "Compatibility redirect to the shared Factsheets home.",
   "/factsheets/[slug]": "Plain-language patient factsheet reading and printable handout view.",
   "/factsheets/search": "Patient information factsheet search command centre.",
+  "/factsheets/topics": "Patient information factsheets organised by topic.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -146,16 +154,11 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
   "/tools": "Clinical tools and applications launcher directory.",
-  "/ward-management": "Statewide psychiatry ward demand, bed capacity, and patient flow console.",
-  "/ward-management/capacity": "Ward bed availability, unit occupancy, and staffing capacity.",
-  "/ward-management/constellation": "Statewide psychiatric hospital network constellation view.",
-  "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
-  "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
-  "/ward-management/movements": "Scheduled and completed patient transfers and bed movements.",
-  "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
-  "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",
-  "/ward-management/queue": "Priority referral queue and triage waiting list.",
-  "/ward-management/transport": "Patient inter-hospital transfer and transport logistics.",
+  // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
+  // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated
+  // description here — Care Plan and Caring Contacts, the two other developer-gated
+  // prototypes, have none either — so they render with the generic "Route discovered
+  // from app directory" fallback in the Mockup/prototype routes section below.
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -230,10 +233,13 @@ const routeOwnershipRows = [
   ["Therapy Compass", "src/app/(search-app)/therapy-compass, src/lib/therapies.ts"],
   ["Factsheets", "src/app/(search-app)/factsheets, src/components/factsheets"],
   ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
-  ["Ward Management", "src/app/ward-management, src/components/ward-management"],
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Caring Contacts workspace",
+    "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
+  ],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -487,14 +493,15 @@ function renderModePageIndex() {
       mode: "Calculators",
       home: appModeHomeHref("calculators"),
       search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
-      detail: "`/calculators/search` scored results; an empty query forwards back to the shared home.",
+      detail:
+        "`/calculators/search` is the browsable calculator catalogue and scored-results surface; an empty query lists every calculator.",
     },
     {
       mode: "Factsheets",
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
       detail:
-        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
+        "`/factsheets/search` is the query-and-filter surface; `/factsheets/topics` organises the library by category; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",
@@ -555,7 +562,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dictionary/[slug]",
         "/dictionary/topics/[slug]",
         "/factsheets/[slug]",
-        "/ward-management/patients/[patientId]",
       ].includes(route.route),
   );
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
@@ -647,12 +653,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       bullet(
         "/documents/[id]",
         "Document viewer/detail page. Individual document IDs are intentionally not enumerated in this sitemap.",
-      ),
-    ]),
-    ...section("Ward management patient route", [
-      bullet(
-        "/ward-management/patients/[patientId]",
-        "Synthetic patient placement and transfer trajectory detail. Synthetic patient IDs are generated runtime data and intentionally not enumerated in this sitemap.",
       ),
     ]),
     ...section("Mockup/prototype routes", [

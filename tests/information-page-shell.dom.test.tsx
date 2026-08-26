@@ -29,10 +29,14 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/specifiers/builder")).toBe(false);
     expect(isInformationPage("/formulation/compare")).toBe(false);
     expect(isInformationPage("/factsheets/search")).toBe(false);
+    expect(isInformationPage("/factsheets/topics")).toBe(false);
     expect(isInformationPage("/dictionary/search")).toBe(false);
     expect(isInformationPage("/dictionary/topics")).toBe(false);
     expect(isInformationPage("/documents/search")).toBe(false);
     expect(isInformationPage("/therapy-compass/search")).toBe(false);
+    expect(isInformationPage("/therapy-compass/recommend")).toBe(false);
+    expect(isInformationPage("/services/search")).toBe(false);
+    expect(isInformationPage("/forms/search")).toBe(false);
   });
 });
 
@@ -47,6 +51,16 @@ describe("InformationPageShell", () => {
     expect(main.tagName).toBe("MAIN");
     expect(main.querySelector(".max-w-7xl")).not.toBeNull();
     expect(screen.getByText("Body")).toBeInTheDocument();
+  });
+
+  it("uses the shared reading-width container for narrow information pages", () => {
+    render(
+      <InformationPageShell testId="narrow-info-shell" width="narrow">
+        <p>Reading body</p>
+      </InformationPageShell>,
+    );
+
+    expect(screen.getByTestId("narrow-info-shell").querySelector(".max-w-reading")).not.toBeNull();
   });
 
   it("exposes shared breadcrumbs as a link back to the mode home", () => {

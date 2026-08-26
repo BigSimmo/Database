@@ -8,6 +8,7 @@ import { medicationTabForSectionType } from "@/components/clinical-dashboard/med
 import {
   MedicationConsiderations,
   MedicationInteractionCallout,
+  PatientVerdictSignal,
   verdictIcon,
   medicationVerdictRingClass,
   verdictSummaryBadge,
@@ -112,6 +113,29 @@ describe("result-row verdict presentation", () => {
       label: "No interaction found",
       tone: "success",
     });
+  });
+
+  it.each([
+    ["danger", "Danger", "For this patient"],
+    ["warning", "Caution", "For this patient"],
+    ["neutral", "Manual review", "Patient check incomplete"],
+    ["success", "No alert found", "From entered details"],
+  ] as const)("states the %s patient verdict in words without relying on colour", (tone, label, context) => {
+    render(
+      <PatientVerdictSignal
+        verdict={{
+          ...clean,
+          tone,
+          incomplete: tone === "neutral",
+          considerationCount: tone === "danger" || tone === "warning" ? 1 : 0,
+        }}
+      />,
+    );
+
+    const signal = screen.getByRole("group", { name: new RegExp(`^${label}\\. ${context}\\.`) });
+    expect(signal).toHaveAttribute("data-tone", tone);
+    expect(signal).toHaveTextContent(label);
+    expect(signal).toHaveTextContent(context);
   });
 
   it("labels an incomplete verdict for manual review rather than clear", () => {
@@ -228,7 +252,7 @@ describe("MedicationInteractionCallout", () => {
 
     // Count + severity on the trigger; the drug names in the visible summary.
     expect(trigger()).toHaveAccessibleName(/2 interactions with this patient/i);
-    expect(screen.getByText("CRITICAL")).toBeVisible();
+    expect(screen.getByText("CRITICAL", { selector: "button span" })).toBeVisible();
     expect(screen.getByText(/Tramadol IR · Ibuprofen/)).toBeVisible();
   });
 

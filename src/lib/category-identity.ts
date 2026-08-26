@@ -75,6 +75,7 @@ export const CATEGORY_ICON_KEYS = [
   "route",
   "fileSignature",
   "heart",
+  "heartHandshake",
   "brainCircuit",
   "bookOpenCheck",
   "tags",
@@ -95,7 +96,6 @@ export const CATEGORY_ICON_KEYS = [
   "waves",
   "star",
   "chat",
-  "activity",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -124,6 +124,31 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
 };
 
 /**
+ * Within-surface category colour for peer-mode cards (also-matches grids,
+ * library chips). This is not a global mode-identity channel: nav and mode
+ * homes stay unpainted. Accents may be shared only between modes that rarely
+ * sit in the same four-slot also-matches grid. The screenshot cluster —
+ * prescribing, services, forms, dsm — must remain pairwise distinct.
+ */
+export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
+  prescribing: "rose",
+  services: "service",
+  forms: "form",
+  dsm: "source",
+  documents: "document",
+  factsheets: "document",
+  dictionary: "source",
+  differentials: "indigo",
+  "therapy-compass": "indigo",
+  specifiers: "table",
+  calculators: "table",
+  formulation: "purple",
+  tools: "slate",
+  favourites: "search",
+  answer: "clinical",
+};
+
+/**
  * Tools. Keyed by the catalogue's own id union, so the record cannot be
  * under-filled: adding a tool without choosing a glyph is a type error rather
  * than a silent `?? Grid2X2`. `registry-mode-nav.tsx` already argues for this
@@ -147,8 +172,8 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "safety-plan": "clipboardList",
   calculators: "calculator",
   monitoring: "waves",
+  "caring-contacts": "heartHandshake",
   favourites: "star",
-  "ward-management": "activity",
 };
 
 /**

@@ -11,6 +11,7 @@ import { InPageSectionRail } from "@/components/in-page-nav/in-page-section-rail
 import { toDocumentSections, type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageChromeMetrics } from "@/components/in-page-nav/use-in-page-chrome-metrics";
 import { usePageSectionWeights } from "@/components/in-page-nav/use-page-section-weights";
+import type { ModeNavDensityProfile } from "@/components/mode-nav/mode-nav-bands";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
@@ -39,7 +40,20 @@ type InPageNavHeaderSharedProps = {
    * back into the wrapping toolbar this template replaced. Everything else
    * belongs in `actions`.
    */
-  primaryAction?: { label: string; icon: LucideIcon; onClick: () => void };
+  primaryAction?: {
+    label: string;
+    icon: LucideIcon;
+    onClick: () => void;
+    /**
+     * Present only when the promoted action is a genuine two-state toggle (a
+     * favourite). It sets `aria-pressed` and fills the glyph, so the state has a
+     * shape channel as well as a colour one. Callers that pass it must also
+     * change `label` between states ("Save" / "Saved") — the label is the
+     * accessible name, and a name that never moves would leave the state
+     * carried by the fill alone.
+     */
+    pressed?: boolean;
+  };
   /**
    * `true` drops the promoted action's text label at every width, leaving the
    * icon. Use when the icon carries the meaning on its own (a person glyph for
@@ -123,7 +137,13 @@ export type InPageNavHeaderProps =
        * not rendered at all. Below `sm` the rail scrolls and the disclosure
        * returns as its overflow.
        */
-      rail?: { label: string };
+      rail?: {
+        label: string;
+        /** Calibrated label family — moves only the band widths. */
+        density?: ModeNavDensityProfile;
+        /** `true` when every slot carries a count badge beside its label. */
+        countedLabels?: boolean;
+      };
     });
 
 /**
@@ -258,7 +278,11 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           data-print-hide
           data-inpage-sticky-header=""
           className={cn(
-            "relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
+            // `inpage-nav-header` owns the phone gutter (`--header-edge-pad` +
+            // safe-area). The collapse addon is a sibling of `.edge-glass-header`,
+            // so this bar cannot inherit that inset — a literal `px-3` sat 4px
+            // closer to the bezel than the hamburger / chat+ chrome above it.
+            "inpage-nav-header relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
             className,
           )}
         >
@@ -355,6 +379,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                     type="button"
                     onClick={primaryAction.onClick}
                     title={primaryAction.label}
+                    aria-pressed={primaryAction.pressed}
                     data-testid={`${testIdPrefix}-primary-action`}
                     className={cn(
                       // Explicit focus styles rather than `focus-ring-tab`: that
@@ -365,7 +390,15 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                       primaryActionIconOnly ? "w-tap px-0" : "max-sm:w-tap max-sm:gap-0 max-sm:px-0",
                     )}
                   >
-                    <primaryAction.icon className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
+                    <primaryAction.icon
+                      className={cn(
+                        "h-5 w-5 shrink-0",
+                        primaryAction.pressed
+                          ? "fill-current text-[color:var(--clinical-accent)]"
+                          : "text-[color:var(--text-muted)]",
+                      )}
+                      aria-hidden
+                    />
                     <span className={primaryActionIconOnly ? "sr-only" : "max-sm:sr-only"}>{primaryAction.label}</span>
                   </button>
                 ) : null}
@@ -418,6 +451,8 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               onOpenSectionSheet={openSectionSheet}
               sectionSheetOpen={sectionSheetOpen}
               label={rail.label}
+              density={rail.density}
+              countedLabels={rail.countedLabels}
               testIdPrefix={testIdPrefix}
             />
           ) : documentSections.length > 0 ? (

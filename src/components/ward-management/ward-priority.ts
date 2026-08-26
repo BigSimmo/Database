@@ -25,6 +25,12 @@ function hasActiveBlocker(blocker: string): boolean {
  * Deliberately blind to `movement.urgency`. Urgency is the clinician's judgement and orders the
  * queue on its own; folding it in here produced a number labelled "not clinical severity" that
  * partly was, which is why the previous score was deleted rather than migrated.
+ *
+ * Also deliberately blind to `movement.examination`. Whether a patient has been reviewed does not
+ * score here at all: on the product owner's 2026-08-24 instruction, priority is urgency and
+ * waiting time alone, and being unreviewed neither costs points nor blocks a bed request. The
+ * examination record itself is untouched — it is still captured and still displayed; it simply has
+ * no effect on the queue. Do not reintroduce it here in any weight, and do not substitute a proxy.
  */
 export function operationalScore(movement: Movement, now: Instant): { score: number; factors: ScoreFactor[] } {
   const factors: ScoreFactor[] = [];
@@ -39,18 +45,31 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
     });
   }
 
-  if (movement.legalForm) {
-    const state = clockState(movement.legalForm.dueAt, now);
+  // DORMANT FOR 1A/3B ONLY as of the 2026-08-23 product-owner correction: neither code carries
+  // a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts), so this block can
+  // no longer award "Statutory timing" points on their account, and a patient referred for (or
+  // awaiting) examination has their priority ride on "Time waiting" above alone — exactly the
+  // clinician's own rule, with no compensating bonus for carrying a legal form, which would be
+  // an unsupported clinical claim of the same kind this correction removes. This block is NOT
+  // fully dormant, though: the transport/transfer forms (4A/4C) are out of scope for this
+  // correction, still carry a real `dueAt`, and still legitimately score here today (e.g.
+  // WF-006, WF-014 in the fixture, each "due in ≤90 min" at `NOW_ANCHOR`). The 1A/3B branch is
+  // kept live, not deleted, on the same precedent Task 6A set for a Form 3B: a real examination
+  // timeframe may be supplied later and should return as a derivation, not a rewritten function.
+  const legalForm = movement.legalForm;
+  if (legalForm?.dueAt !== undefined) {
+    const dueAt = legalForm.dueAt;
+    const state = clockState(dueAt, now);
     const points = state === "breached" ? 30 : state === "critical" ? 20 : state === "due" ? 10 : 0;
     if (points > 0) {
-      const remaining = minutesUntil(movement.legalForm.dueAt, now);
+      const remaining = minutesUntil(dueAt, now);
       factors.push({
         label: "Statutory timing",
         points,
         detail:
           remaining < 0
-            ? `Form ${movement.legalForm.code} passed its deadline ${Math.abs(remaining)} min ago`
-            : `Form ${movement.legalForm.code} due in ${remaining} min`,
+            ? `Form ${legalForm.code} passed its deadline ${Math.abs(remaining)} min ago`
+            : `Form ${legalForm.code} due in ${remaining} min`,
       });
     }
   }

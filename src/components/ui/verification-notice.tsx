@@ -34,8 +34,21 @@ export type VerificationNoticeProps = {
    * Keeps the complete governed wording by default. Production answer surfaces
    * may opt into a shorter, still-complete clinical instruction on phones;
    * larger screens and print always retain the full wording.
+   *
+   * `"inline"` is the chat-framed answer's variant, approved by the clinical
+   * owner on 2026-08-25. It renders the same approved compact instruction at
+   * every screen width as one quiet line, and print still receives the complete
+   * governed wording, so the audit artefact is unchanged. What it gives up is
+   * volume, not words: on a `source_only` answer the full block, the support
+   * eyebrow and the Source-only disclosure stated one caution three times in
+   * eleven lines, and three identical alarms teach a reader to skip all three
+   * (the reasoning already recorded for `#227` in answer-card.tsx).
+   *
+   * Caution states keep the warning icon and the warning colour even here —
+   * quieting a caution is not the same as removing the distinction between a
+   * caution and a routine notice.
    */
-  presentation?: "full" | "responsive-compact";
+  presentation?: "full" | "responsive-compact" | "inline";
   /** Print rendering is self-contained: no wording may depend on the live link. */
   medium?: "screen" | "print";
   sourceCount?: number;
@@ -237,6 +250,10 @@ export function VerificationNotice({
   const wording = wordingFor(audience, state, attribution);
   const showResponsiveCompact =
     presentation === "responsive-compact" && audience === "clinician" && medium === "screen";
+  // Same governed strings as responsive-compact, held at every width rather than
+  // only below `sm`. Print is excluded deliberately: the complete wording is what
+  // the printed record has to carry.
+  const showInline = presentation === "inline" && audience === "clinician" && medium === "screen";
   const compactWording = RESPONSIVE_COMPACT_WORDING[attribution]?.[state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
   // An unrecognised state is treated as caution: it wears the warning mark for
   // the same reason it gets the strongest wording.
@@ -263,14 +280,32 @@ export function VerificationNotice({
       // the in-flow chrome activation band (tests/ui-smoke.spec.ts:2224,
       // ledger #226).
       className={cn(
-        "flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6",
+        "flex items-start gap-2 text-[color:var(--text-muted)]",
+        showInline
+          ? // One quiet line above the prose. Print restores the full block below.
+            "gap-1.5 text-2xs leading-4 print:text-xs print:leading-5"
+          : "text-xs leading-5 sm:text-sm sm:leading-6",
         caution ? "text-[color:var(--warning)]" : null,
         className,
       )}
     >
-      <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
+      {showInline && !caution ? null : (
+        <Icon
+          aria-hidden="true"
+          className={cn("shrink-0", showInline ? "mt-px size-icon-xs" : "mt-0.5 size-icon-sm")}
+        />
+      )}
       <div className="min-w-0">
-        {showResponsiveCompact ? (
+        {showInline ? (
+          <>
+            <p data-testid="verification-notice-compact" className="print:hidden">
+              {compactWording}
+            </p>
+            <p data-testid="verification-notice-full" className="hidden print:block">
+              {wording}
+            </p>
+          </>
+        ) : showResponsiveCompact ? (
           <>
             <p data-testid="verification-notice-compact" className="sm:hidden print:hidden">
               {compactWording}
@@ -287,7 +322,10 @@ export function VerificationNotice({
           // it on screen already saying the same number — so it is the one line
           // here that a phone can spend. Kept in the DOM and restored from `sm`
           // and in print, where it is part of the audit artefact.
-          <p data-testid="verification-notice-sources" className="hidden sm:block print:block">
+          <p
+            data-testid="verification-notice-sources"
+            className={cn(showInline ? "hidden print:block" : "hidden sm:block print:block")}
+          >
             {sourceCount === 1 ? "Based on 1 cited source." : `Based on ${sourceCount} cited sources.`}
           </p>
         ) : null}

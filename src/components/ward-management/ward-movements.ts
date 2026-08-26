@@ -5,8 +5,11 @@ import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward
 /**
  * Hand-authored movements covering the states volume alone cannot guarantee: three declines
  * with nowhere eligible left, a status change mid-referral, a movement that never completed,
- * two legal-form breaches, every stage in the pathway at least once, and the older-adult and
- * specialling pressure that is normal — not exceptional — on a busy metro night.
+ * every stage in the pathway at least once, and the older-adult and specialling pressure that
+ * is normal — not exceptional — on a busy metro night. (Earlier revisions of this fixture
+ * authored two Form 1A "legal-form breaches" here; the 2026-08-23 product-owner correction
+ * removed every `dueAt` from every Form 1A, so no legal-form breach exists in this fixture any
+ * longer — see `LegalForm`'s doc comment in `ward-model.ts`.)
  */
 const seededMovements: Movement[] = [
   {
@@ -19,13 +22,16 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 15 },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
     referredUnitIds: [],
     declines: [],
     blocker: "Confirming destination options",
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-002",
@@ -38,11 +44,16 @@ const seededMovements: Movement[] = [
     specialling: true,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: ["fsh-older-adult"],
     declines: [],
     blocker: "Awaiting older-adult bed confirmation",
+    withdrawnReferrals: [],
+    unwinds: [],
+    formedAt: NOW_ANCHOR - 180 - 90,
+    arrivalMode: "ambulance",
   },
   {
     id: "WF-003",
@@ -53,15 +64,23 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Female",
     specialling: false,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "2A", label: "Detention for examination", kind: "detention", dueAt: NOW_ANCHOR + 210 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: {
+      code: "3B",
+      kind: "detention",
+    },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "accepted_awaiting_bed",
     owner: "Flow coordinator",
     referredUnitIds: [],
     acceptedUnitId: "rph-adult-secure",
     declines: [],
     blocker: "Bed being made ready",
+    withdrawnReferrals: [],
+    unwinds: [],
+    arrivalMode: "ambulance",
+    examination: { at: NOW_ANCHOR - 60, outcome: "inpatient_order" },
   },
   {
     id: "WF-004",
@@ -74,18 +93,21 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Involuntary inpatient",
     legalForm: {
-      code: "6",
-      label: "Order for transfer of involuntary patient",
+      code: "4C",
       kind: "transfer",
       dueAt: NOW_ANCHOR + 300,
     },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
     referredUnitIds: [],
     acceptedUnitId: "bty-adult-secure",
     declines: [],
     blocker: "Escort provider organising secure transport",
+    withdrawnReferrals: [],
+    unwinds: [],
+    bedHeldUntil: NOW_ANCHOR - 10,
   },
   {
     id: "WF-005",
@@ -97,8 +119,9 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "2A", label: "Detention for examination", kind: "detention", dueAt: NOW_ANCHOR - 40 },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "handover_ready",
     owner: "ED mental health team",
     referredUnitIds: [],
@@ -112,6 +135,9 @@ const seededMovements: Movement[] = [
       acceptedAt: NOW_ANCHOR - 30,
     },
     blocker: "Transport escort confirming departure time",
+    withdrawnReferrals: [],
+    unwinds: [],
+    formedAt: NOW_ANCHOR - 330 - 150,
   },
   {
     id: "WF-006",
@@ -124,12 +150,12 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Involuntary inpatient",
     legalForm: {
-      code: "8",
-      label: "Authority to transport an involuntary patient",
+      code: "4A",
       kind: "transport",
       dueAt: NOW_ANCHOR + 90,
     },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "moving",
     owner: "Flow coordinator",
     referredUnitIds: [],
@@ -141,8 +167,20 @@ const seededMovements: Movement[] = [
       escortRequired: true,
       acceptedAt: NOW_ANCHOR - 50,
       enRouteAt: NOW_ANCHOR - 15,
+      // Collected 8 minutes after going en route (a short RGH-to-RGH-Adult-Secure hop), so at
+      // NOW_ANCHOR the crew has been driving with the patient for 7 minutes — clearly still
+      // mid-transfer, not close enough to arrival to also need `arrivedAt`.
+      collectedAt: NOW_ANCHOR - 7,
     },
     blocker: "None — in transit",
+    withdrawnReferrals: [
+      {
+        unitId: "fsh-adult-secure",
+        at: NOW_ANCHOR - 470,
+        reason: "Referral withdrawn once RGH Adult Secure confirmed the bed",
+      },
+    ],
+    unwinds: [],
   },
   {
     id: "WF-007",
@@ -155,6 +193,7 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "arrived",
     owner: "Ward nurse in charge",
     referredUnitIds: [],
@@ -162,6 +201,8 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "None — handover complete",
     closure: { at: NOW_ANCHOR - 5, outcome: "arrived", reason: "Handover complete at SCGH Older Adult" },
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-008",
@@ -174,7 +215,13 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
-    stage: "handover_ready",
+    urgencyChanges: [],
+    // Ruling R64: carries acceptedUnitId but no bedHeldUntil and no transport. HOLD_BED is the
+    // only reducer transition that writes bedHeldUntil, and HANDOVER_READY (the only producer of
+    // "handover_ready") requires stage "bed_held" already — so a movement with an accepted unit
+    // but neither of those later fields never reached bed_held, let alone handover_ready. The
+    // furthest stage its own fields honestly support is "accepted_awaiting_bed".
+    stage: "accepted_awaiting_bed",
     owner: "ED mental health team",
     referredUnitIds: [],
     acceptedUnitId: "fre-adult-open",
@@ -185,6 +232,8 @@ const seededMovements: Movement[] = [
       outcome: "did_not_proceed",
       reason: "Patient self-discharged from ED before transport arrived",
     },
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-009",
@@ -195,9 +244,13 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Male",
     specialling: true,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "2A", label: "Detention for examination", kind: "detention", dueAt: NOW_ANCHOR + 150 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: {
+      code: "3B",
+      kind: "detention",
+    },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: [],
@@ -233,6 +286,21 @@ const seededMovements: Movement[] = [
     // SJGS Adult Secure is not MHA-authorised) — the search really is exhausted, not just
     // capped at three parallel referrals.
     blocker: "No secure adult bed available across the network",
+    withdrawnReferrals: [],
+    unwinds: [],
+    arrivalMode: "police",
+    examination: { at: NOW_ANCHOR - 100, outcome: "inpatient_order" },
+    escalation: {
+      at: NOW_ANCHOR - 3,
+      triedUnitIds: [
+        "rph-adult-secure",
+        "gry-adult-secure",
+        "bty-adult-secure",
+        "fsh-adult-secure",
+        "rgh-adult-secure",
+      ],
+      contact: "State bed coordination desk",
+    },
   },
   {
     id: "WF-010",
@@ -244,15 +312,24 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "2A", label: "Detention for examination", kind: "detention", dueAt: NOW_ANCHOR + 260 },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [
-      { at: NOW_ANCHOR - 40, from: "Voluntary", to: "Detained awaiting examination", by: "Duty psychiatrist" },
+      {
+        at: NOW_ANCHOR - 40,
+        from: "Voluntary",
+        to: "Detained awaiting examination",
+        by: "Duty psychiatrist",
+        reason: "recorded_by_treating_team",
+      },
     ],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: ["sjgm-adult-open"],
     declines: [],
     blocker: "Awaiting destination response",
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-011",
@@ -265,18 +342,21 @@ const seededMovements: Movement[] = [
     specialling: true,
     legalStatus: "Involuntary inpatient",
     legalForm: {
-      code: "6",
-      label: "Order for transfer of involuntary patient",
+      code: "4C",
       kind: "transfer",
       dueAt: NOW_ANCHOR + 340,
     },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
     referredUnitIds: [],
     acceptedUnitId: "fre-older-adult",
     declines: [],
     blocker: "Awaiting single-room clean",
+    withdrawnReferrals: [],
+    unwinds: [],
+    bedHeldUntil: NOW_ANCHOR + 20,
   },
   {
     id: "WF-012",
@@ -288,13 +368,30 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: true,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 200 },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
-    referredUnitIds: ["gry-adult-secure"],
+    // Was ["gry-adult-secure"] — fix for review C2. `RAISE_REFERRAL` is the only reducer branch
+    // that produces "placement_requested" and it always writes `referredUnitIds: []`;
+    // `REFER_TO_UNITS` is the only branch that ever populates `referredUnitIds`, and it always
+    // does so in the same update that advances the stage to "destination_review". So a movement
+    // that is still "placement_requested" — matching this record's own `blocker`, "Awaiting
+    // specialling roster confirmation", which describes internal ED logistics before a referral
+    // is raised, not a unit already sitting on one — can never honestly carry a live referral.
+    // Coordinator screen showed "Parallel referral: Graylands Adult Secure" for a referral
+    // Graylands' own ward screen could never see (its incoming list is keyed on
+    // `stage === "destination_review"`), so nobody could ever accept or decline it. Clearing the
+    // field to match the stage the fixture actually gives this record — rather than advancing
+    // the stage to "destination_review" — is the smaller, more honest correction: nothing else on
+    // this record (no coordinator note, no later referral history) supports a referral having
+    // actually been raised.
+    referredUnitIds: [],
     declines: [],
     blocker: "Awaiting specialling roster confirmation",
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-013",
@@ -307,11 +404,15 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: ["bty-older-adult", "gry-older-adult"],
     declines: [],
     blocker: "Comparing two older-adult options",
+    withdrawnReferrals: [],
+    unwinds: [],
+    formedAt: NOW_ANCHOR - 200 - 120,
   },
   {
     id: "WF-014",
@@ -324,12 +425,12 @@ const seededMovements: Movement[] = [
     specialling: true,
     legalStatus: "Involuntary inpatient",
     legalForm: {
-      code: "8",
-      label: "Authority to transport an involuntary patient",
+      code: "4A",
       kind: "transport",
       dueAt: NOW_ANCHOR + 60,
     },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "moving",
     owner: "Flow coordinator",
     referredUnitIds: [],
@@ -342,8 +443,13 @@ const seededMovements: Movement[] = [
       formRequired: "Form 1A",
       acceptedAt: NOW_ANCHOR - 45,
       enRouteAt: NOW_ANCHOR - 10,
+      // A short secure-escort hop (FSH to RPH Adult Secure): collected 6 minutes after going en
+      // route, so only 4 minutes into the drive to the destination at NOW_ANCHOR.
+      collectedAt: NOW_ANCHOR - 4,
     },
     blocker: "None — in transit",
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-015",
@@ -356,6 +462,7 @@ const seededMovements: Movement[] = [
     specialling: true,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "handover_ready",
     owner: "Ward nurse in charge",
     referredUnitIds: [],
@@ -363,6 +470,8 @@ const seededMovements: Movement[] = [
     declines: [],
     transport: { id: "TR-1015", provider: "St John WA", escortRequired: false, acceptedAt: NOW_ANCHOR - 15 },
     blocker: "Awaiting transport escort",
+    withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-016",
@@ -374,14 +483,18 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 220 },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
     referredUnitIds: [],
     acceptedUnitId: "sjgm-adult-open",
     declines: [],
     blocker: "Ward finalising bed clean",
+    withdrawnReferrals: [],
+    unwinds: [],
+    bedHeldUntil: NOW_ANCHOR + 45,
   },
   {
     id: "WF-017",
@@ -392,9 +505,13 @@ const seededMovements: Movement[] = [
     security: "Secure",
     sex: "Male",
     specialling: true,
-    legalStatus: "Detained awaiting examination",
-    legalForm: { code: "2A", label: "Detention for examination", kind: "detention", dueAt: NOW_ANCHOR - 25 },
+    legalStatus: "Involuntary inpatient",
+    legalForm: {
+      code: "3B",
+      kind: "detention",
+    },
     statusChanges: [],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "ED mental health team",
     referredUnitIds: ["bty-adult-secure"],
@@ -407,6 +524,9 @@ const seededMovements: Movement[] = [
       },
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",
+    withdrawnReferrals: [],
+    unwinds: [],
+    examination: { at: NOW_ANCHOR - 260, outcome: "inpatient_order" },
   },
   {
     id: "WF-018",
@@ -419,11 +539,26 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
     referredUnitIds: [],
     declines: [],
     blocker: "Awaiting family collateral before destination decision",
+    // Was a one-entry withdrawnReferrals array naming scgh-older-adult — fix for review I6.
+    // `ACCEPT_IN_PRINCIPLE` is the only reducer branch that ever writes `withdrawnReferrals`,
+    // and it always does so in the same update that sets `acceptedUnitId` (withdrawing every
+    // other unit this movement had a live referral at, because one unit just accepted). This
+    // record has no `acceptedUnitId`, an empty `referredUnitIds`, and an empty `declines` — no
+    // referral to SCGH Older Adult was ever raised for WF-018, so there is nothing for that unit
+    // to have withdrawn. The ward's own screen rendered "Withdrawn from SCGH Older Adult /
+    // Referral withdrawn — the unit filled the bed from an earlier request" for a referral that
+    // never existed. Clearing the field to `[]` is the honest correction — the alternative,
+    // inventing a real referral-then-acceptance-elsewhere history to justify the withdrawal,
+    // would fabricate exactly the kind of state this prototype must never invent, and nothing
+    // else in this record (blocker text, stage, other fields) supports that history.
+    withdrawnReferrals: [],
+    unwinds: [],
   },
 ];
 
@@ -453,13 +588,28 @@ function stageFields(
   cohort: Cohort,
   security: Security,
   index: number,
-): Pick<Movement, "acceptedUnitId" | "transport" | "closure"> {
+): Pick<Movement, "acceptedUnitId" | "transport" | "closure" | "bedHeldUntil"> {
   switch (stage) {
     case "accepted_awaiting_bed":
-    case "bed_held":
       return { acceptedUnitId: fallbackUnitId(cohort, security, index) };
+    case "bed_held":
+      // Bounds match the hand-authored records: NOW_ANCHOR - 20 to NOW_ANCHOR + 45, so a
+      // hold cannot be recorded without a time for it to expire at.
+      return {
+        acceptedUnitId: fallbackUnitId(cohort, security, index),
+        bedHeldUntil: NOW_ANCHOR - 20 + (index % 66),
+      };
     case "moving": {
       const acceptedAt = NOW_ANCHOR - (40 + (index % 15));
+      const enRouteAt = acceptedAt + (10 + (index % 10));
+      // Stage "moving" means the crew already collected the patient — PATIENT_COLLECTED is the
+      // only reducer transition that produces it, and it always sets `transport.collectedAt` in
+      // the same update (ward-flow-reducer.ts). A generated "moving" record with no
+      // `collectedAt` would be a state the reducer itself could never produce. The pickup-drive
+      // offset varies by index (8-25 minutes) so generated in-transit journeys read as being at
+      // different points, never one shared constant; the `Math.min` keeps `collectedAt` at or
+      // before `NOW_ANCHOR` even for an index/gap combination narrower than the largest offset.
+      const collectedAt = enRouteAt + Math.min(NOW_ANCHOR - enRouteAt, 8 + (index % 18));
       return {
         acceptedUnitId: fallbackUnitId(cohort, security, index),
         transport: {
@@ -467,7 +617,8 @@ function stageFields(
           provider: "St John WA",
           escortRequired: index % 2 === 0,
           acceptedAt,
-          enRouteAt: acceptedAt + (10 + (index % 10)),
+          enRouteAt,
+          collectedAt,
         },
       };
     }
@@ -501,7 +652,19 @@ function routineMovements(count: number, startIndex: number): Movement[] {
     const security: Security = index % 7 === 0 ? "Secure" : "Open";
     const sex = index % 2 === 0 ? "Female" : "Male";
     const urgency = ((index % 3) + 1) as 1 | 2 | 3;
-    const stage = MOVEMENT_STAGES[index % MOVEMENT_STAGES.length];
+    const rawStage = MOVEMENT_STAGES[index % MOVEMENT_STAGES.length];
+    // `stageFields` below has no case for "handover_ready" — and rightly so: giving it one would
+    // mean fabricating the acceptedUnitId/bedHeldUntil/transport a real handover_ready movement
+    // can only get by actually passing through accepted_awaiting_bed and bed_held first
+    // (ward-flow-reducer.ts's ACCEPT_IN_PRINCIPLE, HOLD_BED and HANDOVER_READY cases). Every
+    // generated movement's `referredUnitIds` is unconditionally `[]` below, so a generated
+    // "handover_ready" record — which the switch's `default` branch leaves with none of those
+    // fields — is a state the reducer could never produce, exactly the ruling-R64 defect that
+    // let WF-305/312/319/326 render as ready-for-handover-with-no-transport. The honest stage
+    // for a record with an empty referredUnitIds and no acceptedUnitId is "placement_requested"
+    // (ruling R64), so that index is remapped here rather than stageFields inventing fields —
+    // this closes the defect for every index this generator can ever produce, not only today's.
+    const stage = rawStage === "handover_ready" ? "placement_requested" : rawStage;
     return {
       id: `WF-${String(index).padStart(3, "0")}`,
       originEdId: ed.id,
@@ -512,21 +675,25 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       sex,
       specialling: index % 11 === 0,
       legalStatus: index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary",
+      // 2026-08-23: no Form 1A in this model carries a dueAt (see LegalForm's own doc comment
+      // in ward-model.ts) — the product owner's instruction was to drop the legal countdown
+      // entirely, not to derive a corrected one, so this generator authors none.
       legalForm:
         index % 3 === 0
           ? {
               code: "1A",
-              label: "Referral for examination",
               kind: "examination" as const,
-              dueAt: NOW_ANCHOR + (((index * 53) % 400) - 60),
             }
           : undefined,
       statusChanges: [],
+      urgencyChanges: [],
       stage,
       owner: index % 2 === 0 ? "Flow coordinator" : "ED mental health team",
       referredUnitIds: [],
       declines: [],
       blocker: index % 5 === 0 ? "Awaiting destination response" : "No blocker",
+      withdrawnReferrals: [],
+      unwinds: [],
       ...stageFields(stage, cohort, security, index),
     } satisfies Movement;
   });

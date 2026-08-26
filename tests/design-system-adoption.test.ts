@@ -13,6 +13,7 @@ import {
   checkAdoptionManifest,
   checkGeneratedAdoptionDocuments,
   deriveSurfaceV2Observation,
+  humanReviewerAttributionFailure,
   inspectPng,
   productionPageRoutes,
   productionNextUiEntries,
@@ -31,6 +32,21 @@ function writeFixtureFile(fixtureRoot: string, relativePath: string, content: st
   const absolutePath = path.join(fixtureRoot, relativePath);
   fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
   fs.writeFileSync(absolutePath, content);
+}
+
+// Mirrors CANONICAL_NON_VISUAL_ROUTES / adoption-contract.json's `nonVisualRouteContracts`.
+// The Ward Flow constellation redirect used to be the second entry here; it left this list
+// (not merely repointed to its new /mockups/ward-flow path) when Ward Flow's sandbox move took
+// every one of its routes out of the production census — see the "66 = 59 + 6 + 1" comment
+// below. `analyzeNextRedirectOnlyRoute` is still exercised against the moved file directly in
+// "recognises the retired constellation route as redirect-only" below; this list is only the
+// fixture set for declared, census-tracked non-visual routes.
+const NON_VISUAL_REDIRECT_PAGES = ["src/app/(search-app)/documents/source/page.tsx"] as const;
+
+function writeNonVisualRedirectFixtures(fixtureRoot: string) {
+  for (const relativePath of NON_VISUAL_REDIRECT_PAGES) {
+    writeFixtureFile(fixtureRoot, relativePath, read(relativePath));
+  }
 }
 
 function createCheckerFixture() {
@@ -120,12 +136,16 @@ function writeBaselineSet(
     candidateNames = baselineNames,
     hashOverride,
     candidateSourceHead = git(fixtureRoot, ["rev-parse", "HEAD"]),
+    reviewedBy = "Fixture Reviewer",
+    reviewerLogin,
   }: {
     platform?: string;
     reviewStatus?: string;
     candidateNames?: string[];
     hashOverride?: string;
     candidateSourceHead?: string;
+    reviewedBy?: string;
+    reviewerLogin?: string;
   } = {},
 ) {
   const paths = candidateNames.map((name) => `tests/__screenshots__/linux/${name}`);
@@ -146,7 +166,8 @@ function writeBaselineSet(
       status: reviewStatus,
       reviewerType: "human",
       candidateSourceHead,
-      reviewedBy: "fixture-reviewer",
+      reviewedBy,
+      ...(reviewerLogin ? { reviewerLogin } : {}),
       reviewedAt: "2026-08-05T00:00:00.000Z",
     },
     source: {
@@ -396,6 +417,15 @@ describe("design-system adoption manifest", () => {
     ).toBe(true);
   });
 
+  it("recognises the retired constellation route as redirect-only", () => {
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/mockups/ward-flow/constellation/page.tsx",
+        read("src/app/mockups/ward-flow/constellation/page.tsx"),
+      ).redirectOnly,
+    ).toBe(true);
+  });
+
   it("fails the adoption contract when a declared root constructs ckb-v2", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const manifest = {
@@ -446,10 +476,18 @@ describe("design-system adoption manifest", () => {
       ),
     };
 
-    expect(checkAdoptionManifest(manifest)).toContain(
-      "documents-source-legacy-redirect legacy-redirect disposition is undocumented",
-    );
+    const failures = checkAdoptionManifest(manifest);
+    expect(failures).toContain("documents-source-legacy-redirect legacy-redirect disposition is undocumented");
   });
+
+  // The "models the retired constellation route as a non-visual legacy redirect" test that used
+  // to live here asserted the shape of the "ward-management-constellation-legacy-redirect" and
+  // "ward-management" surfaces. Both left docs/design-system/adoption-contract.json (and the
+  // manifest it generates) when Ward Flow's sandbox move took the whole prototype out of the
+  // production census — see the "66 = 59 + 6 + 1" comment above. Care Plan and Caring Contacts,
+  // the two other developer-gated mockups, were never declared as surfaces here at all, so Ward
+  // Flow leaving this contract is convergence with the existing pattern, not a new gap: nothing
+  // else in this file asserts a per-mockup surface shape for them either.
 
   it("does not let a visual catalogue opt out by relabelling itself as a legacy redirect", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
@@ -561,11 +599,7 @@ describe("design-system adoption manifest", () => {
     const fixtureRoot = createCheckerFixture();
     try {
       writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
-      writeFixtureFile(
-        fixtureRoot,
-        "src/app/(search-app)/documents/source/page.tsx",
-        read("src/app/(search-app)/documents/source/page.tsx"),
-      );
+      writeNonVisualRedirectFixtures(fixtureRoot);
       initialiseCandidateRepository(fixtureRoot);
       setCurrentAwaitingValues(fixtureRoot, "");
       const baselineSet = writeBaselineSet(fixtureRoot);
@@ -713,17 +747,46 @@ describe("design-system adoption manifest", () => {
     );
   });
 
-  it("requires exact hosted-Linux provenance for all six committed visual baselines", () => {
+  it("requires exact hosted-Linux provenance for all six committed visual baselines", { timeout: 90_000 }, () => {
     const validRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-valid-"));
     const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-missing-"));
     const hashRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-hash-"));
     const platformRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-platform-"));
     const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
+    const attributionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-attribution-"));
+    const serviceAccountRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-service-account-"));
+    const smuggledLoginRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-smuggled-login-"));
+    const approvedLoginRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-approved-login-"));
+    const singleTokenDisplayRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-single-token-"));
     const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
     try {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         initialiseCandidateRepository(fixtureRoot);
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         setCurrentAwaitingValues(fixtureRoot, "");
       const valid = writeBaselineSet(validRoot);
       expect(
@@ -746,13 +809,83 @@ describe("design-system adoption manifest", () => {
         validateLinuxVisualBaselineSet(badHash.paths, { root: hashRoot, trackedFiles: badHash.trackedFiles }),
       ).toContain(`visual baseline provenance candidate ${badHash.paths[0]} has a SHA-256 mismatch`);
 
-      const wrongPlatform = writeBaselineSet(platformRoot, { platform: "win32" });
+      const wrongPlatform = writeBaselineSet(platformRoot, {
+        platform: "win32",
+        reviewedBy: "Claude Code — automated adopt; human confirmation pending",
+      });
+      const wrongPlatformFailures = validateLinuxVisualBaselineSet(wrongPlatform.paths, {
+        root: platformRoot,
+        trackedFiles: wrongPlatform.trackedFiles,
+      });
+      expect(wrongPlatformFailures).toContain("visual baseline provenance platform must be linux");
+      expect(wrongPlatformFailures).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const copilotReview = writeBaselineSet(attributionRoot, { reviewedBy: "GitHub Copilot" });
       expect(
-        validateLinuxVisualBaselineSet(wrongPlatform.paths, {
-          root: platformRoot,
-          trackedFiles: wrongPlatform.trackedFiles,
+        validateLinuxVisualBaselineSet(copilotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: copilotReview.trackedFiles,
         }),
-      ).toContain("visual baseline provenance platform must be linux");
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const genericBotReview = writeBaselineSet(attributionRoot, { reviewedBy: "automated review bot" });
+      expect(
+        validateLinuxVisualBaselineSet(genericBotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: genericBotReview.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const pendingApproval = writeBaselineSet(attributionRoot, { reviewedBy: "human approval pending" });
+      expect(
+        validateLinuxVisualBaselineSet(pendingApproval.paths, {
+          root: attributionRoot,
+          trackedFiles: pendingApproval.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const serviceAccountLogin = writeBaselineSet(serviceAccountRoot, { reviewedBy: "build-service" });
+      expect(
+        validateLinuxVisualBaselineSet(serviceAccountLogin.paths, {
+          root: serviceAccountRoot,
+          trackedFiles: serviceAccountLogin.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance human reviewer GitHub login must be on the project allowlist");
+
+      const approvedHumanLogin = writeBaselineSet(approvedLoginRoot, { reviewedBy: "BigSimmo" });
+      expect(
+        validateLinuxVisualBaselineSet(approvedHumanLogin.paths, {
+          root: approvedLoginRoot,
+          trackedFiles: approvedHumanLogin.trackedFiles,
+        }),
+      ).toEqual([]);
+
+      const singleTokenDisplayName = writeBaselineSet(singleTokenDisplayRoot, { reviewedBy: "Alice" });
+      expect(
+        validateLinuxVisualBaselineSet(singleTokenDisplayName.paths, {
+          root: singleTokenDisplayRoot,
+          trackedFiles: singleTokenDisplayName.trackedFiles,
+        }),
+      ).toEqual([]);
+
+      const smuggledServiceLogin = writeBaselineSet(smuggledLoginRoot, {
+        reviewedBy: "Alice",
+        reviewerLogin: "build-service",
+      });
+      expect(
+        validateLinuxVisualBaselineSet(smuggledServiceLogin.paths, {
+          root: smuggledLoginRoot,
+          trackedFiles: smuggledServiceLogin.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance human reviewer GitHub login must be on the project allowlist");
 
       const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
       expect(
@@ -770,9 +903,42 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("visual baseline provenance must contain exactly 6 candidates");
     } finally {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
+  });
+
+  it("keeps GitHub-login allowlisting off the display-name field", () => {
+    expect(humanReviewerAttributionFailure("Alice")).toBeNull();
+    expect(humanReviewerAttributionFailure({ displayName: "Alice" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ displayName: "Fixture Reviewer" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ login: "BigSimmo" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ login: "BigSimmo", displayName: "Alice" })).toBeNull();
+
+    expect(humanReviewerAttributionFailure("build-service")).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "build-service" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "Alice" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "build-service", displayName: "Alice" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
   });
 
   it("pins baseline provenance to the canonical six target ids and paths", () => {
@@ -1187,14 +1353,20 @@ describe("design-system adoption manifest", () => {
     // reference-only; the assertion is a snapshot of adoption state, so moving a
     // component out of it is the expected shape of an adoption change, not a
     // weakened guard.
-    for (const name of ["ConfirmDialog"]) {
+    // `ConfirmDialog` left this list on 23 Aug 2026 when the settings surface put
+    // its two destructive privacy actions ("Clear saved items", "Reset
+    // preferences") behind a real confirmation instead of a single tap. Nothing
+    // in the reference-only set is reference-only any more, so the guard now
+    // rests entirely on the adopted half below.
+    const referenceOnlyComponents: string[] = [];
+    for (const name of referenceOnlyComponents) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);
       expect(component.v2ShellMounted, `${name} should not claim a production v2 mount`).toBe(false);
     }
     // The other half of the same guard: an adopted component must actually be mounted,
     // so "adopted" can never mean an import with no production shell behind it.
-    for (const name of ["AnswerCard", "Quantity", "Button"]) {
+    for (const name of ["AnswerCard", "Quantity", "Button", "ConfirmDialog"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles.length, `${name} should be product-adopted`).toBeGreaterThan(0);
       expect(component.v2ShellMounted, `${name} should carry a production v2 mount`).toBe(true);
@@ -1238,14 +1410,18 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 75 = 59 + 6 + 10: the 59 production pages that preceded both changes, the
-    // six `<mode>/search` routes home consolidation split out of the bare paths,
-    // and the ten-route Ward Flow synthetic patient-flow prototype (mode home,
-    // six workspace routes, governance, transport, and the per-patient detail
-    // route). Redirect stubs keep legacy deep links resolving and still count as
-    // declared routes. The conflict resolution on this branch kept the pre-merge
-    // 69, which counted Ward Flow but not the six search routes.
-    expect(manifest.routeCoverage.discovered).toHaveLength(75);
+    // 68 = 59 + 6 + 2 + 1: the 59 production pages that preceded both changes, the six
+    // `<mode>/search` routes home consolidation split out of the bare paths, and the Caring
+    // Contacts workspace's two screens plus `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
+    // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
+    // detail route, the Phase 4 shift handover, escalation board and patient search, and the
+    // retired constellation redirect) that used to bring this to 82 left the production census
+    // entirely in the sandbox move: it now lives at `/mockups/ward-flow/**`, developer-gated
+    // like Care Plan and Caring Contacts, and `discoveredRoutes` excludes every `/mockups`
+    // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
+    // resolving and still count as declared routes. This is a census, so a route nobody
+    // intended to add still fails the contract.
+    expect(manifest.routeCoverage.discovered).toHaveLength(68);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -5,6 +5,7 @@ import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,12 +15,16 @@ import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
-import { therapyBtn } from "../controls";
+import { InteractiveRow, interactiveRowBase } from "@/components/ui/interactive-row";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
+import { TherapyCompareAction } from "../record/compare-action";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 
 export function SheetsScreen() {
   const b = useTcBindings();
   const t = b.selectedTherapy;
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading patient sheet builder…" />;
 
   const steps = parseSteps(t.deliverySteps, 5);
@@ -36,13 +41,17 @@ export function SheetsScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} patient sheet`}
+        therapy={t}
+        active="sheet"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-sheet"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-sheet-page" gap={false}>
         <section data-screen-label="Patient sheet">
+          <TherapySaveNotice notice={notice} />
           {/* `data-therapy-no-print` stays on a wrapper: a bare `data-*` attribute
               cannot be passed to a component (see the `testId` note in
               `ui/button.tsx`). */}
@@ -53,6 +62,10 @@ export function SheetsScreen() {
               description="Design, personalise and print a plain-language handout from a source-grounded record."
               actions={<BrowserPrintButton label="Print / PDF" />}
             />
+          </div>
+
+          <div data-therapy-no-print className="mb-5">
+            <TherapyCompareAction therapy={t} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
@@ -87,46 +100,21 @@ export function SheetsScreen() {
                   Toggle what appears on the sheet.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipAbout}`}
-                    onClick={b.toggleAbout}
-                    aria-pressed={b.secAbout}
-                  >
+                  <ChoiceChip pressed={b.secAbout} onPressedChange={b.toggleAbout}>
                     About this therapy
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipSteps}`}
-                    onClick={b.toggleSteps}
-                    aria-pressed={b.secSteps}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secSteps} onPressedChange={b.toggleSteps}>
                     Your plan
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipPractice}`}
-                    onClick={b.togglePractice}
-                    aria-pressed={b.secPractice}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secPractice} onPressedChange={b.togglePractice}>
                     Practice at home
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipCoping}`}
-                    onClick={b.toggleCoping}
-                    aria-pressed={b.secCoping}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secCoping} onPressedChange={b.toggleCoping}>
                     If things get hard
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipContacts}`}
-                    onClick={b.toggleContacts}
-                    aria-pressed={b.secContacts}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secContacts} onPressedChange={b.toggleContacts}>
                     Support contacts
-                  </button>
+                  </ChoiceChip>
                 </div>
               </div>
 
@@ -333,7 +321,10 @@ function TherapyPicker() {
     <div className="relative">
       <button
         type="button"
-        className={`${therapyBtn} flex items-center justify-between w-full h-[46px] py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
+        className={cn(
+          interactiveRowBase,
+          "flex w-full items-center justify-between py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer",
+        )}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -351,7 +342,7 @@ function TherapyPicker() {
         />
       </button>
       {open ? (
-        <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
+        <div className="absolute z-[30] top-full mt-1 left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
             <Search
               aria-hidden="true"
@@ -370,18 +361,17 @@ function TherapyPicker() {
           </label>
           <div className="max-h-[260px] overflow-auto">
             {matches.map((t) => (
-              <button
+              <InteractiveRow
                 key={t.slug}
-                type="button"
-                className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] block w-full py-2.5 px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer text-sm-minus font-semibold text-[color:var(--text-heading)]`}
+                variant="table-row"
                 onClick={() => {
                   b.select(t.slug);
                   setOpen(false);
                   setQ("");
                 }}
               >
-                {t.name}
-              </button>
+                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
+              </InteractiveRow>
             ))}
           </div>
         </div>

@@ -266,3 +266,81 @@ describe("loperamide over-match: the other directions", () => {
     expect(result.interactions.length).toBeGreaterThan(0);
   });
 });
+
+describe("clinical review 2026-08-22: three terms narrowed (ledger #1YPV51)", () => {
+  // Each of the three corrections has the same shape as the loperamide fix — a
+  // class token matching drugs the interaction rows plainly do not mean — so each
+  // needs a guard in BOTH directions: the false alert is gone, and the true alert
+  // the term exists for still fires.
+
+  describe("antihistamines: anticholinergic burden, not histamine blockade", () => {
+    it.each(["cetirizine", "fexofenadine", "loratadine"])(
+      "no longer fires the anticholinergic toxidrome alert for %s",
+      (slug) => {
+        const result = evaluateMedicationInteractions("benzatropine", [slug]);
+        expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(false);
+      },
+    );
+
+    it.each(["promethazine", "diphenhydramine", "alimemazine", "cyclizine"])(
+      "still fires for %s, which is genuinely anticholinergic",
+      (slug) => {
+        const result = evaluateMedicationInteractions("benzatropine", [slug]);
+        expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(true);
+      },
+    );
+
+    it("still fires on oxybutynin, the other critical anticholinergic row", () => {
+      const result = evaluateMedicationInteractions("oxybutynin", ["promethazine"]);
+      expect(result.interactions.some((item) => item.counterpartySlug === "promethazine")).toBe(true);
+    });
+  });
+
+  describe("corticosteroids: systemic effects only", () => {
+    it.each(["betamethasone", "clobetasol", "hydrocortisone-1", "triamcinolone"])(
+      "no longer claims topical %s raises insulin requirements",
+      (slug) => {
+        const result = evaluateMedicationInteractions("insulin-glargine", [slug]);
+        expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(false);
+      },
+    );
+
+    it.each(["prednisolone", "dexamethasone", "fludrocortisone"])("still fires for systemic %s", (slug) => {
+      const result = evaluateMedicationInteractions("insulin-glargine", [slug]);
+      expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(true);
+    });
+
+    it.each(["budesonide", "ciclesonide", "fluticasone", "beclometasone", "mometasone"])(
+      "deliberately keeps inhaled %s, which the hypokalaemia row is about",
+      (slug) => {
+        const result = evaluateMedicationInteractions("formoterol", [slug]);
+        expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(true);
+      },
+    );
+  });
+
+  describe("oral contraceptives: the combined pill", () => {
+    it("no longer sweeps depot medroxyprogesterone into the generic inducer alerts", () => {
+      // Topiramate's row is one of the "inducer destroys the OCP, use alternative
+      // contraception" rows. Medroxyprogesterone reached it only through the
+      // oral-contraceptives term, so removing it from that term removes the alert.
+      const result = evaluateMedicationInteractions("topiramate", ["medroxyprogesterone"]);
+      expect(result.interactions.some((item) => item.counterpartySlug === "medroxyprogesterone")).toBe(false);
+    });
+
+    it("keeps medroxyprogesterone's OWN inducer row, which is the accurate one", () => {
+      // The catalogue already states the nuance the generic term flattened:
+      // inducers "accelerate the clearance of the oral tablets, but the massive
+      // 150mg IM depot is generally resistant to clinically failing from this."
+      // That row must survive — losing it would be the dangerous over-correction,
+      // and keeping it is why removing the generic alert is safe.
+      const result = evaluateMedicationInteractions("medroxyprogesterone", ["carbamazepine"]);
+      expect(result.interactions.some((item) => item.counterpartySlug === "carbamazepine")).toBe(true);
+    });
+
+    it.each(["ethinylestradiol", "levonorgestrel"])("still warns about %s", (slug) => {
+      const result = evaluateMedicationInteractions("carbamazepine", [slug]);
+      expect(result.interactions.some((item) => item.counterpartySlug === slug)).toBe(true);
+    });
+  });
+});

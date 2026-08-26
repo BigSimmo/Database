@@ -263,11 +263,21 @@ function PatientPlanResources({ resources }: { resources: readonly PatientResour
  * written from has been replaced. Derived every render from the two identifiers,
  * never stored.
  */
-function StaleNotice({ version, patient }: { version: PatientPlanVersion; patient: Patient }) {
+function StaleNotice({
+  version,
+  patient,
+  sourcePlanWithdrawn,
+}: {
+  version: PatientPlanVersion;
+  patient: Patient;
+  sourcePlanWithdrawn: boolean;
+}) {
   return (
     <p role="status" data-testid="care-plan-patient-plan-stale" className={styles.patientPlanStale}>
       <strong>This copy needs updating.</strong>{" "}
-      {`The Management Plan has moved on since version ${version.version} of ${patient.preferredName}'s own copy was written. Everything in it is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them and write a new one.`}
+      {sourcePlanWithdrawn
+        ? `The Management Plan this copy was written from has been withdrawn, and there is no Current Plan in use. Everything in version ${version.version} of ${patient.preferredName}'s own copy is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them; if a new Current Plan is agreed, write a new copy from that plan.`
+        : `The Management Plan has moved on since version ${version.version} of ${patient.preferredName}'s own copy was written. Everything in it is still shown, and nothing has been changed or taken away: ${patient.preferredName} may be holding a printed copy, and what this page says they were given has to stay true. Go through it with them and write a new one.`}
     </p>
   );
 }
@@ -443,7 +453,13 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
         <InlineNotice tone={PROTOTYPE_OUTCOME_TONE[state.lastOutcome.kind]}>{state.lastOutcome.message}</InlineNotice>
       )}
 
-      {stale && current !== null ? <StaleNotice version={current} patient={patient} /> : null}
+      {stale && current !== null ? (
+        <StaleNotice
+          version={current}
+          patient={patient}
+          sourcePlanWithdrawn={managementPlan?.currentVersionId === null}
+        />
+      ) : null}
 
       {current === null ? (
         <SectionFrame id="care-plan-patient-plan-none" heading="No approved copy">

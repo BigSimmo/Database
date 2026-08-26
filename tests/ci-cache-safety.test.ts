@@ -70,6 +70,11 @@ describe("CI cache safety", () => {
     expect(workflow).not.toContain("Restore isolated Next.js build cache");
   });
 
+  it("checks out full history on Safety so privacy reviewedCommit is in the object graph", () => {
+    const safety = sourceSegment(workflow, "name: Safety and config checks", "name: Unit coverage");
+    expect(safety).toContain("fetch-depth: 0");
+  });
+
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
@@ -112,6 +117,27 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("if: needs.changes.outputs.static_heavy_changed == 'true'");
     expect(workflow).toContain("run: npm run test:ci-workflows");
     expect(workflow).toContain("run: npm run check:verification-plan");
+  });
+
+  it("isolates Caring Contacts database tests from the Supabase migration emulator", () => {
+    const caringContactsJob = /\n  caring-contacts-db:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    const migrationReplayJob = /\n  db-reset-verify:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    const requiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
+
+    expect(caringContactsJob, "caring-contacts-db job not found in ci.yml").not.toBe("");
+    expect(caringContactsJob).toContain("needs: changes");
+    expect(caringContactsJob).toContain("needs.changes.outputs.db_changed == 'true'");
+    expect(caringContactsJob).toContain("needs.changes.outputs.static_heavy_changed == 'true'");
+    expect(caringContactsJob).toContain("services:\n      postgres:");
+    expect(caringContactsJob).toContain("POSTGRES_HOST_AUTH_METHOD: trust");
+    expect(caringContactsJob).not.toContain("POSTGRES_PASSWORD");
+    expect(caringContactsJob).toContain('--health-cmd "pg_isready -U postgres -d postgres"');
+    expect(caringContactsJob).toContain("CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres");
+    expect(caringContactsJob).toContain("run: npm run caring-contacts:db:test");
+    expect(migrationReplayJob).not.toContain("npm run caring-contacts:db:test");
+    expect(requiredNeeds).toContain("caring-contacts-db");
+    expect(workflow).toContain("CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}");
+    expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
   });
 
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
@@ -340,6 +366,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     UI_RESULT: "skipped",
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
+    CARING_CONTACTS_DB_RESULT: "success",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
@@ -405,6 +432,17 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
       0,
     );
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "success" }).status).toBe(0);
+  });
+
+  it("requires the isolated Caring Contacts database job for database and static-heavy scopes", () => {
+    expect(
+      runAggregate({ DB_CHANGED: "true", DB_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" }).status,
+    ).not.toBe(0);
+    expect(
+      runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" })
+        .status,
+    ).not.toBe(0);
+    expect(runAggregate({ CARING_CONTACTS_DB_RESULT: "skipped" }).status).toBe(0);
   });
 
   it("requires ingestion SAST only for its path-scoped surface", () => {

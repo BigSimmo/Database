@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,6 +46,23 @@ afterEach(() => {
 });
 
 describe("production Clinical Guide sidebar", () => {
+  it("prefetches Applications only when its Tools shortcut receives pointer or focus intent", () => {
+    const onPrefetchApplications = vi.fn();
+    renderSidebar({ onPrefetchApplications });
+
+    const toolsLink = screen.getByRole("link", { name: "Tools" });
+    expect(onPrefetchApplications).not.toHaveBeenCalled();
+
+    fireEvent.pointerEnter(screen.getByRole("link", { name: "Answer" }));
+    expect(onPrefetchApplications).not.toHaveBeenCalled();
+
+    fireEvent.pointerEnter(toolsLink);
+    expect(onPrefetchApplications).toHaveBeenCalledTimes(1);
+
+    fireEvent.focus(toolsLink);
+    expect(onPrefetchApplications).toHaveBeenCalledTimes(2);
+  });
+
   it("shows three unheaded recents before editable shortcuts and opens the shared search owner", async () => {
     const user = userEvent.setup();
     const { props } = renderSidebar();
@@ -68,6 +85,7 @@ describe("production Clinical Guide sidebar", () => {
       "Factsheets",
       "Tools",
     ]);
+    expect(navigation.getByRole("link", { name: "Medication" })).toHaveAttribute("href", "/medications");
     expect(navigation.getAllByRole("button").at(-1)).toHaveAccessibleName("More modes");
 
     await user.click(screen.getByRole("button", { name: "Search Clinical Guide" }));

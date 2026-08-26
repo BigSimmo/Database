@@ -1,0 +1,189 @@
+/*
+ * Whole-branch review I3. Same self-sufficient-module convention every other ward-management
+ * file follows (see `ward-role-switcher.module.css`'s own comment): every local token this file
+ * needs is declared here, never borrowed from `ClinicalRail`'s `--ward-*` scope even though this
+ * component is always mounted inside it.
+ *
+ * Deliberately its own warning-toned palette, not `ward-role-switcher.module.css`'s
+ * `--clinical-accent` blue: the trigger sits right next to a real role-switching control in the
+ * rail, and the whole point of this control is that it must never be mistaken for one. A
+ * distinct colour is the first signal; the label and every menu item's wording carry the same
+ * distinction in words (never colour alone).
+ */
+.demo {
+  --dc-warn: var(--warning-text);
+  --dc-warn-soft: var(--warning-bg);
+  --dc-warn-border: var(--warning-border);
+  --dc-canvas: var(--surface);
+  --dc-raised: var(--surface-raised);
+  --dc-subtle: var(--surface-subtle);
+  --dc-border: var(--border);
+  --dc-heading: var(--text-heading);
+  --dc-muted: var(--text-muted);
+  --dc-danger: var(--danger-text);
+  --dc-danger-soft: var(--danger-bg);
+  --dc-danger-border: var(--danger-border);
+  --dc-space-4: 0.25rem;
+  --dc-space-6: 0.375rem;
+  --dc-space-8: 0.5rem;
+  --dc-space-10: 0.625rem;
+  --dc-space-12: 0.75rem;
+  --dc-tap: 3rem;
+  --dc-menu-width: 17rem;
+  --dc-menu-gap: var(--dc-space-8);
+  --dc-z-menu: var(--z-popover);
+  --dc-leading-tight: 1.15;
+  --dc-leading-body: 1.35;
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  display: grid;
+  width: var(--dc-tap);
+  height: var(--dc-tap);
+  flex-shrink: 0;
+  place-items: center;
+  border: 0.0625rem solid var(--dc-warn-border);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--dc-warn);
+  transition:
+    color var(--duration-fast),
+    border-color var(--duration-fast),
+    background-color var(--duration-fast);
+}
+
+.trigger:hover {
+  background: var(--dc-warn-soft);
+}
+
+.trigger[aria-expanded="true"] {
+  background: var(--dc-warn-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.trigger svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.menu {
+  position: absolute;
+  bottom: 0;
+  left: calc(100% + var(--dc-menu-gap));
+  z-index: var(--dc-z-menu);
+  display: flex;
+  width: var(--dc-menu-width);
+  flex-direction: column;
+  gap: var(--dc-space-8);
+  border: 0.125rem solid var(--dc-warn-border);
+  border-radius: var(--radius-lg);
+  background: var(--dc-raised);
+  padding: var(--dc-space-10);
+  box-shadow: var(--e3);
+}
+
+.notice {
+  margin: 0;
+  border-radius: var(--radius-md);
+  background: var(--dc-warn-soft);
+  padding: var(--dc-space-6) var(--dc-space-8);
+  color: var(--dc-heading);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  line-height: var(--dc-leading-body);
+}
+
+.clockReadout {
+  padding: 0 var(--dc-space-8);
+  color: var(--dc-muted);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--dc-leading-tight);
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dc-space-6);
+}
+
+.advanceButton {
+  display: flex;
+  min-height: var(--dc-tap);
+  flex: 1 1 6rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--dc-border);
+  border-radius: var(--radius-md);
+  background: var(--dc-canvas);
+  padding: var(--dc-space-6) var(--dc-space-8);
+  color: var(--dc-heading);
+  font-size: var(--text-sm-minus);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.advanceButton:hover {
+  background: var(--dc-subtle);
+}
+
+.scenarioRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dc-space-6);
+  border-top: 0.0625rem solid var(--dc-border);
+  padding-top: var(--dc-space-8);
+}
+
+.scenarioButton {
+  display: flex;
+  min-height: var(--dc-tap);
+  flex: 1 1 6rem;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--dc-border);
+  border-radius: var(--radius-md);
+  background: var(--dc-canvas);
+  padding: var(--dc-space-6) var(--dc-space-8);
+  color: var(--dc-heading);
+  font-size: var(--text-sm-minus);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.scenarioButton:hover {
+  background: var(--dc-subtle);
+}
+
+.scenarioButton[aria-checked="true"] {
+  border-color: var(--dc-warn-border);
+  background: var(--dc-warn-soft);
+  color: var(--dc-warn);
+}
+
+.resetRow {
+  border-top: 0.0625rem solid var(--dc-border);
+  padding-top: var(--dc-space-8);
+}
+
+.resetButton {
+  display: flex;
+  min-height: var(--dc-tap);
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--dc-danger-border);
+  border-radius: var(--radius-md);
+  background: var(--dc-danger-soft);
+  padding: var(--dc-space-6) var(--dc-space-8);
+  color: var(--dc-danger);
+  font-size: var(--text-sm-minus);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.resetButton:hover {
+  filter: brightness(0.97);
+}

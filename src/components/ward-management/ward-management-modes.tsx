@@ -3,24 +3,25 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Building2,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  CircleSlash,
   Clock3,
   FileCheck2,
   FileClock,
   Fingerprint,
+  History,
   Info,
   LockKeyhole,
   MapPin,
-  Route,
   Scale,
   ShieldCheck,
   Sparkles,
   Truck,
+  Users,
   UserRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -29,30 +30,30 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   buildActionInbox,
   candidateReason,
+  changeAudit,
   destinationUnit,
-  eligibleCandidates,
+  effectivenessNumbers,
+  eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
   movementHealthService,
-  movementStageSummary,
   movementTimeline,
   roleLabels,
   roleTaskLabel,
+  stageSummaries,
   unitCapacity,
-  wardServiceOrder,
+  type ChangeAuditEntry,
+  type EffectivenessMeasure,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
-import {
-  ClinicalRail,
-  WardModeNavigation,
-  type WardMode,
-} from "@/components/ward-management/ward-management-navigation";
+import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
-import type { Movement, Unit } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
+import type { Movement } from "@/components/ward-management/ward-model";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -73,10 +74,6 @@ const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
 
 const modeCopy: Record<WardMode, { title: string; description: string }> = {
   command: { title: "Ward Flow", description: "Statewide command view" },
-  constellation: {
-    title: "Operational constellation",
-    description: "Statewide demand, capacity and selected movement routes",
-  },
   network: {
     title: "Network diagram",
     description: "Services as nodes · movements as routes · fill shows bed pressure",
@@ -87,6 +84,14 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
   exceptions: { title: "Action inbox", description: "Owned exceptions, deadlines and stale state" },
   transport: { title: "Transport", description: "Legal, document, booking and handover readiness" },
   governance: { title: "Governance", description: "Assurance, audit and synthetic data boundary" },
+};
+
+/** Task 9: a short human label for each `ChangeAuditEntry` kind — never the raw union value on screen. */
+const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
+  urgency: "Urgency change",
+  legal_status: "Legal status change",
+  hold_released: "Hold released",
+  transport_cancelled: "Transport cancelled",
 };
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
@@ -109,6 +114,7 @@ function inboxAction(item: InboxItem) {
   if (item.id.startsWith("legal-")) return "Escalate legal timing";
   if (item.id.startsWith("declines-")) return "Expand destination search";
   if (item.id.startsWith("transport-")) return "Follow up transport provider";
+  if (item.id.startsWith("bed-hold-")) return "Reconfirm or release bed hold";
   return "Review movement";
 }
 
@@ -121,13 +127,22 @@ function ModeHeader({
   role: WardRole;
   onRoleChange: (role: WardRole) => void;
 }) {
+  const { now } = useWardFlow();
   const copy = modeCopy[mode];
   return (
     <header className={styles.modeHeader}>
       <div className={styles.modeIdentity}>
-        <span>
-          <strong>Clinical KB</strong>
-          <small>Source-backed clinical search</small>
+        {/* Ward Flow's own identity, not the host application's. This read "Clinical KB /
+            Source-backed clinical search" on every board of a sandboxed synthetic prototype that
+            does no searching and is not source-backed. Found by looking at a screenshot — every
+            measurement run against this codebase missed it, because nothing was structurally
+            wrong with it. */}
+        {/* Hidden by CSS whenever the labelled sidebar panel is open, because that panel already
+            carries this exact name and tagline — seen side by side in one eyeline on a
+            screenshot, which is the only place a duplicate like this shows up. */}
+        <span className={styles.modeBrand}>
+          <strong>Ward Flow</strong>
+          <small>Synthetic patient-flow prototype</small>
         </span>
         <div className={styles.modeTitle}>
           <h1>{copy.title}</h1>
@@ -148,131 +163,10 @@ function ModeHeader({
       </label>
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
-        <span>Updated {formatInstant(NOW_ANCHOR)}</span>
+        <span>Updated {formatInstant(now)}</span>
         <span>15 Aug 2026 · WA</span>
       </div>
     </header>
-  );
-}
-
-function CompactQueue({
-  patients,
-  selected,
-  onSelect,
-}: {
-  patients: Movement[];
-  selected: Movement;
-  onSelect: (patient: Movement) => void;
-}) {
-  return (
-    <section className={`${styles.panel} ${styles.compactQueue}`} aria-label="Priority queue">
-      <header className={styles.panelHeader}>
-        <div>
-          <h2>Priority queue</h2>
-          <p>Tier first · eligibility orders within tier</p>
-        </div>
-        <span className={styles.statusNeutral}>{patients.length}</span>
-      </header>
-      <div className={styles.queueList}>
-        {patients.slice(0, 9).map((patient, index) => (
-          <button
-            type="button"
-            key={patient.id}
-            onClick={() => onSelect(patient)}
-            aria-pressed={selected.id === patient.id}
-            className={selected.id === patient.id ? styles.queueRowSelected : styles.queueRow}
-          >
-            <span className={styles.rowTop}>
-              <strong>
-                {index + 1}. {patient.id}
-              </strong>
-              <span
-                className={toneClass(patient.urgency === 1 ? "danger" : patient.urgency === 2 ? "warning" : "neutral")}
-              >
-                P{patient.urgency}
-              </span>
-            </span>
-            <span className={styles.rowMeta}>
-              {elapsedLabel(patient, NOW_ANCHOR)} · {patient.cohort} {patient.security} ·{" "}
-              {movementHealthService(patient) ?? "Unknown service"}
-            </span>
-            <span className={styles.rowMeta}>{patient.blocker}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HospitalChip({ unit, selected, onSelect }: { unit: Unit; selected: boolean; onSelect: () => void }) {
-  const capacity = unitCapacity(unit);
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={selected ? styles.hospitalChipSelected : styles.hospitalChip}
-    >
-      <strong>{unit.name}</strong>
-      <span className={styles.hospitalState}>
-        <b>{capacity.available}</b> available · {capacity.held} held · {capacity.potential} potential
-      </span>
-      <span className={styles.hospitalState}>Confirmed {formatInstant(unit.allocatable.confirmedAt)}</span>
-    </button>
-  );
-}
-
-function NetworkCanvas({ selectedId, onSelect }: { selectedId: string | undefined; onSelect: (id: string) => void }) {
-  return (
-    <section className={styles.panel} aria-label="Statewide operational network">
-      <header className={styles.panelHeader}>
-        <div>
-          <h2>Statewide mental health flow</h2>
-          <p>Schematic service network · selective movement routes only</p>
-        </div>
-        <span className={styles.prototypeBadge}>Not geographic</span>
-      </header>
-      <div className={styles.networkCanvas}>
-        {wardServiceOrder.map((service) => {
-          const units = allUnits().filter((unit) => siteByCode(unit.siteCode)?.service === service);
-          const available = units.reduce((total, unit) => total + unit.allocatable.value, 0);
-          return (
-            <section className={styles.regionCluster} key={service} aria-labelledby={`constellation-${service}`}>
-              <header>
-                <span className={styles.regionTitle}>
-                  <Building2 aria-hidden="true" />
-                  <strong id={`constellation-${service}`}>{service}</strong>
-                </span>
-                <small>{available} available now</small>
-              </header>
-              <div className={styles.hospitalChipGrid}>
-                {units.map((unit) => (
-                  <HospitalChip
-                    key={unit.id}
-                    unit={unit}
-                    selected={selectedId === unit.id}
-                    onSelect={() => onSelect(unit.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-        <section className={styles.flowHub} aria-label="Statewide flow coordination hub">
-          <div className={styles.routeSignal}>
-            North / country demand <ArrowRight aria-hidden="true" />
-          </div>
-          <div>
-            <Route aria-hidden="true" />
-            <strong>STATEWIDE FLOW</strong>
-            <span>Coordinated visibility, escalation and placement</span>
-          </div>
-          <div className={styles.routeSignal}>
-            <ArrowRight aria-hidden="true" /> Selected route to south
-          </div>
-        </section>
-      </div>
-    </section>
   );
 }
 
@@ -288,13 +182,15 @@ function DecisionPanel({
   onSelectId: (id: string) => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const candidates = useMemo(() => eligibleCandidates(patient, NOW_ANCHOR, 3), [patient]);
+  const { units, now } = useWardFlow();
+  const candidates = useMemo(() => eligibleCandidatesAmong(patient, units, now, 3), [patient, units, now]);
   // Never fall back to candidates[0] when the id in play isn't one of this movement's own
   // shortlisted candidates — that would silently describe the wrong unit (Task 6 Critical 1).
   const selected = candidates.find((candidate) => candidate.unit.id === selectedId);
-  const offShortlistUnit = !selected && selectedId ? unitById(selectedId) : undefined;
-  const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, NOW_ANCHOR) : undefined;
-  const recordedDestination = destinationUnit(patient);
+  // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
+  const offShortlistUnit = !selected && selectedId ? units.find((unit) => unit.id === selectedId) : undefined;
+  const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, now) : undefined;
+  const recordedDestination = destinationUnit(patient, units);
   const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
 
   return (
@@ -327,7 +223,7 @@ function DecisionPanel({
         <div>
           <dt>Wait / eligibility</dt>
           <dd>
-            {elapsedLabel(patient, NOW_ANCHOR)}
+            {elapsedLabel(patient, now)}
             {selected ? ` · ${candidateReason(selected.verdict)}` : ""}
           </dd>
         </div>
@@ -391,7 +287,7 @@ function DecisionPanel({
           {confirmed ? <Check aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
           {confirmed ? "Match confirmed" : roleTaskLabel[role]}
         </button>
-        <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
@@ -402,30 +298,18 @@ function DecisionPanel({
   );
 }
 
-function ConstellationView({ role }: { role: WardRole }) {
-  const [selectedPatient, setSelectedPatient] = useState(wardMovements[0]);
-  const [selectedId, setSelectedId] = useState(
-    destinationUnit(wardMovements[0])?.id ?? eligibleCandidates(wardMovements[0], NOW_ANCHOR)[0]?.unit.id,
-  );
-  const rolePatients = useMemo(() => sortByRole(wardMovements, role), [role]);
-
-  function selectPatient(patient: Movement) {
-    setSelectedPatient(patient);
-    setSelectedId(destinationUnit(patient)?.id ?? eligibleCandidates(patient, NOW_ANCHOR)[0]?.unit.id);
-  }
-
-  return (
-    <div className={styles.constellationGrid} data-testid="ward-constellation">
-      <CompactQueue patients={rolePatients} selected={selectedPatient} onSelect={selectPatient} />
-      <NetworkCanvas selectedId={selectedId} onSelect={setSelectedId} />
-      <DecisionPanel patient={selectedPatient} role={role} selectedId={selectedId} onSelectId={setSelectedId} />
-    </div>
-  );
-}
-
 function QueueView({ role }: { role: WardRole }) {
-  const [selected, setSelected] = useState(wardMovements[0]);
-  const rolePatients = useMemo(() => sortByRole(wardMovements, role).filter(isOpen), [role]);
+  const { movements, units, now } = useWardFlow();
+  const [selectedId, setSelectedId] = useState(movements[0].id);
+  const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
+  // Hold only the id and derive the record from the live `movements` list on every render —
+  // matching `WardNetworkWorkspace` (Task 6 fix round 3, Finding 2). Holding the movement object
+  // itself would freeze it at whatever it looked like on mount, so a referral made elsewhere would
+  // never show up here even though `movements` had already moved on. `selectedId` is only ever set
+  // from a real movement's own id (see the queue button below), so the `.find()` can't miss today —
+  // but the guard still lives in the JSX below, not as an early return, so every hook above it keeps
+  // running unconditionally regardless of future callers.
+  const selected = useMemo(() => movements.find((candidate) => candidate.id === selectedId), [movements, selectedId]);
   return (
     <div className={styles.pageGrid} data-testid="ward-queue-view">
       <section className={styles.panel}>
@@ -450,16 +334,16 @@ function QueueView({ role }: { role: WardRole }) {
           </thead>
           <tbody>
             {rolePatients.map((patient) => {
-              const top = eligibleCandidates(patient, NOW_ANCHOR, 1)[0];
+              const top = eligibleCandidatesAmong(patient, units, now, 1)[0];
               return (
-                <tr key={patient.id} data-selected={selected.id === patient.id}>
+                <tr key={patient.id} data-selected={selected?.id === patient.id}>
                   <td>
-                    <button type="button" onClick={() => setSelected(patient)} className={styles.secondaryButton}>
+                    <button type="button" onClick={() => setSelectedId(patient.id)} className={styles.secondaryButton}>
                       {patient.id}
                     </button>
                   </td>
                   <td>P{patient.urgency}</td>
-                  <td>{elapsedLabel(patient, NOW_ANCHOR)}</td>
+                  <td>{elapsedLabel(patient, now)}</td>
                   <td>
                     {patient.cohort} · {patient.security}
                   </td>
@@ -474,19 +358,28 @@ function QueueView({ role }: { role: WardRole }) {
           </tbody>
         </table>
       </section>
-      <DecisionPanel
-        patient={selected}
-        role={role}
-        selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, NOW_ANCHOR)[0]?.unit.id}
-        onSelectId={() => undefined}
-      />
+      {selected ? (
+        <DecisionPanel
+          patient={selected}
+          role={role}
+          selectedId={destinationUnit(selected, units)?.id ?? eligibleCandidatesAmong(selected, units, now)[0]?.unit.id}
+          onSelectId={() => undefined}
+        />
+      ) : (
+        // Never fall back to `movements[0]` or any other record here — showing a different
+        // patient under the selected patient's heading is the exact class of defect this project
+        // keeps finding (Task 6 Critical 1, Task 6 fix round 3 Finding 2).
+        <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label="AI best-fit review unavailable">
+          <p className={styles.microCopy}>No synthetic movement matches the current selection.</p>
+        </aside>
+      )}
     </div>
   );
 }
 
 function CapacityView() {
-  const units = allUnits();
-  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
+  const { units, bedReleases, now } = useWardFlow();
+  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit, bedReleases) }));
   const totals = {
     available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
     held: capacities.reduce((sum, entry) => sum + entry.capacity.held, 0),
@@ -519,14 +412,17 @@ function CapacityView() {
             <th scope="col">Health service</th>
             <th scope="col">Capability cue</th>
             <th scope="col">Five bed states</th>
+            <th scope="col">Sex mix</th>
+            <th scope="col">Specialling</th>
+            <th scope="col">MHA authorised</th>
             <th scope="col">Freshness</th>
           </tr>
         </thead>
         <tbody>
           {capacities.map(({ unit, capacity }) => {
-            const fresh = NOW_ANCHOR - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
+            const fresh = now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
             return (
-              <tr key={unit.id}>
+              <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
                 <td>
                   <strong>{unit.name}</strong>
                   <div className={styles.microCopy}>{unit.beds} total beds</div>
@@ -554,6 +450,13 @@ function CapacityView() {
                     </span>
                   </div>
                 </td>
+                <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
+                  Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                </td>
+                <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
+                <td data-testid={`ward-capacity-authorised-${unit.id}`}>
+                  {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
+                </td>
                 <td>
                   <span className={fresh ? styles.statusGood : styles.statusWarning}>
                     {fresh ? "Current" : "Review soon"} · {formatInstant(unit.allocatable.confirmedAt)}
@@ -573,6 +476,8 @@ function CapacityView() {
 }
 
 function MovementsView() {
+  const { movements, now } = useWardFlow();
+  const stages = stageSummaries(movements);
   return (
     <section className={styles.panel} data-testid="ward-movements-view">
       <header className={styles.panelHeader}>
@@ -583,24 +488,27 @@ function MovementsView() {
         <span className={styles.prototypeBadge}>Shared record · role-owned actions</span>
       </header>
       <div className={styles.stageBoard}>
-        {movementStageSummary.map((stage) => (
+        {stages.map((stage) => (
           <section className={styles.stageColumn} key={stage.id} aria-labelledby={`movement-${stage.id}`}>
             <header>
               <h2 id={`movement-${stage.id}`}>{stage.label}</h2>
               <strong>{stage.count}</strong>
             </header>
-            {wardMovements
+            {movements
               .filter((patient) => patient.stage === stage.id)
               .slice(0, 4)
               .map((patient) => (
-                <Link className={styles.movementCard} href={`/ward-management/patients/${patient.id}`} key={patient.id}>
+                <Link
+                  className={styles.movementCard}
+                  href={`/mockups/ward-flow/patients/${patient.id}`}
+                  key={patient.id}
+                >
                   <span className={styles.rowTop}>
                     <strong>{patient.id}</strong>
                     <span className={toneClass(patient.urgency === 1 ? "danger" : "neutral")}>P{patient.urgency}</span>
                   </span>
                   <span className={styles.rowMeta}>
-                    {elapsedLabel(patient, NOW_ANCHOR)} · {movementHealthService(patient) ?? "Unknown"} ·{" "}
-                    {patient.security}
+                    {elapsedLabel(patient, now)} · {movementHealthService(patient) ?? "Unknown"} · {patient.security}
                   </span>
                   <span className={styles.rowMeta}>{patient.owner}</span>
                 </Link>
@@ -613,8 +521,16 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
-  const items = buildActionInbox(wardMovements, NOW_ANCHOR);
-  const overdue = items.filter((item) => item.tone === "danger").length;
+  const { movements, units, now } = useWardFlow();
+  // Whole-branch review Minor 6: same open-movement scoping as the coordinator screen — a closed
+  // record must never appear on a live exception work list.
+  const items = buildActionInbox(movements.filter(isOpen), now, units);
+  // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
+  // category, which is a capacity dead end, not a passed deadline — counting it under a label
+  // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting
+  // every qualifying movement instead of at most one. "Overdue" means a legal deadline has
+  // actually passed, so this counts only the `legal-` category, matching what the label claims.
+  const overdue = items.filter((item) => item.id.startsWith("legal-")).length;
   return (
     <div className={styles.pageGrid} data-testid="ward-exceptions-view">
       <section className={styles.panel}>
@@ -639,7 +555,7 @@ function ExceptionsView() {
                 <span className={toneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/ward-management/patients/${item.movementId}`}>
+              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
@@ -668,9 +584,8 @@ function ExceptionsView() {
 }
 
 function TransportView() {
-  const transportPatients = wardMovements
-    .filter((patient) => patient.stage !== "arrived" && patient.transport)
-    .slice(0, 8);
+  const { movements } = useWardFlow();
+  const transportPatients = movements.filter((patient) => patient.stage !== "arrived" && patient.transport).slice(0, 8);
   return (
     <div className={styles.pageGrid} data-testid="ward-transport-view">
       <section className={styles.panel}>
@@ -706,12 +621,10 @@ function TransportView() {
                         : "Requested"}
                   </span>
                   <small>
-                    {patient.legalForm
-                      ? `${patient.legalForm.label} (${patient.legalForm.code})`
-                      : "No legal form required"}
+                    {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
-                <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+                <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
                   Review <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
@@ -749,7 +662,66 @@ function TransportView() {
   );
 }
 
+/**
+ * Task 9 (spec item 7): the not-a-medical-device statement. `coordinator-screen.tsx` carried this
+ * wording first; it is exported from here and imported there (see that file's own governance
+ * banner) so the two screens render the exact same statement rather than two independently
+ * maintained copies that could quietly drift apart — the failure mode the brief calls worse than
+ * a single missing statement.
+ */
+export function NotAMedicalDeviceStatement() {
+  return (
+    <p>
+      This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
+      assesses a patient&apos;s risk, acuity or treatment. A human coordinator confirms or overrides every suggestion.
+    </p>
+  );
+}
+
+/**
+ * Renders a computed effectiveness number, or its explicit absence — never a substituted `0` —
+ * always immediately beside the basis it was drawn from. Rule 4 (conservative failure): a measure
+ * this cannot compute must read as unknown, not as a suspiciously perfect result. Fix round 1: a
+ * measure computed from a thin sample must say so in the same breath as the figure, not in a
+ * tooltip or a footnote — a median of one, rendered bare, is a guess wearing the clothes of a
+ * measurement, and this board's rule is to say nothing rather than guess.
+ */
+function EffectivenessValue({
+  measure,
+  unit,
+  basisNoun,
+}: {
+  measure: EffectivenessMeasure;
+  unit: string;
+  basisNoun: string;
+}) {
+  const basis = (
+    <span className={styles.effectivenessBasis}>
+      from {measure.sampleSize} of {measure.population} {basisNoun}
+    </span>
+  );
+  if (measure.value === undefined) {
+    return (
+      <span className={styles.effectivenessLine}>
+        <span className={styles.effectivenessUnknown}>Not enough data to compute</span>
+        {basis}
+      </span>
+    );
+  }
+  const rounded = Math.round(measure.value * 10) / 10;
+  return (
+    <span className={styles.effectivenessLine}>
+      <span className={styles.effectivenessValue}>
+        {rounded}
+        <small> {unit}</small>
+      </span>
+      {basis}
+    </span>
+  );
+}
+
 function GovernanceView() {
+  const { movements } = useWardFlow();
   const sources = [
     ["WA Health System Flow Centre", "https://www.health.wa.gov.au/Improving-WA-Health/System-Flow-Centre"],
     [
@@ -762,10 +734,16 @@ function GovernanceView() {
       "https://www.health.wa.gov.au/about-us/policy-frameworks/digital-health/mandatory-requirements/artificial-intelligence-policy",
     ],
   ];
-  const sample = wardMovements[0];
+  const sample = movements[0];
   const timeline = movementTimeline(sample);
+  const audit = changeAudit(movements);
+  const effectiveness = effectivenessNumbers(movements);
   return (
     <div data-testid="ward-governance-view">
+      <div className={styles.governanceBanner} data-testid="ward-governance-medical-device-notice">
+        <span className={styles.prototypeBadge}>Synthetic prototype</span>
+        <NotAMedicalDeviceStatement />
+      </div>
       <section className={styles.assuranceGrid}>
         <article className={styles.governanceCard}>
           <Sparkles aria-hidden="true" />
@@ -855,6 +833,79 @@ function GovernanceView() {
           </ul>
         </aside>
       </div>
+      <div className={`${styles.pageGrid} ${styles.governanceLowerGrid}`}>
+        <section className={styles.panel} data-testid="ward-governance-change-audit">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Change audit</h2>
+              <p>Every urgency change, legal status change, hold release and transport cancellation, newest first</p>
+            </div>
+          </header>
+          {audit.length > 0 ? (
+            <ol className={styles.auditList}>
+              {audit.map((entry, index) => (
+                <li key={`${entry.movementId}-${entry.kind}-${entry.at}-${index}`}>
+                  {entry.kind === "hold_released" || entry.kind === "transport_cancelled" ? (
+                    <History aria-hidden="true" />
+                  ) : (
+                    <Clock3 aria-hidden="true" />
+                  )}{" "}
+                  {formatInstant(entry.at)} · {entry.movementId} · {auditKindLabels[entry.kind]} · {entry.detail} · by{" "}
+                  {entry.by}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className={styles.emptyNote} data-testid="ward-governance-change-audit-empty">
+              None — no urgency change, legal status change, hold release or transport cancellation has been recorded
+              yet.
+            </p>
+          )}
+        </section>
+        <aside className={styles.panel} data-testid="ward-governance-effectiveness">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Effectiveness</h2>
+              <p>Two measures computed from this synthetic scenario</p>
+            </div>
+          </header>
+          <dl className={styles.effectivenessList}>
+            <div data-testid="ward-governance-effectiveness-acceptance">
+              <dt>
+                <Clock3 aria-hidden="true" /> Median time, referral to a ward accepting
+              </dt>
+              <dd>
+                <EffectivenessValue
+                  measure={effectiveness.medianMinutesToAcceptance}
+                  unit="min"
+                  basisNoun="recorded acceptances"
+                />
+              </dd>
+            </div>
+            <div data-testid="ward-governance-effectiveness-units-contacted">
+              <dt>
+                <Users aria-hidden="true" /> Average units contacted per patient
+              </dt>
+              <dd>
+                <EffectivenessValue
+                  measure={effectiveness.averageUnitsContacted}
+                  unit="units"
+                  basisNoun="movements that referred at least one unit"
+                />
+              </dd>
+            </div>
+          </dl>
+          <p className={styles.notice}>
+            Both numbers describe today&apos;s synthetic scenario only. Neither is evidence that this prototype works,
+            and neither may be read as real-world performance.
+          </p>
+          <p className={styles.droppedMeasureNote} data-testid="ward-governance-dropped-measure">
+            <CircleSlash aria-hidden="true" /> A third success measure — legal deadlines passed while a patient waits —
+            is dropped. Every legal deadline was removed from this model on the product owner&apos;s instruction, so it
+            cannot be computed and is not shown here.
+          </p>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -870,7 +921,6 @@ function RoleFocus({ role }: { role: WardRole }) {
 }
 
 function ModeBody({ mode, role }: { mode: Exclude<WardMode, "command">; role: WardRole }) {
-  if (mode === "constellation") return <ConstellationView role={role} />;
   if (mode === "network") return <WardNetworkWorkspace />;
   if (mode === "queue") return <QueueView role={role} />;
   if (mode === "capacity") return <CapacityView />;
@@ -884,9 +934,8 @@ export function WardModeWorkspace({ mode }: { mode: Exclude<WardMode, "command">
   const [role, setRole] = useState<WardRole>("flow");
   return (
     <div className={styles.modeShell} data-testid={`ward-mode-${mode}`} data-role={role}>
-      <ClinicalRail />
+      <ClinicalRail activeMode={mode} />
       <ModeHeader mode={mode} role={role} onRoleChange={setRole} />
-      <WardModeNavigation active={mode} />
       <main id="main-content" className={styles.modeContent}>
         <RoleFocus role={role} />
         <ModeBody mode={mode} role={role} />

@@ -4,7 +4,8 @@ import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/components/ui-primitives";
+import { ChoiceChip } from "@/components/ui/chip";
+import { cn, searchShell } from "@/components/ui-primitives";
 
 /**
  * The phone filter idiom, shared.
@@ -521,27 +522,16 @@ export function ResultFilterFacetChips({
       const deadEnd = Boolean(option.disabled) && !selected;
       const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
       return (
-        <button
+        <ChoiceChip
           key={option.value}
-          type="button"
-          aria-pressed={selected}
-          aria-disabled={deadEnd || undefined}
-          aria-describedby={deadEnd ? deadEndDescId : undefined}
-          aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
-          onClick={() => {
-            if (deadEnd) return;
-            group.onToggle(option.value);
-          }}
+          pressed={selected}
+          onPressedChange={() => group.onToggle(option.value)}
+          size="compact"
+          ariaDisabled={deadEnd || undefined}
+          ariaDescribedBy={deadEnd ? deadEndDescId : undefined}
+          ariaLabel={option.hint ? `${option.label} (${option.hint})` : undefined}
           className={cn(
-            isDense
-              ? "flex min-h-tap w-full min-w-0 items-center justify-between gap-2.5 rounded-lg border px-3 py-2 text-left text-xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:py-1.5"
-              : "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-10 sm:gap-1 sm:px-2",
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            selected
-              ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-              : deadEnd
-                ? "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+            isDense ? "w-full min-w-0 justify-between gap-2.5 py-2 text-left sm:py-1.5" : "gap-1.5 sm:gap-1",
           )}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -568,7 +558,7 @@ export function ResultFilterFacetChips({
               No matches with your current filters.
             </span>
           ) : null}
-        </button>
+        </ChoiceChip>
       );
     });
 
@@ -1072,7 +1062,7 @@ export function ResultFilterSheet({
             <label htmlFor={findFieldId} className="sr-only">
               Find a filter
             </label>
-            <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
+            <div className={cn(searchShell, "min-w-0 bg-[color:var(--surface)] px-2.5")}>
               <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
               <input
                 id={findFieldId}
@@ -1081,7 +1071,7 @@ export function ResultFilterSheet({
                 onChange={(event) => setNeedle(event.target.value)}
                 placeholder="Find a filter…"
                 data-testid={`${testId}-find`}
-                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
+                className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
               />
               {needle ? (
                 <button

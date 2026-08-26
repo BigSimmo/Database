@@ -27,9 +27,9 @@ import {
   type CalculatorFilterState,
 } from "@/components/calculators/calculator-filters";
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
-import { CalculatorsHomePage } from "@/components/calculators/home-page";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
+import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
@@ -70,15 +70,15 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=PHQ-9&run=1&mode=calculators");
   });
 
-  it("renders results only once a non-empty search is submitted", async () => {
+  it("renders the catalogue on an empty query and results when a search is submitted", async () => {
     navigation.redirect.mockClear();
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+    const browse = await CalculatorsSearchRoute({ searchParams: Promise.resolve({}) });
+    expect(browse.type).toBe(CalculatorsSearchPage);
+    expect(browse.props.initialQuery).toBe("");
 
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) })).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+    const whitespace = await CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) });
+    expect(whitespace.type).toBe(CalculatorsSearchPage);
+    expect(whitespace.props.initialQuery).toBe("");
 
     const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
@@ -110,16 +110,21 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=GAD-7");
   });
 
-  it("mounts the universal hero composer slot and canonical starter searches", () => {
-    const { container } = render(<CalculatorsHomePage />);
+  it("keeps calculator home copy on the shared lightweight home", () => {
+    render(<SharedHomeEmptyState modeId="calculators" />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Clinical Calculators" })).toBeVisible();
-    expect(container.querySelector(".mode-home-composer-slot")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Depression severity/ })).toHaveAttribute(
-      "href",
-      "/calculators/search?q=depression&run=1",
-    );
-    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators/search?q=PHQ-9&run=1");
+    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Clinical Calculators" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Validated psychiatry scores with the indication, items, and next actions in one place."),
+    ).toBeInTheDocument();
+
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+    expect(showAll).toHaveTextContent("Show all");
+    expect(screen.getByTestId("calculators-show-all-well")).toBeInTheDocument();
   });
 });
 
@@ -178,6 +183,17 @@ describe("calculator filter predicates", () => {
 });
 
 describe("calculator results surface", () => {
+  it("lists the catalogue and Show all chip when the query is empty", () => {
+    render(<CalculatorsSearchPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(`${calculators.length} calculators`);
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+  });
+
   it("uses the shared results band and filter sheet without a page-owned composer", async () => {
     const user = userEvent.setup();
     const { container } = render(<CalculatorsSearchPage initialQuery="depression" />);
@@ -185,6 +201,9 @@ describe("calculator results surface", () => {
     expect(screen.getByRole("heading", { level: 1, name: "depression" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("2 calculators");
     expect(container.querySelector('[data-testid="calculators-phone-dock"]')).toBeNull();
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveClass("min-h-tap");
 
     await user.click(screen.getByTestId("calculators-filter-trigger-phone"));
     const sheet = screen.getByTestId("calculators-filter-sheet");

@@ -134,6 +134,7 @@
         "src/app/(search-app)/factsheets/[slug]/page.tsx",
         "src/app/(search-app)/factsheets/page.tsx",
         "src/app/(search-app)/factsheets/search/page.tsx",
+        "src/app/(search-app)/factsheets/topics/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
@@ -504,66 +505,40 @@
       "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
     },
     {
-      "id": "ward-management",
+      "id": "caring-contacts-workspace",
       "disposition": "owned",
-      "routes": [
-        "src/app/ward-management/page.tsx",
-        "src/app/ward-management/capacity/page.tsx",
-        "src/app/ward-management/constellation/page.tsx",
-        "src/app/ward-management/exceptions/page.tsx",
-        "src/app/ward-management/governance/page.tsx",
-        "src/app/ward-management/movements/page.tsx",
-        "src/app/ward-management/network/page.tsx",
-        "src/app/ward-management/patients/[patientId]/page.tsx",
-        "src/app/ward-management/queue/page.tsx",
-        "src/app/ward-management/transport/page.tsx"
-      ],
+      "routes": ["src/app/caring-contacts/page.tsx", "src/app/caring-contacts/patients/page.tsx"],
       "routeRoots": true,
-      "roots": [
-        "src/components/ward-management/coordinator/coordinator-screen.tsx",
-        "src/components/ward-management/ward-management-console.tsx",
-        "src/components/ward-management/ward-management-modes.tsx",
-        "src/components/ward-management/ward-management-navigation.tsx",
-        "src/components/ward-management/ward-management-network.tsx"
-      ],
-      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "roots": [],
+      "permittedComponentFamilies": [],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": [
-        "CoordinatorScreen",
-        "WardManagementConsole",
-        "PatientMovementWorkspace",
-        "WardModeWorkspace",
-        "WardModeNavigation",
-        "ClinicalRail",
-        "WardNetworkWorkspace"
-      ],
-      "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a command home, full-screen constellation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow."
+      "sanctionedSpecialPatterns": ["CaringContactsShell"]
     },
     {
       "id": "privacy-safety-and-reference",
@@ -729,6 +704,7 @@
     "Button": "controls",
     "Checkbox": "controls",
     "Chip": "controls",
+    "ChoiceChip": "controls",
     "Citation": "source",
     "CitationList": "source",
     "ConfirmDialog": "layout",

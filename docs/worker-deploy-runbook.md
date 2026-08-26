@@ -36,6 +36,9 @@ _"apply before worker redeploy"_) for the ordered apply plan.
 Confirm the gate before continuing:
 
 ```bash
+node -v                  # must report >= 24.15.0 < 25 (Node 24 engine floor)
+npm -v                   # must report >= 11.0.0 < 12 (npm 11)
+npm run check:runtime    # validates Node 24 and npm 11 engines
 npm run reindex:health   # ok:true, and the RPC signatures accept p_worker_id
 ```
 
@@ -494,20 +497,23 @@ reads them, and nothing in the repository clears them.
 
 ### 3.8 What this evidence may not be used for
 
-**No promotion argument based on table quality may be made from shadow numbers until
-`docling-lab-fixtures.v2` lands.** This is a binding caveat carried by the Gate B PASS itself:
-the table-heavy leg passed at _parity-on-ceiling_, not by a demonstrated gain, because every
-table fixture in `docling-lab-fixtures.v1` is cleanly ruled and puts **both** engines at cell
-F1 1.0. A corpus that cannot separate the two engines cannot support a claim that one is
-better.
+**No promotion argument based on table quality may be made from shadow numbers until an
+owner-dispatched `docling-lab-fixtures.v2` benchmark is recorded.** This is a binding caveat
+carried by the Gate B PASS itself: the recorded v1 table-heavy leg passed at
+_parity-on-ceiling_, not by a demonstrated gain, because that run's cleanly ruled tables put
+**both** engines at cell F1 1.0. A corpus that cannot separate the two engines cannot support
+a claim that one is better.
 
 `delta.table_count` in the shadow record is a count of detected tables, not a quality measure,
 and a positive delta says nothing about whether the extra tables are correct.
 
-The v2 hardness corpus — unruled tables, merged and spanning cells, rotated headers, with
-exact number/unit/comparator checks — is queued as issue request `a20fc4ce` under
-`docs/outstanding-issues-inbox/` (P3, raised 2026-08-19). Until that lab re-run is recorded,
-shadow numbers are measurements and nothing more.
+The v2 hardness corpus now lives at `eval/docling/fixtures/manifest.v2.json`: it covers
+unruled tables, merged and spanning cells, and rotated headers, with numeric assertion
+provenance bound to representative source tables. Those bindings govern fixture construction
+only: numeric exactness remains document-wide, while structural association is measured by
+table cell F1. This closes the fixture-construction task, not the evidence gate. Until a new
+lab run is recorded against v2 with thresholds agreed beforehand, shadow numbers are
+measurements and nothing more.
 
 The second Gate B caveat is already load-bearing above: docling's eager-mode latency of
 9–19 s/doc is why the cohort is bounded three ways in §3.4.

@@ -11,6 +11,7 @@ import {
   isDashboardModeHref,
   dashboardOwnedModeHomeModeId,
   isDashboardOwnedModeHomePath,
+  isDictionaryCataloguePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -68,6 +69,16 @@ describe("shared-search route ownership", () => {
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
   });
 
+  it("classifies the dictionary catalogue as an in-flow composer owner", () => {
+    expect(isDictionaryCataloguePath("/dictionary/search")).toBe(true);
+    expect(isDictionaryCataloguePath("/dictionary/browse")).toBe(true);
+    expect(isDictionaryCataloguePath("/dictionary/topics")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/compare")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/sources")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/auditory-hallucination")).toBe(false);
+    expect(isStandaloneModeHomePath("/dictionary/search")).toBe(false);
+  });
+
   /*
    * Consolidated modes own no composer at their bare path.
    *
@@ -114,6 +125,29 @@ describe("shared-search route ownership", () => {
     // `/` and Documents still need searchParams for the dashboard gate.
     expect(isAlwaysStandaloneShellPath("/")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
+  });
+
+  it("preserves the deliberate compact-hub and standalone Favourites workspace distinction", () => {
+    const favouritesHubSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-hub.tsx"),
+      "utf8",
+    );
+    const favouritesPageSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
+      "utf8",
+    );
+
+    // The dashboard hub is a compact browse surface and keeps a ModeHomeHero.
+    // The standalone route is the full command library and starts at its one h1
+    // so its filters and saved-item controls stay above fold. Identity copy is
+    // shared; structural equality between the two entry doors is not.
+    expect(favouritesHubSource).toContain("Owner decision 2026-08-23");
+    expect(favouritesHubSource).toContain("<ModeHomeHero");
+    expect(favouritesHubSource).toContain("sharedHomePresentation.favourites");
+    expect(favouritesPageSource).toContain("Owner decision 2026-08-23");
+    expect(favouritesPageSource).not.toContain("ModeHomeHero");
+    expect(favouritesPageSource).toContain("<h1");
+    expect(favouritesPageSource).toContain("{sharedHomePresentation.favourites.title}");
   });
 
   it("classifies dashboard mode hrefs without parsing the destination page", () => {
@@ -234,6 +268,10 @@ describe("shared-search route ownership", () => {
       resolve(process.cwd(), "src/components/tools/tools-search-results-page.tsx"),
       "utf8",
     );
+    const dictionaryCatalogueSource = readFileSync(
+      resolve(process.cwd(), "src/components/dictionary/dictionary-catalogue-pages.tsx"),
+      "utf8",
+    );
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
@@ -257,7 +295,8 @@ describe("shared-search route ownership", () => {
     expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
     expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
 
-    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15 with pending reserve & min-h tokens
+    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15
+    // with pending reserve & min-h tokens at every width.
     for (const bespokeSource of [favouritesPageSource, favouritesHubSource, toolsPageSource]) {
       expect(bespokeSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
       expect(bespokeSource).toContain(
@@ -269,6 +308,21 @@ describe("shared-search route ownership", () => {
       expect(bespokeSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
       expect(bespokeSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
     }
+    // Dictionary catalogue portals the shared composer from sm up only. Phones
+    // keep the usual compact dock, so this slot is hidden and must not reserve
+    // the phone hero height.
+    expect(dictionaryCatalogueSource).toContain('data-testid="dictionary-catalogue-composer"');
+    expect(dictionaryCatalogueSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(dictionaryCatalogueSource).toContain("mx-auto hidden w-full");
+    expect(dictionaryCatalogueSource).toContain("sm:block");
+    expect(dictionaryCatalogueSource).toContain(
+      "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+    );
+    expect(dictionaryCatalogueSource).not.toContain(
+      "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+    );
+    expect(dictionaryCatalogueSource).not.toContain("Clinical terms");
+    expect(dictionaryCatalogueSource).not.toContain("Clinical dictionary");
 
     // Desktop page composer slot in GlobalSearchShell reserves height to avoid 0.118 CLS layout jump
     expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
@@ -286,6 +340,30 @@ describe("shared-search route ownership", () => {
     // reserve above it would leave a permanent empty band.
     expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
+    expect(globalsSource).not.toContain("--spacing-page-composer-wide");
+  });
+
+  it("pre-reserves the measured narrow-desktop composer height while keeping its prompt rail on one line", () => {
+    const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+    const tabletBandStart = globalsSource.indexOf("/* BEGIN tablet mode-home composer geometry */");
+    const tabletBandEnd = globalsSource.indexOf("/* END tablet mode-home composer geometry */");
+
+    expect(tabletBandStart).toBeGreaterThanOrEqual(0);
+    expect(tabletBandEnd).toBeGreaterThan(tabletBandStart);
+    const tabletBand = globalsSource.slice(tabletBandStart, tabletBandEnd);
+
+    expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
+    expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
+    expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
+    expect(tabletBand).toContain("flex-wrap: nowrap");
+    expect(tabletBand).toContain("overflow-x: auto");
+
+    // The reserve remains conditional on a pending or filled portal host, so a
+    // hidden composer still owns zero height rather than a permanent tablet gap.
+    const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
+    expect(homeTemplateSource).toContain("sm:data-[composer-reserve=pending]:min-h");
+    expect(homeTemplateSource).toContain("sm:[&:not(:empty)]:min-h");
+    expect(homeTemplateSource).not.toContain("sm:min-h-[var(--spacing-mode-home-composer-wide)]");
   });
 
   it("leaves the dashboard shell without eager chrome thrash", () => {
@@ -368,6 +446,16 @@ describe("shared-search route ownership", () => {
     expect(ask).toMatch(
       /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
+  });
+
+  it("does not treat catalogue search docks as tool-detail footer-search pages", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("isToolDetailWithFooterSearch");
+    expect(shellSource).toContain('from "@/lib/information-pages"');
+    expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
   });
 
   it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {

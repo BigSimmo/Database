@@ -1,4 +1,5 @@
 import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -33,8 +34,8 @@ export type ToolCatalogId =
   | "safety-plan"
   | "calculators"
   | "monitoring"
-  | "favourites"
-  | "ward-management";
+  | "caring-contacts"
+  | "favourites";
 
 export type ToolCatalogRecord = {
   id: ToolCatalogId;
@@ -211,46 +212,6 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     output: "Referral pathway, eligibility notes, service record, and source link.",
   },
   {
-    id: "ward-management",
-    title: "Ward Flow",
-    mobileTitle: "Ward Flow",
-    description: "Coordinate synthetic psychiatry demand, bed capacity, referrals, and patient movement across WA.",
-    bestFor: "Statewide mental-health patient flow",
-    detail:
-      "Review a synthetic priority queue, scan current ward capacity, inspect explainable destination matches, and confirm the next owned movement action.",
-    href: "/ward-management",
-    area: "coordination",
-    status: "ready",
-    sourceBacked: false,
-    highYield: true,
-    actionLabel: "Coordinate",
-    keywords: [
-      "ward",
-      "ward flow",
-      "bed management",
-      "bed availability",
-      "psychiatry",
-      "patient flow",
-      "hospital coordination",
-      "ED transfer",
-      "catchment",
-      "MHPF",
-      "WACHS",
-    ],
-    checkFirst: [
-      "Human urgency tier and elapsed wait",
-      "Catchment and required ward setting",
-      "Legal, handover, and transport readiness",
-      "Last-confirmed ward capacity",
-    ],
-    neededInput: [
-      "Synthetic movement identifier",
-      "Cohort, catchment, and open or secure setting",
-      "Referral, legal, and transport status",
-    ],
-    output: "An explainable destination shortlist and human-confirmed patient movement plan.",
-  },
-  {
     id: "forms",
     title: "Forms",
     description: "Find clinical forms and source-backed readiness pathways.",
@@ -368,6 +329,26 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Monitoring indication", "Last result date", "Thresholds and alerts"],
     neededInput: ["Medication or condition", "Recent results", "Monitoring timeframe"],
     output: "Monitoring schedule, thresholds, and review prompts.",
+  },
+  {
+    // The one card that is the front door to a standalone workspace. Caring Contacts owns
+    // its own navigation once you are inside it, so this catalogue entry is the only place
+    // the host application names it — see docs/codebase-index.md.
+    id: "caring-contacts",
+    title: "Caring Contacts",
+    description: "A synthetic demonstration of caring-contact follow-up after a hospital stay.",
+    bestFor: "Seeing how caring-contact follow-up is coordinated",
+    detail:
+      "A working demonstration built on invented patients and invented numbers. Nothing in it is ever sent to a real number, and none of it is patient data.",
+    href: CARING_CONTACTS_ROUTES.today,
+    area: "coordination",
+    status: "ready",
+    sourceBacked: false,
+    actionLabel: "Open",
+    keywords: ["caring contacts", "follow-up", "aftercare", "discharge", "coordination", "demonstration"],
+    checkFirst: ["Everything shown is invented", "No message is ever sent", "Not a clinical record"],
+    neededInput: ["Nothing — the workspace carries its own synthetic examples"],
+    output: "A demonstration workspace showing how caring-contact follow-up is coordinated.",
   },
   {
     id: "favourites",

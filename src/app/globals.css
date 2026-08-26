@@ -98,6 +98,7 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+  --radius-phone-frame: 1.85rem;
   /* Fully-round role (chips, pills, avatars). Call sites carried a bare
      `, 9999px` fallback before this was declared. */
   --radius-pill: 9999px;
@@ -116,6 +117,14 @@
      the edge-to-edge dock keeps its height (see the max-width: 430px block,
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
+  --spacing-phone-frame: 52.75rem;
+  /* Ward Flow's fixed phone navigation bar and the matching content reserve. */
+  --spacing-ward-phone-bar: 3.5rem;
+
+  /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
+  --container-reading: 64rem;
+  --container-mockup-wide: 92rem;
+  --container-phone-frame: 24.375rem;
 
   /* Specifier-map layout roles: jump target height, numbered step column, and
      wide-screen detail rail. These stay together so the page cannot drift back
@@ -143,14 +152,14 @@
      and its gap are fixed-height on phone, so 162px is exact: the settled
      layout is unchanged and only the pre-adoption reserve grows.
 
-     The wide value is knowingly still short (88px against a settled 160px at
-     1280 and 199px at 800). It is NOT simply raised to match: the sm+ surface
-     swaps the phone ticket for a prompt-chip row that rewraps with viewport
-     width, so no single static value is correct at every width. That needs a
-     different mechanism and is tracked separately. */
+     The default wide value remains 88px. Current production attribution at
+     1280–1440 measured the resulting initial shift below the 0.01 decision
+     threshold, so those profiles stay unchanged. The 640–1279px band has a
+     separate measured reserve and one-line prompt rail below: the old wrapping
+     surface grew 88→199px and produced 0.021676 CLS at 800px and 0.019870 at
+     1025px. */
   --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
-
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
      does, instead of stepping 48→48→56 at sm/lg: the old steps served the
      768–1023px tablet band the phone size while the heading beside it had
@@ -310,6 +319,7 @@
   /* Layout constraints */
   --content-max-width: 1440px;
   --rail-width: 480px;
+  --content-width-catalogue: 76rem;
 
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
@@ -574,10 +584,20 @@
      clears roughly 3.5rem less than the Compare bar. */
   --phone-dock-patient-details-clearance: 9rem;
   --phone-dock-patient-details-compact-clearance: 8.75rem;
+  /* Therapy compare tray: one row + 0.5rem gap, same geometry as Patient
+     details. The tray is required to stay exactly one row tall (its expanded
+     state is a sheet), which is what lets a single static number stay correct. */
+  --phone-dock-therapy-compare-clearance: 9rem;
+  --phone-dock-therapy-compare-compact-clearance: 8.75rem;
   --patient-details-fab-gap: 0.5rem;
   --patient-details-fab-padding: 0.3125rem 0.5rem 0.3125rem 1rem;
   --patient-details-fab-count-size: 1.625rem;
   --patient-details-fab-count-padding: 0.375rem;
+  --therapy-compare-tray-gap: 0.5rem;
+  --therapy-compare-tray-pip-gap: 0.125rem;
+  --therapy-compare-tray-pip-size: 1.5rem;
+  --therapy-compare-tray-padding: 0.25rem 0.5rem;
+  --therapy-compare-tray-summary-inset: 0.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -983,9 +1003,44 @@ select,
 }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+  /* Hairline on the field edge, not an inset accent rectangle. The previous
+     inset offset plus solid `--focus` read as a default browser ring and, on
+     transparent inputs nested in a rounded search shell, drew a sharp box
+     around the text while the icon sat outside it. */
   box-shadow: var(--shadow-inset);
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  outline: 1px solid color-mix(in srgb, var(--clinical-accent) 32%, var(--border-strong));
+  outline-offset: 0;
+}
+
+/* Standalone field recipe (`fieldControl`). Tailwind `outline-none` loses to
+   the unlayered rule above; this is the real owner. Focus is a quiet border
+   shift — no second outline. */
+input.field-control:focus-visible,
+textarea.field-control:focus-visible,
+select.field-control:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
+}
+
+input.field-control[aria-invalid="true"]:focus-visible,
+textarea.field-control[aria-invalid="true"]:focus-visible,
+select.field-control[aria-invalid="true"]:focus-visible {
+  border-color: var(--danger);
+}
+
+/* Nested search: the rounded shell owns focus. Inner `outline-none` utilities
+   cannot suppress the shared field rule, which is why compare / filter /
+   catalogue pickers grew a bright rectangle around the text. Border only —
+   do not replace resting elevation on tools / calculator / document pills,
+   the same failure the composer comment forbids. */
+.search-shell:focus-within {
+  border-color: color-mix(in srgb, var(--clinical-accent) 34%, var(--border-strong));
+}
+
+.search-shell-input:focus,
+.search-shell-input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 button,
@@ -1088,12 +1143,24 @@ summary::-webkit-details-marker {
       padding-right: max(1.5rem, var(--safe-area-right));
     }
   }
+
+  /* InPageNavHeader portals into the collapse addon — a sibling of
+     .edge-glass-header — so none of that gutter is inherited. Tokenize the
+     phone inset here; sm+ keeps Tailwind sm:px-6 / lg:px-8, so this must not
+     apply above 639px. The unlayered max-width:639px guard below repeats the
+     same tokens so a later literal cannot pin the action pill to the bezel. */
+  @media (max-width: 639px) {
+    .inpage-nav-header {
+      padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+      padding-right: max(var(--header-edge-pad), var(--safe-area-right));
+    }
+  }
 }
 
 /* Shared-home hero copy reserve.
  *
  * The mode toggle rewrites the title and subtitle in place, so the copy block
- * must already be as tall as the tallest copy any of the 13 modes can produce
+ * must already be as tall as the tallest copy any of the 15 modes can produce
  * or the composer below it jumps. That reserve used to sit on the heading and
  * the subtitle *individually* (`min-h-[2lh]` on each), which is why the pair
  * read as two unrelated lines: with a one-line title, half of each element's
@@ -1402,6 +1469,101 @@ summary::-webkit-details-marker {
   font-weight: 800;
 }
 
+/* Therapy Compass compare tray: the row above the search pill that says what is
+   in the comparison. Same in-flow trick as the two rows above, so scroll-hide
+   carries it with the composer.
+
+   It must stay ONE row tall at every state — the dock's content clearance is a
+   static token, so a dock that grows covers page content by exactly its growth.
+   The expanded state is a bottom sheet for that reason, not a taller bar.
+
+   Interaction states are NOT redeclared here: the summary row carries
+   `interactiveRowBase` and the actions are the shared `Button`, so hover, focus
+   and disabled behaviour come from the design system, per COMPONENTS.md 9.1. */
+.therapy-compare-tray {
+  position: relative;
+  z-index: var(--z-raised, 10);
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--therapy-compare-tray-gap);
+  margin-bottom: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  padding: var(--therapy-compare-tray-padding);
+  box-shadow: var(--e3);
+}
+
+.therapy-compare-tray__summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-md);
+  padding-inline: var(--therapy-compare-tray-summary-inset);
+}
+
+.therapy-compare-tray__pips {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--therapy-compare-tray-pip-gap);
+}
+
+.therapy-compare-tray__pip {
+  display: grid;
+  height: var(--therapy-compare-tray-pip-size);
+  width: var(--therapy-compare-tray-pip-size);
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill, 9999px);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  transition: transform var(--duration-moderate) var(--ease-out-soft);
+}
+
+.therapy-compare-tray__pip[data-filled="true"] {
+  border-color: transparent;
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+}
+
+/* The arriving slot pulses once. Derived from the set, so it fires whichever
+   control added the therapy. */
+.therapy-compare-tray__pip[data-landed="true"] {
+  transform: scale(1.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .therapy-compare-tray__pip {
+    transition: none;
+  }
+
+  .therapy-compare-tray__pip[data-landed="true"] {
+    transform: none;
+  }
+}
+
+.therapy-compare-tray__names {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-heading);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.therapy-compare-tray__count {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
 /* Bottom-docked composer: hint row + upward dropdown grow above the pill. */
 .answer-footer-search-edge {
   overflow: visible;
@@ -1636,7 +1798,7 @@ summary::-webkit-details-marker {
   }
 
   .answer-footer-search-pill:focus-within {
-    border-color: var(--clinical-accent);
+    border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
       0 8px 20px rgb(16 24 40 / 8%),
@@ -1645,7 +1807,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-pill-open {
-  border-color: color-mix(in srgb, var(--clinical-accent) 46%, var(--border-strong));
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--clinical-accent) 10%, transparent),
     0 8px 20px rgb(16 24 40 / 8%),
@@ -1780,6 +1942,94 @@ summary::-webkit-details-marker {
 /* Composer primitives are intentionally unlayered because inputs/buttons are
    governed by the global element resets. Their exported TypeScript recipes are
    class handles only, making this block the single owner of chrome and states. */
+/* The numbered source mark in the answer prose, and the `+N` after a capped
+   cluster.
+
+   These values are ONE interdependent set, which is why they live in a class
+   rather than as scattered utilities. At the answer's 16px/1.66 prose they draw
+   a 12x12px box lifted 5px: it spans 5->17px above the baseline, clearing the
+   line above by ~2px without growing the line box, and the margins leave ~2.7px
+   between two marks so "2" and "3" in a cluster cannot touch. Re-measure in a
+   browser before changing any one of them.
+
+   The size is `em`, not a named step, because the mark has to scale with the
+   prose it annotates — the scale's floor (`--text-3xs`, 10px) is absolute and
+   would also overrun the line at this rise. Keeping it here rather than as a
+   `text-[…]` utility is the sanctioned form: `check:type-scale` guards the
+   utility vocabulary, and unlayered component CSS is how this repo expresses a
+   geometry that the scale cannot.
+
+   Never set line-height to 0. An inline-block with zero line-height has a
+   zero-height padding box, which collapsed the mark to a sliver the first time. */
+/* The in-prose source mark's own metrics. Component metrics, not scale steps:
+   they are em-based and mutually dependent — the box has to clear the prose
+   without growing the line box — so they sit here rather than in @theme, where
+   they would generate a `leading-mark` utility with one consumer and a stepped
+   scale that reads as though the mark were a typographic role.
+
+   Declared on :root because the mark is drawn from three places that are not
+   nested: `.answer-source-mark` and `.answer-source-mark-overflow` below, and
+   the cluster spacing in answer-source-mark.tsx.
+     --answer-mark-leading    the mark box takes its own line and nothing more
+     --answer-mark-gap-lead   first mark of a cluster, closer to the word
+     --answer-mark-gap        every later mark, and the "+N" overflow count
+     --answer-mark-gap-star   the partial-support glyph against its digit */
+:root {
+  --answer-mark-leading: 1;
+  --answer-mark-gap-lead: 0.28em;
+  --answer-mark-gap: 0.34em;
+  --answer-mark-gap-star: 0.03em;
+}
+
+/* The chat answer message's left gutter: the assistant badge column plus its
+   gap. Two non-nested places have to agree on it — the badge lives inside
+   `plain-answer-response` (answer-content.tsx) while the verification notice
+   and support word sit in the card header above it (answer-card.tsx, bare
+   frame) — and when they disagree the governance line hangs off the left of the
+   answer it belongs to. A shared value is what keeps them in one column.
+     px-1 (0.25rem) + badge h-8/w-8 (2rem) + gap-2 (0.5rem) = 2.75rem, plus the
+     1px transparent border on that section. The border is invisible but it is
+     real geometry: without it in the sum the notice lands 1px left of the prose,
+     which on a crisp display is a visible ragged edge rather than a rounding
+     artefact. */
+:root {
+  --answer-message-gutter: calc(2.75rem + 1px);
+}
+
+.answer-source-mark {
+  position: relative;
+  top: -0.625em;
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0.15em 0.2em;
+  border-radius: var(--radius-xs);
+  border-width: 1px;
+  border-style: solid;
+  font-size: 0.5em;
+  line-height: var(--answer-mark-leading);
+  text-align: center;
+  vertical-align: baseline;
+}
+
+/* The partial-support glyph. One glyph reads at this size; a dotted underline
+   and a 1px bottom border were both tried under it and neither draws. */
+.answer-source-mark-star {
+  margin-left: var(--answer-mark-gap-star);
+  font-size: 0.85em;
+  line-height: var(--answer-mark-leading);
+}
+
+/* A statement, not a control: the sources it counts all sit on the rail below
+   at full tap size. */
+.answer-source-mark-overflow {
+  position: relative;
+  top: -0.625em;
+  margin-left: var(--answer-mark-gap);
+  font-size: 0.5em;
+  line-height: var(--answer-mark-leading);
+  vertical-align: baseline;
+}
+
 .chat-composer-shell-base {
   display: flex;
   align-items: center;
@@ -1797,17 +2047,14 @@ summary::-webkit-details-marker {
   box-shadow: var(--shadow-soft);
 }
 
-/* One focus owner, same as every other control. The retired `--shadow-focus`
-   token painted a 3px accent halo ON TOP of the accent border swap below — the
-   companion ring the shared `:focus-visible` treatment near the top of this file
-   exists to prevent (`#261`). The resting `--shadow-soft` elevation is
-   deliberately not overridden here: `--shadow-focus` carried it as its second
-   layer, so leaving box-shadow alone keeps the pill seated at exactly the same
-   height focused as at rest, and the outline is the only thing that changes. */
+/* One focus owner. The retired `--shadow-focus` token painted a 3px accent
+   halo ON TOP of the accent border swap — the companion ring `#261` forbids.
+   Focus is a quiet border shift; resting `--shadow-soft` stays so the pill
+   does not jump height. A second outline here is what made the composer look
+   like a default browser ring. */
 .chat-composer-shell-delta:focus-within {
-  border-color: var(--clinical-accent);
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
+  outline: none;
 }
 
 .chat-composer-input {
@@ -2103,29 +2350,46 @@ summary::-webkit-details-marker {
     box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
-  /* The patient verdict owns the card edge, including on the selected row.
+  /* The patient verdict owns the card edge and surface, including on the selected row.
      These must sit AFTER the [data-selected] rule above: that rule is unlayered
-     and pins border-color, so a Tailwind border utility loses to it and the top
-     hit — the one most likely to be prescribed — would render its interaction
-     warning with a neutral edge. Equal specificity, later in source, wins. */
+     and pins the border, background, and blue selection rail. A Tailwind utility
+     loses to it and the top hit — the one most likely to be prescribed — would
+     otherwise render patient danger with an ambiguous blue highlight. Equal
+     specificity, later in source, wins. */
   .medication-mobile-result[data-verdict="danger"] {
     border-color: var(--danger-border);
+    background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--danger-text);
   }
 
   .medication-mobile-result[data-verdict="warning"] {
     border-color: var(--warning-border);
+    background: color-mix(in srgb, var(--warning-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--warning-text);
   }
 
   .medication-mobile-result[data-verdict="success"] {
     border-color: var(--success-border);
+    background: color-mix(in srgb, var(--success-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--success-text);
+  }
+
+  .medication-mobile-result[data-verdict="neutral"] {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--text-muted);
   }
 
   .medication-mobile-result[data-verdict="clinical"] {
     border-color: color-mix(in srgb, var(--clinical-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--clinical-accent-soft) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
   .medication-mobile-result[data-verdict="info"] {
     border-color: var(--info-border);
+    background: color-mix(in srgb, var(--info-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--info-text);
   }
 
   .medication-mobile-result:focus-visible {
@@ -2231,6 +2495,44 @@ summary::-webkit-details-marker {
     display: flex;
   }
 }
+
+/* BEGIN tablet mode-home composer geometry */
+/* Across 640-1279px the settled one-line surface is 160px: rotating hint
+   (24px), composer, gaps, and prompt rail. Pre-reserve that exact height in
+   this bounded band. The portal host's pending/non-empty selectors remain the
+   owner, so a hidden composer still reserves zero. At 1280px+ the existing
+   88px default remains deliberately unchanged because measured CLS stays
+   below 0.01. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  :root {
+    --spacing-mode-home-composer-wide: 10rem;
+  }
+
+  .smart-search-prompt-row .answer-suggestion-chips-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  }
+}
+/* END tablet mode-home composer geometry */
+
+/* BEGIN sm+ hero home canvas alignment */
+/* Mode homes optically centre a ~160px composer. A ~400px bottom-right
+   install card overlaps that band at 640–1440px (Production UI `ui-pwa`).
+   Top-align the canvas from first paint in that band so the composer sits
+   above the card without restyling when the stack mounts. Do not apply at
+   1920px+: extra viewport height already clears a centred composer, and
+   top-aligning there shifted page content (~0.025 CLS, `ui-pwa` wide-desktop).
+   A `body:has(.pwa-notice-stack)` canvas restyle caused 0.12 CLS. Phones stay
+   centred. */
+@media (min-width: 640px) and (max-width: 1919.98px) {
+  #main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {
+    place-items: start center;
+    align-content: start;
+  }
+}
+/* END sm+ hero home canvas alignment */
 
 .smart-search-rotating-text {
   min-height: 1.5rem;
@@ -2540,6 +2842,11 @@ summary::-webkit-details-marker {
     padding-right: max(var(--header-edge-pad), var(--safe-area-right));
   }
 
+  .inpage-nav-header {
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
+  }
+
   .dashboard-composer-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
     width: min(calc(100vw - 8px - var(--safe-area-left) - var(--safe-area-right)), 400px);
   }
@@ -2590,6 +2897,17 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="patient-details"]
     .answer-footer-search-backdrop {
     height: max(var(--phone-dock-patient-details-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
+  }
+
+  /* Therapy Compass: the compare tray sits above the search pill in the dock.
+     Heights track --phone-dock-therapy-compare-* (same as content reserve). */
+  .answer-footer-search-dock[data-footer-addon="therapy-compare"] .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-clearance), calc(var(--safe-area-bottom) + 7.75rem));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="therapy-compare"]
+    .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
   }
 
   .document-mobile-search-pill {
@@ -2679,6 +2997,13 @@ summary::-webkit-details-marker {
 
   /* Same extra clearance for the Patient details row, scaled to its shorter height. */
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
+  }
+
+  /* Therapy compare tray: shell dock (.document-mobile-search-edge), one row,
+     so the same 0.5rem overshoot as Patient details. Without it the tray's top
+     border can leave a subpixel peep at the viewport edge while hidden. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="therapy-compare"][data-scroll-hidden="true"] {
     transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
   }
 
@@ -3043,6 +3368,7 @@ summary::-webkit-details-marker {
    and tests/pwa-lifecycle.dom.test.tsx) — this mirrors that fix across the
    remaining eight rules in this block, which still carried the same
    two-:has() pattern after that PR landed. */
+/* BEGIN post-hydration PWA main-content selector allowlist */
 @media (max-width: 639.98px) {
   body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
@@ -3077,6 +3403,7 @@ summary::-webkit-details-marker {
     margin-top: var(--pwa-inset-sm);
   }
 }
+/* END post-hydration PWA main-content selector allowlist */
 
 .pwa-action {
   transition:
@@ -4287,6 +4614,24 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* Caring Contacts workspace (/caring-contacts) print safeguard.
+ * The transitional `header, nav, button { display: none }` rule above removes the
+ * workspace header when printing, and the "fictional data only" marker lives in
+ * it — so a printed page of invented patients would carry nothing saying they are
+ * invented. That marker is a safeguard, not chrome. Restore it and only it,
+ * scoped to its own attributes, the same way the safety-plan patient copy
+ * restores its document header below. */
+@media print {
+  [data-synthetic-marker-host] {
+    display: block !important;
+    position: static !important;
+  }
+
+  [data-synthetic-marker] {
+    display: inline-flex !important;
+  }
+}
+
 /* Safety plan generator (/safety-plan) print export.
  * "Print / PDF" (and Cmd+P) should hand over the patient copy only, so the
  * builder/editor chrome is removed and the patient-copy document header — which
@@ -4618,12 +4963,6 @@ html.theme-transitioning *:after {
 }
 
 @media (max-width: 640px) {
-  [data-therapy-scroll-sm] {
-    overflow-x: auto !important;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
   .therapy-pathway-list {
     border-right: 0 !important;
     border-bottom: 1px solid var(--border);
@@ -4719,6 +5058,82 @@ html.theme-transitioning *:after {
 
 [data-print-provenance] {
   display: none;
+}
+.clinical-ask-workspace {
+  margin: var(--spacing-icon-md) auto;
+  max-width: 56rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-icon-md);
+  background: var(--surface);
+}
+.clinical-ask-output-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--radius-xs));
+}
+.clinical-ask-output-actions {
+  flex-wrap: wrap;
+}
+.clinical-ask-workspace button,
+.clinical-ask-output-actions button {
+  min-height: var(--spacing-tap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--radius-md) var(--spacing-icon-sm);
+}
+.clinical-ask-field {
+  display: grid;
+  gap: var(--radius-sm);
+  margin-block: var(--spacing-icon-xs);
+}
+.clinical-ask-field input {
+  min-height: var(--spacing-tap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding-inline: var(--spacing-icon-xs);
+  background: var(--surface);
+  color: var(--text);
+}
+.clinical-ask-context-item {
+  border-block-end: 1px solid var(--border);
+  padding-block: var(--spacing-icon-xs);
+}
+@media (prefers-reduced-motion: reduce) {
+  .clinical-ask-workspace * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (forced-colors: active) {
+  .search-band,
+  .clinical-ask-workspace,
+  .clinical-ask-workspace button {
+    border: 1px solid CanvasText;
+  }
+
+  /* Quiet default-mode focus is a border shift / color-mix outline. Forced
+     colors remaps `--focus` to Highlight; restore that ring so keyboard users
+     do not lose the only system-color affordance. Nested search inputs stay
+     outline-none — their rounded shell (or composer pill) owns the ring. */
+  .search-shell:focus-within,
+  .chat-composer-shell-delta:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible,
+  input.field-control:focus-visible,
+  textarea.field-control:focus-visible,
+  select.field-control:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .search-shell-input:focus,
+  .search-shell-input:focus-visible {
+    outline: none;
+  }
 }
 
 /* Print furniture. It exists for the paper and would only be noise on screen. */

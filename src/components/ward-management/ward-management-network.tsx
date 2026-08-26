@@ -8,20 +8,21 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
   movementHealthService,
-  movementStageSummary,
   stageCopy,
+  stageSummaries,
   transportStatusLabel,
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
-import { formatInstant } from "@/components/ward-management/ward-clock";
-import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
+import type { BedRelease, HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
@@ -48,12 +49,12 @@ function capabilityLabel(unit: Unit) {
   return `${unit.security} · ${cohortLabel}`;
 }
 
-function candidatesFor(patient: Movement): Candidate[] {
+function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidate[] {
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
-  const recordedDestinationId = destinationUnit(patient)?.id;
-  return eligibleCandidates(patient, NOW_ANCHOR, 3).map((candidate, index) => ({
+  const recordedDestinationId = destinationUnit(patient, units)?.id;
+  return eligibleCandidatesAmong(patient, units, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
     rank: index + 1,
@@ -74,8 +75,8 @@ function originServiceFit(patient: Movement, unit: Unit) {
   return { label: "Escalation", tone: "warning" as const };
 }
 
-function settingFit(patient: Movement, unit: Unit) {
-  const verdict = eligibility(patient, unit, NOW_ANCHOR);
+function settingFit(patient: Movement, unit: Unit, now: Instant) {
+  const verdict = eligibility(patient, unit, now);
   const cohortOk = verdict.gates.find((gate) => gate.gate === "cohort")?.pass ?? false;
   const securityOk = verdict.gates.find((gate) => gate.gate === "security")?.pass ?? false;
   if (cohortOk && securityOk) return { label: "Exact match", tone: "good" as const };
@@ -87,8 +88,8 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-function BedStateChips({ unit, showTime }: { unit: Unit; showTime?: boolean }) {
-  const capacity = unitCapacity(unit);
+function BedStateChips({ unit, bedReleases, showTime }: { unit: Unit; bedReleases: BedRelease[]; showTime?: boolean }) {
+  const capacity = unitCapacity(unit, bedReleases);
   return (
     <span className={styles.bedChips}>
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
@@ -103,18 +104,20 @@ function BedStateChips({ unit, showTime }: { unit: Unit; showTime?: boolean }) {
 
 function ServiceCard({
   unit,
+  bedReleases,
   routed,
   selected,
   onSelect,
   registerRef,
 }: {
   unit: Unit;
+  bedReleases: BedRelease[];
   routed: boolean;
   selected: boolean;
   onSelect: () => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
   return (
     <button
       type="button"
@@ -128,13 +131,14 @@ function ServiceCard({
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
-      <BedStateChips unit={unit} showTime />
+      <BedStateChips unit={unit} bedReleases={bedReleases} showTime />
     </button>
   );
 }
 
 export function WardNetworkWorkspace() {
-  const [selectedPatientId, setSelectedPatientId] = useState(wardMovements[0].id);
+  const { movements, units, bedReleases, now } = useWardFlow();
+  const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
@@ -144,10 +148,10 @@ export function WardNetworkWorkspace() {
   // unconditionally, so the guard lives in the JSX at the bottom, not as an early return here
   // (Task 6 Critical 3).
   const patient = useMemo(
-    () => wardMovements.find((candidate) => candidate.id === selectedPatientId),
-    [selectedPatientId],
+    () => movements.find((candidate) => candidate.id === selectedPatientId),
+    [movements, selectedPatientId],
   );
-  const candidates = useMemo(() => (patient ? candidatesFor(patient) : []), [patient]);
+  const candidates = useMemo(() => (patient ? candidatesFor(patient, units, now) : []), [patient, units, now]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -221,10 +225,13 @@ export function WardNetworkWorkspace() {
     };
   }, [measure]);
 
-  const detail = selectedUnitId ? unitById(selectedUnitId) : null;
+  // Whole-branch review Critical 1: resolved from the live `units`, not `unitById` — this feeds
+  // `BedStateChips`/`unitCapacity` below, so the selected unit's own capacity figures must move
+  // the instant its ward confirms new capacity, not only at first paint.
+  const detail = selectedUnitId ? (units.find((unit) => unit.id === selectedUnitId) ?? null) : null;
   // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
   // be the raw stage-count sum — that includes them and overstates live demand.
-  const openMovements = wardMovements.filter(isOpen).length;
+  const openMovements = movements.filter(isOpen).length;
   const primary = candidates[0];
 
   if (!patient) {
@@ -242,7 +249,7 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
-        {movementStageSummary.map((stage, index) => (
+        {stageSummaries(movements).map((stage, index) => (
           <span className={styles.pipelineStage} key={stage.id}>
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
@@ -256,10 +263,10 @@ export function WardNetworkWorkspace() {
         <section className={styles.queuePanel} aria-label="Priority queue">
           <header className={styles.panelHeader}>
             <h2>Priority queue</h2>
-            <span className={styles.count}>{wardMovements.length}</span>
+            <span className={styles.count}>{movements.length}</span>
           </header>
           <div className={styles.queueList}>
-            {wardMovements.map((candidate) => (
+            {movements.map((candidate) => (
               <button
                 type="button"
                 key={candidate.id}
@@ -273,7 +280,7 @@ export function WardNetworkWorkspace() {
               >
                 <span className={styles.queueTop}>
                   <strong>{candidate.id}</strong>
-                  <span className={styles.elapsed}>{elapsedLabel(candidate, NOW_ANCHOR)}</span>
+                  <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
                 </span>
                 <span className={styles.queueMeta}>
                   <span className={styles.tier} data-tier={candidate.urgency}>
@@ -342,19 +349,20 @@ export function WardNetworkWorkspace() {
                     <header className={styles.clusterHeader}>
                       <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
                       <span>
-                        {allUnits()
+                        {units
                           .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                           .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
                         ready
                       </span>
                     </header>
                     <div className={styles.clusterCards}>
-                      {allUnits()
+                      {units
                         .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                         .map((unit) => (
                           <ServiceCard
                             key={unit.id}
                             unit={unit}
+                            bedReleases={bedReleases}
                             routed={routedIds.has(unit.id)}
                             selected={detail?.id === unit.id}
                             onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
@@ -410,10 +418,10 @@ export function WardNetworkWorkspace() {
           </p>
           <p className={styles.patientSubLine}>
             {patient.legalStatus} ·{" "}
-            {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
+            {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
           </p>
           <p className={styles.patientSubLine}>
-            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, NOW_ANCHOR)}
+            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
           </p>
 
           <div className={styles.tableScroll}>
@@ -445,7 +453,7 @@ export function WardNetworkWorkspace() {
                 <tr>
                   <th scope="row">Open/secure fit</th>
                   {candidates.map((candidate) => {
-                    const fit = settingFit(patient, candidate.unit);
+                    const fit = settingFit(patient, candidate.unit, now);
                     return (
                       <td key={candidate.unit.id} data-tone={fit.tone}>
                         {fit.label}
@@ -457,7 +465,7 @@ export function WardNetworkWorkspace() {
                   <th scope="row">Current bed state</th>
                   {candidates.map((candidate) => (
                     <td key={candidate.unit.id}>
-                      <BedStateChips unit={candidate.unit} />
+                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} />
                     </td>
                   ))}
                 </tr>
@@ -511,7 +519,7 @@ export function WardNetworkWorkspace() {
             <span>Next action: {patient.blocker}</span>
           </div>
 
-          <Link className={styles.primaryLink} href={`/ward-management/patients/${patient.id}`}>
+          <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
             Open movement workspace
           </Link>
           <p className={styles.assurance}>System suggests, you decide. No automatic allocation.</p>
@@ -523,10 +531,10 @@ export function WardNetworkWorkspace() {
                 {siteByCode(detail.siteCode)?.service ?? "Unknown service"} · {capabilityLabel(detail)} · confirmed{" "}
                 {formatInstant(detail.allocatable.confirmedAt)}
               </p>
-              <BedStateChips unit={detail} />
+              <BedStateChips unit={detail} bedReleases={bedReleases} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail).occupied} occupied of {detail.beds} beds. Potential beds are a subset of occupied
-                and are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Potential beds are not
+                allocatable yet.
               </p>
             </section>
           ) : null}

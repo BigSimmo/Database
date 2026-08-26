@@ -48,6 +48,15 @@ describe("mobile composer reserve contract", () => {
         differentialsCompareAddonActive: false,
       }),
     ).toBe(mobileComposerHiddenReserve);
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: false,
+        documentViewerOwnedRoute: false,
+        heroOwnsPhoneComposer: false,
+        searchMode: "therapy-compass",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerIdleReserve);
   });
 
   it("keeps only the idle content pad on standalone mode homes (in-flow hero pill, no dock)", () => {
@@ -127,6 +136,14 @@ describe("mobile composer reserve contract", () => {
     // dock on `/` and lost the hero composer, ticker and privacy notice.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+    const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
+    expect(shell).toContain("isDictionaryCataloguePath(pathname)");
+    expect(shell).toMatch(
+      /const heroOwnsPhoneComposer =\s*isStandaloneModeHome && mobileHomeComposerPlacement === "hero";/,
+    );
+    expect(shell).toMatch(
+      /heroComposerBreakpoint=\{\s*mobileHomeComposerPlacement === "footer" \|\| isDictionaryCatalogue \? "sm-up" : "all"\s*\}/,
+    );
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(
       /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,

@@ -3,6 +3,7 @@
 import {
   BookOpenText,
   BookMarked,
+  ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
   ListChecks,
@@ -36,7 +37,7 @@ export const registryModeNavDensityProfiles = {
   formulation: "compact-four",
   differentials: "balanced-four",
   factsheets: "two-item",
-  "therapy-compass": "balanced-four",
+  "therapy-compass": "extended",
   // Four destinations with medium labels, the same family as differentials:
   // "Compare" and "Sources" are well inside the budget calibrated for
   // "Presentations". `extended` was chosen when the mode had five destinations
@@ -53,6 +54,7 @@ export const registryModeNavDensityProfiles = {
  */
 const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   search: Search,
+  review: ClipboardCheck,
   diagnoses: Stethoscope,
   presentations: ClipboardList,
   compare: GitCompareArrows,
@@ -60,7 +62,7 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   map: Network,
   recommend: Sparkles,
   pathways: Waypoints,
-  // The Factsheets hero glyph (`factsheets-home-page.tsx`), so the tab wears the
+  // The Factsheets hero glyph (`appModeIcons.factsheets`), so the tab wears the
   // same mark as the surface it points at. Not LayoutGrid: the search page uses
   // that for its card/list view toggle, and one glyph must not mean two things
   // on the same screen.

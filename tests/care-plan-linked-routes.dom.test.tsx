@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,10 @@ import {
 import { diffManagementPlanContent } from "@/components/care-plan/mockups/management-plan-diff";
 import { managementPlanFieldId } from "@/components/care-plan/mockups/management-plan-form";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
-import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
+import {
+  CarePlanPrototypeProvider,
+  useCarePlanPrototype,
+} from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
 import {
   FIRST_MINUTE_SECTION_LABEL,
@@ -29,7 +32,10 @@ import {
 import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 import { safetyPlanFieldId } from "@/components/care-plan/mockups/safety-plan-form";
-import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
+import {
+  FIRST_MINUTE_CONTENT_KEYS,
+  type CarePlanPrototypeAction,
+} from "@/components/care-plan/mockups/types";
 
 import {
   JOINT_AUTHORSHIP_CLAIMS,
@@ -3344,15 +3350,33 @@ describe("Care Plan Patient Plan", () => {
     expect(text).not.toMatch(/most of it will still be right/i);
   }
 
+  function DispatchCapture({
+    capture,
+  }: {
+    capture: (dispatch: (action: CarePlanPrototypeAction) => void) => void;
+  }) {
+    capture(useCarePlanPrototype().dispatch);
+    return null;
+  }
+
   function renderJourney(pathname: string) {
     const navigate = vi.fn();
+    let capturedDispatch: ((action: CarePlanPrototypeAction) => void) | null = null;
     const view = (at: string) => (
       <CarePlanPrototypeProvider>
+        <DispatchCapture capture={(dispatch) => (capturedDispatch = dispatch)} />
         <CarePlanRouteSurface pathname={at} query="" navigate={navigate} />
       </CarePlanPrototypeProvider>
     );
     const { rerender } = render(view(pathname));
-    return { navigate, goTo: (at: string) => rerender(view(at)) };
+    return {
+      navigate,
+      goTo: (at: string) => rerender(view(at)),
+      dispatch: (action: CarePlanPrototypeAction) => {
+        if (capturedDispatch === null) throw new Error("The Care Plan prototype dispatch was not captured.");
+        capturedDispatch(action);
+      },
+    };
   }
 
   async function createDraft(user: ReturnType<typeof userEvent.setup>) {
@@ -3499,6 +3523,34 @@ describe("Care Plan Patient Plan", () => {
         .getAllByRole("heading", { level: 3 })
         .map((node) => node.textContent),
     ).toEqual(PATIENT_PLAN_HEADINGS);
+  });
+
+  it("keeps the form and its entered text when the reducer refuses approval after the button was rendered", async () => {
+    const user = userEvent.setup();
+    const { dispatch, navigate } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+    await fillEverySection(user);
+
+    const entered = screen.getAllByRole("textbox").map((field) => (field as HTMLTextAreaElement).value);
+    const approve = screen.getByRole("button", { name: "Approve patient copy" });
+    expect(approve).not.toHaveAttribute("aria-disabled");
+
+    /*
+     * Queue a role change and the stale click in one batch. The click handler is
+     * the one from the enabled render, but the reducer sees the newer user first
+     * and refuses both mutations. This is the race that used to navigate away
+     * and drop the clinician's local form values.
+     */
+    act(() => {
+      dispatch({ type: "set-active-user", userId: COORDINATOR });
+      fireEvent.click(approve);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("care-plan-patient-plan-form")).toHaveTextContent(/does not carry this action/i),
+    );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("textbox").map((field) => (field as HTMLTextAreaElement).value)).toEqual(entered);
   });
 
   /**
@@ -3656,6 +3708,14 @@ describe("Care Plan Patient Plan", () => {
     );
     await user.click(within(sheet).getByRole("button", { name: /Withdraw this plan/i }));
     expect(screen.getByTestId("care-plan-withdrawn-notice")).toHaveTextContent(/Plan withdrawn on/i);
+
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-002"));
+    const staleNotice = screen.getByTestId("care-plan-patient-plan-stale");
+    expect(staleNotice).toHaveTextContent(/has been withdrawn/i);
+    expect(staleNotice).toHaveTextContent(/there is no Current Plan in use/i);
+    expect(staleNotice).toHaveTextContent(/if a new Current Plan is agreed/i);
+    expect(staleNotice).not.toHaveTextContent(/has moved on/i);
+    expect(staleNotice).not.toHaveTextContent(/write a new one\.$/i);
 
     goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
     const paper = screen.getByTestId("care-plan-patient-plan-print-output");

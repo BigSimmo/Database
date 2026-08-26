@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a833f6b8-80c3-4e0e-b025-16c6578c5c61",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
+    "reason": "Adversarial review found three previously rejected role-qualified placeholders—dummy, fake and sample—were omitted from the new central trivial-token set. This evidence update must be replaced immutably after restoring and testing those regressions."
+  }
+}

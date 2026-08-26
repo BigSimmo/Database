@@ -1,44 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useId } from "react";
-import {
-  Activity,
-  BedSingle,
-  CircleAlert,
-  FileCheck2,
-  HeartPulse,
-  LayoutDashboard,
-  LayoutGrid,
-  ListFilter,
-  MapPinned,
-  MessageSquarePlus,
-  Pill,
-  Route,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  Truck,
-  Waypoints,
-  Wrench,
-} from "lucide-react";
+import { useState } from "react";
+import { LayoutGrid, Menu, PanelLeftOpen } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-import { ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { Sheet } from "@/components/ui/sheet";
 
 import shellStyles from "./ward-management.module.css";
-import modeStyles from "./ward-management-modes.module.css";
+import sidebarStyles from "./ward-sidebar.module.css";
+import { WardDemoControls } from "./ward-demo-controls";
+import { WardRoleSwitcher } from "./ward-role-switcher";
+import { WardSidebarContent, WardSidebarFooter, WardSidebarNav } from "./ward-sidebar-content";
+import { WARD_NAV_ICONS, WARD_VIEW_ICONS } from "./ward-nav-icons";
+import { WARD_DEVELOPER_HUB_HREF, WARD_NAV, WARD_VIEWS, type WardMode, type WardNavItem } from "./ward-nav";
+import { useWardSidebarCollapsed } from "./use-ward-sidebar-collapsed";
 
-export type WardMode =
-  | "command"
-  | "constellation"
-  | "network"
-  | "queue"
-  | "capacity"
-  | "movements"
-  | "exceptions"
-  | "transport"
-  | "governance";
+export type { WardMode } from "./ward-nav";
 
 function RailLink({
   href,
@@ -64,65 +42,188 @@ function RailLink({
   );
 }
 
-function RailPlaceholder({ label, children }: { label: string; children: React.ReactNode }) {
-  const unavailableId = useId();
+function WardNavLink({ item }: { item: WardNavItem }) {
+  const Icon = WARD_NAV_ICONS[item.id];
+  return (
+    <RailLink href={item.href} label={item.label}>
+      <Icon aria-hidden="true" />
+    </RailLink>
+  );
+}
+
+/**
+ * Ward Flow's sidebar, in the three shapes the rest of this repository already uses (see
+ * `src/components/clinical-dashboard/ClinicalSidebar.tsx`):
+ *
+ * - **Phone (below 40rem):** no rail at all. A fixed header bar carries the brand and a menu
+ *   button that opens a left drawer holding the full labelled navigation, which closes on
+ *   navigate. Before this, the 4.5rem desktop icon column rendered unchanged on a 390px phone —
+ *   18% of the viewport — because `ward-management.module.css` contained no width media query
+ *   that touched the rail at all. The bar is the sidebar's own, not a host's: nine of the ten
+ *   Ward Flow shells are a bare rail-plus-main grid with no header row for a trigger to live in.
+ * - **Tablet (40rem to 64rem):** the icon rail, with a plain brand link and no expand control,
+ *   because the expanded panel does not exist at this width — exactly how `ClinicalCollapsedRail`
+ *   behaves between md and lg.
+ * - **Desktop (64rem and up):** the icon rail or a 17rem labelled panel, chosen by the user and
+ *   remembered per browser by `useWardSidebarCollapsed`. Hovering the brand mark reveals the
+ *   expand control, as it does in the clinical sidebar.
+ *
+ * Every destination in all three shapes is read from `ward-nav.ts`. The eight views used to be
+ * eight hand-written link blocks in `WardModeNavigation` below; a labelled panel cannot read
+ * those, and copying them would have re-created the two-lists-drifting defect (D8/D9) that file
+ * exists to prevent.
+ *
+ * All ten host screens still mount exactly one `<ClinicalRail />` and are unchanged apart from
+ * their grid track, which is now `auto` so this component's own width decides the column.
+ */
+export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
+  const [collapsed, setCollapsed] = useWardSidebarCollapsed();
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <>
-      <button
-        type="button"
-        aria-label={label}
-        title={`${label} — coming soon`}
-        aria-disabled="true"
-        aria-describedby={unavailableId}
-        onClick={ignoreUnavailableActivation}
-        className={shellStyles.railLink}
+      <div className={sidebarStyles.phoneBar}>
+        <Link href="/mockups/ward-flow" className={sidebarStyles.phoneBrand}>
+          <BrandMark className={sidebarStyles.brandGlyph} />
+          <span className={sidebarStyles.phoneBrandName}>Ward Flow</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          className={sidebarStyles.menuButton}
+          aria-label="Open Ward Flow menu"
+          aria-expanded={menuOpen}
+        >
+          <Menu aria-hidden="true" />
+        </button>
+      </div>
+
+      <WardIconRail activeMode={activeMode} hiddenOnDesktop={!collapsed} onExpand={() => setCollapsed(false)} />
+
+      {!collapsed ? (
+        <aside className={sidebarStyles.panel} aria-label="Ward Flow sidebar">
+          <div className={sidebarStyles.panelScroll}>
+            <WardSidebarNav activeMode={activeMode} onCollapse={() => setCollapsed(true)} />
+          </div>
+          <WardSidebarFooter />
+        </aside>
+      ) : null}
+
+      <Sheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title="Ward Flow"
+        description="Synthetic patient-flow prototype."
+        closeLabel="Close Ward Flow menu"
+        placement="left"
+        contentClassName={sidebarStyles.drawerHidden}
+        headerLeading={<BrandMark className={sidebarStyles.brandGlyph} />}
       >
-        {children}
-      </button>
-      <span id={unavailableId} className="sr-only">
-        {label} is not available in this prototype yet.
-      </span>
+        <div className={sidebarStyles.drawerBody}>
+          <WardSidebarContent activeMode={activeMode} showBrandRow={false} onNavigate={() => setMenuOpen(false)} />
+        </div>
+      </Sheet>
     </>
   );
 }
 
-export function ClinicalRail() {
+/**
+ * The icon rail. Hidden below 40rem (the phone bar and drawer take over) and, when the user has
+ * expanded the panel, from 64rem up.
+ */
+function WardIconRail({
+  activeMode,
+  hiddenOnDesktop,
+  onExpand,
+}: {
+  activeMode?: WardMode;
+  hiddenOnDesktop: boolean;
+  onExpand: () => void;
+}) {
   return (
-    <aside className={shellStyles.clinicalRail} aria-label="Clinical KB">
-      <Link href="/" className={shellStyles.railBrand} aria-label="Clinical KB home">
+    <aside
+      className={`${shellStyles.clinicalRail}${hiddenOnDesktop ? ` ${shellStyles.railHiddenOnDesktop}` : ""}`}
+      aria-label="Ward Flow"
+    >
+      {/* The brand mark. Below 64rem it is a plain link to Ward Flow's own home; from 64rem the
+          expand control takes its place, revealing PanelLeftOpen on hover the way the clinical
+          sidebar's does. Either way it points at Ward Flow's home and never at the site root: the
+          logo was the ninth and most prominent exit out of the sandbox, and it took looking at a
+          screenshot rather than any amount of source reading to notice. */}
+      <Link href="/mockups/ward-flow" className={shellStyles.railBrand} aria-label="Ward Flow home">
         <BrandMark className={shellStyles.brandGlyph} />
       </Link>
+      <button
+        type="button"
+        onClick={onExpand}
+        className={shellStyles.railExpand}
+        aria-label="Expand sidebar"
+        title="Expand sidebar"
+      >
+        <BrandMark className={shellStyles.railExpandBrand} />
+        <PanelLeftOpen aria-hidden="true" className={shellStyles.railExpandIcon} />
+      </button>
       <div className={shellStyles.railRule} aria-hidden="true" />
-      <nav className={shellStyles.railNav} aria-label="Clinical applications">
-        <RailLink href="/?mode=answer" label="Clinical Answers">
-          <MessageSquarePlus aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/ward-management" label="Ward Flow" active>
-          <Activity aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/documents" label="Documents">
-          <FileCheck2 aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/services" label="Services">
-          <SlidersHorizontal aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/medications" label="Medication">
-          <Pill aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/tools" label="Tools">
-          <Wrench aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/tools" label="All applications">
+      {/* Scrolls, so the pinned bottom block below can never be pushed off the screen. Fourteen
+          icons plus rules overflow a 900px-tall viewport, and this rail's overflow has already
+          cost one silent defect: the bottom block overlapped the last links and swallowed their
+          clicks while every link stayed in the DOM and every unit test stayed green. Same
+          treatment, same reason, as `collapsed-sidebar-scroll-region` in the clinical sidebar. */}
+      <div className={shellStyles.railScroll} data-testid="ward-rail-scroll-region">
+        <WardModeNavigation active={activeMode} />
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        {/*
+         * "Ward Flow role screens" holds the one non-arbitrary role entry point (Officer); the
+         * nested group holds the two that name one arbitrary synthetic instance rather than a
+         * section of the app (D10) and says so in its own aria-label. Coordinator is deliberately
+         * absent from both — it is the "Command" view one group up.
+         */}
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow role screens">
+          {WARD_NAV.filter((item) => item.group === "role" && !item.exampleOnly).map((item) => (
+            <WardNavLink key={item.id} item={item} />
+          ))}
+          <div
+            className={shellStyles.railGroup}
+            role="group"
+            aria-label="Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"
+          >
+            {WARD_NAV.filter((item) => item.group === "role" && item.exampleOnly).map((item) => (
+              <WardNavLink key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow specialist boards">
+          {WARD_NAV.filter((item) => item.group === "board").map((item) => (
+            <WardNavLink key={item.id} item={item} />
+          ))}
+        </div>
+      </div>
+      <div className={shellStyles.railBottom}>
+        {/* The role switcher is the one control the proof journey (spec section 14) uses to move
+            between all four roles without ever reloading the page, and unlike the static links
+            above its destination is dynamic. */}
+        <WardRoleSwitcher />
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        {/* A sandbox has exactly one way out, and it is the developer page it was opened from.
+            This used to be Ward Flow's own copy of the clinical application's app switcher —
+            Clinical Answers, Documents, Services, Medication, Tools, All applications — six links
+            routing straight back into the application Ward Flow is meant to stand apart from.
+
+            Removing them also fixed a real, browser-only defect: the rail is a fixed-height flex
+            column, and those six links pushed its content past a 1024px viewport, so
+            `.railBottom` overlapped the last nav links and swallowed their clicks. Every link
+            stayed in the DOM and stayed keyboard-reachable, so the whole unit suite passed while
+            a Chromium journey timed out clicking one. */}
+        <RailLink href={WARD_DEVELOPER_HUB_HREF} label="Back to the developer hub">
           <LayoutGrid aria-hidden="true" />
         </RailLink>
-      </nav>
-      <div className={shellStyles.railBottom}>
-        <RailLink href="/favourites" label="Favourites">
-          <HeartPulse aria-hidden="true" />
-        </RailLink>
-        <RailPlaceholder label="Settings">
-          <Settings aria-hidden="true" />
-        </RailPlaceholder>
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        {/* The demo jump-forward clock and scenario reset, mounted once here so every Ward Flow
+            route gets them without per-screen wiring. Placed last, after a rule, with its own
+            warning-toned trigger: it is deliberately NOT another destination, it never navigates,
+            and it must never be mistaken for one. */}
+        <WardDemoControls />
         <span className={shellStyles.avatar} aria-label="Guest workspace">
           G
         </span>
@@ -131,90 +232,27 @@ export function ClinicalRail() {
   );
 }
 
-export function WardModeNavigation({ active }: { active: WardMode }) {
+/**
+ * The eight views as an icon-only strip inside the rail. Rendered from `WARD_VIEWS` rather than
+ * eight literal link blocks: the labelled panel and drawer need the same eight destinations, and
+ * a second hand-maintained copy of them is exactly the defect `ward-nav.ts` was created to end.
+ *
+ * `active` is optional: a route with no natural eight-view equivalent (a role detail screen, a
+ * board, the patient workspace) passes nothing, and every `aria-current` comparison is simply
+ * false. The nav still orients the user without falsely claiming one of the eight is current.
+ */
+export function WardModeNavigation({ active }: { active?: WardMode }) {
   return (
-    <nav className={modeStyles.modeNavigation} aria-label="Ward Flow views">
-      <Link
-        href="/ward-management"
-        aria-current={active === "command" ? "page" : undefined}
-        className={active === "command" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <LayoutDashboard aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Command</span>
-        <span className={modeStyles.modeShortLabel}>Home</span>
-      </Link>
-      <Link
-        href="/ward-management/constellation"
-        aria-current={active === "constellation" ? "page" : undefined}
-        className={active === "constellation" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <MapPinned aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Constellation</span>
-        <span className={modeStyles.modeShortLabel}>Map</span>
-      </Link>
-      <Link
-        href="/ward-management/network"
-        aria-current={active === "network" ? "page" : undefined}
-        className={active === "network" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <Waypoints aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Network</span>
-        <span className={modeStyles.modeShortLabel}>Graph</span>
-      </Link>
-      <Link
-        href="/ward-management/queue"
-        aria-current={active === "queue" ? "page" : undefined}
-        className={active === "queue" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <ListFilter aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Priority queue</span>
-        <span className={modeStyles.modeShortLabel}>Queue</span>
-      </Link>
-      <Link
-        href="/ward-management/capacity"
-        aria-current={active === "capacity" ? "page" : undefined}
-        className={active === "capacity" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <BedSingle aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Capacity</span>
-        <span className={modeStyles.modeShortLabel}>Beds</span>
-      </Link>
-      <Link
-        href="/ward-management/movements"
-        aria-current={active === "movements" ? "page" : undefined}
-        className={active === "movements" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <Route aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Movements</span>
-        <span className={modeStyles.modeShortLabel}>Flow</span>
-      </Link>
-      <Link
-        href="/ward-management/exceptions"
-        aria-current={active === "exceptions" ? "page" : undefined}
-        className={active === "exceptions" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <CircleAlert aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Exceptions</span>
-        <span className={modeStyles.modeShortLabel}>Inbox</span>
-      </Link>
-      <Link
-        href="/ward-management/transport"
-        aria-current={active === "transport" ? "page" : undefined}
-        className={active === "transport" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <Truck aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Transport</span>
-        <span className={modeStyles.modeShortLabel}>Move</span>
-      </Link>
-      <Link
-        href="/ward-management/governance"
-        aria-current={active === "governance" ? "page" : undefined}
-        className={active === "governance" ? modeStyles.modeLinkActive : modeStyles.modeLink}
-      >
-        <ShieldCheck aria-hidden="true" />
-        <span className={modeStyles.modeLabel}>Governance</span>
-        <span className={modeStyles.modeShortLabel}>Assure</span>
-      </Link>
+    <nav className={shellStyles.railNav} aria-label="Ward Flow views">
+      {WARD_VIEWS.map((view) => {
+        const Icon = WARD_VIEW_ICONS[view.id];
+        const isActive = active === view.id;
+        return (
+          <RailLink key={view.id} href={view.href} label={view.label} active={isActive}>
+            <Icon aria-hidden="true" />
+          </RailLink>
+        );
+      })}
     </nav>
   );
 }

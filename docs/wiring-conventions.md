@@ -179,14 +179,21 @@ shows is decided by data, never by a per-form branch in the component.
   the reason that section governs that form — because unlike a catalogue cue it is an
   assertion this repo makes rather than one it inherited. `check:mha-act-sections`
   rejects an entry with no basis, and one that duplicates a catalogue cue.
+  **A cue is a citation, not a clinical claim, so it is never gated on review status.**
+  Its `status` is provenance only. Gating it too would hide those seven forms twice over
+  and leave them dark even once their Act summaries were reviewed — that regression
+  shipped once and is pinned by `tests/mha-act-sections.test.ts`.
 - **`actSectionsForCue` returns sections only when every cited section has a summary.**
   That is the staged-rollout gate: a form keeps its Source status card until its whole
   citation list is written, so it can never show a half-populated authority card. Do not
   weaken this to a per-section filter.
 - **Three statuses, and the difference is visible to the reader.** `pending` has no
   summary and does not render. `drafted` was written from the extracted statutory text
-  and renders with "Drafted from the Act text and awaiting clinical review" on the
-  section sheet. `reviewed` additionally names a clinician and a date in
+  and renders, with "Tap a section — awaiting clinical review" on the card face and
+  "Drafted from the Act text and awaiting clinical review" on the section sheet.
+  Withholding drafted summaries instead was tried and reverted: it left 53 of 54 forms
+  with no authority content at all, which the repository owner weighed and rejected.
+  `reviewStatus` carries the distinction to the UI — never hardcode it. `reviewed` additionally names a clinician and a date in
   `reviewedBy`/`reviewedAt`, and drops that note. Never promote a `drafted` entry to
   `reviewed` without a real sign-off — the status is the only thing telling a reader
   whether a clinician has checked the summary.

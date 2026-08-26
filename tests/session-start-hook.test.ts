@@ -42,6 +42,7 @@ import { afterEach, describe, expect, it } from "vitest";
  */
 
 const sourceHook = join(process.cwd(), ".claude/hooks/session-start.sh");
+const sourcePrecompactHook = join(process.cwd(), ".claude/hooks/precompact-issues-capture.sh");
 const NODE_VERSION = "24.19.0";
 const scratchRoots: string[] = [];
 const bashCommand =
@@ -184,6 +185,71 @@ describe("session-start hook", () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("");
+  });
+
+  it("emits valid JSON on stdout matching SessionStart schema when running in hook mode", () => {
+    const { home, project, hook } = stubEnvironment();
+    const envFile = join(project, "claude-env");
+    writeFileSync(envFile, "");
+
+    const payload = JSON.stringify({ hook_event_name: "SessionStart" });
+    const result = spawnSync(bashCommand, [hook.replace(/\\/g, "/")], {
+      cwd: project,
+      env: {
+        ...process.env,
+        HOME: home.replace(/\\/g, "/"),
+        CLAUDE_CODE_REMOTE: "true",
+        CLAUDE_ENV_FILE: envFile.replace(/\\/g, "/"),
+        CLAUDE_PROJECT_DIR: project.replace(/\\/g, "/"),
+      } as NodeJS.ProcessEnv,
+      encoding: "utf8",
+      input: payload,
+    });
+
+    expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
+    expect(result.stderr).toBe("");
+
+    const jsonLine = result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.startsWith('{"hookSpecificOutput"'));
+
+    expect(jsonLine, "expected hook to emit hookSpecificOutput JSON on stdout").toBeDefined();
+    const parsed = JSON.parse(jsonLine!);
+    expect(parsed).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: expect.stringContaining("[session-start]"),
+      },
+    });
+  });
+});
+
+describe("precompact observability hook", () => {
+  it("stays silent while recording only a bounded trigger", () => {
+    const repository = mkdtempSync(join(tmpdir(), "precompact-hook-"));
+    scratchRoots.push(repository);
+    const initialized = spawnSync("git", ["init", "--quiet"], { cwd: repository, encoding: "utf8" });
+    expect(initialized.status, `git init exited ${initialized.status}: ${initialized.stderr}`).toBe(0);
+
+    for (const [trigger, expected] of [
+      ["manual", "manual"],
+      ["unexpected", "unknown"],
+    ]) {
+      const result = spawnSync(bashCommand, [sourcePrecompactHook.replace(/\\/g, "/")], {
+        cwd: repository,
+        encoding: "utf8",
+        input: JSON.stringify({ hook_event_name: "PreCompact", trigger }),
+      });
+      expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+
+      const log = readFileSync(join(repository, ".git", "claude-precompact.log"), "utf8");
+      expect(log.trimEnd().split(/\r?\n/).at(-1)).toMatch(
+        new RegExp(`^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z precompact trigger=${expected}$`),
+      );
+    }
   });
 });
 

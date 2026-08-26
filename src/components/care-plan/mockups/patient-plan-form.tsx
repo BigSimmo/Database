@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/form-field";
@@ -161,6 +161,28 @@ export function PatientPlanFormSurface({
   );
   const [errors, setErrors] = useState<FieldEntry[]>([]);
   const [attempt, setAttempt] = useState(0);
+  const [pendingApprovalVersionId, setPendingApprovalVersionId] = useState<SyntheticId | null>(null);
+
+  /*
+   * Navigation follows the reducer's decision, not the click. A mutation gate
+   * can change after the button was rendered but before these queued actions
+   * are reduced; in that case both actions are refused and the clinician must
+   * stay here with their entered text intact.
+   */
+  useEffect(() => {
+    if (pendingApprovalVersionId === null) return;
+
+    const pendingVersion = state.patientPlanVersions.find(({ id }) => id === pendingApprovalVersionId) ?? null;
+    if (pendingVersion?.state === "current") {
+      setPendingApprovalVersionId(null);
+      if (snapshot !== null) navigate(carePlanRoute.patientPlan(snapshot.patient.id));
+      return;
+    }
+
+    if (state.lastOutcome?.kind === "blocked" || state.lastOutcome?.kind === "error") {
+      setPendingApprovalVersionId(null);
+    }
+  }, [navigate, pendingApprovalVersionId, snapshot, state.lastOutcome, state.patientPlanVersions]);
 
   if (draft !== null && seededFrom !== draft.id) {
     setSeededFrom(draft.id);
@@ -317,13 +339,13 @@ export function PatientPlanFormSurface({
       return;
     }
     setErrors([]);
+    setPendingApprovalVersionId(draft.id);
     dispatch({
       type: "save-patient-plan-draft",
       versionId: draft.id,
       input: { sections: sectionsFrom(values, draft.sections), resources: resourcesFrom(values, available) },
     });
     dispatch({ type: "approve-patient-plan-version", versionId: draft.id });
-    navigate(carePlanRoute.patientPlan(patient.id));
   }
 
   return (

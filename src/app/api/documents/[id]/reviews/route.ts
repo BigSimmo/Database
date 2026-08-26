@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import {
   checkIngestionMutationSafety,
   hasActiveAgentEnrichmentJob,
@@ -94,7 +94,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, paramsSchema, "Invalid document id.");
     if (isDemoMode())
-      return NextResponse.json({ error: "Source reviews are unavailable in demo mode." }, { status: 400 });
+      return publicErrorResponse("Source reviews are unavailable in demo mode.", 400, {
+        code: "demo_mode_unavailable",
+      });
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
@@ -108,28 +110,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ).maybeSingle();
     if (documentError) throw new Error(documentError.message);
     if (!document || (document.owner_id !== null && document.owner_id !== user.id)) {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     }
 
     const promotesSource = body.decision === "approved" || body.decision === "locally_reviewed";
     const attestsThirdPartyReference = body.decision === "third_party_reference_attested";
     if (promotesSource && document.owner_id === null && (!body.reviewDate || !body.reviewerQualification?.trim())) {
-      return NextResponse.json(
-        {
-          error: "Public-corpus source promotion requires a review date and reviewer qualification.",
-          code: "public_source_review_incomplete",
-        },
-        { status: 400 },
+      return publicErrorResponse(
+        "Public-corpus source promotion requires a review date and reviewer qualification.",
+        400,
+        { code: "public_source_review_incomplete" },
       );
     }
     if ((promotesSource || attestsThirdPartyReference) && document.status !== "indexed") {
-      return NextResponse.json(
-        {
-          error: attestsThirdPartyReference
-            ? "Third-party reference attestation requires completed document indexing."
-            : "Source promotion requires completed document indexing.",
-        },
-        { status: 409 },
+      return publicErrorResponse(
+        attestsThirdPartyReference
+          ? "Third-party reference attestation requires completed document indexing."
+          : "Source promotion requires completed document indexing.",
+        409,
+        { code: "source_indexing_incomplete" },
       );
     }
 
@@ -143,13 +142,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         reviewerQualification: body.reviewerQualification,
       });
       if (rejectionReasons.length) {
-        return NextResponse.json(
-          {
-            error:
-              "Third-party reference attestation requires an indexed, unverified BMJ source with compatible publisher and jurisdiction metadata.",
-            code: "bmj_attestation_ineligible",
-          },
-          { status: 409 },
+        return publicErrorResponse(
+          "Third-party reference attestation requires an indexed, unverified BMJ source with compatible publisher and jurisdiction metadata.",
+          409,
+          { code: "bmj_attestation_ineligible" },
         );
       }
     }
@@ -170,13 +166,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
       });
       if (enrichmentActive) {
-        return NextResponse.json(
-          {
-            error: attestsThirdPartyReference
-              ? "Third-party source attestation is paused while enrichment is active."
-              : "Source promotion is paused while enrichment is active.",
-          },
-          { status: 409 },
+        return publicErrorResponse(
+          attestsThirdPartyReference
+            ? "Third-party source attestation is paused while enrichment is active."
+            : "Source promotion is paused while enrichment is active.",
+          409,
+          { code: "enrichment_active" },
         );
       }
     }
@@ -200,16 +195,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       : await supabase.rpc("record_source_review", legacyReviewParams);
     if (error) {
       if (requiresV2 && isSourceReviewV2Unavailable(error)) {
-        return NextResponse.json(
-          {
-            error: "Public source review is unavailable until the reviewed governance migration is applied.",
-            code: "source_review_v2_unavailable",
-          },
-          { status: 503 },
+        return publicErrorResponse(
+          "Public source review is unavailable until the reviewed governance migration is applied.",
+          503,
+          { code: "source_review_v2_unavailable" },
         );
       }
       if (/^document not found\.?$/i.test(error.message.trim())) {
-        return NextResponse.json({ error: "Document not found." }, { status: 404 });
+        return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
       }
       throw new PublicApiError("Source review could not be recorded.", 400, { code: "source_review_rejected" });
     }

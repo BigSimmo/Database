@@ -13,10 +13,13 @@ import { cn } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
+import { TherapyCompareAction } from "../record/compare-action";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 
 const CHECKLIST = [
@@ -41,6 +44,7 @@ export function BriefScreen() {
     [b.therapies, filter],
   );
 
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
 
   const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
@@ -70,13 +74,17 @@ export function BriefScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} brief intervention`}
+        therapy={t}
+        active="brief"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-brief"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-brief-page" gap={false}>
         <section data-screen-label="Brief">
+          <TherapySaveNotice notice={notice} />
           <PageHeader
             className="mb-5"
             title="Brief Intervention"
@@ -102,6 +110,10 @@ export function BriefScreen() {
               </>
             }
           />
+
+          <div className="mb-5">
+            <TherapyCompareAction therapy={t} />
+          </div>
 
           <Tabs
             label="Brief intervention duration"
@@ -139,16 +151,7 @@ export function BriefScreen() {
                   {briefTherapies.map((x) => {
                     const active = x.slug === t.slug;
                     return (
-                      <button
-                        key={x.slug}
-                        type="button"
-                        className={cn(
-                          therapyBtn,
-                          "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
-                        )}
-                        onClick={() => b.select(x.slug)}
-                        aria-current={active ? "true" : undefined}
-                      >
+                      <InteractiveRow key={x.slug} variant="card" active={active} onClick={() => b.select(x.slug)}>
                         <span className="flex-1 min-w-0">
                           <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
                             {x.name}
@@ -167,7 +170,7 @@ export function BriefScreen() {
                               : "flex-none text-[color:var(--warning-text)]"
                           }
                         />
-                      </button>
+                      </InteractiveRow>
                     );
                   })}
                 </div>

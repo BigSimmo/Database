@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "36b358f7-0fa8-46ab-9b72-585c7d2ceca9",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#2TAQDC",
+    "outcome": "Resolved with both recommended safeguards. docs/search-chrome-behaviour.md now documents the Next streaming/hydration interval in which #main-content may be absent and limits body:has(#main-content...) geometry consumers to elements that cannot mount during that interval. tests/pwa-lifecycle.dom.test.tsx inventories the exact existing hero-scoped PWA selectors and rejects any unallowlisted consumer; its injected .future-overlay control proves the invariant fails for a new selector. The matcher was corrected after focused proof exposed opening-brace normalization, then the combined focused run passed 3 files and 26 tests on 2026-08-23.",
+    "baseRowFingerprint": "9c61791208c1ddf253a95792ce786f96fc36bba859778731c13de2339d99ea91"
+  }
+}

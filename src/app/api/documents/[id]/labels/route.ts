@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -112,7 +112,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
-      return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
+      return publicErrorResponse("Demo documents cannot be curated.", 400, { code: "demo_mode_unavailable" });
     }
 
     const parsed = await parseJsonBody(request, manualLabelSchema, "Enter a manual tag between 2 and 64 characters.");
@@ -181,7 +181,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
-      return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
+      return publicErrorResponse("Demo documents cannot be curated.", 400, { code: "demo_mode_unavailable" });
     }
 
     const parsed = await parseJsonBody(request, labelPatchSchema, "Enter a manual tag or label review action.");
@@ -290,7 +290,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, labelsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
-      return NextResponse.json({ error: "Demo documents cannot be curated." }, { status: 400 });
+      return publicErrorResponse("Demo documents cannot be curated.", 400, { code: "demo_mode_unavailable" });
     }
 
     const parsed = await parseJsonBody(request, manualLabelDeleteSchema, "Choose a manual tag to remove.");

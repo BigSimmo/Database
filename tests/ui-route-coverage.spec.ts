@@ -174,7 +174,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!/^(?:therapies(?:-(?:home|index))?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
+    if (!/^(?:therapies(?:-index)?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -327,6 +327,9 @@ test.describe("previously uncovered production routes", () => {
 
     const card = page.locator("[data-therapy-result-card]").first();
     await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-therapy-result-featured", "");
+    await expect(card.getByText("Best match", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-therapy-result-highlight]")).toHaveCount(1);
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
@@ -334,6 +337,7 @@ test.describe("previously uncovered production routes", () => {
 
       const layout = await card.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
+        const borderLeft = Number.parseFloat(getComputedStyle(element).borderLeftWidth);
         const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
         const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
         const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
@@ -349,6 +353,7 @@ test.describe("previously uncovered production routes", () => {
         });
         return {
           card: { left: bounds.left, right: bounds.right },
+          borderLeft,
           copyLeft: copy.left,
           evidence: { left: evidence.left, right: evidence.right },
           buttons,
@@ -356,9 +361,12 @@ test.describe("previously uncovered production routes", () => {
       });
 
       if (width < 640) {
-        expect(Math.abs(layout.evidence.left - layout.card.left), `${width}px evidence left edge`).toBeLessThanOrEqual(
-          1,
-        );
+        // Featured cards carry the intentional 3px best-match accent edge.
+        // The evidence panel remains full-bleed inside that border.
+        expect(
+          Math.abs(layout.evidence.left - (layout.card.left + layout.borderLeft)),
+          `${width}px evidence left edge`,
+        ).toBeLessThanOrEqual(1);
         expect(
           Math.abs(layout.card.right - layout.evidence.right),
           `${width}px evidence right edge`,
@@ -379,7 +387,7 @@ test.describe("previously uncovered production routes", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const compare = card.locator("[data-therapy-result-actions] button").nth(1);
-    await expect(compare).toHaveAccessibleName("Compare");
+    await expect(compare).toHaveAccessibleName("Add to compare");
     await compare.focus();
     const focusStyle = await compare.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -396,13 +404,18 @@ test.describe("previously uncovered production routes", () => {
     await expectNoHorizontalOverflow(page);
     await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
 
+    // Adding deliberately keeps the reader where they are. The set moves into
+    // the URL (so it is still shareable and survives a reload) and into the tray
+    // above the composer; the page does not change.
     await compare.focus();
     await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/\/therapy-compass\/compare(?:\?.*)?$/);
-    const comparisonUrl = new URL(page.url());
-    expect(comparisonUrl.searchParams.get("q")).toBe("CBT");
-    expect(comparisonUrl.searchParams.get("ids")).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
+    await expect(compare).toHaveAccessibleName("In compare tray");
+    await expect(page).toHaveURL(/\/therapy-compass\/search/);
+    const stayedPut = new URL(page.url());
+    expect(stayedPut.searchParams.get("q")).toBe("CBT");
+    expect(stayedPut.searchParams.get("ids")).toBeTruthy();
+    await expect(page.getByTestId("therapy-compare-tray")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toHaveCount(0);
   });
 
   // `/dsm` redirects onto the shared home, so the route this proves is the shared
@@ -459,10 +472,13 @@ test.describe("previously uncovered production routes", () => {
         // guaranteed to leave the URL where this step asserts it. Waiting for
         // the handler makes the assign hop the only path the click can take.
         await waitForReactEventHandler(remove);
+        // Same-route `?ids=` assign can update the URL without a new document
+        // load. `waitUntil: "domcontentloaded"` then hangs for 30s after the
+        // hop already happened (Production UI on #2299: waitForURL timeout
+        // while the heading assertion never ran). Wait for the URL only.
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
-            waitUntil: "domcontentloaded",
           }),
           remove.click(),
         ]);
@@ -500,15 +516,11 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
-        const selects = currentPage.locator("select");
-        const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
         await waitForReactEventHandler(swap);
         await swap.click();
-        await expect
-          .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
-          .toEqual([before[1], before[0]]);
+        await expect(currentPage).toHaveURL(/\/specifiers\/compare\?a=with-anxious-distress&b=with-mixed-features$/);
       },
     );
   });
@@ -671,7 +683,7 @@ test.describe("previously uncovered production routes", () => {
       "/reference/colour-coding",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Colour coding reference", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Colour coding & badges", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         const skipLink = currentPage.getByRole("link", { name: "Skip to main content" });

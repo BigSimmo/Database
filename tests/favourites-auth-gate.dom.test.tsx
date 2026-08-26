@@ -242,6 +242,17 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Sign-in email could not be sent.");
   });
 
+  it("keeps the Tools Show all chip as a 48px tap target to the directory", () => {
+    render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
+
+    const showAll = screen.getByTestId("tools-show-all");
+    expect(showAll).toHaveAttribute("href", "/tools");
+    expect(showAll).toHaveAttribute("aria-label", "Show all tools");
+    expect(showAll).toHaveClass("min-h-tap");
+    expect(showAll).toHaveTextContent("Show all");
+    expect(screen.getByTestId("tools-show-all-well")).toBeInTheDocument();
+  });
+
   it("blacks out Tools Saved workflows and Favourites shortcuts for guests", () => {
     authSession.status = "signed_out";
     render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
@@ -270,6 +281,9 @@ describe("favourites auth gate DOM", () => {
     const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
 
     expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute("href", "/?mode=answer");
+    expect(screen.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
+    expect(screen.getAllByText("Safety-first").length).toBeGreaterThan(0);
     expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();
 

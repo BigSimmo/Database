@@ -1,9 +1,18 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
+
+function apiRouteFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return apiRouteFiles(path);
+    return entry.name === "route.ts" ? [path] : [];
+  });
+}
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null; count?: number | null };
@@ -242,6 +251,60 @@ afterEach(() => {
 });
 
 describe("API validation contracts", () => {
+  it("prevents direct public error envelopes so routes use the schema-validated helper", () => {
+    const violations = apiRouteFiles(join(process.cwd(), "src/app/api")).flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+      const routePath = relative(process.cwd(), file).replaceAll("\\", "/");
+      const fileViolations: string[] = [];
+      const visit = (node: ts.Node) => {
+        if (
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === "json" &&
+          ts.isIdentifier(node.expression.expression) &&
+          ["NextResponse", "Response"].includes(node.expression.expression.text) &&
+          node.arguments[0] &&
+          ts.isObjectLiteralExpression(node.arguments[0])
+        ) {
+          const publicErrorKeys = node.arguments[0].properties.flatMap((property) => {
+            if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return [];
+            const name = property.name;
+            if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return [name.text];
+            if (ts.isComputedPropertyName(name) && ts.isStringLiteral(name.expression)) return [name.expression.text];
+            return [];
+          });
+          if (publicErrorKeys.includes("error")) {
+            const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+            fileViolations.push(`${routePath}:${line}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+      for (const pattern of [
+        /\b[A-Za-z_$][\w$]*Response\s*\(\s*\{\s*(?:error|["']error["'])\s*:/g,
+        /\bsend\s*\(\s*["']error["']\s*,\s*\{/g,
+      ]) {
+        for (const match of source.matchAll(pattern)) {
+          const line = source.slice(0, match.index).split(/\r?\n/).length;
+          fileViolations.push(`${routePath}:${line}`);
+        }
+      }
+      return fileViolations;
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps migrated model-index output on the schema-parsed boundary", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/model-index-extraction.ts"), "utf8");
+
+    expect(source).toContain("generateParsedTextResult");
+    expect(source).not.toContain("generateStructuredTextResult");
+    expect(source).not.toMatch(/JSON\.parse\s*\(/);
+  });
+
   it("keeps route-local request parsing out of the Phase 1 target files", () => {
     const targetRouteFiles = [
       "src/app/api/documents/route.ts",
@@ -562,7 +625,7 @@ describe("API validation contracts", () => {
 
   it("accepts valid ingestion jobs batchId values and applies the batch filter", async () => {
     const batchId = "44444444-4444-4444-8444-444444444444";
-    const client = createSupabaseMock(() => ok([]));
+    const client = createSupabaseMock(() => ok([], 0));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/ingestion/jobs/route");
 
@@ -570,10 +633,11 @@ describe("API validation contracts", () => {
 
     expect(response.status).toBe(200);
     expect(client.calls[0].filters).toContainEqual({ column: "batch_id", value: batchId });
+    expect(client.calls[1].filters).toContainEqual({ column: "batch_id", value: batchId });
   });
 
   it("treats empty ingestion jobs batchId as absent", async () => {
-    const client = createSupabaseMock(() => ok([]));
+    const client = createSupabaseMock(() => ok([], 0));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/ingestion/jobs/route");
 
@@ -581,6 +645,7 @@ describe("API validation contracts", () => {
 
     expect(response.status).toBe(200);
     expect(client.calls[0].filters).not.toContainEqual({ column: "batch_id", value: "" });
+    expect(client.calls[1].filters).not.toContainEqual({ column: "batch_id", value: "" });
   });
 
   it("returns pagination metadata for jobs feeds", async () => {
@@ -610,12 +675,47 @@ describe("API validation contracts", () => {
       pagination: { limit: 2, offset: 1, total: 5, nextOffset: 2, hasMore: true },
     });
     expect(client.calls[1]).toMatchObject({ table: "ingestion_jobs", range: { from: 1, to: 2 } });
+    expect(client.calls[2]).toMatchObject({
+      table: "ingestion_jobs",
+      inFilters: [{ column: "status", values: ["pending", "processing"] }],
+    });
+    expect(client.calls[2].range).toBeUndefined();
 
     expect(batchesResponse.status).toBe(200);
     expect(await payload(batchesResponse)).toMatchObject({
       pagination: { limit: 2, offset: 1, total: 0, nextOffset: 1, hasMore: false },
     });
-    expect(client.calls[2]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+    expect(client.calls[3]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+  });
+
+  it("keeps ingestion polling active when an active job is beyond the requested page", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.inFilters.some((filter) => filter.column === "status")) return ok(null, 1);
+      return ok([{ id: "newer-completed-job", status: "completed" }], 101);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/ingestion/jobs/route");
+
+    const response = await GET(authenticatedRequest("/api/ingestion/jobs?limit=1&offset=0"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      jobs: [{ id: "newer-completed-job", status: "completed" }],
+      activeJobCount: 1,
+      hasActiveJobs: true,
+      pollAfterMs: 5_000,
+      pagination: { limit: 1, offset: 0, total: 101, nextOffset: 1, hasMore: true },
+    });
+    expect(response.headers.get("x-indexing-active")).toBe("true");
+
+    const activeCountCall = client.calls.find((call) => call.inFilters.some((filter) => filter.column === "status"));
+    expect(activeCountCall).toMatchObject({
+      table: "ingestion_jobs",
+      filters: [{ column: "documents.owner_id", value: userId }],
+      inFilters: [{ column: "status", values: ["pending", "processing"] }],
+    });
+    expect(activeCountCall?.range).toBeUndefined();
   });
 
   it.each([
