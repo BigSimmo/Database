@@ -41,6 +41,9 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   notFound: mocks.notFound,
+  // A contact row carries a control that calls `useRouter()` so a confirmed move re-renders the row
+  // it sits under. The hook runs at render and throws outside an app-router context.
+  useRouter: () => ({ refresh: () => {} }),
 }));
 
 vi.mock("@/lib/caring-contacts-server/store", () => ({

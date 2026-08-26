@@ -391,9 +391,18 @@ a later round more than twenty. Every refusal is recorded as UNRUN and retried; 
    would widen this boundary's client module graph for eight lines.
 4. **The date change has no screen.** `changeContactDate` needs a reason and a team-lead approver, and
    nothing in this workspace collects either.
-5. **`resolve-failed-delivery`'s frozen summary is wrong about this system.** The correction is in the
-   refusal on the same surface, which is the strongest fix available without editing the frozen
-   record. Changing the row itself is a matrix change.
+5. **TWO frozen rows this task raises describe a capability that does not exist.** Corrected in round
+   3, which added the second.
+   - **`resolve-failed-delivery`** — "All three attempts in the original window are finished". The
+     correction is in the `unavailable` refusal on the same surface, which is the strongest fix
+     available without editing the frozen record.
+   - **`outside-window-warning`** — "The time asked for falls outside 9:00 am to 6:00 pm AWST", the
+     closed-range form, shown to a coordinator who typed exactly 18:00. **No correction is possible
+     here**: this row's commit is a `record` (it is the No change outcome), so there is no
+     `unavailable` reason string to carry one without breaking that wiring.
+
+   Changing either row is a matrix change. The coordinator is consolidating these with
+   `message-preview`, `verify-identity` and `save-draft` as one finding for the owner.
 
 ## Concerns
 
@@ -407,7 +416,8 @@ a later round more than twenty. Every refusal is recorded as UNRUN and retried; 
 3. **`schedule-view.ts` is Task 12's module and I added a field to it.** `contactVersion` is the
    smallest thing that makes an optimistic-concurrency check possible from a screen, and the
    alternative — refetching the plan at commit time — reintroduces the race it is meant to close. It
-   is one line to revert if the controller would rather it were not there.
+   is two functional lines plus a seventeen-line comment to revert if the controller would rather it
+   were not there. **Round 1 called it "one line" three times and that was wrong** — see round 3.
 4. **The DOM suite mirrors the route rather than executing it.** `route.ts` imports `server-only` and
    `next/headers`, so it cannot run in jsdom. The mirror performs the same two steps in the same
    order with the same sealed-domain function, and the real handler has its own suite — but a
@@ -542,7 +552,9 @@ exists, has a still-to-send positive control, and **goes red on the mutation it 
 2. **`schedule-view.ts` gained one line by a DELIBERATE UNFREEZE, not by drift.** The controller froze
    that module for Task 13 and accepted `ScheduleEntry.contactVersion` here, because without it a
    screen cannot perform the version recheck the matrix requires, and the alternative — refetching the
-   plan at commit time — reintroduces the race it exists to close.
+   plan at commit time — reintroduces the race it exists to close. **Its size, stated accurately after
+   round 3**: two functional lines and a seventeen-line comment, nothing removed, and no other part of
+   Task 12's contract touched.
 3. **Task 13's whole-screen ban on "moved" was kept, not narrowed.** The ruling is about claiming a
    contact WAS moved; my helper text did not. Weakening a whole-screen guard to admit one's own
    sentence is how guards die, so the sentence changed instead.
@@ -571,8 +583,9 @@ block should assert against it, stated now so it does not have to be re-derived:
 - **Focus returns to the trigger** when the overlay closes, and overlay-only navigation does not move
   focus to the page heading. The shared host owns this and Task 19 proves it across all twenty-four
   rows; the value here is proving it for a trigger inside a list row rather than a page-level control.
-- **A confirmed move updates the day.** The success path against a real server is the one thing no DOM
-  test can show: the statement announces the new time AND the row beneath re-renders at it.
+- **A confirmed move updates the day.** **Corrected in round 3 — as written here, the second half
+  described a mechanism that did not exist.** See "Correction to the round-2 browser-block
+  specification" in round 3 for the form that is true of the code.
 
 ## Gates, after the final edit of this round
 
@@ -601,3 +614,196 @@ were re-run after that change: `CTRL_ABSENT` and `CTRL_NOOP` both threw on their
 3. **T19G shows my reasoning about what is "type-only" is not reliable.** I predicted green on a
    mutation that changes runtime behaviour. The lesson generalises past this row: a constant named as
    a type-level pin is still a value somebody reads.
+
+---
+
+# Round 3 — after review
+
+Spec PASS with one Important, and the Important was real: a confirmed move told a coordinator
+something false. It is fixed, the case whose absence hid it is written and mutated, and writing that
+case immediately found a second defect underneath it.
+
+## Commits
+
+| SHA          | What                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| `de47c24c3`  | The refresh, the tracked version, the corrected `stale-version` wording, and three cases for them. |
+| `fa467f822`  | The case for a version the service never confirmed.                                                |
+| _(this one)_ | This round.                                                                                        |
+
+Every SHA in all three rounds was re-checked with `git cat-file -e <sha>^{commit}` after the last
+commit of this round.
+
+## 1 — the false statement, and the two defects behind it
+
+**What a coordinator saw.** A confirmed move announced a new time while the row directly above it went
+on showing the old one, and the contact stayed in its old window group. `ContactRow` renders
+`Sends at:` from the SERVER render, and nothing asked the server to run again. The matrix's Success
+clause asks for the outcome to be announced **and** the visible summary updated; only the first was
+happening.
+
+**What was worse, and what the review found.** `contactVersion` arrives as a prop, so it cannot change
+until that refresh lands — and a coordinator who moves the same contact twice in a row does not wait.
+The second write went out carrying the version the first had already consumed, the store refused it
+`stale-version`, and the screen rendered _"Somebody else changed this contact while this was open."_
+**Nobody had.** The thing that had changed it was this screen's own previous write, and the sentence
+naming a person was an inference the record cannot support — on a suicide-prevention schedule.
+
+Three changes, and the second is the one that actually closes it:
+
+1. **`router.refresh()` after a successful commit**, so the row catches up with the sentence.
+2. **The version this control sends is held in state**: seeded from the prop, advanced from the
+   store's OWN answer to each write, and reset whenever a fresh server render hands down a different
+   prop than it did last render (React's documented way of adjusting state while a prop changes).
+   Held in state rather than waiting for the refresh, because the refresh is asynchronous and the
+   second click is not.
+3. **The `stale-version` wording no longer names anybody.** The store answers `stale-version` for any
+   write against a version it has moved past and does not say what moved it — a coordinator, a
+   dispatcher, or this screen. It now says "This contact changed after this screen read it", which is
+   the whole of what the code guarantees.
+
+**A version is never guessed.** `rescheduleContact` increments by exactly one, so `previous + 1` would
+be right today — and silently wrong the first time anything else touches the contact between two
+writes. A 200 whose body carries no readable version leaves the tracked version `null` and the next
+commit is refused by name. That branch is covered by its own case (`fa467f822`), and T23 proves it.
+
+### The second defect, found by writing the missing case
+
+The two-consecutive-moves case failed on its first run for a reason that was not the one it was
+written for: **the DOM suite's mirror of the route answered `{ value: null }` where the real handler
+answers `{ value: <the updated StoredContact> }`.** So the control could never read a version back and
+refused every second move.
+
+That is exactly the divergence I listed as a concern in round 1 — "a divergence between the mirror and
+the handler would be invisible to both" — and it was invisible until a test needed the field.
+`tests/caring-contacts-contact-route.test.ts` now pins the body's `value.contact.version` **on the real
+route**, so the mirror cannot drift from it on this field again. The general concern stands for every
+field neither suite reads.
+
+## 2 — `outside-window-warning` is the fifth frozen row, and seam 5 now says so
+
+The review is right and I had scoped my own assertion too narrowly. That row's frozen summary is
+_"The time asked for falls outside 9:00 am to 6:00 pm AWST, so it cannot be scheduled."_ — **the closed-range
+form**, rendered by the shared host, shown to a coordinator who typed exactly 18:00, **on the overlay
+this task's own control raises**. My screen-level assertion keeps the closed form out of the helper
+text and cannot reach the overlay.
+
+It is not fixable here, and the reason is structural rather than a judgement: unlike
+`resolve-failed-delivery`, this row's commit is a `record` — it is the No change outcome — so there is
+no `unavailable` reason string to carry a correction without breaking that wiring.
+
+**Seam 5 is corrected below to name both rows.** The coordinator is consolidating all five such rows
+(`message-preview`, `verify-identity`, `save-draft`, `resolve-failed-delivery` and this one) as one
+finding for the owner.
+
+## 3 — the three small ones
+
+- **The three exports now have the walk they promised.** `SCHEDULE_MOVE_OVERLAYS`, `parseInputTime` and
+  `moveRefusalWording` were exported with a comment saying a test would use them, and no such test
+  existed. A promise in a doc comment is not coverage, and a later dead-code sweep would have been
+  entitled to read the comment as a consumer. Three cases now walk them, and T26 and T24 prove two of
+  them.
+- **"One line" was wrong three times and the accurate figure is this**: `schedule-view.ts` gained
+  **two functional lines** — `contactVersion: number;` on `ScheduleEntry` and
+  `contactVersion: stored.contact.version,` in `entryFor` — **plus a seventeen-line doc comment**
+  explaining why. Nineteen added lines, nothing removed, and no other part of Task 12's contract
+  touched. The change is still the smallest one that makes the version recheck possible; the
+  description of it was not.
+- **Prettier was re-run on this report after this round's edits**, which is the check round 2 recorded
+  before adding two hundred lines of markdown tables to the file it was recording.
+
+**`NonMutatingOverlayId` is exported with no consumer, deliberately.** Tasks 11b, 16 and 20 inherit
+it — it is the half of Ruling [130] that makes a read-only overlay's trigger refuse a mutating id, and
+those tasks wire the read-only rows. **A dead-code sweep must not delete it**: `check:dead-code-candidate`
+would find no importer, and the answer is that its consumer has not been written yet, which is the
+exact shape the "deleting code you believe is dead" rule is about.
+
+## The mutation ledger, round 3
+
+Same driver, same four guards, same narrowed selection. `CTRL_ABSENT` and `CTRL_NOOP` were re-run
+after the driver changed and both threw on their own lines. `git status --porcelain` was empty before
+and after every row.
+
+| #   | Selection | Mutation                                                                  | Predicted                                                           | Result | The line it printed                                                                                                                          |
+| --- | --------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| T20 | move UI   | the write sends the PROP version again instead of the tracked one         | the second move is refused as stale — the exact defect that shipped | RED    | `expected { year: 2026, month: 8, day: 31, …(2) } to match object { hour: 15, minute: 45 }` — `1 failed / 16 passed (17)`                    |
+| T21 | move UI   | the confirmed move no longer asks the server to re-render                 | the refresh spy is never called                                     | RED    | `expected "vi.fn()" to be called at least once` — `1 failed / 16 passed (17)`                                                                |
+| T22 | move UI   | a fresh server render no longer reseeds the field or the version          | the field keeps a time the row above no longer shows                | RED    | `expected '11:30' to be '16:00'` — `1 failed / 16 passed (17)`                                                                               |
+| T23 | move UI   | an unreadable version is guessed at as `previous + 1` rather than refused | **predicted GREEN and came back RED, see below**                    | RED    | `expected 'Recorded on the plan: this contact no…' to contain 'no longer knows which version of this…'` — `1 failed / 16 passed (17)`        |
+| T24 | move UI   | the `stale-version` wording names a person again                          | the stale case and the wording walk — two cases                     | RED    | `expected 'Somebody else changed this contact wh…' to contain 'This contact changed after this scree…'`, twice — `2 failed / 15 passed (17)` |
+| T25 | move UI   | the refusal map loses its null prototype                                  | GREEN — `Object.hasOwn` is the guard, see below                     | GREEN  | `Test Files  1 passed (1)` and `Tests  17 passed (17)`                                                                                       |
+| T26 | move UI   | the wall-clock parser stops bounding the hour                             | `parseInputTime("24:00")` stops being null                          | RED    | `expected { hour: 24, minute: +0 } to be null` — `1 failed / 16 passed (17)`                                                                 |
+
+### Where a prediction was not what fired
+
+- **T23 was predicted GREEN and came back RED, and the order is the point.** I predicted green because
+  `previous + 1` is right today, so no assertion would have caught the guess — **so I wrote the case
+  before running the row**. The prediction was about the tree as it stood; the row was run against a
+  tree where the branch was covered. Recording it as a miss rather than as a prediction I got right
+  by accident: had I run first and written after, this would be a green row and an uncovered
+  conservative branch.
+- **T25 is the one green, and its reason is worth keeping.** Losing the null prototype changes nothing
+  because **`Object.hasOwn` is the actual guard** — `Object.hasOwn({}, "constructor")` is false either
+  way. The null prototype is belt-and-braces behind it, exactly as the runtime throw is belt-and-braces
+  behind the narrowed overlay id. Recorded as an over-sensitivity control; the claim it might have
+  looked like proving (that the prototype chain is what protects the lookup) is not one this suite
+  makes, and `moveRefusalWording("constructor")` is asserted directly for the property that matters.
+
+## Correction to the round-2 browser-block specification
+
+Round 2 wrote, as the last bullet of what a seeded browser server should assert: _"the statement
+announces the new time AND the row beneath re-renders at it."_ **At the moment it was written, nothing
+implemented the second half** — there was no refresh, and the row did not re-render. That is a
+mechanism nobody had seen run, described as a fact about behaviour, in the one place a later reader
+would trust it most: a specification another task is meant to build against.
+
+`de47c24c3` implements it. The bullet is therefore now a claim about code that exists — **and it is
+still unproven in a browser**, which is the whole reason it belongs in that list rather than in a
+gates table. The corrected form:
+
+> **A confirmed move updates the day.** `router.refresh()` re-runs the Server Component after a
+> successful commit, and the DOM suite proves only that the call is made — a mocked router cannot
+> re-render a server tree. What a browser must show is the row's own `Sends at:` reading the new time
+> afterwards, and the contact appearing under the window that time belongs to. **Neither has been
+> observed;** they are what this bullet exists to have checked.
+
+## The full gate caught what the narrow selections structurally could not
+
+**This is the round's best argument for running the wide set once at the end**, and it is not
+hypothetical: adding `useRouter()` to the control broke **eleven cases in the Schedule-screen suite and
+two in the page suite**, none of which any per-mutation selection ever ran. `useRouter` throws outside
+an app-router context and the hook runs at RENDER, so every screen test that draws a contact row fell
+over with `Error: invariant expected app router to be mounted`. Both suites now mock it, annotated
+with why a file that confirms no move still needs one.
+
+Round 2 said a per-suite selection "cannot see collateral damage, and is not claimed to". That was the
+right disclaimer and this is what it was about. The narrow selection is still correct for a mutation
+round; the wide run at the end is what makes it safe.
+
+## Gates, after the final edit of this round
+
+| Gate                                                           | Evidence                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------ |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  532 passed (532)`   |
+| The 7 round-3 mutation selections                              | every row above carries its own `N passed` / `N failed` line |
+| `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                        |
+| `npx eslint --no-cache`, the 13 changed TypeScript files       | `files linted: 13`, `errorCount: 0 warningCount: 0` (JSON)   |
+| `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`                 |
+
+The `532` is round 2's `525` plus seven: three cases for the move fix, one for a version the service
+never confirmed, and three walking the exports that had promised a test and had none.
+
+## Concerns from round 3
+
+1. **The refresh is proved to be CALLED, not to have any effect.** A mocked router cannot re-render a
+   server tree, so the DOM suite's evidence for the Success clause stops at the call. The browser
+   bullet above is what closes it, and it is a merge-point job.
+2. **`versionFrom` reads a shape the route produces but no type binds.** It parses
+   `value.contact.version` out of an unknown payload; if `writeHandler`'s envelope or
+   `rescheduleContact`'s return type changed, the client would quietly fall back to refusing every
+   second move rather than failing loudly. The route suite pins the field, which is the cheap half;
+   a shared response type would be the real fix and is a contract change.
+3. **The reseeding is keyed on `(version, scheduledTime)`.** A server render that changed neither —
+   there is no such write today, since every reschedule advances the version — would not reset a
+   standing guard. Stated because it is a real edge of the pattern rather than an assumption I can
+   prove away.

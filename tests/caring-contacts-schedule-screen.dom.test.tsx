@@ -24,7 +24,19 @@
 // other stays green when the thing they share is emptied.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+/**
+ * The router, because a contact row now carries a control that asks for a re-render.
+ *
+ * `ContactTimeAdjustment` calls `useRouter()` so a confirmed move updates the row's own send time,
+ * which `ContactRow` renders from the server. `useRouter` throws outside an app-router context, so
+ * this file needs the mock even though nothing here confirms a move -- the hook runs at render.
+ */
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: () => {} }),
+}));
 
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import {
