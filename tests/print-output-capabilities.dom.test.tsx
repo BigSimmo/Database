@@ -152,8 +152,28 @@ describe("PrintOutput confidential-document footer", () => {
         Body
       </PrintOutput>,
     );
-    expect(confidential.querySelector("[data-print-confidential]")).toHaveTextContent(CONFIDENTIAL_DOCUMENT_FOOTER);
+    /*
+     * Spelled out, not read from the constant the component renders from. This
+     * assertion used to compare the rendered footer against
+     * `CONFIDENTIAL_DOCUMENT_FOOTER`, which passes for any wording at all —
+     * including a defective one — and is the generative shape this repository
+     * has already shipped twice and banned.
+     */
+    expect(confidential.querySelector("[data-print-confidential]")).toHaveTextContent(
+      "Confidential clinical document. Handle according to local policy.",
+    );
+    expect(CONFIDENTIAL_DOCUMENT_FOOTER).toBe("Confidential clinical document. Handle according to local policy.");
     expect(CONFIDENTIAL_DOCUMENT_FOOTER).toMatch(/^Confidential clinical document\./);
+
+    /*
+     * Two of the three sheets carrying this footer are handed to a patient. It
+     * must not tell them to dispose of a document the same page has just told
+     * them to keep somewhere they can find it quickly, and must not point them
+     * at a health-service policy they do not hold and cannot consult.
+     */
+    expect(CONFIDENTIAL_DOCUMENT_FOOTER).not.toMatch(/dispose/i);
+    expect(CONFIDENTIAL_DOCUMENT_FOOTER).not.toMatch(/keep it/i);
+    expect(CONFIDENTIAL_DOCUMENT_FOOTER).not.toMatch(/local health service policy/i);
   });
 
   it("is print furniture: hidden on screen, shown on paper", () => {
