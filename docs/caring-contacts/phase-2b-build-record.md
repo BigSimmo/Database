@@ -2704,3 +2704,38 @@ from instead of six paraphrases.
 **Cost if wrong:** the screens keep copy that over-promises for as long as it takes to decide. That is a
 smaller cost than six independent rewrites of a table whose purpose is to be the one place the wording is
 settled.
+
+### Ruling [134] — the implementer was right and my brief over-applied Ruling [46]: no new `AccessedObjectType` for the Templates library
+
+Task 15's brief told it to add an `AccessedObjectType` member for the Templates library read, on Ruling
+[46]'s letter — _add a member rather than overload an existing one_. The implementer argued back that the
+read is byte-identical to one that already exists, so a new member would name a **screen** rather than an
+object, and would split one askable question into two.
+
+**I checked it literally rather than taking either side's word.** The Templates library records
+`{ kind: "view", objectType: "pathwayVersion", objectId: "all" }` — and the plan wizard's own read of the
+same collection records the identical tuple. Two screens, one collection, one read.
+
+**So the implementer is right, and the reason Ruling [46] does not reach here is worth stating precisely,
+because the letter of it says the opposite.** Ruling [46] exists because the trail's query surface filters
+on `objectType` and offers **no `objectId` filter** — so a read that cannot be named by its `objectType`
+cannot be _asked for_ at all, only picked out by eye. That is what forced `patientName` out of
+`patientDirectory`: "who read patients' names, and when" had no server-side answer otherwise. Here the
+askable question — _who read the pathway versions_ — is already answerable, and adding `templateLibrary`
+would make it **less** so, requiring a union of two members where one now suffices.
+
+**The question the collapse genuinely does lose, and why it is still right to lose it:** "who opened the
+Templates library" as distinct from "who was building a plan" is now unanswerable. That is a question about
+**where a clinician was**, not about **what was read**. The access trail is an object trail; a screen
+question belongs to a usage log, which this prototype does not have and should not grow one inside the
+access trail. Answering a navigation question with an object-type member is how an audit surface stops
+meaning one thing.
+
+**Cost if wrong:** if the two reads later diverge — if the Templates library starts reading something the
+wizard does not — the shared member hides that, and the fix is to split it then, with the divergence as the
+reason. That is a better trigger than a screen boundary.
+
+**And the wider point, which is the one I keep paying for:** a ruling is an argument, not a rule to apply by
+its wording. Ruling [46]'s wording said add a member. Its reasoning said make the question askable. When
+those two point in opposite directions, the reasoning is the ruling. The implementer read the reasoning and
+I had read the wording.
