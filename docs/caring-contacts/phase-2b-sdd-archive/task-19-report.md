@@ -386,10 +386,64 @@ navigation.
 
 ## 8. Verification
 
-Gate: `npm run test:cc-guards` only, per the brief. Nothing else was run; the full suite is yours at
-the merge point.
+Gate: `npm run test:cc-guards` for the whole-tree runs, plus the narrowed per-mutation selections the
+mid-task instruction asked for. The full `npm run test` is yours at the merge point; it was not run.
 
-### The first attempt was UNRUN, and the exit code said 0
+### What ran, and what it said
+
+**`npm run test:cc-guards`, on the tree before the governance decision arrived:**
+
+```
+ Test Files  24 passed (24)
+      Tests  496 passed (496)
+```
+
+**`npm run test:cc-guards`, re-run on the final tree after the governance change** — because a
+gate's verdict covers the tree it saw, and ordering is not the mechanism, re-running is. Run last,
+after every source and test edit; the only change made afterwards is this report, which none of the
+twenty-four suites reads:
+
+```
+ Test Files  24 passed (24)
+      Tests  500 passed (500)
+```
+
+**`npm run typecheck`** (`tsc -p tsconfig.typecheck.json --noEmit`), run through the lease wrapper,
+**after the last edit** — the tree it saw is the tree being handed over:
+
+```
+[gate-receipts] recorded a pass for "typecheck:internal" (5357 input files).
+```
+
+That count is one higher than the run before the governance change, which is the new module and is
+the cheapest corroboration that the compiler saw it.
+
+`tsc` prints nothing on success, so that receipt line plus the wrapper's own exit status is the
+whole of the evidence — stated exactly rather than dressed up as a summary line it does not emit.
+It was captured from the command's own status, not through a pipe.
+
+**`npx eslint --no-cache` on every changed source and test file** — no output, which is eslint's
+clean result. `--no-cache` deliberately: `npm run lint` uses a per-file cache, so a file that has not
+changed is not re-examined and a failure caused by a different file's change stays invisible locally.
+
+**`npx prettier --check`** on every changed file, after the last edit:
+
+```
+Checking formatting...
+All matched files use Prettier code style!
+```
+
+Formatting is in none of `test`, `typecheck` or `lint`, which is why it is checked separately.
+
+**`npm run check:design-system-adoption`** — because two new production routes change a census:
+
+```
+design-system adoption checked: 54 components, 100 roots
+```
+
+### The lock, and one refusal that read as a pass
+
+The first `test:cc-guards` attempt returned **exit code 0 having never run**:
 
 ```
 Error: Database focused-test capacity is full (current owner PID 60368, worktree
@@ -399,10 +453,77 @@ playwright --project=chromium --grep-invert @quarantine|@mockup
 [exited with code 0]
 ```
 
-A lock refusal arriving through a pipe left `$?` reading 0 with no summary line. Recorded as UNRUN,
-retried on a delay, and never forced past another worktree's lease.
+A refusal arriving through a pipe left `$?` reading 0 with no summary line. Recorded as UNRUN,
+retried on a delay, and never forced past another worktree's lease. Every subsequent run captured
+its status directly rather than through a pipe.
 
-<!-- GATE-EVIDENCE -->
+Contention was heavy throughout — four implementer worktrees plus another project against two shared
+slots. One typecheck attempt was refused by a lease whose owning PID was already dead and whose
+worktree field was mine; I did not break it, and the lock's own stale-lease reclamation cleared it on
+a later attempt.
+
+### Mutation testing
+
+**The driver, and what it checks before it touches anything.** Rows are validated against an
+**allowlist of files this task may mutate** and for **id uniqueness** before any file I/O; the tree
+must be clean before a mutation and again after restoring it; the computed post-image must **differ
+from the original** before it is written; and the file is **re-read from disk** and asserted
+byte-identical to that post-image afterwards. Every anchor was dry-run first, so a row whose anchor
+did not occur exactly once could not burn a lease to discover it. Every mutation was applied against
+a committed tree, and only explicit paths were ever staged.
+
+**Selection per row.** Following the mid-task instruction, each row ran only the suite(s) the
+mutation can move, through the same runner and the same shared lease
+(`node scripts/run-vitest.mjs run <reporter> <suites>`). The column records which. The per-row runs
+cannot see collateral damage and do not claim to; the full `test:cc-guards` set is what catches
+that, and it is run separately on the final tree.
+
+| #   | Mutation                                                                                            | Suites          | Predicted                                                                                                                                                         | Observed                                     |
+| --- | --------------------------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| M1  | `reach-reporting.ts`: remove complementary suppression — stop promoting further cells               | reporting+pages | RED on exactly 5: recovers-nothing (domain), hides-a-second-cell, withholds-when-hiding-everything, withholds-a-single-category, recovers-nothing (rendered rows) | **RED — `Tests 5 failed \| 36 passed (41)`** |
+| M2  | `reach-reporting.ts`: a lone suppressed cell is no longer treated as pinned                         | reporting+pages | RED on 4 — the same set minus withholds-when-hiding-everything, which stays green because a zero residual still pins                                              | **RED — `Tests 4 failed \| 37 passed (41)`** |
+| M11 | `shell.tsx`: hide the phone-overflow row below 768px instead of above it — the shipped defect, back | shell           | RED on 1: the phone-reachability assertion, naming `/caring-contacts/templates`                                                                                   | **RED — `Tests 1 failed \| 11 passed (12)`** |
+| M13 | `operational-reports.tsx`: show a zero to a reader who may not see the measure                      | pages           | RED on 1: the may-not-see assertion                                                                                                                               | **RED — `Tests 1 failed \| 18 passed (19)`** |
+| M14 | `caring-contacts-reach-inference.ts`: weaken the attack so it never reports a recovery              | reporting+pages | RED on 2: the positive control in each suite — the attack must still recover a cell from naive suppression                                                        | **RED — `Tests 2 failed \| 39 passed (41)`** |
+| M15 | `reach-reporting-governance.ts`: move the threshold without moving the record that explains it      | reporting       | RED on 1: the provenance pin                                                                                                                                      | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M16 | `operational-reports.tsx`: retype the cell size on screen instead of sourcing it from the decision  | pages           | **GREEN** — over-sensitivity control                                                                                                                              | **GREEN — `Tests 19 passed (19)`**           |
+| M17 | `reach-reporting.ts`: make the lookup return its own number instead of reading the decision         | reporting       | **GREEN** — the same control from the other side                                                                                                                  | **GREEN — `Tests 22 passed (22)`**           |
+
+**Every predicted count matched the observed count, and the messages matched too.** M1's five, in
+the order the suites reported them:
+
+```
+AssertionError: expected [ 'Torres Strait Islander' ] to deeply equal []
+AssertionError: expected [ 'Torres Strait Islander' ] to deeply equal [ 'Torres Strait Islander', 'Neither' ]
+AssertionError: expected { kind: 'breakdown', …(1) } to deeply equal { kind: 'withheld', …(1) }
+AssertionError: expected { kind: 'breakdown', …(1) } to deeply equal { kind: 'withheld', …(1) }
+AssertionError: expected 1 to be greater than 1
+```
+
+The first line is the whole point of §2: with complementary suppression removed, the rule degrades to
+naive suppression and **the inference attempt recovers the hidden cell by arithmetic** — from the
+disclosure value, and, in the last line, from the rendered rows, where only one cell was left hidden.
+That is what makes the suppression test a test of suppression rather than of the word "Suppressed".
+
+M11's one, which is the shipped defect restored and caught:
+
+```
+AssertionError: /caring-contacts/templates has no link a phone can reach — it is an orphan below 768px:
+expected false to be true
+```
+
+**On M16 and M17, which are GREEN on purpose.** They are over-sensitivity controls, not misses. Both
+replace a sourced value with the literal `5` — today's decided value — so nothing observable changes,
+and a red here would have meant a test asserting against the literal rather than against the record.
+They go red the day the decision moves, which is exactly when sourcing matters. A mutation that
+should leave a gate green is evidence too, and it belongs in the ledger beside the reds.
+
+**Rows defined, dry-run, and left UNRUN.** M3–M10 and M12 — the residual-zero rule, the suppressing
+floor, the promotion order, the unconfigured-threshold branch, the four operational measures, and
+rendering no overflow row at all. The machine carried four implementer worktrees plus another project
+against two shared slots for this whole session; one earlier attempt at M1 came back UNRUN after
+eight refusals, and M11 needed a second attempt after thirty. **An honest unrun row is worth more
+than a forced lease.** Their anchors are validated, so the set re-runs as-is.
 
 ---
 
