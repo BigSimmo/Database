@@ -285,7 +285,7 @@ two-lists-drifting defect (D8/D9) that file exists to prevent.
 3. `node scripts/run-playwright.mjs` exits `0` when tests fail and when it refuses to run at all.
    Read the `N passed` line; never the exit code.
 
-## 5d. Phase 5 — designed 2026-08-26, not yet built
+## 5d. Phase 5 — designed and BUILT 2026-08-26
 
 Direction settled across one long conversation: Ward Flow becomes a bed-flow hub covering the whole
 pipe, from the community mental health team's decision to admit through to discharge — not the
@@ -303,6 +303,70 @@ Cold-start handover: `docs/ward-flow-phase-5-handover.md`.
 **The assumption most likely to be wrong**, recorded as spec D14: predicted, confirmed, blocked,
 released is a software model of how a bed comes free, and no ward clinician has checked it. A bed
 may be confirmed and blocked simultaneously in reality. It is cheap to change while synthetic.
+
+### What was built, 2026-08-26
+
+Eight tasks, subagent-driven, one implementer per task with an independent review after each.
+
+- A bed release gained the lifecycle. `confidence` narrowed to `likely | possible` and now means
+  something only while a release is predicted; `blocker` became state-dependent and typed, legal
+  only while blocked. `LeaveBed` is its own type and a usable leave bed is never merged into
+  availability. The blocker list grew to seven, all operational, none describing a person.
+- Five capacity figures, derived in one place. `availableNow` is computed before any release or
+  leave bed is looked at, so a prediction is **structurally** incapable of inflating it — not
+  merely tested against, unable to happen. `availableNow` and `held` are copied verbatim from
+  `unitCapacity` so the number a coordinator acts on cannot drift.
+- Only a ward moves its own beds. A coordinator attempting any transition gets a visible
+  `Rejection`; the one thing it may do — request a refresh — changes no number.
+- The discharge and egress board at `/mockups/ward-flow/discharges`, blocked rows first, cards
+  rather than a squeezed table below 40rem, and the beyond-tonight exclusion count stated even at
+  zero.
+- One freshness stamp, used by every board.
+
+**The boundary went 22:00 → 24:00 → 22:00** in one session. The owner asked for midnight; on being
+shown D5's reasoning (midnight is a calendar boundary, nobody hands over at midnight) they reverted.
+The spec is byte-identical to what it was. Recorded because the round trip is the useful part: D5
+had written the boundary down "so it can be changed in one place", and that is exactly how it
+behaved — one constant, one assertion, no code shipped at the wrong value.
+
+### What the screenshots caught that every test passed
+
+The sweep ran after the first visible change rather than at the end, and found four defects that
+were invisible to 10,000+ passing tests. This is section 7's recurring failure, caught mid-phase for
+the first time instead of after later work was built on top:
+
+1. The discharge board printed each confirming ward twice per row — a bare line above the freshness
+   stamp that already names it. Same class as the Phase 4 sidebar that duplicated its own title.
+2. **The capacity board contradicted its own headline.** The headline carefully separates confirmed
+   from predicted and excludes beyond-tonight; the per-unit row three columns away still showed
+   `potential`, which lumps all of it together including the excluded ones. One screen, two
+   incompatible answers.
+3. A raw union value rendered as user-facing text — a release read `confirmed` in lowercase.
+4. Fixing (2) exposed a fourth: the ward screen still said "Potential 1" for the same unit the
+   capacity board now described as "Confirmed 1, Predicted 0", directly above an itemised list
+   showing that release as Confirmed. Two vocabularies for the same beds.
+
+Each fix carries an assertion that would catch its return, and each was mutation-tested.
+
+### Two gates that hid, and one pre-existing failure
+
+- **Formatting is in none of `test`, `typecheck` or `lint`.** Five files were unformatted after all
+  three passed. Nothing verified during the phase could have caught it; only CI would have.
+- **The legal-figure guard failed the build, correctly.** `candidateEvents` must switch
+  exhaustively over every event type, so adding six events without extending
+  `tests/ward-legal-figure-guard.test.ts` refused to compile rather than letting six actions pass
+  through the Mental Health Act sweep unchecked. Extended, and proven non-vacuous by emptying one
+  candidate list and watching the traversal assertion name the event that stopped being reached.
+- Three failures in `clinical-hazard-controls`, `privacy-readiness-contract` and
+  `rag-plan-package-parity` fail identically on clean `origin/main` — verified in a worktree at
+  that ref. Pre-existing, unrelated to Ward Flow, deliberately not touched.
+
+### Still true after Phase 5
+
+Not one new fact about any patient entered the system. `BedRelease` and `LeaveBed` both remain free
+of anything describing a person, asserted structurally against each type's own field set rather
+than against fixture content — a future field named `patientId` would fail it. No legal figure was
+invented anywhere.
 
 ## 8. Where everything is
 
