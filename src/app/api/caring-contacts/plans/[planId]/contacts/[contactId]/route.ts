@@ -7,6 +7,12 @@
 // never a name or a number, so they are safe in the path -- and each is held to the audit trail's
 // own id grammar before it goes anywhere near the trail, exactly as `plans/[planId]` holds its own.
 //
+// THE BODY SHAPE IS NOT DECLARED HERE EITHER, and that is the point of the module it comes from.
+// `contactMoveRequestSchema` lives in `src/lib/caring-contacts-contact-move-request.ts` so that the
+// client that BUILDS a body and the boundary that REFUSES one are held to a single definition. A
+// mirror of this route in a DOM suite that parsed the body by hand made a client-side body-shape
+// regression invisible to every suite; see that module's note.
+//
 // THE DATE CHANGE IS DELIBERATELY NOT OFFERED HERE. `rescheduleContact` accepts either change, but
 // `changeContactDate` requires a non-blank reason AND a recorded team-lead approver, and neither is
 // something this route could invent for a caller that did not send one: an approval nobody gave is
@@ -20,14 +26,9 @@
 // SHAPE of a request; a route that also checked 09:00-18:00 would be a second copy of a rule the
 // domain already holds, free to drift from it.
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 
-import {
-  auditableIdentifier,
-  invalidRequestResponse,
-  writeContextFor,
-  writeHandler,
-} from "@/lib/caring-contacts-server/handler";
+import { contactMoveRequestSchema } from "@/lib/caring-contacts-contact-move-request";
+import { invalidRequestResponse, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { contactId, planId } from "@/lib/caring-contacts/ids";
 import { REPOSITORY_REFUSALS } from "@/lib/caring-contacts/repository";
@@ -36,25 +37,6 @@ export const runtime = "nodejs";
 
 type ContactRouteContext = { params: Promise<{ planId: string; contactId: string }> };
 
-/**
- * A discriminated union of one member, for the reason `plans/[planId]` uses one: a second kind of
- * reschedule is a new member with its own required fields rather than an optional field bolted on
- * to this one, and an optional approval field is exactly the shape that lets an approval be omitted.
- */
-const rescheduleSchema = z.discriminatedUnion("action", [
-  z
-    .object({
-      action: z.literal("moveWithinDay"),
-      // Wall-clock shape only -- see the module note. The domain decides whether the resulting
-      // instant is acceptable and names its own refusal.
-      toHour: z.number().int().min(0).max(23),
-      toMinute: z.number().int().min(0).max(59),
-      expectedContactVersion: z.number().int().positive(),
-      idempotencyKey: auditableIdentifier,
-    })
-    .strict(),
-]);
-
 export async function POST(request: NextRequest, context: ContactRouteContext): Promise<Response> {
   const { planId: plan, contactId: contact } = await context.params;
   // Path segments are caller input like any other, and the contact id becomes this write's audit
@@ -62,7 +44,7 @@ export async function POST(request: NextRequest, context: ContactRouteContext): 
   if (!isAccessObjectIdShape(plan) || !isAccessObjectIdShape(contact)) return invalidRequestResponse();
 
   return writeHandler({
-    schema: rescheduleSchema,
+    schema: contactMoveRequestSchema,
     // The capability the store itself checks for a within-day move, not a broader stand-in: a
     // date change needs `changeContactDate`, which this route does not offer.
     action: "moveContactWithinDay",

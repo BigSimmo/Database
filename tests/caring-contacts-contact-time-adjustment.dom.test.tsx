@@ -46,6 +46,7 @@ import {
 import { MUTATING_OVERLAY_IDS } from "@/components/caring-contacts/workspace/overlays/definitions";
 import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
+import { contactMoveRequestSchema } from "@/lib/caring-contacts-contact-move-request";
 import { awstCalendarDay, fixedClock, toAwstParts } from "@/lib/caring-contacts/clock";
 import {
   actorId,
@@ -154,12 +155,19 @@ function installService(store: CaringContactRepository) {
 
     if (!url.startsWith(CONTACT_ENDPOINT)) throw new Error(`unexpected request to ${url}`);
 
-    const body = JSON.parse(String(init?.body ?? "{}")) as {
-      toHour: number;
-      toMinute: number;
-      expectedContactVersion: number;
-      idempotencyKey: string;
-    };
+    /*
+      VALIDATED WITH THE SCHEMA THE ROUTE ITSELF USES, not parsed by hand.
+
+      This mirror used to `JSON.parse` and read four fields off the result, so it never looked at
+      `action` at all -- and the real route's union is `.strict()`, which makes a missing or renamed
+      field, or any extra one, a 400. A client-side body-shape regression was therefore invisible
+      here AND in the route suite, which builds its own request from a fixture rather than from the
+      client. That is the same family as the `{ value: null }` divergence caught one round earlier: a
+      double that differs from the real thing makes everything downstream of it green and meaningless.
+    */
+    const parsedBody = contactMoveRequestSchema.safeParse(JSON.parse(String(init?.body ?? "{}")));
+    if (!parsedBody.success) return Response.json({ refusal: "invalid-request" }, { status: 400 });
+    const body = parsedBody.data;
     // `resolveDemoActor` falls back to the coordinator for anything unreadable rather than
     // throwing -- an unreadable cookie must never lock someone out of a demonstration. Mirrored
     // here, and it MATTERS: it is what makes "the client could not re-read the role" a case where
@@ -320,13 +328,21 @@ describe("moving one contact within its day", () => {
     await userEvent.click(overlayAction());
     await waitFor(() => expect(outcomeText()).not.toBe(""));
 
-    // The record, first: the second move actually landed.
+    /*
+      THE SENTENCE FIRST, AND THE ORDER IS THE WHOLE POINT.
+
+      These two assertions carry this case's name, and behind the record assertions they could not
+      fail in any execution: a refused second move fails the record check first and never reaches
+      them, and a successful one satisfies them trivially. An assertion that cannot go red is not a
+      test, and this was the case a reader would trust most.
+    */
+    expect(outcomeText()).not.toContain("This contact changed after this screen read it");
+    expect(outcomeText()).toContain("15:45 AWST");
+
+    // Then the record: the second move actually landed, and landed as a second write.
     const after = await contactUnderTest(store);
     expect(toAwstParts(after.planned.sendAt)).toMatchObject({ hour: 15, minute: 45 });
     expect(after.contact.version).toBe(before.contact.version + 2);
-    // And the screen said so, rather than naming a change nobody made.
-    expect(outcomeText()).toContain("15:45 AWST");
-    expect(outcomeText()).not.toContain("This contact changed after this screen read it");
   });
 
   it("refuses the next move rather than guessing a version the service did not confirm", async () => {
@@ -360,6 +376,13 @@ describe("moving one contact within its day", () => {
     await waitFor(() => expect(outcomeText()).not.toContain("11:30 AWST"));
 
     expect(outcomeText()).toContain("no longer knows which version of this contact");
+
+    // AND "CHECK AGAIN" DOES NOT CLEAR IT. `recheckAtCommit` covers the connection and the role; it
+    // cannot read a version, so a button that cleared this refusal would remove the words while the
+    // condition still stood. The guard survives, and the statement names what does clear it.
+    await userEvent.click(screen.getByRole("button", { name: /Check again/ }));
+    await waitFor(() => expect(outcomeText()).toContain("checking again cannot tell it"));
+    expect(screen.getByRole("button", { name: /Check again/ })).not.toBeNull();
     // Refused, and nothing attempted: the record still holds the first move.
     expect(stateOf(await contactUnderTest(store))).toBe(stateOf(afterFirst));
     expect(requested.slice(beforeSecond).filter((url) => url.startsWith(CONTACT_ENDPOINT))).toEqual([]);
@@ -613,9 +636,11 @@ describe("what the control publishes", () => {
     for (const id of SCHEDULE_MOVE_OVERLAYS) {
       expect(MUTATING_OVERLAY_IDS, `${id} is not a mutating row`).toContain(id);
     }
-    // And the negative half: a row this control does NOT raise is genuinely outside the list, so the
-    // check above is not satisfied by every id in the table.
-    expect(SCHEDULE_MOVE_OVERLAYS).not.toContain("delivery-detail");
+    // The negative half is about the FROZEN TABLE, not about the list above -- `toEqual` already
+    // determines that list completely, so any further claim about its contents cannot fail. What can
+    // fail is this: the loop above would be vacuous if every id in the table were mutating, and
+    // `delivery-detail` is the row that proves it is not.
+    expect(MUTATING_OVERLAY_IDS).not.toContain("delivery-detail");
   });
 
   it("reads a wall-clock field, and refuses anything that is not one", () => {
@@ -636,9 +661,15 @@ describe("what the control publishes", () => {
     // An unrecognised reason is passed on as the service gave it. A reason somebody can quote is
     // worth more than a general apology.
     expect(moveRefusalWording("some-new-refusal")).toContain('named the reason "some-new-refusal"');
-    // `constructor` resolves to a FUNCTION on an ordinary object literal, and a `!== undefined`
-    // guard would return it -- React renders a function as nothing, leaving a refusal paragraph
-    // that is empty. The null-prototype record plus `Object.hasOwn` is what stops that.
+    // `constructor` resolves to a FUNCTION on an ordinary object literal, and a `!== undefined` guard
+    // would return it -- React renders a function as nothing, leaving a refusal paragraph that is
+    // empty.
+    //
+    // `Object.hasOwn` IS WHAT STOPS THAT, on its own. This comment used to credit the null-prototype
+    // record as well, and mutation T25 showed that half is inert: removing `Object.create(null)`
+    // leaves every assertion here green, because `Object.hasOwn({}, "constructor")` is false either
+    // way. The null prototype stays as belt-and-braces -- it is what would save a lookup somebody
+    // later rewrote as `map[key] ?? fallback` -- but it is not the guard this case proves.
     expect(moveRefusalWording("constructor")).toContain('named the reason "constructor"');
     expect(moveRefusalWording("toString")).toContain("Nothing was changed.");
   });

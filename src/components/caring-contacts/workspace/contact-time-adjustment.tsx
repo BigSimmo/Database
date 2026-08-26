@@ -253,6 +253,17 @@ export function ContactTimeAdjustment({
     // a time the coordinator had typed and not confirmed: the row beneath now says something else,
     // and a field disagreeing with the row it belongs to is the divergence this whole file exists
     // to remove.
+    //
+    // `outcome` IS DELIBERATELY NOT CLEARED, and the reason is that the commonest render to arrive
+    // here is the one THIS control asked for: `router.refresh()` after its own successful move.
+    // Clearing the statement then would wipe the confirmation a coordinator had just been given, at
+    // the exact moment the row caught up with it.
+    //
+    // The residual is stated rather than hidden: after a successful move, an EXTERNAL move plus a
+    // refresh leaves "Recorded on the plan: this contact now sends at 11:30 AWST" standing beside a
+    // field and a row both reading the newer time. It is the same family as the defect this
+    // reseeding closed, with a narrower trigger, and it is at least in the past tense -- it says
+    // what this screen recorded, which remains true. Recorded in the Task 14 report.
     setSeededFrom({ version: contactVersion, scheduledTime });
     setCommittedVersion(contactVersion);
     setChosenTime(scheduledTime);
@@ -432,6 +443,25 @@ export function ContactTimeAdjustment({
    * had lifted without anybody having looked.
    */
   const checkAgain = useCallback(async () => {
+    /*
+      A VERSION GUARD IS NOT SOMETHING THIS CONTROL CAN RECHECK.
+
+      `recheckAtCommit` covers the connection and the acting role. It cannot read the contact's
+      version -- only a server render carries that -- so clearing a version guard here would remove
+      the refusal while the condition still stood, and the next confirm would refuse identically.
+      Nothing would be written either way, so it is an affordance rather than a safety defect; but
+      the sentence above this function says a guard clears ONLY if the recheck passes, and leaving
+      that false is how a comment stops being read. The guard is kept, and the statement names the
+      thing that does clear it.
+    */
+    if (committedVersion === null) {
+      setOutcome({
+        kind: "refused",
+        reason:
+          "This screen still does not know which version of this contact it is looking at, and checking again cannot tell it. Reloading this day reads the contact again.",
+      });
+      return;
+    }
     const refusal = await recheckAtCommit();
     if (refusal !== null) {
       setGuard({ reason: refusal });
@@ -440,7 +470,7 @@ export function ContactTimeAdjustment({
     }
     setGuard(null);
     setOutcome({ kind: "none" });
-  }, [recheckAtCommit]);
+  }, [committedVersion, recheckAtCommit]);
 
   const overlayId = outsideWindow ? OUTSIDE_WINDOW_WARNING : ADJUST_DATE_TIME;
 
