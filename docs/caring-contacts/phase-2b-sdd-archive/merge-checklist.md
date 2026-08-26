@@ -161,10 +161,47 @@ round**, and confirm the resulting file imports `CONTACT_STATE_LABELS` and `MESS
 re-declaring either — a resolution that keeps both sides' text would silently restore a second copy of the
 vocabulary, and a second copy is how the two drift apart later.
 
-## 3. The one real conflict
+## 3. The conflict map, dry-run rather than guessed
 
-`STANDING-DISCIPLINE.md`, add/add, because two branches created it independently. **The trunk's
-consolidated version is the resolution** — it already carries every rule this session bought.
+Every merge below was dry-run with `git merge-tree --write-tree` against the trunk. **This is the real set,
+and it is not the set the earlier sections assumed.**
+
+| Merge                     | Conflicts                                                                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `origin/main` → trunk     | `data/outstanding-issues-snapshot.json`, `data/repo-awareness-snapshot.json`                                                                                                                           |
+| `cc-message-name` → trunk | **none — clean**                                                                                                                                                                                       |
+| `cc-plan-detail` → trunk  | `tests/caring-contacts-explained-automation.dom.test.tsx`                                                                                                                                              |
+| `cc-schedule` → trunk     | `STANDING-DISCIPLINE.md` (add/add), `docs/codebase-index.md`, `docs/design-system/ADOPTION.md`, `adoption-manifest.json`, `tests/design-system-adoption.test.ts`, the same `explained-automation` test |
+| `cc-demo-seed` → trunk    | `STANDING-DISCIPLINE.md` (add/add), `task-19-brief.md` (add/add), `docs/codebase-index.md`, `docs/site-map.md`, `ADOPTION.md`, `adoption-manifest.json`, `design-system-adoption.test.ts`              |
+
+**The only source conflict in the whole phase is one array.** Both `cc-plan-detail` and `cc-schedule` add an
+entry — with its justification comment — to the client-component allowlist in
+`tests/caring-contacts-explained-automation.dom.test.tsx`: `overlays/exit-only-overlay-trigger.tsx` and
+`contact-time-adjustment.tsx` respectively. **Keep both entries and both comments.** There is nothing to
+adjudicate; they are independent additions that happen to land on the same line.
+
+**Everything else is generated or a doc.** `data/*-snapshot.json`, `docs/site-map.md`,
+`docs/design-system/ADOPTION.md`, `adoption-manifest.json` and `design-system-adoption.test.ts` are
+**regenerated, not hand-merged** — resolve by taking either side and re-running the generator, then commit
+what it produces. Hand-merging a generated file produces a tree that no generator would emit, and the next
+run silently reverts it.
+
+`STANDING-DISCIPLINE.md` is add/add because two branches created it independently. **The trunk's
+consolidated version is the resolution** — it already carries every rule this session bought, including the
+gate-drift rule added after those branches forked.
+
+### Order, and why it is this order
+
+1. **`origin/main` → trunk** (the second catch-up; the trunk is 13 behind again)
+2. **`cc-message-name`** — clean, so it costs nothing and shortens the list
+3. **`cc-plan-detail`** — one trivial conflict
+4. **`cc-schedule`** — and this is where `patient-overview.tsx` finally conflicts
+5. **`cc-demo-seed`** — largest doc surface, resolved last against a settled tree
+
+**`patient-overview.tsx` does not appear in the table above, and that is not a reprieve.** The dry-runs are
+pairwise against today's trunk, where only one branch has touched the file. The plan-detail-versus-schedule
+conflict on it is real and appears at step 4, once step 3 has landed Task 10's additions. §2b still governs
+how to resolve it.
 
 ## 4. Rulings not yet in the build record
 
