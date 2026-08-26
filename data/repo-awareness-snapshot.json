@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "0abca58a554adeba03299363d436c4fed843618e",
-    "committed_at": "2026-08-26T15:30:47+08:00"
+    "sha": "f08fa05e4afd183e3313541e016dd650f3c0e919",
+    "committed_at": "2026-08-26T21:42:09+08:00"
   },
   "routes": {
     "modes": [
@@ -3805,6 +3805,14 @@
         "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
         "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
         "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-document-viewer-workspace-document-viewer-workspace-20260826",
+        "head": "4bb642acd2a8240471a19d15304b7adc70fa5798",
+        "scope": "document detail viewer reliability, PDF workspace UI, and phone/PWA recovery",
+        "outcome": "No P0-P2 findings after fixes; ready with documented environment-only gate limitations",
+        "checks": "focused Vitest 219/219; PDF virtualization 9/9; production Chromium 2/2; typecheck, lint, formatting, design contracts, production build passed; verify:pr-local reached 10418 passes then failed six unrelated Claude cloud shell fixtures plus one isolated flake that passed on rerun"
       },
       {
         "date": "2026-08-26",
@@ -24776,8 +24784,8 @@
       }
     ],
     "counts": {
-      "records": 2623,
-      "refs": 1602
+      "records": 2624,
+      "refs": 1603
     }
   }
 }
