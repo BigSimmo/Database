@@ -294,6 +294,12 @@ report was the last thing to change:
 The uncached lint and `prettier --check` below were re-run on that same final tree for the same
 reason — the first lint pass predated two test-file commits.
 
+**Precisely what that run saw, because "re-verified" recurses otherwise.** It ran against the tree at
+`049ba68db`. The only change after it is this paragraph and the one above, in this report file, which
+**no suite in `test:cc-guards` reads** — the overlay-definition test parses
+`docs/caring-contacts/interaction-matrix.md`, and nothing reads anything under
+`phase-2b-sdd-archive/`. Every source and test file is byte-identical to what that run examined.
+
 **The full set went RED first, and that is evidence the gate examines this change.** The wizard
 suite's first run on the new tree:
 
