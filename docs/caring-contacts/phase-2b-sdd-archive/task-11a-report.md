@@ -10,11 +10,11 @@
 **The brief lists `pathway-preview` as one of the three NON-mutating rows and tells me to wire it with
 Task 10's `ExitOnlyOverlayTrigger`. The frozen contract says the opposite, in both of its copies.**
 
-| Source                                                                       | `pathway-preview`                              |
-| ---------------------------------------------------------------------------- | ---------------------------------------------- |
-| `docs/caring-contacts/interaction-matrix.md`, the frozen table                | Mutation: **Yes**                              |
-| `overlays/definitions.ts` line 104, checked row for row against the matrix    | `mutatesState: **true**`                       |
-| The same row's `decision`                                                     | **"Use this pathway"**                         |
+| Source                                                                     | `pathway-preview`        |
+| -------------------------------------------------------------------------- | ------------------------ |
+| `docs/caring-contacts/interaction-matrix.md`, the frozen table             | Mutation: **Yes**        |
+| `overlays/definitions.ts` line 104, checked row for row against the matrix | `mutatesState: **true**` |
+| The same row's `decision`                                                  | **"Use this pathway"**   |
 
 `exitOnlyOverlayCommit` **throws** for any row marked `mutatesState: true`. So the instruction as
 written does not merely mis-classify the row — it produces a **render-time throw** on stage 2 of the
@@ -48,29 +48,29 @@ screen — and that is a change to a frozen contract Tasks 18 and 19 build again
 
 ## What was built, and where
 
-| File                                                                        | Change                                                                                                                                                                          |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/caring-contacts/workspace/plan-wizard/overlay-guards.ts`    | **New, pure.** The commit-time predicate: the two conditions, their plain-words refusals, and which row depends on which.                                                        |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`      | Seven rows wired; the two-moment guard; the in-place refusal statement; the message specimen panel; `Discard draft` moved behind its confirmation; `Leave this for now` added.   |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`        | `PlanDraftDecisions` — the two confirmations `verify-identity` and `communication-preference` record, held in the tab and written onto no plan — plus its tolerant parser branch. |
-| `src/components/caring-contacts/workspace/patient-overview.tsx`             | `activation-success`, offered beside the confirmations card while the plan is running.                                                                                          |
-| `src/app/caring-contacts/plans/new/page.tsx`                                | Resolves `EXACT_PATIENT_VISIBLE_MESSAGE` on the server and hands it to the wizard as a plain string.                                                                             |
-| `tests/caring-contacts-plan-wizard.dom.test.tsx`                            | The new decision-overlay block, plus the discard case moved onto the confirmation.                                                                                              |
-| `tests/caring-contacts-patient-overview.dom.test.tsx`                       | The `activation-success` block, plus two counts narrowed from "every trigger" to "this row's triggers".                                                                          |
-| `tests/caring-contacts-new-plan-page.dom.test.tsx`                          | The page passes the sealed domain's own wording, not a copy of it.                                                                                                              |
+| File                                                                     | Change                                                                                                                                                                            |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/plan-wizard/overlay-guards.ts` | **New, pure.** The commit-time predicate: the two conditions, their plain-words refusals, and which row depends on which.                                                         |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`   | Seven rows wired; the two-moment guard; the in-place refusal statement; the message specimen panel; `Discard draft` moved behind its confirmation; `Leave this for now` added.    |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`     | `PlanDraftDecisions` — the two confirmations `verify-identity` and `communication-preference` record, held in the tab and written onto no plan — plus its tolerant parser branch. |
+| `src/components/caring-contacts/workspace/patient-overview.tsx`          | `activation-success`, offered beside the confirmations card while the plan is running.                                                                                            |
+| `src/app/caring-contacts/plans/new/page.tsx`                             | Resolves `EXACT_PATIENT_VISIBLE_MESSAGE` on the server and hands it to the wizard as a plain string.                                                                              |
+| `tests/caring-contacts-plan-wizard.dom.test.tsx`                         | The new decision-overlay block, plus the discard case moved onto the confirmation.                                                                                                |
+| `tests/caring-contacts-patient-overview.dom.test.tsx`                    | The `activation-success` block, plus two counts narrowed from "every trigger" to "this row's triggers".                                                                           |
+| `tests/caring-contacts-new-plan-page.dom.test.tsx`                       | The page passes the sealed domain's own wording, not a copy of it.                                                                                                                |
 
 ### Where each of the eight is reached from
 
-| Row                        | Where                                     | Commit                                                          |
-| -------------------------- | ----------------------------------------- | --------------------------------------------------------------- |
-| `verify-identity`          | Stage 1, beside the referral facts        | Records `decisions.identityChecked`                             |
-| `change-patient`           | Stage 1, beside it                        | Removes the draft, **then** navigates to this team's plans      |
-| `pathway-preview`          | Stage 2, one per approved version row     | Chooses that version                                            |
-| `message-preview`          | Stage 3, beside the wording panel         | Exit — the host's own close                                     |
-| `communication-preference` | Stage 3, under the sending-time fieldset  | Records `decisions.preferenceGivenOnStaffedLine`                |
-| `save-draft`               | The draft notice, on every stage          | Leaves the screen with the sign-up still on this computer       |
-| `discard-changes`          | The draft notice, on every stage          | Removes the draft                                               |
-| `activation-success`       | Patient overview, on a **running** plan   | Exit — the host's own close                                     |
+| Row                        | Where                                    | Commit                                                     |
+| -------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| `verify-identity`          | Stage 1, beside the referral facts       | Records `decisions.identityChecked`                        |
+| `change-patient`           | Stage 1, beside it                       | Removes the draft, **then** navigates to this team's plans |
+| `pathway-preview`          | Stage 2, one per approved version row    | Chooses that version                                       |
+| `message-preview`          | Stage 3, beside the wording panel        | Exit — the host's own close                                |
+| `communication-preference` | Stage 3, under the sending-time fieldset | Records `decisions.preferenceGivenOnStaffedLine`           |
+| `save-draft`               | The draft notice, on every stage         | Leaves the screen with the sign-up still on this computer  |
+| `discard-changes`          | The draft notice, on every stage         | Removes the draft                                          |
+| `activation-success`       | Patient overview, on a **running** plan  | Exit — the host's own close                                |
 
 ---
 
@@ -111,7 +111,7 @@ state**. Writing a check that cannot fail would be worse than not having one —
 
 - **Connectivity.** Every decision in this task writes to this tab's storage or navigates inside this
   application. **None touches the network.** Refusing one for want of a connection would be a false
-  statement to a clinician. The one wizard decision that *is* network-bound is `final-activation`,
+  statement to a clinician. The one wizard decision that _is_ network-bound is `final-activation`,
   which is Task 9's, and `post()` already turns a failed `fetch` into
   `TRANSPORT_REFUSALS.didNotReach` while keeping the draft.
 - **Authentication.** `requiresFreshAuthentication` is `true` on exactly **two** rows of the frozen
@@ -132,7 +132,7 @@ successful activation, and from `readPlanDraft` when the stored draft belongs to
 My first version declared `a-draft-exists` and it was **wrong in a way the tests would not have
 caught**: on a screen nobody has typed into yet there is **no stored draft at all**, so every
 mutating row would have opened `aria-disabled` on a perfectly ordinary first render. The condition
-had to be narrower — *it was there when the surface was raised and has since gone* — which is also
+had to be narrower — _it was there when the surface was raised and has since gone_ — which is also
 the only shape that can catch a confirmation pressed long after opening. I caught this by asking what
 `stored` is on the first render, before running anything.
 
@@ -267,23 +267,66 @@ asserts the page passes the module's own export, which is the assertion a hardco
 
 ### `npm run test:cc-guards` — the full set on the final tree
 
-<!-- GATE:CC-GUARDS -->
+Run with `GATE_RECEIPTS=refresh`, so no cached receipt could stand in for a run.
 
-### Per-suite runs during development
+```
+> prompt-for-codex-medical-knowledge-base@0.1.0 test:cc-guards
+
+ Test Files  18 passed (18)
+      Tests  431 passed (431)
+   Duration  76.91s
+```
+
+That is the run that catches collateral damage the per-suite mutation runs cannot see. It took one
+attempt; the per-suite runs earlier took up to twelve behind another worktree's exclusive Playwright
+lease (PID 83164, `…\.codex\worktrees\remove-followup-suggestions\Database`, exclusive, live). Every
+refusal was waited out and recorded UNRUN. Nothing was ever forced.
+
+**The full set went RED first, and that is evidence the gate examines this change.** The wizard
+suite's first run on the new tree:
+
+```
+ Test Files  1 failed (1)
+      Tests  22 failed | 68 passed (90)
+```
+
+Two causes, both mine, and neither predictable from reading the source:
+
+1. `confirmActivation` and four other stage-4 cases resolved the trigger with a bare
+   `screen.getByTestId("workspace-overlay-trigger")`. `discard-changes` and `save-draft` live in the
+   draft notice, which **every stage renders**, so that lookup became ambiguous and threw. Taking the
+   first match would have been worse than the ambiguity — every stage-4 case would have gone on
+   passing while confirming whichever row rendered earliest — so the helper now names its row and
+   still refuses anything but exactly one.
+2. One `toEqual` over a whole stored draft did not know about the new `decisions` key.
+
+### Per-suite runs, and which selection each row used
 
 Recorded so a per-suite red is never read as a full-set red.
 
-<!-- GATE:PER-SUITE -->
+| Suite                                           | Baseline on the final tree | Mutations run against it                                 |
+| ----------------------------------------------- | -------------------------- | -------------------------------------------------------- |
+| `caring-contacts-plan-wizard.dom.test.tsx`      | `Tests 90 passed (90)`     | M1, M2, M3, M6, M7, M8, M9, M10, M11, M12, M13, M14, M15 |
+| `caring-contacts-patient-overview.dom.test.tsx` | `Tests 43 passed (43)`     | M4                                                       |
+| `caring-contacts-new-plan-page.dom.test.tsx`    | `Tests 12 passed (12)`     | M5                                                       |
+| `caring-contacts-plan-draft.dom.test.tsx`       | `Tests 19 passed (19)`     | none directly — see M12's note                           |
+
+**M12 mutates `plan-draft.ts` and was run against the WIZARD suite, not the draft suite.** That is
+deliberate and is stated rather than left to be inferred: the tolerant-parser branch it attacks is
+exercised by the wizard's stored-draft fixtures, which is where a draft written before this change is
+actually read back. The full set above covers the rest.
 
 ### Typecheck
 
-`npx tsc -p tsconfig.json --noEmit` — no diagnostics emitted, exit 0. Run twice: once before the
-tests were written and once on the final tree.
+`npx tsc -p tsconfig.json --noEmit` — no diagnostics emitted, exit 0. Run four times across the task,
+the last on the final tree.
 
 ### Lint, uncached
 
 `node_modules/.cache/eslint` removed first, then `npx eslint --format json` over the eight changed
-files. The JSON names the files it examined, so this is not an exit code standing in for a run:
+files. `npm run lint` uses a per-file cache, so a failure caused by a different file's change stays
+invisible locally and goes red in CI. The JSON names the files it examined, so this is not an exit
+code standing in for a run:
 
 ```
 exit=0
@@ -300,12 +343,18 @@ caring-contacts-plan-wizard.dom.test.tsx        errors 0 warnings 0 []
 
 ### `prettier --check`
 
-<!-- GATE:PRETTIER -->
+It caught two files during the task — `plan-wizard.tsx` and the wizard test — and both were rewritten
+and committed rather than left for the pre-push guard. On the final tree, over every changed file:
+
+```
+Checking formatting...
+All matched files use Prettier code style!
+```
 
 ### Not run, and why
 
-- `npm run test` — the controller's, at merge points. Other worktrees are live and the exclusive
-  heavy lease is the resource the standing discipline protects.
+- `npm run test` — the controller's, at merge points. Other worktrees are live and the exclusive heavy
+  lease was held continuously for most of this task.
 - `npm run verify:ui` / `tests/ui-caring-contacts-workspace.spec.ts` — see the section below.
 - Anything provider-backed — not approached.
 
@@ -360,4 +409,133 @@ branch reads.
 
 ## Mutation ledger
 
-<!-- MUTATIONS -->
+**The driver is this branch's, and every one of its four guards is kept**, in the order they run:
+each row's `file` is validated against an **allowlist of files this task may mutate** and each row's
+`id` for uniqueness, **both before any file I/O at all**; the tree is asserted `git status --porcelain`
+clean before a mutation and again after restoring it; the computed post-image must **differ** from the
+original before it is written; and the file is re-read from disk and asserted byte-identical to that
+post-image. Nothing was staged by wildcard while a mutation was applied — every commit in this task
+stages explicit paths.
+
+**One correction to the inherited driver, and it is a correction rather than a preference.** Its lock
+detector matched only the lock module's **throw**, whose message contains `capacity is full`.
+`run-heavy.mjs` refuses differently — it prints `DATABASE_HEAVY_RUN_ADMISSION_BUSY` and exits 75 — and
+a detector that knows one shape reports the other as a **run**. Both are matched now.
+
+Every attempt is itemised, greens included. **No aggregate total** — the table is the evidence.
+
+| #   | The claim the mutation attacks                                                                         | Expected | Got                                   | Gate result (`Tests`)      | Selection |
+| --- | ------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------- | -------------------------- | --------- |
+| M1  | THE COMMIT-TIME RECHECK ACTUALLY RECHECKS: it reads the store now, not the state it closed over        | red      | **RED**, as predicted                 | 2 failed / 88 passed (90)  | wizard    |
+| M2  | the guard's early return is load-bearing — a refused decision does not fall through and perform        | red      | **RED**, message differed — see below | 2 failed / 88 passed (90)  | wizard    |
+| M3  | the condition is a COMPARISON, so a screen nobody has typed into yet is not refused on arrival         | red      | **RED**, as predicted                 | 3 failed / 87 passed (90)  | wizard    |
+| M4  | `activation-success` is offered on a RUNNING plan and withheld from a paused or draft one              | red      | **RED**, message differed — see below | 3 failed / 40 passed (43)  | overview  |
+| M5  | the PAGE reads the patient-visible wording from the sealed domain rather than writing it out           | red      | **RED**, as predicted                 | 1 failed / 11 passed (12)  | page      |
+| M6  | the specimen panel renders the wording it is handed                                                    | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M7  | leaving asks whether the browser is still writing the sign-up down                                     | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M8  | changing patient REMOVES the sign-up before it leaves the screen                                       | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M9  | confirming a pathway preview chooses the version it was opened from                                    | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M10 | the recording row records, so "no change" is distinguishable from success                              | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M11 | the refusal NAMES which decision did not happen, from the frozen table                                 | red      | **RED**, as predicted                 | 2 failed / 88 passed (90)  | wizard    |
+| M12 | the parser's tolerant branch is reached: a draft written before these decisions is read, not discarded | red      | **RED**, as predicted                 | 32 failed / 58 passed (90) | wizard    |
+| M13 | the preview panel says no external action occurs, in words                                             | red      | **RED**, as predicted                 | 1 failed / 89 passed (90)  | wizard    |
+| M14 | OVER-SENSITIVITY CONTROL: no assertion reads the specimen panel's `whitespace-` class                  | green    | **GREEN**, as predicted               | 90 passed (90)             | wizard    |
+| M15 | A GUARD REJECTION DOES NOT MUTATE — isolated, because M2 cannot reach that assertion                   | red      | **RED**, as predicted                 | 2 failed / 88 passed (90)  | wizard    |
+
+### Predicted message against observed, and the two that did not match
+
+- **M1** — predicted: _the refusal element is never found_
+  - failing test: `refuses a decision confirmed after the sign-up was removed, and puts nothing back`
+  - observed: `Error: Unable to find an element by: [data-testid="caring-contacts-decision-refusal"]`
+  - the second failure is `refuses Leave this for now once the browser stops writing the sign-up down`.
+    Both refusals go through the one mechanism, so one mutation moves both — stated rather than
+    counted, because a reader seeing "2 failed" should know which two and why.
+
+- **M2 — THE PREDICTION WAS WRONG, AND THE DISCREPANCY IS THE FINDING.**
+  - predicted: _the storage assertion fails — "the refused decision put the sign-up back on the machine"_
+  - observed: `Error: Unable to find an element by: [data-testid="caring-contacts-decision-refusal"]`
+  - Why: removing the `return` does not merely let the decision through, it falls into
+    `setDecisionRefusal(null)` on the next line, so the refusal is **cleared before it can render**.
+    The refusal assertion fails first and **the storage assertion is never reached**.
+  - This is exactly the shape the standing discipline names — _an assertion behind a sibling that
+    fails first is never reached_ — so M2 does **not** prove "a guard rejection does not mutate". It
+    proves the early return matters, which is a different and lesser claim. **M15 was written for
+    that reason**: it performs the decision _before_ consulting the guard, against a state captured
+    first, so the refusal still renders and the record still moves. Its observed message is the one
+    M2 was predicted to produce.
+
+- **M3** — predicted: _the loop's first row opens a decision whose control is `aria-disabled`_
+  - failing test: `reaches verify-identity from a control, and its decision is wired rather than refused`
+  - observed: `verify-identity opened a decision the screen has not wired: expect(element).not.toHaveAttribute("aria-disabled")`
+  - the other two are `discard-changes` and `save-draft`, the rows also reachable from a fresh screen.
+
+- **M4 — the message differed, and the mutation is stronger than predicted.**
+  - predicted: _`expected [] to have a length of 1`_
+  - observed: `Error: Unable to find an element by: [data-testid="workspace-overlay-trigger"]` —
+    `getAllByTestId` **throws** on none rather than returning an empty array, so the query fails
+    before the length assertion. The absence is still what is proved.
+  - It went red **three** times, not one, and both directions are covered by the single mutation:
+    inverting the condition removes the control from the running plan **and** adds it to the paused
+    and draft ones, so `offers none on a paused plan` and `offers none on a draft plan` fail too.
+  - **What this leaves unproven, stated rather than glossed:** the `toHaveLength(1)` guards against a
+    _second_ control appearing, and no mutation here moves toward two. That assertion is unproven.
+
+- **M5** — predicted: _the page's value is not the module's_
+  - failing test: the page-props case
+  - observed: `AssertionError: expected 'Hi Rowan, a stand-in written on this …' to be 'Hi Rowan, Alex from Example Aftercare…'`
+
+- **M6** — predicted: _the specimen node no longer contains the stand-in wording_
+  - failing test: `renders the patient-visible wording it is handed`
+  - observed: `Error: expect(element).toHaveTextContent()`
+
+- **M7** — predicted: _the refusal element is never found_
+  - failing test: `refuses Leave this for now once the browser stops writing the sign-up down, and does not navigate`
+  - observed: `Error: Unable to find an element by: [data-testid="caring-contacts-decision-refusal"]`
+
+- **M8** — predicted: _storage still holds the sign-up_
+  - failing test: `removes the sign-up before it leaves when the patient is the wrong one`
+  - observed: `AssertionError: the wrong patient's sign-up was left on the machine: expected '{"referralId":"SYN-REFERRAL-001","sta…' to be null`
+
+- **M9** — predicted: _the draft still names the referral's own version_
+  - failing test: `chooses the version a pathway preview was opened from, and says which row it came from`
+  - observed: `AssertionError: confirming the preview chose nothing: expected 'SYN-PATHWAY-001' to be 'SYN-PATHWAY-002'`
+
+- **M10** — predicted: _the recorded flag is still false_
+  - failing test: `tells a read-only row from a recording one by what each leaves behind`
+  - observed: `AssertionError: the recording row recorded nothing: expected false to be true`
+
+- **M11** — predicted: _the refusal does not contain "Verify identity was not carried out"_
+  - failing tests: the two refusal cases, one naming `Verify identity` and one naming `Save draft`
+  - observed: `Error: expect(element).toHaveTextContent()`
+
+- **M12** — predicted: _the review stage cannot be reached from a stored draft_
+  - failing test: `returns a stored draft to the stage it names, including the one that writes`, and 31
+    others — every case built on a stored fixture, which is the blast radius that shows the branch is
+    genuinely load-bearing rather than defensive
+  - observed: `Error: Unable to find role="region" and name "Review and activation"`
+
+- **M13** — predicted: _the personalisation region no longer says nothing is ever sent_
+  - failing test: `states beside the preview that no external action occurred, in words rather than by omission`
+  - observed: `Error: expect(element).toHaveTextContent()`
+
+- **M14** — predicted: _GREEN; nothing reads a presentational class on a paragraph_
+  - observed: `Tests 90 passed (90)`. The over-sensitivity control: the tap-target scan reads the
+    `className` of **buttons** and of **labels**, and this is a `<p>`, so a class change there must
+    not move the suite. It does not.
+
+- **M15** — predicted: _the storage assertion fails — "the refused decision put the sign-up back on the machine"_
+  - failing test: `refuses a decision confirmed after the sign-up was removed, and puts nothing back`
+  - observed: `AssertionError: the refused decision put the sign-up back on the machine: expected '{"referralId":"SYN-REFERRAL-001","sta…' to be null`
+  - the second failure is the `save-draft` refusal case, for the same reason M1's is: one mechanism,
+    two rows.
+
+### What the ledger does NOT prove
+
+- **`change-patient` has no guard, so nothing can refuse it.** That is stated in the module as a
+  property of the row rather than a gap, and no mutation can make an absent condition fail. What IS
+  proved is the ordering (M8) and that `wizardDecisionConditions` throws for an id nobody declared —
+  which is what stops a mistyped id looking identical to this one legitimate empty list.
+- **`toHaveLength(1)` on the `activation-success` control** — see M4.
+- **Nothing here is browser evidence.** jsdom has no layout, so the tap-target and forced-colors
+  assertions read class names. The pixel measurement is `verify:ui`'s, and that spec cannot reach
+  these screens today — see the section above for the one change that would let it.
