@@ -1,4 +1,9 @@
 import type { PlanState } from "./model";
+import {
+  CARING_CONTACTS_OVERLAY_PARAM,
+  CARING_CONTACTS_SEARCH_NOT_APPLIED_PARAM,
+  CARING_CONTACTS_STATE_PARAM,
+} from "./workspace-address";
 
 /** Every plan state, in lifecycle order, as the directory filter offers them. */
 export const PATIENTS_DIRECTORY_STATE_ORDER: readonly PlanState[] = Object.freeze([
@@ -50,19 +55,17 @@ export function parsePatientsDirectoryFilter(
  * removed" to the screen it lands on. It is itself recognised, which is what stops the redirect
  * target from being unrecognised in its turn and looping forever.
  */
-export const PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM = "searchNotApplied";
+export const PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM = CARING_CONTACTS_SEARCH_NOT_APPLIED_PARAM;
 
 /**
- * The parameter the workspace overlay host owns, duplicated here as a bare string.
+ * The parameter the workspace overlay host owns.
  *
- * It has to be duplicated: this module is sealed and may import nothing outside
- * `src/lib/caring-contacts/`, while `WORKSPACE_OVERLAY_PARAM` is exported from a `"use client"`
- * component module. Duplicating a string is only acceptable when something makes the copies
- * diverge loudly, so `tests/caring-contacts-patients-directory.dom.test.tsx` asserts the two are
- * equal. Without that assertion a rename of the overlay parameter would make this route strip
- * every deep-linked overlay out of its own address, silently.
+ * It was a duplicated bare string with an equality test pinning it to `WORKSPACE_OVERLAY_PARAM`.
+ * Both are now aliases of ONE declaration in `workspace-address.ts`, which the shell-wide fix
+ * introduced -- so the divergence that pin guarded is no longer expressible, and the pin was
+ * removed rather than left as an assertion that cannot fail.
  */
-export const PATIENTS_DIRECTORY_OVERLAY_PARAM = "overlay";
+export const PATIENTS_DIRECTORY_OVERLAY_PARAM = CARING_CONTACTS_OVERLAY_PARAM;
 
 /**
  * Every parameter this route understands. ANY other name on the address is dropped.
@@ -72,7 +75,7 @@ export const PATIENTS_DIRECTORY_OVERLAY_PARAM = "overlay";
  * happened to ship would under-report every one of them.
  */
 export const PATIENTS_DIRECTORY_RECOGNISED_PARAMS: readonly string[] = Object.freeze([
-  "state",
+  CARING_CONTACTS_STATE_PARAM,
   PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM,
   PATIENTS_DIRECTORY_OVERLAY_PARAM,
 ]);
@@ -118,7 +121,7 @@ export function readPatientsDirectoryAddress(
   // Built from named recognised values only. `searchParams` is never spread, filtered or copied
   // into this, because a copy is how a value ends up somewhere nobody meant it to be.
   const kept = new URLSearchParams();
-  if (filter.state !== "all") kept.set("state", filter.state);
+  if (filter.state !== "all") kept.set(CARING_CONTACTS_STATE_PARAM, filter.state);
   if (typeof overlay === "string") kept.set(PATIENTS_DIRECTORY_OVERLAY_PARAM, overlay);
   if (droppedUnrecognisedParams || alreadyFlagged) kept.set(PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM, "1");
 

@@ -16,6 +16,8 @@
  * the workspace itself into the Clinical KB dashboard's bundle.
  */
 
+import { CARING_CONTACTS_PLAN_PARAM, CARING_CONTACTS_REFERRAL_PARAM } from "@/lib/caring-contacts/workspace-address";
+
 export const CARING_CONTACTS_BASE = "/caring-contacts" as const;
 
 export const CARING_CONTACTS_ROUTES = {
@@ -51,7 +53,7 @@ export function patientRoute(patientId: string): string {
  * one patient can honestly hold two episodes, the overview never picks between them, and this is
  * how the clinician's choice travels — in the URL, so the chooser needs no client state at all.
  */
-export const CARING_CONTACTS_PLAN_QUERY_PARAM = "plan" as const;
+export const CARING_CONTACTS_PLAN_QUERY_PARAM = CARING_CONTACTS_PLAN_PARAM;
 
 /** One patient's overview, scoped to one named plan. The page still validates that the plan is
  * this patient's and this team's before it reads anything with it. */
@@ -74,7 +76,7 @@ export function patientPlanRoute(patientId: string, planId: string): string {
  * every proxy between here and the browser". Nothing about a patient may travel here, including as
  * a draft key.
  */
-export const CARING_CONTACTS_REFERRAL_QUERY_PARAM = "referral" as const;
+export const CARING_CONTACTS_REFERRAL_QUERY_PARAM = CARING_CONTACTS_REFERRAL_PARAM;
 
 /**
  * The activation wizard, started for one accepted referral.

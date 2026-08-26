@@ -913,12 +913,16 @@ describe("Patients directory - a bookmarked search term is stripped from the add
     expect(rewritten.searchNotApplied).toBe("1");
   });
 
-  it("names the overlay parameter identically to the overlay host that owns it", () => {
-    // The sealed filter module may import nothing outside `src/lib/caring-contacts/`, so the
-    // parameter name is duplicated there as a bare string. This is what stops the copies drifting:
-    // renaming the overlay parameter without updating the allowlist would make this route strip
-    // every deep-linked overlay out of its own address, silently.
-    expect(PATIENTS_DIRECTORY_OVERLAY_PARAM).toBe(WORKSPACE_OVERLAY_PARAM);
+  it("recognises the overlay parameter the overlay host actually writes", () => {
+    // This REPLACES an equality pin between `PATIENTS_DIRECTORY_OVERLAY_PARAM` and
+    // `WORKSPACE_OVERLAY_PARAM`. That pin guarded a duplicated bare string; the shell-wide fix made
+    // both aliases of one declaration in `workspace-address.ts`, so the assertion became one that
+    // cannot fail, and an assertion that cannot fail is worse than none. What can still go wrong is
+    // this route dropping the parameter the writer uses, which is what is asserted instead: a
+    // deep-linked overlay must survive the caseload's own address rewrite.
+    const address = readPatientsDirectoryAddress({ [WORKSPACE_OVERLAY_PARAM]: "consent-and-withdrawal", q: "x" });
+    expect(address.droppedUnrecognisedParams).toBe(true);
+    expect(new URLSearchParams(address.canonicalQuery).get(WORKSPACE_OVERLAY_PARAM)).toBe("consent-and-withdrawal");
   });
 
   it("states that a saved search was not applied, and never echoes what it was", () => {

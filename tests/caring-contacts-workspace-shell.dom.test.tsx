@@ -1,9 +1,23 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { CaringContactsShell } from "@/components/caring-contacts/workspace/shell";
 import { FICTIONAL_DATA_MARKER } from "@/components/caring-contacts/workspace/synthetic-marker";
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import {
+  CARING_CONTACTS_PLAN_QUERY_PARAM,
+  CARING_CONTACTS_REFERRAL_QUERY_PARAM,
+  CARING_CONTACTS_ROUTES,
+} from "@/lib/caring-contacts-routes";
+import * as routeModule from "@/lib/caring-contacts-routes";
+import {
+  CARING_CONTACTS_WORKSPACE_RECOGNISED_PARAMS,
+  canonicalCaringContactsQuery,
+} from "@/lib/caring-contacts/workspace-address";
+import {
+  WORKSPACE_OVERLAY_PARAM,
+  closeWorkspaceOverlay,
+  openWorkspaceOverlay,
+} from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { teamId } from "@/lib/caring-contacts/ids";
 import { runningService } from "@/lib/caring-contacts/service-state";
 
@@ -178,5 +192,138 @@ describe("caring-contacts workspace shell", () => {
         node.getAttribute("data-workspace-width-state"),
       ),
     ).toEqual(["compact", "rail", "split", "wide"]);
+  });
+});
+
+/*
+ * The shell-wide address contract (Ruling [111]).
+ *
+ * These live HERE rather than in `tests/caring-contacts-overlay-host.dom.test.tsx`, which is the
+ * overlay module's natural home, for one reason worth stating: `npm run test:cc-guards` runs this
+ * file and does not run that one. A privacy assertion in a file the programme's gate never executes
+ * is a silenced gate, which is the failure this whole round is about.
+ *
+ * WHAT THEY PIN. `overlayUrl()` used to build every history entry by copying the whole existing
+ * query string. The shell mounts the overlay module on EVERY workspace route, so a bookmarked
+ * `?q=<name>` opened anywhere in the workspace was written into a fresh history entry on every
+ * overlay open. The Patients page fixed its own route by rewriting the address on the server; the
+ * mechanism was never route-specific, and this is the same defect on the other three.
+ */
+
+/** The forms a name could survive in an address. */
+function urlFormsOf(text: string): string[] {
+  return [
+    text,
+    text.toLowerCase(),
+    encodeURIComponent(text),
+    encodeURIComponent(text).toLowerCase(),
+    text.replace(/ /g, "+"),
+    ...text.split(" "),
+    ...text.toLowerCase().split(" "),
+  ];
+}
+
+/**
+ * Every workspace route the finding names, with the one parameter that route legitimately owns.
+ *
+ * Each is exercised on its own rather than one standing in for the others: the whole finding is
+ * that the defect is generic, and a single route would prove only what the previous round proved.
+ */
+const ROUTES_CARRYING_A_BOOKMARK = [
+  { name: "the workspace home", path: CARING_CONTACTS_ROUTES.today, keep: null },
+  {
+    name: "the activation wizard",
+    path: CARING_CONTACTS_ROUTES.newPlan,
+    keep: { param: CARING_CONTACTS_REFERRAL_QUERY_PARAM, value: "referral-1" },
+  },
+  {
+    name: "the patient overview",
+    path: `${CARING_CONTACTS_ROUTES.patients}/patient-1`,
+    keep: { param: CARING_CONTACTS_PLAN_QUERY_PARAM, value: "plan-1" },
+  },
+] as const;
+
+describe("the workspace address - a bookmarked name is never copied into an overlay history entry", () => {
+  const NAME = "Jordan Nguyen";
+  const OVERLAY = "consent-and-withdrawal";
+
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  for (const route of ROUTES_CARRYING_A_BOOKMARK) {
+    it(`drops it on ${route.name}, and keeps what that route owns`, () => {
+      const carried = new URLSearchParams({ q: NAME });
+      if (route.keep) carried.set(route.keep.param, route.keep.value);
+      window.history.replaceState(null, "", `${route.path}?${carried.toString()}`);
+
+      // POSITIVE CONTROL. The name really is in the address before the overlay opens; without
+      // this, the absence below would be an absence over an address that never carried a name.
+      expect(window.location.search).toContain("Jordan");
+      expect(window.location.search).toContain("Nguyen");
+
+      act(() => openWorkspaceOverlay(OVERLAY));
+
+      // The entry really was written -- so what follows is a rewritten entry, not a no-op.
+      expect(window.location.search).toContain(`${WORKSPACE_OVERLAY_PARAM}=${OVERLAY}`);
+      expect(window.location.pathname).toBe(route.path);
+      // ...and this route's own parameter survived it, so the rewrite narrowed rather than erased.
+      if (route.keep) {
+        expect(new URLSearchParams(window.location.search).get(route.keep.param)).toBe(route.keep.value);
+      }
+
+      for (const form of urlFormsOf(NAME)) {
+        expect(window.location.search, `the pushed entry carries "${form}"`).not.toContain(form);
+      }
+    });
+  }
+
+  it("drops it when an overlay is CLOSED from an entry this module did not push", () => {
+    // The `replaceState` half of the same function. A deep link has no entry of ours to unwind, so
+    // closing replaces the current one -- and that write went through the same copying builder.
+    window.history.replaceState(
+      null,
+      "",
+      `${CARING_CONTACTS_ROUTES.today}?${WORKSPACE_OVERLAY_PARAM}=${OVERLAY}&q=${encodeURIComponent(NAME)}`,
+    );
+    expect(window.location.search).toContain("Nguyen");
+
+    act(() => closeWorkspaceOverlay());
+
+    expect(window.location.search).not.toContain(WORKSPACE_OVERLAY_PARAM);
+    for (const form of urlFormsOf(NAME)) {
+      expect(window.location.search, `the replaced entry carries "${form}"`).not.toContain(form);
+    }
+  });
+
+  it("is a fixed point of itself, so a rewritten address is never rewritten again", () => {
+    // `overlayUrl()` runs on addresses it may already have written, and the Patients page redirects
+    // to its own canonical form. A canonicaliser that is not idempotent either loops or drifts.
+    const once = canonicalCaringContactsQuery(`?q=${encodeURIComponent(NAME)}&state=active`, { overlay: OVERLAY });
+    const twice = canonicalCaringContactsQuery(`?${once}`);
+
+    expect(once).not.toBe("");
+    expect(twice).toBe(once);
+    expect(once).toContain("state=active");
+    for (const form of urlFormsOf(NAME)) expect(once).not.toContain(form);
+  });
+
+  it("recognises every query parameter the route module declares", () => {
+    // The allowlist's failure direction is to DROP an unregistered parameter, which is the
+    // conservative direction for privacy and a silent breakage for a feature. This is what makes a
+    // parameter added later loud instead of mysterious.
+    //
+    // It reads the exports rather than the source text on purpose: those constants are now aliases
+    // of the sealed declarations, so a regex for string literals in `caring-contacts-routes.ts`
+    // would match nothing and pass vacuously.
+    const declared = Object.entries(routeModule)
+      .filter(([name]) => name.endsWith("_QUERY_PARAM"))
+      .map(([name, value]) => [name, String(value)] as const);
+
+    // A floor, so an empty scan cannot satisfy the loop below.
+    expect(declared.length).toBeGreaterThanOrEqual(2);
+    for (const [name, value] of declared) {
+      expect(CARING_CONTACTS_WORKSPACE_RECOGNISED_PARAMS, `${name} ("${value}") is not recognised`).toContain(value);
+    }
   });
 });
