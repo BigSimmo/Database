@@ -153,7 +153,8 @@ const PATIENT_VERDICT_COPY: Record<SemanticTone, { label: string; context: strin
 export function PatientVerdictSignal({ verdict, className }: { verdict: MedicationVerdict; className?: string }) {
   const summary = verdictSummaryBadge(verdict);
   const copy = PATIENT_VERDICT_COPY[verdict.tone];
-  const Icon = verdictIcon(verdict.tone);
+  // Indexing the stable map keeps the rendered component static for React lint.
+  const Icon = VERDICT_ICONS[verdict.tone];
 
   return (
     <div
