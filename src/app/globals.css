@@ -1876,21 +1876,6 @@ summary::-webkit-details-marker {
   --answer-mark-gap-star: 0.03em;
 }
 
-/* The chat answer message's left gutter: the assistant badge column plus its
-   gap. Two non-nested places have to agree on it — the badge lives inside
-   `plain-answer-response` (answer-content.tsx) while the verification notice
-   and support word sit in the card header above it (answer-card.tsx, bare
-   frame) — and when they disagree the governance line hangs off the left of the
-   answer it belongs to. A shared value is what keeps them in one column.
-     px-1 (0.25rem) + badge h-8/w-8 (2rem) + gap-2 (0.5rem) = 2.75rem, plus the
-     1px transparent border on that section. The border is invisible but it is
-     real geometry: without it in the sum the notice lands 1px left of the prose,
-     which on a crisp display is a visible ragged edge rather than a rounding
-     artefact. */
-:root {
-  --answer-message-gutter: calc(2.75rem + 1px);
-}
-
 .answer-source-mark {
   position: relative;
   top: -0.625em;
