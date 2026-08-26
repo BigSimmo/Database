@@ -11,6 +11,7 @@ import {
   PATIENT_VISIBLE_NO_REPLY_NOTICE,
   PREFERRED_NAME_MAX_SEPTETS,
   SPECIMEN_PREFERRED_NAME,
+  preferredNameMaxSeptets,
   resolvePatientVisibleMessage,
 } from "@/lib/caring-contacts/message-copy";
 import {
@@ -100,6 +101,29 @@ describe("caring-contacts patient-visible copy", () => {
 
     const refused = resolvePatientVisibleMessage("€".repeat(PREFERRED_NAME_MAX_SEPTETS));
     expect(refused).toMatchObject({ ok: false, issue: { code: "preferred-name-too-long" } });
+  });
+
+  it("gives the same cap rule to any text a name is substituted into, not just this template", () => {
+    // A pathway version carries its own `messageTextByType`, and the demo corpus stores a copy of
+    // the current wording there. A cap derived from THIS template does not bound that string, so the
+    // rule is exposed rather than only its answer -- a second cap computed a second way is how two
+    // answers to one question come to disagree.
+    //
+    // Applied to this module's own template it must give exactly the exported constant. That is the
+    // control that the general function and the specific number are one rule.
+    expect(preferredNameMaxSeptets(EXACT_PATIENT_VISIBLE_MESSAGE.replace(SPECIMEN_PREFERRED_NAME, ""))).toBe(
+      PREFERRED_NAME_MAX_SEPTETS,
+    );
+
+    // A shorter text has more room, a longer one has less, and the difference is exactly the
+    // difference in length -- so a wording change moves the cap rather than silently invalidating it.
+    const ceiling = maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments);
+    expect(preferredNameMaxSeptets("Hi , from us.")).toBe(ceiling - "Hi , from us.".length);
+    expect(preferredNameMaxSeptets("x".repeat(ceiling))).toBe(0);
+
+    // A text with no room left yields a cap of zero or less, and every name is then refused as too
+    // long. The honest arithmetic, not a floor that would let a name in.
+    expect(preferredNameMaxSeptets("x".repeat(ceiling + 5))).toBeLessThan(0);
   });
 
   it("refuses rather than sending an unpersonalised greeting nobody has authored", () => {

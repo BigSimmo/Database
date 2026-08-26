@@ -257,6 +257,78 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
       expect(fingerprints).not.toContain(secret);
     }
   });
+
+  it("reads a null preferred name back as null, never as the cleared empty string", async () => {
+    // FOUND BY MUTATION, AND IT WAS UNPROVEN. Collapsing `null` onto `""` in this projection left
+    // every suite green: no test anywhere builds a plan row without a preferred name, because every
+    // route into this store supplies one. The row that has none is a plan created BEFORE migration
+    // 0007, which the migration deliberately did not backfill -- so it exists in the live database
+    // and nowhere in any fixture.
+    //
+    // The two are different facts. `""` is what `markRetentionCleared` writes, and a screen says so
+    // ("removed when this episode was de-identified"); `null` means no preferred name was ever held.
+    // Collapsing them reports a name retention removed as a name nobody ever gave.
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    const referral = await store.createReferral(
+      { referralId: referralId("NULLNAME-REFERRAL"), patientId: patientId("NULLNAME-PATIENT") },
+      context("nullname-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("NULLNAME-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("nullname-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: planId("NULLNAME-PLAN"),
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("NULLNAME-REFERRAL"),
+        patientId: patientId("NULLNAME-PATIENT"),
+        pathwayVersionId: pathwayVersionId("NULLNAME-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: PATIENT_NAME,
+          patientMobileNumber: PATIENT_MOBILE,
+          patientIdentifiers: [PATIENT_IDENTIFIER],
+          culturalIdentity: null,
+          preferredName: PREFERRED_NAME,
+        },
+      },
+      context("nullname-create"),
+    );
+    expect(created.ok).toBe(true);
+
+    // Positive control: the store really does read a recorded name back, so the null below is this
+    // projection preserving null rather than the read never returning anything.
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBe(
+      PREFERRED_NAME,
+    );
+
+    // The pre-0007 shape, made directly because no route into this store can produce it.
+    await pool.query("update caring_contacts.plans set preferred_name = null where id = $1", ["NULLNAME-PLAN"]);
+
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

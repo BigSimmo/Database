@@ -72,8 +72,30 @@ export const PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS = calculateGsm7(personalisedPa
  * no room for one specific extra sentence someone wanted to add; it did not mean no room at all.
  * The sentence has been rewritten below so the next reader does not inherit the wider claim.
  */
-export const PREFERRED_NAME_MAX_SEPTETS =
-  maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments) - PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS;
+export const PREFERRED_NAME_MAX_SEPTETS = preferredNameMaxSeptets(personalisedPatientVisibleMessage(""));
+
+/**
+ * The cap for ANY message text a preferred name is substituted into, given that text with its slot
+ * empty.
+ *
+ * `PREFERRED_NAME_MAX_SEPTETS` above is this rule applied to the one template this module owns.
+ * The rule is exposed separately because that template is not the only text a preferred name may
+ * one day be substituted into: a pathway version carries its own `messageTextByType`, and the demo
+ * corpus stores a copy of the current wording there. A cap derived from THIS template does not bound
+ * a different string, and a second cap computed a second way is how two answers to one question come
+ * to disagree. Whatever text is actually substituted, ask this.
+ *
+ * `unpersonalisedText` is the text with the slot EMPTY, not with a name in it. GSM-7 septet cost is
+ * per character and additive, so a name of `n` septets makes the message `septets(unpersonalisedText)
+ * + n` — which is why the bound holds for every accepted name rather than for a sampled few.
+ *
+ * A text already at or past the ceiling yields a cap of zero or less, and every name is then refused
+ * as too long. That is the honest answer: such a text has no room for a name, and this returns the
+ * arithmetic rather than a floor that would let one in.
+ */
+export function preferredNameMaxSeptets(unpersonalisedText: string): number {
+  return maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments) - calculateGsm7(unpersonalisedText).septets;
+}
 
 export type PatientVisibleMessageIssue =
   | { code: "preferred-name-not-recorded" }
