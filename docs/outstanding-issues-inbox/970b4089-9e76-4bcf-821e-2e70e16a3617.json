@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "970b4089-9e76-4bcf-821e-2e70e16a3617",
+  "createdOn": "2026-08-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Component metrics stay in :root, not @theme — record the rule where reviewers read it, because bots keep re-raising it",
+    "detail": "Review bots have now asked twice, on consecutive PRs, to move a component metric into the Tailwind 4 @theme block: cardTextWidth (max-w-[158px], PR #2374) and --answer-message-gutter (calc(2.75rem + 1px), PR #2377). Both were declined for the same reason and the reasoning currently lives only in a code comment beside --answer-mark-* in src/app/globals.css, which the bots do not read, so the cost repeats every PR that adds one. THE RULE, as already practised: a value that is a component metric rather than a step on a design scale stays a :root custom property. @theme generates a whole utility family from each token (p-, m-, w-, gap-) and implies a scale step, so a one-consumer or off-grid value there reads as a design decision that was never made; --answer-message-gutter is deliberately off the 4px grid because its 1px compensates for a transparent border, and no existing spacing token equals it. It also couples: tests/tailwind-merge-config.test.ts requires every @theme --spacing-* token to have a matching CLINICAL_TWMERGE_THEME.spacing entry, so the move is never one line. NEXT ACTION (small, docs-only): add a prohibition-table row to docs/design-system/GATES.md section 3 stating the :root-versus-@theme boundary and naming both declined instances, in the same shape as the #336 breakpoint decision recorded there. That is the artifact a reviewer or a future session will actually find. Do NOT convert either value as part of it. Worth pairing with .coderabbit.yaml path instructions if the suggestion recurs after the doc lands.",
+    "source": "session 2026-08-26, PRs #2374 and #2377 (CodeRabbit nitpicks declined twice with the same reasoning)",
+    "issueUlid": "01M0XX7KC1Z1AG1WQAH2SBH5HD"
+  }
+}

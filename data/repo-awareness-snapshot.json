@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "c391de340e5946a35d5c7d9bf580ebe019e90c31",
-    "committed_at": "2026-08-26T00:26:15+00:00"
+    "sha": "bf415957c82a3e03ef9c740b24e88832fe84a984",
+    "committed_at": "2026-08-26T11:16:25+08:00"
   },
   "routes": {
     "modes": [
@@ -3640,6 +3640,22 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-26",
+        "ref": "codex/medication-risk-highlights",
+        "head": "4a6ca72858752cc59e99ba17c8a9f00baa603ac5",
+        "scope": "PR #2380 CI blocker: medication verdict signal",
+        "outcome": "fixed and independently reviewed",
+        "checks": "CI lint failure reproduced; focused ESLint pass; medication interaction DOM 27/27; full lint pass; typecheck pass; independent review clear"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/medication-risk-highlights (PR #2380)",
+        "head": "460057cced09015dce78b8960e9b21f1fbd1b7fa",
+        "scope": "PR #2380 full changed scope",
+        "outcome": "No P0-P2 findings; corrected the stale six-item governance body with the required Supabase-target attestation; merged current main cleanly; zero unresolved review threads.",
+        "checks": "Hosted CI at 2062e6563dbab390e4442ed42eaeb908bd509864: PR required success; post-sync medication Vitest 3 files/60 tests passed; installed-lock parity, outstanding-issues, and repo-awareness checks passed; provider-backed clinical gates not run."
+      },
       {
         "date": "2026-08-25",
         "ref": "backup/pr-2333-prelinear-20260824",
@@ -24570,8 +24586,8 @@
       }
     ],
     "counts": {
-      "records": 2616,
-      "refs": 1595
+      "records": 2618,
+      "refs": 1597
     }
   }
 }
