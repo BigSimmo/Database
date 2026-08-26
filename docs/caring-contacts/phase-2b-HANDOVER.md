@@ -16,26 +16,41 @@ no implementer was allowed to run. The riskiest single step is the merge, and it
 audited afterwards and found **clean** — nothing lost, and it repaired a live trunk defect nobody knew
 about (opening a non-mutating overlay by URL and pressing close threw).
 
-| Worktree                                             | Branch                               | Holds                                                                  |
-| ---------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------- |
-| `.claude/worktrees/browser-test-gate-handoff-d5c1db` | `…-d5c1db` (trunk)                   | Groups 0–1 through Task 9b, plus the patient-name privacy fix          |
-| `D:\Worktrees\Database\cc-templates`                 | `claude/caring-contacts-demo-seed`   | the demo seed · Task 15 templates library · Task 19 in progress        |
-| `D:\Worktrees\Database\cc-schedule`                  | `claude/caring-contacts-schedule`    | Task 12 schedule read · Task 13 schedule screen · Task 13b in progress |
-| `D:\Worktrees\Database\cc-plan-detail`               | `claude/caring-contacts-plan-detail` | Task 10 plan and contact detail                                        |
+**It has since drifted again and is now 13 behind `origin/main`.** Do the second catch-up merge into the
+trunk **before** merging the four feature branches, not after — trunk-versus-main conflicts are cheaper to
+resolve while the trunk does not also carry four branches of new files, and the first catch-up proved the
+merge is not a formality.
+
+| Worktree                                             | Branch                                | Holds                                                                        |
+| ---------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| `.claude/worktrees/browser-test-gate-handoff-d5c1db` | `…-d5c1db` (trunk)                    | Groups 0–1 through Task 9b, the patient-name privacy fix, and every ruling   |
+| `D:\Worktrees\Database\cc-templates`                 | `claude/caring-contacts-demo-seed`    | demo seed · Task 15 templates library · Task 19 guidance/reports · Task 16   |
+| `D:\Worktrees\Database\cc-schedule`                  | `claude/caring-contacts-schedule`     | Task 12 schedule read · Task 13 schedule screen · Task 14 delivery exception |
+| `D:\Worktrees\Database\cc-plan-detail`               | `claude/caring-contacts-plan-detail`  | Task 10 plan and contact detail · Task 11a wizard rows · Task 11b            |
+| `D:\Worktrees\Database\cc-message-name`              | `claude/caring-contacts-message-name` | Task P — the patient's first name in the message                             |
 
 **Provisioning a new worktree takes seconds:** `node scripts/setup-codex-worktree.mjs` reuses a
 byte-identical install. **Never `npm ci` here** — it takes ~58 minutes.
 
 ## Still to build
 
-**In flight:** Task 19 (guidance, reports, and the More-panel navigation), Task 13b (per-row name reveal),
-Task 10 round 3, the privacy fix's final round.
+**Complete and accepted:** Tasks 10, 11a, 12, 13, 15, 19, and P. Task 14 is accepted on its round-4
+content and is running one small round 5 (typing the client's request body through the shared schema so a
+field rename fails to compile rather than only failing a test).
 
-**Not started:** Task 11 (Group 1 overlay wiring), Task 14 (contact/delivery exception plus Group 2
-overlays), Task 16 (template detail), Task 20 (every remaining overlay against all 24 matrix rows),
-Task 21 (responsive and accessibility proof).
+**In flight:** Task 11b (pause, withdrawal, reassignment) and Task 16's review (template detail).
+
+**Not started, and deliberately held until AFTER the merge — Ruling [133]:** Task 20 (every remaining
+overlay reconciled against all 24 matrix rows) and Task 21 (responsive and accessibility proof, 320px to
+1440px, dark mode, forced colours, reduced motion, 400% reflow). Both produce a table **about the whole
+tree**. Run on one branch they do not produce a partial table, they produce a **wrong** one — the same error
+that shipped two separate `ExitOnlyOverlayTrigger` implementations, done deliberately at scale.
+
+**Order from here:** catch-up merge → four feature branches → the owed gates → Task 20 → Task 21.
 
 **Group 4 — Tasks 17 and 18, the team roster — is DEFERRED by the owner.** Do not revive it without him.
+**Task 13b (per-row name reveal) is also deferred by the owner** — he chose to keep identifiers and defer
+the reveal once the cost of revealing was made explicit.
 
 ## The merge, which is the highest-risk step
 
@@ -98,6 +113,13 @@ than merely alter them. A populated screen needs its own server with `CARING_CON
   promises more than the function delivers. Rename it, or give it a plan-state-aware sibling, before
   anything is built that dispatches.
 - `middayOf` and `awstCalendarDayOffset` both spell midday, and nothing pins them equal.
+- **A hand-maintained test gate drifts silently from the suites that exist.** `test:cc-guards` names its
+  suites as literal paths in `package.json`. Nothing adds a suite when one is written, and nothing warns
+  when a covered module gains a test the gate does not name. Measured across the five branches: **thirty-two
+  Caring Contacts suites are in no branch's gate** — including `message-policy` and `message-copy`, whose
+  modules one branch had just changed. I ran the exposed ones per branch afterwards (302 cases, all green),
+  so this is an evidence gap rather than a shipped defect, but the same shape applies to every hand-listed
+  gate in this repository, not just this one.
 
 ## What made this slow, and what it bought
 
