@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b14f4795-ed9f-44c3-adda-ec6aec312fd0",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#V0EDR4",
+    "outcome": "Unified /favourites direct and query parameter route shells on shared component.",
+    "baseRowFingerprint": "99c641f124f86f87f7e40e1bf8e28df21b431eb21b17cedc59f45d0876b1730a"
+  }
+}

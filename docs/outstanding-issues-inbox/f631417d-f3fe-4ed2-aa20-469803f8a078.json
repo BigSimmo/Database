@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f631417d-f3fe-4ed2-aa20-469803f8a078",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#2TAQDC",
+    "outcome": "Documented and pinned style contracts preventing racy :has selectors on root elements.",
+    "baseRowFingerprint": "9c61791208c1ddf253a95792ce786f96fc36bba859778731c13de2339d99ea91"
+  }
+}

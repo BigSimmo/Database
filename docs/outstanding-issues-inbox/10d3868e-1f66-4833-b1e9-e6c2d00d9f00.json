@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "10d3868e-1f66-4833-b1e9-e6c2d00d9f00",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#308",
+    "outcome": "Reserved fixed search header height on desktop /documents/search reducing CLS below 0.05.",
+    "baseRowFingerprint": "0a72c497b31144c86a6ad3b2d4189577b4a8ab1d59e715f468f1029809d8be15"
+  }
+}
