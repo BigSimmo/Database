@@ -307,3 +307,179 @@ own sake.
 
 I never ran the app. Everything here is offline evidence: unit and DOM tests, typecheck, lint, and
 static reads of the markup. The screen has not been seen rendering in a browser by me.
+
+---
+
+# Review round 1 — what changed
+
+Task 15 passed with two exceptions and five fixes. All five are done. This section is appended
+rather than folded into the sections above, so the original claims and their corrections both stay
+readable.
+
+## Commits added this round
+
+| SHA           | What it is                                                                     |
+| ------------- | ------------------------------------------------------------------------------ |
+| `2193dfd96`   | the templates browser block, three vacuity fixes, and the site-map description |
+| _(this file)_ | the round-1 report append                                                      |
+
+Both re-checked with `git cat-file -e <sha>^{commit}` after the last commit.
+
+## 1. The browser block is written
+
+The reviewer is right and my reasoning was half-correct in a way that made it wrong. I withheld the
+proof block because an unrun block would read as coverage — and then added a contract entry that
+reads as coverage more strongly, because `adoption-contract.json` records `status: "passed"` for
+dark, forcedColours, compact320, print and browser on the `caring-contacts-workspace` surface,
+citing this spec as sole evidence. My concerns 2 and 3 were not independent findings; together they
+were one defect, and I reported them as two.
+
+`test.describe("caring-contacts templates library")` now sits after the New-plan block and is
+modelled on it:
+
+- **serves an empty library as a page, and shows no message wording** — 200, the `h1`, the empty
+  state's own words, and `await expect(page.locator("body")).not.toContainText(EXACT_PATIENT_VISIBLE_MESSAGE)`.
+  That is Ruling [127] observed end to end in the one place the whole stack runs in a single
+  process. It also asserts the filter offers all four links with `All` carrying `aria-current`;
+- **is reachable from the workspace rail** — clicks the rail link at 1024 and checks the pathname;
+- **does not blame a filter for a library that holds nothing** — clicks `Retired`, then requires the
+  `no-data` group and requires the filtered group to have count 0. The four empty facts are held
+  apart offline; this is the one this server can reach, and it is the one a bookmarked URL lands on;
+- **320px**, **dark**, **forced colours**, **print** — the same four the other three screens carry,
+  reading this screen's own surface through `emptyStateColours(page, "No governed versions yet")`
+  rather than shell chrome, plus a filter chip's measured `boundingBox().height >= 48`.
+
+The block's header records, where a reader will actually meet it, that reachability is proved at
+1024 and **not** on a phone, why that is a gap rather than a choice, and why a phone test written
+against the current dock would pin the gap in place instead of closing it.
+
+**I have not run it.** I cannot run Playwright from this worktree, so the block is typechecked,
+linted and parsed by `tests/caring-contacts-workspace-screens.test.ts`, and nothing more. It is a
+mechanism I have not seen run.
+
+## 2. M7 and M17 re-runs, with their messages
+
+Both were re-run on the final tree (457 tests) and both went red on the predicted message.
+
+**M7** — the all-retired empty state collapsed into the ordinary filtered one, word for word:
+
+```
+  Test Files  1 failed | 21 passed (22)
+  Tests  2 failed | 455 passed (457)
+  FAIL  |jsdom| … > holds all four apart from one another, so no two may collapse into the same words
+  AssertionError: "filtered" and "all retired" render the same empty state: expected 'No version in this stateWhy: The life…' not to be 'No version in this stateWhy: The life…' // Object.is equality
+  FAIL  |jsdom| … > says a library filtered to Current with everything retired is a different fact from a filter with records behind it
+  AssertionError: expected 'No version in this stateWhy: The life…' to contain 'every version this team holds has bee…'
+```
+
+**M17** — the forced-colors fallback stripped from the version row:
+
+```
+  Test Files  1 failed | 21 passed (22)
+  Tests  1 failed | 456 passed (457)
+  FAIL  |jsdom| … > gives every bordered surface a forced-colors fallback, so none of them vanishes
+  AssertionError: a version row: LI draws a border with no forced-colors fallback: expected 'min-w-0 rounded-[var(--radius-lg)] bo…' to contain 'forced-colors:border-[CanvasText]'
+```
+
+## 3. The vacuity the M17 fix left standing, and two more like it
+
+The reviewer is right that the fix applied its own lesson to one scenario and not the other. Both
+static proxies now walk **one** `surfaceScenarios` list, and every scenario carries its own
+`present(container)` positive control naming the surface it exists to render — a version row for the
+first, an empty state **and** `getByRole("note", { name: "No version is available for a new plan" })`
+for the second. The 320px check walks the same list, so a fixed width on the empty state or the
+notice is no longer outside what it reads.
+
+Three new mutations prove the three new guards. Every one was predicted before it ran.
+
+| #   | Mutation                                                 | Predicted                                                                | Observed                                                                                                                                                                                                            |
+| --- | -------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M19 | the all-retired notice never renders                     | both proxies red on the note's absence; **green before the round-2 fix** | **RED as predicted.** 3 failed / 454 passed (457). `Unable to find an accessible element with the role "note" and name "No version is available for a new plan"` — from both proxies and from the notice's own case |
+| M20 | `w-[400px]` on the all-retired notice, not on a row      | the 320px proxy red naming the DIV; **outside the check before the fix** | **RED as predicted.** 1 failed / 456 passed (457). `an empty state and the all-retired notice: DIV carries a fixed width: expected 'w-[400px] flex min-w-0 flex-col gap-1…' not to match /\b(min-)?w-\[[0-9]/`      |
+| M21 | the page reads a literal `[]` instead of the spied store | the privacy control red; **both absences would have passed without it**  | **RED as predicted.** 5 failed / 452 passed (457). `the page did not read the spied store — the absences below prove nothing: expected "listPathwayVersions" to be called at least once`                            |
+
+M19 is the one worth reading twice: it is the exact regression the round-1 fix left reachable, and
+it now takes down both proxies rather than passing through them.
+
+## 4. Exception A — absent provenance, named rather than resolved silently
+
+I resolved a contradiction on the one requirement the brief called safety-relevant without saying
+so. That was wrong of me, and the correction matters more than the omission, so here is the
+distinction the brief conflated:
+
+- **Absent** provenance means **no claim was made**. `pathwayVersionProvenanceWording` returns `null`
+  and the screen renders no qualifier. Stamping "Invented for demonstration: no person recorded
+  either approval…" onto a record whose provenance says nothing would be a **false statement about a
+  possibly genuine record** — the marker is documented as weakening-only, and absence asserting
+  nothing is the whole of what "weakening-only" means.
+- **Unrecognised** provenance means **a claim this build cannot read**. That must fail safe to the
+  weakening wording, because the safe reading of "I do not know what this says" is never "it says
+  nothing", and every value the field can hold is a weakening claim.
+
+The brief said "an absent **or** unrecognised provenance must resolve to the synthetic wording". The
+domain does not, and the domain is right. My screen follows the domain, and
+`tests/caring-contacts-templates-library.dom.test.tsx` pins both halves separately: "claims nothing
+about provenance when the record claims nothing" (asserting the qualifier element is **absent**, not
+that it is empty) and the three unrecognised cases. Mutation M3 proves the first — flipping the
+render guard from `note === null` to `note === undefined` makes the absent case render an empty
+qualifier, and the assertion fires with `expected <span …> to be null`.
+
+The reason for stating it rather than quietly complying: a later reader holding the brief and not
+the domain would read the screen as under-qualifying, and "fix" it toward the false direction.
+
+## 5. The three small ones
+
+**Positive controls on two absence assertions.**
+`templates-page.dom.test.tsx`'s privacy assertion now spies `listPathwayVersions` and requires it to
+have been called, plus requires the empty state to be in the document, before asserting `getEpisode`
+and `listPatientNames` were not. This is the privacy claim this screen makes, so it now carries its
+own proof that the spied store is the one the page used; M21 above is that guard failing on demand.
+`templates-library.dom.test.tsx`'s no-message-text assertion requires exactly one row and the
+"Wording is held for" sentence before asserting the marker's absence.
+
+**The seeded page test asserts the specimen never renders.** That render is the only one where
+`EXACT_PATIENT_VISIBLE_MESSAGE` is in the page's own data and could reach the document, so it is the
+strongest available form of the Ruling [127] guarantee. It is paired with an assertion that the row
+still says, in plain words, that the record **holds** that wording — the two together are the claim:
+the library says what the governance record contains and never shows it. Re-running **M11** (the row
+printing `messageTextByType[type]` in place of the plain-words name) now takes that assertion down
+too:
+
+```
+  FAIL  |jsdom| tests/caring-contacts-templates-page.dom.test.tsx > … a seeded version's approvals are qualified > renders the demo population's governed version with the provenance its record carries
+  AssertionError: expected 'Governed pathway versionsOne row for …' not to contain 'Hi Rowan, Alex from Example Aftercare…'
+```
+
+**`docs/site-map.md`.** `/caring-contacts/templates` had the generator's "Route discovered from app
+directory" placeholder. `scripts/generate-site-map.ts` gained a `routeDescriptions` entry and the
+map was regenerated; the row now reads like its four siblings.
+
+## Carried forward
+
+The rider on Ruling [46] is worth keeping where the next person will find it, so it is recorded
+here as well as in the coordinator's note: **if screen attribution is ever wanted on the access
+trail, it needs a `surface`/`context` dimension, not a second `objectType`.** The enum is
+single-valued and the query surface has no `objectId` filter, so every member added to it subtracts
+from the answerability of the members already there.
+
+## Verification after this round
+
+Re-run after the final edit, not merely last in order. Worktree clean at the time of the run.
+
+```
+WORKTREE-CLEAN
+ Test Files  22 passed (22)
+      Tests  457 passed (457)
+TSC-EXIT=0
+ESLINT-EXIT=0
+```
+
+Lint was uncached (`node_modules/.cache/eslint` removed first) and covered
+`tests/ui-caring-contacts-workspace.spec.ts` and `scripts/generate-site-map.ts` alongside the
+earlier paths. The sensitivity controls C1 and C2b from the first round establish that a clean
+`tsc` and a clean `eslint` on these files are not silence.
+
+**Lock refusals this round:** M19 was refused once and retried. No row above is unrun.
+
+**What is still not verified:** the browser block itself. Everything else in this task is offline
+evidence, and I have still never seen the screen render.
