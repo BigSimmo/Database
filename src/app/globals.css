@@ -2350,29 +2350,46 @@ summary::-webkit-details-marker {
     box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
-  /* The patient verdict owns the card edge, including on the selected row.
+  /* The patient verdict owns the card edge and surface, including on the selected row.
      These must sit AFTER the [data-selected] rule above: that rule is unlayered
-     and pins border-color, so a Tailwind border utility loses to it and the top
-     hit — the one most likely to be prescribed — would render its interaction
-     warning with a neutral edge. Equal specificity, later in source, wins. */
+     and pins the border, background, and blue selection rail. A Tailwind utility
+     loses to it and the top hit — the one most likely to be prescribed — would
+     otherwise render patient danger with an ambiguous blue highlight. Equal
+     specificity, later in source, wins. */
   .medication-mobile-result[data-verdict="danger"] {
     border-color: var(--danger-border);
+    background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--danger-text);
   }
 
   .medication-mobile-result[data-verdict="warning"] {
     border-color: var(--warning-border);
+    background: color-mix(in srgb, var(--warning-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--warning-text);
   }
 
   .medication-mobile-result[data-verdict="success"] {
     border-color: var(--success-border);
+    background: color-mix(in srgb, var(--success-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--success-text);
+  }
+
+  .medication-mobile-result[data-verdict="neutral"] {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--text-muted);
   }
 
   .medication-mobile-result[data-verdict="clinical"] {
     border-color: color-mix(in srgb, var(--clinical-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--clinical-accent-soft) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
   .medication-mobile-result[data-verdict="info"] {
     border-color: var(--info-border);
+    background: color-mix(in srgb, var(--info-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--info-text);
   }
 
   .medication-mobile-result:focus-visible {
