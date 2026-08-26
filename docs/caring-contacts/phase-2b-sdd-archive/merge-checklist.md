@@ -152,3 +152,28 @@ screens — it would delete the empty-caseload observations other tests depend o
   argued the read is byte-identical to one that already exists, so a new member would name a **screen**
   rather than an object and split one askable trail question in two. Under review; my prior is that it is
   right and the brief over-applied the ruling.
+
+## 2d. The DOM mirror is closer to the route, and still a mirror
+
+Task 14's round 4 put the request body behind **one schema imported by both sides** —
+`src/lib/caring-contacts-contact-move-request.ts`, used by the real route and by the DOM mirror the tests
+drive. That closes the half that was drifting silently: body shape, and the success envelope, are now pinned
+on the real handler.
+
+**What is still NOT pinned, and the implementer named it rather than quietly closing it:** status codes, cache
+headers, the demo-mode lock, the denial audit event, and the 413. A mirror that answers `200` where the route
+answers `403` is a test passing on a screen a clinician would never see.
+
+**Ruling: this is a contract change, not a Task 14 edit.** Closing the envelope half properly means a shared
+response type, which touches every route in the workspace, not the one Task 14 owns. Recorded here so the
+merge knows the mirror's exact remaining reach — and so nobody later reads "one schema, both sides" as
+meaning the whole response is pinned. It is the request that is.
+
+## 7. The trunk has drifted again
+
+The catch-up merge left the trunk **0 behind `origin/main`**. It is now **13 behind** — `main` moved while
+the four branches were building. Nothing is broken by this and nothing is pushed, but the merge point owes a
+second catch-up merge, and the first one cost 26 conflicts across 31 commits. **Do the catch-up merge into
+the trunk BEFORE merging the four feature branches**, not after: resolving trunk-versus-main conflicts is
+cheaper when the trunk does not also carry four branches' worth of new files, and the first catch-up
+audit found the merge actually **repaired** a live trunk defect, so it is not a formality.
