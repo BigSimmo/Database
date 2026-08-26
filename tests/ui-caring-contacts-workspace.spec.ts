@@ -5,6 +5,7 @@ import {
   type WorkspaceOverlayDefinition,
 } from "../src/components/caring-contacts/workspace/overlays/definitions";
 import { WORKSPACE_WIDTH_BREAKPOINTS, widthStateFor } from "../src/components/caring-contacts/workspace/width-state";
+import { EXACT_PATIENT_VISIBLE_MESSAGE } from "../src/lib/caring-contacts/message-copy";
 
 /**
  * The production Caring Contacts workspace shell, proved in a browser.
@@ -147,6 +148,7 @@ const TODAY_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[0];
 const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
 const NEW_PLAN_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[3];
+const TEMPLATES_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[4];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -730,6 +732,175 @@ test.describe("caring-contacts new plan", () => {
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: NEW_PLAN_SCREEN.heading })).toBeVisible();
     await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+});
+
+/**
+ * The templates library (`/caring-contacts/templates`), Phase 2B Task 15.
+ *
+ * WHAT THIS SERVER CAN REACH, AND WHY THAT IS THE RIGHT THING TO PROVE. `demoSeedRequested()`
+ * excludes the isolated Playwright server unless `CARING_CONTACTS_DEMO_SEED=on`, so the store holds
+ * no pathway version and this screen renders its `no-data` empty state. That is a real production
+ * state rather than a thin one: it is the branch that must never present as a missing resource, it
+ * is what a team sees before anyone has authored a version, and it renders this screen's OWN
+ * surface rather than shell chrome. The populated paths -- the rows, the lifecycle groups, the
+ * approvals and their provenance qualification, and the other three empty facts -- are proved
+ * against real records in `tests/caring-contacts-templates-library.dom.test.tsx` and
+ * `tests/caring-contacts-templates-page.dom.test.tsx`, because nothing in this browser can write a
+ * pathway version: `api/caring-contacts/pathway-versions` has no create surface, deliberately.
+ *
+ * DO NOT TURN THE SEED ON TO GET A POPULATED SCREEN HERE. `emptyStateColours` THROWS when the empty
+ * state is absent, so seeding this server would fail the dark-mode test below rather than merely
+ * changing what it samples -- and it would delete the empty-state observations this block exists
+ * for instead of adding anything.
+ *
+ * REACHABILITY IS PROVED AT 1024 AND NOT ON A PHONE, and that is a gap rather than a choice. The
+ * rail is `hidden` below 768px, the phone dock carries Today/Patients/Schedule/More, and the More
+ * panel holds only destinations that have no page -- so below 768px there is no inbound link to
+ * this route anywhere in the workspace. `tests/route-reachability.test.ts` passes and is right to:
+ * it reads the shell's destination table, which is a fact about what is linked, not about at what
+ * width. Recorded in the Task 15 report; a phone-reachability test is deliberately NOT written
+ * here, because writing one against the current dock would pin the gap in place.
+ */
+test.describe("caring-contacts templates library", () => {
+  const EMPTY = "No governed versions yet";
+
+  test("serves an empty library as a page, and shows no message wording", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(TEMPLATES_SCREEN.route, { waitUntil: "load" });
+
+    // The status line is kept for the refusals made before the stream opens -- the production demo
+    // lock, or the route failing to resolve -- and is deliberately NOT the load-bearing assertion.
+    // This route is dynamic and streams under `loading.tsx`'s Suspense boundary, so a `notFound()`
+    // reached during the render arrives as CONTENT after the headers are flushed. The patients
+    // block above records that measurement in full; it applies here unchanged.
+    expect(response?.status(), "the templates route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATES_SCREEN.heading })).toBeVisible();
+
+    // The empty state states WHICH of the four facts it is, in words.
+    const empty = page.getByRole("group", { name: EMPTY });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("not a draft, not a retired one, nothing");
+
+    // Ruling [127], observed end to end rather than inferred from a render. This is the only place
+    // the whole stack runs in one process, so it is the strongest available form of the guarantee:
+    // no patient-visible wording reaches this screen, and the specimen is the string that would.
+    await expect(page.locator("body")).not.toContainText(EXACT_PATIENT_VISIBLE_MESSAGE);
+
+    // The filter is a set of links, and an empty library still offers them, so a clinician can see
+    // that the list is unfiltered rather than having to infer it.
+    const filters = page.getByRole("navigation", { name: "Filter by lifecycle state" });
+    await expect(filters.getByRole("link", { name: "All" })).toHaveAttribute("aria-current", "true");
+    for (const label of ["Current", "Pending", "Retired"]) {
+      await expect(filters.getByRole("link", { name: label })).toBeVisible();
+    }
+  });
+
+  test("is reachable from the workspace rail, not only by typing its URL", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Templates" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATES_SCREEN.heading })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(TEMPLATES_SCREEN.route);
+  });
+
+  test("does not blame a filter for a library that holds nothing", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+
+    await page
+      .getByRole("navigation", { name: "Filter by lifecycle state" })
+      .getByRole("link", { name: "Retired" })
+      .click();
+
+    // With nothing held at all, a filter cannot be what is hiding the list, and the screen must not
+    // say it is. The four empty facts are held apart offline; this is the one this server reaches,
+    // and it is the one a mistyped or bookmarked URL lands on.
+    await expect(page).toHaveURL(/lifecycle=retired$/);
+    await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
+    await expect(page.getByRole("group", { name: "No version in this state" })).toHaveCount(0);
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+    await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
+
+    // The filter chips are production tap targets at the width where a thumb is the only pointer.
+    // A chip narrowed to the generic 44px guidance fails here, which is the point.
+    const chip = page
+      .getByRole("navigation", { name: "Filter by lifecycle state" })
+      .getByRole("link", { name: "Retired" });
+    await expect(chip).toBeVisible();
+    const box = await chip.boundingBox();
+    expect(box?.height ?? 0, "a lifecycle filter chip is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+    await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
+    const light = await shellColours(page);
+    const lightEmpty = await emptyStateColours(page, EMPTY);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+    await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
+    const dark = await shellColours(page);
+    const darkEmpty = await emptyStateColours(page, EMPTY);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the category
+    // on a screen it had not inspected. These read this screen's own surface.
+    expect(darkEmpty.surface, "the empty state's surface did not change in dark").not.toBe(lightEmpty.surface);
+    expect(darkEmpty.border, "the empty state's border did not change in dark").not.toBe(lightEmpty.border);
+    expect(darkEmpty.ink, "the empty state's ink did not change in dark").not.toBe(lightEmpty.ink);
+    for (const value of Object.values(darkEmpty)) {
+      expect(value, "a dark colour on the empty state resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
+  test("states the empty library in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const empty = page.getByRole("group", { name: EMPTY });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("not a draft, not a retired one, nothing");
+
+    // The offline check reads `forced-colors:border-[CanvasText]` out of a class list, which says
+    // nothing about what paints. This is the half that does.
+    const border = await page.evaluate((label) => {
+      const group = document.querySelector("[role='group'][aria-label='" + label + "']");
+      if (!group) throw new Error("the empty state is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    }, EMPTY);
+    expect(Number.parseFloat(border.width), "the empty state has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the empty state border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and its empty state still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEMPLATES_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: TEMPLATES_SCREEN.heading })).toBeVisible();
+    // A printed governance library that has lost the statement of WHY it is empty reads as a team
+    // holding no governed pathway, with no reason given.
+    await expect(page.getByRole("group", { name: EMPTY })).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
   });
 });

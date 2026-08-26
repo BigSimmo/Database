@@ -198,6 +198,13 @@ describe("the templates library shows the governance record and no message wordi
       version("SYN-PATHWAY-001", "approved", { heldMessageTypes: ["first", "standard", "closing"] }),
     ]);
 
+    // THE POSITIVE CONTROL. The assertion below is an absence, and an empty render satisfies an
+    // absence perfectly -- a filter that hid the row, a fixture that built no version, a component
+    // that returned null would all pass it while examining nothing. So the row and the sentence
+    // that stands where the wording would go are required to be here first.
+    expect(container.querySelectorAll("li").length, "no version row rendered — the absence proves nothing").toBe(1);
+    expect(container.textContent).toContain("Wording is held for");
+
     expect(container.textContent).not.toContain(MESSAGE_TEXT_MARKER);
   });
 
@@ -410,31 +417,52 @@ describe("the templates library navigates and sizes the way this workspace requi
    * evaluated. They catch the two regressions that are mechanically visible in the markup -- a
    * bordered surface that would vanish in forced-colors, and a fixed pixel width that would push a
    * 320px viewport into a horizontal scroll -- and they prove nothing about how any of it paints.
-   * The browser half is owed against `/caring-contacts/templates` in
-   * `tests/ui-caring-contacts-workspace.spec.ts`, which has no proof block for this route yet.
+   * The browser half is the `caring-contacts templates library` block in
+   * `tests/ui-caring-contacts-workspace.spec.ts`.
+   *
+   * ONE SCENARIO LIST FOR BOTH, and that is the point rather than tidiness. Each check reads the
+   * class list of whatever happens to be rendered, so what it examines is decided entirely by the
+   * fixture -- and a fixture that renders none of the surface under test passes while examining
+   * nothing. Every scenario therefore carries its OWN positive control naming the surface it exists
+   * to put on screen, and both checks walk all of them.
    */
-  it("gives every bordered surface a forced-colors fallback, so none of them vanishes", () => {
-    // TWO SCENARIOS, AND THE SECOND VACUITY GUARD, BOTH BOUGHT BY A MUTATION. The first version of
-    // this check rendered ONE library — a retired version under a Pending filter — which is an
-    // empty list, so no row was in the document at all. Stripping the fallback from the row then
-    // left the check green: `bordered.length > 0` was satisfied by the chips and the empty state,
-    // and the surface the mutation attacked was never examined. A "there is something here" guard
-    // does not establish that the RIGHT something is here.
-    const scenarios: readonly { name: string; open: () => ReturnType<typeof renderLibrary> }[] = [
-      { name: "a version row", open: () => renderLibrary([version("SYN-PATHWAY-CURRENT", "approved")]) },
-      {
-        name: "an empty state and the all-retired notice",
-        open: () => renderLibrary([version("SYN-PATHWAY-RETIRED", "retired")], { lifecycle: "pending" }),
+  const surfaceScenarios: readonly {
+    name: string;
+    open: () => ReturnType<typeof renderLibrary>;
+    /** What this fixture exists to render. Fails loudly rather than letting the check go vacuous. */
+    present: (container: HTMLElement) => void;
+  }[] = [
+    {
+      name: "a version row",
+      open: () => renderLibrary([version("SYN-PATHWAY-CURRENT", "approved")]),
+      present: (container) => {
+        expect(container.querySelectorAll("li").length, "no version row rendered").toBeGreaterThan(0);
       },
-    ];
+    },
+    {
+      name: "an empty state and the all-retired notice",
+      open: () => renderLibrary([version("SYN-PATHWAY-RETIRED", "retired")], { lifecycle: "pending" }),
+      present: (container) => {
+        expect(within(container).getAllByRole("group").length, "no empty state rendered").toBeGreaterThan(0);
+        expect(
+          within(container).getByRole("note", { name: "No version is available for a new plan" }),
+        ).toBeInTheDocument();
+      },
+    },
+  ];
 
-    for (const { name, open } of scenarios) {
+  it("gives every bordered surface a forced-colors fallback, so none of them vanishes", () => {
+    // THE VACUITY GUARDS ABOVE WERE BOUGHT BY TWO MUTATIONS, ONE OF THEM AT REVIEW. The first
+    // version of this check rendered a single library -- a retired version under a Pending filter,
+    // which is an empty list -- so no row was in the document at all, and stripping the fallback
+    // from the row left the check green: `bordered.length > 0` was satisfied by the filter chips
+    // alone. Adding a row scenario fixed that case and left the SAME hole in the second one, where
+    // the chips again satisfy the count while the notice this fixture exists for may not be there.
+    // A "there is something here" guard never establishes that the right something is here.
+    for (const { name, open, present } of surfaceScenarios) {
       const { container, unmount } = open();
-      if (name === "a version row") {
-        expect(container.querySelectorAll("li").length, "no row rendered — the check would be vacuous").toBeGreaterThan(
-          0,
-        );
-      }
+      present(container);
+
       const bordered = [...container.querySelectorAll("[class*='border-[color:var(--border)]']")];
       expect(bordered.length, `${name} draws no border — the check would be vacuous`).toBeGreaterThan(0);
       for (const element of bordered) {
@@ -451,13 +479,20 @@ describe("the templates library navigates and sizes the way this workspace requi
   });
 
   it("sets no fixed pixel width anywhere, so 320px has nothing to overflow", () => {
-    const { container } = renderLibrary([version("SYN-PATHWAY-CURRENT", "approved")]);
-    const classed = [...container.querySelectorAll("[class]")];
-    expect(classed.length, "nothing on this screen carries a class — the check would be vacuous").toBeGreaterThan(0);
-    for (const element of classed) {
-      expect(element.getAttribute("class") ?? "", `${element.tagName} carries a fixed width`).not.toMatch(
-        /\b(min-)?w-\[[0-9]/,
-      );
+    // Walks the same scenarios for the same reason: rendering only a version row would leave a
+    // fixed width added to the empty state or to the all-retired notice outside what this reads.
+    for (const { name, open, present } of surfaceScenarios) {
+      const { container, unmount } = open();
+      present(container);
+
+      const classed = [...container.querySelectorAll("[class]")];
+      expect(classed.length, `${name} carries no class — the check would be vacuous`).toBeGreaterThan(0);
+      for (const element of classed) {
+        expect(element.getAttribute("class") ?? "", `${name}: ${element.tagName} carries a fixed width`).not.toMatch(
+          /\b(min-)?w-\[[0-9]/,
+        );
+      }
+      unmount();
     }
   });
 });

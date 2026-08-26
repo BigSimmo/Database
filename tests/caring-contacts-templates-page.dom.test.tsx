@@ -50,6 +50,7 @@ import { createDemoWorkspaceStore } from "@/lib/caring-contacts-server/demo-seed
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
+import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import { PATHWAY_VERSION_PROVENANCE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
@@ -151,8 +152,20 @@ describe("the /caring-contacts/templates page - reads", () => {
     const { store } = emptyStoreWithSpy();
     const getEpisode = vi.spyOn(store, "getEpisode");
     const listPatientNames = vi.spyOn(store, "listPatientNames");
+    // THE POSITIVE CONTROL, and on this assertion above all others. Everything below is an
+    // absence, and an absence is satisfied just as well by a page that never reached this store at
+    // all -- a changed mock path, a store swapped out from under the spies, a render that threw
+    // early. This is the privacy claim this screen makes, so it has to carry its own proof that the
+    // spied store is the one the page used.
+    const listPathwayVersions = vi.spyOn(store, "listPathwayVersions");
 
     await renderPage();
+
+    expect(
+      listPathwayVersions,
+      "the page did not read the spied store — the absences below prove nothing",
+    ).toHaveBeenCalled();
+    expect(screen.getByRole("group", { name: /no governed versions yet/i })).toBeInTheDocument();
 
     expect(getEpisode).not.toHaveBeenCalled();
     expect(listPatientNames).not.toHaveBeenCalled();
@@ -239,6 +252,16 @@ describe("the /caring-contacts/templates page - a seeded version's approvals are
     );
     expect(rows[0].textContent).toContain("the clinical programme lead");
     expect(rows[0].textContent).toContain("the lived-experience representative");
+
+    // RULING [127], IN THE ONE PLACE THE SPECIMEN IS ACTUALLY WITHIN REACH. Every other test in
+    // this programme asserts the absence of message wording against a fixture that never held any.
+    // The seed writes `EXACT_PATIENT_VISIBLE_MESSAGE` into `snapshot.messageTextByType.standard`,
+    // so this render is the only one where the real string is in the page's own data and could
+    // reach the document -- which makes this the strongest available form of the guarantee.
+    expect(document.body.textContent ?? "").not.toContain(EXACT_PATIENT_VISIBLE_MESSAGE);
+    // And the record still states, in plain words, that it HOLDS that wording. The two together are
+    // the claim: the library says what the governance record contains and never shows it.
+    expect(rows[0].textContent).toContain("Wording is held for the standard message.");
   });
 });
 
