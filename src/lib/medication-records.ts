@@ -22,21 +22,44 @@ export function medicationValidationStatus(value: string | null | undefined): Me
   return validationStatuses.find((status) => status === value) ?? "unverified";
 }
 
-export function deriveGovernanceFromSections(record: MedicationRecord): {
+const REVIEW_INTERVAL_DAYS = 365;
+
+export function parseSourceDate(text: string): Date | null {
+  if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(text)) {
+    return null;
+  }
+  const match = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
+  if (!match) return null;
+  const parsed = new Date(`${match[0]}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+export function evaluateSourceStatus(
+  checkedDate: Date | null,
+  referenceDate: Date = new Date(),
+  reviewIntervalDays: number = REVIEW_INTERVAL_DAYS,
+): MedicationSourceStatus {
+  if (!checkedDate) return "unknown";
+  const diffMs = referenceDate.getTime() - checkedDate.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays <= reviewIntervalDays) {
+    return "current";
+  }
+  return "review_due";
+}
+
+export function deriveGovernanceFromSections(
+  record: MedicationRecord,
+  referenceDate: Date = new Date(),
+): {
   source_status: MedicationSourceStatus;
   validation_status: MedicationValidationStatus;
 } {
   const sourceSection = record.sections.find((section) => section.type === "src");
-  const sourceText =
-    sourceSection?.rows
-      .map((row) => row.val)
-      .join(" ")
-      .toLowerCase() ?? "";
-  const sourceStatus: MedicationSourceStatus = sourceText.includes("checked")
-    ? "current"
-    : sourceText.includes("review")
-      ? "review_due"
-      : "unknown";
+  const sourceText = sourceSection?.rows.map((row) => row.val).join(" ") ?? "";
+  const parsedDate = parseSourceDate(sourceText);
+  const sourceStatus: MedicationSourceStatus = evaluateSourceStatus(parsedDate, referenceDate);
   return {
     source_status: sourceStatus,
     // Derived records carry no evidence of clinical review, so they must not claim it.

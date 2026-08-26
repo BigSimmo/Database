@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import formsActSectionCues from "../data/forms-act-section-cues.json";
+import formsPdfManifest from "../data/forms-pdf-manifest.json";
 
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
@@ -156,6 +157,12 @@ describe("psychiatry form records", () => {
   });
 
   it("ships a stored PDF for every downloadable form", () => {
+    const manifestMap = new Map(
+      (formsPdfManifest as { assets: Array<{ code: string; passwordProtected: boolean }> }).assets.map((asset) => [
+        asset.code.toUpperCase(),
+        asset.passwordProtected,
+      ]),
+    );
     const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
     for (const details of downloadable) {
       expect(details?.localPdfPath, details?.form).toBeTruthy();
@@ -167,8 +174,12 @@ describe("psychiatry form records", () => {
         details?.localPdfSha256,
       );
       expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
-      expect(details?.officialPdfPasswordProtected, details?.form).toBe(true);
+      expect(details?.officialPdfPasswordProtected, details?.form).toBe(manifestMap.get(details!.form.toUpperCase()));
     }
+
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    expect(formCatalogDetails(form12a!)?.officialPdfPasswordProtected).toBe(false);
   });
 
   it("retains the enriched form payload in database seed rows", () => {

@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 139,
+    "pending": 140,
     "resolved": 376
   },
   "queue": [
@@ -1258,6 +1258,12 @@
       "action": "cancel",
       "summary": "Cancel request d627018c-e5ce-44c9-a9cc-5d798f807c93: Correction: the queued repair must identify or establish the canonical manifest generation path before changing a data manifest; direct manifest editing is not an approved implementation path.",
       "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "979e82f8-1129-4ab5-87e2-cbce7fdd5ae6",
+      "action": "done",
+      "summary": "#778Q0H: Confirmed static RSC boundary violation scanner covers all server components.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "9da200a8-0ae0-451b-bef8-d1636b9e3cff",

@@ -7,7 +7,7 @@ import {
   medicationRowBadges,
   medicationStatTone,
 } from "@/lib/medication-badges";
-import { deriveGovernanceFromSections } from "@/lib/medication-records";
+import { deriveGovernanceFromSections, evaluateSourceStatus, parseSourceDate } from "@/lib/medication-records";
 import type { MedicationRecord } from "@/lib/medications";
 
 describe("medication badge mappers", () => {
@@ -156,5 +156,49 @@ describe("controlled-drug (S8) schedule badge", () => {
     const scheduleBadge = badges.find((badge) => badge.label === "S4");
     expect(scheduleBadge?.tone).toBe("info");
     expect(scheduleBadge?.iconKey).toBeUndefined();
+  });
+});
+
+describe("medication governance date evaluation", () => {
+  it("parses valid ISO dates and rejects negative phrases", () => {
+    expect(parseSourceDate("checked 2026-06-30 for this entry")).toEqual(new Date("2026-06-30T00:00:00.000Z"));
+    expect(parseSourceDate("not checked 2026-06-30")).toBeNull();
+    expect(parseSourceDate("unchecked entry")).toBeNull();
+    expect(parseSourceDate("no date in this string")).toBeNull();
+  });
+
+  it("evaluates governance status based on review interval", () => {
+    const refDate = new Date("2026-08-26T00:00:00.000Z");
+    const freshDate = new Date("2026-06-30T00:00:00.000Z");
+    const expiredDate = new Date("2024-01-01T00:00:00.000Z");
+
+    expect(evaluateSourceStatus(freshDate, refDate, 365)).toBe("current");
+    expect(evaluateSourceStatus(expiredDate, refDate, 365)).toBe("review_due");
+    expect(evaluateSourceStatus(null, refDate, 365)).toBe("unknown");
+  });
+
+  it("derives review_due when the source date is older than the review interval", () => {
+    const refDate = new Date("2028-01-01T00:00:00.000Z");
+    const record: MedicationRecord = {
+      slug: "test-med",
+      name: "Test Med",
+      class: "",
+      subclass: "",
+      category: "",
+      accent: "#0f766e",
+      tag: "",
+      schedule: "",
+      stats: [],
+      sections: [
+        {
+          title: "Sources",
+          type: "src",
+          rows: [{ key: "Source Review", val: "checked 2026-06-30" }],
+        },
+      ],
+      quick: [],
+    };
+    const governance = deriveGovernanceFromSections(record, refDate);
+    expect(governance.source_status).toBe("review_due");
   });
 });
