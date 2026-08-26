@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "8b4b45b575e9fdc08813a3856d16df20700bd26a",
-    "committed_at": "2026-08-26T12:06:45+08:00"
+    "sha": "82721bc5c2ade304cc9041517755d89fc3f72883",
+    "committed_at": "2026-08-26T13:10:31+08:00"
   },
   "routes": {
     "modes": [
@@ -1678,12 +1678,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/accessibility-acceptance.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
         "section": "care-plan",
         "catalogued": false
       },
       {
         "path": "docs/care-plan/CLAUDE-START-HERE.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/clinical-language-trace.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -1698,6 +1708,111 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/HANDOFF-START-HERE.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/implementation-handoff.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/interaction-matrix.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/final-fix-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-10-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-11-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-3-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-3-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-4-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-4-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-5-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-5-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-6-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-6-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-7-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-7-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-8-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-8-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-9-brief.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-9-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/reports/task-d1-report.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/sdd-ledger.md",
         "section": "care-plan",
         "catalogued": false
@@ -1708,7 +1823,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/care-plan/session-handoff-2026-08-23.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/verification-log-2026-08-21.md",
+        "section": "care-plan",
+        "catalogued": false
+      },
+      {
+        "path": "docs/care-plan/verification-report.md",
         "section": "care-plan",
         "catalogued": false
       },
@@ -3650,9 +3775,9 @@
       }
     ],
     "counts": {
-      "documents": 441,
+      "documents": 466,
       "catalogued": 102,
-      "uncatalogued": 339,
+      "uncatalogued": 364,
       "sections": 18
     }
   },
