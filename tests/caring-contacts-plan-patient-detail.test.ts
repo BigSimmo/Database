@@ -26,10 +26,7 @@ import {
   parsePatientIdentifiers,
   personalisationIssues,
 } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
-import {
-  PREFERRED_NAME_MAX_SEPTETS,
-  resolvePatientVisibleMessage,
-} from "@/lib/caring-contacts/message-copy";
+import { PREFERRED_NAME_MAX_SEPTETS, resolvePatientVisibleMessage } from "@/lib/caring-contacts/message-copy";
 import {
   DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS,
   FICTIONAL_CONTACTS_BY_ROLE,

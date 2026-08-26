@@ -81,8 +81,7 @@ export type PatientVisibleMessageIssue =
   | { code: "preferred-name-not-sendable"; unsupportedCharacters: string[] };
 
 export type PatientVisibleMessageResolution =
-  | { ok: true; text: string }
-  | { ok: false; issue: PatientVisibleMessageIssue };
+  { ok: true; text: string } | { ok: false; issue: PatientVisibleMessageIssue };
 
 /**
  * The message this plan would send, or a named refusal saying why there is none.

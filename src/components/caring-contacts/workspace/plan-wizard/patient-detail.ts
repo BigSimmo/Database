@@ -73,11 +73,7 @@ export const EMPTY_PLAN_PATIENT_DETAIL: PlanPatientDetailDraft = Object.freeze({
 });
 
 /** The fields stage 3 can refuse to proceed without. Cultural identity is deliberately not one. */
-export type PersonalisationField =
-  | "patientName"
-  | "preferredName"
-  | "patientMobileNumber"
-  | "sendingPreference";
+export type PersonalisationField = "patientName" | "preferredName" | "patientMobileNumber" | "sendingPreference";
 
 export type PersonalisationIssue = {
   code:
