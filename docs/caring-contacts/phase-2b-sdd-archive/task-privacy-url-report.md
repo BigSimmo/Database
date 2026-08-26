@@ -106,6 +106,11 @@ Lint was run with `node_modules/.cache/eslint` removed and via `npx eslint` (no 
 is printed explicitly because a silent ESLint pass is indistinguishable from a run that examined
 nothing.
 
+**All three were re-run on the final tree**, after the last edit in this task (this report), and the
+lines above are from that re-run. `typecheck` refused once during it with
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY` (owner worktree `D:\Worktrees\Database\cc-plan-detail`) — a
+refusal, not a failure — and was retried until it ran. No lease was broken at any point in this task.
+
 ### Mutation ledger
 
 Every attempt itemised, greens included. Each row predicted its failure message before the run and
