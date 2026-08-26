@@ -1,0 +1,132 @@
+# Merge checklist — the controller's own work, owed at the merge point
+
+Four branches merge into the trunk `claude/browser-test-gate-handoff-d5c1db`. The trunk is now **0 behind
+`origin/main`** after the catch-up merge, and none of the four is pushed.
+
+## 1. ~~The navigation change~~ — REASSIGNED to Task 19, on the seed/templates branch
+
+**No longer mine.** Task 19 (Guidance and Reports) needs the More panel to carry real links, which is the
+same capability Templates needs to be reachable below 768px — and Task 19 is going on
+`claude/caring-contacts-demo-seed`, the branch that already lit the Templates `href`. Same file, same
+branch, one change, no cross-branch conflict. Its brief now carries the whole scope including the
+viewport test. Left below for the reasoning, which still stands.
+
+### Original note
+
+Two separate findings turn out to be the same missing capability:
+
+- **Task 15 found Templates is unreachable below 768px.** The rail is `hidden` on phones,
+  `PHONE_DESTINATIONS` filters Templates out (`shell.tsx`: `PRIMARY_DESTINATIONS.filter(d => d.id !==
+"templates")` — I read this myself), and `MORE_DESTINATIONS` entries are `{ id, label, reason }` with
+  **no `href` field at all**. So a shipped production route has no phone-reachable inbound link.
+- **Task 19 (Guidance and Reports) needs exactly that `href` field**, because both live in the More panel.
+
+**Do it once:** give `MORE_DESTINATIONS` optional `href` support, keeping every entry that has no page
+working unchanged, and route Templates through the More panel rather than displacing something from the
+four-item phone bar. Ruling 89 still binds — a destination is lit only when its page exists.
+
+**The repo-level finding underneath it, worth an `/issues` capture:** `tests/route-reachability.test.ts`
+reads the destination **table**, not the viewport, so it passes while a route is unreachable on phones. If
+that blindness is confirmed, the orphan-route gate has a hole the whole team relies on it not having.
+
+## 2. The `test:cc-guards` union
+
+Compute it **at merge time**; do not carry a number. Verified by dry-run that `package.json` does **not**
+conflict — the four branches' additions sit at different positions in the one line — but read the merged
+file and count its paths rather than trusting the absence of a conflict marker.
+
+**Suites to ADD to the gate. This has now bitten twice and is not optional:**
+
+- `tests/caring-contacts-overlay-trigger.dom.test.tsx` — its absence caused Task 10 to declare a
+  distinction **unprovable offline** that this very suite already proves. A gate that omits a suite does
+  not merely skip coverage, **it hides the precedent.**
+- `tests/caring-contacts-overlay-host.dom.test.tsx` — both suites exercise
+  `openWorkspaceOverlay`/`closeWorkspaceOverlay`, which the privacy work **changed**, so the function's
+  existing behavioural suites ran in **neither** the narrowed mutation runs nor the "full" gate.
+- `tests/caring-contacts-demo-seed.test.ts` and `tests/caring-contacts-pathway-versions.test.ts` are
+  already added on the seed branch.
+
+## 2c. Optional hardening — scoped and costed, and it must NOT displace build work
+
+**The arrival-address gap on the three non-Patients workspace routes.** `overlayUrl()` runs in the browser,
+so a name already in an address sits in that request's server log until the first overlay interaction
+rewrites it. The Patients page's `redirect()`-before-any-read property is not matched there.
+
+Two facts established by review, both of which change its shape:
+
+- **It is cheap to verify, not expensive.** `src/proxy.ts` is the one matching place, and it owns the CSP
+  nonce and Supabase session refresh application-wide — but **three dedicated offline suites already cover
+  exactly those two concerns**: `tests/proxy.test.ts` (which really does contain both `nonce` and
+  `strict-dynamic`), `tests/proxy-auth.test.ts`, and `tests/proxy-session-refresh.test.ts`. **None is named
+  in any `package.json` script**, so the cost is **one narrow extra suite selection**, not writing coverage
+  from scratch.
+
+  _(The set is named rather than counted deliberately. An earlier draft of this line carried per-file case
+  counts relayed from a review; one was wrong — `proxy-session-refresh.test.ts` has 5 `it` blocks, one an
+  `it.each` over 6 paths, so no single number describes it. The implementer caught it and declined to plant
+  a fresh count while correcting another. That is the rule working.)_
+
+- **It has no known producer.** Every producer was traced: no in-app path has ever written a query
+  parameter to those three routes except `plan` and `referral`, both synthetic ids from named builders. The
+  only historical producer of a _name_ was the caseload GET form, which posted to `/caring-contacts/patients`
+  **only**, and `overlayUrl` preserves the pathname — so the copy could never carry it across routes.
+  **Reaching the gap requires a hand-typed or externally supplied URL.**
+
+**Ruling: record, do not build now.** Defence-in-depth against something nothing can currently trigger,
+while four build tasks, the merge and the owed gates come first. It is well-scoped enough for one later
+sitting. The same reasoning covers the surviving `#<name>` fragment, which is narrower still — history
+only, never sent to a server, and nothing in the workspace writes one.
+
+## 2b. A file two branches both edited — the one conflict that is not trivial
+
+`src/components/caring-contacts/workspace/patient-overview.tsx` is edited on **both**
+`cc-plan-detail` (Task 10 built the plan and contact detail into it) and `cc-schedule` (Task 13 moved two
+label maps out of it into a new `contact-vocabulary.ts`, claiming **no rendered text changed**).
+
+That claim is under review and **must be verified literally before the merge**, because a refactor that
+moves shared vocabulary out of a file another branch is simultaneously rewriting is exactly where a
+rendered string changes by accident and nothing notices. Resolve Task 10's additions on top of Task 13's
+extraction, not the other way round, and re-read the resulting file's rendered strings.
+
+## 3. The one real conflict
+
+`STANDING-DISCIPLINE.md`, add/add, because two branches created it independently. **The trunk's
+consolidated version is the resolution** — it already carries every rule this session bought.
+
+## 4. Rulings not yet in the build record
+
+`docs/…/phase-2b-build-record.md` is trunk-owned and was blocked by a live implementer. Land
+`scratchpad/rulings-129-130.md` — **note both were rewritten after review falsified their first versions**,
+and the rewrite is the version to land.
+
+## 5. Gates owed, and only the controller may run them
+
+Implementers run `test:cc-guards` only, by policy, because concurrent worktrees starved the exclusive heavy
+lease and one task's ledger came back ten of twelve unrun. **Still owed, once all four worktrees are idle:**
+
+- the full `npm run test`
+- **`npm run build`, and this one is not optional.** The privacy fix split the patients directory into a
+  server wrapper plus a client island, and **this repository has already shipped two Server/Client boundary
+  defects past typecheck AND the full unit suite** — only a build or a live request catches them. The
+  implementer inspected every crossing prop and said so plainly: _inspection, not proof_. Task 13 and
+  Task 15 also added client components. Measure on a cold `.next` (`rm -rf .next` first) or
+  `check:bundle-budget` reads stale output and reports byte-identical numbers.
+- `npm run verify:ui`, and specifically `tests/ui-caring-contacts-workspace.spec.ts` — Task 13 added seven
+  unrun tests to it and Task 15 added a route entry with no proof block
+- `npm run format` across the tree, **committed** — formatting is in none of `test`, `typecheck` or `lint`,
+  and a `prettier --check` already caught two files Task 12 created unformatted
+
+**Browser proof is owed and deliberately unwritten** for Templates and the Schedule screen. Task 15's
+warning must be honoured: **do not switch the demo seed on for the Playwright server** to populate those
+screens — it would delete the empty-caseload observations other tests depend on.
+
+## 6. Where my own briefs were wrong, so the next one is not
+
+- Task 15's brief said "the message-content column is empty and no row exists anywhere". True of Postgres,
+  **false of the demo seed on that very branch**, which writes the approved specimen into
+  `snapshot.messageTextByType.standard`. A screen-level "not yet authored" would have been a false
+  statement about a seeded record.
+- Task 15's brief ordered a new `AccessedObjectType` member on Ruling [46]'s letter. The implementer
+  argued the read is byte-identical to one that already exists, so a new member would name a **screen**
+  rather than an object and split one askable trail question in two. Under review; my prior is that it is
+  right and the brief over-applied the ruling.

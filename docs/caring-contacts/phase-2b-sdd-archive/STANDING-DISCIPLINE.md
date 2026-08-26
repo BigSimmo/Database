@@ -83,6 +83,30 @@ tell whether your situation is the one it is about.
   assertions meet the third trivially, async DOM assertions do not.
 - **Assert `git diff --quiet` clean on both sides of every mutation.** A concurrent writer in the same
   worktree has voided a whole mutation round here, and this is how you find out rather than absorb it.
+- **Check presence by BYTE EQUALITY against a computed post-image — and assert the post-image differs from
+  the original first.** Compute `expected = before.replace(find, replace)`, **assert `expected !== before`**,
+  write it, re-read from disk, and assert `onDisk === expected` byte for byte. Substring heuristics fail
+  structurally: `!after.includes(find)` is false for **every additive mutation**, because a replacement that
+  is a superstring of its anchor still contains it. Occurrence-counting fails the same way.
+
+  **Two guards, two distinct failure modes, and neither substitutes for the other.** An occurrence guard
+  (the anchor appears, exactly once) catches an **absent or ambiguous anchor** and fires first. The
+  `expected !== before` assertion catches a mutation that **matches its anchor and changes nothing anyway** —
+  which no count can see. The controller published this rule once _without_ the second guard, attributing
+  the absent-anchor case to it; an implementer corrected that by building a positive control for each —
+  `CTRL_NOOP` (replacement equals anchor) and `CTRL_ABSENT` (anchor not in the file) — and confirming each
+  threw on its own line. **A check written to fix a check is still a check.**
+
+- **Validate every row your driver consumes against an allowlist of the files THIS task may mutate, before
+  any file I/O — and assert id uniqueness.** A **foreign row from another task's table** reached a driver
+  here as an append edit to its own array, shaped differently, naming a file the branch never touched. With
+  no `find` key it counted occurrences of the literal `"undefined"`, got zero, and took the no-write skip
+  path — logging as a near-miss rather than an error, under a **duplicate id** that made it read as this
+  task's own row failing. **Ledger identity was what got corrupted.** Namespacing a directory cannot stop
+  this and a shape heuristic cannot either: a foreign row carrying the right keys passes and is applied to
+  another task's file. The allowlist must run **before** the read, or a row naming an absent path throws an
+  uncaught ENOENT and kills the pass before any refusal can fire. The escape was narrow — the foreign
+  anchor occurred exactly once in the file it named, so a `find` key would have applied it.
 
 ## Reporting a gate
 
@@ -119,8 +143,32 @@ tell whether your situation is the one it is about.
 
 ## Gates, and the shared machine
 
-- **Run `npm run test:cc-guards` only, including for mutations.** It takes a _focused_ lease and two
-  are permitted concurrently across worktrees, so it does not starve.
+- **Run `npm run test:cc-guards` only** — never the full `npm run test`. It takes a _shared_ lease and two
+  are permitted concurrently across worktrees.
+- **But per MUTATION, run only the suite(s) that mutation targets**, not the whole guard set:
+  `node scripts/run-vitest.mjs run --reporter=dot tests/<the-suite>`. Explicit test paths still qualify for
+  the shared lease, so the run stays coordinated and frees the slot far sooner. The guard set names twenty-
+  plus suites and four-hundred-plus tests, and a mutation round is twenty to thirty of them — re-running
+  everything to prove one assertion in one file is the single largest avoidable cost in this method.
+
+  **This buys speed, never evidence, and the boundary is what keeps it honest:**
+  - **The full `test:cc-guards` still runs once at the end, on the final tree**, with its `N passed` line
+    pasted. That is what catches a mutation reddening something nobody predicted; a narrowed run cannot see
+    collateral damage and must never be reported as though it could.
+  - **Predict and compare the failure message exactly as before.** Narrowing the selection narrows the
+    files, never the evidence owed.
+  - **Where a mutation targets a shared mechanism** — a type every overlay consumes, a helper three routes
+    call — run the wider set. An honest slower row beats a fast wrong one.
+  - **Record which selection each row used**, so a per-suite red is never read as a full-set red.
+
+  Measured 2026-08-26: four implementers plus another project competing for **two** shared slots produced
+  eight consecutive refusals in one round, a typecheck needing four attempts, and one final gate that took
+  **21 attempts over 20 minutes** behind another worktree's Playwright run.
+
+- **Two refusal shapes exist, and a detector that knows only one reports a refusal as a run.**
+  `run-heavy.mjs` prints `DATABASE_HEAVY_RUN_ADMISSION_BUSY`; the lock module **throws**, ending in a Node
+  stack with no marker. A loop matching only the marker reported _"ran on attempt 7"_ with a stack trace as
+  its evidence. Match both — this is the same family as the gate-wrapper traps already in this ledger.
 - **Do not run the full `npm run test`.** The controller runs it once per branch at the merge point,
   when the other worktrees are idle. Its value is catching cross-file breakage, which matters at
   merge rather than per task.
@@ -213,10 +261,17 @@ the disagreement is worth recording rather than silently resolving.**
 
 - **A reviewer's factual claim is a claim, not a finding already checked.** This one binds the controller
   hardest, because a brief is the most expensive place for a false claim to sit — every later round
-  inherits it with no reason to doubt it. Two were relayed into briefs in one session and both were
-  wrong: an orphaned commit SHA, and "only `Ari Sample` is new", which an implementer disproved by
-  checking each name at the merge base and finding **not one given name was new**. Adjudicating between
-  an implementer and a reviewer does not make the reviewer's premises true.
+  inherits it with no reason to doubt it. **Four were relayed unverified in one session and all four were
+  wrong**: an orphaned commit SHA; "only `Ari Sample` is new", disproved by checking each name at the merge
+  base and finding **not one given name was new**; "no room left" in a message-length comment, which meant
+  no room for one specific sentence and was reported to the owner as a hard ceiling; and a per-file test
+  count relayed into a merge note, where the file's `it.each` meant **no single number described it**.
+  Adjudicating between an implementer and a reviewer does not make either one's premises true.
+- **A scoped re-review is not owed for every fix round.** Dispatch one when the round **changed code
+  behaviour**. Accept without one when it was **prose or report corrections only**, or a small,
+  precisely-enumerated set of fixes that arrived **mutation-proven with observed messages**. Record the
+  judgement. A third review pass over comment edits has repeatedly returned "nothing here should hold the
+  merge", and it costs a full reviewer seat each time.
 
 Commit early — before waiting on any gate. Write the full report to your named report file and return
 only: status, commit SHAs, a one-line test summary, and your concerns. **Do not push and do not open a

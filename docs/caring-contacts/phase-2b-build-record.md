@@ -2591,3 +2591,81 @@ heavy lease and one task's mutation ledger came back ten of twelve unrun. **The 
 the Chromium gate are the controller's, at the merge point, and are still owed.** Formatting is in none of
 `test`, `typecheck` or `lint` — a `prettier --check` across each branch's changed files found the trunk
 and the seed branch clean, and caught two unformatted files that Task 12 had created.
+
+### Ruling [129] — `listSendableContacts` is narrow, and the send gate DOES exist. My first version of this ruling was wrong.
+
+**I wrote this ruling once already, claiming the rule that stops a paused plan sending "currently lives
+nowhere". That was false, and how it was false is the reason this is written up at length.**
+
+Three tasks reported the same suspicion: Task 12 (a **draft** plan's contacts present as sendable), Task 10
+(a **paused** plan's do too), plus an older filed issue. I checked the narrow claim at source and it is
+true — `listSendableContacts` filters on `contact.state === "scheduled"` and reads `plan.state` nowhere, in
+both stores. I then checked the domain's _intent_ and found it also deliberate: a committed contract test,
+_"holds without cancelling for a readmission"_, pins that a readmission pauses the plan, cancels **zero**
+contacts, and leaves the full set listed — which is correct, because cancelling a suicide-prevention
+schedule over a week's inpatient stay would be worse than the problem it solved. Death, by contrast, moves
+every contact to `cancelled` and the list goes empty.
+
+**Then I concluded that nothing gates sending on plan state, and stopped.** Task 10's reviewer went one
+layer further and found the gate:
+
+- `contactStatusWrite` is **the one path every contact-status write takes**, and it takes a
+  `requiresActivePlan` flag — `in-memory-repository.ts:459-461` and `db/postgres-repository.ts:757-759`.
+- `startContactDispatch` passes `requiresActivePlan: true`, so a plan that is not `active` is refused with
+  `REPOSITORY_REFUSALS.contactDispatchRequiresActivePlan`.
+- `listSendableContacts` has **exactly one reader in the entire tree** — `simulation.ts:293`. No screen
+  calls it. And `plan-activation.ts:766` already says so in a comment, which I did not read.
+
+So a paused or draft plan's contacts appear in the _list_ and are refused at the _write_, in both stores.
+**No coordinator is shown a paused plan's contacts as sendable, and no path sends them.**
+
+**Ruling:** nothing to change. The function is correctly narrow, the gate is correctly placed at the write
+rather than in a read, and Task 10 was right to state plan state on screen rather than alter the domain. The
+change my earlier ruling invited would have **duplicated an existing gate** — two places to keep in step
+where there is now one. Task 12's draft-plan finding has the same shape and the same answer.
+
+**The residual, which is small and real:** the name promises more than the function delivers, so a future
+reader could build a dispatcher on it without finding the gate. Worth a rename or a doc comment at the
+declaration; not worth a behaviour change.
+
+**The lesson, which is mine and is the second instance of the same error in this session.** In Ruling [126]
+I verified a premise and drew the wrong inference from it. Here I verified a premise — this function does
+not check plan state — and generalised it into a claim about the whole system without checking one layer
+down. **Verifying the narrow claim is not verifying the conclusion you want to draw from it**, and the
+narrower the thing you checked, the larger the gap you are about to jump. The check that would have caught
+it took one grep: _who calls this, and what happens after?_
+
+I also reported the false version to the owner as a clinical risk. That is the more serious half of the
+error: an overstated safety warning spends the same credibility as a missed one.
+
+### Ruling [130] — make wrong overlay wiring a COMPILE error, not a runtime throw
+
+Task 10 hit a real hole. `delivery-detail` is **Mutation: No** in the frozen matrix, but `overlay-trigger.tsx`
+requires a commit handler **at the type level** (Ruling [87]) so a screen cannot open a decision surface it
+has not wired — and a bare no-op is exactly what that forbids. `{ kind: "unavailable" }` was not available
+either: `commitRefusalFor` returns `scope: "every-row"` for it, so it would `aria-disable` an exit control,
+reintroducing the defect Ruling [90] fixed.
+
+Its `ExitOnlyOverlayTrigger`, whose commit **throws** for any row marked `mutatesState: true`, is
+**defensible and adjudicated correct** — it follows the base trigger's own render-time throw for unknown ids
+rather than inventing a second policy. It must not be weakened into a no-op.
+
+**My first version of this ruling said to add a non-mutating member to `WorkspaceOverlayCommit`. The
+reviewer's alternative is better and I am taking it instead.** `WORKSPACE_OVERLAY_DEFINITIONS` is annotated
+`readonly WorkspaceOverlayDefinition[]` with `id: string`, which **erases the literals**. Narrowing `id` to a
+literal union there lets `ExitOnlyOverlayTriggerProps.overlayId` be a derived `NonMutatingOverlayId`, which
+makes wrong wiring a **compile error** — the standard Ruling [87] itself set. That is smaller and more
+precise than widening the commit union, and it keeps the throw as belt-and-braces rather than as the only
+guard.
+
+**And M25's headline claim is false, which matters more than the fix.** Task 10 reported the choice between
+the two commit kinds as **unprovable offline**, deferring it to Playwright. It is provable offline twice
+over: `commitRefusalFor` is exported, pure, and **already unit-tested against exactly this distinction**, and
+the same suite opens overlays **in jsdom** and asserts `aria-disabled` on the action control. The precedent
+was missed because `tests/caring-contacts-overlay-trigger.dom.test.tsx` is **not in `test:cc-guards`** — so
+the implementer never saw the file that already did the thing it declared impossible.
+
+**That is the finding worth keeping: a gate that omits a suite does not merely skip coverage, it hides the
+precedent.** An implementer reasoning from "what does the gate run?" concluded no offline test could
+distinguish two behaviours that an unrun suite distinguishes today. Consider whether that file belongs in
+`test:cc-guards`.
