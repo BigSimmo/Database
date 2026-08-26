@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "16a65c8432a95ae857c8766ad961cdf32d76567b",
-    "committed_at": "2026-08-26T05:02:16+08:00"
+    "sha": "dc68600786530b60c732aefe050a02e742eb2421",
+    "committed_at": "2026-08-26T05:55:49+08:00"
   },
   "routes": {
     "modes": [
@@ -3683,6 +3683,14 @@
         "scope": "PR #2373 CI failures, merge conflicts, and review-thread fixes",
         "outcome": "fixed seven review findings and merge conflicts",
         "checks": "focused 120 tests passed before sidebar merge; design contract passed after sidebar merge; final focused rerun admission-deferred"
+      },
+      {
+        "date": "2026-08-25",
+        "ref": "codex/ward-flow-phone-test",
+        "head": "c80c5178c282a1c900d9cc94f8078961467e9b05",
+        "scope": "Ward Flow phone drawer advisory test follow-up",
+        "outcome": "updated the stale phone navigation assertion after PR #2373 auto-merged",
+        "checks": "focused Chromium mockup test passed; full format passed"
       },
       {
         "date": "2026-08-24",
@@ -24558,8 +24566,8 @@
       }
     ],
     "counts": {
-      "records": 2615,
-      "refs": 1594
+      "records": 2616,
+      "refs": 1595
     }
   }
 }
