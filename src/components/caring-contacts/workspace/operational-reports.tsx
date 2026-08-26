@@ -1,9 +1,6 @@
 import { GitCompareArrows, Info, ListChecks, Users } from "lucide-react";
 
-import type {
-  DispatchDiscrepancySummary,
-  OperationalReport,
-} from "@/lib/caring-contacts/operational-reporting";
+import type { DispatchDiscrepancySummary, OperationalReport } from "@/lib/caring-contacts/operational-reporting";
 import type { ReachDisclosure } from "@/lib/caring-contacts/reach-reporting";
 
 /**
@@ -111,7 +108,11 @@ function SectionHeading({
  */
 function ReachSection({ reach }: { reach: ReachReportingSection }) {
   return (
-    <section aria-labelledby="caring-contacts-reach-heading" className={sectionClass} data-testid="caring-contacts-reach">
+    <section
+      aria-labelledby="caring-contacts-reach-heading"
+      className={sectionClass}
+      data-testid="caring-contacts-reach"
+    >
       <SectionHeading
         id="caring-contacts-reach-heading"
         title="Programme reach"
@@ -136,7 +137,10 @@ function ReachSection({ reach }: { reach: ReachReportingSection }) {
             </p>
           </div>
         ) : reach.disclosure.kind === "withheld" ? (
-          <p className="max-w-[var(--measure)] font-medium text-[color:var(--text)]" data-testid="caring-contacts-reach-withheld">
+          <p
+            className="max-w-[var(--measure)] font-medium text-[color:var(--text)]"
+            data-testid="caring-contacts-reach-withheld"
+          >
             {reach.disclosure.reason === "threshold-not-configured"
               ? "No minimum cell size has been set under governance, so no figure can be released. Nothing here has been suppressed; nothing has been calculated."
               : reach.disclosure.reason === "threshold-too-low-to-suppress"
@@ -156,8 +160,8 @@ function ReachSection({ reach }: { reach: ReachReportingSection }) {
               ))}
             </dl>
             <p className="mt-4 max-w-[var(--measure)]">
-              A suppressed figure is below the minimum cell size, or is hidden so that another one cannot be worked
-              out. No total is shown, because a total would let the hidden figures be recovered by subtraction.
+              A suppressed figure is below the minimum cell size, or is hidden so that another one cannot be worked out.
+              No total is shown, because a total would let the hidden figures be recovered by subtraction.
             </p>
           </>
         )}
@@ -190,11 +194,7 @@ export function OperationalReports({
           value={planMeasure(report.today.alreadySent)}
           note={`Planned for ${report.today.calendarDay} AWST`}
         />
-        <Measure
-          label="Plans held"
-          value={planMeasure(report.plans.total)}
-          note="Every state, this team only"
-        />
+        <Measure label="Plans held" value={planMeasure(report.plans.total)} note="Every state, this team only" />
         <Measure
           label="Median minutes to resolve"
           // `null` means nothing has been worked through yet, which is a different fact from a

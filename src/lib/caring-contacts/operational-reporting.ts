@@ -111,16 +111,16 @@ export function summariseOperationalReport(plans: readonly PlanRecord[], asAt: D
  * every message still in flight.
  */
 function isDiscrepancy(record: DispatchRecord): boolean {
-  return record.expectedStatus !== null && record.reportedStatus !== null && record.expectedStatus !== record.reportedStatus;
+  return (
+    record.expectedStatus !== null && record.reportedStatus !== null && record.expectedStatus !== record.reportedStatus
+  );
 }
 
 function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
   const middle = sorted.length / 2;
-  return Number.isInteger(middle)
-    ? Math.round((sorted[middle - 1] + sorted[middle]) / 2)
-    : sorted[Math.floor(middle)];
+  return Number.isInteger(middle) ? Math.round((sorted[middle - 1] + sorted[middle]) / 2) : sorted[Math.floor(middle)];
 }
 
 export function summariseDispatchDiscrepancies(dispatches: readonly DispatchRecord[]): DispatchDiscrepancySummary {

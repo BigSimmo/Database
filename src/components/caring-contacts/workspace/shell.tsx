@@ -217,7 +217,17 @@ const focusRing =
  * branch would be free to diverge on the half nobody was looking at. Ruling 52 governs the else:
  * an unbuilt destination is never a link into a page that would 404.
  */
-function MorePanelDestination({ id, label, href, reason }: { id: string; label: string; href?: string; reason: string }) {
+function MorePanelDestination({
+  id,
+  label,
+  href,
+  reason,
+}: {
+  id: string;
+  label: string;
+  href?: string;
+  reason: string;
+}) {
   return href ? (
     <Link href={href} data-internal-link="true" className={`${morePanelItemClass} ${focusRing}`}>
       <span className="truncate">{label}</span>

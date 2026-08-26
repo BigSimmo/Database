@@ -106,9 +106,15 @@ describe("caring-contacts reach reporting -- the inference attempt", () => {
     // Every category empty: however many cells are hidden, each is pinned at zero, and no
     // promotion can change that because there is nothing left to promote. Published, it would say
     // "no patient is in any of these categories" -- a statement, made from suppressed cells.
-    expect(discloseReach([{ category: "Aboriginal", count: 0 }, { category: "Neither", count: 0 }], THRESHOLD)).toEqual(
-      { kind: "withheld", reason: "no-safe-disclosure" },
-    );
+    expect(
+      discloseReach(
+        [
+          { category: "Aboriginal", count: 0 },
+          { category: "Neither", count: 0 },
+        ],
+        THRESHOLD,
+      ),
+    ).toEqual({ kind: "withheld", reason: "no-safe-disclosure" });
   });
 
   it("withholds a single-category breakdown of a small cell, having nothing to promote", () => {
@@ -339,8 +345,7 @@ describe("caring-contacts dispatch differences", () => {
     // A median of null and a median of 0 are different facts, and 0 is the one a screen would
     // render as an achievement.
     expect(
-      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", null)])
-        .medianMinutesToResolution,
+      summariseDispatchDiscrepancies([dispatch("d1", "delivered", "notDelivered", null)]).medianMinutesToResolution,
     ).toBeNull();
     expect(summariseDispatchDiscrepancies([]).medianMinutesToResolution).toBeNull();
     // The positive control on that null: a resolution taking under half a minute genuinely rounds

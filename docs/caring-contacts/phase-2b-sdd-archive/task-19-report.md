@@ -266,23 +266,23 @@ each other rather than assumed to agree.
 
 ## 6. What I changed
 
-| File | What |
-| --- | --- |
-| `src/lib/caring-contacts/reach-reporting.ts` | New. The §2.5 suppression rule; `reachReportingThreshold()` returns `null`. |
-| `src/lib/caring-contacts/operational-reporting.ts` | New. Plan/contact rollups and dispatch-difference measures. |
-| `src/lib/caring-contacts/repository.ts` | `READ_ACTIONS.dispatch`. |
-| `src/lib/caring-contacts/in-memory-repository.ts`, `db/postgres-repository.ts` | Both `listDispatches` now name the capability through `READ_ACTIONS`. |
-| `src/components/caring-contacts/workspace/programme-guidance.tsx` | New. The Guidance screen. |
-| `src/components/caring-contacts/workspace/operational-reports.tsx` | New. The Reports screen, including the reach section's three states. |
-| `src/components/caring-contacts/workspace/shell.tsx` | More-panel `href`; derived phone-overflow row; one `MorePanelDestination` renderer; the panel's intro sentence, which had become false. |
-| `src/app/caring-contacts/guidance/page.tsx`, `src/app/caring-contacts/reports/page.tsx` | New routes. |
-| `tests/caring-contacts-reporting.test.ts` | New. The domain half, centred on the inference attempt. |
-| `tests/caring-contacts-guidance-reports-pages.dom.test.tsx` | New. Both pages, and the inference attempt over rendered rows. |
-| `tests/helpers/caring-contacts-reach-inference.ts` | New. The attack, in one place. |
-| `tests/caring-contacts-workspace-shell.dom.test.tsx` | `rendersAt`, its positive controls, and the phone-reachability assertion. |
-| `tests/ui-caring-contacts-workspace.spec.ts` | Two `WORKSPACE_SCREENS` entries and the block that proves them. |
-| `package.json` | The two new suites added to `test:cc-guards`. |
-| `docs/codebase-index.md`, `docs/site-map.md` | The two routes, the More-panel capability, and why the reach section reads nothing. |
+| File                                                                                    | What                                                                                                                                    |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/caring-contacts/reach-reporting.ts`                                            | New. The §2.5 suppression rule; `reachReportingThreshold()` returns `null`.                                                             |
+| `src/lib/caring-contacts/operational-reporting.ts`                                      | New. Plan/contact rollups and dispatch-difference measures.                                                                             |
+| `src/lib/caring-contacts/repository.ts`                                                 | `READ_ACTIONS.dispatch`.                                                                                                                |
+| `src/lib/caring-contacts/in-memory-repository.ts`, `db/postgres-repository.ts`          | Both `listDispatches` now name the capability through `READ_ACTIONS`.                                                                   |
+| `src/components/caring-contacts/workspace/programme-guidance.tsx`                       | New. The Guidance screen.                                                                                                               |
+| `src/components/caring-contacts/workspace/operational-reports.tsx`                      | New. The Reports screen, including the reach section's three states.                                                                    |
+| `src/components/caring-contacts/workspace/shell.tsx`                                    | More-panel `href`; derived phone-overflow row; one `MorePanelDestination` renderer; the panel's intro sentence, which had become false. |
+| `src/app/caring-contacts/guidance/page.tsx`, `src/app/caring-contacts/reports/page.tsx` | New routes.                                                                                                                             |
+| `tests/caring-contacts-reporting.test.ts`                                               | New. The domain half, centred on the inference attempt.                                                                                 |
+| `tests/caring-contacts-guidance-reports-pages.dom.test.tsx`                             | New. Both pages, and the inference attempt over rendered rows.                                                                          |
+| `tests/helpers/caring-contacts-reach-inference.ts`                                      | New. The attack, in one place.                                                                                                          |
+| `tests/caring-contacts-workspace-shell.dom.test.tsx`                                    | `rendersAt`, its positive controls, and the phone-reachability assertion.                                                               |
+| `tests/ui-caring-contacts-workspace.spec.ts`                                            | Two `WORKSPACE_SCREENS` entries and the block that proves them.                                                                         |
+| `package.json`                                                                          | The two new suites added to `test:cc-guards`.                                                                                           |
+| `docs/codebase-index.md`, `docs/site-map.md`                                            | The two routes, the More-panel capability, and why the reach section reads nothing.                                                     |
 
 `docs/caring-contacts/phase-2b-build-record.md` was not touched.
 

@@ -92,7 +92,9 @@ function rendersAt(element: Element, width: number): boolean {
       if (!DISPLAY_UTILITIES.has(utility)) continue;
       const from = VARIANT_MIN_WIDTH[variant];
       if (from === undefined) {
-        throw new Error(`rendersAt: unrecognised display variant "${token}" — teach this helper rather than let it guess`);
+        throw new Error(
+          `rendersAt: unrecognised display variant "${token}" — teach this helper rather than let it guess`,
+        );
       }
       // Tailwind emits min-width variants in ascending order, so the widest breakpoint that has
       // been reached is the one in force.

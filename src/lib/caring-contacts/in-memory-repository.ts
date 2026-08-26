@@ -1101,7 +1101,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     // ---------------------------------------------------------------------
 
     async listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext) {
-      if (!canPerformCaringContactAction(context.actor, READ_ACTIONS.dispatch, { teamId: context.actor.teamId }).allowed) {
+      if (
+        !canPerformCaringContactAction(context.actor, READ_ACTIONS.dispatch, { teamId: context.actor.teamId }).allowed
+      ) {
         return [];
       }
       const from = new Date(input.fromIso).getTime();

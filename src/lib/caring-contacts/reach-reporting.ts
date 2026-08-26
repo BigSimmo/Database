@@ -64,7 +64,8 @@ export type DisclosedReachCell =
  *   * `no-safe-disclosure` -- a threshold IS configured and the data cannot be published under it
  *     without a suppressed cell being recoverable by arithmetic.
  */
-export type ReachWithholdingReason = "threshold-not-configured" | "threshold-too-low-to-suppress" | "no-safe-disclosure";
+export type ReachWithholdingReason =
+  "threshold-not-configured" | "threshold-too-low-to-suppress" | "no-safe-disclosure";
 
 export type ReachDisclosure =
   | { readonly kind: "breakdown"; readonly cells: readonly DisclosedReachCell[] }

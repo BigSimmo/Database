@@ -86,15 +86,22 @@ function emptyStoreWithSpy(role = "coordinator") {
  * about one screen; the shell's own behaviour is proved in
  * `tests/caring-contacts-workspace-shell.dom.test.tsx`.
  */
-async function renderPageBody(module: string) {
-  const { default: Page } = (await import(module)) as { default: () => Promise<ReactElement> };
+async function renderPageBody(page: () => Promise<{ default: () => Promise<ReactElement> }>) {
+  const { default: Page } = await page();
   const element = await Page();
   render((element as ReactElement<{ children: ReactElement }>).props.children);
   return element;
 }
 
-const GUIDANCE = "@/app/caring-contacts/guidance/page";
-const REPORTS = "@/app/caring-contacts/reports/page";
+/**
+ * The two page modules, each behind a thunk with a LITERAL import specifier.
+ *
+ * `import(someVariable)` would defeat the alias resolution and the module graph this suite depends
+ * on: Vite resolves `@/…` at transform time, so a specifier it cannot see as a string never gets
+ * rewritten. Written out here once rather than at every call site.
+ */
+const GUIDANCE = () => import("@/app/caring-contacts/guidance/page");
+const REPORTS = () => import("@/app/caring-contacts/reports/page");
 
 beforeEach(() => {
   mockCookies = {};
@@ -175,7 +182,7 @@ describe("the /caring-contacts/guidance page", () => {
     const { store } = emptyStoreWithSpy();
     vi.spyOn(store, "recordAccess").mockRejectedValue(new Error("access trail unavailable"));
 
-    const { default: GuidancePage } = await import(GUIDANCE);
+    const { default: GuidancePage } = await GUIDANCE();
 
     await expect(GuidancePage()).rejects.toThrow(/access trail is unavailable/i);
   });
@@ -210,7 +217,11 @@ describe("the /caring-contacts/reports page - what it reads", () => {
     // plan read against it would make "who read this team's plans" miss a read that did release
     // plan records. Asserted rather than described, so a later edit that reaches for the catch-all
     // goes red.
-    expect(recorded().map((record) => record.objectType).sort()).toEqual(["contact", "plan", "serviceState"]);
+    expect(
+      recorded()
+        .map((record) => record.objectType)
+        .sort(),
+    ).toEqual(["contact", "plan", "serviceState"]);
   });
 
   it("never reads a patient record - a reach report is the most damaging place to release one", async () => {
@@ -236,7 +247,7 @@ describe("the /caring-contacts/reports page - what it reads", () => {
     const { store } = emptyStoreWithSpy();
     vi.spyOn(store, "listPlans").mockResolvedValue(null as unknown as PlanRecord[]);
 
-    const { default: ReportsPage } = await import(REPORTS);
+    const { default: ReportsPage } = await REPORTS();
 
     await expect(ReportsPage()).rejects.toThrow(/returned no list/i);
   });
@@ -245,7 +256,7 @@ describe("the /caring-contacts/reports page - what it reads", () => {
     const { store, recorded } = emptyStoreWithSpy();
     vi.spyOn(store, "listDispatches").mockRejectedValue(new Error("store unreachable"));
 
-    const { default: ReportsPage } = await import(REPORTS);
+    const { default: ReportsPage } = await REPORTS();
 
     await expect(ReportsPage()).rejects.toThrow("store unreachable");
     expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "contact", outcome: "failed" }));
