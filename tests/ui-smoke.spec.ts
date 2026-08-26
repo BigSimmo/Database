@@ -815,7 +815,8 @@ async function openMobileClinicalGuideMenu(page: Page) {
     // /documents, so it paints browse and recent documents rather than the
     // shared hero. Every other consolidated mode links at the shared home
     // directly — pointing a pinned entry at its old bare path would spend a
-    // 307 arriving in the same place.
+    // 307 arriving in the same place. Medication is not consolidated:
+    // /medications is the prescribing workspace, not a 307 onto /?mode=prescribing.
     { name: "Documents", href: "/documents" },
     { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
@@ -1173,6 +1174,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
+  });
+
+  test("Medication shortcut opens the prescribing workspace", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const menu = await openMobileClinicalGuideMenu(page);
+    await menu.getByRole("link", { name: "Medication" }).click();
+
+    await expect(page).toHaveURL(/\/medications$/);
+    await expect(page.getByTestId("medication-home")).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {

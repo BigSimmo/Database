@@ -183,7 +183,10 @@ function StagedAnswerResultSurfaceImpl({
   // `state` cannot narrow that at the call site.
   const answerVerification = {
     state: answerState.kind,
-    presentation: "responsive-compact" as const,
+    // Chat framing: one quiet governed line above the prose at every width, with
+    // the complete wording still printed. Clinical owner approved 2026-08-25 —
+    // see the `inline` docstring in verification-notice.tsx.
+    presentation: "inline" as const,
     // From the quality tier, never from the state kind: #207 precedence lets
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
@@ -260,7 +263,7 @@ function StagedAnswerResultSurfaceImpl({
                 reader nothing. */}
             <UserQuestionBubble query={query} />
             {answerState.kind === "ready" ? (
-              <AnswerCard state={answerState} verification={answerVerification} support={answerSupport}>
+              <AnswerCard state={answerState} verification={answerVerification} support={answerSupport} frame="bare">
                 {answerProse}
               </AnswerCard>
             ) : (
@@ -268,6 +271,7 @@ function StagedAnswerResultSurfaceImpl({
                 state={answerState}
                 verification={answerVerification}
                 support={answerSupport}
+                frame="bare"
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -290,6 +294,9 @@ function StagedAnswerResultSurfaceImpl({
                 onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
                 pendingFeedback={pendingFeedback}
                 onSubmitFeedback={onSubmitFeedback}
+                // Chat framing: safety keeps its row, the other two collapse to
+                // one line of buttons rather than two 56px stacked rows.
+                density="compact"
               />
             ) : null}
 
