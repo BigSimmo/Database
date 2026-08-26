@@ -964,3 +964,110 @@ the wide set.
    move plus a refresh leaves this screen's own past-tense confirmation beside a newer time. Clearing
    `outcome` on every reseed would remove it and cost the confirmation of one's own move; a fix keeping
    both would need to know WHICH render it is looking at, which the props do not say.
+
+---
+
+# Round 5 — one item, and the substantive fix was small
+
+The re-review found a true thing round 4 did not: `caring-contacts-contact-move-request.ts` opened by
+saying it exists so "the client that BUILDS a body and the boundary that REFUSES one" share one
+definition — and the client did no such thing. `contact-time-adjustment.tsx` hand-built the fetch body
+as a plain object literal and imported nothing from that module. Only the route and the **test double**
+imported it. **The net was real and it ran through a mock**, and the comment described a stronger
+guarantee than the code provided.
+
+That is the shape this phase keeps paying for — a comment that outlives the thing it described — and
+this report has now recorded it three times: Task 13's containment sentence, round 4's null-prototype
+credit, and this.
+
+## Commits
+
+| SHA          | What                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| `40cf87651`  | The client's body typed from the schema, and the module comment made true. |
+| _(this one)_ | This round.                                                                |
+
+Every SHA in all five rounds was re-checked with `git cat-file -e <sha>^{commit}` after the last commit
+of this round.
+
+## The substantive fix, taken because it was small
+
+Two lines: a **type-only** import of `ContactMoveRequestBody` (`z.infer` of the schema) and an
+annotation on the body the client builds. It drags in nothing — the schema module reaches Zod and the
+sealed domain's `isAccessObjectIdShape`, not `server-only`, and a type-only import erases at build
+time, so the client bundle is unchanged. The sealed domain is untouched, so nothing there has to
+import Zod.
+
+This is Ruling [130]'s standard one layer out: **wrong wiring should fail where it can be made to
+fail, and that is the compiler.** A renamed field is now a compile error at the call site; an omitted
+`action` is a missing-property error; an extra field is refused by excess-property checking rather
+than by a round trip and a 400.
+
+The module's comment now names all three callers exactly rather than claiming two, and says which two
+are the guarantee and which one is the thing that stops a test double drifting from what it stands in
+for.
+
+## The proof
+
+**T31 — rename `expectedContactVersion` in the shared schema, gate `tsc`.** RED, and the line that
+matters is the second one, because it is the CLIENT:
+
+```
+src/components/caring-contacts/workspace/contact-time-adjustment.tsx(383,7): error TS2561: Object literal may only specify known properties, but 'expectedContactVersion' does not exist in type '{ action: "moveWithinDay"; toHour: number; toMinute: number; expectedVersion: number; idempotencyKey: string; }'. Did you mean to write 'expectedVersion'?
+```
+
+The same run also names the route (`route.ts(83,40): error TS2551`) and the mirror
+(`…dom.test.tsx(184,38): error TS2551`), so all three callers are bound to the one definition — which
+is what the comment says, now demonstrably.
+
+**T31G — the same rename, run against the suite instead of `tsc`.** I labelled this an
+over-sensitivity control and predicted GREEN. **It came back RED**, `6 failed / 11 passed (17)`, with
+`expected 'The service refused the move and name…' to contain '11:30 AWST'`. The reason is the fix
+itself: the mirror validates with the same schema, so a client body that no longer matches is refused
+at runtime as well as at compile time. It is a second independent proof rather than a control.
+
+**That is the second time this task I have mislabelled a schema-level change as type-only** — T19G was
+the first. The pattern is worth naming rather than apologising for twice: **a value that a type is
+derived FROM is still a value somebody reads at runtime.** `z.infer` looks like a type-level
+relationship and the object it is inferred from is executable.
+
+## The mutation ledger, round 5
+
+Same driver, same four guards, same narrowed selection. `CTRL_ABSENT` was re-run after the driver
+gained these rows and threw on its own line. `git status --porcelain` empty before and after each row.
+
+| #    | Selection | Mutation                                             | Predicted                                          | Result | The line it printed                                                                                                                                         |
+| ---- | --------- | ---------------------------------------------------- | -------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T31  | `tsc`     | the shared schema renames a field                    | the CLIENT stops compiling, not merely a test      | RED    | `contact-time-adjustment.tsx(383,7): error TS2561: Object literal may only specify known properties, but 'expectedContactVersion' does not exist in type …` |
+| T31G | move UI   | the same rename, against the suite rather than `tsc` | GREEN — **wrong, and wrong the same way T19G was** | RED    | `expected 'The service refused the move and name…' to contain '11:30 AWST'` — `6 failed / 11 passed (17)`                                                   |
+
+## Gates, after the final edit of this round
+
+| Gate                                                           | Evidence                                                   |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), final tree | `Test Files  27 passed (27)` and `Tests  532 passed (532)` |
+| The 2 round-5 mutation selections                              | both rows above carry their own line                       |
+| `npx tsc --noEmit`, final tree                                 | exit 0, zero `error TS` lines emitted                      |
+| `npx eslint --no-cache`, every changed TypeScript file         | `files linted: 15`, `errorCount: 0 warningCount: 0` (JSON) |
+| `prettier --check`, every file this task changed               | `All matched files use Prettier code style!`               |
+
+**`532` is unchanged and correct**: this round added no test. The new guarantee is carried by the
+typechecker, and the assertion that would otherwise have carried it is the `tsc` run itself — which is
+why T31's evidence is a compiler diagnostic rather than an `N failed` line. The file list for lint and
+Prettier comes from `git diff --name-only`, not from a hand-kept list.
+
+No lease refusal was recorded in this round; every narrowed run and the wide run took their lease
+first time.
+
+## Concerns from round 5
+
+1. **`ContactMoveRequestBody` binds the SHAPE, not the values.** A client sending a valid-shaped body
+   with the wrong contact's version still compiles; that is what the store's `stale-version` refusal
+   and its own case exist for. Worth saying because a compile-time guard invites the belief that the
+   request is now fully checked, and it is not.
+2. **Only this one route has a shared body schema.** The other caring-contacts write routes still
+   declare theirs inline, so the same divergence is available to any client that builds one of those
+   bodies by hand. Generalising it is a change across several routes and is not this task's.
+3. **The `z.infer` relationship is invisible at the call site without the annotation.** Deleting the
+   annotation from the body literal would compile, and nothing but the mirror would notice — T31G is
+   what would catch it today. A lint rule could bind it properly; that is a repo-wide change.
