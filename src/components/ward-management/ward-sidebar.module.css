@@ -222,6 +222,12 @@
   background: var(--ward-border);
 }
 
+/*
+ * Pinned to the bottom of the panel rather than scrolled with the links above it: on a 900px-tall
+ * screen the role switcher and the demo clock sat below the fold, which is a regression against
+ * the icon rail, where the same two controls have always been pinned. The drawer scrolls the
+ * whole body instead, which is right for a phone.
+ */
 .footer {
   display: grid;
   flex-shrink: 0;
