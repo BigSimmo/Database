@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "232597e62018457cab8a6d953d2f4436d94f00e5",
-    "committed_at": "2026-08-26T11:48:44+08:00"
+    "sha": "8b4b45b575e9fdc08813a3856d16df20700bd26a",
+    "committed_at": "2026-08-26T12:06:45+08:00"
   },
   "routes": {
     "modes": [
@@ -3672,6 +3672,14 @@
         "scope": "PR #2382 full changed scope",
         "outcome": "Fixed the valid P2 by removing a spurious request that would duplicate already-resolved #NPQJKP work; merged current main and regenerated the conflicted issues snapshot from canonical inputs; no other P0-P2 findings; one review thread pending reply and resolution after push.",
         "checks": "check:outstanding-issues PASS (503 rows, 91 open, 7 pending); docs:check-links PASS (3433 references); exact-head hosted CI before repair was green but must rerun after push; provider-backed gates not run."
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "claude/therapy-compare-tray",
+        "head": "9b34a0149759b2c2f1e8ed5d37f02ba1ac35cf39",
+        "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
+        "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
+        "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
       },
       {
         "date": "2026-08-26",
@@ -24619,8 +24627,8 @@
       }
     ],
     "counts": {
-      "records": 2619,
-      "refs": 1598
+      "records": 2620,
+      "refs": 1599
     }
   }
 }

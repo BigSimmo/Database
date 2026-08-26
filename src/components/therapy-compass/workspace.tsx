@@ -11,6 +11,7 @@ import { cn, pageContainer } from "@/components/ui-primitives";
 import { isInformationPage } from "@/lib/information-pages";
 
 import { TcProvider, useTcBindings } from "./bindings";
+import { TherapyCompareTray } from "./therapy-compare-tray";
 
 function TherapyCompassFooter() {
   return (
@@ -105,6 +106,10 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
           </TherapyCompassMain>
         )}
       </div>
+      {/* Mounted once for the whole mode. The tray decides for itself whether a
+          dock slot exists to portal into, so record routes (which have no phone
+          composer) simply get nothing. */}
+      <TherapyCompareTray />
     </TcProvider>
   );
 }
