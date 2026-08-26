@@ -184,12 +184,14 @@ describe("ward movements", () => {
       expect(release).not.toHaveProperty("name");
       expect(release).not.toHaveProperty("mrn");
       expect(release).not.toHaveProperty("diagnosis");
-      const blockerLower = release.blocker.toLowerCase();
-      for (const forbidden of forbiddenSubstrings) {
-        expect(
-          blockerLower.includes(forbidden),
-          `${release.id} blocker "${release.blocker}" mentions "${forbidden}"`,
-        ).toBe(false);
+      if (release.blocker !== null) {
+        const blockerLower = release.blocker.toLowerCase();
+        for (const forbidden of forbiddenSubstrings) {
+          expect(
+            blockerLower.includes(forbidden),
+            `${release.id} blocker "${release.blocker}" mentions "${forbidden}"`,
+          ).toBe(false);
+        }
       }
     }
   });

@@ -190,10 +190,13 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
   function submitBedRelease(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!bedReleaseConfidence || !bedReleaseBlocker) return;
+    if (!bedReleaseConfidence) return;
     // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
     // it states which ward the caller says it is; it does not prove it. FLAG_BED_RELEASE is
     // ward-only, so this comparison always runs (see the reducer's own comment on the case).
+    // `blocker` is optional here (Phase 5, spec D3) — a bed flagged with a blocker records a
+    // held release; a bed flagged with none is a plain prediction. Task 5 redesigns this panel
+    // to make that choice explicit; this is the minimum needed to keep it compiling and honest.
     dispatch({
       type: "FLAG_BED_RELEASE",
       role: "ward",
@@ -353,14 +356,15 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 </label>
                 <select
                   id="ward-bed-release-blocker"
-                  required
                   className={styles.capacityInput}
                   value={bedReleaseBlocker ?? ""}
-                  onChange={(event) => setBedReleaseBlocker(event.target.value as BedReleaseBlocker)}
+                  onChange={(event) =>
+                    setBedReleaseBlocker(
+                      event.target.value === "" ? undefined : (event.target.value as BedReleaseBlocker),
+                    )
+                  }
                 >
-                  <option value="" disabled>
-                    Choose blocker
-                  </option>
+                  <option value="">No blocker</option>
                   {BED_RELEASE_BLOCKERS.map((item) => (
                     <option key={item} value={item}>
                       {item}
@@ -372,7 +376,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 type="submit"
                 data-testid="ward-flag-bed-release-submit"
                 className={styles.capacitySubmit}
-                disabled={!bedReleaseConfidence || !bedReleaseBlocker}
+                disabled={!bedReleaseConfidence}
               >
                 Flag bed coming free
               </button>

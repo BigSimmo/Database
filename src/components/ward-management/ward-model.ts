@@ -268,26 +268,55 @@ export type Rejection = {
   reason: string;
 };
 
-/** Every confidence level a bed release can carry — hand-listed here (never derived) for the
- *  same reason `DECLINE_REASONS` lives beside `DeclineReason`: a UI picker needs a runtime list,
- *  not just the type. */
-export const BED_RELEASE_CONFIDENCE_LEVELS = ["confirmed", "likely", "possible"] as const;
+/**
+ * A bed release's lifecycle, in the order a bed moves through it. Hand-listed (never derived) for
+ * the same reason `DECLINE_REASONS` is: a UI picker needs a runtime list, not just a type.
+ */
+export const BED_RELEASE_STATES = ["predicted", "confirmed", "blocked", "released"] as const;
+export type BedReleaseState = (typeof BED_RELEASE_STATES)[number];
+
+/**
+ * Narrowed from `confirmed | likely | possible` (Phase 5, spec D1). "Confirmed" was doing two jobs
+ * at once — a position in the lifecycle and a degree of belief — and the lifecycle now owns it.
+ * A confirmed release has no confidence, because it is not a belief any more.
+ */
+export const BED_RELEASE_CONFIDENCE_LEVELS = ["likely", "possible"] as const;
 export type BedReleaseConfidence = (typeof BED_RELEASE_CONFIDENCE_LEVELS)[number];
 
 /**
- * Task 11 (spec item 9). A bed release carries **nothing whatsoever about the departing
- * patient** — no identifier, no timing that could identify them, no reason relating to them.
- * That is a privacy rule from the binding spec §4 and it is not negotiable: every field below is
- * about the BED or the confirming WARD, never about a person, and `tests/ward-flow-reducer.test.ts`
- * asserts this structurally against the type's own field set, not just against fixture content —
- * see that file's "bed release privacy" suite for how.
+ * A bed release carries **nothing whatsoever about the departing patient** — no identifier, no
+ * timing that could identify them, no reason relating to them, and (spec D11) not even sex, the
+ * one otherwise-permitted patient attribute. Every field below is about the BED or the confirming
+ * WARD. `tests/ward-flow-reducer.test.ts` and `tests/ward-bed-availability-model.test.ts` both
+ * assert this structurally against the type's own field set, not against fixture content.
  */
 export type BedRelease = {
   id: string;
   unitId: string;
+  state: BedReleaseState;
   expectedAt: Instant;
-  confidence: BedReleaseConfidence;
-  blocker: string;
+  /** Non-null only while `state` is `"predicted"`. */
+  confidence: BedReleaseConfidence | null;
+  /** Non-null only while `state` is `"blocked"`. Always a `BedReleaseBlocker`. */
+  blocker: string | null;
   confirmedAt: Instant;
+  /** A role — a unit or service label. Never a personal name. */
+  confirmedBy: string;
+};
+
+/**
+ * A bed occupied by someone on approved leave. It may or may not be fillable while they are away,
+ * and a coordinator needs to see which — so it is its own count and is **never** merged into
+ * `available` (spec D4). Carries nothing about the person on leave: no identifier, no reason, no
+ * destination.
+ */
+export type LeaveBed = {
+  id: string;
+  unitId: string;
+  /** The ward's statement that this bed can be filled while its occupant is away. */
+  usable: boolean;
+  expectedReturn: Instant;
+  confirmedAt: Instant;
+  /** A role. Never a personal name. */
   confirmedBy: string;
 };

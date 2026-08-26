@@ -55,7 +55,7 @@ describe("ward bed release flag", () => {
     expect(blockerSelect.tagName).toBe("SELECT");
   });
 
-  it("starts with the submit button disabled until both fields are chosen, then flags a release that raises potential by one", () => {
+  it("starts with the submit button disabled until confidence is chosen, then flags a release that raises potential by one", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardScreen unitId="rph-adult-secure" />
@@ -69,8 +69,10 @@ describe("ward bed release flag", () => {
     const submit = screen.getByTestId("ward-flag-bed-release-submit");
     expect(submit).toBeDisabled();
 
+    // Blocker is optional (Phase 5, spec D3: a flag with no blocker is a plain prediction, not a
+    // held release) — so confidence alone is enough to enable the submit.
     fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "likely" } });
-    expect(submit).toBeDisabled(); // blocker still unchosen
+    expect(submit).not.toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "Awaiting clean" } });
     expect(submit).not.toBeDisabled();
@@ -105,7 +107,7 @@ describe("ward bed release flag", () => {
     const sjgmRowBefore = screen.getByTestId("ward-capacity-row-sjgm-adult-open");
     expect(sjgmRowBefore).toHaveTextContent("0Potential");
 
-    fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "confirmed" } });
+    fireEvent.change(screen.getByLabelText("Confidence"), { target: { value: "likely" } });
     fireEvent.change(screen.getByLabelText("Blocker"), { target: { value: "Awaiting pharmacy" } });
     fireEvent.click(screen.getByTestId("ward-flag-bed-release-submit"));
 

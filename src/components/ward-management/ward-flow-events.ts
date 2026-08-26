@@ -160,9 +160,13 @@ export type WardFlowEvent =
        */
       actingUnitId: string;
       confidence: BedReleaseConfidence;
-      /** Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
-       *  BED, never about the departing patient (binding spec §4). */
-      blocker: BedReleaseBlocker;
+      /**
+       * Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
+       * BED, never about the departing patient (binding spec §4). Optional (Phase 5, spec D3):
+       * a release is legally `blocked` xor `predicted`, never both, so the reducer reads this
+       * field's presence to decide which — see the `FLAG_BED_RELEASE` case's own comment.
+       */
+      blocker?: BedReleaseBlocker;
     };
 
 /**

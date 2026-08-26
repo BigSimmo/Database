@@ -1087,7 +1087,7 @@ describe("release and cancel", () => {
  * exactly like `CONFIRM_CAPACITY`.
  */
 describe("bed release flagging", () => {
-  it("appends a release for the acting unit and increases that unit's potential by one", () => {
+  it("appends a blocked release for the acting unit and increases that unit's potential by one", () => {
     const seeded = seedWardFlowState();
     const unit = seeded.units[0];
     const sibling = seeded.units[1];
@@ -1108,7 +1108,9 @@ describe("bed release flagging", () => {
     expect(after.bedReleases.length).toBe(seeded.bedReleases.length + 1);
     const flagged = after.bedReleases.at(-1)!;
     expect(flagged.unitId).toBe(unit.id);
-    expect(flagged.confidence).toBe("likely");
+    // D3: a flag that names a blocker is a bed coming free but held — never a prediction too.
+    expect(flagged.state).toBe("blocked");
+    expect(flagged.confidence).toBeNull();
     expect(flagged.blocker).toBe("Awaiting clean");
     expect(flagged.confirmedAt).toBe(NOW);
     expect(flagged.expectedAt).toBe(NOW);
@@ -1118,6 +1120,26 @@ describe("bed release flagging", () => {
     // Untouched: a sibling unit's own potential count must not move.
     const siblingAfter = after.units.find((candidate) => candidate.id === sibling.id)!;
     expect(unitCapacity(siblingAfter, after.bedReleases).potential).toBe(siblingPotentialBefore);
+  });
+
+  it("appends a predicted release when no blocker is given", () => {
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+
+    const after = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: unit.id,
+      confidence: "likely",
+    });
+
+    expect(after.rejections).toEqual([]);
+    const flagged = after.bedReleases.at(-1)!;
+    expect(flagged.state).toBe("predicted");
+    expect(flagged.confidence).toBe("likely");
+    expect(flagged.blocker).toBeNull();
   });
 
   it("refuses a flag raised acting as one unit but targeting another, naming both", () => {
@@ -1131,7 +1153,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: otherUnit.id,
-      confidence: "confirmed",
+      confidence: "possible",
       blocker: "Awaiting pharmacy",
     });
 
@@ -1181,6 +1203,7 @@ describe("bed release privacy", () => {
     const ALLOWED_BED_RELEASE_FIELDS = [
       "id",
       "unitId",
+      "state",
       "expectedAt",
       "confidence",
       "blocker",

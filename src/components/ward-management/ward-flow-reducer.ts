@@ -553,22 +553,41 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const flaggedUnit = findUnit(state, event.unitId);
       if (!flaggedUnit) return reject(state, event, `no unit found for id ${event.unitId}`);
-      const release: BedRelease = {
-        // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
-        // glance from the hand-authored "WR-00N" fixture ids, same reasoning as RAISE_REFERRAL's
-        // "WF-9NN".
-        id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
-        unitId: flaggedUnit.id,
-        // FLAG_BED_RELEASE carries no estimated time from its caller (see the event's own doc
-        // comment) — nothing about the departing patient's own timing is permitted onto this
-        // record (binding spec §4), so this is the moment the WARD reported the release, not a
-        // projection about the patient.
-        expectedAt: event.now,
-        confidence: event.confidence,
-        blocker: event.blocker,
-        confirmedAt: event.now,
-        confirmedBy: `NUM ${flaggedUnit.name}`,
-      };
+      // Spec D3: a release is `blocked` xor `predicted`, never both — a blocker is legal only in
+      // `blocked`, a confidence only in `predicted`. A flag that names a blocker is reporting a
+      // bed that is coming free but currently held up; a flag with no blocker is a plain
+      // prediction. `event.confidence` is discarded on the blocked path rather than stored
+      // alongside a blocker, and `event.blocker` is discarded on the predicted path, so the
+      // produced `BedRelease` can never carry both at once.
+      const release: BedRelease =
+        event.blocker !== undefined
+          ? {
+              id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
+              unitId: flaggedUnit.id,
+              state: "blocked",
+              // FLAG_BED_RELEASE carries no estimated time from its caller (see the event's own
+              // doc comment) — nothing about the departing patient's own timing is permitted onto
+              // this record (binding spec §4), so this is the moment the WARD reported the
+              // release, not a projection about the patient.
+              expectedAt: event.now,
+              confidence: null,
+              blocker: event.blocker,
+              confirmedAt: event.now,
+              confirmedBy: `NUM ${flaggedUnit.name}`,
+            }
+          : {
+              // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
+              // glance from the hand-authored "WR-00N" fixture ids, same reasoning as
+              // RAISE_REFERRAL's "WF-9NN".
+              id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
+              unitId: flaggedUnit.id,
+              state: "predicted",
+              expectedAt: event.now,
+              confidence: event.confidence,
+              blocker: null,
+              confirmedAt: event.now,
+              confirmedBy: `NUM ${flaggedUnit.name}`,
+            };
       return { ...state, bedReleases: [...state.bedReleases, release] };
     }
 
