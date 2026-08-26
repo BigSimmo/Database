@@ -77,13 +77,54 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
 const PHONE_DESTINATIONS = PRIMARY_DESTINATIONS.filter((destination) => destination.id !== "templates");
 
 /**
- * Every remaining declared destination, with what it will hold.
- * `docs/wiring-conventions.md` requires the reason to be stated, not implied.
+ * The primary destinations the phone bar has no room for.
+ *
+ * DERIVED FROM THE TWO ARRAYS ABOVE rather than listed, because a hand-written third list is how
+ * the defect this fixes arose in the first place. `templates` gained a page and an `href` in Task
+ * 15, sat in the rail -- which is `hidden … md:flex` -- and was filtered out of the phone bar by
+ * name, so below 768px a shipped production route had no inbound link anywhere in the workspace.
+ * Nothing caught it: `tests/route-reachability.test.ts` reads this file as TEXT and regex-matches
+ * `href…CARING_CONTACTS_ROUTES.<key>` with no notion of which array the match sits in, whether that
+ * array is filtered, or what CSS governs the element rendering it. That gate proves a route is
+ * REFERENCED IN SOURCE; it cannot prove any viewport reaches it.
+ *
+ * These render in the More panel -- which is in the document at every width -- inside a `md:hidden`
+ * row, so they appear exactly where the rail does not. Deriving the set means dropping a fourth
+ * destination from the phone bar tomorrow routes it here without anyone remembering to.
+ * `tests/caring-contacts-workspace-shell.dom.test.tsx` checks reachability by walking each link's
+ * real ancestor chain for the classes that hide it, which is the assertion that can actually fail.
  */
-const MORE_DESTINATIONS: readonly { id: string; label: string; reason: string }[] = [
+const PHONE_OVERFLOW_DESTINATIONS = PRIMARY_DESTINATIONS.filter(
+  (destination) => !PHONE_DESTINATIONS.includes(destination),
+);
+
+/**
+ * Every remaining declared destination, with what it holds or will hold.
+ * `docs/wiring-conventions.md` requires the reason to be stated, not implied.
+ *
+ * Ruling 89 governs the `href` here exactly as it governs the rail's: a destination carries one
+ * once, and only once, it has a page, and the link lands in the same change as the screen. The
+ * field is optional, and every entry without one still renders as an `UnavailableDestination`
+ * stating its reason -- the shape grew; the behaviour of the entries that did not change did not.
+ */
+type MoreDestination = { id: string; label: string; reason: string; href?: string };
+
+const MORE_DESTINATIONS: readonly MoreDestination[] = [
   { id: "team", label: "Team", reason: "Ownership, capacity and unclaimed work." },
-  { id: "guidance", label: "Guidance", reason: "Programme boundaries and operational guidance." },
-  { id: "reports", label: "Reports", reason: "Aggregate operational reporting." },
+  {
+    id: "guidance",
+    label: "Guidance",
+    // A link since Phase 2B Task 19 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.guidance,
+    reason: "Programme boundaries and operational guidance.",
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    // A link since Phase 2B Task 19 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.reports,
+    reason: "Aggregate operational reporting.",
+  },
   { id: "service-stop", label: "Service stop", reason: "Stopping the whole service, and restarting it." },
   { id: "access-trail", label: "Access trail", reason: "Who opened which record, and when." },
   { id: "workload", label: "Workload", reason: "Work waiting across the team." },
@@ -166,6 +207,25 @@ const morePanelItemClass =
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/**
+ * One row of the More panel: a real link once the destination has a screen, and the unavailable
+ * control stating its reason until then.
+ *
+ * One renderer rather than the branch written twice, because the panel now carries two lists --
+ * the declared destinations and the primary ones the phone bar overflows -- and two copies of the
+ * branch would be free to diverge on the half nobody was looking at. Ruling 52 governs the else:
+ * an unbuilt destination is never a link into a page that would 404.
+ */
+function MorePanelDestination({ id, label, href, reason }: { id: string; label: string; href?: string; reason: string }) {
+  return href ? (
+    <Link href={href} data-internal-link="true" className={`${morePanelItemClass} ${focusRing}`}>
+      <span className="truncate">{label}</span>
+    </Link>
+  ) : (
+    <UnavailableDestination id={id} label={label} reason={reason} className={morePanelItemClass} />
+  );
+}
 
 /**
  * The Caring Contacts workspace shell.
@@ -320,17 +380,23 @@ export function CaringContactsShell({ title, description, serviceState, children
                   More destinations
                 </h2>
                 <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                  These destinations are planned. Each one states what it will hold once it is built.
+                  What each destination holds. The ones with a screen behind them are links; the rest state what they
+                  will hold once they are built.
                 </p>
                 <ul className="mt-3 flex flex-col gap-2">
-                  {MORE_DESTINATIONS.map(({ id, label, reason }) => (
+                  {/*
+                    The primary destinations the phone bar could not carry, shown only below 768px
+                    because the rail carries them at every width above it. `md:hidden` on the row
+                    rather than on the control, so the list gap closes with it.
+                  */}
+                  {PHONE_OVERFLOW_DESTINATIONS.map(({ id, label, href, reason }) => (
+                    <li key={`overflow-${id}`} className="min-w-0 md:hidden">
+                      <MorePanelDestination id={`more-overflow-${id}`} label={label} href={href} reason={reason} />
+                    </li>
+                  ))}
+                  {MORE_DESTINATIONS.map(({ id, label, href, reason }) => (
                     <li key={id} className="min-w-0">
-                      <UnavailableDestination
-                        id={`more-${id}`}
-                        label={label}
-                        reason={reason}
-                        className={morePanelItemClass}
-                      />
+                      <MorePanelDestination id={`more-${id}`} label={label} href={href} reason={reason} />
                     </li>
                   ))}
                 </ul>
