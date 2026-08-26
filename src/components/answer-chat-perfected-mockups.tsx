@@ -947,7 +947,7 @@ export function UserTurn() {
     <div className="flex justify-end">
       <p
         style={{ maxWidth: "85%", borderBottomRightRadius: 6 }}
-        className="rounded-2xl bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm font-medium leading-6 text-[color:var(--text-heading)]"
+        className="rounded-2xl bg-[color:var(--clinical-accent-soft)] px-3.5 py-2 text-sm leading-6 text-[color:var(--text-heading)]"
       >
         {QUESTION}
       </p>

@@ -611,6 +611,75 @@ seeing the aside disappear deserves the sentence.
 
 ---
 
+### 12.6 The assistant avatar is removed, and the prose runs to the edge (2026-08-26)
+
+Every assistant turn opened with a shield tile in its own grid column, and the answer prose
+was indented to clear it. `/mockups/answer-chat-perfected-v2` now draws no avatar and no
+gutter: the answer is a single full-width stack.
+
+**Why.** On a 390px phone that column costs about 2.75rem of every line of a clinical answer
+— the exact measurement `--answer-message-gutter` was introduced to hold. It buys nothing a
+reader needs. There are only two speakers on this surface, the person's turn is already a
+right-aligned bubble, and the answer is the one element here that wants the full measure.
+Every mature chat product settled in the same place for the same reason.
+
+**What identifies the turn instead** is the provenance line beneath the question, which is
+information rather than decoration, and which now sets as two deliberate lines — what wrote
+the answer, then what the reader owes it — instead of one sentence left to wrap wherever the
+column ends. Its wording is unchanged.
+
+Three changes travel with it, all in the same mockup:
+
+- A hairline and a quiet `CITED DOCUMENTS` / `SOURCES READ` eyebrow above the card row. With
+  no gutter organising the column the answer needed a clean end before its evidence.
+- The card row fades at its right edge, so it reads as scrollable without a scrollbar. Same
+  mechanism `.answer-suggestion-chips-scroll` already ships (`globals.css`).
+- `Copy` became `Copy with sources`. On this product an answer copied without its citations
+  is the actual hazard, so the control names what it puts on the clipboard.
+
+**Not yet in production.** `answer-content.tsx` still renders the shield tile and
+`globals.css` still declares `--answer-message-gutter`. Removing both is the follow-up, and
+it is deliberately a separate change: the owner approves the look on the mockup first.
+
+---
+
+### 12.7 What sits under the answer: the safety rail, and two panels asking one question (2026-08-26)
+
+Photographed on a live phone by the owner. Both are drawn in
+`/mockups/answer-chat-perfected-v2` section Seven, as before-and-after and as two directions.
+
+**The safety card's coloured rail goes.** `AnswerSupportSummaryCard` draws
+`border-t-2 border-t-[color:var(--warning)]` across the top of the card — but that card also
+holds `Evidence gaps` and `Report a problem`, neither of which is a warning, so the rule
+colours two controls that carry no state. Colour moves into the icon tile plus a short
+`RED FLAG` severity chip: the direction `also-matches-accent-mockups.tsx` already records for
+the sibling surface ("no top rail; colour lives in the icon tile and the short code chip").
+Nothing about the signal is weakened — the design-system contract holds colour-only status
+indicators at zero either way, so the icon and the words were always carrying it.
+
+One thing the mockup deliberately does **not** copy from production: the evidence-gaps count
+is neutral, not amber. A count painted with a status colour is a status-coloured numeral, which
+the same contract holds at zero, and the icon beside it already says what state it is in.
+
+**The two "also…" panels become one list.** `CrossModeLinksSection` ("Also in your library")
+and `UniversalSearchAlsoMatches` ("Also matches") stack directly on top of each other under an
+answer and read as the same panel twice. They answer one question — where else does this
+appear — so they are one list, and each row names what it is (Medication, Factsheet, Mode)
+rather than leaving the reader to infer it from which panel it landed in. "4 related modes"
+goes: "mode" is internal vocabulary.
+
+**The follow-up questions were phone-invisible.** `answer-result-surface.tsx` wraps
+`AnswerFollowUpSuggestions` in `hidden sm:block`, so the most likely next tap on the surface
+was desktop-only. Both directions restore it and place it _above_ the matches.
+
+**Two directions, owner picks.** A keeps the horizontal card row the answer already uses, so
+the surface repeats one shape instead of three. B trades the row for full-width questions and
+folds every other match onto one expandable line — quieter, and it costs a tap.
+
+**Was not in production when this was written.** Direction B shipped shortly afterwards — see §12.8.
+
+---
+
 ### 12.8 The production change: edge to edge, one number, one panel (2026-08-26)
 
 Everything §12.6 and §12.7 drew in the mockup, applied to the live answer surface after the
