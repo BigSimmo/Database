@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01+00:00"
+    "committed_at": "2026-08-25T17:45:01Z"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 7,
+    "pending": 10,
     "resolved": 412
   },
   "queue": [
@@ -967,9 +967,21 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "970bbb8b-4dbe-4e27-97a4-80142db94d7d",
+      "action": "add",
+      "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "b85ad821-4c9b-4925-b86b-2d5767052b20",
       "action": "add",
       "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
+      "action": "add",
+      "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
       "created_at": "2026-08-26"
     },
     {
@@ -977,6 +989,12 @@
       "action": "add",
       "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "ecabc51d-034a-4a68-91cd-280214aac6bf",
+      "action": "add",
+      "summary": "Ward Flow Phase 5: bed availability becomes real - discharge lifecycle, egress board, predicted capacity, freshness everywhere",
+      "created_at": "2026-08-26"
     }
   ]
 }
