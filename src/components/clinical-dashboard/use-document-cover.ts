@@ -113,11 +113,18 @@ export function useDocumentCoverImageId(documentId: string | null | undefined): 
       // document/account. It may only invalidate the entry that is still
       // current, and only if that entry still names the failing image.
       if (!key || currentKeyRef.current !== key || coverImageIds.get(key) !== imageId) return;
-      coverImageIds.set(key, null);
+      // This is not an authoritative "no cover" answer. The signed-url or
+      // object download may have failed transiently, or a reindex may have
+      // selected a replacement since this id was resolved. Hide the optional
+      // thumbnail for this mounted drawer, but discard the stale lookup so the
+      // next open can resolve the current cover instead of pinning a negative
+      // result for the rest of the page lifetime.
+      coverImageIds.delete(key);
       setFetched(null);
-      // `coverImageIds` is external mutable state. After an identity round trip
-      // `fetched` can already be null, so setting it to null is a React no-op;
-      // explicitly notify this hook so the new cached null is observed.
+      // `coverImageIds` is external mutable state. `fetched` can already be
+      // null, so setting it to null is a React no-op; explicitly notify this
+      // hook so the deleted cached id is observed without refetching until a
+      // later mount/open runs the effect again.
       notifyCacheChanged((revision) => revision + 1);
     },
     [key],

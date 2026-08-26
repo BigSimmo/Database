@@ -189,4 +189,29 @@ describe("useDocumentCoverImageId", () => {
     act(() => result.current.markCoverUnavailable("cover-a"));
     expect(result.current.coverImageId).toBeNull();
   });
+
+  it("re-resolves a failed cover on the next open instead of pinning a negative cache entry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(coverResponse("stale-cover"))
+      .mockResolvedValueOnce(coverResponse("replacement-cover"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string | null }) => useDocumentCoverImageId(documentId),
+      { initialProps: { documentId: DOCUMENT_ID as string | null } },
+    );
+    await waitFor(() => expect(result.current.coverImageId).toBe("stale-cover"));
+
+    act(() => result.current.markCoverUnavailable("stale-cover"));
+    expect(result.current.coverImageId).toBeNull();
+    // Invalidating the external cache must not create an immediate request
+    // loop while the failed optional image is still mounted.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    rerender({ documentId: null });
+    rerender({ documentId: DOCUMENT_ID });
+    await waitFor(() => expect(result.current.coverImageId).toBe("replacement-cover"));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
