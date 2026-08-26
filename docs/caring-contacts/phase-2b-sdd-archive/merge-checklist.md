@@ -29,11 +29,11 @@ four-item phone bar. Ruling 89 still binds — a destination is lit only when it
 reads the destination **table**, not the viewport, so it passes while a route is unreachable on phones. If
 that blindness is confirmed, the orphan-route gate has a hole the whole team relies on it not having.
 
-## 2. The `test:cc-guards` union
+## 2. The `test:cc-guards` union — and the hole underneath it, which is much larger than two suites
 
-Compute it **at merge time**; do not carry a number. Verified by dry-run that `package.json` does **not**
-conflict — the four branches' additions sit at different positions in the one line — but read the merged
-file and count its paths rather than trusting the absence of a conflict marker.
+Compute the union **at merge time**; do not carry a number. Verified by dry-run that `package.json` does
+**not** conflict — the four branches' additions sit at different positions in the one line — but read the
+merged file and count its paths rather than trusting the absence of a conflict marker.
 
 **Suites to ADD to the gate. This has now bitten twice and is not optional:**
 
@@ -45,6 +45,50 @@ file and count its paths rather than trusting the absence of a conflict marker.
   existing behavioural suites ran in **neither** the narrowed mutation runs nor the "full" gate.
 - `tests/caring-contacts-demo-seed.test.ts` and `tests/caring-contacts-pathway-versions.test.ts` are
   already added on the seed branch.
+
+### The hole, measured
+
+I took every `test:cc-guards` path on all five branches, unioned them, and compared that union against every
+Caring Contacts test file that exists on any branch. Excluding the four `tests/helpers/` modules (not suites)
+and the two Playwright specs (a different runner), the suites in **no branch's gate at all** are these:
+
+`access-audit`, `api-handler`, `assignment`, `audit`, `contact-rescheduling`, `empty-state`, `fingerprint`,
+`hospital-events`, `message-copy`, `message-policy`, `migrations`, `model`, `notification-preferences`,
+`page-access-audit`, `permissions`, `postgres-repository`, `referrals`, `repository`, `server-config`,
+`server-pool`, `server-store`, `service-state`, `session`, `simulation`, `training`, `width-state`,
+`write-serialisation`, plus `caring-contact-linked-routes`, `caring-contact-mockups`,
+`caring-contact-product-redesign`, `caring-contact-prototype-state` and `caring-contact-route-files`.
+
+**This is not a coverage nicety. Several of them are the direct behavioural suites for modules this phase
+changed.** The worst pairing: `cc-message-name` edited **both** `message-policy.ts` and `message-copy.ts` —
+the modules that decide a patient-visible message's wording and its GSM-7 segment budget — and the gate ran
+**neither** of their suites. Between them they hold 68 cases importing exactly those two modules.
+
+### What I did about it, and what it proved
+
+Rather than assert the risk, I ran the exposed suites myself, per branch, narrowed:
+
+| Branch            | Suites run                                                                                                  | Result                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `cc-message-name` | `message-policy`, `message-copy`                                                                            | `Test Files 2 passed (2)`, `Tests 68 passed (68)`   |
+| `cc-schedule`     | `access-audit`, `page-access-audit`, `contact-rescheduling`, `api-handler`, `route-files`                   | `Test Files 5 passed (5)`, `Tests 56 passed (56)`   |
+| `cc-templates`    | `server-store`, `repository`, `server-pool`, `server-config`, `empty-state`, `linked-routes`, `route-files` | `Test Files 7 passed (7)`, `Tests 178 passed (178)` |
+
+**All green.** So the hole is an evidence problem, not — on these three branches — a defect problem. Say it
+that way and no stronger: 302 cases that had never run against this phase's changes now have, and none
+reddened.
+
+**`cc-plan-detail` is NOT in that table** because Task 11b was live in its worktree when I ran these, and
+running a gate against a moving tree proves nothing about either tree. Its exposed suites are
+`permissions`, `assignment`, `model` and `service-state` — 11b is building pause, withdrawal and
+reassignment, so `permissions` and `assignment` are the two most exposed suites in the whole phase and the
+two I have the least evidence about. **Run them the moment that worktree goes idle.**
+
+### The consequence for the owed gates
+
+**`npm run test` at the merge point is not a formality.** It is the first time most of these suites will
+have run against this phase's work at all. Budget for it to find something, and do not treat four green
+`test:cc-guards` runs as though they were four green full suites — they were never the same gate.
 
 ## 2c. Optional hardening — scoped and costed, and it must NOT displace build work
 
