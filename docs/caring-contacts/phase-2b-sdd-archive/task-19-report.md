@@ -93,9 +93,11 @@ What I think a change ought to require, in ascending order of what it buys:
   different threshold, a stored row is the only shape that can be right, and then it needs the
   guard-migration contract like any other schema change.
 
-I have not built any of that, and I am not proposing it be built now — you asked me not to make the
-threshold a value any future edit can silently move, and the pin achieves that much. The gap between
-"visible" and "authorised" is the part worth a decision.
+**Ruled on 2026-08-26: recorded, not built.** A test pinning the value together with its provenance
+is proportionate for a prototype holding no real data, and a second-approver mechanism is a
+governance decision the owner has not been asked for. So none of the above is built, and this
+paragraph is where whoever operationalises this should find the recommendation rather than
+re-deriving it. The gap between **visible** and **authorised** is real, deliberate, and open.
 
 ### Still outstanding for §2.5
 
@@ -256,34 +258,44 @@ Three call sites, one source.
 
 ## 5. Findings — where the tree does not match what I was told
 
-### 5.1 The Task 12 pin the brief tells me to use does not exist
+### 5.1 The Task 12 pin is real, but not on this branch — corrected
 
-The brief says the `z.enum` in `src/app/api/caring-contacts/access-trail/route.ts` is a hand-copy of
-`AccessedObjectType` and that "Task 12 added a pin that keeps them in sync, so use it rather than
-writing a second one."
+The brief told me to use a pin keeping the `z.enum` in
+`src/app/api/caring-contacts/access-trail/route.ts` in step with `AccessedObjectType`. I reported it
+missing. **Both halves were true and the coordinator has confirmed which is which: the pin exists on
+`claude/caring-contacts-schedule`, and arrives at merge. It is not in this tree.**
 
-**There is no such pin.** Only three files in the repository mention `trainingRecord`: the union in
-`access-audit.ts`, the hand-copied `z.enum`, and the two store implementations that merely use the
-type. No test compares them; no `satisfies` constrains them; `git log` on the route shows no pin
-commit. The hand-copy is unguarded today.
+What is true here, and worth knowing if you are on this branch: only three files mention
+`trainingRecord` — the union in `access-audit.ts`, the hand-copied `z.enum`, and the two store
+implementations that merely use the type. Nothing on this branch compares them.
 
-I did **not** act on it, because I add no member and the files are shared with live branches — but
-it is a live hazard and it will bite the first task that does add one. The cheapest durable fix is
-not a pin at all: export the tuple from `access-audit.ts`, derive the union from it, and have the
-route do `z.enum(ACCESSED_OBJECT_TYPES)`. Then there is no copy to keep in step.
+**Nothing to build.** The coordinator is carrying it as a merge item. The reason it is recorded at
+all is so **the next task to add an `AccessedObjectType` member looks on the right branch** rather
+than concluding, as I did, that no guard exists and writing a second one. That matters soon: the
+reach read over `cultural_identity_reports` is exactly the change that will add a member (§1).
 
-### 5.2 "Nothing fills them" is very nearly true, and the exception matters
+### 5.2 A correction to the brief: the cultural-identity column is not untouched
 
-`src/lib/caring-contacts-server/demo-seed.ts` **does** write `culturalIdentity` — the literal string
-`"Not stated"` — for every seeded patient, with a recorded rationale (a cultural identity attributed
-to an invented person is an invention about culture). The wizard sends `null` unconditionally, so no
-clinician can populate it; but the column is not untouched, and the API schema still accepts
-`z.string().min(1).nullable()`.
+The brief states that nothing populates the cultural-identity field. **That is very nearly true and
+the exception matters.** `src/lib/caring-contacts-server/demo-seed.ts` writes `culturalIdentity` for
+every seeded patient — the literal string `"Not stated"`, with a recorded rationale, namely that a
+cultural identity attributed to an invented person is an invention about culture. The wizard sends
+`null` unconditionally, so no clinician can populate it; but the column is written, and the API
+schema still accepts `z.string().min(1).nullable()`.
 
-It does not change the conclusion — a free-text sentinel is not a bounded category and cannot support
-suppression — but it does change what the screen must not do. Had I rendered a breakdown, the demo
-would have shown a single category "Not stated" with a count, presented as reach reporting. Worth
-knowing before anyone reads "nothing fills them" as "the column is empty".
+**The consequence, spelled out, because it is the trap the owner's decision was about: a sentinel in
+a free-text column is indistinguishable from a category to anything that counts categories.**
+"Not stated" is a statement that no answer was recorded. A counting routine cannot see that — it sees
+a distinct string with a frequency, exactly like "Aboriginal" or "Noongar" or a typo. So had this
+screen rendered a breakdown, the demo would have shown **a single reach category called "Not stated"
+with a count of three, presented as programme-reach reporting**, and it would have looked like data.
+The same routine, run over a real free-text column, would have promoted every rare spelling and every
+"declined to answer" into a category of its own — which is precisely why suppression presupposes a
+bounded set, and why the owner declined a normalisation step that would silently have decided
+membership.
+
+Nothing on my screens reads the column, so nothing shows it. It is recorded here because "nothing
+fills them" should not be read as "the column is empty" by whoever builds the read.
 
 ### 5.3 A sixth design value the types do not support — and two copy departures
 
@@ -401,9 +413,10 @@ mid-task instruction asked for. The full `npm run test` is yours at the merge po
 ```
 
 **`npm run test:cc-guards`, re-run on the final tree after the governance change** — because a
-gate's verdict covers the tree it saw, and ordering is not the mechanism, re-running is. Run last,
-after every source and test edit; the only change made afterwards is this report, which none of the
-twenty-four suites reads:
+gate's verdict covers the tree it saw, and ordering is not the mechanism, re-running is. Run twice:
+once after the governance change, and again after round 2's last source edit (the note added to
+`reach-reporting-governance.ts`). Both runs gave the same line, and the only change made after the
+second is this report, which none of the twenty-four suites reads:
 
 ```
  Test Files  24 passed (24)
@@ -476,23 +489,46 @@ a committed tree, and only explicit paths were ever staged.
 
 **Selection per row.** Following the mid-task instruction, each row ran only the suite(s) the
 mutation can move, through the same runner and the same shared lease
-(`node scripts/run-vitest.mjs run <reporter> <suites>`). The column records which. The per-row runs
-cannot see collateral damage and do not claim to; the full `test:cc-guards` set is what catches
-that, and it is run separately on the final tree.
+(`node scripts/run-vitest.mjs run <reporter> <suites>`). That narrowing is what unblocked the set:
+eight rows had come back UNRUN or unattempted under whole-set runs, and all of them ran on the
+narrowed selection. The per-row runs cannot see collateral damage and do not claim to; the full
+`test:cc-guards` set is what catches that, and it is run separately on the final tree.
 
-| #   | Mutation                                                                                            | Suites          | Predicted                                                                                                                                                         | Observed                                     |
-| --- | --------------------------------------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| M1  | `reach-reporting.ts`: remove complementary suppression — stop promoting further cells               | reporting+pages | RED on exactly 5: recovers-nothing (domain), hides-a-second-cell, withholds-when-hiding-everything, withholds-a-single-category, recovers-nothing (rendered rows) | **RED — `Tests 5 failed \| 36 passed (41)`** |
-| M2  | `reach-reporting.ts`: a lone suppressed cell is no longer treated as pinned                         | reporting+pages | RED on 4 — the same set minus withholds-when-hiding-everything, which stays green because a zero residual still pins                                              | **RED — `Tests 4 failed \| 37 passed (41)`** |
-| M11 | `shell.tsx`: hide the phone-overflow row below 768px instead of above it — the shipped defect, back | shell           | RED on 1: the phone-reachability assertion, naming `/caring-contacts/templates`                                                                                   | **RED — `Tests 1 failed \| 11 passed (12)`** |
-| M13 | `operational-reports.tsx`: show a zero to a reader who may not see the measure                      | pages           | RED on 1: the may-not-see assertion                                                                                                                               | **RED — `Tests 1 failed \| 18 passed (19)`** |
-| M14 | `caring-contacts-reach-inference.ts`: weaken the attack so it never reports a recovery              | reporting+pages | RED on 2: the positive control in each suite — the attack must still recover a cell from naive suppression                                                        | **RED — `Tests 2 failed \| 39 passed (41)`** |
-| M15 | `reach-reporting-governance.ts`: move the threshold without moving the record that explains it      | reporting       | RED on 1: the provenance pin                                                                                                                                      | **RED — `Tests 1 failed \| 21 passed (22)`** |
-| M16 | `operational-reports.tsx`: retype the cell size on screen instead of sourcing it from the decision  | pages           | **GREEN** — over-sensitivity control                                                                                                                              | **GREEN — `Tests 19 passed (19)`**           |
-| M17 | `reach-reporting.ts`: make the lookup return its own number instead of reading the decision         | reporting       | **GREEN** — the same control from the other side                                                                                                                  | **GREEN — `Tests 22 passed (22)`**           |
+**Predictions were written down before each run** (count and named assertion), then compared. Every
+one of the seventeen matched.
 
-**Every predicted count matched the observed count, and the messages matched too.** M1's five, in
-the order the suites reported them:
+| #   | Mutation                                                                                            | Suites          | Predicted                                                                                                                                                | Observed                                     |
+| --- | --------------------------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| M1  | `reach-reporting.ts`: remove complementary suppression — stop promoting further cells               | reporting+pages | RED on exactly 5: recovers-nothing (domain), hides-a-second-cell, withholds-when-hiding-everything, withholds-a-single-category, recovers-nothing (rows) | **RED — `Tests 5 failed \| 36 passed (41)`** |
+| M2  | `reach-reporting.ts`: a lone suppressed cell is no longer treated as pinned                         | reporting+pages | RED on 4 — that set minus withholds-when-hiding-everything, which stays green because a zero residual still pins                                         | **RED — `Tests 4 failed \| 37 passed (41)`** |
+| M3  | `reach-reporting.ts`: a zero residual no longer pins every suppressed cell                          | reporting       | RED on 1: withholds-when-hiding-everything. The single-category case stays green — a lone hidden cell still pins                                         | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M4  | `reach-reporting.ts`: lower the suppressing floor from 3 to 2                                       | reporting       | RED on 1: refuses-a-threshold-too-low, failing at its first assertion                                                                                    | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M5  | `reach-reporting.ts`: promote the LARGEST cell instead of the smallest                              | reporting+pages | RED on 1: hides-a-second-cell. Recovers-nothing stays green — two hidden cells over a residual of 14 are still unpinned                                  | **RED — `Tests 1 failed \| 40 passed (41)`** |
+| M6  | `reach-reporting.ts`: an unconfigured threshold silently becomes a configured one                   | reporting       | RED on 1: withholds-for-the-absence-of-a-threshold                                                                                                       | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M7  | `operational-reporting.ts`: drop the AWST day filter                                                | reporting       | RED on 1: scopes-the-day-measures                                                                                                                        | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M8  | `operational-reporting.ts`: upper middle value of an even set instead of the mean of the middle two | reporting       | RED on 1: the median case, `expected 50 to be 40`                                                                                                        | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M9  | `operational-reporting.ts`: count an attempt with no reported status as a difference                | reporting       | RED on 1: counts-a-difference-only-where-both-known, `expected 3 to be 1`                                                                                | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M10 | `operational-reporting.ts`: report a median of zero when nothing has been worked through            | reporting       | RED on 1: says-nothing-has-been-worked-through                                                                                                           | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M11 | `shell.tsx`: hide the phone-overflow row below 768px instead of above it — the shipped defect, back | shell           | RED on 1: the phone-reachability assertion, naming `/caring-contacts/templates`                                                                          | **RED — `Tests 1 failed \| 11 passed (12)`** |
+| M12 | `shell.tsx`: render no phone-overflow row at all                                                    | shell           | RED on 2: the More-panel destination set, and phone reachability                                                                                         | **RED — `Tests 2 failed \| 10 passed (12)`** |
+| M13 | `operational-reports.tsx`: show a zero to a reader who may not see the measure                      | pages           | RED on 1: the may-not-see assertion                                                                                                                      | **RED — `Tests 1 failed \| 18 passed (19)`** |
+| M14 | `caring-contacts-reach-inference.ts`: weaken the attack so it never reports a recovery              | reporting+pages | RED on 2: the positive control in each suite — the attack must still recover a cell from naive suppression                                               | **RED — `Tests 2 failed \| 39 passed (41)`** |
+| M15 | `reach-reporting-governance.ts`: move the threshold without moving the record that explains it      | reporting       | RED on 1: the provenance pin                                                                                                                             | **RED — `Tests 1 failed \| 21 passed (22)`** |
+| M16 | `operational-reports.tsx`: retype the cell size on screen instead of sourcing it from the decision  | pages           | **GREEN** — over-sensitivity control                                                                                                                     | **GREEN — `Tests 19 passed (19)`**           |
+| M17 | `reach-reporting.ts`: make the lookup return its own number instead of reading the decision         | reporting       | **GREEN** — the same control from the other side                                                                                                         | **GREEN — `Tests 22 passed (22)`**           |
+
+**The suppression rule is now mutation-proven in all four of its parts.** M1 removes complementary
+suppression, M2 stops a lone hidden cell being treated as pinned, M3 stops a zero residual pinning,
+M4 lowers the floor below the point at which suppression suppresses anything, and M5 promotes the
+wrong cell. Each reddens a different assertion, so no part of the rule is resting on another part's
+coverage. M3 in particular — the row that was unrun when I last reported — is the one that keeps a
+breakdown of empty categories from being published as a statement:
+
+```
+AssertionError: expected { kind: 'breakdown', …(1) } to deeply equal { kind: 'withheld', …(1) }
+```
+
+M1's five, which are the ones that matter most, in the order the suites reported them:
 
 ```
 AssertionError: expected [ 'Torres Strait Islander' ] to deeply equal []
@@ -502,12 +538,16 @@ AssertionError: expected { kind: 'breakdown', …(1) } to deeply equal { kind: '
 AssertionError: expected 1 to be greater than 1
 ```
 
-The first line is the whole point of §2: with complementary suppression removed, the rule degrades to
-naive suppression and **the inference attempt recovers the hidden cell by arithmetic** — from the
+The first line is the whole claim of §2: with complementary suppression removed the rule degrades to
+naive suppression, and **the inference attempt recovers the hidden cell by arithmetic** — from the
 disclosure value, and, in the last line, from the rendered rows, where only one cell was left hidden.
 That is what makes the suppression test a test of suppression rather than of the word "Suppressed".
 
-M11's one, which is the shipped defect restored and caught:
+The four operational measures each reddened on their own assertion, with the number I predicted:
+`expected 50 to be 40` (median of an even set), `expected 3 to be 1` (an attempt still in flight
+counted as a difference), `expected +0 to be null` (nothing worked through reported as a median of
+zero), and the day-scoping case. M12 confirms the More panel's overflow row is load-bearing rather
+than decorative:
 
 ```
 AssertionError: /caring-contacts/templates has no link a phone can reach — it is an orphan below 768px:
@@ -520,12 +560,9 @@ and a red here would have meant a test asserting against the literal rather than
 They go red the day the decision moves, which is exactly when sourcing matters. A mutation that
 should leave a gate green is evidence too, and it belongs in the ledger beside the reds.
 
-**Rows defined, dry-run, and left UNRUN.** M3–M10 and M12 — the residual-zero rule, the suppressing
-floor, the promotion order, the unconfigured-threshold branch, the four operational measures, and
-rendering no overflow row at all. The machine carried four implementer worktrees plus another project
-against two shared slots for this whole session; one earlier attempt at M1 came back UNRUN after
-eight refusals, and M11 needed a second attempt after thirty. **An honest unrun row is worth more
-than a forced lease.** Their anchors are validated, so the set re-runs as-is.
+**Nothing is left unrun.** Every row defined for this task ran on the narrowed selection. Two rows
+needed retries first — M1 came back UNRUN after eight refusals on a whole-set run, and M11 after
+thirty — and both were re-run rather than forced. No lease was ever broken.
 
 ---
 
@@ -534,15 +571,16 @@ than a forced lease.** Their anchors are validated, so the set re-runs as-is.
 1. **The reach report is smaller than spec §2.5 promises, and the threshold decision did not close
    that.** The screen is honest, but "honest about a gap" is not the same as delivering the section.
    What remains is a bounded category set and a collection path; §1 says what shape they need.
-2. **"Cannot be moved silently" is not "cannot be moved."** The only thing making a change to the
-   threshold deliberate is a test that pins the value together with its provenance. One commit can
-   edit both. §1 sets out what I think a change ought to require — a second approver at minimum, and
-   a superseding record rather than an in-place edit — and that gap is a decision for you, not
-   something I should have built unasked.
-3. **The unguarded `z.enum` hand-copy (§5.1) will bite the first task that adds an
-   `AccessedObjectType` member.** I left it alone deliberately — I add no member, and the files are
-   shared — but it should be closed before the reach read is built, because that read is exactly the
-   change that will add one.
+2. **"Cannot be moved silently" is not "cannot be moved" — ruled, and left open deliberately.** The
+   only thing making a change to the threshold deliberate is a test that pins the value together with
+   its provenance, and one commit can edit both. The owner has ruled this proportionate for a
+   prototype holding no real data; the recommendation (a second approver at minimum, and a
+   superseding record rather than an in-place edit) is written into §1 for whoever operationalises
+   it. Not a defect — a known, accepted limit.
+3. **The `z.enum` hand-copy is unguarded ON THIS BRANCH (§5.1).** The pin exists on
+   `claude/caring-contacts-schedule` and arrives at merge; the coordinator is carrying it. Recorded
+   so the next task to add an `AccessedObjectType` member looks there rather than writing a second
+   guard — which is the mistake my own report nearly caused.
 4. **`shell.tsx` will conflict.** It is shared with live branches and I changed both the
    `MORE_DESTINATIONS` shape and the panel's render. The `PHONE_OVERFLOW_DESTINATIONS` derivation is
    the part worth preserving through any merge; a hand-written list restores the defect.
@@ -553,3 +591,55 @@ than a forced lease.** Their anchors are validated, so the set re-runs as-is.
 7. **`rendersAt` is a model of the CSS.** It throws on any variant it does not know, which is the
    right failure direction, but it will need teaching if the shell adopts a `max-` variant or a
    container query. The browser block is the half that does not model anything.
+
+---
+
+## 10. Round 2 — what the coordinator asked for after the first report
+
+**1. The nine unrun mutations.** Run, on the narrowed selection, all nine RED, every predicted count
+and every named assertion matching. The suppression rule is now proven in all four of its parts
+rather than one; the row that mattered most, M3 (the residual-zero rule), reddens with
+`expected { kind: 'breakdown', …(1) } to deeply equal { kind: 'withheld', …(1) }`. **Nothing from
+this task's mutation set is left unrun.** Full table and messages in §8.
+
+The narrowing is what did it. The same rows had come back UNRUN or unattempted against the whole
+24-suite set; every one of them ran on the suite it targets. Two rows still needed retries — M1 after
+eight refusals, M11 after thirty — and both were retried rather than forced. No lease was broken at
+any point.
+
+**2. The pin.** §5.1 rewritten: it exists on `claude/caring-contacts-schedule` and arrives at merge,
+and it is not in this tree. Nothing built; the coordinator is carrying it. Recorded so the next task
+to add an `AccessedObjectType` member looks on the right branch instead of writing a second guard.
+
+**3. The demo-seed sentinel.** §5.2 rewritten as an explicit correction to the brief, with the
+consequence spelled out: **a sentinel in a free-text column is indistinguishable from a category to
+anything that counts categories.** Had this screen rendered a breakdown, the demo would have shown a
+reach category called "Not stated" with a count of three, and it would have looked like data.
+
+**4. The second-approver recommendation.** Ruled recorded-not-built. §1 carries the recommendation
+where the threshold lives, and `reach-reporting-governance.ts`'s own note now says the gap is
+accepted rather than outstanding — so a reader of the code does not take it for an open action.
+
+### Re-verification after the last edit
+
+All three after the final source edit — the note added to `reach-reporting-governance.ts`, which was
+round 2's only change to source:
+
+```
+Checking formatting...
+All matched files use Prettier code style!
+```
+
+```
+[gate-receipts] recorded a pass for "typecheck:internal" (5357 input files).
+```
+
+```
+ Test Files  24 passed (24)
+      Tests  500 passed (500)
+```
+
+`npx eslint --no-cache` on the changed file produced no output, which is its clean result. Both gates
+were admitted on the first attempt this time; the contention that dominated the earlier rounds had
+cleared. Every commit SHA in this report was re-checked with `git cat-file -e <sha>^{commit}` after
+the final commit.

@@ -20,10 +20,15 @@
 // Today, exactly one thing enforces deliberateness: `tests/caring-contacts-reporting.test.ts` pins
 // the value AND the provenance fields beside it, so an edit that moves the number without moving
 // the record that explains it turns the suite red. That makes the change visible and reviewable; it
-// does not make it authorised. The recommendation for what a change ought to require -- and why the
-// current guard is weaker than that -- is recorded in
-// `docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md`. Do not weaken the pin to make an
-// edit easier: the pin IS the deliberateness.
+// does not make it authorised -- one commit can edit both the value and the pin.
+//
+// THAT GAP IS ACCEPTED, NOT OUTSTANDING. The owner ruled on 2026-08-26 that a provenance pin is
+// proportionate for a prototype holding no real data, and that a second-approver mechanism is a
+// governance decision nobody has been asked for. It is still a gap: what would close it -- a second
+// approver, and a superseding record rather than an in-place edit -- is written down in
+// `docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md` §1 so that whoever operationalises
+// this finds it rather than re-deriving it. Do not weaken the pin to make an edit easier: with the
+// stronger mechanisms deliberately not built, the pin IS the deliberateness.
 
 /**
  * One governance decision, with what it rests on.
