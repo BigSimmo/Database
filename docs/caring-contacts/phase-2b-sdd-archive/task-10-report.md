@@ -253,7 +253,16 @@ Gates run in this worktree. **Every summary line is pasted; none is reported fro
 ```
  Test Files  18 passed (18)
       Tests  408 passed (408)
-   Duration  119.95s
+   Duration  105.89s
+```
+
+That run is the round-3 full-set gate on the final tree, and it is the one that catches collateral
+damage the per-suite mutation runs cannot see. It took **21 attempts** to get the lease: a Playwright
+run in another worktree held it for the preceding twenty minutes, and every refusal was waited out
+rather than forced.
+
+```
+
 ```
 
 An earlier run went **red** on one file before the client-component allowlist entry was added, which
