@@ -916,7 +916,7 @@ export function AnswerLoadingRedesignMockupsPage() {
         <Panel
           step="Four"
           title="The states that are not the happy path"
-          intro="Most of what can go wrong with an answer is decided during the wait, and the shipped stepper draws none of it — it renders the same five circles whether retrieval found sixty passages or none. These are the five that need their own words."
+          intro="Most of what can go wrong with an answer is decided during the wait, and the shipped stepper draws none of it — it renders the same five circles whether retrieval found sixty passages or none. These are the five that need their own words, and the arrived state beside them for comparison."
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Fragment
