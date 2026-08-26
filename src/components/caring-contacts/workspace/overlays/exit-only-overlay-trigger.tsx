@@ -14,7 +14,7 @@ import { WorkspaceOverlayTrigger } from "./overlay-trigger";
  * Ruling 87 makes {@link WorkspaceOverlayTrigger}'s `commit` required AT THE TYPE LEVEL so a screen
  * cannot open a decision surface it has not wired, and `overlay-commits.ts` deliberately offers no
  * no-op member of `WorkspaceOverlayCommit`. That requirement is right, and it was derived from the
- * sixteen rows that record something.
+ * rows that record something.
  *
  * It meets a row it was not derived from here. `delivery-detail` is `mutatesState: false` and its
  * decision is "Close this detail" — Ruling 90 already established, for `commitRefusalFor`'s scope,
@@ -53,6 +53,21 @@ import { WorkspaceOverlayTrigger } from "./overlay-trigger";
  * for a construct like this one or write a bare no-op. That is reported rather than fixed here,
  * because adding a member is a change to Task 3's pinned contract and to the totality of
  * `commitRefusalFor` — not a change a screen may make to compile.
+ *
+ * ## Ruling [130] — this throw stands in for a type, and should not have to
+ *
+ * The refusal in {@link exitOnlyOverlayCommit} is a RUNTIME check for something the type system
+ * could make impossible, and that is worth naming rather than quietly accepting.
+ * `WORKSPACE_OVERLAY_DEFINITIONS` is annotated `readonly WorkspaceOverlayDefinition[]` with
+ * `id: string`, which ERASES the id literals its `satisfies` clause would otherwise have preserved.
+ * Narrow `id` to a literal union there and `ExitOnlyOverlayTriggerProps.overlayId` can become a
+ * derived `NonMutatingOverlayId` — at which point wiring a recording row to this component stops
+ * COMPILING, which is the standard Ruling [87] set and strictly better than finding out at render.
+ *
+ * That narrowing belongs in `definitions.ts`, which is shared with live branches, so it is the
+ * coordinator's to land rather than this task's. The throw stays either way: belt-and-braces once
+ * the type exists, and it follows `WorkspaceOverlayTrigger`'s own render-time throw for an unknown
+ * id rather than inventing a second policy.
  */
 export type ExitOnlyOverlayTriggerProps = {
   /** An id from the frozen 24-row table whose row carries `mutatesState: false`. */

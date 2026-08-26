@@ -30,7 +30,7 @@
 //      about the plan being old.
 //
 // Built on the helper shape `caring-contacts-patients-page.dom.test.tsx` established for Task 5.
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,6 +55,7 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 }));
 
 import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
+import { commitRefusalFor } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
@@ -882,6 +883,15 @@ function scheduleEntryFixture(
   };
 }
 
+/** The same plan, held in each of the two states that are not running. */
+function pausedPlanFixture(): PlanRecord["plan"] {
+  return { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "paused", version: 1 };
+}
+
+function draftPlanFixture(): PlanRecord["plan"] {
+  return { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "draft", version: 1 };
+}
+
 function planRecordFixture(overrides: Partial<PlanRecord> = {}): PlanRecord {
   return {
     plan: { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "active", version: 1 },
@@ -954,9 +964,33 @@ describe("the patient overview - a plan that is not running must not read as for
     const note = screen.getByRole("group", { name: "Draft" });
     expect(note).toHaveTextContent("this plan has not been started");
     expect(note).toHaveTextContent("a date below is not a message on its way");
-    // The two states are different facts and must not collapse into one sentence.
-    expect(note).not.toHaveTextContent(/paused/i);
+  });
+
+  it("does not let draft and paused collapse into one note, and proves the locators first", () => {
+    // REVIEW ROUND 2. These two negatives used to sit at the end of the case above, behind
+    // `getByRole("group", { name: "Draft" })` -- and the mutation aimed at them (M6, the draft label
+    // swapped for the paused one) makes THAT line fail first, so neither negative was ever reached.
+    // A sibling that fails first does not prove the assertion behind it. They live in their own case
+    // now, each preceded by the positive control that shows its locator can find what it is denying.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record: planRecordFixture({ plan: pausedPlanFixture() }), episode: null, otherPlanCount: 0 }}
+      />,
+    );
+    // Positive control: both locators DO find a paused note when the plan is paused.
+    expect(screen.getByRole("group", { name: "Paused" })).toHaveTextContent(/paused/i);
+    cleanup();
+
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record: planRecordFixture({ plan: draftPlanFixture() }), episode: null, otherPlanCount: 0 }}
+      />,
+    );
+    // The group negative FIRST, so a mutated label reaches it rather than failing the line above it.
     expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Draft" })).not.toHaveTextContent(/paused/i);
   });
 
   it("adds no such note to a running plan, so the note means something when it appears", async () => {
@@ -967,6 +1001,23 @@ describe("the patient overview - a plan that is not running must not read as for
       { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("activate-running") },
     );
     if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+
+    // Positive control first (review round 2): the same locator DOES find a not-running note when
+    // the plan is not running, so the two absences below are the plan's state rather than a query
+    // that never matches anything.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{
+          kind: "episode",
+          record: planRecordFixture({ plan: draftPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        }}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Draft" })).toBeInTheDocument();
+    cleanup();
 
     await renderPage();
 
@@ -992,8 +1043,15 @@ describe("the patient overview - a plan that is not running must not read as for
       "10 entries, and none of them will be sent.",
     );
     expect(screen.queryByRole("group", { name: "Withdrawn" })).not.toBeInTheDocument();
-    // The rows still carry their own reason, so nothing was lost by withholding the note.
-    expect(screen.getAllByRole("group", { name: "Cancelled" }).length).toBeGreaterThan(0);
+    // The rows still carry their own reason, so nothing was lost by withholding the note -- and this
+    // is the positive control for the absence above: the same `getByRole("group", { name })` locator
+    // finds plenty here, so "no Withdrawn group" is the screen's answer, not a query that matches
+    // nothing. Held to expected CONTENT rather than to a count greater than zero (review round 2),
+    // because a count is satisfied by a group carrying any words at all.
+    const cancelled = screen.getAllByRole("group", { name: "Cancelled" });
+    expect(cancelled[0]).toHaveTextContent(
+      "This plan ended (withdrawn), and the system cancelled every message that had not already gone out.",
+    );
   });
 });
 
@@ -1049,6 +1107,20 @@ describe("the patient overview - the attestation is recorded on the plan, and is
     // No backfill, on purpose: writing a placeholder would fabricate a clinical record. So the
     // emptiness is a fact to be stated, and a screen that showed nothing at all would leave a
     // reader to conclude nobody confirmed anything.
+    // Positive control first (review round 2): on a plan that HOLDS attestations, both the list
+    // locator and the wording below are found. Without it, the two absence assertions would agree
+    // just as happily with a card that never renders a list under any circumstances.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record: planRecordFixture(), episode: null, otherPlanCount: 0 }}
+      />,
+    );
+    const populated = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(within(populated).getByRole("list", { name: "Confirmations recorded on this plan" })).toBeInTheDocument();
+    expect(populated).toHaveTextContent("that the patient had agreed to receive caring contacts");
+    cleanup();
+
     const record = planRecordFixture({ assuranceAttestations: [] });
 
     render(
@@ -1116,7 +1188,14 @@ describe("the patient overview - the delivery detail overlay is wired only where
     const triggers = screen.getAllByTestId("workspace-overlay-trigger");
     expect(triggers).toHaveLength(1);
     expect(triggers[0]).toHaveAttribute("data-overlay-trigger", "delivery-detail");
-    expect(triggers[0]).toHaveAccessibleName(/Day 1/);
+    // The row appears as the control's ORIGIN, so ten of these are told apart by a reader who
+    // cannot see which row each sits in.
+    expect(triggers[0]).toHaveAccessibleName(/opened from the Day 1 row/);
+    // And the promise itself is GENERIC, because the drawer is: `OverlayHost` takes no children and
+    // renders only the row's frozen summary, so a label reading "what the phone network reported for
+    // Day 1" would advertise a per-contact report that the surface it opens does not contain
+    // (review round 2).
+    expect(triggers[0]).toHaveAccessibleName(/^What a delivery receipt means/);
   });
 
   it("offers none on a plan where nothing has left yet", () => {
@@ -1138,6 +1217,20 @@ describe("the patient overview - the delivery detail overlay is wired only where
     // The guard is what separates this from the silent no-op Ruling 87 forbids: it is legitimate
     // ONLY because the row's decision is an exit and the host performs the close itself.
     expect(() => exitOnlyOverlayCommit("delivery-detail")).not.toThrow();
+    // REVIEW ROUND 2, and this is the assertion the first version was missing. "Does not throw" says
+    // nothing about WHICH commit comes back, and the whole decision this module exists to take is
+    // `record` rather than `unavailable`. `commitRefusalFor` is exported, pure and TOTAL over the
+    // three states of the slot, so the difference is decidable right here: an `unavailable` commit
+    // answers with an `every-row` refusal, which the host would render as an aria-disabled EXIT --
+    // the defect Ruling [90] fixed. Only a `record` commit answers null.
+    //
+    // I first reported this as unprovable offline and deferred it to Playwright. That was wrong, and
+    // the reason is worth more than the fix: `tests/caring-contacts-overlay-trigger.dom.test.tsx`
+    // already draws exactly this distinction, and it is NOT in `test:cc-guards`. Reasoning from
+    // "what does my gate run?" I concluded no offline test could tell two behaviours apart that an
+    // unrun suite tells apart today. A gate that omits a suite does not merely skip coverage -- it
+    // hides the precedent.
+    expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull();
     expect(() => exitOnlyOverlayCommit("withdrawal")).toThrow(/records a decision/i);
     expect(() => exitOnlyOverlayCommit("not-an-overlay")).toThrow(/No overlay is defined/i);
   });

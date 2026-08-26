@@ -792,13 +792,20 @@ function ScheduleEntry({ entry, plan }: { entry: StoredContact; plan: PlanRecord
         choice. `OverlayHost` renders each row's frozen `summary` and takes no children, so the
         overlay cannot name the contact it was opened from -- it states what a transport report is
         and is not, which is the row's own copy. The per-contact fact therefore stays ON this row,
-        above, where `CONTACT_STATE_LABELS` already labels every provider state as a receipt. The
-        trigger names the row so the control is not ambiguous among ten of them.
+        above, where `CONTACT_STATE_LABELS` already labels every provider state as a receipt.
+
+        SO THE LABEL PROMISES ONLY WHAT THE DRAWER HOLDS. The first version read "What the phone
+        network reported -- Day 1", which advertises this contact's own report and then opens a
+        surface holding no contact data at all. Disclosing that in a comment is not discharging it.
+        The visible words are now generic, because the drawer is generic; the cadence label follows
+        as the control's ORIGIN, which is what tells one schedule row's control from another's for a
+        reader who cannot see which row it sits in, and it claims nothing about what opens.
       */}
       {contactSendability(entry.contact.state) === "alreadySent" ? (
         <div className="mt-2 min-w-0">
           <ExitOnlyOverlayTrigger overlayId="delivery-detail" className="w-full sm:w-auto">
-            <span className="truncate">What the phone network reported &mdash; {entry.planned.cadenceLabel}</span>
+            <span className="truncate">What a delivery receipt means</span>
+            <span className="sr-only"> &mdash; opened from the {entry.planned.cadenceLabel} row</span>
           </ExitOnlyOverlayTrigger>
         </div>
       ) : null}
