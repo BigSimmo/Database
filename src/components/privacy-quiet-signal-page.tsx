@@ -192,7 +192,7 @@ export function PrivacyQuietSignalPage() {
         "privacy-page",
         searchPageCanvas,
         atmosphere,
-        "min-h-dvh focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+        "focus-ring-contained min-h-dvh focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]",
       )}
     >
       <div
@@ -228,7 +228,7 @@ export function PrivacyQuietSignalPage() {
         <div className={cn(pageContainer, "space-y-5 sm:space-y-6")}>
           <div
             data-testid="privacy-trust-brief"
-            className="overflow-hidden rounded-[1.75rem] border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)]"
+            className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)]"
           >
             <header className="relative overflow-hidden px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-9">
               <div
@@ -240,11 +240,11 @@ export function PrivacyQuietSignalPage() {
                   <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Privacy overview</p>
                   <h1
                     id="privacy-page-title"
-                    className="mt-2 max-w-[18ch] text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl"
+                    className="mt-2 max-w-[var(--measure-trust-heading)] text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl"
                   >
                     {privacyCopy.pageTitle}
                   </h1>
-                  <p className="mt-3 max-w-[62ch] text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-7">
+                  <p className="mt-3 max-w-[var(--measure)] text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-7">
                     Understand what information Clinical KB handles, where it is processed, how long it is retained, and
                     what you need to do before using it.
                   </p>
@@ -273,7 +273,7 @@ export function PrivacyQuietSignalPage() {
               <p
                 role="note"
                 data-testid="privacy-draft-disclaimer"
-                className="relative mt-5 flex max-w-[72ch] items-start gap-2 border-t border-[color:var(--border)] pt-4 text-xs leading-5 text-[color:var(--text-muted)]"
+                className="relative mt-5 flex max-w-[var(--measure)] items-start gap-2 border-t border-[color:var(--border)] pt-4 text-xs leading-5 text-[color:var(--text-muted)]"
               >
                 <Info aria-hidden="true" className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
                 <span>{PRIVACY_DRAFT_DISCLAIMER}</span>
@@ -297,7 +297,7 @@ export function PrivacyQuietSignalPage() {
                   >
                     Before you use Clinical KB
                   </h2>
-                  <p className="mt-1 max-w-[62ch] text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">
+                  <p className="mt-1 max-w-[var(--measure)] text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:leading-6">
                     {PRIVACY_IMPORTANT_SHORT}
                   </p>
                 </div>
@@ -331,7 +331,7 @@ export function PrivacyQuietSignalPage() {
                   "print:block",
                 )}
               >
-                <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">
+                <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-heading)]">
                   {PRIVACY_IMPORTANT_FULL}
                 </p>
               </div>
@@ -416,7 +416,7 @@ export function PrivacyQuietSignalPage() {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] px-1 py-4 sm:px-0">
-              <p className="min-w-0 max-w-[68ch] text-xs leading-5 text-[color:var(--text-muted)]">
+              <p className="min-w-0 max-w-[var(--measure)] text-xs leading-5 text-[color:var(--text-muted)]">
                 {PRIVACY_CLOSING_NOTE}
               </p>
               <PrintAction label="Print this page" />

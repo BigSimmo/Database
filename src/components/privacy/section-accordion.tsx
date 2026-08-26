@@ -75,8 +75,7 @@ export function PrivacySectionAccordion({
                 className={cn(
                   "group relative flex w-full items-start gap-2.5 px-3 py-3 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:gap-3 sm:px-4 sm:py-3.5 lg:px-5 lg:py-4",
                   searchFocusRing,
-                  "focus-visible:outline-offset-[-2px]",
-                  "min-h-tap lg:min-h-[calc(var(--spacing-tap)+0.75rem)]",
+                  "focus-ring-contained min-h-tap",
                   expanded && "bg-[color:var(--clinical-accent-soft)]/32",
                 )}
               >

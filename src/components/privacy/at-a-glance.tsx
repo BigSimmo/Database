@@ -44,7 +44,7 @@ export function PrivacyAtAGlance({ onOpenSection }: { onOpenSection: (id: Privac
                 "group relative flex min-h-tap h-full w-full min-w-0 items-start gap-2.5 overflow-hidden bg-[color:var(--surface-raised)] px-3 py-3 text-left",
                 "transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:px-4 sm:py-3.5",
                 searchFocusRing,
-                "focus-visible:outline-offset-[-2px]",
+                "focus-ring-contained",
               )}
             >
               <span
