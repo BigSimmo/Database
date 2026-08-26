@@ -37,6 +37,18 @@ const createPlanSchema = z
         patientMobileNumber: z.string().min(1),
         patientIdentifiers: z.array(z.string().min(1)),
         culturalIdentity: z.string().min(1).nullable(),
+        /**
+         * What the patient asked to be called in the messages they receive. ASKED FOR by the
+         * clinician, never derived from `patientName` -- see `Episode.preferredName`.
+         *
+         * `min(1)` because `""` is what a RETENTION CLEARANCE writes, and the clearance must stay
+         * the only thing that can write it: a request carrying `""` would create a plan already
+         * shaped like a de-identified one. `nullable` because a caller may legitimately hold no
+         * preferred name -- the same fact every plan created before the column existed carries --
+         * and the message resolver then refuses BY NAME rather than sending an unpersonalised
+         * greeting nobody has authored.
+         */
+        preferredName: z.string().min(1).nullable(),
       })
       .strict(),
     /**

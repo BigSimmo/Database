@@ -350,6 +350,12 @@ export type CreatePlanRequestBody = {
     patientMobileNumber: string;
     patientIdentifiers: string[];
     culturalIdentity: string | null;
+    /**
+     * What the patient asked to be called in messages. Nullable on the wire because a caller may
+     * genuinely hold none; `createPlanPatientDetail` never sends null, because a name the message
+     * cannot be built from stops the plan being created at all.
+     */
+    preferredName: string | null;
   };
   /**
    * What the coordinator attested to having confirmed at stage 1, as the domain's own closed

@@ -1091,12 +1091,20 @@ function PathwayStage({
  * RULING [114], AND IT IS THE WHOLE SHAPE OF THIS STAGE. The approved mockup draws this screen as a
  * CONFIRMATION: four read-only rows — preferred name, message variant, team identity, coordinator
  * signature — each with a green tick and the source line "Imported from the synthetic referral".
- * Not one of them is reproducible. `createPlanSchema.patientDetail` requires the clinician to
- * SUPPLY `patientName` and `patientMobileNumber` (both `min(1)`), plus identifiers and cultural
- * identity, and a `Referral` is five fields holding none of them (Ruling [112]). There is nothing
- * to import and nothing to tick, so this is a DATA ENTRY stage: it is where a clinician types a
- * person's name and mobile number. Presenting that typing as an imported governed value would be a
- * lie about provenance on the screen that decides where messages physically go.
+ * Not one of them is reproducible AS AN IMPORT. `createPlanSchema.patientDetail` requires the
+ * clinician to SUPPLY `patientName` and `patientMobileNumber` (both `min(1)`), plus identifiers,
+ * cultural identity and the preferred name, and a `Referral` is five fields holding none of them
+ * (Ruling [112]). There is nothing to import and nothing to tick, so this is a DATA ENTRY stage: it
+ * is where a clinician types a person's name, what to call them, and a mobile number. Presenting
+ * that typing as an imported governed value would be a lie about provenance on the screen that
+ * decides where messages physically go.
+ *
+ * THE MOCKUP'S "preferred name" ROW IS NOW COLLECTED, AND ONLY THE PROVENANCE CHANGED (owner
+ * decision, 2026-08-26). The design shows it arriving from the hospital record; it is typed here
+ * instead, and it is asked as its own question rather than derived from `patientName` — see the
+ * field's own comment for the four ordinary Perth names that a split gets wrong. That reduces the
+ * design's list of values imported from a record this system is not connected to; it does not
+ * resolve the others.
  *
  * This is the third stage of this wizard whose approved design pictures a system reading from a
  * hospital record it is not connected to. The design is a specification for the product; the types
@@ -1162,6 +1170,29 @@ function PersonalisationStage({
             value={detail.patientName}
             requirement={issueFor("patientName")?.message ?? null}
             onChange={(value) => onDetailChange({ patientName: value })}
+            autoComplete="off"
+          />
+
+          {/*
+            THE MESSAGE'S NAME IS ASKED FOR, NOT TAKEN FROM THE FIELD ABOVE (owner decision,
+            2026-08-26) — and this is the one place a later editor is most likely to "simplify" it
+            back, so the reason is here rather than only in the module.
+
+            The field above is one free-text box. Splitting it at the first space greets a person
+            with one name by their only name, a person whose family name is written first by their
+            surname, `Mr John Smith` as "Mr", and a person with two given names by half of them.
+            Every one of those is ordinary in Perth rather than exotic. A suicide-prevention message
+            that opens with someone's surname, or with a title, is worse than one that uses no name
+            at all — so the person actually speaking to the patient types what to call them, and
+            nothing in this codebase parses a name.
+          */}
+          <TextField
+            id="caring-contacts-preferred-name"
+            label="What should we call them in messages?"
+            hint="Ask the person. This is the word each message opens with, so it is asked for rather than taken from the name above — a name written family-name-first, or with a title, would open the message with the wrong word."
+            value={detail.preferredName}
+            requirement={issueFor("preferredName")?.message ?? null}
+            onChange={(value) => onDetailChange({ preferredName: value })}
             autoComplete="off"
           />
 
@@ -1334,6 +1365,7 @@ function PersonalisationStage({
 function TextField({
   id,
   label,
+  hint,
   value,
   requirement,
   onChange,
@@ -1343,6 +1375,15 @@ function TextField({
 }: {
   id: string;
   label: string;
+  /**
+   * Plain words about what this field is for, shown whether or not anything is missing.
+   *
+   * Distinct from `requirement`, which appears only while the field is incomplete: a hint that
+   * explains WHY a question is asked has to be readable at the moment the clinician is deciding
+   * what to type, not only after they have failed to. Both are named in `aria-describedby` when
+   * both are present.
+   */
+  hint?: string;
   value: string;
   /** Plain words: what this field is for and why it cannot be left empty. Null when optional. */
   requirement: string | null;
@@ -1357,9 +1398,12 @@ function TextField({
   describedBy?: string;
 }) {
   const requirementId = `${id}-requirement`;
-  const described = [requirement === null ? null : requirementId, describedBy ?? null].filter(
-    (entry): entry is string => entry !== null,
-  );
+  const hintId = `${id}-hint`;
+  const described = [
+    hint === undefined ? null : hintId,
+    requirement === null ? null : requirementId,
+    describedBy ?? null,
+  ].filter((entry): entry is string => entry !== null);
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-sm font-medium text-[color:var(--text-heading)]">
@@ -1376,6 +1420,11 @@ function TextField({
         aria-describedby={described.length === 0 ? undefined : described.join(" ")}
         className={fieldClass}
       />
+      {hint === undefined ? null : (
+        <p id={hintId} className={mutedTextClass}>
+          {hint}
+        </p>
+      )}
       {requirement === null ? null : (
         <p id={requirementId} className={mutedTextClass}>
           {requirement}
@@ -1603,6 +1652,12 @@ function ReviewStage({
             label="Patient&rsquo;s name"
             value={detail.patientName.trim() === "" ? "Not entered" : detail.patientName.trim()}
             source="Entered by you at personalisation. A referral carries no name."
+          />
+          <SourcedFact
+            icon={<UserRoundCheck aria-hidden="true" className="size-icon-md" />}
+            label="Called this in messages"
+            value={detail.preferredName.trim() === "" ? "Not entered" : detail.preferredName.trim()}
+            source="Entered by you at personalisation, from what the person asked to be called. Never taken from the name above."
           />
           <SourcedFact
             icon={<PhoneOff aria-hidden="true" className="size-icon-md" />}

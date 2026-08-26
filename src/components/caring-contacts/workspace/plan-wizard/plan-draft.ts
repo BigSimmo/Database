@@ -378,18 +378,26 @@ function parseSubmission(value: unknown): PlanSubmissionIdentity | null | undefi
 }
 
 /**
- * Stage 3's four fields, or null if any is missing or the wrong type.
+ * Stage 3's fields, or null if any is missing or the wrong type.
  *
- * Every field is REQUIRED to be present as a string, including the two that may legitimately be
+ * Every field is REQUIRED to be present as a string, including those that may legitimately be
  * empty. A draft written before stage 3 existed carries none of them, and reading it as "the
  * clinician typed nothing" would be a guess about a record this module cannot see the age of. The
  * module's own rule applies: half a clinician's answers with the other half silently defaulted is
  * worse than asking again.
+ *
+ * `preferredName` (2026-08-26) is required on exactly that rule, and the consequence is stated
+ * rather than softened: a draft written before the field existed is DISCARDED, taking the name and
+ * mobile number with it, and the clinician is asked all three again. Defaulting it to `""` would be
+ * indistinguishable from a clinician who deliberately left it blank, and the value decides the word
+ * a patient-visible message opens with. Cultural identity is blanked rather than refused for the
+ * opposite reason: nothing may supply it any more, so there is nothing to ask for.
  */
 function parsePatientDetail(value: unknown): PlanPatientDetailDraft | null {
   if (!isRecord(value)) return null;
-  const { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity } = value;
+  const { patientName, preferredName, patientMobileNumber, patientIdentifiers, culturalIdentity } = value;
   if (typeof patientName !== "string") return null;
+  if (typeof preferredName !== "string") return null;
   if (typeof patientMobileNumber !== "string") return null;
   if (typeof patientIdentifiers !== "string") return null;
   if (typeof culturalIdentity !== "string") return null;
@@ -403,7 +411,7 @@ function parsePatientDetail(value: unknown): PlanPatientDetailDraft | null {
   // were never offered. Blanking drops exactly the value that may no longer be supplied and keeps
   // everything they did type. The key is still REQUIRED to be a string above, so this is a decision
   // about a recognised field rather than a silence about an unrecognised one.
-  return { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity: "" };
+  return { patientName, preferredName, patientMobileNumber, patientIdentifiers, culturalIdentity: "" };
 }
 
 /**
