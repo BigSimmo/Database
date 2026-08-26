@@ -12,6 +12,7 @@ import {
   type ReleaseHoldReason,
 } from "@/components/ward-management/ward-change-reasons";
 import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import {
   bedReleaseStateLabels,
   elapsedLabel,
@@ -161,6 +162,14 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
   const site = siteByCode(unit.siteCode);
   const capacity = unitCapacity(unit, bedReleases);
+  // Visual-fix pass: the capacity board (`CapacityView` in `ward-management-modes.tsx`) was just
+  // corrected to source Confirmed/Predicted from `capacityBreakdown()` rather than `unitCapacity()`'s
+  // raw, state-and-timing-blind `potential` count — this screen used to be the one place still
+  // showing that raw count as "Potential", which is how the same unit could read "Potential 1" here
+  // and "Confirmed 1, Predicted 0" one screen over, for the exact same release. This screen now reads
+  // the same breakdown so both screens describe the same beds the same way. `unitCapacity()` itself
+  // is untouched — see its own doc comment on `potential` in `ward-derivations.ts`.
+  const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   // TypeScript's narrowing of `unit` above does not reach into the `submitDecline` /
   // `submitCapacity` closures defined further down (the same reason `shortlist-panel.tsx`'s
   // `handleRefer` closes over a plain `movementId` rather than re-checking `movement`), so this
@@ -413,13 +422,20 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <span className={styles.bedChip} data-state="occupied">
               Occupied {capacity.occupied}
             </span>
-            <span className={styles.bedChip} data-state="potential">
-              Potential {capacity.potential}
+            <span className={styles.bedChip} data-state="confirmed">
+              Confirmed {breakdown.confirmedToday}
+            </span>
+            <span className={styles.bedChip} data-state="predicted">
+              Predicted {breakdown.predictedToday}
+            </span>
+            <span className={styles.bedChip} data-state="leave">
+              Leave {breakdown.leaveUsable}
             </span>
           </div>
           <p className={styles.bedNote}>
-            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Potential is beds expected
-            to free up &mdash; it is never counted into the four above.
+            Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, predicted and
+            leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been
+            released, so this figure is always one you can fill this minute.
           </p>
 
           <form className={styles.capacityForm} onSubmit={submitCapacity} data-testid="ward-capacity-form">
@@ -680,7 +696,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       <strong>{leaveBed.usable ? "Usable while away" : "Not usable while away"}</strong>
                       <span className={styles.cardMeta}>Expected return {formatInstant(leaveBed.expectedReturn)}</span>
                     </header>
-                    <WardFreshness confirmedAt={leaveBed.confirmedAt} confirmedByRole={leaveBed.confirmedBy} now={now} />
+                    <WardFreshness
+                      confirmedAt={leaveBed.confirmedAt}
+                      confirmedByRole={leaveBed.confirmedBy}
+                      now={now}
+                    />
                     <div className={styles.actionRow}>
                       <button
                         type="button"

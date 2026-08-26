@@ -30,7 +30,9 @@ function RequestBtyAdultSecureRefresh() {
   return (
     <button
       type="button"
-      onClick={() => dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: "bty-adult-secure" })}
+      onClick={() =>
+        dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: "bty-adult-secure" })
+      }
     >
       request bty-adult-secure refresh
     </button>
@@ -168,6 +170,51 @@ describe("ward screen live unit capacity", () => {
     // After a real CONFIRM_CAPACITY dispatch updates state.units, the screen must show the new
     // live count — resolving from the frozen fixture would keep showing 1 forever.
     expect(screen.getByText(/Currently confirmed 0 at/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Visual-fix pass: this ward screen used to render a single "Potential" chip sourced from
+ * `unitCapacity()`'s raw, state-and-timing-blind release count — the same unit's own bed release
+ * could be explicitly listed as `Confirmed` in the "Bed releases" list below while this chip row
+ * still called it `Potential`, contradicting both itself and the capacity board's own
+ * Confirmed/Predicted split one screen over. This suite pins the fix: the chip row must never
+ * render the word "Potential" again, and must instead show the same Confirmed/Predicted/Leave
+ * figures `capacityBreakdown()` computes — the one the capacity board already uses.
+ *
+ * rph-adult-secure is the phase's own chosen unit and carries exactly one seeded bed release
+ * (WR-001, `confirmed`, expected well inside today — asserted at the top of the earlier "bed
+ * release controls" suite above) and exactly one seeded leave bed (WL-001, `usable: true`). That
+ * gives an unambiguous, non-zero expectation for all three new figures: Confirmed 1, Predicted 0,
+ * Leave 1.
+ */
+describe("ward screen bed capacity chip row uses the shared breakdown, not the raw potential count", () => {
+  it("never renders 'Potential', and renders Confirmed/Predicted/Leave from capacityBreakdown()", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="rph-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    const chipRow = screen.getByTestId("ward-unit-beds");
+
+    // The defect this suite exists to catch: the word this screen used to show for a figure the
+    // capacity board no longer calls "Potential" anywhere. A chip row that still said "Potential 1"
+    // here — right next to the same release explicitly listed as "Confirmed" below — is exactly
+    // the contradiction being fixed.
+    expect(chipRow).not.toHaveTextContent("Potential");
+
+    // The replacement figures, sourced from the same `capacityBreakdown()` the capacity board
+    // reads, not re-derived by hand and not read from `unitCapacity()`.
+    expect(chipRow).toHaveTextContent("Confirmed 1");
+    expect(chipRow).toHaveTextContent("Predicted 0");
+    expect(chipRow).toHaveTextContent("Leave 1");
+
+    // The four physical states are untouched by this fix — same figures, same order, same chips.
+    expect(chipRow).toHaveTextContent("Ready 1");
+    expect(chipRow).toHaveTextContent("Held 1");
+    expect(chipRow).toHaveTextContent("Blocked 0");
+    expect(chipRow).toHaveTextContent("Occupied 18");
   });
 });
 

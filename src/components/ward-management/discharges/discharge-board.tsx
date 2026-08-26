@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  RELEASE_BANDS,
-  releaseBand,
-  type ReleaseBand,
-} from "@/components/ward-management/ward-bed-availability";
+import { RELEASE_BANDS, releaseBand, type ReleaseBand } from "@/components/ward-management/ward-bed-availability";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
@@ -96,7 +92,9 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
 
   const byBand = (list: BedRelease[]) =>
     [...list].sort(
-      (a, b) => RELEASE_BANDS.indexOf(releaseBand(a, now) as ReleaseBand) - RELEASE_BANDS.indexOf(releaseBand(b, now) as ReleaseBand),
+      (a, b) =>
+        RELEASE_BANDS.indexOf(releaseBand(a, now) as ReleaseBand) -
+        RELEASE_BANDS.indexOf(releaseBand(b, now) as ReleaseBand),
     );
 
   return {
@@ -130,8 +128,8 @@ export function DischargeBoard() {
         <div className={styles.governanceBanner} data-testid="ward-discharge-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This board is <strong>not a medical device</strong>. It shows only the release state a ward has recorded
-            — predicted, confirmed, blocked or released — and it never adds a predicted or unreleased bed into
+            This board is <strong>not a medical device</strong>. It shows only the release state a ward has recorded —
+            predicted, confirmed, blocked or released — and it never adds a predicted or unreleased bed into
             &quot;available now&quot;.
           </p>
         </div>
@@ -147,8 +145,8 @@ export function DischargeBoard() {
 
         <footer className={styles.footer} data-testid="ward-discharge-excluded">
           <p>
-            {groups.excludedBeyondToday} release{groups.excludedBeyondToday === 1 ? "" : "s"} excluded — expected
-            beyond tonight.
+            {groups.excludedBeyondToday} release{groups.excludedBeyondToday === 1 ? "" : "s"} excluded — expected beyond
+            tonight.
           </p>
         </footer>
       </main>
@@ -198,7 +196,11 @@ function DischargeGroupSection({
                       <td>{BAND_LABELS[band]}</td>
                       <td>{release.blocker ?? "—"}</td>
                       <td>
-                        <WardFreshness confirmedAt={release.confirmedAt} confirmedByRole={release.confirmedBy} now={now} />
+                        <WardFreshness
+                          confirmedAt={release.confirmedAt}
+                          confirmedByRole={release.confirmedBy}
+                          now={now}
+                        />
                       </td>
                     </tr>
                   );

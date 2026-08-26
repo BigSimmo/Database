@@ -425,8 +425,8 @@ function CapacityView() {
         <div>
           <h2>Ward-confirmed capacity</h2>
           <p>
-            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased
-            or on-leave bed.
+            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased or
+            on-leave bed.
           </p>
         </div>
         <span className={styles.prototypeBadge}>Synthetic counts</span>
@@ -442,8 +442,8 @@ function CapacityView() {
       </div>
       {excludedBeyondToday > 0 && (
         <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">
-          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) —
-          excluded from every figure above, counted here rather than silently dropped.
+          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) — excluded
+          from every figure above, counted here rather than silently dropped.
         </p>
       )}
       <table className={styles.dataTable}>
@@ -464,63 +464,67 @@ function CapacityView() {
           {capacities.map(({ unit, capacity }) => {
             const breakdown = breakdownByUnitId.get(unit.id);
             return (
-            <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
-              <td>
-                <strong>{unit.name}</strong>
-                <div className={styles.microCopy}>{unit.beds} total beds</div>
-              </td>
-              <td>{siteByCode(unit.siteCode)?.service ?? "Unknown"}</td>
-              <td>
-                {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
-              </td>
-              <td>
-                <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
-                  <span>
-                    <strong>{capacity.available}</strong>Now
-                  </span>
-                  <span>
-                    <strong>{capacity.held}</strong>Held
-                  </span>
-                  <span>
-                    <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
-                  </span>
-                  <span>
-                    <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
-                  </span>
-                  <span>
-                    <strong>{capacity.blocked}</strong>Blocked
-                  </span>
-                  <span>
-                    <strong>{capacity.occupied}</strong>Occupied
-                  </span>
-                </div>
-              </td>
-              <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
-                Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
-              </td>
-              <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
-              <td data-testid={`ward-capacity-authorised-${unit.id}`}>
-                {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
-              </td>
-              <td>
-                <WardFreshness confirmedAt={unit.allocatable.confirmedAt} confirmedByRole={`NUM ${unit.name}`} now={now} />
-              </td>
-              <td className={styles.refreshCell}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  data-testid={`ward-capacity-refresh-${unit.id}`}
-                  onClick={() =>
-                    dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: unit.id })
-                  }
-                >
-                  Ask this ward to restate its numbers
-                </button>
-                <small className={styles.microCopy}>
-                  Records that you asked. Changes no figure — nothing leaves this sandbox and no message is sent.
-                </small>
-              </td>
-            </tr>
+              <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
+                <td>
+                  <strong>{unit.name}</strong>
+                  <div className={styles.microCopy}>{unit.beds} total beds</div>
+                </td>
+                <td>{siteByCode(unit.siteCode)?.service ?? "Unknown"}</td>
+                <td>
+                  {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
+                </td>
+                <td>
+                  <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
+                    <span>
+                      <strong>{capacity.available}</strong>Now
+                    </span>
+                    <span>
+                      <strong>{capacity.held}</strong>Held
+                    </span>
+                    <span>
+                      <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
+                    </span>
+                    <span>
+                      <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
+                    </span>
+                    <span>
+                      <strong>{capacity.blocked}</strong>Blocked
+                    </span>
+                    <span>
+                      <strong>{capacity.occupied}</strong>Occupied
+                    </span>
+                  </div>
+                </td>
+                <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
+                  Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                </td>
+                <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
+                <td data-testid={`ward-capacity-authorised-${unit.id}`}>
+                  {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
+                </td>
+                <td>
+                  <WardFreshness
+                    confirmedAt={unit.allocatable.confirmedAt}
+                    confirmedByRole={`NUM ${unit.name}`}
+                    now={now}
+                  />
+                </td>
+                <td className={styles.refreshCell}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    data-testid={`ward-capacity-refresh-${unit.id}`}
+                    onClick={() =>
+                      dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: unit.id })
+                    }
+                  >
+                    Ask this ward to restate its numbers
+                  </button>
+                  <small className={styles.microCopy}>
+                    Records that you asked. Changes no figure — nothing leaves this sandbox and no message is sent.
+                  </small>
+                </td>
+              </tr>
             );
           })}
         </tbody>

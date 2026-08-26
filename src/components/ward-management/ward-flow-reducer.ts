@@ -732,7 +732,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // instead of the read side. Do not remove this clamp to "simplify" the arithmetic.
       const updatedUnit: Unit = {
         ...unit,
-        allocatable: { ...unit.allocatable, value: Math.min(unit.beds, unit.allocatable.value + 1), confirmedAt: event.now },
+        allocatable: {
+          ...unit.allocatable,
+          value: Math.min(unit.beds, unit.allocatable.value + 1),
+          confirmedAt: event.now,
+        },
         empty: { ...unit.empty, value: Math.min(unit.beds, unit.empty.value + 1), confirmedAt: event.now },
       };
       const withUnit = replaceUnit(state, unit.id, updatedUnit);
