@@ -211,6 +211,27 @@ expected app router to be mounted`, thrown at render. Every narrowed row was gre
   adequate for breaking a lease.** A foreground run killed at a tool timeout once orphaned the lease
   for 26 minutes and blocked every worktree.
 
+- **A gate names its suites by hand, so it drifts from the suites that exist — union it and diff it before
+  you trust it.** `test:cc-guards` is a hand-maintained list of paths in `package.json`. Nothing adds a suite
+  to it when a suite is written, and nothing warns when a module the gate covers acquires a test the gate
+  does not name. Both failures are silent, and "the gate is green" reads identically either way.
+
+  **Measured across this phase's five branches:** thirty-two Caring Contacts suites exist that appear in
+  **no** branch's gate — among them `message-policy` and `message-copy`, whose modules one branch had just
+  changed, holding 68 cases importing exactly those two modules. Also absent: `permissions`, `assignment`,
+  `access-audit`, `repository`, `contact-rescheduling`. These are not obscure corners; they are the direct
+  behavioural suites of the things being built.
+
+  **So before trusting a gate: list the suites it names, list the suites that exist, and diff the two.**
+  Then run whichever of the missing ones cover a module you touched, narrowed, and paste the line. Doing
+  that here turned 302 never-run cases into evidence in under a minute of machine time — and had any of them
+  reddened, it would have been found before a merge instead of after one.
+
+  **The failure this prevents is subtler than missing coverage.** An implementer reasoning from "what does
+  the gate run?" concluded a distinction was **unprovable offline** that an unrun suite already proved. A
+  gate that omits a suite does not merely skip it — **it hides the precedent**, and the next person rebuilds
+  or defers something that was already settled.
+
 ## Writing that does not decay
 
 - **Do not restate a count in prose.** State the invariant. A count sitting **directly on top of the list
