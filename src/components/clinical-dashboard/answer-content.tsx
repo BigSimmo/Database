@@ -489,7 +489,10 @@ export function NaturalLanguageAnswer({
             ))}
           </span>
         </p>
-        <div className="space-y-1 -mb-2">
+        {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
+            heading used to carry a top border — the two collided and drew a rule
+            straight through the Source-only pill. */}
+        <div className="space-y-1">
           {sourceOnly ? (
             <section
               data-testid="source-only-disclosure"
