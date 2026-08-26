@@ -401,4 +401,41 @@ describe("the templates library navigates and sizes the way this workspace requi
       expect(anchor.className).not.toContain("min-h-11");
     }
   });
+
+  /**
+   * A STATIC PROXY FOR TWO BROWSER PROOFS, LABELLED AS ONE.
+   *
+   * Forced-colors and a 320px viewport are browser facts and these are not browser assertions: they
+   * read the class list of a jsdom render, where no media query and no forced-colors mode is ever
+   * evaluated. They catch the two regressions that are mechanically visible in the markup -- a
+   * bordered surface that would vanish in forced-colors, and a fixed pixel width that would push a
+   * 320px viewport into a horizontal scroll -- and they prove nothing about how any of it paints.
+   * The browser half is owed against `/caring-contacts/templates` in
+   * `tests/ui-caring-contacts-workspace.spec.ts`, which has no proof block for this route yet.
+   */
+  it("gives every bordered surface a forced-colors fallback, so none of them vanishes", () => {
+    const { container } = renderLibrary([version("SYN-PATHWAY-RETIRED", "retired")], { lifecycle: "pending" });
+    const bordered = [...container.querySelectorAll("[class*='border-[color:var(--border)]']")];
+    expect(bordered.length, "nothing on this screen draws a border — the check would be vacuous").toBeGreaterThan(0);
+    for (const element of bordered) {
+      // `getAttribute("class")`, not `.className`: on an SVG element the latter is an
+      // `SVGAnimatedString` object rather than a string, and every matcher below would be reading
+      // the wrong thing without saying so.
+      expect(
+        element.getAttribute("class") ?? "",
+        `${element.tagName} draws a border with no forced-colors fallback`,
+      ).toContain("forced-colors:border-[CanvasText]");
+    }
+  });
+
+  it("sets no fixed pixel width anywhere, so 320px has nothing to overflow", () => {
+    const { container } = renderLibrary([version("SYN-PATHWAY-CURRENT", "approved")]);
+    const classed = [...container.querySelectorAll("[class]")];
+    expect(classed.length, "nothing on this screen carries a class — the check would be vacuous").toBeGreaterThan(0);
+    for (const element of classed) {
+      expect(element.getAttribute("class") ?? "", `${element.tagName} carries a fixed width`).not.toMatch(
+        /\b(min-)?w-\[[0-9]/,
+      );
+    }
+  });
 });
