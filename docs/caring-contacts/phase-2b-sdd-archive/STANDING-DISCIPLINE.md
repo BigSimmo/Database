@@ -83,6 +83,22 @@ tell whether your situation is the one it is about.
   assertions meet the third trivially, async DOM assertions do not.
 - **Assert `git diff --quiet` clean on both sides of every mutation.** A concurrent writer in the same
   worktree has voided a whole mutation round here, and this is how you find out rather than absorb it.
+- **Re-establish the unmutated baseline on the tree you are mutating. A round that never does can launder
+  a broken test into proof.** Task P nearly shipped two: `M20` went **green** where red was predicted,
+  which exposed that the property it guarded had never been tested at all because no fixture built the
+  row; and `M20b` went **red for the wrong reason**, because the case added to fix that was itself failing
+  unmutated against a schema trigger. **Neither was caught by the mutation ledger.** Both were caught by
+  running the whole suite **unmutated, on a clean tree**.
+
+  The sharp part is why the ledger could not catch them: `M20b`'s first failure named the **same test** as
+  the runs that followed it, so the failing test name could never have distinguished a real red from a
+  pre-existing one. **Only the unmutated verdict on the same tree could.** Two other rows in that task
+  were likewise unattributable — they had run in a window where their target file was failing on its own,
+  and their `Test Files 1 failed (1)` line is byte-identical to what that failure alone prints.
+
+  So: **record the commit each row ran against**, and re-run the baseline whenever the tree moves. A red
+  is only evidence if you know the suite was green without you.
+
 - **Check presence by BYTE EQUALITY against a computed post-image — and assert the post-image differs from
   the original first.** Compute `expected = before.replace(find, replace)`, **assert `expected !== before`**,
   write it, re-read from disk, and assert `onDisk === expected` byte for byte. Substring heuristics fail
