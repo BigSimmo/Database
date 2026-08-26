@@ -175,6 +175,34 @@
   color: var(--clinical-accent);
 }
 
+/* Task 5, spec D7/D12: this unit's own confirmed-capacity stamp, and — when one exists — the
+   refresh-requested mark sitting beside it. Wraps rather than forcing a single line: the mark's
+   text is long enough on a narrow phone width that forcing it onto the freshness stamp's own
+   line would clip it. */
+.capacityFreshnessRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wd-space-8);
+  margin-bottom: var(--wd-space-8);
+}
+
+/* Deliberately its own visible mark, distinct from `.bedChip`/`.notice` — a refresh request
+   changes no bed count (spec D12), so it must never read like one of the states in the grid
+   below it. Dashed border echoes `.bedChip[data-state="potential"]`'s own "this is forward-
+   looking, not a physical count" convention rather than borrowing its solid states. */
+.refreshRequestMark {
+  display: inline-flex;
+  align-items: center;
+  border: 0.0625rem dashed var(--clinical-accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--clinical-accent-soft);
+  padding: var(--wd-space-2) var(--wd-space-8);
+  color: var(--clinical-accent);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
 .bedNote {
   margin: var(--wd-space-8) 0 0;
   color: var(--text-muted);

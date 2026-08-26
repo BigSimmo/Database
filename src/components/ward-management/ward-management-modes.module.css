@@ -721,6 +721,28 @@
   line-height: var(--ward-leading-prose);
 }
 
+/* Task 7: the excluded-beyond-tonight count. Warning tone (not the blue `.notice` tone) because
+ * this is flagging figures deliberately left out of every headline card above, not a neutral
+ * aside — the point of counting them here is that they must never read as silently dropped. */
+.excludedNotice {
+  margin-bottom: 0.75rem;
+  border-left: 0.1875rem solid var(--ward-warning);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+/* Task 7: the coordinator's one action per unit row — the refresh button stacked above its own
+ * "changes no figure" copy, both left-aligned within the table cell. */
+.refreshCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ward-space-6);
+}
+
 /* Task 9 (spec item 7): the not-a-medical-device banner. Same visual language as
  * coordinator.module.css's own `.governanceBanner` — a bordered strip with the prototype badge
  * and the shared statement text — expressed with this file's own `--ward-*` tokens. */

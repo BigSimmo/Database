@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { capacityBreakdown } from "../src/components/ward-management/ward-bed-availability";
 import { BED_RELEASE_BLOCKERS } from "../src/components/ward-management/ward-change-reasons";
+import { unitCapacity } from "../src/components/ward-management/ward-derivations";
 import type { WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -96,6 +97,52 @@ describe("ward bed release lifecycle", () => {
     expect(after.availableNow).toBe(before.availableNow + 1);
   });
 
+  it("fix round 1 (Critical): releasing a bed at full vacancy still reconciles to unit.beds", () => {
+    // rph-adult-secure is seeded with beds:20, empty:2, allocatable:1 — nowhere near the
+    // ceiling. Force it to full physical vacancy (every bed already empty and allocatable) so
+    // that RELEASE_BED's own +1 writes are the ones that would walk `empty.value` past
+    // `unit.beds` if the reducer's clamp were ever removed — the exact worked failure from the
+    // review: beds=5, empty.value=5, allocatable.value=5 -> a bare +1 gives empty.value=6,
+    // allocatable.value=6, and `unitCapacity` then reports available=6, held=0, blocked=0,
+    // occupied=0 against a 5-bed unit.
+    const state = seeded();
+    const targetUnit = unit(state, "rph-adult-secure");
+    const fullyVacant = {
+      ...state,
+      units: state.units.map((candidate) =>
+        candidate.id === targetUnit.id
+          ? {
+              ...candidate,
+              empty: { ...candidate.empty, value: candidate.beds },
+              allocatable: { ...candidate.allocatable, value: candidate.beds },
+            }
+          : candidate,
+      ),
+    };
+    // WR-001 belongs to rph-adult-secure and is seeded confirmed — a legal RELEASE_BED target.
+    expect(release(fullyVacant, "WR-001").state).toBe("confirmed");
+
+    const next = wardFlowReducer(fullyVacant, {
+      type: "RELEASE_BED",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+    });
+
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-001").state).toBe("released");
+    const afterUnit = unit(next, "rph-adult-secure");
+    // The reconciliation identity ruling 3 requires (see tests/ward-capacity-reconciliation.test.ts):
+    // the four bed-state figures must sum to exactly the unit's own bed count, whatever the
+    // unit's numbers were coming in.
+    const capacity = unitCapacity(afterUnit, next.bedReleases);
+    expect(capacity.available + capacity.held + capacity.blocked + capacity.occupied).toBe(afterUnit.beds);
+    // And neither field was allowed to walk past the physical ceiling that produced the failure.
+    expect(afterUnit.empty.value).toBeLessThanOrEqual(afterUnit.beds);
+    expect(afterUnit.allocatable.value).toBeLessThanOrEqual(afterUnit.beds);
+  });
+
   it("5. a coordinator may not confirm, block or release a bed — three rejections, no state change (spec D2)", () => {
     const state = seeded();
     const beforeConfirmTarget = release(state, "WR-002");
@@ -173,6 +220,67 @@ describe("ward bed release lifecycle", () => {
     expect(afterEnd.rejections).toHaveLength(0);
     expect(afterEnd.leaveBeds).toHaveLength(startCount);
     expect(afterEnd.leaveBeds.some((bed) => bed.id === created.id)).toBe(false);
+  });
+
+  it("fix round 1 (Minor coverage): RECORD_LEAVE_BED refuses an unknown unit, leaving leaveBeds unchanged", () => {
+    const state = seeded();
+    const next = wardFlowReducer(state, {
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      unitId: "not-a-real-unit",
+      actingUnitId: "not-a-real-unit",
+      usable: true,
+      expectedReturn: NOW + 100,
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.leaveBeds).toEqual(state.leaveBeds);
+  });
+
+  it("fix round 1 (Minor coverage): RECORD_LEAVE_BED refuses an actingUnitId mismatch, leaving leaveBeds unchanged", () => {
+    const state = seeded();
+    const next = wardFlowReducer(state, {
+      type: "RECORD_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      unitId: "fsh-older-adult",
+      actingUnitId: "rph-adult-secure",
+      usable: true,
+      expectedReturn: NOW + 100,
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.leaveBeds).toEqual(state.leaveBeds);
+  });
+
+  it("fix round 1 (Minor coverage): END_LEAVE_BED refuses an unknown leave bed, leaving leaveBeds unchanged", () => {
+    const state = seeded();
+    const next = wardFlowReducer(state, {
+      type: "END_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      leaveBedId: "WL-not-real",
+      actingUnitId: "rph-adult-secure",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.leaveBeds).toEqual(state.leaveBeds);
+  });
+
+  it("fix round 1 (Minor coverage): END_LEAVE_BED refuses an actingUnitId mismatch, leaving the record unchanged", () => {
+    const state = seeded();
+    // WL-001 belongs to rph-adult-secure.
+    const before = state.leaveBeds.find((bed) => bed.id === "WL-001");
+    if (!before) throw new Error("fixture is missing WL-001");
+    const next = wardFlowReducer(state, {
+      type: "END_LEAVE_BED",
+      role: "ward",
+      now: NOW,
+      leaveBedId: "WL-001",
+      actingUnitId: "scgh-adult-open",
+    });
+    expect(next.rejections).toHaveLength(1);
+    const after = next.leaveBeds.find((bed) => bed.id === "WL-001");
+    expect(after).toEqual(before);
+    expect(next.leaveBeds).toEqual(state.leaveBeds);
   });
 
   it("8. a coordinator's REQUEST_CAPACITY_REFRESH is accepted and changes no bed figure (spec D12)", () => {

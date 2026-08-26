@@ -717,10 +717,23 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // (`empty` alone) — mirroring `PATIENT_ARRIVED`'s and `HOLD_BED`'s own single-field writes,
       // just on both fields at once, because this bed had never been decremented by either of
       // those handlers to begin with.
+      //
+      // Fix round 1 (Critical): both writes are clamped to `unit.beds`, the unit's own physical
+      // ceiling. Without this clamp, repeated legal FLAG_BED_RELEASE -> CONFIRM_BED_RELEASE ->
+      // RELEASE_BED cycles on one unit can walk `empty.value` past `unit.beds` — nothing in this
+      // handler or in `FLAG_BED_RELEASE` caps how many releases a unit accumulates against its
+      // own occupied-bed count. `unitCapacity`'s reconciliation identity
+      // (`available + held + blocked + occupied === unit.beds`, `tests/ward-capacity-reconciliation.test.ts`)
+      // depends on `empty.value` never exceeding `unit.beds` — once it does, `notEmpty` collapses
+      // to zero and the four figures stop summing to the unit's real bed count, which is exactly
+      // the sentence `ward-screen.tsx` tells a coordinator is always true. `unitCapacity` itself
+      // clamps every figure it derives so that already-over/under-counted authored data is never
+      // taken at face value; an unclamped write here broke that discipline from the write side
+      // instead of the read side. Do not remove this clamp to "simplify" the arithmetic.
       const updatedUnit: Unit = {
         ...unit,
-        allocatable: { ...unit.allocatable, value: unit.allocatable.value + 1, confirmedAt: event.now },
-        empty: { ...unit.empty, value: unit.empty.value + 1, confirmedAt: event.now },
+        allocatable: { ...unit.allocatable, value: Math.min(unit.beds, unit.allocatable.value + 1), confirmedAt: event.now },
+        empty: { ...unit.empty, value: Math.min(unit.beds, unit.empty.value + 1), confirmedAt: event.now },
       };
       const withUnit = replaceUnit(state, unit.id, updatedUnit);
       return replaceBedRelease(withUnit, release.id, updatedRelease);

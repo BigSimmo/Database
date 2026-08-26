@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,8 +16,26 @@ vi.mock("next/link", () => ({
 
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
-import { movementById } from "@/components/ward-management/ward-movements";
+import { bedReleases, movementById } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
+
+/** Looked up against the raw seed fixture only to pin the fixture assumption below — never
+ *  imported by `ward-screen.tsx` itself (`tests/ward-flow-single-source.test.ts` bans that). */
+function bedReleaseById(id: string) {
+  return bedReleases.find((release) => release.id === id);
+}
+
+function RequestBtyAdultSecureRefresh() {
+  const { dispatch, now } = useWardFlow();
+  return (
+    <button
+      type="button"
+      onClick={() => dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: "bty-adult-secure" })}
+    >
+      request bty-adult-secure refresh
+    </button>
+  );
+}
 
 /**
  * Addendum R38: the brief's own chosen unit (`bty-adult-secure`) can never exercise a
@@ -150,5 +168,132 @@ describe("ward screen live unit capacity", () => {
     // After a real CONFIRM_CAPACITY dispatch updates state.units, the screen must show the new
     // live count — resolving from the frozen fixture would keep showing 1 forever.
     expect(screen.getByText(/Currently confirmed 0 at/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Task 5 (spec D10/D12): the ward's own bed-release controls, and the refresh-requested mark.
+ * All four cases render a fresh `WardFlowProvider` each time, so each starts from the real seed
+ * fixture (`ward-movements.ts`'s `bedReleases`) untouched by any other test in this file.
+ *
+ * WR-002 (`scgh-adult-open`, `predicted`, confidence `likely`) and WR-001 (`rph-adult-secure`,
+ * `confirmed`) are the two seeded releases this suite exercises — both asserted directly against
+ * the fixture below so this suite fails loudly, not silently, if the fixture ever changes under
+ * it (the same discipline the restriction-notice suite above already uses for WF-301).
+ */
+describe("ward screen bed release controls", () => {
+  it("fixture assumption: WR-002 is predicted at scgh-adult-open and WR-001 is confirmed at rph-adult-secure", () => {
+    const wr002 = bedReleaseById("WR-002");
+    const wr001 = bedReleaseById("WR-001");
+    expect(wr002?.unitId).toBe("scgh-adult-open");
+    expect(wr002?.state).toBe("predicted");
+    expect(wr001?.unitId).toBe("rph-adult-secure");
+    expect(wr001?.state).toBe("confirmed");
+  });
+
+  it("confirming a predicted release updates the row", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="scgh-adult-open" />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("predicted");
+
+    fireEvent.click(screen.getByTestId("ward-bed-release-confirm-WR-002"));
+
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("confirmed");
+    // A confirmed release offers no Confirm control any more.
+    expect(screen.queryByTestId("ward-bed-release-confirm-WR-002")).not.toBeInTheDocument();
+  });
+
+  it("blocking asks for a reason and refuses without one", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="scgh-adult-open" />
+      </WardFlowProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("ward-bed-release-block-toggle-WR-002"));
+
+    const submit = screen.getByTestId("ward-bed-release-block-submit-WR-002");
+    // No blocker chosen yet: the submit control is natively disabled, not merely advisory.
+    expect(submit).toBeDisabled();
+
+    // Clicking a disabled submit dispatches nothing — the row must still read "predicted".
+    fireEvent.click(submit);
+    expect(screen.getByTestId("ward-bed-release-WR-002")).toHaveTextContent("predicted");
+
+    fireEvent.change(screen.getByTestId("ward-bed-release-blocker-WR-002"), {
+      target: { value: "Awaiting clean" },
+    });
+    expect(submit).not.toBeDisabled();
+
+    fireEvent.click(submit);
+
+    const row = screen.getByTestId("ward-bed-release-WR-002");
+    expect(row).toHaveTextContent("blocked");
+    expect(row).toHaveTextContent("Awaiting clean");
+  });
+
+  it("releasing removes it from the pending list", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="rph-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.getByTestId("ward-bed-release-WR-001")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("ward-bed-release-release-WR-001"));
+
+    expect(screen.queryByTestId("ward-bed-release-WR-001")).not.toBeInTheDocument();
+  });
+
+  it("a refresh request raised by a coordinator appears on this ward's screen as a visible mark naming the time and role", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <RequestBtyAdultSecureRefresh />
+        <WardScreen unitId="bty-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.queryByTestId("ward-refresh-request-mark")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "request bty-adult-secure refresh" }));
+
+    const mark = screen.getByTestId("ward-refresh-request-mark");
+    // NOW_ANCHOR is 10:42 (ward-sites.ts) and REQUEST_CAPACITY_REFRESH is coordinator-only
+    // (ward-flow-events.ts's EVENT_ROLE), so the recorded role is always literally "coordinator".
+    expect(mark).toHaveTextContent("10:42");
+    expect(mark).toHaveTextContent("coordinator");
+  });
+
+  it("recording a leave bed then ending it removes it from this unit's rows, and the usable-leave figure drops", () => {
+    // scgh-adult-open carries no seeded leave bed (only rph-adult-secure/WL-001 and
+    // scgh-older-adult/WL-002 do — ward-movements.ts), so this starts from a clean, empty list.
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="scgh-adult-open" />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.getByTestId("ward-leave-bed-list")).toHaveTextContent("No bed currently on leave");
+    expect(screen.getByTestId("ward-leave-bed-form")).toHaveTextContent("0 beds currently on leave at SCGH Adult Open");
+
+    fireEvent.click(screen.getByTestId("ward-leave-bed-usable"));
+    fireEvent.change(screen.getByTestId("ward-leave-bed-expected-return"), { target: { value: "12:15" } });
+    fireEvent.click(screen.getByTestId("ward-leave-bed-submit"));
+
+    const list = screen.getByTestId("ward-leave-bed-list");
+    expect(list).toHaveTextContent("Usable while away");
+    expect(screen.getByTestId("ward-leave-bed-form")).toHaveTextContent(
+      "1 bed currently on leave at SCGH Adult Open, 1 usable while away",
+    );
+
+    fireEvent.click(within(list).getByRole("button", { name: "Ended" }));
+
+    expect(screen.getByTestId("ward-leave-bed-list")).toHaveTextContent("No bed currently on leave");
+    expect(screen.getByTestId("ward-leave-bed-form")).toHaveTextContent("0 beds currently on leave at SCGH Adult Open");
   });
 });
