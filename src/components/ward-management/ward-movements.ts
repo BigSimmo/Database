@@ -1,5 +1,12 @@
 import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
-import type { BedRelease, Cohort, Movement, MovementStage, Security } from "@/components/ward-management/ward-model";
+import type {
+  BedRelease,
+  Cohort,
+  LeaveBed,
+  Movement,
+  MovementStage,
+  Security,
+} from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
 /**
@@ -718,55 +725,114 @@ export const bedReleases: BedRelease[] = [
   {
     id: "WR-001",
     unitId: "rph-adult-secure",
+    state: "confirmed",
     expectedAt: NOW_ANCHOR + 45,
-    confidence: "confirmed",
-    blocker: "Bed clean pending",
+    confidence: null,
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 10,
     confirmedBy: "NUM RPH Adult Secure",
   },
   {
     id: "WR-002",
     unitId: "scgh-adult-open",
+    state: "predicted",
     expectedAt: NOW_ANCHOR + 90,
     confidence: "likely",
-    blocker: "Awaiting bed-management confirmation",
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 25,
     confirmedBy: "NUM SCGH Adult Open",
   },
   {
     id: "WR-003",
     unitId: "fsh-older-adult",
+    state: "predicted",
     expectedAt: NOW_ANCHOR + 180,
     confidence: "possible",
-    blocker: "Awaiting external placement confirmation",
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 60,
     confirmedBy: "NUM FSH Older Adult",
   },
   {
     id: "WR-004",
     unitId: "fre-adult-open",
+    state: "confirmed",
     expectedAt: NOW_ANCHOR + 30,
-    confidence: "confirmed",
-    blocker: "Awaiting pharmacy",
+    confidence: null,
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 5,
     confirmedBy: "NUM FRE Adult Open",
   },
   {
     id: "WR-005",
     unitId: "bty-adult-secure",
+    state: "predicted",
     expectedAt: NOW_ANCHOR + 120,
     confidence: "likely",
-    blocker: "Pending case review outcome",
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 35,
     confirmedBy: "NUM BTY Adult Secure",
   },
   {
     id: "WR-006",
     unitId: "gry-older-adult",
+    state: "predicted",
     expectedAt: NOW_ANCHOR + 240,
     confidence: "possible",
-    blocker: "Awaiting external service coordination",
+    blocker: null,
     confirmedAt: NOW_ANCHOR - 80,
     confirmedBy: "NUM Graylands Older Adult",
+  },
+  {
+    id: "WR-007",
+    unitId: "fsh-adult-secure",
+    state: "blocked",
+    expectedAt: NOW_ANCHOR + 120,
+    confidence: null,
+    blocker: "Awaiting accommodation",
+    confirmedAt: NOW_ANCHOR - 35,
+    confirmedBy: "NUM FSH Adult Secure",
+  },
+  {
+    id: "WR-008",
+    unitId: "arm-adult-open",
+    state: "released",
+    expectedAt: NOW_ANCHOR - 15,
+    confidence: null,
+    blocker: null,
+    confirmedAt: NOW_ANCHOR - 15,
+    confirmedBy: "NUM ARM Adult Open",
+  },
+  {
+    id: "WR-009",
+    unitId: "rgh-adult-secure",
+    state: "blocked",
+    expectedAt: NOW_ANCHOR + 200,
+    confidence: null,
+    blocker: "Awaiting receiving-service acceptance",
+    confirmedAt: NOW_ANCHOR - 50,
+    confirmedBy: "NUM RGH Adult Secure",
+  },
+];
+
+/**
+ * Beds held by someone on approved leave. Never merged into availability (spec D4) — a usable
+ * leave bed is its own figure. Carries nothing about the person on leave.
+ */
+export const leaveBeds: LeaveBed[] = [
+  {
+    id: "WL-001",
+    unitId: "rph-adult-secure",
+    usable: true,
+    expectedReturn: NOW_ANCHOR + 300,
+    confirmedAt: NOW_ANCHOR - 60,
+    confirmedBy: "NUM RPH Adult Secure",
+  },
+  {
+    id: "WL-002",
+    unitId: "scgh-older-adult",
+    usable: false,
+    expectedReturn: NOW_ANCHOR + 180,
+    confirmedAt: NOW_ANCHOR - 25,
+    confirmedBy: "NUM SCGH Older Adult",
   },
 ];

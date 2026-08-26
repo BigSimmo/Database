@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
@@ -21,17 +22,23 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
-import type { BedRelease, HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, HealthService, LeaveBed, Movement, Unit } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
-type BedStateKey = "available" | "held" | "potential" | "blocked";
+type BedStateKey = "available" | "held" | "confirmed" | "predicted" | "blocked";
 
+// Review Finding 4: this used to be `"potential"`, sourced from `unitCapacity()`'s raw release
+// count — every release for the unit regardless of state or timing, including one already
+// `released` and one expected beyond tonight, both of which spec D5/D6 exclude from every count.
+// Confirmed and Predicted are read from `capacityBreakdown()` instead, the same figures the
+// capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   available: { label: "Ready", detail: "Available now" },
   held: { label: "Held", detail: "Bed held" },
-  potential: { label: "Potential", detail: "May become available" },
+  confirmed: { label: "Confirmed", detail: "Confirmed today" },
+  predicted: { label: "Predicted", detail: "Predicted today" },
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
@@ -88,13 +95,39 @@ function transportTone(etaLabel: string) {
   return /requested|awaiting|not yet/i.test(etaLabel) ? "warning" : "good";
 }
 
-function BedStateChips({ unit, bedReleases, showTime }: { unit: Unit; bedReleases: BedRelease[]; showTime?: boolean }) {
+// Review Finding 4: the "Confirmed"/"Predicted" chips read `capacityBreakdown()`, not
+// `unitCapacity()`'s raw `potential` — see the `bedStateCopy` doc comment above. The four
+// physical states (Ready/Held/Blocked, plus Occupied where shown) are untouched.
+function bedStateValue(
+  key: BedStateKey,
+  capacity: ReturnType<typeof unitCapacity>,
+  breakdown: ReturnType<typeof capacityBreakdown>,
+): number {
+  if (key === "confirmed") return breakdown.confirmedToday;
+  if (key === "predicted") return breakdown.predictedToday;
+  return capacity[key];
+}
+
+function BedStateChips({
+  unit,
+  bedReleases,
+  leaveBeds,
+  now,
+  showTime,
+}: {
+  unit: Unit;
+  bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
+  now: Instant;
+  showTime?: boolean;
+}) {
   const capacity = unitCapacity(unit, bedReleases);
+  const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   return (
     <span className={styles.bedChips}>
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
         <span className={styles.bedChip} data-state={key} key={key} title={bedStateCopy[key].detail}>
-          {capacity[key]}
+          {bedStateValue(key, capacity, breakdown)}
         </span>
       ))}
       {showTime ? <span className={styles.bedTime}>{formatInstant(unit.allocatable.confirmedAt)}</span> : null}
@@ -105,6 +138,8 @@ function BedStateChips({ unit, bedReleases, showTime }: { unit: Unit; bedRelease
 function ServiceCard({
   unit,
   bedReleases,
+  leaveBeds,
+  now,
   routed,
   selected,
   onSelect,
@@ -112,12 +147,15 @@ function ServiceCard({
 }: {
   unit: Unit;
   bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
+  now: Instant;
   routed: boolean;
   selected: boolean;
   onSelect: () => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
   const capacity = unitCapacity(unit, bedReleases);
+  const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   return (
     <button
       type="button"
@@ -127,17 +165,17 @@ function ServiceCard({
       data-routed={routed ? "true" : undefined}
       data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${capacity.potential} potential, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.`}
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
-      <BedStateChips unit={unit} bedReleases={bedReleases} showTime />
+      <BedStateChips unit={unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} showTime />
     </button>
   );
 }
 
 export function WardNetworkWorkspace() {
-  const { movements, units, bedReleases, now } = useWardFlow();
+  const { movements, units, bedReleases, leaveBeds, now } = useWardFlow();
   const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
@@ -363,6 +401,8 @@ export function WardNetworkWorkspace() {
                             key={unit.id}
                             unit={unit}
                             bedReleases={bedReleases}
+                            leaveBeds={leaveBeds}
+                            now={now}
                             routed={routedIds.has(unit.id)}
                             selected={detail?.id === unit.id}
                             onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
@@ -465,7 +505,7 @@ export function WardNetworkWorkspace() {
                   <th scope="row">Current bed state</th>
                   {candidates.map((candidate) => (
                     <td key={candidate.unit.id}>
-                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} />
+                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
                     </td>
                   ))}
                 </tr>
@@ -531,10 +571,10 @@ export function WardNetworkWorkspace() {
                 {siteByCode(detail.siteCode)?.service ?? "Unknown service"} · {capabilityLabel(detail)} · confirmed{" "}
                 {formatInstant(detail.allocatable.confirmedAt)}
               </p>
-              <BedStateChips unit={detail} bedReleases={bedReleases} />
+              <BedStateChips unit={detail} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Potential beds are not
-                allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Confirmed and predicted
+                beds are not allocatable yet.
               </p>
             </section>
           ) : null}

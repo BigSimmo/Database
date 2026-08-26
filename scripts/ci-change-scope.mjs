@@ -110,7 +110,7 @@ const mockupPatterns = [
   // a component-only or spec-only edit left advisory_ui_changed=false and the
   // 46 journeys ran in neither lane.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|roles)\.spec\.ts$/,
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {

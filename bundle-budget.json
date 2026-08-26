@@ -6,7 +6,7 @@
     "tolerancePct": 10
   },
   "mockups": {
-    "gzipBytes": 625306,
+    "gzipBytes": 627814,
     "tolerancePct": 25
   },
   "routes": {
@@ -21,6 +21,6 @@
   },
   "totalGzipBytes": 2195036,
   "tolerancePct": 10,
-  "updatedAt": "2026-08-26T14:20:00.000Z",
+  "updatedAt": "2026-08-23T10:15:00.000Z",
   "baselineSource": "0764fb5813564cc1cb8933267597478ecff9c354"
 }
