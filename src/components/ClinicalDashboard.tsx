@@ -3362,7 +3362,13 @@ function ClinicalDashboardContent({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
-          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          /* The answer thread owns the follow-up questions now, as full-width
+             rows above its library line (owner decision, 2026-08-26,
+             "direction B"). The composer strip showed the same three questions
+             again, a few hundred pixels lower and truncated to whatever fitted
+             one scrolling line — which is the defect that argued for rows in
+             the first place. One place, readable, not two. */
+          composerFollowUpSuggestions={undefined}
           onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
           composerFollowUpSuggestionsDisabled={loading}
           showPhoneSuggestionTickerOnHome={heroOwnsPhoneComposer}
@@ -3807,9 +3813,15 @@ function ClinicalDashboardContent({
                   ) : null
                 ) : null}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
+                {/* No mode-level "Also matches" under an answer. It sat directly
+                    beneath the answer surface's own "Also in your library" and
+                    asked the same question — where else does this appear — one
+                    panel less specifically: this one names modes, that one names
+                    the actual medication, factsheet or form inside them. Two
+                    near-identical panels under one answer is what the owner
+                    photographed on 2026-08-26. The mode-level view is still
+                    reachable from mode navigation and still renders on the
+                    tools, documents, services and forms result kinds above. */}
               </section>
 
               {showSystemNotice && answer ? (
