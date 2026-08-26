@@ -889,6 +889,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/discharges",
+        "file": "src/app/mockups/ward-flow/discharges/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/ed/[edId]",
         "file": "src/app/mockups/ward-flow/ed/[edId]/page.tsx",
         "area": "mockup"
@@ -1378,9 +1383,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 192,
+      "pages": 193,
       "product_pages": 55,
-      "mockup_pages": 137,
+      "mockup_pages": 138,
       "redirects": 17,
       "api": 57
     }
@@ -3805,6 +3810,14 @@
         "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
         "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
         "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "claude/ward-flow-phase-5-p8rwcm",
+        "head": "47b51405bf3938096411895d28a4bba351d7d050",
+        "scope": "Ward Flow Phase 5 — bed availability lifecycle, leave beds, discharge board, capacity bands, freshness",
+        "outcome": "Whole-branch review: approved with findings, 0 P0, 0 P1, 7 P2 — all seven fixed and mutation-tested. Four earlier automated findings: three fixed, one rejected with reasons.",
+        "checks": "npm run test (3 pre-existing failures, identical on clean origin/main); npm run typecheck; npm run lint (eslint cache cleared); prettier --check on all changed files; chromium-mockups ward-management + ward-coordinator + ward-discharges; screenshots at 390/820/1440 on five screens, looked at"
       },
       {
         "date": "2026-08-26",
@@ -24784,8 +24797,8 @@
       }
     ],
     "counts": {
-      "records": 2624,
-      "refs": 1603
+      "records": 2625,
+      "refs": 1604
     }
   }
 }

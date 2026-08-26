@@ -6,6 +6,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   ListFilter,
+  LogOut,
   Route,
   Search,
   ShieldCheck,
@@ -44,4 +45,5 @@ export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
   handover: ClipboardList,
   escalation: TriangleAlert,
   search: Search,
+  discharges: LogOut,
 };

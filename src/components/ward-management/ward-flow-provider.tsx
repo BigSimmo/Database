@@ -16,7 +16,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
-import type { BedRelease, Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, LeaveBed, Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -43,6 +43,13 @@ type WardFlowContextValue = {
   /** Task 11 (spec item 9): beds expected to free up, live from reducer state so a ward's own
    *  `FLAG_BED_RELEASE` shows up on every screen reading `unitCapacity()`'s `potential` figure. */
   bedReleases: BedRelease[];
+  /** Task 3: beds occupied by someone on approved leave, live from reducer state so a ward's own
+   *  `RECORD_LEAVE_BED`/`END_LEAVE_BED` shows up on every screen reading it. Never merged into
+   *  availability (spec D4). */
+  leaveBeds: LeaveBed[];
+  /** Task 3, spec D12: every `REQUEST_CAPACITY_REFRESH` a coordinator has raised, live from
+   *  reducer state. Records that somebody asked — nothing here ever changes a bed figure. */
+  refreshRequests: { unitId: string; at: Instant; byRole: string }[];
   now: Instant;
   /** Which synthetic night is seeded — `ward-scenarios.ts`'s `WardScenario` — so a UI surface
    *  (`ward-demo-controls.tsx`'s scenario switch) can mark the active one without guessing it
@@ -116,13 +123,26 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       units: state.units,
       rejections: state.rejections,
       bedReleases: state.bedReleases,
+      leaveBeds: state.leaveBeds,
+      refreshRequests: state.refreshRequests,
       now,
       scenario: state.scenario,
       dispatch,
       focusMovementId,
       setFocusMovementId,
     }),
-    [state.movements, state.units, state.rejections, state.bedReleases, now, state.scenario, dispatch, focusMovementId],
+    [
+      state.movements,
+      state.units,
+      state.rejections,
+      state.bedReleases,
+      state.leaveBeds,
+      state.refreshRequests,
+      now,
+      state.scenario,
+      dispatch,
+      focusMovementId,
+    ],
   );
 
   return <WardFlowContext.Provider value={value}>{children}</WardFlowContext.Provider>;
