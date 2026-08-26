@@ -6,6 +6,7 @@ import {
   releaseBand,
 } from "@/components/ward-management/ward-bed-availability";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import type { BedRelease, LeaveBed } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -44,6 +45,12 @@ describe("release bands", () => {
 
   it("puts an already-released bed in 'now' whatever its expected time said", () => {
     expect(releaseBand(release({ state: "released", expectedAt: NOW_ANCHOR + 600 }), NOW_ANCHOR)).toBe("now");
+  });
+
+  it("drops a released bed off 'now' once the operating day rolls over", () => {
+    const released = release({ state: "released", expectedAt: NOW_ANCHOR, confirmedAt: NOW_ANCHOR });
+    expect(releaseBand(released, NOW_ANCHOR)).toBe("now");
+    expect(releaseBand(released, NOW_ANCHOR + MINUTES_PER_DAY)).toBe("beyond-today");
   });
 
   it("excludes anything expected after the evening shift ends", () => {

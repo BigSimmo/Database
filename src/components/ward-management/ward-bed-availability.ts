@@ -1,4 +1,4 @@
-import type { Instant } from "@/components/ward-management/ward-clock";
+import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import type { BedRelease, LeaveBed, Unit } from "@/components/ward-management/ward-model";
 
 /**
@@ -32,7 +32,16 @@ export type ReleaseBand = (typeof RELEASE_BANDS)[number];
  * back to a wrapped time-of-day comparison.
  */
 export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "beyond-today" {
-  if (release.state === "released") return "now";
+  if (release.state === "released") {
+    // RELEASE_BED restates confirmedAt to the release instant. "Released today" is this
+    // operating day only: advancing the demo clock across midnight must drop yesterday's
+    // released rows into the same beyond-today exclusion the discharge board already states
+    // at its foot. Same-day released beds stay "now" even when expectedAt was later today.
+    if (Math.floor(release.confirmedAt / MINUTES_PER_DAY) !== Math.floor(now / MINUTES_PER_DAY)) {
+      return "beyond-today";
+    }
+    return "now";
+  }
   if (release.expectedAt > EVENING_SHIFT_END_MINUTES) return "beyond-today";
   if (release.expectedAt <= now) return "now";
   if (release.expectedAt <= MIDDAY_MINUTES) return "by-midday";
