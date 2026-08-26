@@ -4,10 +4,14 @@ import { useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   Copy,
   CornerUpLeft,
   ExternalLink,
+  FileText,
   Filter,
+  Layers,
+  MessageSquare,
   MoreHorizontal,
   Search,
   ShieldAlert,
@@ -478,6 +482,28 @@ function statusWord(status: SourceStatus) {
  * capsule that this design deletes: collapse to a single chip that expands,
  * rather than letting the preference become a silent no-op.
  */
+/**
+ * The card row scrolls and has to say so without a scrollbar.
+ *
+ * Same mechanism the shipped composer already uses for its suggestion chips
+ * (`.answer-suggestion-chips-scroll` in `globals.css`): a mask that fades the
+ * last stretch of whatever is under it, so it reads correctly on light, on dark
+ * and on the drawer's tinted surface alike. A painted gradient overlay would
+ * have to name the colour behind it and would name the wrong one on at least
+ * one of those three.
+ *
+ * Written as an inline style rather than an arbitrary Tailwind property because
+ * `[mask-image:…]` did not generate a rule here — the class landed on the
+ * element and the computed value stayed `none`. Checked in the browser, not
+ * assumed. Like its shipped sibling it keeps the fade under forced colours; a
+ * mask is not a paint, so unlike the ring and the claim wash it survives there.
+ */
+const RAIL_SCROLL_FADE = {
+  scrollbarWidth: "none",
+  maskImage: "linear-gradient(90deg, black calc(100% - 1.75rem), transparent)",
+  WebkitMaskImage: "linear-gradient(90deg, black calc(100% - 1.75rem), transparent)",
+} as const;
+
 function V2Rail({
   pool,
   activeId,
@@ -522,7 +548,7 @@ function V2Rail({
       role="group"
       aria-label={`Sources behind this answer, ${pool.length}`}
       className="flex gap-1.5 overflow-x-auto pb-1"
-      style={{ scrollbarWidth: "none" }}
+      style={RAIL_SCROLL_FADE}
     >
       {pool.map((source) => (
         <button
@@ -880,11 +906,20 @@ function V2DrawerPanel({
  */
 function VerificationNotice({ kind, sourceCount }: { kind: AnswerStateKind; sourceCount: number }) {
   const model = kind !== "source_only";
+  // Two deliberate lines, not one sentence left to wrap wherever the column
+  // ends. With the avatar gone this line is what identifies the turn, and it
+  // was breaking mid-phrase — "…check each" / "number against its page" — which
+  // reads as a layout accident rather than as provenance. Split at the
+  // separator the sentence already carries: what wrote it, then what the reader
+  // owes it. Same words.
   return (
     <p className="text-3xs leading-4 text-[color:var(--text-muted)]">
-      {model
-        ? `AI-generated from ${sourceCount} cited sources · check each number against its page`
-        : "Assembled from your documents · check each statement against its source"}
+      <span className="font-semibold">
+        {model ? `AI-generated from ${sourceCount} cited sources` : "Assembled from your documents"}
+      </span>
+      <span className="block">
+        {model ? "Check each number against its page" : "Check each statement against its source"}
+      </span>
     </p>
   );
 }
@@ -975,7 +1010,7 @@ function ActionRow() {
   return (
     <div className="flex items-center gap-0.5">
       {[
-        { key: "copy", label: "Copy", Icon: Copy },
+        { key: "copy", label: "Copy with sources", Icon: Copy },
         { key: "ask", label: "Follow up", Icon: CornerUpLeft },
       ].map(({ key, label, Icon }) => (
         <button
@@ -1114,14 +1149,16 @@ function AnswerScreen({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className={cn("space-y-3 px-3 py-3", wide && "mx-auto w-full max-w-3xl px-5 py-5")}>
           <UserTurn />
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-            <span
-              aria-hidden="true"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-            >
-              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0 space-y-2.5">
+          {/* No assistant avatar, and therefore no gutter behind it.
+              An avatar column costs ~2.75rem of every line on a 390px screen
+              and buys nothing a reader needs: there are only two speakers, the
+              person's turn is already a right-aligned bubble, and the answer is
+              the one thing on this surface that wants the full measure. Every
+              mature chat product settled here for the same reason. What
+              identifies the turn instead is the provenance line below — which
+              is information, not decoration. */}
+          <div className="pt-1.5">
+            <div className="min-w-0 space-y-3">
               <VerificationNotice kind={kind} sourceCount={pool.length} />
               <StateBanner
                 kind={kind}
@@ -1134,7 +1171,12 @@ function AnswerScreen({
                   {SOURCE_ONLY_PROSE}
                 </p>
               )}
-              <V2Rail pool={pool} activeId={openId} compact={compactRail} onOpen={(id) => openSource(id, null)} />
+              <div className="space-y-1.5 border-t border-[color:var(--border)] pt-2.5">
+                <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                  {kind === "partial_retrieval" ? "Sources read" : "Cited documents"}
+                </p>
+                <V2Rail pool={pool} activeId={openId} compact={compactRail} onOpen={(id) => openSource(id, null)} />
+              </div>
               <ActionRow />
             </div>
           </div>
@@ -1182,14 +1224,16 @@ function PendingScreen({ stage }: { stage: "asked" | "evidence" | "answered" }) 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-3 px-3 py-3">
           <UserTurn />
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5">
-            <span
-              aria-hidden="true"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-            >
-              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0 space-y-2.5">
+          {/* No assistant avatar, and therefore no gutter behind it.
+              An avatar column costs ~2.75rem of every line on a 390px screen
+              and buys nothing a reader needs: there are only two speakers, the
+              person's turn is already a right-aligned bubble, and the answer is
+              the one thing on this surface that wants the full measure. Every
+              mature chat product settled here for the same reason. What
+              identifies the turn instead is the provenance line below — which
+              is information, not decoration. */}
+          <div className="pt-1.5">
+            <div className="min-w-0 space-y-3">
               {stage === "asked" ? (
                 <p aria-live="polite" className="text-2xs text-[color:var(--text-muted)]">
                   Searching your documents…
@@ -1371,6 +1415,224 @@ function ForcedColorsSpecimen() {
           </p>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ══════════════════════  under the answer  ══════════════════════ */
+
+/**
+ * The block the owner photographed: the safety row, then the two quiet controls
+ * beneath it.
+ *
+ * `rail` reproduces what production draws today — a 2px warning-coloured rule
+ * across the top of the whole card. Removing it loses no signal, and the repo
+ * had already settled the question on the sibling surface:
+ * `also-matches-accent-mockups.tsx` records the chosen direction as "no top
+ * rail; colour lives in the icon tile and the short code chip". The
+ * design-system contract separately holds colour-only status indicators at
+ * zero, so the icon and the words carry the warning either way — the rule was
+ * carrying nothing the row did not already say, while claiming the full width
+ * of a card whose second row is not a warning at all.
+ */
+function SafetyCardSpecimen({ rail }: { rail: boolean }) {
+  const chipClass = cn(
+    "inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+    focusRing,
+  );
+  return (
+    <section
+      aria-label={rail ? "Answer support, as shipped" : "Answer support, proposed"}
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+    >
+      <button
+        type="button"
+        onClick={() => undefined}
+        aria-label="Open safety-critical source findings"
+        className={cn(
+          "grid min-h-[56px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)]",
+          rail && "border-t-2 border-t-[color:var(--warning)]",
+          focusRing,
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]",
+            // Colour moves into the tile once the rail goes, so the row still
+            // reads as a warning at a glance rather than as a plain list item.
+            rail ? null : "border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
+          )}
+        >
+          <CircleAlert aria-hidden="true" className="h-5 w-5" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Safety findings</span>
+          {rail ? (
+            <span className="mt-1 block truncate text-xs leading-5 text-[color:var(--text-muted)]">
+              Red flag · Lithium Clinical Guideline(EMHS), p. 3
+            </span>
+          ) : (
+            <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
+              <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
+                Red flag
+              </span>
+              {/* The missing space before the bracket is in the document title
+                  itself, so it reaches every citation label. Normalising it in
+                  `cleanCitationTitle` fixes it once, for display only. */}
+              <span className="truncate">Lithium Clinical Guideline (EMHS), p. 3</span>
+            </span>
+          )}
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]">
+            5
+          </span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-[color:var(--text-muted)]" />
+        </span>
+      </button>
+      <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1">
+        <button type="button" onClick={() => undefined} className={chipClass}>
+          <CircleAlert aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--warning)]" />
+          Evidence gaps
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-1.5 text-3xs font-bold tabular-nums text-[color:var(--text-muted)]">
+            2
+          </span>
+        </button>
+        <button type="button" onClick={() => undefined} className={chipClass}>
+          <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
+          Report a problem
+        </button>
+      </div>
+    </section>
+  );
+}
+
+const FOLLOW_UP_QUESTIONS = [
+  "What is the target range in maintenance?",
+  "When do I recheck after a dose change?",
+  "Which interactions raise the level?",
+];
+
+/**
+ * One list, not two.
+ *
+ * Production draws "Also in your library" (documents and records) and "Also
+ * matches" (other modes) as separate blocks, one under the other, each with its
+ * own eyebrow and its own count. On a phone they read as the same panel
+ * repeated. They are one question — where else does this appear — so they are
+ * one list here, and each row says what kind of thing it is rather than leaving
+ * the reader to infer it from which panel it landed in.
+ */
+const ELSEWHERE = [
+  { name: "Lithium carbonate (IR/SR)", kind: "Medication", Icon: FileText },
+  { name: "Lithium monitoring", kind: "Factsheet", Icon: FileText },
+  { name: "Prescribing", kind: "Mode", Icon: Layers },
+  { name: "Calculators", kind: "Mode", Icon: Layers },
+  { name: "Forms", kind: "Mode", Icon: Layers },
+  { name: "DSM", kind: "Mode", Icon: Layers },
+];
+
+/** Direction A — ask next as chips, then one scrolling row of everywhere else. */
+function ElsewhereRowSpecimen() {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="mb-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Ask next
+        </p>
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={RAIL_SCROLL_FADE}>
+          {FOLLOW_UP_QUESTIONS.map((question) => (
+            <button
+              key={question}
+              type="button"
+              onClick={() => undefined}
+              className={cn(
+                "inline-flex min-h-12 shrink-0 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-2xs font-medium text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]",
+                focusRing,
+              )}
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-[color:var(--border)] pt-2.5">
+        <p className="mb-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Also in your library · <span className="tabular-nums">{ELSEWHERE.length}</span>
+        </p>
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={RAIL_SCROLL_FADE}>
+          {ELSEWHERE.map(({ name, kind, Icon }) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => undefined}
+              className={cn(
+                "inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-left transition hover:border-[color:var(--border-strong)]",
+                focusRing,
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+              >
+                <Icon aria-hidden="true" className="h-3 w-3" />
+              </span>
+              <span className="min-w-0">
+                <span
+                  style={{ maxWidth: 150 }}
+                  className="block truncate text-2xs font-semibold leading-4 text-[color:var(--text-heading)]"
+                >
+                  {name}
+                </span>
+                <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">{kind}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Direction B — the follow-ups as full-width questions, everywhere-else on one line. */
+function ElsewhereListSpecimen() {
+  return (
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]">
+        {FOLLOW_UP_QUESTIONS.map((question, index) => (
+          <button
+            key={question}
+            type="button"
+            onClick={() => undefined}
+            className={cn(
+              "flex min-h-12 w-full items-center gap-2 px-3 text-left text-2xs font-medium text-[color:var(--text-heading)] transition hover:bg-[color:var(--surface-subtle)]",
+              index > 0 && "border-t border-[color:var(--border)]",
+              focusRing,
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">{question}</span>
+            <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => undefined}
+        aria-expanded={false}
+        className={cn(
+          "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)]",
+          focusRing,
+        )}
+      >
+        <span className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Also in your library
+        </span>
+        <span className="min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)]">
+          Lithium carbonate · Lithium monitoring · Prescribing · +3
+        </span>
+        <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+      </button>
     </div>
   );
 }
@@ -1684,6 +1946,65 @@ export function AnswerChatPerfectedV2MockupsPage() {
           <p style={PROSE_MEASURE} className="mt-4 text-2xs leading-5 text-[color:var(--text-muted)]">
             The build order in the handover still holds: the rail and the drawer first, on every answer, then marks
             where sections earn them. This page changes what &ldquo;every answer&rdquo; has to mean.
+          </p>
+        </Panel>
+
+        <Panel
+          step="Seven"
+          title="What sits under the answer"
+          intro="Two corrections photographed on a live phone. The safety card draws a warning-coloured rule across the top of a card whose second row is not a warning, and below it two near-identical panels ask the same question twice while the follow-up questions this design argues for are switched off on phones entirely."
+        >
+          <div className="grid gap-3 lg:grid-cols-2">
+            <DetailCard
+              title="The safety card, rail and no rail"
+              body="The rule spans a card that also holds Evidence gaps and Report a problem, so it colours two controls that carry no warning. Take it off and the colour moves into the icon tile and a short severity chip — the direction already chosen for the sibling surface in also-matches-accent-mockups.tsx."
+            >
+              <div className="space-y-3">
+                {(
+                  [
+                    ["As shipped", true],
+                    ["Proposed", false],
+                  ] as const
+                ).map(([label, rail]) => (
+                  <div key={label}>
+                    <p className="mb-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                      {label}
+                    </p>
+                    <SafetyCardSpecimen rail={rail} />
+                  </div>
+                ))}
+              </div>
+            </DetailCard>
+            <DetailCard
+              title="Two panels become one, and the follow-ups come back"
+              body="Direction A keeps the horizontal card row the answer already uses, so the surface has one repeated shape rather than three. Direction B trades the row for full-width questions and folds every other match onto a single expandable line — quieter, and it costs a tap. Pick one."
+            >
+              <div className="space-y-4">
+                {(
+                  [
+                    ["Direction A · one scrolling row", <ElsewhereRowSpecimen key="a" />],
+                    ["Direction B · questions in full, matches on one line", <ElsewhereListSpecimen key="b" />],
+                  ] as const
+                ).map(([label, node]) => (
+                  <div key={label}>
+                    <p className="mb-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                      {label}
+                    </p>
+                    {node}
+                  </div>
+                ))}
+              </div>
+            </DetailCard>
+          </div>
+          <p style={PROSE_MEASURE} className="mt-4 text-2xs leading-5 text-[color:var(--text-muted)]">
+            One thing both directions fix that is not styling: the phone never showed the follow-up questions at all —
+            <code className="font-mono"> hidden sm:block</code> in{" "}
+            <code className="font-mono">answer-result-surface.tsx</code> gates them behind a 640px breakpoint. The most
+            likely next tap on the surface was desktop-only.
+          </p>
+          <p style={PROSE_MEASURE} className="mt-2 text-2xs leading-5 text-[color:var(--text-muted)]">
+            And one wording change: &ldquo;4 related modes&rdquo; names an internal concept. Each row here says what the
+            thing is — Medication, Factsheet, Mode — so nothing has to be translated before it is tapped.
           </p>
         </Panel>
       </div>
