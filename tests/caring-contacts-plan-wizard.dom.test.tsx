@@ -186,9 +186,27 @@ function renderWizardWithOverlays(overrides: Partial<PlanWizardProps> = {}) {
   );
 }
 
+/**
+ * Stage 4's own trigger, NAMED BY ROW rather than as "the trigger on screen".
+ *
+ * Task 11a put `discard-changes` and `save-draft` in the draft notice, which every stage renders, so
+ * a bare `getByTestId("workspace-overlay-trigger")` is ambiguous here. Taking the first match would
+ * be worse than the ambiguity: it would silently confirm whichever row happened to render earliest,
+ * and every stage-4 case would go on passing while proving a different decision.
+ */
+function finalActivationTrigger(): HTMLElement {
+  const matches = screen
+    .getAllByTestId("workspace-overlay-trigger")
+    .filter((element) => element.getAttribute("data-overlay-trigger") === "final-activation");
+  if (matches.length !== 1) {
+    throw new Error(`expected exactly one final-activation trigger on screen, found ${matches.length}`);
+  }
+  return matches[0];
+}
+
 /** Opens the confirmation overlay from stage 4 and presses its own decision control. */
 async function confirmActivation(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByTestId("workspace-overlay-trigger"));
+  await user.click(finalActivationTrigger());
   const action = await screen.findByTestId("workspace-overlay-action");
   await user.click(action);
   return action;
@@ -457,6 +475,10 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
       // mints one at all.
       activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" },
       submission: null,
+      // Task 11a's two wizard-local confirmations, present and false from the first render for the
+      // same reason as the fields above: nothing has recorded either yet. Written out rather than
+      // read from `NO_PLAN_DRAFT_DECISIONS`, so this cannot agree with the module by construction.
+      decisions: { identityChecked: false, preferenceGivenOnStaffedLine: false },
     });
 
     // A remount is what a page refresh looks like from this component's point of view.
@@ -1253,7 +1275,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     // Opening the decision surface is not the decision. Task 3 built `overlay-trigger.tsx` to
     // require a commit handler at the TYPE level so a screen cannot open one it has not wired; this
     // is the other half — the wiring must not fire on the way in.
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     expect(await screen.findByTestId("workspace-overlay-action")).toBeInTheDocument();
     expect(fetched).not.toHaveBeenCalled();
 
@@ -1384,7 +1406,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     renderWizardWithOverlays();
     await screen.findByRole("region", { name: "Review and activation" });
 
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     const action = await screen.findByTestId("workspace-overlay-action");
 
     // The overlay opens and states what cannot be done, rather than the screen offering a dead
@@ -1408,7 +1430,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
       within(stage).getByLabelText(/day the patient was discharged/i),
       within(stage).getByLabelText(/day of the first contact/i),
       within(stage).getByRole("button", { name: /Back to personalisation/ }),
-      screen.getByTestId("workspace-overlay-trigger"),
+      finalActivationTrigger(),
     ]) {
       const name = control.getAttribute("id") ?? control.textContent ?? "a control";
       expect(control.className, `${name} is not a production tap target`).toContain("min-h-tap");
@@ -1641,9 +1663,9 @@ describe("stage 4 — what the screen promises matches what confirming does (Rul
     // The frozen row is titled "Last check before the plan starts" and its decision reads "Confirm
     // and activate". A control labelled "Create this plan" in front of it was the third leg of a
     // three-way contradiction on one screen.
-    expect(screen.getByTestId("workspace-overlay-trigger")).toHaveTextContent(/create and start this plan/i);
+    expect(finalActivationTrigger()).toHaveTextContent(/create and start this plan/i);
 
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     await screen.findByTestId("workspace-overlay-content");
     // The frozen title is rendered by the Sheet's own header at dialog modality, which is OUTSIDE
     // the content node -- so this reads the document rather than the overlay body.
