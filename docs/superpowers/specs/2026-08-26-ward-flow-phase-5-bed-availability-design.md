@@ -126,24 +126,13 @@ figure. Merging it would inflate the one number the whole hub depends on.
 - **Now** — already released.
 - **By midday**
 - **By 1600**
-- **Tonight** — up to the end of the operating day, taken as **24:00**.
+- **Tonight** — up to the end of the evening shift, taken as **22:00**.
 
-**AMENDED 2026-08-26 by the product owner, during implementation: the boundary is 24:00, not
-22:00.** The original decision and its reasoning are kept below rather than deleted, because the
-argument against midnight is still the argument a future reader will want to weigh.
-
-> **Superseded — why 22:00 and not midnight.** Midnight is a calendar boundary; nobody hands over
-> at midnight. The band has to end where the working day ends, or "beds tonight" means something
-> different to the person reading it than to the ward that entered it. 22:00 is this prototype's
-> choice, recorded here so it can be changed in one place, and it is a synthetic convenience rather
-> than a claim about how any real service runs its shifts.
-
-The owner's instruction was to keep it simple and end the day at 24:00. That is what the code does,
-in one named constant (`END_OF_DAY_MINUTES = 24 * 60`), and reversing it is a one-line change to
-that constant and its test — exactly the property the original decision was written to preserve.
-The trade the owner accepted: a release a ward enters for 23:30 now counts inside "tonight" rather
-than being reported as excluded. That is the less conservative direction of the two, and it is the
-only behavioural consequence.
+**Why 22:00 and not midnight.** Midnight is a calendar boundary; nobody hands over at midnight. The
+band has to end where the working day ends, or "beds tonight" means something different to the
+person reading it than to the ward that entered it. 22:00 is this prototype's choice, recorded here
+so it can be changed in one place, and it is a synthetic convenience rather than a claim about how
+any real service runs its shifts.
 
 Anything expected beyond tonight is **excluded from every count and the board says how many were
 excluded**. Silent truncation reads as "we counted everything" when we did not, and a bed
