@@ -2684,9 +2684,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    const relatedItems = page.getByRole("region", { name: "Related pages in other modes" }).getByRole("listitem");
+    // The library matches are one collapsed line under the answer now (owner
+    // decision, 2026-08-26, "direction B"): the follow-up questions lead, and
+    // this opens on demand. Still asserted end to end rather than dropped —
+    // open it and the same two links are there, at full tap size.
+    const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
+    const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
+    await relatedTrigger.click();
+    const relatedItems = relatedRegion.getByRole("listitem");
     await expect(relatedItems).toHaveCount(2);
     await expect(relatedItems.last()).toBeVisible();
+    // Collapse it again before the geometry below. The rest of this test
+    // measures the answer's scroll runway in its resting state, and an expanded
+    // panel adds ~88px of content that the page does not carry by default.
+    await relatedTrigger.click();
+    await expect(relatedItems.last()).toBeHidden();
 
     const main = page.locator("main#main-content");
     const header = page.locator("header.universal-header");
@@ -2815,6 +2827,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(input).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 844 });
+    // Re-open the library line: the tap-target sweep below is about the links
+    // inside it, and the geometry block above needed it resting closed.
+    await relatedTrigger.click();
     const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
     await expect(compactCrossModeRail).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -2963,7 +2978,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-card-rail");
+    // One collapsed line under the answer, opened on demand (owner decision,
+    // 2026-08-26, "direction B"). Everything below still has to work through it,
+    // so the test opens it rather than dropping the coverage.
+    await strip.getByTestId("cross-mode-links-line-trigger").click();
+    const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
     await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
@@ -2978,7 +2997,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const followUpBox = await followUps.boundingBox();
       expect(stripBox).toBeTruthy();
       expect(followUpBox).toBeTruthy();
-      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+      // Questions above matches, not below. Asking the next question is the
+      // clinical step; browsing the library is not.
+      expect(followUpBox!.y).toBeLessThan(stripBox!.y);
     }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
