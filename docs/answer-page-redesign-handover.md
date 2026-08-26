@@ -642,3 +642,40 @@ Three changes travel with it, all in the same mockup:
 it is deliberately a separate change: the owner approves the look on the mockup first.
 
 ---
+
+### 12.7 What sits under the answer: the safety rail, and two panels asking one question (2026-08-26)
+
+Photographed on a live phone by the owner. Both are drawn in
+`/mockups/answer-chat-perfected-v2` section Seven, as before-and-after and as two directions.
+
+**The safety card's coloured rail goes.** `AnswerSupportSummaryCard` draws
+`border-t-2 border-t-[color:var(--warning)]` across the top of the card — but that card also
+holds `Evidence gaps` and `Report a problem`, neither of which is a warning, so the rule
+colours two controls that carry no state. Colour moves into the icon tile plus a short
+`RED FLAG` severity chip: the direction `also-matches-accent-mockups.tsx` already records for
+the sibling surface ("no top rail; colour lives in the icon tile and the short code chip").
+Nothing about the signal is weakened — the design-system contract holds colour-only status
+indicators at zero either way, so the icon and the words were always carrying it.
+
+One thing the mockup deliberately does **not** copy from production: the evidence-gaps count
+is neutral, not amber. A count painted with a status colour is a status-coloured numeral, which
+the same contract holds at zero, and the icon beside it already says what state it is in.
+
+**The two "also…" panels become one list.** `CrossModeLinksSection` ("Also in your library")
+and `UniversalSearchAlsoMatches` ("Also matches") stack directly on top of each other under an
+answer and read as the same panel twice. They answer one question — where else does this
+appear — so they are one list, and each row names what it is (Medication, Factsheet, Mode)
+rather than leaving the reader to infer it from which panel it landed in. "4 related modes"
+goes: "mode" is internal vocabulary.
+
+**The follow-up questions were phone-invisible.** `answer-result-surface.tsx` wraps
+`AnswerFollowUpSuggestions` in `hidden sm:block`, so the most likely next tap on the surface
+was desktop-only. Both directions restore it and place it _above_ the matches.
+
+**Two directions, owner picks.** A keeps the horizontal card row the answer already uses, so
+the surface repeats one shape instead of three. B trades the row for full-width questions and
+folds every other match onto one expandable line — quieter, and it costs a tap.
+
+**Not yet in production.** Nothing under `src/components/clinical-dashboard/` changed.
+
+---
