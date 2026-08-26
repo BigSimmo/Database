@@ -1,9 +1,9 @@
 # Care Plan — Claude start here
 
-**Last updated:** 21 August 2026 (Australia/Perth)  
-**Implementation status:** Tasks 1 and 2 complete, reviewed and committed. Task 3 not started.  
+**Last updated:** 22 August 2026 (Australia/Perth)  
+**Implementation status:** Tasks 1–8 complete, reviewed and committed. Task 9 (Patient Plan) is on this branch. Tasks 10–11 not started.  
 **Design status:** Approved  
-**Working directory:** `D:\Worktrees\Database\care-plan`  
+**Working directory:** live state is `origin/claude/ed-care-plans-impl-7f44cd` (PR #2291). Local Windows worktree paths in older notes are historical.  
 **Branch:** `claude/ed-care-plans-impl-7f44cd`
 
 ## One-minute start
@@ -13,7 +13,7 @@
 1. [`session-handoff-2026-08-21.md`](./session-handoff-2026-08-21.md) — where things stand, the thirteen binding product decisions, the environment hazard, and the prompt to start the next session.
 2. [`sdd-ledger.md`](./sdd-ledger.md) — task progress, all 25 controller rulings with what each costs if wrong, the deferred minors, and four systemic lessons.
 
-**Where to work.** `D:\Worktrees\Database\care-plan`, on branch `claude/ed-care-plans-impl-7f44cd`. **Do not create or use any worktree under `D:\Repos\Database\.claude\worktrees\`** — that location destroyed this work three times on 21 August 2026, the third time through an explicit `git worktree lock` while a task was running. Nothing committed was ever lost, because every task commits at its end; keep that habit. Do not edit the shared checkout at `D:\Repos\Database`, and do not edit the original planning worktree at `D:\Worktrees\Database\ed-care-plans`, which is read-only reference.
+**Where to work.** Branch `claude/ed-care-plans-impl-7f44cd`. The authoritative copy is `origin/claude/ed-care-plans-impl-7f44cd`. **Do not create or use any worktree under `.claude/worktrees/`** — that location destroyed this work three times on 21 August 2026. Nothing committed was ever lost; commit at the end of every task. Do not treat dated Windows paths in older handovers as the live checkout.
 
 **The product in one line.** A synthetic, memory-only, reset-on-refresh prototype under `/mockups/care-plan` that lets a clinician look up the approved management plan for someone who presents repeatedly to an emergency department in psychiatric crisis. Reading is the primary use; authoring is supporting machinery.
 
@@ -37,19 +37,16 @@ The previous localhost visual server is no longer running. Open the HTML file di
 ## Copy/paste prompt for Claude
 
 ```text
-Resume the Care Plan build in D:\Worktrees\Database\care-plan
-on branch claude/ed-care-plans-impl-7f44cd.
+Resume the Care Plan build on branch claude/ed-care-plans-impl-7f44cd.
 
 Read, in order: docs/superpowers/specs/2026-08-20-care-plan-design.md (binding),
 docs/care-plan-context.md (binding glossary), and the Global Constraints and
 Delivery Stages sections of
 docs/superpowers/plans/2026-08-20-care-plan-implementation.md.
 
-Then read .superpowers/sdd/2026-08-20-care-plan-implementation/progress.md — the SDD
-ledger. Tasks with a "Task N: complete" line are done; resume at the first without
-one. The ledger also carries every controller ruling. If the ledger is missing, the
-worktree was deleted again: recover from git log, because every task commits at its
-end.
+Then read docs/care-plan/sdd-ledger.md — the SDD ledger. Tasks 1–8 are complete;
+Task 9 (Patient Plan) is on this branch. Resume at the first task without a
+complete line. The ledger also carries every controller ruling.
 
 Execute with superpowers:subagent-driven-development. Eleven tasks. Stop at the Stage
 A checkpoint after Task 5 and report to the user; do not start Task 6 on your own

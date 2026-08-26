@@ -13,10 +13,7 @@ import {
 import { diffManagementPlanContent } from "@/components/care-plan/mockups/management-plan-diff";
 import { managementPlanFieldId } from "@/components/care-plan/mockups/management-plan-form";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
-import {
-  CarePlanPrototypeProvider,
-  useCarePlanPrototype,
-} from "@/components/care-plan/mockups/prototype-provider";
+import { CarePlanPrototypeProvider, useCarePlanPrototype } from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
 import {
   FIRST_MINUTE_SECTION_LABEL,
@@ -32,10 +29,7 @@ import {
 import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 import { safetyPlanFieldId } from "@/components/care-plan/mockups/safety-plan-form";
-import {
-  FIRST_MINUTE_CONTENT_KEYS,
-  type CarePlanPrototypeAction,
-} from "@/components/care-plan/mockups/types";
+import { FIRST_MINUTE_CONTENT_KEYS, type CarePlanPrototypeAction } from "@/components/care-plan/mockups/types";
 
 import {
   JOINT_AUTHORSHIP_CLAIMS,
@@ -3350,11 +3344,7 @@ describe("Care Plan Patient Plan", () => {
     expect(text).not.toMatch(/most of it will still be right/i);
   }
 
-  function DispatchCapture({
-    capture,
-  }: {
-    capture: (dispatch: (action: CarePlanPrototypeAction) => void) => void;
-  }) {
+  function DispatchCapture({ capture }: { capture: (dispatch: (action: CarePlanPrototypeAction) => void) => void }) {
     capture(useCarePlanPrototype().dispatch);
     return null;
   }

@@ -1,5 +1,7 @@
 # ED Care Plans — detailed Claude build handover
 
+> **Historical handover (21 August 2026).** The product name is now Care Plan and the route family is `/mockups/care-plan`. Binding specs live at [`2026-08-20-care-plan-design.md`](../superpowers/specs/2026-08-20-care-plan-design.md), [`care-plan-context.md`](../care-plan-context.md), and [`2026-08-20-care-plan-implementation.md`](../superpowers/plans/2026-08-20-care-plan-implementation.md). Identifiers below (`ED Care Plans`, `/mockups/ed-care-plans`, `ed-care-plans-*.md`) are the names as they stood on this date.
+
 ## Handover outcome
 
 ED Care Plans is fully brainstormed, clinically bounded, visually selected, specified, and decomposed into a nine-task implementation plan. No application code has been written. This handover is the bridge from the approved Codex design session to a Claude implementation session.
@@ -12,18 +14,18 @@ When sources differ, use this priority:
 
 1. Current user instructions in the Claude session.
 2. Repository [`AGENTS.md`](../../AGENTS.md).
-3. Approved [`ED Care Plans design specification`](../superpowers/specs/2026-08-20-ed-care-plans-design.md).
-4. Binding [`domain glossary`](../ed-care-plans-context.md).
-5. Executable [`implementation plan`](../superpowers/plans/2026-08-20-ed-care-plans-implementation.md).
+3. Approved [`Care Plan design specification`](../superpowers/specs/2026-08-20-care-plan-design.md).
+4. Binding [`domain glossary`](../care-plan-context.md).
+5. Executable [`implementation plan`](../superpowers/plans/2026-08-20-care-plan-implementation.md).
 6. This handover and the [`conversation transcript`](./conversation-transcript-2026-08-21.md).
 
 The specification is the product authority. The implementation plan is deliberately more detailed about files, symbols, tests, and order, but it may not relax a specification invariant.
 
 ## User-approved product
 
-**Name:** ED Care Plans  
+**Name:** Care Plan (recorded on this date as ED Care Plans)  
 **Descriptor:** Continuity for recurrent presentations  
-**Route family:** `/mockups/ed-care-plans`  
+**Route family:** `/mockups/care-plan` (recorded on this date as `/mockups/ed-care-plans`)  
 **Cohort:** Adults and older adults in a fictional multi-site WA health-service network  
 **Delivery:** Complete, linked, interactive, deterministic synthetic prototype  
 **Persistence:** In-memory only; state resets on refresh
