@@ -181,8 +181,30 @@
  * blank strip down every printed page. Hidden explicitly here, scoped to this screen only.
  */
 @media print {
+  /*
+   * `.screen` and `.governanceBanner` carry their own explicit `background: var(--surface)` /
+   * `var(--surface-chrome)` for the on-screen dark theme (`ckb-v2-tokens.css`'s `.dark .ckb-v2`
+   * ramp resolves those to near-black — `#12161a` / `#0e1216`). The global print reset in
+   * globals.css only resets `html`/`body`'s own background, which does not cascade into an
+   * element's own explicit `background` declaration — so without this reset, printing the page
+   * while the app is in dark mode would paint the whole screen container and the governance
+   * banner as a dark band, not the white sheet the print reset promises everywhere else on this
+   * page.
+   */
+  /*
+   * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the
+   * root. System colours such as `CanvasText` below resolve against the *inherited*
+   * `color-scheme`, not against the active media type — so under print while the app is in
+   * dark mode, `CanvasText` resolves to white (dark-appearance ink) rather than black,
+   * printing white text on the white sheet the print reset forces. Pinning `color-scheme:
+   * light` here makes every `CanvasText` / `Canvas` reference under `.screen` resolve to the
+   * light (paper) appearance regardless of the on-screen theme, which is what a printed sheet
+   * needs. See `morning.module.css`'s own `@media print` block for the measured before/after.
+   */
   .screen {
     grid-template-columns: 1fr;
+    background: none;
+    color-scheme: light;
   }
 
   .screen > aside {
@@ -201,6 +223,7 @@
    */
   .governanceBanner {
     border-bottom: 0.0625rem solid CanvasText;
+    background: none;
   }
 
   .section {
