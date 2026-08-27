@@ -123,7 +123,10 @@ figure. Merging it would inflate the one number the whole hub depends on.
 
 `expectedAt` stays an instant. Bands are derived from it relative to the demo clock:
 
-- **Now** — already released.
+- **Now** — already released **on the current operating day**. A release carried over from an
+  earlier operating day is not "today" and falls into the beyond-today exclusion, which the board
+  states aloud like any other exclusion. (Clarified 2026-08-27 to match the shipped
+  `releaseBand()`; the code and this clause agree.)
 - **By midday**
 - **By 1600**
 - **Tonight** — up to the end of the evening shift, taken as **22:00**.
