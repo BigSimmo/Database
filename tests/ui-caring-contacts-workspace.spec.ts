@@ -1997,21 +1997,51 @@ test.describe("caring-contacts every screen, at the 400% zoom equivalent", () =>
 const REDUCED_MOTION_PROBE_WIDTH = 1024;
 
 /**
+ * The threshold above which a duration is motion, in seconds.
+ *
+ * MEASURED, AND THE MEASUREMENT CHANGED WHAT THIS PROBE IS ABOUT. The first draft
+ * counted any duration greater than zero and reported 228 elements per screen —
+ * `head`, `meta`, `link` and `script` among them. That is not a bug in the app.
+ * `globals.css` suppresses motion with a UNIVERSAL rule under
+ * `prefers-reduced-motion: reduce`: `html:not([data-motion="full"]) *, …::before,
+ * …::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms
+ * !important; animation-iteration-count: 1 !important }`. Every element in the
+ * document therefore reports a 0.01ms duration, deliberately non-zero so that
+ * `transitionend` and `animationend` still fire and nothing waiting on them
+ * hangs.
+ *
+ * So the app's reduced-motion guarantee is NOT the `motion-reduce:` Tailwind
+ * variants the components carry — those are a second, independent belt, exactly
+ * like the two declarations that supply the focus ring above. It is one global
+ * rule, and it wins with `!important` over whatever an author declared. This
+ * probe therefore asks the question the rule answers: is any duration long
+ * enough to be seen? 1ms is a hundred times the clamp and more than a hundred
+ * times below the shortest real duration in this tree (`transition-colors` is
+ * 150ms), so nothing sits near the line.
+ */
+const PERCEPTIBLE_MOTION_SECONDS = 0.001;
+
+/**
  * Everything on the page that would still be moving, named well enough to fix.
  *
  * A transition counts only when its property list is not `none` AND some duration
- * in it is non-zero, because Tailwind's `transition-none` sets the property and
+ * in it is perceptible, because Tailwind's `transition-none` sets the property and
  * leaves the duration behind: an element carrying `motion-reduce:transition-none`
  * still reports `transition-duration: 0.15s`, so a probe reading duration alone
  * would report every correctly suppressed control as moving. An animation counts
  * on the same terms, plus a play state that is not `paused`.
+ *
+ * ELEMENTS AN ANCESTOR HAS HIDDEN ARE INCLUDED ON PURPOSE. A suppression that
+ * only reached what is currently painted would leave the rail animating the
+ * moment a phone became a desktop, and the reader who asked for less motion is
+ * the one who would find out.
  *
  * The identity is a test id, an id, or a clipped class list — enough to name the
  * element in a failure without pouring a component's whole class attribute into
  * the report.
  */
 function movingElements(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate((perceptibleSeconds) => {
     const durationsIn = (value: string) =>
       value.split(",").map((part) => {
         const trimmed = part.trim();
@@ -2019,16 +2049,14 @@ function movingElements(page: Page) {
         if (!Number.isFinite(magnitude)) return 0;
         return trimmed.endsWith("ms") ? magnitude / 1000 : magnitude;
       });
+    const perceptible = (value: string) => durationsIn(value).some((seconds) => seconds > perceptibleSeconds);
 
     const moving: string[] = [];
     for (const node of document.querySelectorAll("*")) {
       const style = getComputedStyle(node);
-      const transitioning =
-        style.transitionProperty !== "none" && durationsIn(style.transitionDuration).some((value) => value > 0);
+      const transitioning = style.transitionProperty !== "none" && perceptible(style.transitionDuration);
       const animating =
-        style.animationName !== "none" &&
-        style.animationPlayState !== "paused" &&
-        durationsIn(style.animationDuration).some((value) => value > 0);
+        style.animationName !== "none" && style.animationPlayState !== "paused" && perceptible(style.animationDuration);
       if (!transitioning && !animating) continue;
 
       const identity =
@@ -2036,7 +2064,7 @@ function movingElements(page: Page) {
       moving.push(`${node.tagName.toLowerCase()}${identity ? ` (${identity})` : ""}`);
     }
     return moving;
-  });
+  }, PERCEPTIBLE_MOTION_SECONDS);
 }
 
 test.describe("caring-contacts every screen, under a reduced-motion preference", () => {
@@ -2076,6 +2104,61 @@ test.describe("caring-contacts every screen, under a reduced-motion preference",
         await documentOverflow(page),
         `${screen.name}: horizontal overflow under a reduced-motion preference`,
       ).toBeLessThanOrEqual(2);
+    });
+  }
+});
+
+/**
+ * Every overlay surface, under a reduced-motion preference.
+ *
+ * WHY THE SCREENS ARE NOT ENOUGH ON THEIR OWN. The block above probes each screen
+ * at rest, and at rest this workspace has exactly one moving thing: the rail
+ * destination's colour transition. Every real ANIMATION in the phase is on the
+ * overlay surface — the shared `Sheet` carries `animate-sheet-up`,
+ * `animate-pop-in`, `animate-dialog-rise` and an `animate-overlay-in` backdrop,
+ * each behind a `motion-safe:` variant with a `motion-reduce:` counterpart. A
+ * reduced-motion proof that never opened an overlay would be reporting on the one
+ * surface that has no animation and saying nothing about the one that has four.
+ *
+ * ALL TWENTY-FOUR ROWS RATHER THAN A REPRESENTATIVE PER MODALITY. Which animation
+ * class the Sheet reaches is chosen by modality and placement, so a per-modality
+ * sample would in principle cover the set — but "in principle" is doing the work
+ * in that sentence, and a page load here costs about half a second. Driving the
+ * loop from the frozen definitions costs nothing and cannot be wrong about which
+ * rows share a mechanism.
+ */
+test.describe("caring-contacts overlay surfaces, under a reduced-motion preference", () => {
+  for (const width of OVERLAY_MATRIX_WIDTHS) {
+    test(`suppresses every overlay surface's motion at ${width}px`, async ({ page }) => {
+      // Forty-eight page loads; the suite default of 60s is sized for one journey.
+      test.setTimeout(240_000);
+
+      for (const definition of WORKSPACE_OVERLAY_DEFINITIONS) {
+        const label = `${definition.id} at ${width}px`;
+
+        // The positive control, per row rather than once for the loop: an overlay
+        // that animates nothing without the preference cannot demonstrate anything
+        // by not animating with it.
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+        await deepLinkOverlay(page, width, definition.id);
+        const withoutPreference = await movingElements(page);
+        expect(
+          withoutPreference.length,
+          `${label}: nothing moves even without a reduced-motion preference, ` +
+            `so the assertion below cannot fail and proves nothing`,
+        ).toBeGreaterThan(0);
+
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        const content = await deepLinkOverlay(page, width, definition.id);
+        expect(await movingElements(page), `${label}: still moving under a reduced-motion preference`).toEqual([]);
+
+        // Suppressing the motion must not suppress the decision. An overlay whose
+        // action went with its animation is worse than one that animated.
+        await expect(
+          content.getByTestId("workspace-overlay-action"),
+          `${label}: the decision control went with the motion`,
+        ).toBeVisible();
+      }
     });
   }
 });
