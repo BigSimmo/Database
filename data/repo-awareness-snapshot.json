@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "79611b0ce313799d9332fcd4ae30d9bfcd3b6027",
-    "committed_at": "2026-08-27T19:57:02+00:00"
+    "sha": "e3dcce94e18717f8060f268eb5607b45eba9fe96",
+    "committed_at": "2026-08-27T20:13:58+00:00"
   },
   "routes": {
     "modes": [
@@ -1274,10 +1274,6 @@
         "file": "src/app/api/documents/images/batch/route.ts"
       },
       {
-        "path": "/api/documents/signed-urls",
-        "file": "src/app/api/documents/signed-urls/route.ts"
-      },
-      {
         "path": "/api/eval-cases",
         "file": "src/app/api/eval-cases/route.ts"
       },
@@ -1376,7 +1372,7 @@
       "product_pages": 55,
       "mockup_pages": 135,
       "redirects": 17,
-      "api": 58
+      "api": 57
     }
   },
   "documentation": {
@@ -4002,6 +3998,14 @@
         "scope": "Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR",
         "outcome": "No fix pushed. mergeable_state=dirty is real: git merge origin/main conflicts only in generated data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json, both cleanly regenerable via npm run snapshot:issues / npm run snapshot:repo-awareness. Regenerated them, but the merge commit then fails the check-ledger-write-discipline.mjs pre-push guard: origin/main (PR #2417) queued 2 new pending ledger-inbox requests after this PR's branch point (474922a3-...json -> issue #TBW7BR, 5e8ec6a9-...json -> issue #BR2217), and this PR's merge commit would touch docs/outstanding-issues-inbox/applied/ (its own 33-item reconciliation) while leaving those 2 newer items unreconciled - flagged as a partial-batch reconciliation. Deciding whether #TBW7BR/#BR2217 should be marked done is outside this PR's declared 33-item scope and belongs to a dedicated npm run issues:reconcile operation, not an ad hoc merge fix, so per sweep policy for ambiguous reconciliation-content conflicts the merge was aborted (git reset --hard back to the original PR tip 0a370df3) rather than pushed with SKIP_LEDGER_WRITE_GUARD=1. Branch left exactly as found (0a370df3, matches origin). Review threads: get_review_comments returned 0 threads; the 4 PR comments are all bot rate-limit notices (Codex usage limit, CodeRabbit review limit, Cursor Bugbot usage limit, Supabase preview ignored-no-supabase-changes) with nothing actionable to reply to or resolve. Real CI: only PR Policy (pass) and PR mergeability (fail, caused by the same drift above) have run for this head; the main ci.yml required-checks aggregate (changes/static-pr/safety/coverage/build/ui-critical/db-reset-verify/pr-required) has not triggered yet on this SHA, so there is no other CI failure to diagnose. No merge to main, no force-push, no auto-merge toggle, no close, no provider-backed gate run.",
         "checks": "node scripts/ledger-inbox.mjs check (0 pending / 33 applied at PR head, 2 pending after main merge before abort); npm run check:outstanding-issues-snapshot (83 open, 0 pending at PR head); node scripts/check-outstanding-issues.mjs (512 rows, 83 open, 429 archived, passed on merged tree before abort); node scripts/check-ledger-write-discipline.mjs --base 32652318 --head <merge-commit> = FAILED (partial reconciliation, 2 items left pending) -> merge aborted; npx tsc -p tsconfig.typecheck.json --noEmit = 0 errors (on merged tree, discarded); npm run docs:check-index/check-inventory/check-scripts/check-links = all passed (on merged tree, discarded); npm run format = no changes (on merged tree, discarded); git merge-tree --write-tree origin/main 0a370df3 = conflicts confined to data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json only"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "update_documentation_structure (PR #2444)",
+        "head": "c619671065422373f746f69bca5f94147767f877",
+        "scope": "PR 2444 review: main sync + CI fix + review thread",
+        "outcome": "before: PR policy/Static PR checks/Unit coverage failing, 1 unresolved review thread, behind main by 2 commits (clean merge). after: merged origin/main (no conflicts), regenerated docs/site-map.md to drop deleted signed-urls alias route (fixes docs:check-links + site-map.test.ts), fixed CodeRabbit Major finding — upload error-path storage_cleanup_jobs ledger now carries document_id when document deletion is not confirmed so the janitor live-document guard can protect it, added required PR-body Clinical Governance Preflight + Risk and rollout sections (fixes PR policy check). Thread resolved with fix commit reference.",
+        "checks": "npm run typecheck (clean), npm run lint (clean), npm run test:focused -- --files src/app/api/upload/route.ts (184 passed), npm run docs:check-links (passed), npm run sitemap:check (passed), npm run format (no changes needed). No provider-backed checks run."
       },
       {
         "date": "2026-08-26",
@@ -25029,8 +25033,8 @@
       }
     ],
     "counts": {
-      "records": 2645,
-      "refs": 1613
+      "records": 2646,
+      "refs": 1614
     }
   }
 }
