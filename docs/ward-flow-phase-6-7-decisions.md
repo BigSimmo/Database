@@ -127,14 +127,51 @@ settles, in the specification named beside it.
 | A referral carries three person-facts. How wide does **"nothing else"** go?                                                   | **The three-field rule governs facts about the person.** The referral may also carry its own operational facts: source, urgency, origin site, transport, outcome. | Phase 7 spec, D5        |
 | The morning page's point is handing a colleague a link, but the prototype is administrator-gated. What should Phase 6 assume? | **It stays in the sandbox.** The shareable artefact is the printed page and the guided tour shown live, not a public URL.                                         | Phase 6 spec, D9        |
 
+## Two further answers, given before Phase 7 began (2026-08-27)
+
+Both were put to the owner after Phase 6 was built and before Phase 7's first task.
+
+### Where the youth beds go
+
+**Bentley Health Service, in a unit called the East Metropolitan Youth Unit (EMyU).**
+
+This answers the open question below, and it answers it better than either option offered. The
+question assumed the choice was between inventing a fictional site and attaching an invented ward to a
+real hospital name. The owner supplied a **real fact instead**: Bentley Health Service is already in
+the site table, and EMyU is its actual youth unit. So the prototype is not asserting something false
+about a real hospital — it is describing one correctly.
+
+The bed **numbers** in that unit remain invented, exactly like every other number in this prototype,
+and the standing banner still applies. Use the name verbatim, including its capitalisation.
+
+This narrows roadmap decision 12 ("sites stay synthetic; real WA town names may be used for geography
+and distance only") rather than contradicting it: a real unit name supplied by the owner is a fact he
+holds, not a fact the prototype invented. The general rule is unchanged for everything else.
+
+### The morning page gains a demand figure
+
+**Yes — at the end of Phase 7, once real referrals exist.**
+
+Phase 6 deliberately left demand out, because "how many people are waiting" could only have been a
+count of movements that happen to be open in an emergency department, and building it then would have
+meant building it twice. Once Phase 7's referral queue is real, the morning page gains one figure for
+people waiting.
+
+A bed coordinator starting a shift wants both halves of the equation. It is cheap to add while the
+referral work is fresh and expensive to retrofit into a page people have already learned to read.
+Everything Phase 6 decided about that page still holds: the figure is derived, never computed on the
+page, and it is never summed into any bed figure.
+
 ## Still open
 
 - Everything the clinician check comes back with.
 - **Two questions raised by the design conversation and left with the owner**, neither of which
   blocks implementation. Both are written up in full at the foot of each specification.
-  1. The site table uses **real WA hospital names** beside invented units and bed numbers. Phase 6 is
-     the first page built to be printed and shown around, and Phase 7 adds invented youth units to
-     that table. Should the sites become clearly synthetic first, or is the banner enough?
+  1. ~~The site table uses real WA hospital names beside invented units and bed numbers.~~
+     **ANSWERED 2026-08-27** — see the youth-beds decision above. The narrow case that prompted it is
+     closed: the youth unit is a real unit at a real site, not an invention. The broader question —
+     whether every site name should eventually be clearly synthetic — is still open, but nothing in
+     Phase 7 now depends on it.
   2. Should the morning page and the existing shift-handover page eventually be one page? They answer
      different questions today.
 

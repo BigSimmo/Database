@@ -424,20 +424,46 @@ Adding `"Youth"` to the age dimension while no unit anywhere carries it means ev
 matches nothing, and the board would report "no suitable bed" for a structural reason rather than an
 operational one. Seed at least one youth unit.
 
-**Two honest caveats, both of which must reach the screen rather than staying in this document:**
+**Where they go, and it is a real fact rather than an invention (owner, 2026-08-27):** the youth unit
+is the **East Metropolitan Youth Unit (EMyU)** at **Bentley Health Service**, which is already in the
+site table. Use that name verbatim, capitalisation included.
 
-1. **How many youth units a metro service has, and where, is a fact neither the specification author
-   nor the prototype knows.** The seeded count and placement are invented. The prototype must not imply
-   otherwise.
-2. **The site table uses real WA hospital names.** Attaching a synthetic youth unit to a real hospital
-   asserts something about that hospital that may be false. This is a pre-existing tension — roadmap
-   decision 12 says sites stay synthetic and real names are for geography only, while the table names
-   real hospitals — and it is not Phase 7's to resolve unilaterally. **It is an open question for the
-   product owner** (below), and until it is answered the safer placement for a new synthetic unit is a
-   site that is already clearly synthetic.
+This is a better answer than the one this decision originally anticipated. The draft assumed the
+choice lay between inventing a fictional site and hanging an invented ward off a real hospital's name.
+The owner supplied the actual unit instead, so the prototype describes a real service correctly rather
+than asserting something false about it.
+
+**One caveat remains and must reach the screen rather than staying in this document:** the **bed
+numbers** in that unit are invented, exactly like every other number here. The standing banner covers
+it, and nothing on any screen may imply the counts are real.
+
+This narrows roadmap decision 12 ("sites stay synthetic; real WA town names may be used for geography
+and distance only") rather than contradicting it: a real unit name supplied by the product owner is a
+fact he holds, not a fact the prototype invented. The general rule is unchanged everywhere else, and
+the broader question of whether every site name should eventually be clearly synthetic stays open —
+but nothing in Phase 7 depends on it any more.
 
 Failure behaviour follows in D17: an age band with no unit anywhere in the network says exactly that,
 rather than reading as "all full".
+
+### D17 — The morning page gains a demand figure at the end of this phase
+
+_(Owner's answer, 2026-08-27.)_ Phase 6's morning page shows beds available and says nothing about who
+is waiting. That was deliberate: before this phase, "people waiting" could only have meant a count of
+movements that happen to be open in an emergency department, and building it then would have meant
+building it twice.
+
+Once the referral queue is real, the morning page gains **one figure for people waiting**, added as the
+last task of this phase while the referral work is fresh. A bed coordinator starting a shift wants both
+halves of the equation, and retrofitting a figure into a page people have already learned to read is
+the expensive version.
+
+Everything Phase 6 decided about that page still binds. The figure is **derived, never computed on the
+page** (Phase 6 D1), it carries the same freshness discipline as every other figure (Phase 6 D4), and
+it is **never summed into any bed figure** — least of all the headline. It sits beside the bed figures
+as its own count, in its own words, exactly as `Leave (usable)` does.
+
+**Expensive to change later:** no. One derivation and one rendered figure.
 
 ---
 
@@ -586,9 +612,11 @@ are provider-backed and forbidden by the standing constraints.
 
 Neither blocks the implementation of this phase, but the first shapes D16's seeding.
 
-1. **The site table uses real WA hospital names beside invented units and bed numbers.** Phase 7 adds
-   invented youth units to it. Should the sites become clearly synthetic first? (The same question is
-   recorded in the Phase 6 specification, from the other direction.)
+1. ~~The site table uses real WA hospital names beside invented units and bed numbers.~~ **ANSWERED
+   2026-08-27, and the narrow case is closed** — the youth unit is EMyU at Bentley Health Service, a
+   real unit at a site already in the table, so Phase 7 invents no ward. The broader question of
+   whether every site name should eventually be clearly synthetic remains open and is recorded in the
+   Phase 6 specification, but nothing in this phase depends on it.
 2. **Should an accepted referral eventually flow into a movement automatically (D14), or should it
    always be a second, human step?** The answer is entangled with Phase 8's geography work and does not
    need deciding yet.

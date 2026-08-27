@@ -166,9 +166,12 @@ Do not merge it with `forensic`.
    `"Female only"` and one `"Male only"`. A fixture where every bed carries a designation would let an
    equality bug pass every test.
 2. At least one unit has `forensic: true`.
-3. At least one **Youth** unit exists, or every youth referral matches nothing for a structural
-   reason. Place it at a site and add a comment recording that its existence, count and placement are
-   **invented** — the prototype knows nothing about how many youth units any real service has.
+3. **The Youth unit is the East Metropolitan Youth Unit (EMyU) at Bentley Health Service**, which is
+   already in the site table (`ward-sites.ts`, `code: "BEN"`). Use that name verbatim, capitalisation
+   included — it is a real unit supplied by the product owner on 2026-08-27, not an invention, so do
+   not rename it, abbreviate it differently, or move it. Add a comment recording that its **bed
+   numbers** are invented like every other number here, while its name and placement are real.
+   Without it every youth referral matches nothing for a structural reason.
 4. The `referrals` fixture opens on the awkward cases: at least one queued referral that no bed
    accepts, at least one declined referral, at least one youth referral, and at least one referral
    whose sex would be excluded by a designated bed but accepted by an undesignated one.
@@ -391,6 +394,40 @@ nothing ran.
 
 ---
 
+## Task 9: The morning page gains a demand figure
+
+**Files:**
+
+- Modify: `src/components/ward-management/ward-morning-rollup.ts` (the derivation)
+- Modify: `src/components/ward-management/morning/morning-page.tsx` (render it)
+- Modify: `tests/ward-morning-rollup.test.ts`, `tests/ward-morning-page.dom.test.tsx`
+
+Spec D17. Phase 6's morning page shows beds available and nothing about who is waiting. Now that the
+referral queue is real, it gains **one figure for people waiting**.
+
+**Every Phase 6 rule about that page still binds, and two of them are the whole point:**
+
+- **The page computes no figure of its own** (Phase 6 D1). The count is derived in
+  `ward-morning-rollup.ts` alongside the bed roll-up, and the page renders it.
+- **It is never summed into any bed figure**, least of all the headline. It sits beside them as its own
+  count, in its own words, exactly as `Leave (usable)` does. **Nothing predicted, confirmed-but-
+  unreleased, on leave, or waiting may ever reach "Available now".**
+- It carries the same freshness discipline as every other figure (Phase 6 D4).
+- Its label is defined once, next to the derivation, with the five bed labels (Phase 6 D14).
+
+**Count only queued referrals** — accepted and declined ones are decided and are not waiting.
+
+- [ ] **Step 1: Write the failing tests** — the derivation's count, the rendered figure, and a contract
+      test that the headline is unchanged by the presence of queued referrals.
+- [ ] **Step 2: Run and watch fail**
+- [ ] **Step 3: Implement**
+- [ ] **Step 4: Mutation-test** — add the waiting count into the headline and watch the contract test go
+      red; quote the line; restore. This is the same guard Phase 6 needed three attempts to get right,
+      so do not assume a test covers it until you have watched it fail.
+- [ ] **Step 5: Run, watch pass, commit**
+
+---
+
 ## Task 8: Verification sweep and the screenshots
 
 **This is the task that has historically found the real defects.** Phase 4 and Phase 5 each shipped
@@ -428,6 +465,12 @@ Tasks 1 → 2 → 3 are serial: each consumes what the previous produced. Tasks 
 Task 3 and share `referrals.module.css` and the screens test file, so they are serial with each other
 too. Task 6 depends on Tasks 4 and 5. Task 7 depends on Task 6. Task 8 is last.
 
-Dispatch one implementer at a time. The expensive checks — full unit suite, lint, format, build,
+Task 9 depends on Task 3 (referrals must exist in state) and is run after Task 8's sweep, since it
+touches Phase 6's page and wants that page's screenshots taken again afterwards.
+
+Dispatch one implementer at a time. The pre-commit doc-sync hook inspects the whole working tree, not
+the staged set, so two agents sharing this worktree cannot commit independently even when their edited
+files are disjoint — the first to finish is blocked by the second's in-progress work. A read-only
+reviewer may run concurrently, because it never commits. The expensive checks — full unit suite, lint, format, build,
 browser, screenshots — run **once at the end**, because the heavyweight lock is machine-wide and other
 sessions queue behind it.
