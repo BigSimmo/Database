@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 47,
+    "pending": 36,
     "resolved": 412
   },
   "queue": [
@@ -961,18 +961,6 @@
       "created_at": "2026-08-25"
     },
     {
-      "request_id": "1838b99a-9323-4e3b-84a5-8e52535ecec8",
-      "action": "add",
-      "summary": "Caring Contacts: the governed-message validator has zero production callers",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "18b32d38-540f-4d7c-af35-3f4f067e4998",
-      "action": "add",
-      "summary": "Caring Contacts: nothing checks screen wording against the prohibited-vocabulary list",
-      "created_at": "2026-08-24"
-    },
-    {
       "request_id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
       "action": "cancel",
       "summary": "Cancel request ecabc51d-034a-4a68-91cd-280214aac6bf: Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27.",
@@ -1075,18 +1063,6 @@
       "created_at": "2026-08-25"
     },
     {
-      "request_id": "801d50ab-adbb-48e7-90ab-f8e6ed7ca588",
-      "action": "add",
-      "summary": "Caring Contacts: nothing enforces that a new workspace screen joins the browser spec's WORKSPACE_SCREENS",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "854ca9ba-ba3b-442b-be6d-6f5873ed60ed",
-      "action": "add",
-      "summary": "Caring Contacts: connection-unavailable and permission-unavailable have no runtime caller",
-      "created_at": "2026-08-24"
-    },
-    {
       "request_id": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
       "action": "add",
       "summary": "The answer source-rail card carries three hardcoded pixel measurements, one of them duplicated",
@@ -1109,24 +1085,6 @@
       "action": "cancel",
       "summary": "Cancel request b60f9982-f48c-4a70-ae92-99d88313cab3: The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged.",
       "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "9da200a8-0ae0-451b-bef8-d1636b9e3cff",
-      "action": "add",
-      "summary": "Caring Contacts: postgres-repository.ts is ~2,080 lines and holds five self-contained clusters",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "a0548b2c-2c80-44f9-9440-5b983e169a13",
-      "action": "add",
-      "summary": "Caring Contacts: the closing-message refusal is a guard that cannot fire",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "a4b0610d-ef92-4d1b-bcc8-3da0eb646d5a",
-      "action": "add",
-      "summary": "Caring Contacts: four bare foreign keys onto plans/contacts predate the composite same-team rule",
-      "created_at": "2026-08-24"
     },
     {
       "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
@@ -1153,12 +1111,6 @@
       "created_at": "2026-08-26"
     },
     {
-      "request_id": "ba655ad0-9934-4885-a959-5efd375a9bf1",
-      "action": "add",
-      "summary": "Caring Contacts: Ruling 60's 640-767px overlay-modality band is pinned on one side only",
-      "created_at": "2026-08-24"
-    },
-    {
       "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
       "action": "add",
       "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
@@ -1168,12 +1120,6 @@
       "request_id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
       "action": "add",
       "summary": "Caring Contacts: the plans list query fetches every patient's mobile number and identifiers on every caseload render",
-      "created_at": "2026-08-24"
-    },
-    {
-      "request_id": "cd97d402-7af1-473e-a2eb-dbac597cd03d",
-      "action": "add",
-      "summary": "Caring Contacts: the frozen interaction matrix's 'Recovery action only' wording is ambiguous",
       "created_at": "2026-08-24"
     },
     {
@@ -1187,12 +1133,6 @@
       "action": "add",
       "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
       "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "d7725691-5968-48f1-9912-bca3a5942731",
-      "action": "add",
-      "summary": "Caring Contacts: the interface prohibited-language helper has the same 'lead' job-title collision B2 just fixed for messages",
-      "created_at": "2026-08-24"
     },
     {
       "request_id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
@@ -1211,12 +1151,6 @@
       "action": "add",
       "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
       "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "fa126adf-ade8-4027-a029-d59b4bef8967",
-      "action": "add",
-      "summary": "Caring Contacts: the same-team write serialisation is accidental and still unpinned",
-      "created_at": "2026-08-24"
     }
   ]
 }
