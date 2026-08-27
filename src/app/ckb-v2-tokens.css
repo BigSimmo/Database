@@ -62,7 +62,9 @@
   --bp-tablet: 768px;
   --bp-desktop: 1024px;
 
-  /* Type - 7 steps, each with its own line-height and tracking.
+  /* Type - 7 size steps. xs–xl are size-only; shared leading is
+   * `--leading-prose`. Hero is the only step with dedicated companions
+   * (`--text-hero--line-height`, `--text-hero-tr`).
    *
    * TWO SCALES ARE LIVE AT ONCE, and this block is the one that wins. Because
    * `ckb-v2` is mounted on <html>, every step below overrides both Tailwind's
@@ -83,29 +85,14 @@
    *     --text-lg   1.25rem   = Tailwind default --text-xl
    *     --text-xl   1.5rem    = Tailwind default --text-2xl
    *
-   * The `-lh` / `-tr` companions below are declared but currently consumed by
-   * nothing (0 references across src/ as of 2026-08-21). They are the intended
-   * paired scale, not drift - but until a call site adopts them, only the size
-   * half of this scale is real. Do not read their presence as evidence that
-   * leading and tracking are already handled. */
+   * Do not reintroduce per-step `-lh` / `-tr` orphans for xs–xl. Wiring those
+   * would be type-scale adoption, not a companion-token restore. */
   --text-xs: 0.75rem;
-  --text-xs-lh: 1rem;
-  --text-xs-tr: 0;
   --text-sm: 0.8125rem;
-  --text-sm-lh: 1.125rem;
-  --text-sm-tr: 0;
   --text-body: 0.9375rem;
-  --text-body-lh: 1.375rem;
-  --text-body-tr: -0.005em;
   --text-md: 1.0625rem;
-  --text-md-lh: 1.75rem;
-  --text-md-tr: -0.008em;
   --text-lg: 1.25rem;
-  --text-lg-lh: 1.625rem;
-  --text-lg-tr: -0.012em;
   --text-xl: 1.5rem;
-  --text-xl-lh: 1.875rem;
-  --text-xl-tr: -0.018em;
   --text-hero: clamp(1.75rem, 1.2rem + 2vw, 2.25rem);
   --text-hero--line-height: 1.12;
   --text-hero-tr: -0.022em;

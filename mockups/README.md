@@ -11,6 +11,153 @@ npm run sitemap:update
 npm run sitemap:check
 ```
 
+## Mockup index, by topic
+
+A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
+nobody has to open 84 folders to find out what's still useful. `docs/site-map.md` remains
+the authoritative list of exact live paths (regenerate it after any change here); this
+table exists to group those paths by topic and record a status for each one.
+
+**Status key** — _Prototype app_: a full working tool, not a design sketch, out of scope
+for cleanup. _Chosen design_: the direction that was picked; still runnable for reference.
+_Active study_: still-relevant design work with no single "winner" yet, or reference
+material behind a chosen design. _Redirect_: a legacy URL kept for compatibility.
+_Superseded — recommend removing_: explicitly and in writing replaced by a later version,
+with no other mockup depending on it. _Parallel draft, no recorded winner_: one of several
+competing drafts on the same brief where nothing in the repo says which one (if any) was
+picked — kept as-is rather than guessed at.
+
+### Full prototype apps (out of scope for cleanup)
+
+| Route                | What it is                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `development/**`     | Developer hub — reads repo status (docs index, ingestion status, task ledger, review records, route map). Linked from Settings for signed-in admins.       |
+| `care-plan/**`       | Fully synthetic care-planning prototype (management/patient/safety plans, presentations, review), richly cross-linked.                                     |
+| `caring-contacts/**` | Fully synthetic Caring Contacts coordination prototype.                                                                                                    |
+| `ward-flow/**`       | Synthetic ward patient-flow prototype (capacity, discharge board, escalation, handover, live vehicle tracker, etc.), cross-linked via its own sidebar nav. |
+
+### Redirects
+
+| Route                    | Forwards to                |
+| ------------------------ | -------------------------- |
+| `favourites-hub`         | `/favourites`              |
+| `medication-prescribing` | `/medications/acamprosate` |
+
+### Favourites page
+
+| Route                        | Status                                               |
+| ---------------------------- | ---------------------------------------------------- |
+| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above. |
+
+Six earlier studies (`favourites-command-console`, `favourites-command-desk`,
+`favourites-library-view`, `favourites-review-console`, `favourites-set-board`,
+`favourites-set-navigator`) were removed on 2026-08-27, along with their shared
+component folder `favourites-page-mockups/` — confirmed superseded by
+`favourites-phone-perfected` and confirmed (by import search) to have no other
+route depending on them before removal.
+
+### Services filter surface — three sequential rounds, keep together
+
+| Route                     | Status                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `services-filter-refined` | Round 1. Round 2 imports its facet engine, chips and sheet shell — do not remove independently. |
+| `services-filter-options` | Round 2, builds on round 1's code.                                                              |
+| `filter-sheet-restyle`    | Round 3, a craft pass on the same decision.                                                     |
+
+### Tools page
+
+| Route                                                                                                                                                                                                                              | Status                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `tools-search-mode`                                                                                                                                                                                                                | Chosen design — "Perfected Tools search mode" per this README.                     |
+| `tools-search-directions`                                                                                                                                                                                                          | Active reference — grounds tracked issue `#162`.                                   |
+| `tools-action-workbench`, `tools-clinical-lanes`, `tools-command-center`, `tools-split-clinical-brief`, `tools-split-compact-sheet`, `tools-split-pane`, `tools-split-safety-deck`, `tools-task-directory`, `tools-workflow-board` | Parallel drafts, no recorded winner — nine different Tools-page layout directions. |
+
+### Privacy page
+
+| Route                           | Status                                                      |
+| ------------------------------- | ----------------------------------------------------------- |
+| `privacy-live-signal-perfected` | Chosen design.                                              |
+| `privacy-page-directions`       | Active reference — the full study behind the chosen design. |
+
+### Document navigation pane — five rounds, no recorded winner
+
+`document-navigation-contract`, `document-navigation-final`, `document-navigation-final-review`,
+`document-navigation-pane`, `document-navigation-perfected` — parallel drafts on the same
+brief. Nothing in the repo states which (if any) is final, so all five are kept pending a
+design decision rather than guessed at from the names.
+
+### Document phone chrome — four rounds, no recorded winner
+
+`document-phone-fused-directions`, `document-phone-title`, `document-phone-title-refined`,
+`document-phone-zero-chrome` — same situation as above.
+
+### Document search & viewer
+
+| Route                                                                          | Status                                                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| `document-search` (+ `search`, `source`, `source/evidence`, `source-overlays`) | Active reference — the master runnable document-search flow; `source-overlays` hands off into the real document viewer. |
+| `document-search-evidence-lens`                                                | Parallel draft, no recorded winner.                                                                                     |
+| `document-search-triage-board`                                                 | Parallel draft, no recorded winner.                                                                                     |
+| `document-top-navigation`                                                      | Active study — three nav concepts shown side by side, not competing routes.                                             |
+| `document-image-status`                                                        | Fixture backing a component test — keep.                                                                                |
+| `accessible-table-browser-fixture`                                             | Fixture backing a component test — keep.                                                                                |
+
+### Dictionary browse header — three rounds, keep all three
+
+`dictionary-browse-header`, `dictionary-browse-header-compact`, `dictionary-control-row` —
+see the dated write-ups below; each attacks a different part of the same header. Round two's
+Version 01 is the one that actually shipped to `/dictionary/browse` (confirmed against the
+shipping commit, corrected below — the write-up briefly recorded the wrong version as chosen).
+None of the three routes supersedes another at the route level — round two and round three both
+import code from round one's component file, so all three stay regardless.
+
+### Search chrome & composer
+
+`search-band-directions`, `search-heading`, `search-lens-menu`, `search-refine-adaptive`,
+`mode-dropdown`, `phone-inpage-navigation`, `recent-searches-bottom`, `pinned-plus-menu`,
+`universal-search-command`, `universal-search-redesign`, `sidebar-live` — parallel drafts,
+no recorded winner for any of them.
+
+### Calculators
+
+`calculators-bedside-sheet`, `calculators-clinical-console`, `calculators-directory-grid`,
+`calculators-guided-flow`, `calculators-popup-sheet`, `calculators-search`,
+`calculators-search-page`, `calculators-show-all` — parallel drafts, no recorded winner.
+
+### Settings
+
+`settings-search-clinical`, `settings-search-general`, `settings-search-privacy` — parallel
+drafts, no recorded winner.
+
+### Answer / chat
+
+`answer-chat-perfected`, `answer-chat-perfected-v2`, `answer-chat-redesign`,
+`answer-home-proposal`, `answer-evidence-popups` — parallel drafts. `answer-chat-perfected-v2`
+looks by name like it replaces `answer-chat-perfected`, but nothing in the repo says so in
+writing, so both are kept — worth a quick human check rather than a removal in this pass.
+
+### Factsheets
+
+`factsheets-compact-view`, `factsheets-topics-phone` — parallel drafts, no recorded winner.
+
+### Therapy navigation
+
+`therapy-navigation-context`, `therapy-navigation-dock`, `therapy-navigation-rail` — three
+named directions, cross-linked to each other for comparison, no recorded winner.
+
+### One-off studies
+
+| Route                        | Status                                                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                       |
+| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                         |
+| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
+| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
+| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
+
+Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
+already documented below and are not part of this route index.
+
 ## Design tokens
 
 Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.
@@ -86,8 +233,12 @@ dropdown on phones** and moves **Abbreviations out of the header into the Filter
 | Version                        | Phone chrome | Trade-off                                                           |
 | ------------------------------ | ------------ | ------------------------------------------------------------------- |
 | 01 Title bar + letter dropdown | 2 rows       | Title still costs a row the mode nav already implies                |
-| 02 Single fused row (rec.)     | 1 row        | An active filter chip costs the row its title and count at 390 px   |
+| 02 Single fused row            | 1 row        | An active filter chip costs the row its title and count at 390 px   |
 | 03 Slim toolbar, title retired | 1 slim bar   | Phone loses its visual page title; depends on the mode nav above it |
+
+**Shipped: Version 01**, not the recommendation the study opened with — the commit that shipped this study to
+`/dictionary/browse` records "Version 01 is the chosen direction" (PR #2143). `dictionary-control-row`'s later study
+builds on that outcome.
 
 Demoting a view switch into a sheet hides state, so each version surfaces an active **Abbreviations** chip beside the
 letter control. Without it the header would claim 96 terms while listing 24 abbreviations.
@@ -96,6 +247,73 @@ Note for anyone extending these: the mockup stylesheet only emits Tailwind class
 no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-letter pickers therefore pin
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
+
+## Favourites, phone-first (2026-08-26, arrangement chosen 2026-08-27)
+
+Runnable study at [`/mockups/favourites-phone-perfected`](../src/app/mockups/favourites-phone-perfected/page.tsx).
+One perfected direction rather than a set of alternatives — the six earlier favourites studies
+(`favourites-command-desk`, `-command-console`, `-library-view`, `-review-console`, `-set-board`,
+`-set-navigator`) already covered the option space.
+
+**The measurement it answers.** Chromium at 390 × 844 against the dev server, reading
+`getBoundingClientRect()` on the live `/favourites` route: the first row of the saved list begins at
+**y = 1141**, roughly 300px below the fold, behind a hint strip, an in-flow composer, a privacy
+notice, a results band, a Continue card and a Recent card. Each item card is **228px**. Nothing of
+the library itself is on the first screen. The three derived cards above the list measure Continue
+113px, Recent 277px and Your sets 255px — 645px of that 1141px.
+
+**The arrangement, chosen by the owner 2026-08-27.** Both derived cards are kept and drawn in full —
+Continue with its own action, Recent with View all, type pills and per-row Open — rather than the
+72px compressed resume strip the first pass proposed. What pays for them is a single rule:
+
+> Continue and Recent are the **landing** surface, and nothing else. Tap a set or type in the
+> composer and they hand the screen back to the list.
+
+Narrowing means the user is hunting for something specific, and a resume affordance is not what they
+asked for. Measured: **one** saved row above the fold on arrival, **seven** the moment you narrow. A
+degraded load also falls back to the strip — with the failure notice plus both full cards, **zero**
+saved rows fitted, which is the wrong screen to show nothing on.
+
+The library groups by the user's own sets rather than by recency, because a recency-sorted list under
+a Recent card is a second copy of that card. Continue, Recent and the library then answer three
+different questions: what was I mid-way through, what did I just touch, what have I filed. `View all`
+switches the list to recency, which is what makes that control do something.
+
+| Decision                                        | Trade-off                                                              |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Continue and Recent as the landing surface only | One saved row above the fold on arrival                                |
+| Library groups by set, not recency              | Finding the newest thing means Recent or View all                      |
+| One header, not six bands                       | Sort, sets and clear-all cost a tap behind the ellipsis sheet          |
+| One-line rows with a type pill                  | No description, so near-identical forms are told apart by code and set |
+| Pinned rows lead, with a real toggle            | One 28px group label, which disappears when nothing is pinned          |
+| The shared composer stays the only input        | The input is at the far end of the phone from the count it changes     |
+
+A **weighted segment track** (the `DocumentSectionTrack` shape the in-page navigation template
+prescribes) was tried first and dropped: eight sets across 390px leaves each segment about 48px,
+under the width a set name needs, so the track degrades to unlabelled slivers.
+
+Twelve phone frames: landing, one set selected, filtering, no matches, first run, item actions, set
+management, partial load, signed out, and two kept alternatives — the compact resume strip (the
+rejected first pass, kept as the record of the choice) and the type drawn as a coloured word rather
+than a pill. One 1280px frame shows the desktop translation.
+
+**Content honesty.** Only `service | form | differential | therapy` are drawn, because
+`favouriteContentTypeSchema` permits nothing else. The six earlier favourites mockups draw saved
+medications, documents, quotes and searches, none of which has a content type and none of which can
+be persisted. `tests/favourites-phone-perfected-mockups.test.ts` pins that, the controlled set
+vocabulary, and the 48px tap knob. Differentials and therapies borrow `--tone-purple` / `--tone-indigo`
+because the identity group has no `--type-differential` or `--type-therapy`; promotion would add them.
+The shipped Continue card tints its rule with `--success`; TOKENS.md scopes the clinical-state layer
+to source state and sanctioned urgency, so the accent carries that job here instead.
+
+Shared chrome is suppressed because every frame draws its own top bar, page header and composer.
+
+**Class-generation trap, again.** The phone frame's geometry (`max-w-phone-frame`, `h-phone-frame`,
+`rounded-phone-frame`) and both desktop `grid-cols-[...]` tracks are pinned inline. Measured on this
+route while building it, `--spacing-phone-frame` resolved to the empty string and the frame rendered
+2661px tall with square corners; the desktop grid collapsed to a single stacked column. Same cause as
+the `grid-cols-6` note above — Tailwind only emits a theme key some scanned source uses, and whether
+that holds depends on what else lands in the sheet. Pin unusual geometry inline.
 
 ## Dictionary — condensing the phone control row (2026-08-21)
 

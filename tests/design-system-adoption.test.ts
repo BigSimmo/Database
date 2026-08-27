@@ -1316,6 +1316,13 @@ describe("design-system adoption manifest", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
     expect(manifest.schemaVersion).toBe(7);
+    // DS-P2-21 barrel: componentSrcMap stays on ui-primitives.tsx; `export *`
+    // from primitive-recipes still counts as a declared-source export.
+    for (const name of ["AsyncButton", "EmptyState", "IconButton", "ToggleSwitch"]) {
+      const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
+      expect(component.source, `${name} source map`).toBe("src/components/ui-primitives.tsx");
+      expect(component.sourceExported, `${name} barrel re-export`).toBe(true);
+    }
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",
@@ -1481,5 +1488,31 @@ describe("design-system adoption manifest", () => {
     expect(components).toMatch(/already composed inside `AnswerFooter`, `DateDisplay`, and\s+`AccessibleTable`/);
     expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
     expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
+  });
+
+  it("does not re-teach per-step type companions in SPEC, conventions, or GATES §4", () => {
+    const spec = read("docs/design-system/SPEC.md");
+    const conventions = read(".design-sync/conventions.md");
+    const gates = read("docs/design-system/GATES.md");
+    const typeSection = spec.split("### 4.5 Type")[1]?.split("### 4.6")[0] ?? "";
+    const evidenceSection = gates.split("## 4 · Recorded verification evidence")[1]?.split("###")[0] ?? "";
+
+    expect(spec).not.toContain("each with its own line-height");
+    expect(spec).not.toContain(":194-204");
+    expect(typeSection).toContain("--leading-prose");
+    expect(typeSection).toContain("--text-hero--line-height");
+    expect(conventions).not.toMatch(/per-step\s+line-height\s+and\s+tracking/);
+    expect(evidenceSection).toMatch(/raw colours 0\b/);
+    expect(evidenceSection).not.toMatch(/not re-run for this document set/);
+
+    for (const doc of [typeSection, conventions]) {
+      for (const step of ["xs", "sm", "body", "md", "lg", "xl"] as const) {
+        expect(doc, `${step} -lh companion`).not.toContain(`--text-${step}-lh`);
+        expect(doc, `${step} -tr companion`).not.toContain(`--text-${step}-tr`);
+        expect(doc, `${step} --line-height companion`).not.toContain(`--text-${step}--line-height`);
+      }
+      expect(doc).toContain("--text-hero--line-height");
+      expect(doc).toContain("--text-hero-tr");
+    }
   });
 });

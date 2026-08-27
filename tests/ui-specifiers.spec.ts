@@ -58,6 +58,37 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
+test("mode Search tab from compare lands on the specifiers search catalogue", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoApp(page, "/specifiers/compare");
+
+  await expect(page.getByRole("heading", { name: "Compare two specifiers", exact: true })).toBeVisible();
+  const modeNav = page.getByTestId("mode-nav");
+  const searchTab = modeNav.getByRole("link", { name: "Search" });
+  await expect(searchTab).toBeVisible();
+  await expect(searchTab).toHaveAttribute("href", "/specifiers/search");
+  await expect(modeNav.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
+
+  await searchTab.click();
+  await expect(page).toHaveURL(/\/specifiers\/search(?:\?|$)/, { timeout: 30_000 });
+  expect(new URL(page.url()).searchParams.get("mode")).toBeNull();
+  await expect(modeNav.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
+});
+
+test("mode Search tab from builder lands on the specifiers search catalogue", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await gotoApp(page, "/specifiers/builder");
+
+  const modeNav = page.getByTestId("mode-nav");
+  const searchTab = modeNav.getByRole("link", { name: "Search" });
+  await expect(searchTab).toHaveAttribute("href", "/specifiers/search");
+  await expect(modeNav.getByRole("link", { name: "Build" })).toHaveAttribute("aria-current", "page");
+
+  await searchTab.click();
+  await expect(page).toHaveURL(/\/specifiers\/search(?:\?|$)/, { timeout: 30_000 });
+  expect(new URL(page.url()).searchParams.get("mode")).toBeNull();
+});
+
 test("searches clinical language without provenance fields and carries a result into wording", async ({
   page,
 }, testInfo) => {

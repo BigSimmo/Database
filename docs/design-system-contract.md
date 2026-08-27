@@ -29,12 +29,12 @@ npm run check:icon-scale
   - **Text Roles**: `var(--text)`, `var(--text-muted)`, `var(--text-heading)`, `var(--text-soft)`
   - **Status & Safety Triads**: `--success-*`, `--warning-*`, `--danger-*`, `--info-*` (reserved exclusively for clinical/system status).
   - **Focus Ring & Outlines**: `var(--focus)` for all keyboard and visible focus rings.
-- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper).
+- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper). Medication record accent defaults (`#0f766e` in `src/lib/medications.ts` and `src/lib/medication-records.ts`) are a **scoped** exemption for the Postgres `accent` column default only — not a whole-file blank cheque, and not a mapping onto `--clinical-accent`.
 
 ### 2.2 Typography Scale
 
 - **Named Steps Only**: Font sizes must use the registered type steps in `@theme`:
-  - `text-3xs` (10px - absolute floor), `text-2xs` (11px), `text-xs` (12px), `text-sm-minus` (13px), `text-sm` (14px), `text-base-minus` (15px), `text-base` (16px), `text-lg-minus` (17px), `text-lg` (18px), `text-xl` (20px), `text-2xl-minus` (22px), `text-2xl` (24px).
+  - `text-3xs` (10px - absolute floor), `text-2xs` (11px), `text-xs` (12px), `text-sm` / `text-sm-minus` (13px; v2 `--text-sm` equals `@theme --text-sm-minus` at `0.8125rem`), `text-base-minus` (15px), `text-base` (16px), `text-lg-minus` (17px), `text-lg` (18px), `text-xl` (20px), `text-2xl-minus` (22px), `text-2xl` (24px).
 - **Arbitrary Size Prohibited**: `text-[12px]`, `text-[13px]`, etc. are blocked by `npm run check:type-scale --strict`.
 - **Declared Steps Usage**: Any type step declared in `@theme` must have production consumers (no dead or unselected type tokens).
 

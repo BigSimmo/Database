@@ -1,67 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, ShieldCheck } from "lucide-react";
 
-import { cleanDisplayTitle, compactSourceSnippet } from "@/components/clinical-dashboard/display-text";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
+import { sourceStatusShortLabel } from "@/components/clinical-dashboard/answer-source-rows";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
-import { cn, panelSubtle, textMuted } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
-const visiblePreviewSourceLimit = 3;
+/** The render policy caps primary sources at six, so the rail is built for six
+ *  rather than for the three a specimen usually draws. */
+const visiblePreviewSourceLimit = 6;
 
+/**
+ * The sources, arriving.
+ *
+ * This used to be a full panel — an icon tile, a heading reading "Selected
+ * evidence — answer still being verified", a sentence of explanation, and a
+ * three-column grid of cards with snippets — rendered *underneath* a filled
+ * accent progress stepper. Two loud blocks stacked in the answer's own position,
+ * both of which then disappeared when the answer arrived.
+ *
+ * It is now one horizontal rail of small cards that sits directly under the
+ * progress line, and it is deliberately built to look like the source rail the
+ * arrived answer renders, because that is what it becomes. Nothing is removed
+ * when the answer lands; the cards stay where the reader's eye already settled.
+ *
+ * **The cards carry a dot, not a number.** The preview is the top slice of
+ * retrieval in retrieval order, while the final list is rebuilt from what the
+ * answer actually cites and re-capped by trust (`collectSourceCandidates` /
+ * `dedupeSourceLinks`). Different sets in a different order, so a number
+ * assigned here can end up pointing at a different document once the answer
+ * lands — the precise failure the citation design exists to prevent. Numbering
+ * is what arrival buys.
+ *
+ * Each card is a real link to the real page, so a reader who recognises a
+ * document can open it without waiting for the answer at all.
+ */
 export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePreviewUnit }) {
   const visibleSources = preview.sources.slice(0, visiblePreviewSourceLimit);
+  if (visibleSources.length === 0) return null;
 
   return (
-    <section
-      aria-labelledby="answer-evidence-preview-title"
+    <div
       data-testid="answer-evidence-preview"
-      className={cn(panelSubtle, "overflow-hidden")}
+      role="group"
+      aria-label={`Sources found so far, ${visibleSources.length}. Not yet numbered — the answer decides the final list.`}
+      className="answer-sources-arriving flex gap-1.5 overflow-x-auto pb-1"
     >
-      <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 sm:px-4">
-        <div className="flex items-start gap-2.5">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <ShieldCheck aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <h2 id="answer-evidence-preview-title" className="text-sm font-semibold text-[color:var(--text-heading)]">
-              Selected evidence — answer still being verified
-            </h2>
-            <p className={cn("mt-0.5 text-xs leading-5", textMuted)}>
-              {preview.selectedContextCount} source passage{preview.selectedContextCount === 1 ? "" : "s"} selected. The
-              final answer and source list remain authoritative.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-2 p-3 sm:grid-cols-3 sm:p-4">
-        {visibleSources.map((source, index) => {
-          const title = cleanDisplayTitle(source.title);
-          const snippet = compactSourceSnippet(source.content, { dropTitle: title });
-          return (
-            <Link
-              key={`${source.document_id}:${source.id}`}
-              href={sourceResultHref(source)}
-              aria-label={`Open selected evidence ${index + 1}: ${title}`}
-              className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      {visibleSources.map((source, index) => {
+        const title = cleanDisplayTitle(source.title);
+        // Freshness, not the section heading. A section heading is orientation a
+        // reader gets anyway once the card is opened; whether the document is
+        // still current is the one thing that decides whether it should be
+        // trusted at all, and this is a clinical reference tool. Read through the
+        // same helper the arrived answer's rail uses, so the wait and the answer
+        // never disagree about a document's status.
+        const status = sourceStatusShortLabel(normalizeSourceMetadata(source.source_metadata));
+        return (
+          <Link
+            key={`${source.document_id}:${source.id}`}
+            href={sourceResultHref(source)}
+            data-testid="answer-evidence-preview-source"
+            aria-label={`Open source found so far: ${title}, page ${source.page_number ?? "unknown"}, ${status}`}
+            style={{ "--stagger-index": index } as React.CSSProperties}
+            className={cn(
+              "stagger-item inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)]",
+              "bg-[color:var(--surface-raised)] px-2.5 text-left transition",
+              "hover:border-[color:var(--border-strong)] hover:shadow-[var(--e1)]",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className="grid h-5 min-w-5 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-3xs font-bold text-[color:var(--text-muted)] forced-colors:border-[CanvasText]"
             >
-              <div className="flex items-start gap-2">
-                <FileText aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
-                <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">{title}</p>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>
-                    p.{source.page_number ?? "n/a"}
-                    {source.section_heading ? ` · ${cleanDisplayTitle(source.section_heading)}` : ""}
-                  </p>
-                </div>
-              </div>
-              {snippet ? <p className={cn("mt-2 line-clamp-2 text-xs leading-5", textMuted)}>{snippet}</p> : null}
-            </Link>
-          );
-        })}
-      </div>
-    </section>
+              &bull;
+            </span>
+            <span className="min-w-0">
+              <span className="block max-w-40 truncate text-2xs font-semibold leading-4 text-[color:var(--text-heading)]">
+                {title}
+              </span>
+              <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">
+                <span className="nums">p.{source.page_number ?? "n/a"}</span>
+                {` · ${status}`}
+              </span>
+            </span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }

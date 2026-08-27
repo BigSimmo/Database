@@ -1,5 +1,37 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import ts from "@typescript/typescript6";
 import postcss from "postcss";
+
+/** Public barrel after the DS-P2-21 split. Recipe bodies live under `primitive-recipes/`. */
+export const UI_PRIMITIVES_BARREL = "src/components/ui-primitives.tsx";
+export const PRIMITIVE_RECIPES_DIR = "src/components/primitive-recipes";
+
+/**
+ * Source-grep contracts must scan the barrel *and* every recipe module. The
+ * barrel is four `export *` lines; `controlDisabled`, composer recipes, and
+ * AsyncButton live in the sibling modules. Directory listing, not a hardcoded
+ * file list, so a new `primitive-recipes/*.ts(x)` is still visible.
+ */
+export function listPrimitiveRecipeSourcePaths(root = process.cwd()) {
+  const dir = path.join(root, PRIMITIVE_RECIPES_DIR);
+  const modules = fs
+    .readdirSync(dir)
+    .filter((name) => /\.(ts|tsx)$/.test(name))
+    .sort()
+    .map((name) => `${PRIMITIVE_RECIPES_DIR}/${name}`);
+  if (modules.length === 0) {
+    throw new Error(`${PRIMITIVE_RECIPES_DIR} has no .ts/.tsx modules to scan`);
+  }
+  return [UI_PRIMITIVES_BARREL, ...modules];
+}
+
+export function readPrimitiveRecipeSources(root = process.cwd()) {
+  return listPrimitiveRecipeSourcePaths(root)
+    .map((relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8"))
+    .join("\n");
+}
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
 const CSS_WHITESPACE = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
@@ -49,6 +81,15 @@ export const RAW_COLOR_EXEMPTIONS = [
     category: "printable factsheet paper",
     pattern: /^src\/components\/factsheets\/factsheet-detail-page\.tsx$/,
     scope: "factsheet-print-sheet",
+  },
+  {
+    // Medication record accent fallback `#0f766e` is a stored-record default,
+    // not `--clinical-accent` (`#1d6fb8` / `--primary-500`). Mapping it would
+    // recolour live medication tiles. Scoped to the `accent:` default only —
+    // any other raw colour in these files stays countable.
+    category: "medication accent default",
+    pattern: /^src\/lib\/(?:medication-records|medications)\.ts$/,
+    scope: "medication-accent-default",
   },
 ];
 
@@ -1379,6 +1420,148 @@ export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) 
   return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
 }
 
+const COMMAND_FILL = "bg-[color:var(--command)]";
+const ELEVATION_TOKENS = [
+  { match: /--shadow-lux\b/, rank: 4, lux: true },
+  { match: /--e4\b/, rank: 4, lux: true },
+  { match: /--e3\b/, rank: 3, lux: false },
+  { match: /--e2\b/, rank: 2, lux: false },
+  { match: /--shadow-soft\b/, rank: 2, lux: false },
+  { match: /--e1\b/, rank: 1, lux: false },
+  { match: /--e0\b/, rank: 0, lux: false },
+  { match: /--shadow-inset\b/, rank: 0, lux: false },
+];
+
+function jsxOpening(node) {
+  if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) return node;
+  if (ts.isJsxElement(node)) return node.openingElement;
+  return null;
+}
+
+function jsxTagName(opening) {
+  return opening?.tagName?.getText?.() ?? "";
+}
+
+function jsxClassNameText(opening, source) {
+  if (!opening) return "";
+  const classAttribute = opening.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+  if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return "";
+  return `${jsxClassText(classAttribute)} ${classAttribute.getText(source)}`;
+}
+
+function elevationFromClassText(classText) {
+  if (!classText) return null;
+  let rank = null;
+  let lux = false;
+  for (const token of classText.split(/\s+/)) {
+    if (/^(hover|focus-visible|forced-colors):/.test(token)) continue;
+    for (const entry of ELEVATION_TOKENS) {
+      if (entry.match.test(token)) {
+        if (rank === null || entry.rank > rank) rank = entry.rank;
+        if (entry.lux) lux = true;
+      }
+    }
+  }
+  return rank === null ? null : { rank, lux };
+}
+
+function elevationExcepted(classText, tag) {
+  const hay = `${tag} ${classText}`;
+  return /overlay|Sheet|glassOverlaySurface|\bpanel\b|shadow-lux|ring-highlight|lux/i.test(hay);
+}
+
+function isOutOfFlowClassText(classText) {
+  if (!classText) return false;
+  for (const token of classText.split(/\s+/)) {
+    if (/(^|:)(absolute|fixed)$/.test(token)) return true;
+  }
+  return false;
+}
+
+/**
+ * Advisory AST: a child in-flow surface whose resting elevation token is heavier
+ * than the nearest ancestor that also declares one. Overlays, Sheet, lux recipes,
+ * hover/focus-visible/forced-colors shadows, and out-of-flow (absolute/fixed
+ * positioned) surfaces such as popovers are excluded — an absolutely positioned
+ * child isn't really "nested inside" its DOM ancestor's stacking/elevation.
+ */
+export function findElevationInversionsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx") && !relativePath.endsWith(".ts")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    const opening = jsxOpening(node);
+    if (opening && opening === node) {
+      const tag = jsxTagName(opening);
+      const classText = jsxClassNameText(opening, source);
+      const self = elevationFromClassText(classText);
+      if (self && !self.lux && !elevationExcepted(classText, tag) && !isOutOfFlowClassText(classText)) {
+        let ancestor = node.parent;
+        while (ancestor) {
+          const parentOpening = jsxOpening(ancestor);
+          if (parentOpening && parentOpening !== opening) {
+            const parentTag = jsxTagName(parentOpening);
+            const parentClass = jsxClassNameText(parentOpening, source);
+            const parent = elevationFromClassText(parentClass);
+            if (parent) {
+              if (!parent.lux && !elevationExcepted(parentClass, parentTag) && self.rank > parent.rank) {
+                const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+                findings.push(`${relativePath}:${line}`);
+              }
+              break;
+            }
+          }
+          ancestor = ancestor.parent;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return [...new Set(findings)];
+}
+
+/**
+ * Intrinsic `<button>` nodes whose className paints `--command` without going
+ * through `primaryControl`. The `Button` primitive's own source file is exempt
+ * by path, not by matching the literal text "Button" in a className — an
+ * intrinsic `<button className="... Button">` is still hand-rolled.
+ */
+export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  if (relativePath === "src/components/ui/button.tsx") return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(source) === "button"
+    ) {
+      const classAttribute = node.attributes.properties.find(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+      );
+      const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
+      const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
+      const hay = `${classText} ${classSource}`;
+      if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        findings.push(`${relativePath}:${line}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
 export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).densityOverrides;
 }
@@ -1539,6 +1722,21 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
 
 export function findTypeStepUsagesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages;
+}
+
+/**
+ * Same-file mix of the live `text-sm` utility and the compact `text-sm-minus`
+ * notch (DS-P2-02). Canonical metadata is SPEC §4.5 `--text-sm`; the two
+ * utility names currently render the same size under `.ckb-v2` and will
+ * diverge when the 705 legacy steps retire. Mixing them in one component
+ * needs a named density reason — this finder does not judge that reason, it
+ * only counts the mix so the contract can warn and ratchet rather than
+ * hard-zero the existing debt.
+ */
+export function findSameFileTextSmMinusMix(relativePath, sourceText) {
+  const usages = new Set(analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages);
+  if (usages.has("sm") && usages.has("sm-minus")) return [relativePath];
+  return [];
 }
 
 /**
@@ -1835,6 +2033,19 @@ function namedFunctionRange(relativePath, source, functionName) {
   return declaration ? { start: declaration.getFullStart(), end: declaration.end } : null;
 }
 
+function medicationAccentDefaultRanges(source) {
+  // Only the `accent:` property default (`??` / `||` / direct) of `#0f766e`.
+  // `accentColor`, comments, and any other teal literal stay visible.
+  const pattern = /(?<![A-Za-z0-9_$])accent(?![A-Za-z0-9_$])\s*:\s*(?:[^,;{}\n]*?(?:\?\?|\|\|)\s*)?(["'`])#0f766e\1/g;
+  const ranges = [];
+  for (const match of source.matchAll(pattern)) {
+    if (isInsideCommentOrString(source, match.index)) continue;
+    const hexStart = match.index + match[0].lastIndexOf("#0f766e");
+    ranges.push({ start: hexStart, end: hexStart + "#0f766e".length });
+  }
+  return ranges;
+}
+
 export function rawColorContractSource(relativePath, source, reportFailure = () => {}) {
   const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
   if (!exemption) return source;
@@ -1858,6 +2069,15 @@ export function rawColorContractSource(relativePath, source, reportFailure = () 
       return source;
     }
     return maskRanges(source, [range]);
+  }
+
+  if (exemption.scope === "medication-accent-default") {
+    const ranges = medicationAccentDefaultRanges(source);
+    if (ranges.length === 0) {
+      reportFailure("medication accent default boundary is missing");
+      return source;
+    }
+    return maskRanges(source, ranges);
   }
 
   reportFailure(`unknown raw-color exemption scope for ${relativePath}`);

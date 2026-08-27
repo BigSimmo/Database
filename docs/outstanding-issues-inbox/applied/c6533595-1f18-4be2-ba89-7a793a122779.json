@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c6533595-1f18-4be2-ba89-7a793a122779",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#50QRCF",
+    "outcome": "Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Root cause was PWA notice stack (div.pwa-notice-stack) mounting during Next.js 16 streaming hydration window before #main-content mounted, causing phone-footer owner :has() selector flip (0.2230 shift). Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #TYZK23 and #KFRC3H.",
+    "baseRowFingerprint": "1cd4d80e9811623073c10a530d8fd100758dbc04ec52cee5ba8608f745b01bcf"
+  }
+}

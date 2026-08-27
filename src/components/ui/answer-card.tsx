@@ -136,7 +136,7 @@ export function AnswerCard({
       className={cn(
         bare
           ? "bg-transparent"
-          : "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
+          : "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2)]",
         className,
       )}
     >
@@ -177,9 +177,10 @@ export function AnswerCard({
          * every degraded state, on the reasoning that an adoption failure here is
          * silent — "the card renders, the prose is fine, and the caution the product
          * shows today is simply gone". That reasoning holds only where the banner is
-         * the sole carrier of the caution, and it is not: `VerificationNotice` above
-         * states `ungrounded` and `source_only` in words, and for those two kinds the
-         * banner restates it almost verbatim. `#227` measured the cost of the
+         * the sole carrier of the caution, and it is not: `VerificationNotice` states
+         * `ungrounded` in words, while the source-only disclosure carries the same
+         * governed wording for extractive answers. For those two kinds the banner
+         * would restate it almost verbatim. `#227` measured the cost of the
          * duplicate on a one-sentence answer — three renderings of one warning,
          * eleven lines of caution around one line of answer, 147px of scroll against
          * a phone budget of 8. Three identical alarms teach a reader to skip all

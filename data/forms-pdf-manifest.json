@@ -136,7 +136,7 @@
       "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12A_MHA2014__public.pdf",
       "sha256": "ba39103a3caaeebac20fe76d7c6d5496e03c69726d8f226f183751e5d8b452b1",
       "bytes": 284377,
-      "passwordProtected": true
+      "passwordProtected": false
     },
     {
       "code": "12B",

@@ -20,7 +20,7 @@ derived from source, `.design-sync/config.json`, previews, direct contract cover
 production imports. It intentionally does not claim dark, forced-colours, 320px, print, remote
 publication, or product adoption without separate evidence.
 
-### 0.1 Registered visual components (54 — local contract; remote status unverified)
+### 0.1 Registered visual components (55 — local contract; remote status unverified)
 
 Every visual export has one source map entry, a source-derived public `*Props` contract (except
 the two zero-prop roots), a reference preview, and a direct static publication test. The generated
@@ -37,7 +37,7 @@ table under **Generated maturity snapshot** is the canonical list and product-im
 
 _Remaining from the original eight in this document:_ `DocumentFrame` is built locally
 (`src/components/ui/document-frame.tsx`, shell-only in `DocumentViewer`) but is not yet among
-the 54 design-sync registered visual exports — registration and full controls remain follow-up.
+the 55 design-sync registered visual exports — registration and full controls remain follow-up.
 
 `OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
 local publication contract. The generated snapshot records their current product-import counts;
@@ -86,7 +86,7 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | Progress/StageList           | all four resolved: `scaleX`, the theme `animate-shimmer` in place of a hardcoded `1.4s`, a step index clamped to ≥1, and an sr-only `role="status"` sibling in place of `aria-live` on the whole `<ol>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | **done**             |
 | EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | **done** (PR 8)      |
 | AccessibleTable              | semantic caption, `MissingValue` cells, dense headers (clipped header keeps its full string as `title`) and the expander (now the registered `Button`, off the local ring-focus recipe) landed; content-role widths remain                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PR 6/PR 12 remainder |
-| ui-primitives.tsx            | 698-line module mixing recipes/actions/feedback/clinical — split. Re-measured 2026-08-12: **157** production files import it (202 including mockups), against the 54 registered components' **31** with product imports; this module, not the registry, is what the product actually runs on. Per-primitive breakdown added 2026-08-21: `Button` **12** importers against 157, with **112** production files still holding a raw `<button>`; `Sheet` **26** — the one genuinely adopted primitive. The split is not uniform, and the pattern explains it: `Sheet` owns focus trap, portal and overlay stacking, which a className cannot fake, while `Button`/`Chip`/field shells own visual convention a recipe string approximates. Deciding between "give `Button` behaviour worth importing" and "promote `ui-primitives` to the documented layer" is the actual PR 12 question | PR 12                |
+| ui-primitives.tsx            | 698-line module mixing recipes/actions/feedback/clinical — split. Re-measured 2026-08-12: **157** production files import it (202 including mockups), against the 55 registered components' **31** with product imports; this module, not the registry, is what the product actually runs on. Per-primitive breakdown added 2026-08-21: `Button` **12** importers against 157, with **112** production files still holding a raw `<button>`; `Sheet` **26** — the one genuinely adopted primitive. The split is not uniform, and the pattern explains it: `Sheet` owns focus trap, portal and overlay stacking, which a className cannot fake, while `Button`/`Chip`/field shells own visual convention a recipe string approximates. Deciding between "give `Button` behaviour worth importing" and "promote `ui-primitives` to the documented layer" is the actual PR 12 question | PR 12                |
 
 ---
 
@@ -222,10 +222,12 @@ type RetrievalStateBannerProps = {
   `NoAnswer` is excluded from the union: offline / no-confident-answer renders **no answer
   card** — the `EmptyState` path with last sync, cached sources, and a "search cached
   sources" action. Neutral, not amber.
-- The banner renders above the prose. `stale_evidence` lists every overdue source with its
-  review date (`DateDisplay`) and an open-at-cited-page action; the answer remains readable —
-  caution, never a gate (DECISIONS §Q1). When every cited source is overdue, the banner
-  states totality: "Every source for this answer is past its review date."
+- The banner renders above the prose. `stale_evidence` starts as a compact “Review due” tab
+  with the affected-source count, matching the source-only disclosure rather than occupying
+  a full warning panel. Expanding it lists every overdue source with its review date
+  (`DateDisplay`) and an open-at-cited-page action; the answer remains readable — caution,
+  never a gate (DECISIONS §Q1). When every cited source is overdue, the expanded detail states
+  totality: “Every source for this answer is past its review date.”
 - **A source is a document, not a chunk.** `RagAnswer.sources` is chunk-level and several
   chunks of one document is the normal case, so `answerStateFromRetrieval()` dedupes and
   counts by `document_id`. Chunk-level counting is wrong in both directions, and the
@@ -478,8 +480,13 @@ into the previous sentence; `RouteAnnouncer` skips the first render (arrival is 
 navigation), moves focus to the new `<h1>` unless focus sits inside a dialog or a
 `data-preserve-focus` workflow, and announces the page title once. Retiring the visible
 `aria-live` nodes that remain in production — `document-search-results.tsx`, `StageList`,
-`AnswerProgressStepper`, `EmptyState`'s default — is adoption work in PR 13, because each
+`AnswerProgress`, `EmptyState`'s default — is adoption work in PR 13, because each
 one needs its own surface diff. Until then two announcement mechanisms coexist.
+
+`AnswerProgress` is the successor to `AnswerProgressStepper`, which was retired when the
+answer wait was redrawn as a single quiet status line plus the arriving source rail. Its
+live region moved with it and is now the status line itself (`answer-progress-line`) rather
+than a wrapper, because the line is the element that persists while its text is replaced.
 
 ---
 
@@ -642,6 +649,15 @@ stated here falls back to the universal rules (SPEC §6) and the authoring defin
 done (SPEC §14). **Open defects** name their closing PR from the playbook (SPEC §13);
 until that PR lands the defect stands and is not re-litigated per review.
 
+### Focus chrome
+
+Two carriers, never a third:
+
+- **Controls** (`button` / `a` / `summary` / checkbox-radio-range): `outline: 2px solid var(--focus)` on `:focus-visible`, same as `controlBase`. No Tailwind `ring-*` companion on the same node.
+- **Text fields / search shells:** quiet 1px color-mix hairline. Use `fieldControl` / `fieldControlPlain` / `fieldControlWithIcon`, or `searchShell` + `searchShellInput`. Nested inputs stay `outline: none`. Never put `controlBase`'s 2px outline on a text field.
+
+`focus:ring-4` plus `focus:border` on leftover fields is forbidden: those rings win over the unlayered field `box-shadow`. Residual: the production composer pill (`.answer-footer-search-pill` / `.answer-footer-search-input`) keeps the `ui-smoke` halo until a dedicated chrome PR — do not restyle that pill here.
+
 ### 9.1 `Button`
 
 **Purpose.** The one action primitive. `AsyncButton` and hand-rolled `<button>`s converge
@@ -654,7 +670,16 @@ tab order, never removes its accessible name); disabled via `controlBase` encodi
 `--focus` outline only. **Rules.** Verb-first specific labels, never "OK"/bare "Confirm" ·
 hover/active from semantic tokens, never `brightness-*` filters · one filled command per
 surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-floor comment.
+**Tap vs compact-meta (DS-P1-09 / DS-P2-24).** Primary `Button` / `primaryControl` / filled command actions stay `min-h-tap` at **all** breakpoints — no `sm:min-h-10`, `sm:min-h-9`, `lg:min-h-9`, or `min-h-11`. Metadata, disclosure, filter chips, and table micro-actions may use `min-h-compact-meta` (40px) or a documented prefixed compact (`sm:min-h-compact-meta`). `--row-compact` / `min-h-9` (36px) is row height, not a tap target. Recipes: `interactiveCompact` and `tableMicroActionRow` are the named compact-meta exceptions in `ui-primitives.tsx`; `controlBase` stays tap-sized. Full table: TOKENS §2 “Compact-meta vs tap”.
 **Open defects → PR.** ref forwarding and the needless client boundary → follow-on.
+
+**Command CTA path.** Pick one encoding; do not invent a fourth.
+
+| Situation                                         | Winner                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Real button action (copy, continue, submit, busy) | `<Button variant="primary">` from `src/components/ui/button.tsx`                                                             |
+| Navigation that must look like the filled command | `Link` + `primaryControl` (`Button` has no `href` / `asChild`)                                                               |
+| Unavailable placeholder                           | `aria-disabled` + `ignoreUnavailableActivation` from ui-primitives; **never** native `disabled` and `aria-disabled` together |
 
 ### 9.2 `IconButton`
 
@@ -684,7 +709,9 @@ component; broader Gate 9 motion sweep still tracks other surfaces.
 ### 9.5 `Chip`
 
 **Purpose.** Compact label for tones, filters, categories. Static chips are text, not
-targets (tap-exempt under the inline exception). **Modes (union, PR 4).** `static` (no
+targets (tap-exempt under the inline exception). Interactive filter chips that are **not**
+primary CTAs may use `min-h-compact-meta` (or `sm:min-h-compact-meta`) per TOKENS density
+policy; do not copy that step-down onto a filled command action. **Modes (union, PR 4).** `static` (no
 removal props representable) · `removable` (`onRemove` + `removeLabel` both required).
 **Rules.** Remove control keeps a small visible glyph inside an overlapping hit target
 that does not inflate the chip · truncated labels need a full-value path · category tones
@@ -952,7 +979,10 @@ sanitiser's tiny grammar renders as plain text.
 `disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
 (`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
 contract) so generic primitives stop importing clinical application modules · recipes
-never restate a token value. The 2026-07-31 icon regression (lucide imports replaced
+never restate a token value. `interactiveCompact` and `tableMicroActionRow` use
+`min-h-tap` on phones and `sm:min-h-compact-meta` on pointer layouts (metadata /
+disclosure, not primaries). Do not copy that step-down onto `controlBase` or
+`primaryControl`. The 2026-07-31 icon regression (lucide imports replaced
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
@@ -963,7 +993,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 36
+Components with product imports: 39
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -974,9 +1004,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
-| `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -986,12 +1016,12 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
+| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
@@ -999,7 +1029,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -1010,7 +1040,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              30 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              32 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

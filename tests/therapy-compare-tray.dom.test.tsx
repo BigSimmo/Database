@@ -14,6 +14,11 @@ const tc = vi.hoisted(() => ({
   removeCompare: vi.fn(),
   clearCompare: vi.fn(),
   goCompare: vi.fn(),
+  pathname: "/therapy-compass/search",
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => tc.pathname,
 }));
 
 vi.mock("@/components/therapy-compass/bindings", () => ({
@@ -51,6 +56,7 @@ function mountDockSlot() {
 beforeEach(() => {
   // The tray gates on the phone breakpoint the dock itself uses (639px).
   installMatchMediaStub(true);
+  tc.pathname = "/therapy-compass/search";
   select();
 });
 
@@ -71,6 +77,15 @@ describe("Therapy compare tray", () => {
 
   it("renders nothing above the phone breakpoint, where there is no dock to sit in", () => {
     installMatchMediaStub(false);
+    mountDockSlot();
+    select(CBT, ACT);
+    render(<TherapyCompareTray />);
+
+    expect(screen.queryByTestId("therapy-compare-tray")).toBeNull();
+  });
+
+  it("does not duplicate selection chrome on the compare page itself", () => {
+    tc.pathname = "/therapy-compass/compare";
     mountDockSlot();
     select(CBT, ACT);
     render(<TherapyCompareTray />);

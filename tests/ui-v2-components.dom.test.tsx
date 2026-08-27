@@ -168,7 +168,7 @@ describe("Chip", () => {
     expect(standard).not.toHaveClass("min-h-7");
     expect(within(standard).getByText("Long standard content")).toHaveClass("max-h-full", "overflow-hidden");
     const remove = screen.getByRole("button", { name: "Remove source" });
-    expect(remove).toHaveClass("h-full", "w-8");
+    expect(remove).toHaveClass("min-h-tap", "w-8");
     expect(remove).not.toHaveClass("h-tap", "w-tap", "max-w-full");
   });
 
@@ -208,7 +208,7 @@ describe("Chip", () => {
     const remove = screen.getByRole("button", {
       name: "Remove persistent depressive disorder with anxious distress",
     });
-    expect(remove).toHaveClass("min-h-5", "h-full", "w-8");
+    expect(remove).toHaveClass("min-h-tap", "w-8");
     expect(remove).not.toHaveClass("max-w-full");
   });
 });

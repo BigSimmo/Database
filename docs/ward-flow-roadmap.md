@@ -102,7 +102,8 @@ These predate this roadmap and override anything in it:
 
 ## Phase order
 
-**Phase 5 — Bed availability becomes real. BUILT 2026-08-26.** Ward discharge flagging and
+**Phase 5 — Bed availability becomes real. BUILT and MERGED 2026-08-26** (PR #2390, squash
+commit `ea5482b9`)**.** Ward discharge flagging and
 confirmation, the discharge and egress board, predicted capacity for today in four bands, a
 freshness signal on every screen, and the coordinator's one permitted action: marking a ward's count
 as refresh-requested. Nothing else. Full spec:

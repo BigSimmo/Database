@@ -14,14 +14,111 @@ import {
   ResultFilterTrigger,
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { cardSurface } from "@/components/card-recipes";
-import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
+import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
+import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
+
+/** cardSelected encoding with clinical accent — DSM forbids per-category colour tokens. */
+const dsmCardSelected =
+  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--e2)]";
 
 function compareHref(slugs: string[]) {
   const params = new URLSearchParams({ ids: slugs.join(",") });
   return `/dsm/compare?${params.toString()}`;
+}
+
+function DsmSearchResultCard({
+  result,
+  isSelected,
+  onToggle,
+}: {
+  result: DsmDiagnosisSummary;
+  isSelected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <article
+      data-testid="dsm-search-result"
+      className={cn(
+        cardSurface,
+        cardPadding.compact,
+        "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2.5 overflow-hidden transition motion-reduce:transition-none sm:items-start",
+        "hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
+        isSelected && dsmCardSelected,
+      )}
+    >
+      {isSelected ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={isSelected}
+        aria-label={`${isSelected ? "Remove" : "Add"} ${result.title} ${isSelected ? "from" : "to"} comparison`}
+        className={cn(
+          "grid h-12 w-12 shrink-0 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          isSelected
+            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
+        )}
+      >
+        {isSelected ? <Check className="h-4 w-4" aria-hidden /> : <GitCompareArrows className="h-4 w-4" aria-hidden />}
+      </button>
+      <Link
+        href={`/dsm/diagnoses/${result.slug}`}
+        aria-label={`Open ${result.title}`}
+        className={cn("group min-w-0 rounded-md", focusRing)}
+      >
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
+              {result.title}
+            </h3>
+            <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+              {result.summary}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className={metadataPill}>{result.category.label}</span>
+              <span className={cn(metadataPill, codeText)}>{result.icd_code}</span>
+            </div>
+          </div>
+          <ChevronRight
+            className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transform-none"
+            aria-hidden
+          />
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+function DsmMobileCompareStrip({ selected }: { selected: string[] }) {
+  if (!selected.length) return null;
+
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 z-[var(--z-chrome)] px-4 lg:hidden"
+      style={{ bottom: mobileComposerVisibleReserve.shellDock }}
+    >
+      <Link
+        href={compareHref(selected)}
+        data-testid="dsm-search-compare-mobile"
+        className="pointer-events-auto inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
+      >
+        <GitCompareArrows className="h-4 w-4 shrink-0" aria-hidden />
+        Compare
+        <span className="grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--command-contrast)]/20 px-1.5 text-xs font-extrabold tabular-nums">
+          {selected.length}
+        </span>
+      </Link>
+    </div>
+  );
 }
 
 export function DsmSearchPage({
@@ -155,7 +252,13 @@ export function DsmSearchPage({
 
   return (
     <div data-testid="dsm-search-page" className="min-h-full bg-[color:var(--background)]">
-      <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
+      <div
+        className={cn(
+          pageContainer,
+          "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8",
+          selected.length > 0 && "max-lg:pb-[calc(4rem+var(--safe-area-bottom))]",
+        )}
+      >
         <SearchResultsHeaderBand
           modeId="dsm"
           query={query}
@@ -180,7 +283,7 @@ export function DsmSearchPage({
               <Link
                 href={compareHref(selected)}
                 data-testid="dsm-search-compare"
-                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-10"
+                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
               >
                 <GitCompareArrows className="h-4 w-4" aria-hidden />
                 Compare {selected.length}
@@ -213,110 +316,18 @@ export function DsmSearchPage({
 
         {results.length ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
-            <section
-              aria-label="DSM diagnosis results"
-              className={cn(cardSurface, "overflow-hidden rounded-xl shadow-[var(--e2)]")}
-            >
-              <div className="flex items-baseline justify-between gap-4 border-b border-[color:var(--border)] px-4 py-4 sm:px-5">
-                <h2 className="text-base font-extrabold text-[color:var(--text-heading)] sm:text-lg">
-                  {query ? "Matching diagnoses" : "Diagnosis catalogue"}
-                </h2>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-[color:var(--text-muted)]">
-                  {results.length} {results.length === 1 ? "result" : "results"}
-                </span>
-              </div>
-              <div className="hidden grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)] lg:grid xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5">
-                <span>Select</span>
-                <span>Diagnosis</span>
-                <span>Category</span>
-                <span>ICD-10</span>
-                <span />
-              </div>
-              <div className="divide-y divide-[color:var(--border)]">
-                {results.map((result) => {
-                  const isSelected = selectedSet.has(result.slug);
-                  return (
-                    <article
-                      key={result.slug}
-                      data-testid="dsm-search-result"
-                      className={cn(
-                        "group grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] lg:items-center lg:gap-3 lg:px-4 xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5",
-                        // Rows sit INSIDE the results panel, so they carry no
-                        // elevation of their own (SPEC §4.7: a card inside a
-                        // panel is never heavier than its parent) — only the
-                        // fill changes. `cardSelected` is not used here for the
-                        // same reason: it ships a shadow.
-                        //
-                        // The `/55` alpha it replaces was the last of the four
-                        // selected encodings this branch retired. An alpha on a
-                        // token colour is unreviewable: what it actually
-                        // contrasts against depends on the row stripe behind it,
-                        // which differs per theme.
-                        isSelected
-                          ? "bg-[color:var(--clinical-accent-soft)]"
-                          : "hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleDiagnosis(result.slug)}
-                        aria-pressed={isSelected}
-                        aria-label={`${isSelected ? "Remove" : "Add"} ${result.title} ${
-                          isSelected ? "from" : "to"
-                        } comparison`}
-                        className={cn(
-                          "grid h-12 w-12 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                          isSelected
-                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
-                        )}
-                      >
-                        {isSelected ? (
-                          <Check className="h-4 w-4" aria-hidden />
-                        ) : (
-                          <GitCompareArrows className="h-4 w-4" aria-hidden />
-                        )}
-                      </button>
-                      <Link
-                        href={`/dsm/diagnoses/${result.slug}`}
-                        className={cn("min-w-0 rounded-md", searchFocusRing)}
-                      >
-                        <h3 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
-                          {result.title}
-                        </h3>
-                        <p className="mt-1.5 line-clamp-2 max-w-[48rem] text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                          {result.summary}
-                        </p>
-                        <div className="mt-2.5 flex flex-wrap gap-2 lg:hidden">
-                          <span className={metadataPill}>{result.category.label}</span>
-                          <span className={cn(metadataPill, codeText)}>{result.icd_code}</span>
-                        </div>
-                      </Link>
-                      <span className="hidden text-xs font-semibold leading-5 text-[color:var(--text-muted)] lg:block">
-                        {result.category.label}
-                      </span>
-                      <span
-                        className={cn("hidden text-xs font-bold text-[color:var(--text-heading)] lg:block", codeText)}
-                      >
-                        {result.icd_code}
-                      </span>
-                      <Link
-                        href={`/dsm/diagnoses/${result.slug}`}
-                        aria-label={`Open ${result.title}`}
-                        className={cn(
-                          "grid h-tap w-tap place-items-center self-center rounded-lg text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transform-none",
-                          searchFocusRing,
-                        )}
-                      >
-                        <ChevronRight className="h-5 w-5" aria-hidden />
-                      </Link>
-                    </article>
-                  );
-                })}
-              </div>
+            <section aria-label="DSM diagnosis results" className="grid gap-3">
+              {results.map((result) => (
+                <DsmSearchResultCard
+                  key={result.slug}
+                  result={result}
+                  isSelected={selectedSet.has(result.slug)}
+                  onToggle={() => toggleDiagnosis(result.slug)}
+                />
+              ))}
             </section>
 
-            <aside className="grid gap-3 lg:sticky lg:top-20" aria-label="Comparison selection">
+            <aside className="hidden gap-3 lg:sticky lg:top-20 lg:grid" aria-label="Comparison selection">
               <section className={cn(cardSurface, "rounded-xl p-4")}>
                 <div className="flex items-center gap-2">
                   <GitCompareArrows className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -382,6 +393,8 @@ export function DsmSearchPage({
           />
         )}
       </div>
+
+      <DsmMobileCompareStrip selected={selected} />
     </div>
   );
 }

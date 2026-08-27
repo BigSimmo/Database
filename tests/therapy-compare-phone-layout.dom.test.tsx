@@ -3,10 +3,11 @@
 // so BOTH render here — every query has to say which one it means.
 
 import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TcProvider } from "@/components/therapy-compass/bindings";
 import { CompareScreen } from "@/components/therapy-compass/screens/compare-screen";
+import { resetTherapyCompareMemoryForTests } from "@/lib/therapy-compare-memory";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/therapy-compass/compare",
@@ -96,6 +97,13 @@ function renderCompare() {
 
 afterEach(() => {
   navigation.search = "ids=alpha,beta&comparison=all";
+  window.localStorage.clear();
+  resetTherapyCompareMemoryForTests();
+});
+
+beforeEach(() => {
+  window.localStorage.clear();
+  resetTherapyCompareMemoryForTests();
 });
 
 describe("Therapy comparison on a phone", () => {
@@ -143,5 +151,23 @@ describe("Therapy comparison on a phone", () => {
 
     expect(screen.queryByTestId("therapy-compare-stack")).toBeNull();
     expect(screen.queryByTestId("therapy-compare-table")).toBeNull();
+  });
+
+  it("uses the hybrid pip summary on phone instead of four tall empty cards", async () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes("639px"),
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }),
+    });
+    navigation.search = "comparison=all";
+    renderCompare();
+
+    expect(await screen.findByTestId("compare-slot-strip-pip-summary")).toBeInTheDocument();
+    expect(screen.queryByTestId("compare-slot-tile")).toBeNull();
   });
 });
