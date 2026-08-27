@@ -387,10 +387,11 @@ test("answer progress remains user-safe through fallback and discloses the unusu
   await expect(stop).toBeVisible();
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
-  // Retrieval counts passages; selection counts sources. The two nouns must not
-  // be interchangeable — see tests/answer-progress.test.ts for the rule.
-  await expect(line).toContainText("12 passages found", { timeout: 3_000 });
-  await expect(line).toContainText("Prioritising 4 Australian sources, 4 from WA", { timeout: 3_000 });
+  // No number the reader cannot reconcile with the screen. The stream offers
+  // resultCount 12 and australianSourceCount 4 at these stages; neither reaches
+  // the line. See tests/answer-progress.test.ts for the rule.
+  await expect(line).toContainText("Prioritising Australian sources", { timeout: 3_000 });
+  await expect(line).not.toContainText(/\d/);
   await expect(line).toContainText("Writing the answer", { timeout: 4_000 });
 
   // The wait is where the reader learns the model was not used, rather than
@@ -405,8 +406,13 @@ test("answer progress remains user-safe through fallback and discloses the unusu
   await expect(page.getByText("Provisional lithium draft")).toHaveCount(0);
 
   await expect(progress).toHaveAttribute("data-progress-state", "complete", { timeout: 6_000 });
-  await expect(line).toContainText("Answer ready in 3s");
   await expect(page.getByTestId("stop-answer")).toHaveCount(0);
+  // No visible completion chrome. The answer surface prints its own governed
+  // provenance line above the prose, so a second "Answer ready in 3s" underneath
+  // it was a competing completion statement and the last of the elapsed counter.
+  await expect(line).toHaveCount(0);
+  await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+  await expect(progress.getByRole("status")).toContainText("Answer ready.");
 
   // This run went through `fallback`, so the build disclosure is offered. On an
   // ordinary run it is not — pinned in the follow-up test below.
@@ -491,6 +497,44 @@ test("follow-up answer generation stays one line above the previous answer", asy
   await stop.press("Enter");
   await expect(page.getByTestId("answer-cancelled")).toBeVisible();
   await expect(previousAnswer).toBeVisible();
+});
+
+test("the wait stands where the answer will, so arrival swaps content in place", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installHoldingAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const progress = page.getByTestId("answer-progress");
+  await expect(progress.getByTestId("answer-progress-line")).toBeVisible();
+
+  // Status line, then the prose placeholder where the prose lands, then the
+  // sources where the answer's own rail lands. The first cut of this component
+  // put the rail directly under the line and left the placeholder to render
+  // below it, which meant the rail travelled the height of the answer at the
+  // exact moment the reader was given something to read.
+  const order = await progress.evaluate((section) => {
+    const top = (selector: string) => {
+      const node = section.querySelector<HTMLElement>(selector);
+      return node ? node.getBoundingClientRect().top : null;
+    };
+    return {
+      line: top('[data-testid="answer-progress-line"]'),
+      skeleton: top('[data-slot="answer-prose-skeleton"]'),
+      sectionChildren: [...section.children].length,
+    };
+  });
+  expect(order.line).not.toBeNull();
+  expect(order.skeleton).not.toBeNull();
+  expect(order.skeleton ?? 0).toBeGreaterThan(order.line ?? 0);
+
+  // And exactly one prose placeholder on the page — the dashboard must not also
+  // render AnswerSkeleton beside this one.
+  expect(await page.locator('[role="status"][aria-label="Loading answer"]').count()).toBe(0);
 });
 
 test("a completion frame cannot mark a previous answer complete when final is invalid", async ({ page }) => {

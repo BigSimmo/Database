@@ -5579,7 +5579,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
     await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
-    await expect(page.getByText(/Answer ready in 1s/)).toBeVisible();
+    // The completed wait prints no visible chrome: the summary card arriving is
+    // the completion signal, and an elapsed time is a timing boast rather than
+    // anything a reader acts on. The announcement survives for screen readers.
+    await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+    await expect(page.getByTestId("answer-progress").getByRole("status")).toContainText("Answer ready.");
     await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
     await expect(generatedSummary).not.toContainText("Key practical points:");
     await expect(generatedSummary).not.toContainText("**");

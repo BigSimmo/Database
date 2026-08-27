@@ -3,9 +3,11 @@
 import Link from "next/link";
 
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
+import { sourceStatusShortLabel } from "@/components/clinical-dashboard/answer-source-rows";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { cn } from "@/components/ui-primitives";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
 /** The render policy caps primary sources at six, so the rail is built for six
  *  rather than for the three a specimen usually draws. */
@@ -49,12 +51,19 @@ export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePr
     >
       {visibleSources.map((source, index) => {
         const title = cleanDisplayTitle(source.title);
+        // Freshness, not the section heading. A section heading is orientation a
+        // reader gets anyway once the card is opened; whether the document is
+        // still current is the one thing that decides whether it should be
+        // trusted at all, and this is a clinical reference tool. Read through the
+        // same helper the arrived answer's rail uses, so the wait and the answer
+        // never disagree about a document's status.
+        const status = sourceStatusShortLabel(normalizeSourceMetadata(source.source_metadata));
         return (
           <Link
             key={`${source.document_id}:${source.id}`}
             href={sourceResultHref(source)}
             data-testid="answer-evidence-preview-source"
-            aria-label={`Open source found so far: ${title}, page ${source.page_number ?? "unknown"}`}
+            aria-label={`Open source found so far: ${title}, page ${source.page_number ?? "unknown"}, ${status}`}
             style={{ "--stagger-index": index } as React.CSSProperties}
             className={cn(
               "stagger-item inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)]",
@@ -75,7 +84,7 @@ export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePr
               </span>
               <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">
                 <span className="nums">p.{source.page_number ?? "n/a"}</span>
-                {source.section_heading ? ` · ${cleanDisplayTitle(source.section_heading)}` : ""}
+                {` · ${status}`}
               </span>
             </span>
           </Link>

@@ -3778,7 +3778,13 @@ function ClinicalDashboardContent({
                     </>
                   )
                 ) : showAnswerPending ? (
-                  <AnswerSkeleton />
+                  // Only until the first progress event. From there AnswerProgress owns
+                  // the whole wait — line, prose placeholder, sources, in the order the
+                  // arrived answer uses — and rendering the skeleton here as well would
+                  // put a second prose placeholder below its sources.
+                  showAnswerProgress ? null : (
+                    <AnswerSkeleton />
+                  )
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
                     <>

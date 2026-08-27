@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { incrementalEvidencePreviewRenderingEnabled } from "@/lib/client-env";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
 function evidencePreview(sourceCount = 4): VerifiedEvidencePreviewUnit {
   return {
@@ -23,6 +24,7 @@ function evidencePreview(sourceCount = 4): VerifiedEvidencePreviewUnit {
       image_ids: [],
       similarity: 0.8,
       images: [],
+      source_metadata: normalizeSourceMetadata({ document_status: index === 0 ? "review_due" : "current" }),
     })),
   };
 }
@@ -63,6 +65,22 @@ describe("incremental answer evidence preview", () => {
     }
     // The accessible name says so too, for a reader who never sees the dot.
     expect(region.getAttribute("aria-label")).toMatch(/not yet numbered/i);
+  });
+
+  // Freshness is the one fact that decides whether a source should be trusted at
+  // all, and it is read through the same helper the arrived answer's rail uses so
+  // the wait and the answer can never disagree about a document's status.
+  it("shows each source's review status, not its section heading", () => {
+    render(<AnswerEvidencePreview preview={evidencePreview(3)} />);
+
+    const cards = within(screen.getByTestId("answer-evidence-preview")).getAllByTestId(
+      "answer-evidence-preview-source",
+    );
+    expect(cards[0]?.textContent).toContain("Review due");
+    expect(cards[1]?.textContent).toContain("Current");
+    expect(cards[0]?.textContent).not.toContain("Monitoring");
+    // And a reader who never sees the card still gets it.
+    expect(cards[0]?.getAttribute("aria-label")).toContain("Review due");
   });
 
   it("links every card to the exact page the passage came from", () => {
