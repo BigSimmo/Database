@@ -248,9 +248,12 @@ carries its own covering test.**
 **A9 is deliberately NOT in this task** — approved in principle, blocked on a real crisis number
 existing. See Ruling 77. Do not add Lifeline by deleting some other sentence.
 
-**The length ceiling is the trap here.** Message A is 252 characters — two SMS segments, roughly nine
-characters from rejection. A2 and A3 both change the reply message (Message B, 218 characters), which
-has more room, but any edit must re-run the segment count and assert it, not assume it.
+**The length ceiling is the trap here.** Message A is 252 septets against a **306-septet** two-segment
+ceiling. ~~roughly nine characters from rejection~~ — **CORRECTED 2026-08-27**: it is 54 septets from
+rejection, and all 54 are allocated to the preferred-name slot, so the room for new fixed wording is
+zero. A2 and A3 both change the reply message (Message B), which has more room, but any edit must
+re-run the segment count and assert it, not assume it — which is exactly what the wrong figure above
+was produced by not doing.
 
 ---
 
