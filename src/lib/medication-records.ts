@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { Database } from "@/lib/supabase/database.types";
 import type { MedicationRecord } from "@/lib/medications";
 
@@ -104,6 +106,50 @@ export function recordToRow(record: MedicationRecord, ownerId: string): Medicati
   };
 }
 
+const medicationStatSchema = z.looseObject({
+  label: z.string(),
+  value: z.string(),
+  cls: z.string().optional(),
+  flag: z.string().optional(),
+});
+
+const medicationPatientSchema = z
+  .looseObject({
+    factors: z.array(z.string()).optional(),
+    action: z.string().optional(),
+    severity: z.string().optional(),
+    match: z.record(z.string(), z.unknown()).optional(),
+    note: z.string().optional(),
+  })
+  .nullable();
+
+const medicationSectionRowSchema = z.looseObject({
+  key: z.string(),
+  val: z.string(),
+  tags: z.array(z.string()).optional(),
+  patient: medicationPatientSchema.optional(),
+});
+
+const medicationSectionSchema = z.looseObject({
+  title: z.string(),
+  type: z.string(),
+  rows: z.array(medicationSectionRowSchema),
+});
+
+const medicationQuickRowSchema = z.looseObject({
+  label: z.string(),
+  value: z.string(),
+});
+
+const medicationStatsSchema = z.array(medicationStatSchema);
+const medicationSectionsSchema = z.array(medicationSectionSchema);
+const medicationQuickSchema = z.array(medicationQuickRowSchema);
+
+function parseMedicationJsonbArray<T>(schema: z.ZodType<T[]>, value: unknown): T[] {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
 export function rowToMedicationRecord(row: MedicationRecordRow): MedicationRecord {
   return {
     slug: row.slug,
@@ -114,9 +160,9 @@ export function rowToMedicationRecord(row: MedicationRecordRow): MedicationRecor
     accent: row.accent ?? "#0f766e",
     tag: row.tag ?? "",
     schedule: row.schedule ?? "",
-    stats: (row.stats ?? []) as MedicationRecord["stats"],
-    sections: (row.sections ?? []) as MedicationRecord["sections"],
-    quick: (row.quick ?? []) as MedicationRecord["quick"],
+    stats: parseMedicationJsonbArray(medicationStatsSchema, row.stats),
+    sections: parseMedicationJsonbArray(medicationSectionsSchema, row.sections),
+    quick: parseMedicationJsonbArray(medicationQuickSchema, row.quick),
   };
 }
 
