@@ -516,21 +516,58 @@ describe("the read releases nothing about a patient", () => {
     expect(serialised).toContain(AVA);
   });
 
-  it("carries no patient name or mobile number, both of which the store still holds", async () => {
+  /**
+   * NEITHER INPUT CAN CARRY THESE, and that is the finding rather than the assurance. `PlanRecord`
+   * holds no name and no mobile number and `PlanAssignment` holds neither either, so no mutation of
+   * the roll-up can make this case red -- it is pinning the SHAPE of what the roll-up is handed, not
+   * a narrowing the roll-up performs. The narrowing that IS performed, and that a mutation does
+   * falsify, is pinned by the case above and by the route's own boundary test.
+   */
+  it("carries no patient name or mobile number, neither of which its input holds", async () => {
     const store = newStore();
     const id = await seedPlan(store, { owner: AVA });
 
-    // The positive control comes from `getEpisode`, the only read that releases these -- so the
-    // absence below is this read declining to carry them, not the fixture never having had them.
+    // The positive control comes from `getEpisode`, the only read that releases these -- so these
+    // strings are the fixture's real name and number rather than two strings nothing ever held.
     const episode = await store.getEpisode(id, { actor: COORDINATOR });
     if (!episode) throw new Error("seeded episode is unreadable");
     const held = JSON.stringify(episode);
     expect(held).toContain("Synthetic Patient 001");
     expect(held).toContain("+61 491 570 156");
 
+    // What the roll-up is actually handed, asserted rather than assumed: neither string is in it.
+    const given = JSON.stringify(await ownershipOf(store));
+    expect(given).not.toContain("Synthetic Patient 001");
+    expect(given).not.toContain("+61 491 570 156");
+
     const serialised = JSON.stringify(await viewOf(store));
     expect(serialised).not.toContain("Synthetic Patient 001");
     expect(serialised).not.toContain("+61 491 570 156");
     expect(serialised).toContain(AVA);
+  });
+
+  /**
+   * The one piece of free clinician text this read's INPUT does hold, so this is the absence with
+   * teeth. `reassignmentHistory[].reason` is the handover note a coordinator types when moving a
+   * plan; the whole-branch review recorded that it is stored permanently and that a retention
+   * clearance does not touch it. A roster read is exactly the surface that would carry it onto a
+   * screen by accident, so its absence is asserted against a fixture that really has one.
+   */
+  it("carries no handover note, though the assignment it was given holds one", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { owner: AVA });
+    const note = "Handover note quoting clinical detail nobody should meet on a roster";
+    const moved = await store.applyAssignment(
+      { planId: id, action: { type: "reassign", toActorId: BLAKE, reason: note } },
+      { actor: TEAM_LEAD, idempotencyKey: idempotencyKey("reassign-for-note") },
+    );
+    if (!moved.ok) throw new Error(`reassign refused: ${moved.reason}`);
+
+    // The positive control: the note IS in what the roll-up was handed.
+    expect(JSON.stringify(await ownershipOf(store))).toContain(note);
+
+    const serialised = JSON.stringify(await viewOf(store));
+    expect(serialised).not.toContain(note);
+    expect(serialised).toContain(BLAKE);
   });
 });
