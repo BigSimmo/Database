@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cn } from "@/components/ui-primitives";
-import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
+import { therapyRecordHref, type TherapyBriefDuration } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
 import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
+import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 import { TherapyCompareAction } from "../record/compare-action";
@@ -28,6 +29,20 @@ const CHECKLIST = [
   "Review contraindications",
   "Confirm patient-facing language",
 ];
+
+const BRIEF_DURATION: Record<TherapyBriefDuration, { label: string; text: (therapy: Therapy) => string | null }> = {
+  "5min": { label: "5-minute", text: (therapy) => therapy.briefVersion },
+  "15min": {
+    label: "15-minute",
+    text: (therapy) => therapy.fifteenMinuteVersion || therapy.fullSessionVersion || therapy.briefVersion,
+  },
+  ground: {
+    label: "Grounding",
+    text: (therapy) =>
+      therapy.clinicianScripts.find((script) => /ground|relax|distress/i.test(`${script.scriptType} ${script.title}`))
+        ?.body || therapy.briefVersion,
+  },
+};
 
 export function BriefScreen() {
   const b = useTcBindings();
@@ -47,14 +62,9 @@ export function BriefScreen() {
   const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
 
-  const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
-  const durationText =
-    b.briefTab === "15min"
-      ? t.fifteenMinuteVersion || t.fullSessionVersion || t.briefVersion
-      : b.briefTab === "ground"
-        ? t.clinicianScripts.find((c) => /ground|relax|distress/i.test(`${c.scriptType} ${c.title}`))?.body ||
-          t.briefVersion
-        : t.briefVersion;
+  const duration = BRIEF_DURATION[b.briefTab as TherapyBriefDuration] ?? BRIEF_DURATION["5min"];
+  const durationLabel = duration.label;
+  const durationText = duration.text(t);
   const steps = parseSteps(durationText, 6);
   const interventionText = [
     `${t.name} — ${durationLabel} intervention`,
@@ -135,9 +145,8 @@ export function BriefScreen() {
                 <label className="relative flex items-center mb-3">
                   <Search
                     aria-hidden="true"
-                    size={16}
                     strokeWidth={1.8}
-                    className="absolute left-[12px] text-[color:var(--decoration-soft)]"
+                    className="absolute left-[12px] size-icon-md text-[color:var(--decoration-soft)]"
                   />
                   <input
                     value={filter}

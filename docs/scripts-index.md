@@ -49,7 +49,12 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 `check-maintainability-budgets.mjs`, `check-upload-limit-parity.mjs`,
 `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
-`check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
+`check-icon-scale.mjs`, `check-design-system-contract.mjs`,
+`generate-design-system-adoption.mjs` (`npm run design-system:adoption:update` /
+`check:design-system-adoption`), `generate-design-sync-contract.mjs` +
+`check-design-sync-contract.mjs` (`npm run design-system:design-sync:update` /
+`check:design-sync-contract`), `adopt-visual-baselines.mjs`
+(`npm run design-system:baselines:adopt`), `check-function-grants.mjs`,
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
 `verify-release-offline.mjs`, `check-codex-cloud-setup.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
 `verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
