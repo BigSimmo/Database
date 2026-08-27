@@ -167,6 +167,13 @@ describe("medication governance date evaluation", () => {
     expect(parseSourceDate("no date in this string")).toBeNull();
   });
 
+  it("rejects an impossible calendar date instead of letting Date roll it forward", () => {
+    // 2026 is not a leap year, so `new Date("2026-02-29T00:00:00.000Z")` silently normalizes
+    // to March 1 rather than throwing. parseSourceDate must reject this rather than reporting
+    // a fabricated "checked" date one day off from what the source text actually said.
+    expect(parseSourceDate("checked 2026-02-29 for this entry")).toBeNull();
+  });
+
   it("evaluates governance status based on review interval", () => {
     const refDate = new Date("2026-08-26T00:00:00.000Z");
     const freshDate = new Date("2026-06-30T00:00:00.000Z");

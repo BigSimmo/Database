@@ -32,6 +32,17 @@ export function parseSourceDate(text: string): Date | null {
   if (!match) return null;
   const parsed = new Date(`${match[0]}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) return null;
+  // The Date constructor silently normalizes impossible calendar dates (e.g. 2026-02-29
+  // in a non-leap year rolls forward to March 1) instead of rejecting them. Confirm the
+  // parsed UTC components exactly match what was matched before trusting the result.
+  const [, yearText, monthText, dayText] = match;
+  if (
+    parsed.getUTCFullYear() !== Number(yearText) ||
+    parsed.getUTCMonth() + 1 !== Number(monthText) ||
+    parsed.getUTCDate() !== Number(dayText)
+  ) {
+    return null;
+  }
   return parsed;
 }
 

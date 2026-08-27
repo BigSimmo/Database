@@ -157,8 +157,17 @@ describe("psychiatry form records", () => {
   });
 
   it("ships a stored PDF for every downloadable form", () => {
+    const manifestAssets = (formsPdfManifest as { assets: Array<{ code: unknown; passwordProtected: unknown }> })
+      .assets;
+    for (const asset of manifestAssets) {
+      // A malformed manifest entry (missing `code`, or a non-boolean `passwordProtected`)
+      // must fail loudly here rather than silently comparing `undefined === undefined`
+      // below once both sides of the manifest lookup resolve to nothing.
+      expect(typeof asset.code, JSON.stringify(asset)).toBe("string");
+      expect(typeof asset.passwordProtected, JSON.stringify(asset)).toBe("boolean");
+    }
     const manifestMap = new Map(
-      (formsPdfManifest as { assets: Array<{ code: string; passwordProtected: boolean }> }).assets.map((asset) => [
+      (manifestAssets as Array<{ code: string; passwordProtected: boolean }>).map((asset) => [
         asset.code.toUpperCase(),
         asset.passwordProtected,
       ]),
