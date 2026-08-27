@@ -223,9 +223,18 @@ describe("overlay and global CSS contracts", () => {
     expect(differentialPresentationSource).not.toContain('className="fixed inset-x-0 bottom-0');
     expect(globalSearchShellSource).toContain("phone-viewport-shell");
     expect(clinicalDashboardSource).toContain("phone-viewport-shell");
-    expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[');
+    // Page shells fill the shell's `mobile-composer-reserve-pad` box by growing
+    // into it, never by claiming `calc(100dvh - <chrome estimate>)`. That
+    // estimate could not know the header's own top pad, the addon nav row, or
+    // #main-content's bottom padding, so it left 40-273px of scroll range on
+    // pages whose content had already ended. Growth is exact; keep it that way.
+    expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:grow');
+    expect(uiPrimitivesSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
     expect(therapyWorkspaceSource).toContain("data-therapy-root");
     expect(therapyWorkspaceSource).toContain("min-h-0");
-    expect(therapyWorkspaceSource).toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
+    expect(therapyWorkspaceSource).toContain("sm:grow");
+    expect(therapyWorkspaceSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
+    // The pad is the fill box those shells grow inside.
+    expect(globalSearchShellSource).toContain("sm:flex sm:min-h-full sm:flex-col");
   });
 });

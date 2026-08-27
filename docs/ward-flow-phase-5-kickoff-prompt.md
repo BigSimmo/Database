@@ -1,5 +1,13 @@
 # Ward Flow Phase 5 — kickoff prompt
 
+> **OBSOLETE — Phase 5 is built and merged.** PR
+> [#2390](https://github.com/BigSimmo/Database/pull/2390) merged into `main` on 2026-08-26 as
+> `ea5482b9`. **Do not paste the block below into a new session**; it will start Phase 5 again.
+> It is kept as the record of how the phase was commissioned, and because one instruction in it
+> is still live — see the note at the end. For what was built, read
+> `docs/ward-flow-phase-5-handover.md`; for what is owed next, `docs/ward-flow-roadmap.md`.
+> Marked obsolete 2026-08-27.
+
 Paste the block below into a fresh session as its first message. It is deliberately self-sufficient:
 the constraints are stated inline rather than only referenced, so they bind even before the linked
 documents are read.
@@ -109,3 +117,10 @@ comes free. No ward clinician has checked them, a bed may be confirmed and block
 reality, and it is recorded as spec D14 and as the assumption most likely to be wrong. Build as
 specified, but flag it to me again when Phase 5 is done and before Phase 6 builds on top of it.
 ```
+
+---
+
+**The one instruction above that is still live.** "Flag it to me again when Phase 5 is done and
+before Phase 6 builds on top of it" — that flag is **still owed**. Phase 5 is done, and spec D14
+has still never been checked by a ward clinician. It is tracked in `docs/ward-flow-roadmap.md` and
+in §10 of `docs/ward-flow-phase-5-handover.md`. Everything else in this file is history.

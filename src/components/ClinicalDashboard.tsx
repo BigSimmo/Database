@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Square,
   Activity,
   Wrench,
 } from "lucide-react";
@@ -82,6 +81,7 @@ import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboar
 import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { resolveModeHomeCanvasClass } from "@/components/clinical-dashboard/mode-home-canvas";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
+import { AnswerCancelledNotice } from "@/components/clinical-dashboard/answer-cancelled-notice";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerProgress,
@@ -3006,8 +3006,19 @@ function ClinicalDashboardContent({
   useEffect(() => {
     if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
   }, [searchMode, showSharedHome]);
+  // A stopped generation reports on the last action rather than describing the
+  // page, so the notice renders at the top of the content column while this same
+  // condition still short-circuits the mode-home empty-state chain below.
+  const showAnswerCancelledNotice = answerLifecycle.status === "cancelled" && activeModeResultKind === "answer";
+  // `submittedAnswerSearchActive` stays true after the reader presses Stop, and a
+  // cancel is not an `error`, so without the cancelled guard the pending branch
+  // held its skeleton on screen indefinitely — a shimmering placeholder promising
+  // an answer that was already abandoned, directly beneath the notice saying so.
   const showAnswerPending =
-    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+    activeModeResultKind === "answer" &&
+    !answer &&
+    !showAnswerCancelledNotice &&
+    (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
   const showAnswerProgress =
     activeModeResultKind === "answer" &&
@@ -3485,7 +3496,16 @@ function ClinicalDashboardContent({
                 // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
                 // container (overflow-y computes to auto), which clips the composer's
                 // command dropdown mid-panel and shows a phantom inner scrollbar.
-                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                //
+                // `sm:flex sm:min-h-full sm:flex-col` makes this the box the mode-home
+                // canvas grows into. `#main-content` is a bounded scrollport with a
+                // definite height at `sm`+, so `min-h-full` resolves against it exactly
+                // — border-box, so this wrapper's own padding is inside the 100% and
+                // cannot push the column past the scrollport. That is what lets the
+                // canvas drop its `calc(100dvh - <estimate>)` floor (see
+                // mode-home-canvas.ts) instead of guessing this padding, the desktop
+                // composer slot and the space-y gap in one hard-coded number.
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:flex sm:min-h-full sm:flex-col sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
                 // Idle phone homes fill the already-padded <main> and centre
                 // in that box. Extra py/space-y here double-counted overlay
                 // chrome and manufactured a scrollbar.
@@ -3501,9 +3521,13 @@ function ClinicalDashboardContent({
                     : // The <main> reserve already clears the fixed composer dock on
                       // phones, so the old large mobile bottom padding only floated a
                       // long answer's last line high above the dock (and padded a short
-                      // answer's empty space further). Keep it small here; sm+/desktop
+                      // answer's empty space further). This stays far below that, but
+                      // `pb-4` was the smallest tail in the app and left the last card
+                      // sitting almost on the bottom edge once the dock scroll-hides
+                      // and its reserve releases to zero. `pb-10` matches the
+                      // `sm:pb-10` every other mode wrapper already uses. sm+/desktop
                       // keep the original generous padding.
-                      "pb-4 sm:pb-36 lg:pb-40"
+                      "pb-10 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "sm:pb-10 lg:pb-12"
@@ -3512,6 +3536,9 @@ function ClinicalDashboardContent({
               )}
             >
               <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
+              {showAnswerCancelledNotice ? (
+                <AnswerCancelledNotice onRunAgain={() => void ask(answerLifecycle.query ?? query)} />
+              ) : null}
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}
@@ -3537,25 +3564,14 @@ function ClinicalDashboardContent({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {answerLifecycle.status === "cancelled" && activeModeResultKind === "answer" ? (
-                  <EmptyState
-                    icon={Square}
-                    title="Generation stopped"
-                    body="No partial clinical answer was kept. You can safely run the same question again."
-                    live="polite"
-                    testId="answer-cancelled"
-                    actions={
-                      <button
-                        type="button"
-                        className={cn(primaryControl, "text-xs")}
-                        onClick={() => void ask(answerLifecycle.query ?? query)}
-                      >
-                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                        Run again
-                      </button>
-                    }
-                  />
-                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                {/* Rendered above, at the top of the content column — see
+                    `showAnswerCancelledNotice`. The condition stays here so the
+                    chain below still short-circuits exactly as it did: a stopped
+                    generation must not fall through into the no-results or error
+                    empty states. */}
+                {showAnswerCancelledNotice ? null : error &&
+                  errorKind === "no-results" &&
+                  activeModeResultKind === "answer" ? (
                   <EmptyState
                     icon={Search}
                     title={answerRecovery.noResults.heading}

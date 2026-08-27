@@ -682,7 +682,7 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   return (
     <main
       data-testid="differentials-stream-workspace"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-4 py-5 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-6 sm:py-6 lg:px-8"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-4 py-5 text-[color:var(--text)] sm:grow sm:px-6 sm:py-6 lg:px-8"
     >
       <div className="mx-auto grid w-full max-w-6xl gap-4">
         <header data-testid="differentials-stream-header" className="grid gap-1 px-1">

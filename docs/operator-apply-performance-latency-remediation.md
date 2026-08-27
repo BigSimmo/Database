@@ -120,6 +120,42 @@ but it does two table passes and can leave an `INVALID` index if it fails. Check
 `pg_index.indisvalid` for each name afterwards and `DROP INDEX CONCURRENTLY` + retry any invalid
 one rather than leaving it in place.
 
+### Operator EXPLAIN diagnostic measurement (`scripts/operator-explain-documents-indexes.sql`)
+
+Before and after applying candidate indexes on the target database in an approved window, execute the diagnostic queries in [scripts/operator-explain-documents-indexes.sql](../scripts/operator-explain-documents-indexes.sql) to measure execution plans, buffer usage, and index selectivity:
+
+1. **Concatenated expression predicate:**
+
+   ```sql
+   EXPLAIN (ANALYZE, BUFFERS)
+   SELECT id, title, file_name, status FROM public.documents
+   WHERE lower(coalesce(title, '') || ' ' || coalesce(file_name, '')) ILIKE '%query%'
+   LIMIT 12;
+   ```
+
+   _Target plan:_ Bitmap Index Scan on `documents_title_trgm_idx`.
+
+2. **Bare-column ILIKE predicates (RAG & API path):**
+
+   ```sql
+   EXPLAIN (ANALYZE, BUFFERS)
+   SELECT id, title, file_name, status FROM public.documents
+   WHERE (title ILIKE '%query%' OR file_name ILIKE '%query%') AND status = 'indexed'
+   LIMIT 12;
+   ```
+
+   _Baseline plan:_ `Seq Scan on documents` (expression index cannot serve bare columns).
+   _Post-index plan:_ `BitmapOr` over `documents_title_bare_trgm_idx` and `documents_file_name_bare_trgm_idx`.
+
+3. **Status filter ordered by ID (`search-scope.ts` paging):**
+   ```sql
+   EXPLAIN (ANALYZE, BUFFERS)
+   SELECT id, status, title FROM public.documents
+   WHERE status = 'indexed' ORDER BY id LIMIT 5000;
+   ```
+   _Baseline plan:_ `Index Scan` using `documents_status_idx` + in-memory Sort.
+   _Post-index plan:_ `Index Scan` using `documents_status_id_idx` with zero sort overhead.
+
 ### A migration is required — operator SQL alone does not reach staging, DR, or local replay
 
 **Added 2026-07-29 after PR #1377 review.** `supabase/migrations/` is the source of truth and

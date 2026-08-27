@@ -69,15 +69,19 @@ function accountProfileLabel(identity: SidebarIdentity) {
 
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
-  // Documents owns a real home: the shell mounts ClinicalDashboard for /documents,
-  // so it paints browse and recent documents rather than the shared hero.
-  { id: "documents", label: "Documents", icon: FileText, href: "/documents" },
+  // Owner decision 2026-08-27: the sidebar opens the shared "Clinical Documents"
+  // home, not the `/documents` workspace. `/documents` paints a second, older
+  // landing page — same subtitle, different title, plus three rows that only open
+  // drawers — and arriving there from the sidebar read as landing on the wrong
+  // screen. `/documents` keeps its route and its inbound link from the Tools
+  // directory (`tools-catalog.ts`); only this entry moves.
+  { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   // Every consolidated mode links to the one shared home; their bare paths are now
   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`
   // would spend a round trip arriving at the same place.
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/?mode=services" },
-  // Medication owns a real home: /medications is the prescribing workspace,
-  // not a consolidated 307 onto /?mode=prescribing (the shared empty home).
+  // Medication owns a real home at /medications; it is not a consolidated-mode
+  // redirect onto /?mode=prescribing (the shared empty home).
   { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/medications" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
   // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.

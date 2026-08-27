@@ -811,13 +811,14 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Documents owns a real home: the shell mounts ClinicalDashboard for
-    // /documents, so it paints browse and recent documents rather than the
-    // shared hero. Every other consolidated mode links at the shared home
-    // directly — pointing a pinned entry at its old bare path would spend a
-    // 307 arriving in the same place. Medication is not consolidated:
-    // /medications is the prescribing workspace, not a 307 onto /?mode=prescribing.
-    { name: "Documents", href: "/documents" },
+    // Owner decision 2026-08-27: Documents joins the other consolidated modes and
+    // links at the shared home. `/documents` still exists and still paints its
+    // browse/recent workspace, but it is a second landing page — same subtitle,
+    // different title — and reaching it from the sidebar read as the wrong screen.
+    // It keeps its route and its inbound link from the Tools directory.
+    // Medication is not consolidated: /medications is the prescribing workspace,
+    // not a 307 onto /?mode=prescribing.
+    { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1176,7 +1177,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
-  test("Medication shortcut opens the prescribing workspace", async ({ page }) => {
+  test("Medication shortcut opens the standalone Medication home", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1185,8 +1186,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("link", { name: "Medication" }).click();
 
-    await expect(page).toHaveURL(/\/medications$/);
-    await expect(page.getByTestId("medication-home")).toBeVisible();
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
+    await expect(page.getByTestId("medication-home").first()).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -1373,7 +1374,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/documents" },
+      { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/?mode=factsheets" },
@@ -3193,13 +3194,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
+    // Source-only owns the one on-screen warning. The complete verification
+    // notice remains print-only, while its governed compact wording is folded
+    // into this disclosure instead of repeating above the prose.
+    await expect(page.getByTestId("verification-notice")).toBeHidden();
     const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
+    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
     await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
     await expect(sourceOnlyDisclosure).toContainText("Source-only");
     await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
-    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
-    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
+
+    const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
+    const railBox = await sourceOnlyRail.boundingBox();
+    expect(proseBox).not.toBeNull();
+    expect(disclosureBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
+    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await sourceOnlyButton.focus();
+    await expect(sourceOnlyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyDisclosure).toContainText(
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
+    );
+    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
+
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyButton).toBeFocused();
+    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
+      await expect(sourceOnlyDisclosure).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
 
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
@@ -3211,8 +3250,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // A source-only answer still cites real documents, so the rail must list them
     // and the drawer must open — the degraded path is exactly where a clinician
     // most needs the route back to the page.
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyRail).toBeVisible();
     const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
     await expect(sourceOnlyRow).toBeVisible();
     await sourceOnlyRow.click();
@@ -3222,6 +3259,55 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(sourceOnlyDrawer).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("review-due sources collapse into a compact expandable tab", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          sources: base.sources.map((source, index) =>
+            index === 0
+              ? {
+                  ...source,
+                  source_metadata: {
+                    ...source.source_metadata!,
+                    document_status: "review_due" as const,
+                    review_date: "2025-11-01",
+                  },
+                }
+              : source,
+          ),
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(reviewDueTab).toContainText("Review due");
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
+    const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reviewDuePanel).toBeHidden();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+    await expectNoPageHorizontalOverflow(page);
+
+    await testInfo.attach("review-due-tab-phone", {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+
+    await reviewDueTab.click();
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
+    await expect(reviewDuePanel).toBeVisible();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
+    await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
   });
 
   for (const viewport of [
@@ -3435,9 +3521,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
-    // one route out to the mode home, and a breadcrumb under it is a second.
-    // The one route out of a record is the mode home, which is the shared home now.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
+    // one route out to the DSM search catalogue, not the shared home composer.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3572,10 +3657,96 @@ test.describe("Clinical KB UI smoke coverage", () => {
       (url) =>
         url.pathname === origin.pathname &&
         url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
+        url.searchParams.get("run") === origin.searchParams.get("run") &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode"),
       { timeout: 30_000 },
     );
     await expect(workspace).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("document detail back arrow skips PDF page changes at phone and desktop", async ({ page }) => {
+    await mockDemoApi(page);
+    const documentId = "22222222-2222-4222-8222-222222222222";
+
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoApp(page, "/documents/search?mode=documents&q=clozapine+monitoring&run=1");
+      const origin = new URL(page.url());
+      await page.goto(`/documents/${documentId}?page=1`, { waitUntil: "domcontentloaded" });
+      await expect(
+        page.getByRole("heading", { level: 1, name: /Synthetic clozapine monitoring protocol/i }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const historyLength = await page.evaluate(() => window.history.length);
+      await page.getByLabel("Next page").first().click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `/documents/${documentId}` && url.searchParams.get("page") === "2",
+      );
+      expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
+
+      await page.getByRole("link", { name: "Back to documents" }).click();
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === origin.pathname &&
+          url.searchParams.get("q") === origin.searchParams.get("q") &&
+          url.searchParams.get("run") === origin.searchParams.get("run") &&
+          url.searchParams.get("mode") === origin.searchParams.get("mode"),
+        { timeout: 30_000 },
+      );
+    }
+  });
+
+  test("opening a document reveals phone chrome hidden by the search route", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
+
+    const firstResult = page.getByTestId("document-result-card").first();
+    const openDocument = firstResult.getByRole("link", { name: /^Open / });
+    const collapse = page.getByTestId("universal-header-collapse");
+    await expect(openDocument).toBeVisible({ timeout: 30_000 });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2_000 });
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => {
+      const state = window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean };
+      const detectStaleHeader = () => {
+        const onDocumentDetail =
+          window.location.pathname.startsWith("/documents/") && window.location.pathname !== "/documents/search";
+        const documentReady = Boolean(document.querySelector('[data-testid="document-viewer-content"]'));
+        const headerHidden =
+          document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
+          "true";
+        if (onDocumentDetail && documentReady && headerHidden) {
+          state.__documentRoutePaintedWithHiddenHeader = true;
+        }
+      };
+      new MutationObserver(detectStaleHeader).observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        attributeFilter: ["data-scroll-hidden"],
+      });
+    });
+
+    // Invoke the already-rendered link without Playwright scrolling it back
+    // into view first; the navigation must reset the genuinely hidden state.
+    await openDocument.evaluate((element) => (element as HTMLElement).click());
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
+    await expect(page.getByTestId("document-viewer-content")).toBeVisible({ timeout: 30_000 });
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean })
+            .__documentRoutePaintedWithHiddenHeader ?? false,
+      ),
+    ).toBe(false);
   });
 
   test("newer routed differential context wins over an older response", async ({ page }) => {

@@ -22,10 +22,9 @@ import { cn, pageContainer } from "@/components/ui-primitives";
 export type InformationPageWidth = "default" | "narrow" | "bleed";
 
 const shellPadding =
-  "max-sm:min-h-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-6 sm:pb-10 lg:px-7";
+  "max-sm:min-h-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:grow sm:px-5 sm:py-6 sm:pb-10 lg:px-7";
 
-const bleedPadding =
-  "max-sm:min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]";
+const bleedPadding = "max-sm:min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:grow";
 
 export function InformationPageShell({
   children,
@@ -84,14 +83,22 @@ export function InformationPageBreadcrumbs({
   crumbs = [],
   current,
   className,
+  /** Default ArrowLeft; pass false for text-only home crumb (e.g. compare pages with mode nav). */
+  homeIcon,
 }: {
   home: { label: string; href: string };
   crumbs?: InformationPageCrumb[];
   current?: string;
   className?: string;
+  homeIcon?: LucideIcon | false;
 }) {
   const items: Crumb[] = [
-    { label: home.label, href: home.href, icon: ArrowLeft, behavior: "history-back" },
+    {
+      label: home.label,
+      href: home.href,
+      icon: homeIcon === false ? undefined : (homeIcon ?? ArrowLeft),
+      behavior: "history-back",
+    },
     ...crumbs,
     ...(current ? [{ label: current }] : []),
   ];
