@@ -3022,3 +3022,47 @@ are product decisions. Added to the owner's list; the fix round records it and c
 This is the whole-branch review's CRITICAL in a new costume — patient-adjacent text reaching a store nobody
 had classified as holding it — found by asking the brief's own question: **what does this mechanism store
 incidentally, not what is it for.** Asking it twice has now found it twice.
+
+### Ruling [140] — A9 was never blocked on space, and Ruling [127]'s premise no longer holds
+
+Following Ruling [138]'s correction of the headroom figure, I computed the actual arithmetic rather than
+reasoning from it. **These are measurements against the current tree, not a change to it, and no wording
+below is proposed as message copy** — a crisis-line sentence would be the owner's to write with clinical
+input, and nobody in this programme may author patient-visible wording. The strings below are stand-ins
+used to measure length.
+
+| Scenario                                                     | Message cost | Against the 306-septet ceiling | Room left for the name |
+| ------------------------------------------------------------ | ------------ | ------------------------------ | ---------------------- |
+| Today, with the specimen name                                | 252          | 54 under                       | cap 59                 |
+| Add a Lifeline sentence, keep the `Fictional Support Line`   | 271          | **35 under — it fits**         | cap drops to ~35       |
+| Replace the `Fictional Support Line` with a Lifeline sentence | 230          | **76 under**                   | cap rises to ~81       |
+
+**So "nothing can be added until something comes out" is false in both directions.** Adding fits. Replacing
+fits with room to spare and *increases* the name budget, because the fictional-line sentence costs about
+twice what a Lifeline sentence does. The owner approved A9's deferral on the premise that there was no
+room. There was, and there is.
+
+**What genuinely blocked A9 was the other half of its own recommendation** — that Lifeline be added *and*
+the `Fictional Support Line` dropped once a real crisis number is chosen — and the recorded reason for the
+drop being impossible was the space claim. With the space claim gone, what remains is a straightforward
+question the owner can answer, not a constraint: **a patient in a suicide-prevention programme currently
+reads the literal words "Fictional Support Line" before a number that connects to nobody, while the real
+Australian crisis line is a well-known number that measurably fits.** That is exactly the flag
+`copy-review.md` raised and nobody could act on, because the arithmetic said no.
+
+**Ruling [127] is superseded in its premise, and this is worth recording rather than quietly dropping.** It
+states that `EXACT_PATIENT_VISIBLE_MESSAGE` "has no name slot, and it cannot acquire one: a greeting that
+varies with the patient makes the segment count vary too, so the single measured safety fact about this
+message silently assumes a five-letter name." Task P then built exactly the thing [127] said was
+impossible, and built it correctly — the cap is **derived** from the slot-empty message rather than
+assumed, so the segment count is enforced per name and an over-long name is refused rather than silently
+splitting the message. [127]'s finding was right and its conclusion was wrong: the ceiling stops being a
+property of the message, and Task P's answer is to make it a property of the name instead. The conclusion
+[127] draws for Phase 3 — that no screen may interpolate a name at render time — is untouched and still
+binds.
+
+**The pattern, for the third time in one day.** [138] found a wrong number closing a question; [139] found a
+guard for one action silently stopping another; this finds a ruling whose "cannot" was an artefact of the
+wrong number in [138]. All three were load-bearing, all three survived because the sentence carrying them
+read as settled, and all three took minutes to check. **Recompute the number under any sentence that ends a
+question.**
