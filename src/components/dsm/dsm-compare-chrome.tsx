@@ -43,7 +43,14 @@ export function DsmCompareChrome({
         icon={BookOpenCheck}
         showEmptyState={false}
         slotLayout="compact"
-        onCommit={(ids) => router.push(idsCompareHref("/dsm/compare", ids))}
+        onCommit={(ids) =>
+          router.push(
+            idsCompareHref(
+              "/dsm/compare",
+              ids.filter((id): id is string => Boolean(id)),
+            ),
+          )
+        }
       />
       {filled < 2 && starters.length ? (
         <div className="flex flex-wrap gap-2" data-testid="dsm-compare-starters">

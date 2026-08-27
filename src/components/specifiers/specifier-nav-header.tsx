@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { appModeHomeHref } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 
 /**
  * Both specifier detail shapes — the full record and the catalogue reference —
@@ -35,7 +35,7 @@ export function SpecifierNavHeader({ title, actions }: { title: string; actions?
 
   return (
     <InPageNavHeader
-      back={{ href: appModeHomeHref("specifiers"), label: "Specifiers" }}
+      back={{ href: consolidatedModeSearchPath("specifiers"), label: "Specifiers" }}
       title={title}
       sections={sections}
       activeId={activeId}

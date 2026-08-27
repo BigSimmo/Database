@@ -215,8 +215,32 @@ export function readCommittedRevision(path = OUTPUT_PATH) {
  * from the ledger markdown and the inbox — and the gate compares those, having
  * deliberately excluded `ledger_revision` from the comparison already.
  */
+/**
+ * The pointer is MONOTONIC: it may lag reality, but it must never move
+ * backwards. Regenerating from a stale base makes `git log` return an older
+ * commit than the one already recorded, and writing that over the committed
+ * value silently discards a newer pointer with nothing to detect it. That is
+ * not hypothetical - commit `ca376969b` rolled this field from a 2026-08-25
+ * revision back to a 2026-08-22 one, and it was found by accident two days
+ * later while verifying an unrelated merge (ledger `#BR2217`).
+ *
+ * The rule below only ever REFUSES a move it can PROVE is backwards. If either
+ * timestamp is missing or unparseable the fresh git read wins, exactly as
+ * before, because an unprovable comparison must not change behaviour. This
+ * keeps the existing fail-safe direction intact: the pointer can still report
+ * itself as older than reality, never fresher.
+ */
+export function resolveMonotonicRevision(fromGit, committed) {
+  if (!fromGit) return committed ?? null;
+  if (!committed) return fromGit;
+  const candidateAt = Date.parse(fromGit.committed_at);
+  const committedAt = Date.parse(committed.committed_at);
+  if (!Number.isFinite(candidateAt) || !Number.isFinite(committedAt)) return fromGit;
+  return candidateAt < committedAt ? committed : fromGit;
+}
+
 function resolveRevision({ ledgerPath = LEDGER_PATH, snapshotPath = OUTPUT_PATH } = {}) {
-  return readLedgerRevision(ledgerPath) ?? readCommittedRevision(snapshotPath);
+  return resolveMonotonicRevision(readLedgerRevision(ledgerPath), readCommittedRevision(snapshotPath));
 }
 
 export function generate({ ledgerPath = LEDGER_PATH, inboxDir = INBOX_DIR, snapshotPath = OUTPUT_PATH } = {}) {

@@ -20,7 +20,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   favourites: [],
   differentials: ["Search", "Diagnoses", "Presentations", "Compare"],
   dsm: ["Search", "Compare"],
-  specifiers: ["Find", "Build", "Compare", "Map"],
+  specifiers: ["Search", "Build", "Compare", "Map"],
   formulation: ["Find", "Build", "Compare", "Map"],
   prescribing: [],
   tools: [],
@@ -135,6 +135,13 @@ describe("mode secondary navigation registry", () => {
     expect(
       isModeSecondaryNavigationRoute({
         modeId: "specifiers",
+        pathname: "/specifiers/search",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(true);
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "specifiers",
         pathname: "/specifiers/with-anxious-distress",
         hasSubmittedSearch: false,
       }),
@@ -179,6 +186,19 @@ describe("mode secondary navigation registry", () => {
   });
 
   it("translates compatible workflow selection state into each destination URL", () => {
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "specifiers",
+        itemId: "search",
+        href: "/specifiers/search",
+        currentSearchParams: new URLSearchParams(
+          "q=anxious&run=1&scope=guides&family=episode&diagnosis=depressive&category=mood&reviewed=1&specifier=with-anxious-distress",
+        ),
+      }),
+    ).toBe(
+      "/specifiers/search?q=anxious&run=1&scope=guides&family=episode&diagnosis=depressive&category=mood&reviewed=1&specifier=with-anxious-distress",
+    );
+
     expect(
       modeSecondaryNavigationHref({
         modeId: "specifiers",
@@ -365,6 +385,8 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("dsm", "/dsm/diagnoses/major-depressive-disorder")).toBeNull();
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/search?q=anxious&run=1")).toBe("search");
 
     // Factsheets records and the `/factsheets` redirect stub cannot reach
     // ModeNav today (`hasLocalInformationPageNavigation` returns null for
@@ -440,6 +462,7 @@ describe("information page classification", () => {
     "/services",
     "/forms",
     "/specifiers/builder",
+    "/specifiers/search",
     "/formulation/compare",
     "/factsheets/search",
     "/factsheets/topics",
