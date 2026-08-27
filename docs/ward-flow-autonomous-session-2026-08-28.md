@@ -71,6 +71,7 @@ that looked like they guarded something and did not. That is why this is not opt
 | Phase 7 spec / plan / execution ledger                                | `docs/superpowers/specs/2026-08-27-ward-flow-phase-7-*`, `plans/`, `.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/progress.md`   |
 | Phase 7 review findings, in full                                      | `.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/review-findings-tasks-1-3.md`                                                     |
 | Phase 8 and 9 questions                                               | `docs/ward-flow-phase-8-9-questions.md`                                                                                                     |
+| **Phase 8 decisions taken in this session**                           | `docs/ward-flow-phase-8-decisions.md` — seven decisions, each with what reversing it costs                                                  |
 | Standing rules given to every implementer                             | `.superpowers/sdd/.../DISPATCH-PREAMBLE.md`                                                                                                 |
 | Reusable tooling (mutation runner, page capture, registration checks) | `.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/*.sh`, `*.mjs`                                                                    |
 
@@ -83,7 +84,45 @@ machine. Everything that matters for the product — specs, plans, decisions, th
 
 Appended as they happen. Each states what I decided, why, and what it costs if wrong.
 
-_(none yet — this section fills as the session runs)_
+### A1 — I committed Task 5 myself instead of re-dispatching it
+
+Its implementing agent stopped after launching its mutation batch, before writing a report or
+committing. The work itself was finished. I read all four mutations out of the log, re-ran the
+gates myself (160 tests across six ward suites, lint, typecheck), and committed it as `8874d0c07`.
+
+**Why.** Re-dispatching would have re-run finished work, which this project's own record names as
+the most expensive failure it has had. The alternative — waking the agent — would have cost a
+further large slice of its context to reach the same commit.
+
+**If wrong:** nothing is lost. The commit is reviewable in full and a review is running against it.
+
+### A2 — I pinned the Task 5 review to the commit rather than the working tree
+
+The reviewer reads every file under review with `git show 8874d0c07:<path>`, never from disk.
+
+**Why.** The previous review had to open by saying it ran nothing, because the tree was mid-edit
+by another agent and any run would have failed for unrelated reasons. Pinning removes that
+constraint, so Task 6's registration work runs at the same time instead of after — the first safe
+parallelisation this phase has had.
+
+**If wrong:** the reviewer misses a working-tree-only problem. Task 8's screenshot sweep and the
+final whole-branch review both read the tree, so nothing is lost permanently.
+
+### A3 — I left the ward-board design spec alone
+
+A separate local session committed `bc49a1820` to this branch: a design specification and
+implementation plan for a ward board, written with the product owner across three rounds of
+questions on 2026-08-28. It is documentation only, and it states its own hard sequencing
+constraint — no task in it may begin until Phase 7's build is complete, because its first three
+tasks modify the files Phase 7's remaining tasks own.
+
+**Why.** It is his work with another session, it does not conflict, and its constraint matches
+mine. I have not started any of it and will not until Phase 7 closes.
+
+**If wrong:** nothing — I changed nothing.
+
+**Two lists in it are marked owner-pending and must not be invented by an agent:** the
+blocked-discharge reasons and the receiving-window options at the pull. I will not fill either.
 
 ---
 
@@ -98,7 +137,53 @@ Appended as they arise. These are the ones that need a fact neither of us has.
   designed to the same standard. **This remains the cheapest, highest-value thing available and only he
   can do it.**
 
+- **New, found by this session's legal-figure sweep on 2026-08-28 — the transport and transfer
+  forms still carry deadlines nobody has verified.** On 2026-08-23 you corrected this model so that
+  neither a Form 1A nor a Form 3B carries a due time, because the figure an earlier agent had
+  written in came from its own recollection rather than from you or a clinician. That correction
+  was deliberately scoped, and `LegalForm`'s own doc comment says so: the transport and transfer
+  forms — 4A and 4C — were "out of scope for this correction" and still carry due times. Four of
+  them sit in the fixture today.
+
+  The screens render a passed due time in danger red, as the one line a coordinator must not miss.
+  So the prototype currently shows a statutory-looking countdown against two real form numbers on
+  the strength of the same kind of unverified figure you removed from the other two.
+
+  **Nothing has been changed.** It is outside Phase 7 and it is a legal question, which is yours.
+  Three ways it could go: the figures trace back to you or a clinician and stay; they do not, and
+  they are removed exactly as 1A and 3B were; or the forms keep a due time that is explicitly
+  labelled as invented. **I will not choose between those.**
+
+- **A stale comment asserting a deadline that no longer exists.** `coordinator.module.css` still
+  explains its danger styling by saying one movement outranks another "because its Form 1A deadline
+  has already passed". After your 2026-08-23 correction no Form 1A carries a deadline, so the
+  comment describes behaviour the code can no longer produce. Harmless to a user, misleading to the
+  next agent that reads it — which is how the original wrong figure got in. Left alone because the
+  file belongs to no Phase 7 task and another session is working nearby; it is a one-line fix
+  whenever anyone is next in that file.
+
 ---
+
+- **The home-region field is finer-grained than the option you approved, and this is worth your eye
+  now rather than later.** When you answered P8-1 you chose option B, described in the question as
+  "the same coarse grouping already shown on every screen — North Metro, East Metro, South Metro, or
+  country", and its stated justification was that it is "too broad to point at any individual".
+
+  What was built is the ten Western Australian regions: Perth Metropolitan, Peel, South West, Great
+  Southern, Wheatbelt, Goldfields-Esperance, Mid West, Gascoyne, Pilbara, Kimberley. That is a
+  reasonable, standard grouping and it is certainly not an address — but it is finer than four, and
+  in the sparsest regions a region plus an age band plus a sex is a good deal narrower than the
+  option text promised. It also does not line up with the five health services the rest of the
+  system uses, which is a second, purely practical mismatch.
+
+  **Nothing about this is a live privacy problem** — every referral in this prototype is invented.
+  It matters because it is your governance decision that drifted between being taken and being
+  built, and because it is much cheaper to settle before Phase 8 authors travel-time data against
+  ten regions than after.
+
+  Three ways it can go, and it is entirely yours: keep ten regions and record that you meant the
+  finer grouping; collapse to the four you approved; or keep ten for travel time and show only the
+  coarse four anywhere a region appears beside a person. **I have changed nothing.**
 
 ## 6. If this session is interrupted
 
