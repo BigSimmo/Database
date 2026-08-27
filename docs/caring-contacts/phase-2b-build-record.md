@@ -3606,3 +3606,60 @@ guidance-and-reports cases. The browser proof that four separate handover notes 
 deliberately unwritten, is now evidence. **The rebuilt spec's name-based screen lookup works**: had the
 positional collision survived the merge, the Templates block would have run against the Schedule screen and
 reported these same 84 passes.
+
+### Ruling [151] — Task 20 ACCEPTED, and the duplicate trigger the merge checklist warned me about survived anyway
+
+**Task 20 is accepted.** All twenty-four rows of the frozen matrix reconciled on the merged tree:
+**17 wired, 7 unwired by recorded exception, 0 unwired as a defect.** No row ends in silence, which was
+the whole of the task. `Test Files 37 passed (37)` / `Tests 819 passed (819)` on the final tree with
+`GATE_RECEIPTS=refresh`; `tsc` exit 0; uncached eslint 0; Prettier clean. Fourteen mutation rows re-run in
+full on the final tree, one prediction half wrong and reported as such.
+
+**Its opening measurement corrected mine.** I handed it a crude grep finding 15 wired ids and told it that
+was a hypothesis rather than a result. It was an undercount: `adjust-date-time` and `outside-window-warning`
+are raised through a **variable**, which no literal grep sees. That is the fourth time today a measurement
+of a proxy has been corrected by measuring the thing.
+
+**The finding that is mine.** Two live implementations of `ExitOnlyOverlayTrigger` were still in the tree —
+Task 10's module typed `NonMutatingOverlayId` and used by `patient-overview` and `plan-wizard`, and Task 16's
+copy inside `overlay-trigger.tsx` typed `string` and used by `template-detail`. **The merge landed neither
+half of the adjudication recorded in merge-checklist §2a.**
+
+That section says, in its own words, that the two *"will not collide as a merge conflict — they will both
+survive, silently"*. **I read that section, resolved the merge, and it happened exactly as written.** A
+warning is not a check. The instance was recorded, the mechanism was recorded, the consequence was
+recorded — and none of that fires at the moment the merge succeeds without a conflict. **What would have
+caught it is an assertion that the name is exported once**, which is what the fix now adds.
+
+**The adjudication is landed in full** (`9d421b7d6`, `136ea1117`, `f69f2f129`): Task 10's separate module and
+its Ruling [130] narrowing survive; Task 16's runtime behaviour — staging **nothing**, so the host's own
+`NO_STAGED_COMMIT_REASON` path handles a non-recording row rather than a no-op commit that is
+indistinguishable at the host from a screen which merely satisfied the compiler; Task 16's
+`data-overlay-trigger-kind="exit-only"` marker carried over; all three consumers re-pointed; the duplicate
+deleted. `Tests 827 passed (827)`.
+
+**It corrected two predictions in my brief, and the corrections are better than the predictions.** I told it
+the repair would redden `caring-contacts-template-detail.dom.test.tsx:481` and would need a change to
+Task 3's pinned contract. Neither held, and the reason is the same in both cases: **those consequences follow
+from the *minimal* repair, and carrying the marker is half of the adjudication.** With the marker carried,
+`:481` passes unchanged and now asserts the surviving module's marker; and the surviving component renders
+its own button rather than delegating, so Task 3's contract needed no pass-through prop and
+`WorkspaceOverlayTrigger` is byte-for-byte unchanged. **A brief that predicts the cost of the wrong half of a
+fix predicts the wrong cost.**
+
+**Two gaps recorded rather than closed, both correctly:**
+
+1. **A built refusal with no producer.** `OverlayHost` renders `permission-unavailable` from a `blockReason`
+   with reviewed wording, and `WorkspaceOverlays` passes `blockReason={null}` unconditionally. Task 10's
+   report assigned the wiring to Task 14; Task 14 did not do it and does not say why. **A mechanism nobody
+   has seen run.**
+2. **Three wired controls sit behind states the demonstration cannot produce** — `delivery-detail`,
+   `resolve-failed-delivery`, `template-changed-retired`. No route advances a contact past `scheduled` and
+   no control retires a version. **The conditions are correct and loosening one would be the defect.** This
+   lands on Task 21: a browser walk will not reach those three through their controls, and must say so
+   rather than record them as covered.
+
+**And one that outlives the fix:** `WorkspaceOverlayCommit` still has no member meaning *"this row's decision
+is an exit"*. Staging nothing is an **absence** at the host, indistinguishable from an overlay reached by
+address except through the row's `mutatesState`. The marker closes that for a test, not for the host. Owner's
+call, as Task 10 first recorded.
