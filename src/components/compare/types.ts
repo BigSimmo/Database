@@ -17,3 +17,6 @@ export type CompareSlot = {
   title: string;
   subtitle?: string;
 };
+
+/** Phone slot-strip density for multi-slot compare surfaces (therapy, DSM). */
+export type ComparePhoneLayout = "default" | "hybrid";
