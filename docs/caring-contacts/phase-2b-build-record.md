@@ -3127,3 +3127,53 @@ ground. The waiver above is a judgement about proportionality, not a claim that 
 **Playwright remains owed and untouched by this.** The round's `exact: true` correction reaches seven
 blocks that have never run, and the implementer verified the eight headings by reading `title` props —
 source inspection, not a browser, and it said so.
+
+### Ruling [142] — the owner answered all seven outstanding decisions, 2026-08-27
+
+He was given each as a one-line question with a single recommendation and answered **"I agree and give
+permission for all of your recommendations above"**, then confirmed a second time. Recorded here as the
+decision of record, with what each one now obliges and what it does **not**.
+
+| #   | Question                                                     | Decision                                                                       |
+| --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 1   | Handover notes surviving patient deletion                    | **Delete them with the patient.** Do not narrow what coordinators may write.   |
+| 2   | The `Fictional Support Line` in the patient message          | **Replace with Lifeline `13 11 14`.** Wording is the owner's — see below.      |
+| 3   | Frozen wording that promises what screens cannot do          | **Reopen as ONE piece of work**, not per-row patches.                          |
+| 4   | Small-cell suppression threshold                             | **Five.** Second approver still to be named by him.                            |
+| 5   | The patient's first name in the message                      | **Keep it.**                                                                   |
+| 6   | The caring-contacts database suite in automated checks       | **Yes, run it automatically.**                                                 |
+| 7   | How a wording approval is recorded                           | **A dated record** — who approved what, and when.                              |
+
+**Decision 2 is approved in principle and is NOT executable by anyone in this programme.** The
+recommendation he agreed to says in its own text that he or a lived-experience representative writes the
+sentence. The standing rule is unchanged and absolute: **nobody here may author patient-visible message
+wording.** What his approval settles is that the swap should happen and that Ruling [140]'s arithmetic
+removes the obstacle — 271 septets keeping both lines, 230 replacing, against a 306 ceiling. **It does not
+license writing the sentence.** Ask him for the exact words; until they arrive, the message is unchanged.
+
+**Decision 4 gives a number but still has nowhere to live.** Task 19 was instructed to stop rather than
+invent a constant, and that instruction stands: five is now the owner's answer, but spec §2.5 requires a
+**governance-configured** threshold and no configuration surface exists in the sealed domain or in any
+caring-contacts migration. A hardcoded five is the same defect as a hardcoded anything — it is the
+provenance, not the value, that the disclosure control needs. The second approver is a person only he can
+name.
+
+**Decisions 1, 6 and 7 are build work and none of them is Phase 2B.** They are recorded here and go to the
+ledger rather than being folded into a merge that is already carrying four branches. Scheduling them into
+this phase would be scope growth dressed as momentum.
+
+**Decision 3 is the largest and the least urgent.** It is a single piece of work about what the frozen
+table is for, and Ruling [135] is the fact that shapes it: **the table is not one table**, and the matrix
+names as source of truth the copy the product does not render. Reconciling the two copies is the first
+question, not the last.
+
+**Decision 5 requires nothing.** It ratifies what Task P built. Ruling [140] already records that its
+mechanism supersedes Ruling [127]'s premise.
+
+**Two operational permissions, both used the same day.** A read-only `git fetch` before the catch-up merge,
+and deletion of the untracked `1/` directories. Those are Node compile caches for `v24.19.0-x64`, wholly
+regenerable, present in four worktrees rather than the two reported. **Three were deleted; `cc-plan-detail`
+was left alone because its fix round was live and removing a compile cache under a running Node process is
+a risk taken for nothing.** The value of deleting them was never the disk: it is that an untracked
+directory in a worktree is one `git add -A` from being committed, and this programme has captured live
+mutations into commits three times already.
