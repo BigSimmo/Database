@@ -131,14 +131,25 @@ export function PlanActions({ context }: PlanActionsProps) {
    * had just made — the exact false collision `no-other-change-to-this-plan-is-on-its-way` exists
    * to prevent, arriving by another route. So props are adopted only when they are AHEAD of what is
    * held, or when nothing is held at all, which is the unreadable-answer case this recovers from.
+   *
+   * ADJUSTED DURING RENDER RATHER THAN IN AN EFFECT, which is React's own documented shape for state
+   * that has to change when a prop does ("You Might Not Need an Effect"), and is what
+   * `react-hooks/set-state-in-effect` exists to push code towards: an effect would render once with
+   * the stale value and then again with the right one. `asTheServerLastSaidIt` is held for no other
+   * purpose than telling a genuinely new server answer apart from an ordinary re-render.
    */
-  useEffect(() => {
+  const [asTheServerLastSaidIt, setAsTheServerLastSaidIt] = useState({
+    state: context.planState,
+    version: context.planVersion,
+  });
+  if (asTheServerLastSaidIt.state !== context.planState || asTheServerLastSaidIt.version !== context.planVersion) {
+    setAsTheServerLastSaidIt({ state: context.planState, version: context.planVersion });
     setPlan((current) =>
       current !== null && current.version >= context.planVersion
         ? current
         : { state: context.planState, version: context.planVersion },
     );
-  }, [context.planState, context.planVersion]);
+  }
 
   /**
    * One key per SUBMISSION in flight, minted at its first confirmation and reused for every retry.
