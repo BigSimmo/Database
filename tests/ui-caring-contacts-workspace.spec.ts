@@ -1881,6 +1881,294 @@ test.describe("caring-contacts workspace accessibility modes", () => {
 });
 
 /* ------------------------------------------------------------------------- *
+ * Phase 2B Task 21 — the per-screen responsive and accessibility proof.
+ *
+ * Nothing above this line is weakened; this file only grows again.
+ *
+ * WHAT WAS ALREADY TRUE, AND WHAT WAS NOT. Every block above proves its own
+ * screen, and each was written when that screen landed — so the coverage they
+ * add up to is per-screen rather than uniform, and the shape of the shortfall was
+ * invisible until the four branches were merged and could be read together.
+ * Measured on the merged tree: dark and forced colours were proved on eight of
+ * the nine screens; the six reviewed widths were swept on ONE (Today); the 400%
+ * reflow equivalent was proved on ONE (Today); and a reduced-motion preference
+ * was asserted NOWHERE, on any screen, in this file.
+ *
+ * The last of those is the one most easily misread as covered.
+ * `playwright.config.ts` sets `contextOptions: { reducedMotion: "reduce" }`
+ * suite-wide, so every test above already RUNS under a reduced-motion preference
+ * — which proves the screens render under it, and says nothing whatever about
+ * whether motion was suppressed, because no assertion anywhere reads a duration
+ * or a transition property. A screen could animate straight through a reduce
+ * request and every gate in this file would stay green.
+ *
+ * THE FOUR BLOCKS BELOW ARE DRIVEN BY `WORKSPACE_SCREENS`, not by lists written
+ * into them. That is the fix that array's own note filed as its own work: a
+ * screen added to the surface is swept at every width, reflowed, and probed for
+ * motion the moment it is added, and a width added to `REVIEW_WIDTHS` is swept on
+ * every screen. Today is included in each sweep even where its own block already
+ * covers it — the extra page loads buy a sweep with no exceptions in it, and an
+ * exception list is the part that goes stale.
+ *
+ * WHAT THEY DELIBERATELY DO NOT REACH. Three wired overlay controls sit behind
+ * states this server cannot produce — `delivery-detail` needs a contact whose
+ * message left, `resolve-failed-delivery` a contact needing operational review,
+ * and `template-changed-retired` a retired pathway version. No route advances a
+ * contact past `scheduled` and no control retires a version, so a walk through
+ * the interface cannot reach any of the three through its own control (Task 20,
+ * note D). Each condition is the right one, and loosening one to reach the
+ * surface would offer a carrier's report for a message that was never sent —
+ * which is the defect, not the proof. The overlays themselves ARE proved at their
+ * frozen modality and geometry by `caring-contacts workspace overlays` above,
+ * which deep-links all twenty-four.
+ * ------------------------------------------------------------------------- */
+
+test.describe("caring-contacts every screen, at every reviewed width", () => {
+  for (const screen of WORKSPACE_SCREENS) {
+    test(`holds the frozen layout at every reviewed width on ${screen.name}`, async ({ page }) => {
+      // Six full page loads; the suite default of 60s is sized for one journey.
+      test.setTimeout(180_000);
+
+      for (const width of REVIEW_WIDTHS) {
+        await openWorkspace(page, width, VIEWPORT_HEIGHT, screen);
+        const label = `${screen.name} at ${width}px`;
+
+        // Nothing spills sideways — the failure that makes a screen unusable.
+        expect(await documentOverflow(page), `horizontal document overflow on ${label}`).toBeLessThanOrEqual(2);
+
+        // Exactly one width state is displayed, and it is the one the frozen
+        // module names. Two displayed markers means overlapping media classes.
+        expect(await displayedWidthStates(page), `width state on ${label}`).toEqual([widthStateFor(width)]);
+
+        // Below the rail boundary the phone dock owns navigation; at and above it
+        // the rail does, and the dock is gone. A screen that shipped both, or
+        // neither, would be navigable only by URL at that width.
+        const rail = page.getByTestId("caring-contacts-rail");
+        const dock = page.getByTestId("caring-contacts-phone-dock");
+        if (width < WORKSPACE_WIDTH_BREAKPOINTS.rail) {
+          await expect(dock, `${label}: the phone dock does not own navigation`).toBeVisible();
+          await expect(rail, `${label}: the rail is shown below its breakpoint`).toBeHidden();
+        } else {
+          await expect(rail, `${label}: the rail does not own navigation`).toBeVisible();
+          await expect(dock, `${label}: the phone dock is shown at or above the rail breakpoint`).toBeHidden();
+        }
+      }
+    });
+  }
+});
+
+test.describe("caring-contacts every screen, at the 400% zoom equivalent", () => {
+  for (const screen of WORKSPACE_SCREENS) {
+    test(`reflows without spilling sideways on ${screen.name}`, async ({ page }) => {
+      // The same 1280x800-divided-by-four equivalence `caring-contacts workspace
+      // accessibility modes` uses for Today, and for the reason recorded on
+      // `ZOOM_400_BASE`: `documentElement.style.zoom = "4"` leaves every width a
+      // check could read still reporting 1280, so an overflow assertion written
+      // against it can never fail.
+      await openWorkspace(page, ZOOM_400_EQUIVALENT.width, ZOOM_400_EQUIVALENT.height, screen);
+
+      expect(
+        await layoutOverflow(page),
+        `horizontal overflow at the 400% zoom equivalent on ${screen.name}`,
+      ).toBeLessThanOrEqual(2);
+
+      // Reflow really happened rather than the page merely not overflowing: at the
+      // 400% equivalent the frozen mapping must have dropped to its phone layout.
+      expect(await displayedWidthStates(page), `width state at the 400% zoom equivalent on ${screen.name}`).toEqual([
+        widthStateFor(ZOOM_400_EQUIVALENT.width),
+      ]);
+      await expect(
+        page.getByTestId("caring-contacts-phone-dock"),
+        `${screen.name}: no navigation reflowed with the page`,
+      ).toBeVisible();
+
+      // The safeguard that says these patients are invented survives the reflow. A
+      // marker pushed off a 320x200 viewport states nothing to the reader who is
+      // most likely to be at 400%.
+      await expect(
+        page.getByTestId("caring-contacts-synthetic-marker"),
+        `${screen.name}: the synthetic marker did not survive the reflow`,
+      ).toBeVisible();
+    });
+  }
+});
+
+/** The rail is displayed from 768 up, and the shell's one transition lives on it. */
+const REDUCED_MOTION_PROBE_WIDTH = 1024;
+
+/**
+ * Everything on the page that would still be moving, named well enough to fix.
+ *
+ * A transition counts only when its property list is not `none` AND some duration
+ * in it is non-zero, because Tailwind's `transition-none` sets the property and
+ * leaves the duration behind: an element carrying `motion-reduce:transition-none`
+ * still reports `transition-duration: 0.15s`, so a probe reading duration alone
+ * would report every correctly suppressed control as moving. An animation counts
+ * on the same terms, plus a play state that is not `paused`.
+ *
+ * The identity is a test id, an id, or a clipped class list — enough to name the
+ * element in a failure without pouring a component's whole class attribute into
+ * the report.
+ */
+function movingElements(page: Page) {
+  return page.evaluate(() => {
+    const durationsIn = (value: string) =>
+      value.split(",").map((part) => {
+        const trimmed = part.trim();
+        const magnitude = Number.parseFloat(trimmed);
+        if (!Number.isFinite(magnitude)) return 0;
+        return trimmed.endsWith("ms") ? magnitude / 1000 : magnitude;
+      });
+
+    const moving: string[] = [];
+    for (const node of document.querySelectorAll("*")) {
+      const style = getComputedStyle(node);
+      const transitioning =
+        style.transitionProperty !== "none" && durationsIn(style.transitionDuration).some((value) => value > 0);
+      const animating =
+        style.animationName !== "none" &&
+        style.animationPlayState !== "paused" &&
+        durationsIn(style.animationDuration).some((value) => value > 0);
+      if (!transitioning && !animating) continue;
+
+      const identity =
+        node.getAttribute("data-testid") ?? node.getAttribute("id") ?? (node.getAttribute("class") ?? "").slice(0, 60);
+      moving.push(`${node.tagName.toLowerCase()}${identity ? ` (${identity})` : ""}`);
+    }
+    return moving;
+  });
+}
+
+test.describe("caring-contacts every screen, under a reduced-motion preference", () => {
+  for (const screen of WORKSPACE_SCREENS) {
+    test(`suppresses its motion without suppressing itself on ${screen.name}`, async ({ page }) => {
+      // BOTH sides are declared rather than one being inherited. The suite-wide
+      // baseline in `playwright.config.ts` is already `reduce`, so a test that
+      // sampled only the default would be asserting the absence of motion on a
+      // page where motion had never been switched on — an absence with no
+      // positive control, which passes just as happily over a screen that
+      // animates through the preference.
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await openWorkspace(page, REDUCED_MOTION_PROBE_WIDTH, VIEWPORT_HEIGHT, screen);
+      const withoutPreference = await movingElements(page);
+      expect(
+        withoutPreference.length,
+        `${screen.name}: nothing on this screen moves even without a reduced-motion preference, ` +
+          `so the assertion below cannot fail and proves nothing`,
+      ).toBeGreaterThan(0);
+
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await openWorkspace(page, REDUCED_MOTION_PROBE_WIDTH, VIEWPORT_HEIGHT, screen);
+      expect(await movingElements(page), `${screen.name}: still moving under a reduced-motion preference`).toEqual([]);
+
+      // Suppressing motion must never suppress the state feedback the motion was
+      // decorating. The screen is still here, still says which screen it is, and
+      // still carries the safeguard that says these patients are invented.
+      await expect(
+        page.getByRole("heading", { level: 1, name: screen.heading, exact: true }),
+        `${screen.name}: the screen lost its heading under reduced motion`,
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("caring-contacts-synthetic-marker"),
+        `${screen.name}: the synthetic marker went with the motion`,
+      ).toBeVisible();
+      expect(
+        await documentOverflow(page),
+        `${screen.name}: horizontal overflow under a reduced-motion preference`,
+      ).toBeLessThanOrEqual(2);
+    });
+  }
+});
+
+/**
+ * Guidance's own surface, in dark and under forced colours.
+ *
+ * WHAT THIS CLOSES. `caring-contacts guidance and reports` is one block covering
+ * two screens, and its dark and forced-colours tests both name `REPORTS_SCREEN`
+ * — so Guidance was the one screen in this surface with neither, while sitting
+ * inside a block whose name reads as though it had both. That is the failure the
+ * file header warns about, in its own words: a declaration certifying a route it
+ * never inspected in that mode.
+ *
+ * The panel sampled is the one-way boundary statement, which is this screen's own
+ * ink on this screen's own tint rather than shell chrome: it carries the sentence
+ * saying what `Delivered` is and is not, and it says it on `--info-soft` behind
+ * `--info-border`. Neither is drawn by the shell, so a hardcoded colour there
+ * leaves one of the three values below unchanged between the two schemes.
+ */
+function guidanceBoundaryColours(page: Page) {
+  return page.evaluate(() => {
+    const panel = document.querySelector("section[aria-labelledby='caring-contacts-guidance-boundary']");
+    if (!panel) throw new Error("the guidance boundary panel is missing");
+    const heading = panel.querySelector("h2");
+    if (!heading) throw new Error("the guidance boundary panel has no heading");
+    return {
+      surface: getComputedStyle(panel).backgroundColor,
+      border: getComputedStyle(panel).borderTopColor,
+      ink: getComputedStyle(heading).color,
+    };
+  });
+}
+
+test.describe("caring-contacts guidance, in the modes its own block proved on reports", () => {
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, GUIDANCE_SCREEN);
+    const light = await shellColours(page);
+    const lightBoundary = await guidanceBoundaryColours(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, GUIDANCE_SCREEN);
+    const dark = await shellColours(page);
+    const darkBoundary = await guidanceBoundaryColours(page);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the category
+    // on a screen it had not inspected. These read this screen's own surface.
+    expect(darkBoundary.surface, "the boundary panel's surface did not change in dark").not.toBe(lightBoundary.surface);
+    expect(darkBoundary.border, "the boundary panel's border did not change in dark").not.toBe(lightBoundary.border);
+    expect(darkBoundary.ink, "the boundary panel's ink did not change in dark").not.toBe(lightBoundary.ink);
+    for (const value of Object.values(darkBoundary)) {
+      expect(value, "a dark colour on the boundary panel resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+
+  test("states the one-way boundary in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, GUIDANCE_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+
+    // The panel says what it is with an information tint. Forced colours drops the
+    // author's background, so the whole claim has to survive as words: what a
+    // transport receipt is, and one of the three things it is not.
+    const guidance = page.getByTestId("caring-contacts-guidance");
+    await expect(guidance).toContainText("One-way programme boundary");
+    await expect(guidance).toContainText("transport receipt");
+    await expect(guidance).toContainText("does not mean the message was read");
+
+    // And the panel is still delimited from the page around it, which is all the
+    // tint was doing once the words are carrying the meaning.
+    const border = await page.evaluate(() => {
+      const panel = document.querySelector("section[aria-labelledby='caring-contacts-guidance-boundary']");
+      if (!panel) throw new Error("the guidance boundary panel is missing");
+      const style = getComputedStyle(panel);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    });
+    expect(Number.parseFloat(border.width), "the boundary panel has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the boundary panel border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+});
+
+/* ------------------------------------------------------------------------- *
  * The condensed service-stop bar.
  *
  * Nothing above this line is weakened; this file only grows again.
