@@ -427,7 +427,11 @@
   font-weight: 700;
 }
 
+/* `display: block` because the queued card's copy of this is a `<span>`, not a `<p>` — a
+   `<button>`'s content model is phrasing content (M5). On the decided card's `<p>` it is a
+   no-op, so both variants keep the identical layout they had. */
 .cardService {
+  display: block;
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-3xs);
@@ -454,6 +458,18 @@
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
+}
+
+/* The match view's own copy of the governance sentence (M7). Deliberately quieter than
+   `.governanceBanner` — it repeats a statement the coordinator has already met at the top of the
+   page, so it must not compete with the referral heading directly above it. */
+.matchGovernance {
+  margin: 0;
+  border-left: 0.125rem solid var(--border);
+  padding-left: var(--ri-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ri-leading-body);
 }
 
 .structuralGap,

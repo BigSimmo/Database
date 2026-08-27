@@ -469,6 +469,11 @@ describe("Task 5 — referral board ordering (referralQueueOrder, recentlyDecide
 
   it("never includes an accepted or declined referral in the queued order", () => {
     const queued = referralQueueOrder(referrals);
+    // M4 (fix round C): `.every()` on an EMPTY array is `true`, so `filter(() => false)` — which
+    // drops every referral including the queued ones — passed this test untouched. The sibling
+    // test above catches that by pinning `["RF-001","RF-005"]`, but this guard proved nothing on
+    // its own. A non-empty result is what makes the `every` mean anything.
+    expect(queued.length).toBeGreaterThan(0);
     expect(queued.every((referral) => referral.state === "queued")).toBe(true);
   });
 

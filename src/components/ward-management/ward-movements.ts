@@ -864,10 +864,19 @@ export const leaveBeds: LeaveBed[] = [
  *     from `brm-adult-secure`, whose own comment explains why a forensic unit can never be the
  *     bed a referral is recorded as accepted into). `fsh-adult-secure` correctly accepting the
  *     sex it names mirrors RF-002's `ger-adult-open` case for the other sex. RF-006 also seeds
- *     the out-of-area case `homeRegion` exists to measure: raised from Broome (Kimberley) and
- *     accepted in Perth Metropolitan, hundreds of kilometres from home — a real shape for WA's
- *     rural mental health system, and exactly what the equity ledger Phase 8 builds needs a real
- *     example of.
+ *     the out-of-area case `homeRegion` exists to measure. Stated as the field values only:
+ *     `homeRegion` is `"Kimberley"`, `originSiteCode` is `"BRM"` (Broome Hospital, `service:
+ *     "WACHS"`), and the accepted unit `fsh-adult-secure` sits at site `FSH` under `service:
+ *     "South Metro"` — so home region and accepting service differ, and that difference is the
+ *     whole of what this seed holds for the equity ledger Phase 8 builds to read.
+ *
+ *     NO DISTANCE is stated or implied, and no claim is made here about how WA's rural mental
+ *     health system actually behaves. This prototype holds no distances, travel times or
+ *     ordering by proximity — see `Referral.homeRegion`'s own doc comment, which says computing
+ *     one is Phase 8's work and deliberately not built. (Fix round C, F8: this comment used to
+ *     assert both. A comment asserting an unchecked real-world fact is exactly how the deleted
+ *     Form 1A figure entered this codebase — an agent read it, believed it, wrote it into the
+ *     model. Nothing renders a comment, and that is not the reason it matters.)
  *   - RF-007: `ageBand: "Youth"`, accepted at `bty-youth` (EMyU) — the successful youth match
  *     RF-001 deliberately is not (review finding M1's related note): the age dimension is only
  *     honourable if at least one seed path shows it actually working, not only failing. Also

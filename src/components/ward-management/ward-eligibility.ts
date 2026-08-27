@@ -212,8 +212,17 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
         : "No secure ward required",
     },
     {
+      // `availableNow`, not `unit.allocatable.value` alone — the same C2 correction fix round B
+      // made to `allocatable_bed`, applied here where it was left behind (fix round C, F3 /
+      // review finding I4). This gate's own detail already SAYS "needs more than one free bed",
+      // and a free bed is `availableNow`: a ward that confirmed 3 allocatable beds and then took
+      // two arrivals has `allocatable: 3, empty: 1`, so reading `allocatable` alone passed this
+      // gate on a ward with exactly one free bed — placing a lone woman on a ward with no other
+      // free bed, the precise outcome this gate exists to prevent, while the capacity board read
+      // `availableNow` and correctly said 1. No new rule: this makes the code do what its own
+      // user-visible sentence already promised.
       gate: "sex_mix",
-      pass: sameSexOccupants > 0 || unit.allocatable.value > 1,
+      pass: sameSexOccupants > 0 || availableNow > 1,
       detail:
         sameSexOccupants > 0
           ? `${sameSexOccupants} ${referral.sex.toLowerCase()} occupants already`
@@ -252,4 +261,33 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
   ];
 
   return { eligible: gates.every((gate) => gate.pass), gates };
+}
+
+/**
+ * A binary, non-ordinal description of a verdict: eligible, or the specific gate that failed.
+ * Eligibility gates are not commensurable (failing `authorisation` is a legal hard stop;
+ * failing `capacity_freshness` is a staleness warning), so this deliberately never collapses
+ * them into a "N of M passed" fraction — that shape reads as a score, and higher/lower
+ * comparisons across two verdicts are not meaningful.
+ *
+ * Fix round C (F1, review finding C1): this lives HERE rather than in `ward-derivations.ts`,
+ * where it was originally written, and `ward-derivations.ts` re-exports it so its six existing
+ * call sites are untouched. It depends on nothing but `EligibilityVerdict`, which is declared in
+ * this file. `ward-referrals.ts` reads it from here, and that is the whole point: taking it from
+ * `ward-derivations.ts` instead pulled `ward-flow-reducer.ts`, `ward-flow-events.ts` and
+ * `ward-movements.ts` into referral matching's transitive module graph, and all three name the
+ * four-stage bed-release model at the top of the file — which turned the D15 contract test in
+ * `tests/ward-referral-matching.test.ts` red (5 files and 0 offenders became 17 files and 4).
+ * D15 is deliberately structural: no code path reachable from matching may read that model AT
+ * ALL, not even one that happens to agree with `unit.allocatable` today.
+ *
+ * The prose above deliberately does not spell the release model's type name, and deliberately
+ * does not put the word "import" beside it. That contract test splits a file on a crude
+ * `/import\s+[\s\S]*?;/` before checking, so an explanatory comment CAN produce a false
+ * positive — this one did, on its first draft. The guard is not the thing to relax.
+ */
+export function candidateReason(verdict: EligibilityVerdict) {
+  if (verdict.eligible) return "Eligible now";
+  const failed = verdict.gates.find((gate) => !gate.pass);
+  return failed ? failed.detail : "Not eligible";
 }

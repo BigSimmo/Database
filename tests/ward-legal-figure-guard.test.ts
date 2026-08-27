@@ -234,6 +234,16 @@ const MODEL_CONSTANT_PROVENANCE: Record<string, string> = {
   // courtesy limit between services — explicitly NOT a clinical or statutory quantity, and it
   // measures a count of units, not a duration.
   PARALLEL_REFERRAL_CAP: "product owner's spec, docs/ward-flow-context.md — count of units, not a duration",
+
+  // The runtime mirror of the `urgency: 1 | 2 | 3` union that already existed on both `Movement`
+  // and `Referral` before this constant was written; fix round C points both fields at
+  // `UrgencyLevel` so widening the array widens the fields. The three tiers are the product
+  // owner's own, and `operationalScore`'s doc comment (`ward-priority.ts`) records his
+  // 2026-08-24 instruction that priority is urgency and waiting time alone. These are TIER
+  // LABELS — three ordered categories a clinician picks between — and neither a duration nor a
+  // quantity of anything: nothing in this codebase does arithmetic on them beyond comparing two
+  // tiers to order a queue, and no minute, hour, day or bed count is derived from them.
+  URGENCY_LEVELS: "product owner's own tiers, recorded at ward-priority.ts 2026-08-24 — tier labels, not a duration",
 };
 
 /**

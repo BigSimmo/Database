@@ -35,9 +35,12 @@ export type Security = "Open" | "Secure";
  * 3+-value union here (`SEX_DESIGNATIONS`, `REFERRAL_SOURCES`, `REFERRAL_STATES`,
  * `REFERRAL_DECLINE_REASONS`, `MOVEMENT_STAGES`, `DECLINE_REASONS`, `BED_RELEASE_STATES`) already
  * carries one. `SEXES` and `URGENCY_LEVELS` below are what every Sex/urgency `<select>` in this
- * codebase (`referral-intake.tsx`, `referral-match.tsx`, `ed-screen.tsx`, `shortlist-panel.tsx`)
- * must now derive its option list from, never a hand-written array — the same fix Task 4 already
- * applied to `COHORT_OPTIONS` in `ed-screen.tsx`, generalised to the two unions it left behind.
+ * codebase (`referral-intake.tsx`, `ed-screen.tsx`, `shortlist-panel.tsx`) must now derive its
+ * option list from, never a hand-written array — and so must any picker added later. (M11:
+ * `referral-match.tsx` was listed here too and has no Sex or urgency picker at all; its only
+ * `<select>` is the decline reason, correctly derived from `REFERRAL_DECLINE_REASONS`.) This is
+ * the same fix Task 4 already applied to `COHORT_OPTIONS` in `ed-screen.tsx`, generalised to the
+ * two unions it left behind.
  */
 export const SEXES = ["Female", "Male"] as const;
 export type Sex = (typeof SEXES)[number];
@@ -282,7 +285,7 @@ export type Movement = {
   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
   originEdId: string;
   openedAt: Instant;
-  urgency: 1 | 2 | 3;
+  urgency: UrgencyLevel;
   cohort: Cohort;
   security: Security;
   sex: Sex;
@@ -502,7 +505,7 @@ export type Referral = {
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;
-  urgency: 1 | 2 | 3;
+  urgency: UrgencyLevel;
   /** A synthetic site code (see `wardSites`), never an address. */
   originSiteCode: string;
   transportNeeded: boolean;

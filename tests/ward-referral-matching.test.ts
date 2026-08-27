@@ -289,6 +289,28 @@ describe("reused gates carry over unchanged", () => {
     expect(gate(verdict, "allocatable_bed")?.pass).toBe(false);
   });
 
+  // I4 (fix round C, F3): the same `allocatable` / `availableNow` divergence C2 closed for
+  // `allocatable_bed`, one gate over. A ward confirms 3 allocatable beds and then takes two
+  // arrivals — `PATIENT_ARRIVED` decrements `empty` and leaves `allocatable` untouched — so
+  // `allocatable: 3, empty: 1` and `availableNow: 1`. `allocatable_bed` correctly passes: there
+  // IS one bed. `sex_mix` must fail, because its own user-visible detail says "needs more than
+  // one free bed" and there is exactly one; reading `unit.allocatable.value > 1` instead passed
+  // it, showing "Accepts this referral" for a lone female referral onto a ward with no other free
+  // bed, while the capacity board (reading `availableNow`) said 1 — two screens, two answers,
+  // from the same state. `allocatable_bed` is asserted to PASS here so this test can only go red
+  // for the reason it names.
+  it("refuses on sex_mix when the only free bed is the last one, even though allocatable still reads three", () => {
+    const divergent = unit({
+      sexMix: { Female: 0, Male: 5 },
+      allocatable: { value: 3, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
+      empty: { value: 1, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
+    });
+    const verdict = referralEligibility(referral({ sex: "Female" }), divergent, NOW);
+    expect(gate(verdict, "allocatable_bed")?.pass).toBe(true);
+    expect(gate(verdict, "sex_mix")?.pass).toBe(false);
+    expect(verdict.eligible).toBe(false);
+  });
+
   it("passes every gate for a well-matched referral", () => {
     const verdict = referralEligibility(referral(), unit(), NOW);
     expect(verdict.eligible).toBe(true);

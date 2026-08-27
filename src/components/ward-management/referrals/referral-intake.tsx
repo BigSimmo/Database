@@ -15,6 +15,7 @@ import {
   type ReferralSource,
   type Rejection,
   type Sex,
+  type UrgencyLevel,
 } from "@/components/ward-management/ward-model";
 import { wardSites } from "@/components/ward-management/ward-sites";
 
@@ -44,7 +45,7 @@ const AGE_BAND_OPTIONS: Cohort[] = [...COHORTS];
 const HOME_REGION_OPTIONS: HomeRegion[] = [...HOME_REGIONS];
 const SOURCE_OPTIONS: ReferralSource[] = [...REFERRAL_SOURCES];
 const SEX_OPTIONS: Sex[] = [...SEXES];
-const URGENCY_OPTIONS: (1 | 2 | 3)[] = [...URGENCY_LEVELS];
+const URGENCY_OPTIONS: UrgencyLevel[] = [...URGENCY_LEVELS];
 
 /** Display labels only — never the picker's own option set, which is always
  *  `SOURCE_OPTIONS.map(...)`. A source missing from this map still renders (as its own raw
@@ -65,7 +66,7 @@ type ReferralDraft = {
   secureBedNeeded: boolean;
   involuntaryBedNeeded: boolean;
   source: ReferralSource;
-  urgency: 1 | 2 | 3;
+  urgency: UrgencyLevel;
   originSiteCode: string;
   transportNeeded: boolean;
 };
@@ -248,7 +249,7 @@ export function ReferralIntakeForm() {
               className={styles.select}
               value={draft.urgency}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, urgency: Number(event.target.value) as 1 | 2 | 3 }))
+                setDraft((current) => ({ ...current, urgency: Number(event.target.value) as UrgencyLevel }))
               }
             >
               {URGENCY_OPTIONS.map((option) => (

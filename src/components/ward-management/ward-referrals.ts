@@ -1,6 +1,9 @@
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
-import { candidateReason } from "@/components/ward-management/ward-derivations";
-import { referralEligibility, type EligibilityVerdict } from "@/components/ward-management/ward-eligibility";
+import {
+  candidateReason,
+  referralEligibility,
+  type EligibilityVerdict,
+} from "@/components/ward-management/ward-eligibility";
 import type { Referral, Unit } from "@/components/ward-management/ward-model";
 
 /**
@@ -81,7 +84,7 @@ export function hasConfirmedCapacity(unit: Unit): boolean {
 
 /**
  * The single reason the match view shows for a unit that does not accept this referral —
- * `candidateReason` (`ward-derivations.ts`), with exactly one override. That function's raw
+ * `candidateReason` (`ward-eligibility.ts`), with exactly one override. That function's raw
  * `capacity_freshness` gate detail reads `Last confirmed NaN min ago — stale` for a unit that has
  * NEVER confirmed its allocatable count (see `hasConfirmedCapacity` above): `now -
  * undefined` is `NaN`, and a coordinator must never read a fabricated number where the true
@@ -105,6 +108,17 @@ export function matchReason(candidate: ReferralCandidate): string {
  * this is a real structural fact, never a fact about a shortlist. When this is `false`, "no bed
  * available" would misstate an operational shortage as the true structural gap it is — see this
  * module's own consumer (`referral-match.tsx`) for the exact wording rule.
+ *
+ * KNOWN LIMIT, recorded rather than fixed (fix round C, review finding M10). This counts a
+ * FORENSIC unit as satisfying the age band, and D7 says a forensic bed is never offered to
+ * anyone. So a cohort whose only unit were forensic would read as an operational shortage ("No
+ * unit accepts this referral right now") for a bed that will never be offered at all — the
+ * structural/operational confusion this function exists to prevent, in the one case it does not
+ * catch. It is NOT reachable on the shipped fixture: the network's single forensic unit
+ * (`brm-adult-secure`) is Adult, and the network holds many other Adult units. The fix is one
+ * clause (`&& !unit.forensic`), but it changes which banner a coordinator reads on a clinical
+ * surface, so it is left for the owner to authorise rather than taken here — the same rule that
+ * required the `sex_mix` correction in `ward-eligibility.ts` to be flagged before it was made.
  */
 export function networkHasCohort(referral: Referral, units: Unit[]): boolean {
   return units.some((unit) => unit.cohort === referral.ageBand);

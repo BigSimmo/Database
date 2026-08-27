@@ -141,7 +141,11 @@ function QueuedSection({
                 <tr>
                   <th scope="col">Referral</th>
                   <th scope="col">Tier</th>
-                  <th scope="col">Waiting since</th>
+                  {/* M5 note is on the card below. M9: the cell holds an ELAPSED duration
+                      ("40m waiting"), not a clock time — "Waiting since" promised "09:10". The
+                      elapsed form is the more useful one on a queue, so the header moves to
+                      match the cell rather than the cell moving to match the header. */}
+                  <th scope="col">Waiting</th>
                   <th scope="col">Age band</th>
                   <th scope="col">Sex</th>
                   <th scope="col">Home region</th>
@@ -190,18 +194,23 @@ function QueuedSection({
                   aria-pressed={referral.id === selectedId}
                   onClick={() => onSelect(referral.id)}
                 >
-                  <div className={styles.cardTop}>
+                  {/* M5: `<span>`, not `<div>`/`<p>` — a `<button>`'s content model is phrasing
+                      content, and no sibling ward screen puts flow content inside one (the
+                      discharge board's cards carry no button at all). `.cardTop` already sets
+                      `display: flex` and `.cardService` now sets `display: block`, so the layout
+                      is identical. */}
+                  <span className={styles.cardTop}>
                     <span className={styles.cardUnit}>{referral.id}</span>
                     <span data-tier={referral.urgency}>
                       Tier {referral.urgency} · {TIER_QUALIFIER[referral.urgency]}
                     </span>
-                  </div>
+                  </span>
                   <span className={styles.waitBadge} data-testid={`ward-referral-board-card-wait-${referral.id}`}>
                     {referralWaitLabel(referral, now)}
                   </span>
-                  <p className={styles.cardService}>
+                  <span className={styles.cardService}>
                     {referral.ageBand} · {referral.sex} · {referral.homeRegion}
-                  </p>
+                  </span>
                 </button>
               </li>
             ))}

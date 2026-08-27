@@ -16,11 +16,7 @@ import {
   minutesUntil,
   type Instant,
 } from "@/components/ward-management/ward-clock";
-import {
-  eligibility,
-  requiresAuthorisedDestination,
-  type EligibilityVerdict,
-} from "@/components/ward-management/ward-eligibility";
+import { eligibility, requiresAuthorisedDestination } from "@/components/ward-management/ward-eligibility";
 import {
   changeReasonLabels,
   type CancelTransportReason,
@@ -363,17 +359,13 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
 }
 
 /**
- * A binary, non-ordinal description of a verdict: eligible, or the specific gate that failed.
- * Eligibility gates are not commensurable (failing `authorisation` is a legal hard stop;
- * failing `capacity_freshness` is a staleness warning), so this deliberately never collapses
- * them into a "N of M passed" fraction — that shape reads as a score, and higher/lower
- * comparisons across two verdicts are not meaningful.
+ * Re-exported from `ward-eligibility.ts`, where this function now lives — see its doc comment
+ * there for what it does and for why it moved (fix round C, F1 / review finding C1: importing it
+ * from THIS module pulled the four-stage bed-release model into referral matching's transitive
+ * import graph and broke the D15 contract test). Kept exported here so the six call sites that
+ * already import it from `ward-derivations` need no edit.
  */
-export function candidateReason(verdict: EligibilityVerdict) {
-  if (verdict.eligible) return "Eligible now";
-  const failed = verdict.gates.find((gate) => !gate.pass);
-  return failed ? failed.detail : "Not eligible";
-}
+export { candidateReason } from "@/components/ward-management/ward-eligibility";
 
 export type InboxTone = "danger" | "warning";
 export type InboxItem = {

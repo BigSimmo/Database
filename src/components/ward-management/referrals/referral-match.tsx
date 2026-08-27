@@ -120,6 +120,16 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
   return (
     <section className={styles.matchPanel} data-testid="ward-referral-match-panel">
       <h2 className={styles.matchHeading}>{referral.id}</h2>
+      {/*
+       * M7 (fix round C): the brief says BOTH screens carry the prose banner. `ReferralBoard`'s
+       * sits at the top of `<main>`, above two sections and two tables — on a phone a coordinator
+       * making the accept decision here has scrolled well past it. This is the screen where the
+       * decision is actually taken, so the sentence is repeated where it is read.
+       */}
+      <p className={styles.matchGovernance} data-testid="ward-referral-match-governance">
+        <strong>Not a medical device.</strong> Every unit below is listed in the network&apos;s own fixed order — this
+        view never ranks units by suitability and never suggests which bed is best. A coordinator decides.
+      </p>
       <p className={styles.matchSummary} data-testid="ward-referral-match-summary">
         {referral.ageBand} · {referral.sex} · Tier {referral.urgency} · {referral.homeRegion}
       </p>
@@ -137,9 +147,18 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
         </p>
       ) : null}
 
-      <p data-testid="ward-referral-match-accepting-count">
-        {accepting.length} of {candidates.length} units accept this referral right now.
-      </p>
+      {/*
+       * Only when the network runs this age band at all (fix round C, F6 / review finding I3).
+       * "right now" asserts temporality — that this may be different at 4pm. When there is no
+       * unit of this cohort anywhere it will never be different, and printing "0 of 22 units
+       * accept this referral right now" one line under "No youth unit exists in this network"
+       * reintroduces the operational statement the structural banner exists to avoid.
+       */}
+      {hasCohort ? (
+        <p data-testid="ward-referral-match-accepting-count">
+          {accepting.length} of {candidates.length} units accept this referral right now.
+        </p>
+      ) : null}
 
       <ul className={styles.matchList} data-testid="ward-referral-match-list">
         {candidates.map((candidate) => (
@@ -188,7 +207,6 @@ function MatchRow({ candidate, onAccept }: { candidate: ReferralCandidate; onAcc
   const { unit, verdict } = candidate;
   return (
     <li
-      key={unit.id}
       className={verdict.eligible ? styles.matchRowAccepts : styles.matchRowDeclines}
       data-testid={`ward-referral-match-row-${unit.id}`}
     >

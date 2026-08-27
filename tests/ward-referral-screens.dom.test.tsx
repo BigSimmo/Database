@@ -226,10 +226,15 @@ describe("ReferralBoard", () => {
     expect(link.textContent?.trim()).toBe("New referral");
   });
 
-  it("renders 'waiting since' prominently on every queued row", () => {
+  // M1 (fix round C): the figure must be bound to its OWN referral, not merely present. The
+  // previous `/waiting/i` matched "40m waiting", "20m waiting", "0m waiting" and the bare word,
+  // so rendering `referralWaitLabel(queued[0], now)` on every row — RF-001's wait shown against
+  // RF-005 — survived it untouched. The real fixture raises RF-001 at NOW_ANCHOR - 40 and RF-005
+  // at NOW_ANCHOR - 20, and this is the board's headline requirement, so the values are pinned.
+  it("renders each queued referral's own waiting figure, not just the word 'waiting'", () => {
     renderBoard();
-    expect(screen.getByTestId("ward-referral-board-wait-RF-001")).toHaveTextContent(/waiting/i);
-    expect(screen.getByTestId("ward-referral-board-wait-RF-005")).toHaveTextContent(/waiting/i);
+    expect(screen.getByTestId("ward-referral-board-wait-RF-001")).toHaveTextContent("40m waiting");
+    expect(screen.getByTestId("ward-referral-board-wait-RF-005")).toHaveTextContent("20m waiting");
   });
 
   it("renders the real fixture's five decided referrals, most recently decided first", () => {
@@ -244,6 +249,35 @@ describe("ReferralBoard", () => {
     expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004"]);
   });
 
+  /**
+   * M3 (fix round C): `QueuedSection` and `DecidedSection` each map their array TWICE — once into
+   * a table (the desk view) and once into `.cardList` (the corridor view at narrow widths). Both
+   * existing order tests read only the tables, so a mutation reversing just the card `.map()` was
+   * invisible to the whole suite. The module's own CSS comment says "a table is right at a desk
+   * and wrong in a corridor"; the corridor view was the untested one. Card testids are asserted
+   * rather than text because the card's own markup interleaves the id with the tier qualifier.
+   */
+  it("renders the queued cards in the same order as the queued table, for the phone view", () => {
+    const { container } = renderBoard();
+    const cards = Array.from(container.querySelectorAll("[data-testid^='ward-referral-board-card-select-']"));
+    expect(cards.map((card) => card.getAttribute("data-testid"))).toEqual([
+      "ward-referral-board-card-select-RF-001",
+      "ward-referral-board-card-select-RF-005",
+    ]);
+  });
+
+  it("renders the decided cards in the same order as the decided table, for the phone view", () => {
+    const { container } = renderBoard();
+    const cards = Array.from(container.querySelectorAll("[data-testid^='ward-referral-board-decided-card-']"));
+    expect(cards.map((card) => card.getAttribute("data-testid"))).toEqual([
+      "ward-referral-board-decided-card-RF-006",
+      "ward-referral-board-decided-card-RF-007",
+      "ward-referral-board-decided-card-RF-002",
+      "ward-referral-board-decided-card-RF-003",
+      "ward-referral-board-decided-card-RF-004",
+    ]);
+  });
+
   it("selecting a queued referral opens its match view, and none is open before that", () => {
     renderBoard();
     expect(screen.queryByTestId("ward-referral-match-panel")).not.toBeInTheDocument();
@@ -251,6 +285,35 @@ describe("ReferralBoard", () => {
     const panel = screen.getByTestId("ward-referral-match-panel");
     expect(panel).toBeInTheDocument();
     expect(panel).toHaveTextContent("RF-001");
+  });
+
+  /**
+   * M7 (fix round C): the brief requires the "not a medical device" prose on BOTH screens. The
+   * board's banner sits at the top of `<main>`, above two sections and two tables — the match
+   * view mounts below all of it, so on a phone the coordinator taking the accept decision has
+   * scrolled past it. Asserted on the match panel specifically, not on the document, so deleting
+   * the match view's own copy cannot be masked by the board's.
+   */
+  it("the match view carries its own 'not a medical device' statement, where the decision is taken", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-001"));
+
+    const panel = screen.getByTestId("ward-referral-match-panel");
+    const governance = within(panel).getByTestId("ward-referral-match-governance");
+    expect(governance).toHaveTextContent(/not a medical device/i);
+    expect(governance).toHaveTextContent(/never ranks units by suitability/i);
+  });
+
+  /**
+   * M5 (fix round C): a `<button>`'s content model is phrasing content, and the queued card's
+   * select button wrapped a `<div>` and a `<p>`. No sibling ward screen does this — the discharge
+   * board's cards carry no button at all — so it was a new pattern rather than an inherited one.
+   */
+  it("the queued card's select button contains no flow content", () => {
+    renderBoard();
+    const button = screen.getByTestId("ward-referral-board-card-select-RF-001");
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.querySelectorAll("div, p, ul, ol, section, h1, h2, h3")).toHaveLength(0);
   });
 
   it("every data-testid is unique, including with a match view open", () => {
@@ -266,12 +329,54 @@ describe("ReferralBoard", () => {
 
     expect(screen.getByTestId("ward-referral-match-no-bed")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-referral-match-structural-gap")).not.toBeInTheDocument();
-    expect(screen.getByTestId("ward-referral-match-accepting-count")).toHaveTextContent(/^0 of \d+ units/);
+    // M2: the denominator is pinned to the real network size. `/^0 of \d+ units/` also matched
+    // "0 of 0 units", so a mutation rendering `{accepting.length} of {accepting.length}` — or one
+    // excluding forensic beds from the denominator — passed it.
+    expect(screen.getByTestId("ward-referral-match-accepting-count")).toHaveTextContent(
+      `0 of ${allUnits().length} units accept this referral right now.`,
+    );
 
     const list = screen.getByTestId("ward-referral-match-list");
     const rows = within(list).getAllByRole("listitem");
-    expect(rows.length).toBe(allUnits().length);
+    // I1 (fix round C, F4): the phase's headline clinical-safety property — every unit renders in
+    // the network's own fixed order, and a row NEVER moves because it accepts the referral (spec
+    // D10: an ordering that looked like a recommendation would be one). `referralCandidates`'
+    // order preservation is well tested as a pure function; what this component RENDERS was not.
+    // A row count alone survives sorting every accepting unit to the top, because the count, the
+    // test ids, the reason strings and the uniqueness check are all unchanged by a reorder. This
+    // one assertion pins order, completeness and non-truncation together, and subsumes the row
+    // count it replaces.
+    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual(
+      allUnits().map((unit) => `ward-referral-match-row-${unit.id}`),
+    );
     expect(within(list).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  /**
+   * I1 (fix round C, F4) — SECOND HALF, and the half that actually bites. The review proposed
+   * this assertion on the RF-001 test alone. It was run against the mutation the review itself
+   * names (sorting every accepting unit to the top of `referral-match.tsx`'s list) and the whole
+   * suite stayed GREEN: RF-001 has ZERO accepting units, so an accepting-first sort is a no-op
+   * there and the RF-001 assertion cannot see it. RF-005 has four accepting units, so the same
+   * mutation genuinely reorders this list.
+   *
+   * The RF-001 assertion is kept — it still pins completeness and non-truncation for the
+   * zero-accepting case — but this is the one that guards spec D10's headline property: a row
+   * NEVER moves because it accepts the referral, because that ordering would read as a
+   * recommendation.
+   */
+  it("RF-005's match view renders every unit in the network's own fixed order, accepting units NOT floated to the top", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-005"));
+
+    const list = screen.getByTestId("ward-referral-match-list");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual(
+      allUnits().map((unit) => `ward-referral-match-row-${unit.id}`),
+    );
+    // The guard is only meaningful if some unit DOES accept — otherwise an accepting-first sort
+    // is a no-op and this test proves nothing, which is exactly how the RF-001 version failed.
+    expect(within(list).getAllByRole("button", { name: /^Accept at/ }).length).toBeGreaterThan(1);
   });
 
   it("accepting an eligible unit for RF-005 moves it from queued to recently decided", () => {
@@ -280,12 +385,19 @@ describe("ReferralBoard", () => {
 
     const list = screen.getByTestId("ward-referral-match-list");
     const acceptButtons = within(list).getAllByRole("button", { name: /^Accept at/ });
-    expect(acceptButtons.length).toBeGreaterThan(0);
+    // I2 (fix round C, F5): RF-005 has FOUR accepting units, so `/^Accepted at /` alone matched
+    // whichever ward the system happened to record. Making `handleAccept` ignore its `unitId`
+    // argument and dispatch a different accepting unit kept the old assertion green while the
+    // coordinator pressed "Accept at RPH Older Adult" and the record said Bentley. The clicked
+    // button's own label is captured here so the decided text has to name THAT unit.
+    expect(acceptButtons.length).toBeGreaterThan(1);
+    const clickedUnitName = acceptButtons[0].textContent?.replace(/^Accept at /, "") ?? "";
+    expect(clickedUnitName).not.toBe("");
     fireEvent.click(acceptButtons[0]);
 
     expect(screen.queryByTestId("ward-referral-board-select-RF-005")).not.toBeInTheDocument();
     expect(screen.getByTestId("ward-referral-board-decided-row-RF-005")).toBeInTheDocument();
-    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(/^Accepted at /);
+    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(`Accepted at ${clickedUnitName}.`);
   });
 
   it("declining a queued referral moves it to recently decided with the chosen reason", () => {
@@ -349,6 +461,12 @@ describe("ReferralMatchView — structural vs operational gap", () => {
     expect(banner).toHaveTextContent("No youth unit exists in this network.");
     expect(banner).not.toHaveTextContent(/no bed available/i);
     expect(screen.queryByTestId("ward-referral-match-no-bed")).not.toBeInTheDocument();
+    // I3 (fix round C, F6): the accepting-count paragraph used to render unconditionally, so this
+    // screen read "No youth unit exists in this network." followed by "0 of 22 units accept this
+    // referral right now." — and "right now" asserts that this may be different later, when there
+    // is no youth bed anywhere to free up. That is the structural/operational distinction the
+    // banner above exists to make, undone one line beneath it.
+    expect(screen.queryByTestId("ward-referral-match-accepting-count")).not.toBeInTheDocument();
   });
 
   it("the same age band against the real, unmodified network shows no structural gap", () => {
