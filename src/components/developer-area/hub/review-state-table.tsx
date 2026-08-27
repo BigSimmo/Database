@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { CARD_CLASS, META_CLASS, MONO_CLASS, ROW_CLASS } from "@/components/developer-area/hub/panel-primitives";
 import type { ReviewRecord } from "@/lib/developer-area/repo-awareness-types";
+
+export const REVIEW_STATE_PAGE_SIZE = 50;
 
 const DISCLOSURE_CLASS =
   "min-h-12 cursor-pointer text-xs font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -12,17 +14,31 @@ const DISCLOSURE_CLASS =
 const BUTTON_CLASS =
   "inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
+const DISABLED_BUTTON_CLASS =
+  "inline-flex min-h-10 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)] opacity-40";
+
+/**
+ * `records` here is already the current page's slice (~50 rows), sliced
+ * server-side by `ReviewStatePageContent` — never the full committed
+ * snapshot. Prev/Next are real `?page=N` navigation, not client state, so a
+ * page load only ever pulls the one page of records across the RSC
+ * boundary. See the PR #2449 review thread this replaced client-side
+ * `.slice()`-after-the-fact pagination for.
+ */
 export function ReviewStateTable({
   records,
-  defaultPageSize = 50,
+  page,
+  totalPages,
+  totalRecords,
+  startIndex,
 }: {
   records: readonly ReviewRecord[];
-  defaultPageSize?: number;
+  page: number;
+  totalPages: number;
+  totalRecords: number;
+  startIndex: number;
 }) {
-  const [page, setPage] = useState(1);
-  const pageSize = defaultPageSize;
-
-  if (records.length === 0) {
+  if (totalRecords === 0) {
     return (
       <p data-testid="developer-review-state-empty" className={META_CLASS}>
         No immutable review records are committed.
@@ -30,52 +46,52 @@ export function ReviewStateTable({
     );
   }
 
-  const totalRecords = records.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const endIndex = startIndex + records.length;
+  const previousHref = page > 1 ? `?page=${page - 1}` : null;
+  const nextHref = page < totalPages ? `?page=${page + 1}` : null;
 
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalRecords);
-  const currentRecords = records.slice(startIndex, endIndex);
+  const pager = (ariaLabel: string) => (
+    <div className="flex items-center gap-2" role="navigation" aria-label={ariaLabel}>
+      {previousHref ? (
+        <Link href={previousHref} aria-label="Previous page" className={BUTTON_CLASS}>
+          <ChevronLeft aria-hidden="true" className="size-4" />
+          Previous
+        </Link>
+      ) : (
+        <span aria-label="Previous page" aria-disabled="true" className={DISABLED_BUTTON_CLASS}>
+          <ChevronLeft aria-hidden="true" className="size-4" />
+          Previous
+        </span>
+      )}
+      <span className="px-2 text-xs font-bold text-[color:var(--text-heading)]">
+        {page} / {totalPages}
+      </span>
+      {nextHref ? (
+        <Link href={nextHref} aria-label="Next page" className={BUTTON_CLASS}>
+          Next
+          <ChevronRight aria-hidden="true" className="size-4" />
+        </Link>
+      ) : (
+        <span aria-label="Next page" aria-disabled="true" className={DISABLED_BUTTON_CLASS}>
+          Next
+          <ChevronRight aria-hidden="true" className="size-4" />
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div className="grid gap-4" data-testid="developer-review-state-paginated">
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--text-muted)]">
         <p data-testid="developer-review-state-pagination-summary">
-          Showing {startIndex + 1}–{endIndex} of {totalRecords} records (Page {currentPage} of {totalPages})
+          Showing {startIndex + 1}–{endIndex} of {totalRecords} records (Page {page} of {totalPages})
         </p>
 
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2" role="navigation" aria-label="Review records pagination">
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage <= 1}
-              aria-label="Previous page"
-              className={BUTTON_CLASS}
-            >
-              <ChevronLeft aria-hidden="true" className="size-4" />
-              Previous
-            </button>
-            <span className="px-2 text-xs font-bold text-[color:var(--text-heading)]">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage >= totalPages}
-              aria-label="Next page"
-              className={BUTTON_CLASS}
-            >
-              Next
-              <ChevronRight aria-hidden="true" className="size-4" />
-            </button>
-          </div>
-        )}
+        {totalPages > 1 && pager("Review records pagination")}
       </div>
 
       <ol data-testid="developer-review-state-records" className="grid gap-3">
-        {currentRecords.map((record, index) => {
+        {records.map((record, index) => {
           const globalIndex = startIndex + index;
           return (
             <li
@@ -98,35 +114,7 @@ export function ReviewStateTable({
         })}
       </ol>
 
-      {totalPages > 1 && (
-        <div className="flex justify-end pt-2">
-          <div className="flex items-center gap-2" role="navigation" aria-label="Review records pagination bottom">
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage <= 1}
-              aria-label="Previous page"
-              className={BUTTON_CLASS}
-            >
-              <ChevronLeft aria-hidden="true" className="size-4" />
-              Previous
-            </button>
-            <span className="px-2 text-xs font-bold text-[color:var(--text-heading)]">
-              {currentPage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage >= totalPages}
-              aria-label="Next page"
-              className={BUTTON_CLASS}
-            >
-              Next
-              <ChevronRight aria-hidden="true" className="size-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {totalPages > 1 && <div className="flex justify-end pt-2">{pager("Review records pagination bottom")}</div>}
     </div>
   );
 }
