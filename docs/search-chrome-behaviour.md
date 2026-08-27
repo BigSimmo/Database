@@ -458,6 +458,20 @@ in-page navigation work defaults to the DocumentViewer template above.
     omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
     the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+24. **A page fills the box it is in; it never subtracts a chrome estimate from `100dvh`.**
+    At `sm`+ the shell's `#main-content` grows into `.phone-viewport-frame` (`sm:grow`), the
+    `mobile-composer-reserve-pad` inside it is the fill box (`sm:flex sm:min-h-full sm:flex-col`),
+    and page shells grow into that pad (`sm:grow`). The dashboard mirrors this: its content
+    wrapper is `sm:flex sm:min-h-full sm:flex-col` and the mode-home canvas is `sm:grow sm:shrink-0`.
+    Do not reintroduce a `min-h-[calc(100dvh - <chrome estimate>)]` page floor. Three things such an
+    estimate cannot know, each measured as real dead scroll before this contract landed:
+    `--shell-header-h` (4rem) covers the header's inner bar plus `pb-2` but **not** its own
+    `pt-[max(0.5rem,var(--safe-area-top))]` (8px on every route); the `header-collapse-addon` nav row
+    on topic routes adds 49px more; and `#main-content`'s own `sm:pb-8` adds 32px. Pages whose
+    content had already ended carried 8-273px of scroll range as a result — a scrollbar on a page
+    that fits, and a wheel notch that jolts into the bottom stop. Phone floors are unaffected:
+    below `sm` the document owns scrolling and there is no bounded box to fill. Guarded by the
+    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`.
 
 The PWA notice rules that use `:has(#main-content ...)` are a deliberately
 bounded post-hydration exception. `#main-content` can disappear briefly while
