@@ -149,7 +149,7 @@ function PhoneHome({ style }: { style: ButtonStyle }) {
       </figcaption>
       <div
         data-testid={`calculators-show-all-frame-${style}`}
-        className="flex h-[44rem] flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--shadow-soft)]"
+        className="flex h-[44rem] flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--e2)]"
       >
         <PhoneChrome />
         <div className="grid justify-items-center gap-2.5 overflow-y-auto px-4 pb-6 pt-5">
@@ -172,7 +172,7 @@ function PhoneHome({ style }: { style: ButtonStyle }) {
           <form
             role="search"
             onSubmit={(event: FormEvent<HTMLFormElement>) => event.preventDefault()}
-            className="grid min-h-13 w-full grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-card)]"
+            className="grid min-h-13 w-full grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]"
           >
             <span className="grid h-tap w-tap place-items-center text-[color:var(--clinical-accent)]">
               <Plus className="size-icon-lg" aria-hidden="true" />

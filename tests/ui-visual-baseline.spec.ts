@@ -57,6 +57,11 @@ type BaselineTarget = {
 };
 
 const targets: readonly BaselineTarget[] = [
+  // Product surfaces only. Future AnswerCard baselines (DS-P2-23 / FIX-GUIDE residual)
+  // must include both frame="bare" (live answer-result-surface) and frame="raised"
+  // (default / design-sync preview). Do not add those targets, PNGs, or
+  // AWAITING_BASELINE ids here — there is no approval path without fake
+  // committed baselines.
   {
     name: "dashboard-shell",
     route: "/",

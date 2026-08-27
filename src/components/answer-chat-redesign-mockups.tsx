@@ -724,7 +724,7 @@ function DesktopFrame({ caption, children }: { caption: string; children: React.
       </figcaption>
       <div
         style={{ height: DESKTOP_HEIGHT }}
-        className="relative flex overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--shadow-soft)]"
+        className="relative flex overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--e2)]"
       >
         <div
           aria-hidden="true"
@@ -1237,7 +1237,7 @@ function DirectionSection({
   recommended?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
+    <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-3xl">
           <div className="flex flex-wrap items-center gap-2">
@@ -1303,7 +1303,7 @@ export function AnswerChatRedesignMockupsPage() {
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 text-[color:var(--text)] sm:px-6 sm:py-6">
       <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+        <header className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <span
               aria-hidden="true"
@@ -1331,7 +1331,7 @@ export function AnswerChatRedesignMockupsPage() {
           </div>
         </header>
 
-        <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
+        <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4">
           <h2 className="text-base font-semibold text-[color:var(--text-heading)]">What all three change</h2>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {[
@@ -1388,7 +1388,7 @@ export function AnswerChatRedesignMockupsPage() {
           cost="An underline is a weaker pointer than a number when two claims lean on the same source."
         />
 
-        <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
+        <section className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4">
           <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Side by side</h2>
           <div className="mt-3 overflow-x-auto">
             <table style={{ minWidth: "44rem" }} className="w-full border-separate border-spacing-0 text-left text-2xs">
