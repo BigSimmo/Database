@@ -2902,3 +2902,56 @@ itself, because the rebuilt thing works.
 mid-session more than once. A report that exists only as an untracked file is one sweep away from having
 genuinely never been written, which is presumably how the claim would have become true if nobody had looked.
 **Commit reports on arrival.**
+
+### Ruling [138] — Task P is ACCEPTED, and the two premises its brief carried were both wrong
+
+**Accepted 2026-08-27**, on the scoped re-review at `61acf531c` on `claude/caring-contacts-message-name`:
+verdict safe to merge, no Critical and no Major, five Minor and two Nit, none of which blocks a merge.
+
+**The load-bearing claim was verified by the controller rather than relayed**, because the whole reason
+this re-review existed is that round 2 touched `message-copy.ts` — the words a discharged patient reads.
+The reviewer's claim is that round 2 changed no executable line of that module. Checked two independent
+ways on the same tree: stripping comments from the file at the round-1 close and at HEAD gives byte-
+identical strings, and filtering the raw diff for changed lines that are not comment lines returns
+nothing at all. Every one of that file's insertions and deletions in round 2 is a documentation comment.
+**Across the whole branch the only change to any patient-visible string is the specimen name becoming a
+slot. Nothing was newly authored.**
+
+What a patient would read, stated because it is the question the re-review existed to answer: **nothing
+is sent to anyone — there is no send path in this tree**, and `resolvePatientVisibleMessage`'s only
+production callers are validation inside the wizard. Where a name is held and sendable the message is
+word-for-word what it was before the branch, with the name substituted. Where a name is absent,
+unsendable or over the cap, **the plan is refused and no message exists at all**. A refusal changes
+whether a plan can be created, never what a patient receives.
+
+**Premise one, wrong: the copy freeze.** Every brief in this phase — including the one I wrote for this
+re-review — said patient-visible copy was frozen pending the owner's answer. **He answered on 2026-08-24
+and approved all thirteen decisions**, and `875c8b604` removed the contradicting line from the decision
+record the same day. The plan's Global Constraints section was never updated and has now been marked
+superseded. What still binds, and what I had conflated with the freeze, is the narrower and permanent
+rule: **nobody in this programme may author patient-visible message wording.** A lifted freeze is not
+permission to write the words, and round 2 complies with the rule that survives.
+
+**Premise two, wrong, and this one is the more serious.** Four documents state that the message is
+"roughly nine characters from rejection". Computed directly from the module: the two-segment ceiling is
+**306 septets**, the message with its name slot empty costs **247**, and with the specimen name it costs
+**252** — **54 septets** of headroom, not nine characters.
+
+The origin is `copy-review.md`, which asserted the figure **and said it had been verified by running the
+counting code**. It was then relayed into the decision record, the Phase 2B plan and the Task C brief,
+and I relayed it once more into this re-review's own brief. All four sites are now corrected in place
+rather than overwritten, so the trail of the error survives.
+
+**The conclusion it was used to justify happens to stand, for a sharper reason.** All 54 remaining
+septets are already allocated to the preferred-name slot, whose cap is 59 — 247 plus 59 is exactly 306.
+So the room available for new **fixed** wording is **zero**, not nine characters. That distinction is not
+pedantry: "nine characters" invites trimming nine characters to make room for Lifeline, and nine
+characters would not be enough. **A9 must be re-put to the owner on the corrected reason**, because his
+approval of its deferral rests on a premise that was false.
+
+**The generalisable half. A stated verification that produced a wrong number is worse than an unverified
+claim.** An unverified claim invites checking; "I verified this by running the counting code, not by
+trusting a comment" closes the question for every later reader, and closed it four times. The standing
+rule already says a reviewer's factual claim is a claim rather than a finding already checked — this
+extends it: **a claim is not made safer by the reporter describing how they checked it.** Recompute the
+number, or repeat it as theirs.
