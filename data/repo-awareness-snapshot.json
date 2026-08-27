@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "d2c61c8cbddfb096e7b86e4dae1983dd1266a356",
-    "committed_at": "2026-08-27T09:12:09+08:00"
+    "sha": "f19eedb8b1bfec96cba467c915100e334cf60eb6",
+    "committed_at": "2026-08-27T11:39:51+08:00"
   },
   "routes": {
     "modes": [
@@ -2373,6 +2373,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
@@ -3795,8 +3800,8 @@
       }
     ],
     "counts": {
-      "documents": 467,
-      "catalogued": 102,
+      "documents": 468,
+      "catalogued": 103,
       "uncatalogued": 365,
       "sections": 18
     }
@@ -3810,6 +3815,22 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -24836,8 +24857,8 @@
       }
     ],
     "counts": {
-      "records": 2628,
-      "refs": 1605
+      "records": 2630,
+      "refs": 1607
     }
   }
 }

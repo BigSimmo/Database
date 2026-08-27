@@ -14,21 +14,33 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
-### Windows process-spawn diagnostic
+### Windows process-spawn diagnostic (#VV83VA)
 
-Before investigating a slow `git push`, `gh`, or pre-push guard on a Windows workstation, measure an unrelated local process spawn. In PowerShell:
+Before investigating a slow `git push`, `gh`, or pre-push guard on a Windows workstation, measure an unrelated local process spawn.
+
+In PowerShell:
 
 ```powershell
 Measure-Command { node --version }
+# or evaluating inline execution:
+Measure-Command { node -e "console.log(process.version)" }
 ```
 
 From `cmd.exe`, invoke the same measurement without relying on shell aliases:
 
 ```cmd
 powershell -NoProfile -Command "Measure-Command { node --version }"
+powershell -NoProfile -Command "Measure-Command { node -e 'console.log(process.version)' }"
 ```
 
-Subsecond completion is healthy; if this simple command takes multiple seconds, treat it as host process-spawn starvation rather than a repository or GitHub CLI fault. Close stale Codex and terminal sessions, then retry; reboot the workstation if the condition persists. Do not change Windows Defender, add security exclusions, or otherwise alter Windows security settings as part of this diagnosis.
+In Bash / WSL:
+
+```bash
+time node --version
+time node -e "console.log(process.version)"
+```
+
+Subsecond completion (<0.2s) is healthy; if this simple command takes multiple seconds (measured up to 17s on process-starved hosts vs 0.08s after reboot), treat it as host process-spawn starvation rather than a repository or GitHub CLI fault. Close stale Codex, Node, and terminal sessions, then retry; reboot the workstation if the condition persists. Do not change Windows Defender, add security exclusions, or otherwise alter Windows security settings as part of this diagnosis.
 
 ## Risk-based selection
 

@@ -718,11 +718,6 @@ export async function embedTexts(texts: string[], options?: { signal?: AbortSign
   }
 }
 
-export async function embedText(text: string, options?: { signal?: AbortSignal }) {
-  const { embedding } = await embedTextWithTelemetry(text, options);
-  return embedding;
-}
-
 function callerAbortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
 }

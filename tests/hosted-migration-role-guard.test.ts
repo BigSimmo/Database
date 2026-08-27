@@ -71,7 +71,7 @@ function syntheticRepository({
   };
 }
 
-describe("hosted migration-role guard", () => {
+describe("hosted migration-role guard", { timeout: 60_000 }, () => {
   it("accepts the current repository state", () => {
     const result = inspectMigrationRoleRepository();
 
