@@ -1,4 +1,9 @@
-export type { CompareCatalogItem, CompareSlot, CompareStarterChip } from "@/components/compare/types";
+export type {
+  CompareCatalogItem,
+  ComparePhoneLayout,
+  CompareSlot,
+  CompareStarterChip,
+} from "@/components/compare/types";
 export { CompareCatalogPicker } from "@/components/compare/compare-catalog-picker";
 export { CompareEmptyState } from "@/components/compare/compare-empty-state";
 export { CompareIdsChrome } from "@/components/compare/compare-ids-chrome";

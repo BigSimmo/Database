@@ -8,8 +8,14 @@ import { CompareEmptyState } from "@/components/compare/compare-empty-state";
 import { ComparePickerShell } from "@/components/compare/compare-picker-shell";
 import { CompareSlotStrip } from "@/components/compare/compare-slot-strip";
 import { assignCompareId, firstEmptySlot, padCompareIds, slotLetters } from "@/components/compare/filter-catalog";
-import type { CompareCatalogItem, CompareSlot, CompareStarterChip } from "@/components/compare/types";
+import type {
+  CompareCatalogItem,
+  ComparePhoneLayout,
+  CompareSlot,
+  CompareStarterChip,
+} from "@/components/compare/types";
 import { useComparePicker } from "@/components/compare/use-compare-picker";
+import { usePhoneMedia } from "@/components/compare/use-phone-media";
 
 export function CompareIdsChrome({
   selectedIds,
@@ -30,6 +36,8 @@ export function CompareIdsChrome({
   swapLabel,
   icon,
   filterLocally = true,
+  phoneLayout = "default",
+  slotSummaryLabel,
   showEmptyState = true,
   slotLayout = "default",
   onCommit,
@@ -52,12 +60,15 @@ export function CompareIdsChrome({
   swapLabel?: string;
   icon?: LucideIcon;
   filterLocally?: boolean;
+  phoneLayout?: ComparePhoneLayout;
+  slotSummaryLabel?: string;
   /** When slot placeholders already invite selection, skip the large dashed empty panel. */
   showEmptyState?: boolean;
   /** `compact` lays out three slots in a horizontal phone rail instead of a vertical stack. */
   slotLayout?: "default" | "compact";
   onCommit: (ids: Array<string | null>) => void;
 }) {
+  const phone = usePhoneMedia();
   const ids = padCompareIds(selectedIds, maxCount);
   const filled = ids.filter(Boolean).length;
   // When the empty panel is suppressed (compact slot rail + inline starters),
@@ -76,6 +87,7 @@ export function CompareIdsChrome({
       subtitle: item?.snippet ?? item?.tag,
     };
   });
+  const suppressEmptyState = phoneLayout === "hybrid" && phone && filled < minCount;
 
   function commit(next: Array<string | null>, chosenId?: string) {
     if (chosenId) {
@@ -98,6 +110,10 @@ export function CompareIdsChrome({
     onCommit([ids[1], ids[0]]);
   }
 
+  function openPicker() {
+    picker.openSlot(firstEmptySlot(ids) ?? 0);
+  }
+
   return (
     <>
       <CompareSlotStrip
@@ -109,7 +125,13 @@ export function CompareIdsChrome({
         onSwap={maxCount === 2 ? swap : undefined}
         swapLabel={swapLabel}
         changeLabel={changeLabel}
-        onChange={() => picker.openSlot(firstEmptySlot(ids) ?? 0)}
+        onChange={openPicker}
+        phoneLayout={phoneLayout}
+        actionLabel={actionLabel}
+        minCount={minCount}
+        slotSummaryLabel={slotSummaryLabel}
+        starters={starters}
+        onPrimaryAction={openPicker}
       />
       <ComparePickerShell
         open={picker.open}
@@ -140,13 +162,13 @@ export function CompareIdsChrome({
           starters={starters}
         />
       </ComparePickerShell>
-      {showEmptyState && filled < minCount ? (
+      {showEmptyState && filled < minCount && !suppressEmptyState ? (
         <CompareEmptyState
           icon={icon}
           title={emptyTitle}
           description={emptyDescription}
           actionLabel={actionLabel}
-          onAction={() => picker.openSlot(firstEmptySlot(ids) ?? 0)}
+          onAction={openPicker}
           chips={starters}
         />
       ) : null}

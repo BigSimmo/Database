@@ -457,6 +457,7 @@ function GlobalStandaloneSearchShellBody({
   const therapyCompareAddonActive =
     searchMode === "therapy-compass" &&
     isTherapyPhoneDockRoute(pathname) &&
+    pathname !== "/therapy-compass/compare" &&
     readTherapyCompareSlugCount(searchParams) > 0;
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
   // No shell-owned route claims the Patient details dock addon. `/medications`
