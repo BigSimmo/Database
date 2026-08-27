@@ -217,9 +217,9 @@ describe("every row of the frozen interaction matrix is accounted for by a trigg
   it("finds no trigger in a screen for an id the frozen table does not carry", () => {
     const frozen = new Set<string>(FROZEN_IDS);
     const strays: string[] = [];
-    for (const module of MODULES) {
-      for (const match of sourceOf(module).matchAll(/overlayId="([^"]+)"/g)) {
-        if (!frozen.has(match[1])) strays.push(`${module}: ${match[1]}`);
+    for (const screenModule of MODULES) {
+      for (const match of sourceOf(screenModule).matchAll(/overlayId="([^"]+)"/g)) {
+        if (!frozen.has(match[1])) strays.push(`${screenModule}: ${match[1]}`);
       }
     }
     expect(strays).toEqual([]);
@@ -241,9 +241,9 @@ describe("every row of the frozen interaction matrix is accounted for by a trigg
     const missing: string[] = [];
     for (const [id, record] of Object.entries(TRIGGER_INVENTORY)) {
       if (record.kind !== "literal") continue;
-      for (const module of record.modules) {
-        const source = sourceOf(module);
-        if (!source.includes("OverlayTrigger")) missing.push(`${id}: ${module} imports no overlay trigger`);
+      for (const screenModule of record.modules) {
+        const source = sourceOf(screenModule);
+        if (!source.includes("OverlayTrigger")) missing.push(`${id}: ${screenModule} imports no overlay trigger`);
       }
     }
     expect(missing).toEqual([]);
