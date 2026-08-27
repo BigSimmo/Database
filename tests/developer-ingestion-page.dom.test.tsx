@@ -137,6 +137,16 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not be reached/i);
   });
 
+  it("malformed JSON body on 200 response reports parse error rather than network failure", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("<html>Not JSON</html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+    );
+    render(<DeveloperIngestionPage />);
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/could not be parsed as json/i);
+    expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
+  });
+
   it("an unexpected payload shape degrades to the fetch-failed state rather than inventing zero jobs", async () => {
     // Never a real server response, but proves the panel does not silently
     // treat a malformed body as "zero jobs" — degrading conservatively per

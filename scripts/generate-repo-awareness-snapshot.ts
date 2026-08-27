@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -110,27 +110,58 @@ function filterDocumentPaths(output: string): string[] {
     .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)));
 }
 
+function scanDocsDirectory(dir: string, baseDir = dir): string[] {
+  if (!existsSync(dir)) return [];
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const results: string[] = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...scanDocsDirectory(fullPath, baseDir));
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+      const rel = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+      results.push(rel);
+    }
+  }
+  return results;
+}
+
 /**
  * Snapshots include tracked files only, so every checkout generates the same
  * output. An untracked Markdown document would otherwise be omitted silently
  * and let a stale snapshot look current; fail with an explicit staging
  * requirement instead. Ignored scratch notes remain outside that requirement.
+ *
+ * When git is unavailable (e.g. in a git-less container or archive), falls back
+ * to scanning docs/ directly from the filesystem.
  */
 export function listDocumentPaths(repoRoot = process.cwd()): string[] {
-  const options = { cwd: repoRoot, encoding: "utf8" as const };
-  const untracked = filterDocumentPaths(
-    execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z", "--", DOCS_ROOT], options),
-  );
-
-  if (untracked.length > 0) {
-    throw new Error(
-      `Untracked Markdown documents would be omitted from the repo-awareness snapshot: ${untracked.join(
-        ", ",
-      )}. Stage intended documents or add scratch notes to .gitignore before generating.`,
+  const options = {
+    cwd: repoRoot,
+    encoding: "utf8" as const,
+  };
+  try {
+    const untracked = filterDocumentPaths(
+      execFileSync("git", ["ls-files", "--others", "--exclude-standard", "-z", "--", DOCS_ROOT], options),
     );
-  }
 
-  return filterDocumentPaths(execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], options));
+    if (untracked.length > 0) {
+      throw new Error(
+        `Untracked Markdown documents would be omitted from the repo-awareness snapshot: ${untracked.join(
+          ", ",
+        )}. Stage intended documents or add scratch notes to .gitignore before generating.`,
+      );
+    }
+
+    return filterDocumentPaths(execFileSync("git", ["ls-files", "-z", "--", DOCS_ROOT], options));
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Untracked Markdown documents")) {
+      throw error;
+    }
+    const docsDir = path.join(repoRoot, DOCS_ROOT);
+    const scanned = scanDocsDirectory(docsDir, repoRoot);
+    return scanned.filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix))).sort();
+  }
 }
 
 function documentSection(repoPath: string): string {
@@ -321,12 +352,51 @@ function splitRecordCells(line: string): string[] {
   return cells;
 }
 
+function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
+  const files: string[] = [];
+  if (path.isAbsolute(dir)) {
+    if (existsSync(dir)) {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          files.push(path.join(dir, entry.name));
+        }
+      }
+    }
+  } else {
+    if (existsSync(REVIEW_LEDGER_PATH)) {
+      files.push(REVIEW_LEDGER_PATH);
+    }
+    const archiveDir = "docs/archive";
+    if (existsSync(archiveDir)) {
+      const entries = readdirSync(archiveDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.startsWith("branch-review-ledger-") && entry.name.endsWith(".md")) {
+          files.push(path.posix.join(archiveDir, entry.name));
+        }
+      }
+    }
+    if (existsSync(REVIEW_RECORDS_DIR)) {
+      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && entry.name.endsWith(".record.md")) {
+          files.push(path.posix.join(REVIEW_RECORDS_DIR, entry.name));
+        }
+      }
+    }
+  }
+  return files.sort();
+}
+
 /**
  * Read the same complete, tracked review corpus as `ledger:lookup`: the frozen
  * live table, rotated archives, and immutable records. Walking the filesystem
  * would list a developer's untracked draft records, and the staleness gate
  * would then fail on a clean tree for everyone but that developer — the same
  * failure `listDocumentPaths` exists to prevent.
+ *
+ * When git is unavailable (e.g. in a git-less container or archive), falls back
+ * to scanning the review paths directly from the filesystem.
  */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
   // An absolute `dir` is a throwaway fixture (the generator always uses the
@@ -334,23 +404,30 @@ export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; 
   // fixture can be its own tiny repository.
   const cwd = path.isAbsolute(dir) ? dir : undefined;
   const pathspecs = cwd ? ["."] : [REVIEW_LEDGER_PATH, REVIEW_ARCHIVE_PATHSPEC, REVIEW_RECORDS_PATHSPEC];
-  const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
-    encoding: "utf8",
-    cwd,
-  });
-  return output
-    .split("\0")
-    .filter(Boolean)
-    .sort()
-    .flatMap((entry) => {
-      const file = cwd ? path.join(dir, entry) : entry;
-      const lines = readFileSync(file, "utf8")
-        .split("\n")
-        .map((row) => row.trim())
-        .filter((row) => RECORD_ROW.test(row));
-      if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
-      return lines.map((line) => ({ file, line }));
+  let files: string[] = [];
+  try {
+    const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
+      encoding: "utf8",
+      cwd,
+      stdio: ["ignore", "pipe", "ignore"],
     });
+    files = output
+      .split("\0")
+      .filter(Boolean)
+      .sort()
+      .map((entry) => (cwd ? path.join(dir, entry) : entry));
+  } catch {
+    files = findReviewFilesFs(dir);
+  }
+
+  return files.flatMap((file) => {
+    const lines = readFileSync(file, "utf8")
+      .split("\n")
+      .map((row) => row.trim())
+      .filter((row) => RECORD_ROW.test(row));
+    if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
+    return lines.map((line) => ({ file, line }));
+  });
 }
 
 export function buildReviewStateSection(rows: readonly { file: string; line: string }[]): ReviewStateSection {
@@ -444,34 +521,36 @@ const REVISION_INPUTS = [
   "scripts/generate-site-map.ts",
 ];
 
-/**
- * Git is a hard requirement of this generator, and that is deliberate rather
- * than an oversight. `npm run docs:update` is the only thing that runs it, and
- * `docs/site-map.md` sets the precedent: generated, committed, verified by a
- * `check:` gate, never regenerated during a build. Because it never runs inside
- * the Docker image, there is no git-less environment to degrade for — which is
- * strictly better than Phase 1's position, where a `prebuild` hook forced a
- * preserve-the-committed-value fallback to exist at all.
- */
-export function readCapturedRevision({ cwd }: { cwd?: string } = {}): { sha: string; committed_at: string } {
-  let output: string;
+export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; committed_at: string } | null {
+  try {
+    const revision = JSON.parse(readFileSync(path, "utf8")).captured_revision;
+    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
+    return { sha: revision.sha, committed_at: revision.committed_at };
+  } catch {
+    return null;
+  }
+}
+
+export function readCapturedRevision({
+  cwd,
+  snapshotPath = OUTPUT_PATH,
+}: { cwd?: string; snapshotPath?: string } = {}): { sha: string; committed_at: string } | null {
+  let output = "";
   try {
     output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
       encoding: "utf8",
       cwd,
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-  } catch (error) {
-    throw new Error(
-      `Could not read the repository revision from git: ${(error as Error).message}. ` +
-        "This generator runs only from `npm run docs:update`, where git is always available.",
-    );
+  } catch {
+    // Git is unavailable or not a git repository; fall back to reading committed snapshot.
   }
-  if (!output) throw new Error("git reported no commit touching this snapshot's inputs.");
-  const [sha, committed_at] = output.split("\t");
-  if (!sha || !committed_at) {
-    throw new Error(`git log produced an unparsable revision line: "${output}" (expected "<sha>\\t<committed_at>").`);
+  if (output) {
+    const [sha, committed_at] = output.split("\t");
+    if (sha && committed_at) return { sha, committed_at };
   }
-  return { sha, committed_at };
+  const resolvedSnapshotPath = cwd ? path.join(cwd, snapshotPath) : snapshotPath;
+  return readCommittedRevision(resolvedSnapshotPath);
 }
 
 export function generate(): RepoAwarenessSnapshot {

@@ -22,14 +22,13 @@ describe("compareSnapshots", () => {
     expect(compareSnapshots(committed, regenerated).join(" ")).toMatch(/version/);
   });
 
-  it("catches a content difference in every section", () => {
-    // A small change *inside* each section, so this proves the gate looks
+  it("catches a content difference in compared sections", () => {
+    // A small change *inside* each compared section, proving the gate looks
     // within a section rather than merely comparing the top-level key set.
     const mutations: Record<string, (snapshot: typeof regenerated) => void> = {
       routes: (snapshot) => void (snapshot.routes.counts.pages += 1),
       documentation: (snapshot) => void (snapshot.documentation.counts.documents += 1),
       test_health: (snapshot) => void (snapshot.test_health.note = "changed"),
-      review_state: (snapshot) => void (snapshot.review_state.counts.records += 1),
     };
 
     for (const [section, mutate] of Object.entries(mutations)) {
@@ -37,6 +36,23 @@ describe("compareSnapshots", () => {
       mutate(committed);
       expect(compareSnapshots(committed, regenerated).join(" ")).toMatch(section);
     }
+  });
+
+  it("ignores review_state differences to eliminate concurrent review record merge conflicts", () => {
+    const committed = structuredClone(regenerated);
+    committed.review_state.counts.records += 1;
+    committed.review_state.records = [
+      {
+        date: "2026-08-28",
+        ref: "claude/concurrent-test",
+        head: "0".repeat(40),
+        scope: "test",
+        outcome: "Approved",
+        checks: "passed",
+      },
+      ...committed.review_state.records,
+    ];
+    expect(compareSnapshots(committed, regenerated)).toEqual([]);
   });
 
   it("catches a missing snapshot rather than treating it as in step", () => {

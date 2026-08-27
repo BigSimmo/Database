@@ -3343,7 +3343,7 @@ CREATE OR REPLACE FUNCTION public.set_owner_id_from_auth_uid()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'auth'
+ SET search_path = public, auth, pg_temp
 AS $function$
 begin
   if new.owner_id is null then
@@ -5226,7 +5226,7 @@ returns text
 language plpgsql
 stable
 security definer
-set search_path = pg_catalog, extensions
+set search_path = pg_catalog, extensions, pg_temp
 as $$
 declare
   tokens text[];
@@ -5899,7 +5899,7 @@ create or replace function public.create_uploaded_document_with_ingestion_job(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_document public.documents%rowtype;
