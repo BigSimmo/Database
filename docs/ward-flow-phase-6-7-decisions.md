@@ -44,23 +44,41 @@ These are **not one flat list of eight labels.** They are separate dimensions th
 owner said so explicitly: the legal-status pair cuts across the age categories, so any age category
 may be either.
 
-| Dimension        | Values                      |
-| ---------------- | --------------------------- |
-| **Age**          | Older Adult · Adult · Youth |
-| **Legal status** | Voluntary · Involuntary     |
-| **Sex**          | Female Bed · Male Bed       |
-| **Forensic**     | Forensic                    |
+| Dimension        | Values                                           |
+| ---------------- | ------------------------------------------------ |
+| **Age**          | Older Adult · Adult · Youth                      |
+| **Legal status** | Voluntary · Involuntary                          |
+| **Sex**          | Undesignated (default) · Female only · Male only |
+| **Forensic**     | Forensic · not forensic                          |
 
-A bed is therefore described by a combination — an _Adult, Involuntary, Male_ bed — rather than by
-picking one label from a list.
+A bed is therefore described by a combination — an _Adult, Involuntary, Forensic_ bed that is
+undesignated for sex — rather than by picking one label from a list.
 
-**Two readings assumed pending confirmation**, both cheap to change and both flagged to the owner:
+**Both readings were confirmed by the owner on 2026-08-27**, and one of them corrected an
+assumption that had been recorded wrongly:
 
-1. **Forensic is treated as its own fourth dimension**, so an "Adult, Involuntary, Male, Forensic"
-   bed is expressible, rather than Forensic standing alone and replacing the other three.
-2. **Every bed is designated Female or Male.** No undesignated or mixed beds.
+1. **Forensic is its own fourth dimension and combines with the others.** Confirmed as assumed.
+   An "Adult, Involuntary, Male-only, Forensic" bed is expressible. Forensic does not stand alone
+   or replace the other three.
+2. **Most beds are undesignated for sex; some are female-only or male-only.** This **corrects** the
+   earlier assumption that every bed carries a designation. Undesignated is the normal case and
+   should be the default, not an exceptional value bolted on.
 
-If either is wrong, correct it here before the Phase 7 specification is written.
+### Why the sex dimension is a constraint, not an attribute
+
+This one behaves differently from the other three and the distinction matters for matching:
+
+- **Undesignated** places no restriction. Any patient may occupy the bed.
+- **Female only** and **Male only** restrict who may occupy it.
+
+So sex-designation is a **property of the bed that constrains which referrals fit**, not a
+description of an occupant. A matching rule that treats it as a value to compare for equality will
+wrongly exclude every referral from every undesignated bed — which, since undesignated is the
+majority case, would break matching almost entirely. Model it as "does this bed accept this
+person", never as "does this bed's sex equal this person's sex".
+
+This is also why sex is one of the three permitted referral fields: without it, a referral cannot be
+tested against a designated bed at all.
 
 ### Legal status may be shown as a plain label
 
@@ -97,5 +115,9 @@ reflect how any of this works, and a fixed reason list keeps free text out.
 
 ## Still open
 
-- The two assumed readings of the bed-category model, above.
 - Everything the clinician check comes back with.
+
+Both bed-category readings were confirmed by the owner on 2026-08-27 and are no longer open. One of
+them — sex designation — corrected an assumption recorded here wrongly, which is precisely the
+reason assumptions are written down as assumptions rather than folded silently into a
+specification.

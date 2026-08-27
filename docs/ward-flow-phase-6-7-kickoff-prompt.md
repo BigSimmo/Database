@@ -83,11 +83,19 @@ Ask me before designing anything that would need a fact neither of us has.
 
 ---
 
-## Two things this prompt deliberately leaves open
+## The bed-category model, settled 2026-08-27
 
-Both are recorded in `docs/ward-flow-phase-6-7-decisions.md` under "Still open", and both are cheap
-to settle at the start of the design conversation:
+Both previously open questions were answered by the owner and are recorded in
+`docs/ward-flow-phase-6-7-decisions.md`. The design conversation should treat them as decided:
 
-1. Whether **Forensic** is a fourth independent dimension of a bed, or a standalone category that
-   replaces the others.
-2. Whether **every bed is designated Female or Male**, or some are undesignated.
+1. **Forensic is a fourth independent dimension** and combines with the other three.
+2. **Most beds are undesignated for sex**; some are female-only or male-only. Undesignated is the
+   default and the majority case.
+
+The second one corrected an assumption that had been written down wrongly, so read the decisions
+document rather than working from memory or from an older copy of this file.
+
+**One trap the design must not fall into.** Sex designation is a constraint on who may occupy a
+bed, not an attribute to compare for equality. Matching "bed sex equals patient sex" excludes every
+referral from every undesignated bed — the majority of them. The rule is "does this bed accept this
+person".
