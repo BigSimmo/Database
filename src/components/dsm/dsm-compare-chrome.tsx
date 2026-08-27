@@ -40,7 +40,12 @@ export function DsmCompareChrome({
       phoneLayout="hybrid"
       slotSummaryLabel="Up to 3 diagnoses"
       onCommit={(ids) =>
-        router.push(idsCompareHref("/dsm/compare", ids.filter((id): id is string => Boolean(id))))
+        router.push(
+          idsCompareHref(
+            "/dsm/compare",
+            ids.filter((id): id is string => Boolean(id)),
+          ),
+        )
       }
     />
   );
