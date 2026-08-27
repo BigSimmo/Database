@@ -1,0 +1,806 @@
+﻿Static PR checks	UNKNOWN STEP	∩╗┐2026-08-26T22:22:41.3298917Z Current runner version: '2.336.0'
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3323677Z ##[group]Runner Image Provisioner
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3324643Z Hosted Compute Agent
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3325261Z Version: 20260819.586
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3325905Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3326609Z Build Date: 2026-08-18T23:20:18Z
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3327295Z Worker ID: {92426dd0-46c9-4365-a83c-22bf12d5f4fa}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3327993Z Azure Region: westus3
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3328551Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3330137Z ##[group]Operating System
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3330740Z Ubuntu
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3331263Z 24.04.4
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3331808Z LTS
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3332484Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3333070Z ##[group]Runner Image
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3333776Z Image: ubuntu-24.04
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3334355Z Version: 20260823.283.1
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3335777Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260823.283/images/ubuntu/Ubuntu2404-Readme.md
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3337293Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260823.283
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3338209Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3339319Z ##[group]GITHUB_TOKEN Permissions
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3341355Z Contents: read
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3342191Z Metadata: read
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3342829Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3344832Z Secret source: Actions
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3345976Z Prepare workflow directory
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3750614Z Prepare all required actions
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.3801011Z Getting action download info
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.6583302Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9031014Z Complete job name: Static PR checks
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9917076Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9918142Z with:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9918628Z   fetch-depth: 0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9919157Z   persist-credentials: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9919816Z   repository: BigSimmo/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9924071Z   token: ***
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9924604Z   ssh-strict: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9925113Z   ssh-user: git
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9925584Z   clean: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9926110Z   sparse-checkout-cone-mode: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9926717Z   fetch-tags: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9927549Z   show-progress: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9928111Z   lfs: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9928578Z   submodules: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9929105Z   set-safe-directory: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9929664Z   allow-unsafe-pr-checkout: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9930449Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9931112Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9932324Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9933151Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:41.9933725Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0919293Z Syncing repository: BigSimmo/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0921144Z ##[group]Getting Git version info
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0922263Z Working directory is '/home/runner/work/Database/Database'
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0923549Z [command]/usr/bin/git version
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0973119Z git version 2.55.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.0990953Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1000044Z Temporarily overriding HOME='/home/runner/work/_temp/cad4405b-850d-442a-849c-ee4ea5083d19' before making global git config changes
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1001944Z Adding repository directory to the temporary git global config as a safe directory
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1005893Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Database/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1047019Z Deleting the contents of '/home/runner/work/Database/Database'
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1049993Z ##[group]Determining repository object format
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1051453Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1052969Z ##[group]Initializing the repository
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1056848Z [command]/usr/bin/git init /home/runner/work/Database/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1126164Z hint: Using 'master' as the name for the initial branch. This default branch name
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1128602Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1130125Z hint: to use in all of your new repositories, which will suppress this warning,
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1131279Z hint: call:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1131876Z hint:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1132988Z hint: 	git config --global init.defaultBranch <name>
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1133937Z hint:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1134856Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1136664Z hint: 'development'. The just-created branch can be renamed via this command:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1138020Z hint:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1138985Z hint: 	git branch -m <name>
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1139870Z hint:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1140948Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1142817Z Initialized empty Git repository in /home/runner/work/Database/Database/.git/
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1145657Z [command]/usr/bin/git remote add origin https://github.com/BigSimmo/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1176903Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1178183Z ##[group]Disabling automatic garbage collection
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1180658Z [command]/usr/bin/git config --local gc.auto 0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1206876Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1207996Z ##[group]Setting up auth
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1208739Z Removing SSH command configuration
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1212248Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1239778Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1520914Z Removing HTTP extra header
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1527296Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1553241Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1727217Z Removing includeIf entries pointing to credentials config files
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1732434Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1758634Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1941373Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.1976887Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Database/Database/.git.path /home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2001838Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/Database/Database/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2028841Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2053561Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2074903Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2075746Z ##[group]Fetching the repository
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:42.2081317Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +5122a7ceaec1ce3ff9c63798b118a113576f2df4:refs/remotes/pull/2394/merge
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9949505Z From https://github.com/BigSimmo/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9950871Z  * [new branch]        agent/codex-cloud-shell-sanitization -> origin/agent/codex-cloud-shell-sanitization
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9951909Z  * [new branch]        autopilot/pr-1768          -> origin/autopilot/pr-1768
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9952939Z  * [new branch]        claude/answer-safety-notice -> origin/claude/answer-safety-notice
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9954111Z  * [new branch]        claude/browse-sources-filter-pages-h51y6h -> origin/claude/browse-sources-filter-pages-h51y6h
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9955383Z  * [new branch]        claude/browser-test-gate-handoff-d5c1db -> origin/claude/browser-test-gate-handoff-d5c1db
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9956661Z  * [new branch]        claude/catalogue-toolbar-formulation-039 -> origin/claude/catalogue-toolbar-formulation-039
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9957684Z  * [new branch]        claude/clever-edison-167y82 -> origin/claude/clever-edison-167y82
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9958399Z  * [new branch]        claude/consolidated-sentry-fixes -> origin/claude/consolidated-sentry-fixes
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9959308Z  * [new branch]        claude/database-drift-allowlist-48839e -> origin/claude/database-drift-allowlist-48839e
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9960143Z  * [new branch]        claude/developer-button-settings-fb9b51 -> origin/claude/developer-button-settings-fb9b51
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9961028Z  * [new branch]        claude/document-image-mobile-view-30xzw8 -> origin/claude/document-image-mobile-view-30xzw8
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9961960Z  * [new branch]        claude/document-summary-naming-pc4q76 -> origin/claude/document-summary-naming-pc4q76
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9963261Z  * [new branch]        claude/document-viewer-phase-3-bj5k5v -> origin/claude/document-viewer-phase-3-bj5k5v
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9964735Z  * [new branch]        claude/ds-handover         -> origin/claude/ds-handover
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9965488Z  * [new branch]        claude/fable-tasks-issues-49hnvp -> origin/claude/fable-tasks-issues-49hnvp
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9966376Z  * [new branch]        claude/frontend-design-6sl1ft -> origin/claude/frontend-design-6sl1ft
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9967390Z  * [new branch]        claude/fuzzy-search-reland-cap-aobmqx -> origin/claude/fuzzy-search-reland-cap-aobmqx
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9968267Z  * [new branch]        claude/github-ci-testing-delays-jd43ky -> origin/claude/github-ci-testing-delays-jd43ky
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9969102Z  * [new branch]        claude/header-design-mockups-kyopo6 -> origin/claude/header-design-mockups-kyopo6
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9969872Z  * [new branch]        claude/inpage-nav-info-pages-v8rhnd -> origin/claude/inpage-nav-info-pages-v8rhnd
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9970672Z  * [new branch]        claude/live-drift-routing-lnhvja -> origin/claude/live-drift-routing-lnhvja
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9971502Z  * [new branch]        claude/loading-animation-redesign-zdcba4 -> origin/claude/loading-animation-redesign-zdcba4
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9972604Z  * [new branch]        claude/local-cloud-profile-skills -> origin/claude/local-cloud-profile-skills
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9973475Z  * [new branch]        claude/local-cloud-settings-migration-bf4707 -> origin/claude/local-cloud-settings-migration-bf4707
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9974321Z  * [new branch]        claude/open-prs-r12tsq     -> origin/claude/open-prs-r12tsq
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9974990Z  * [new branch]        claude/phase5-review-followup -> origin/claude/phase5-review-followup
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9975713Z  * [new branch]        claude/plan-implementation-3t2vl5 -> origin/claude/plan-implementation-3t2vl5
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9976504Z  * [new branch]        claude/pr-1615-issues-capture-x78vm6 -> origin/claude/pr-1615-issues-capture-x78vm6
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9977461Z  * [new branch]        claude/review-merge-open-prs-lpplaq -> origin/claude/review-merge-open-prs-lpplaq
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9978414Z  * [new branch]        claude/session-findings-2270-a -> origin/claude/session-findings-2270-a
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9979162Z  * [new branch]        claude/settings-development-section -> origin/claude/settings-development-section
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9980114Z  * [new branch]        claude/supabase-automode-softdeny-relanded -> origin/claude/supabase-automode-softdeny-relanded
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9981074Z  * [new branch]        claude/therapy-comparison-mobile-design-z0dagr -> origin/claude/therapy-comparison-mobile-design-z0dagr
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9981925Z  * [new branch]        claude/therapy-production-visibility -> origin/claude/therapy-production-visibility
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9982909Z  * [new branch]        claude/unblock-prs-agents-y1ukr1 -> origin/claude/unblock-prs-agents-y1ukr1
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9983660Z  * [new branch]        claude/ward-flow-phase-4-spec -> origin/claude/ward-flow-phase-4-spec
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9984426Z  * [new branch]        codex/agent-policy-hardening-20260823 -> origin/codex/agent-policy-hardening-20260823
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9985259Z  * [new branch]        codex/caring-contact-design-20260815 -> origin/codex/caring-contact-design-20260815
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9986090Z  * [new branch]        codex/chat-full-page-review-speedup-96de -> origin/codex/chat-full-page-review-speedup-96de
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9986859Z  * [new branch]        codex/chat-mode-home-copy-9d76 -> origin/codex/chat-mode-home-copy-9d76
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9987600Z  * [new branch]        codex/chat-perf-metadata-cd20 -> origin/codex/chat-perf-metadata-cd20
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9988422Z  * [new branch]        codex/chat-pr1485-final-audit-pr1485-final-audit -> origin/codex/chat-pr1485-final-audit-pr1485-final-audit
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9989294Z  * [new branch]        codex/cloud-mcp-activation-test -> origin/codex/cloud-mcp-activation-test
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9990084Z  * [new branch]        codex/cloud-mcp-parity-20260804 -> origin/codex/cloud-mcp-parity-20260804
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9990798Z  * [new branch]        codex/combined-wip-backups-20260807 -> origin/codex/combined-wip-backups-20260807
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9991606Z  * [new branch]        codex/consolidated-cloud-parity -> origin/codex/consolidated-cloud-parity
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9992691Z  * [new branch]        codex/consolidated-provider-validation -> origin/codex/consolidated-provider-validation
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9993580Z  * [new branch]        codex/document-back-history -> origin/codex/document-back-history
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9994367Z  * [new branch]        codex/issue-ledger-audit-findings-20260805 -> origin/codex/issue-ledger-audit-findings-20260805
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9995236Z  * [new branch]        codex/optimize-layout-and-fix-toggle-bug -> origin/codex/optimize-layout-and-fix-toggle-bug
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9996068Z  * [new branch]        codex/performance-css-delivery -> origin/codex/performance-css-delivery
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9996819Z  * [new branch]        codex/pr1998-review-maintenance -> origin/codex/pr1998-review-maintenance
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9997553Z  * [new branch]        codex/rag-next-issues-20260731 -> origin/codex/rag-next-issues-20260731
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9998319Z  * [new branch]        codex/rag-numeric-grounding-231 -> origin/codex/rag-numeric-grounding-231
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9998991Z  * [new branch]        codex/source-only-warning  -> origin/codex/source-only-warning
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:49.9999859Z  * [new branch]        codex/standardise-multi-page-mode-nav -> origin/codex/standardise-multi-page-mode-nav
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0000924Z  * [new branch]        codex/tmp-conflicts-1890-20260813 -> origin/codex/tmp-conflicts-1890-20260813
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0001646Z  * [new branch]        codex/tmp-fix-1896-20260813 -> origin/codex/tmp-fix-1896-20260813
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0002534Z  * [new branch]        codex/tmp-prettier-1895-20260813 -> origin/codex/tmp-prettier-1895-20260813
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0003307Z  * [new branch]        codex/tmp-prettier-1898-20260813 -> origin/codex/tmp-prettier-1898-20260813
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0004162Z  * [new branch]        copilot/fix-comments-merge-conflicts-ci-tests -> origin/copilot/fix-comments-merge-conflicts-ci-tests
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0005092Z  * [new branch]        copilot/fix-failing-github-actions-job -> origin/copilot/fix-failing-github-actions-job
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0006184Z  * [new branch]        copilot/fix-open-prs       -> origin/copilot/fix-open-prs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0007000Z  * [new branch]        copilot/investigate-ci-failure -> origin/copilot/investigate-ci-failure
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0007999Z  * [new branch]        copilot/task-87357024-1243497866-dae3c08d-2f62-4854-a314-73310e237ad4 -> origin/copilot/task-87357024-1243497866-dae3c08d-2f62-4854-a314-73310e237ad4
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0009054Z  * [new branch]        cursor/also-matches-modes-spacing-67a5 -> origin/cursor/also-matches-modes-spacing-67a5
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0009879Z  * [new branch]        cursor/answer-chat-mockups-025d -> origin/cursor/answer-chat-mockups-025d
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0010634Z  * [new branch]        cursor/category-filter-mockups-8e31 -> origin/cursor/category-filter-mockups-8e31
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0011528Z  * [new branch]        cursor/clinician-workflow-mockups-2b63 -> origin/cursor/clinician-workflow-mockups-2b63
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0012817Z  * [new branch]        cursor/cloud-agent-1786254455373-m2oux -> origin/cursor/cloud-agent-1786254455373-m2oux
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0013695Z  * [new branch]        cursor/cloud-agent-1786254507563-puu7v -> origin/cursor/cloud-agent-1786254507563-puu7v
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0014507Z  * [new branch]        cursor/cloud-env-setup-node24-7d39 -> origin/cursor/cloud-env-setup-node24-7d39
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0015364Z  * [new branch]        cursor/dictionary-control-row-polish-4ee0 -> origin/cursor/dictionary-control-row-polish-4ee0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0016294Z  * [new branch]        cursor/dictionary-heading-controls-mockup-4ee0 -> origin/cursor/dictionary-heading-controls-mockup-4ee0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0017303Z  * [new branch]        cursor/dictionary-no-title-top-search-4ee0 -> origin/cursor/dictionary-no-title-top-search-4ee0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0018656Z  * [new branch]        cursor/dictionary-title-off-top-search-4ee0 -> origin/cursor/dictionary-title-off-top-search-4ee0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0019601Z  * [new branch]        cursor/disable-github-mcp-plugin-9f86 -> origin/cursor/disable-github-mcp-plugin-9f86
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0020419Z  * [new branch]        cursor/document-cover-thumbnails-b74c -> origin/cursor/document-cover-thumbnails-b74c
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0021219Z  * [new branch]        cursor/fix-lighthouse-chrome-pin -> origin/cursor/fix-lighthouse-chrome-pin
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0022231Z  * [new branch]        cursor/fix-pr-1616-a11y-regressions-48dc -> origin/cursor/fix-pr-1616-a11y-regressions-48dc
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0023067Z  * [new branch]        cursor/fix-pr1647-ci-de4d  -> origin/cursor/fix-pr1647-ci-de4d
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0023797Z  * [new branch]        cursor/guide-wireframe-mockups-781a -> origin/cursor/guide-wireframe-mockups-781a
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0024664Z  * [new branch]        cursor/issues-queue-286-ledger-1754-e72b -> origin/cursor/issues-queue-286-ledger-1754-e72b
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0025505Z  * [new branch]        cursor/ledger-fastest-wins-capture-1479 -> origin/cursor/ledger-fastest-wins-capture-1479
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0026338Z  * [new branch]        cursor/ledger-supersede-1648-1686-1388 -> origin/cursor/ledger-supersede-1648-1686-1388
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0027236Z  * [new branch]        cursor/lighthouse-budget-chrome-drift-624a -> origin/cursor/lighthouse-budget-chrome-drift-624a
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0028023Z  * [new branch]        cursor/mode-nav-pr-1647-a5eb -> origin/cursor/mode-nav-pr-1647-a5eb
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0028686Z  * [new branch]        cursor/mode-nav-pr-1647-e77c -> origin/cursor/mode-nav-pr-1647-e77c
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0029471Z  * [new branch]        cursor/phone-mode-dense-glance-05c0 -> origin/cursor/phone-mode-dense-glance-05c0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0030278Z  * [new branch]        cursor/phone-mode-sheet-mockups-05c0 -> origin/cursor/phone-mode-sheet-mockups-05c0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0031084Z  * [new branch]        cursor/phone-mode-sheet-yes-05c0 -> origin/cursor/phone-mode-sheet-yes-05c0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0031869Z  * [new branch]        cursor/pr-1616-ci-fixes-7c72 -> origin/cursor/pr-1616-ci-fixes-7c72
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0032745Z  * [new branch]        cursor/pr-1779-review-fixes-8478 -> origin/cursor/pr-1779-review-fixes-8478
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0033508Z  * [new branch]        cursor/pr-babysit-prompts-05d7 -> origin/cursor/pr-babysit-prompts-05d7
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0034361Z  * [new branch]        cursor/privacy-live-signal-variants-bc81 -> origin/cursor/privacy-live-signal-variants-bc81
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0035182Z  * [new branch]        cursor/run-pr-sweep-ledger-ec94 -> origin/cursor/run-pr-sweep-ledger-ec94
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0035890Z  * [new branch]        cursor/run-pr-sweep-ledger-f578 -> origin/cursor/run-pr-sweep-ledger-f578
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0036604Z  * [new branch]        cursor/services-in-page-nav-df07 -> origin/cursor/services-in-page-nav-df07
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0037404Z  * [new branch]        cursor/settings-features-mockups-97ac -> origin/cursor/settings-features-mockups-97ac
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0038330Z  * [new branch]        cursor/ship-first-redesign-mockups-2398 -> origin/cursor/ship-first-redesign-mockups-2398
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0039539Z  * [new branch]        cursor/tools-search-mockups-72e1 -> origin/cursor/tools-search-mockups-72e1
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0040391Z  * [new branch]        cursor/verification-notice-subtle-lockups-51e0 -> origin/cursor/verification-notice-subtle-lockups-51e0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0041223Z  * [new branch]        cursor/wire-settings-sign-in-3947 -> origin/cursor/wire-settings-sign-in-3947
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0042283Z  * [new branch]        dependabot/npm_and_yarn/npm-development-2db4774c1b -> origin/dependabot/npm_and_yarn/npm-development-2db4774c1b
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0043535Z  * [new branch]        dependabot/npm_and_yarn/npm-production-9d7c78ff3c -> origin/dependabot/npm_and_yarn/npm-production-9d7c78ff3c
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0044608Z  * [new branch]        fix/reject-static-asset-posts -> origin/fix/reject-static-asset-posts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0045468Z  * [new branch]        gemini/design-system-component-adoption -> origin/gemini/design-system-component-adoption
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0046276Z  * [new branch]        gemini/safe-ledger-and-ui-swarm-batch -> origin/gemini/safe-ledger-and-ui-swarm-batch
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0047076Z  * [new branch]        gemini/taxonomy-split-thresholds -> origin/gemini/taxonomy-split-thresholds
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0047734Z  * [new branch]        main                       -> origin/main
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0048271Z  * [new branch]        pr-1820-babysit            -> origin/pr-1820-babysit
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0048908Z  * [new branch]        pr-1826-babysit            -> origin/pr-1826-babysit
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0049872Z  * [new branch]        railway/code-change-qKqEwl -> origin/railway/code-change-qKqEwl
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0050593Z  * [new tag]           archive/responsive-mockups -> archive/responsive-mockups
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0051223Z  * [new ref]           5122a7ceaec1ce3ff9c63798b118a113576f2df4 -> pull/2394/merge
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0053254Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0053897Z ##[group]Determining the checkout info
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0054567Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0054972Z [command]/usr/bin/git sparse-checkout disable
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0056026Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0057381Z ##[group]Checking out the ref
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.0058077Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/2394/merge
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6459938Z Note: switching to 'refs/remotes/pull/2394/merge'.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6461468Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6461832Z You are in 'detached HEAD' state. You can look around, make experimental
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6462885Z changes and commit them, and you can discard any commits you make in this
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6463468Z state without impacting any branches by switching back to a branch.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6463805Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6464135Z If you want to create a new branch to retain commits you create, you may
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6465013Z do so (now or later) by using -c with the switch command. Example:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6465318Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6465546Z   git switch -c <new-branch-name>
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6465762Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6465977Z Or undo this operation with:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6466166Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6466338Z   git switch -
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6466990Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6467588Z Turn off this advice by setting config variable advice.detachedHead to false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6467953Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6468363Z HEAD is now at 5122a7ce Merge db48aef0c2667301a02bc9398efc05cd38fd084b into c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6485829Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6525774Z [command]/usr/bin/git log -1 --format=%H
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6548245Z 5122a7ceaec1ce3ff9c63798b118a113576f2df4
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6557051Z ##[group]Removing auth
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6557706Z Removing SSH command configuration
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6561742Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6589167Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6777008Z Removing HTTP extra header
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6780354Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6807943Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.6999138Z Removing includeIf entries pointing to credentials config files
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7001218Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7023755Z includeif.gitdir:/home/runner/work/Database/Database/.git.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7024542Z includeif.gitdir:/home/runner/work/Database/Database/.git/worktrees/*.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7025169Z includeif.gitdir:/github/workspace/.git.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7025804Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7032148Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Database/Database/.git.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7051867Z /home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7060748Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Database/Database/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-851f49b1\-4456\-4cc5\-b794\-30be687d2039\.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7087061Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/Database/Database/.git/worktrees/*.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7106728Z /home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7113975Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/Database/Database/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-851f49b1\-4456\-4cc5\-b794\-30be687d2039\.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7139746Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7159849Z /github/runner_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7167895Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-851f49b1\-4456\-4cc5\-b794\-30be687d2039\.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7195632Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7215296Z /github/runner_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7226293Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-851f49b1\-4456\-4cc5\-b794\-30be687d2039\.config
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7296106Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7473344Z Removing credentials config '/home/runner/work/_temp/git-credentials-851f49b1-4456-4cc5-b794-30be687d2039.config'
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7479329Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7721596Z Prepare all required actions
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.7722461Z Getting action download info
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:50.8834514Z Download action repository 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0367211Z ##[group]Run ./.github/actions/setup-node-cached
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0367660Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0368158Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0368758Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0369251Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0369668Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0433186Z ##[start-action display=Setup Node.js;id=__self.__actions_setup-node]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0526719Z ##[group]Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0527211Z with:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0527553Z   node-version-file: .nvmrc
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0527955Z   cache: npm
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0528363Z   cache-dependency-path: package-lock.json
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0528781Z   check-latest: false
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0531300Z   token: ***
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0531691Z   package-manager-cache: true
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0532215Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0532639Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0533223Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0533655Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.0534003Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.1779129Z Resolved .nvmrc as 24
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.2044084Z Found in cache @ /opt/hostedtoolcache/node/24.19.0/x64
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:51.2045949Z ##[group]Environment details
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:55.7448916Z node: v24.19.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:55.7449696Z npm: 11.17.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:55.7450370Z yarn: 1.22.22
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:55.7451492Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:55.7465526Z [command]/opt/hostedtoolcache/node/24.19.0/x64/bin/npm config get cache
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.1643328Z /home/runner/.npm
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.3817959Z Cache hit for: node-cache-Linux-x64-npm-056861d03b3bf9f84c2facb1f7f5c8cc85f2c1a58dcf92c98b5da6807b87f158
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8168744Z Received 685 of 685 (100.0%), 0.0 MBs/sec
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8170283Z Cache Size: ~0 MB (685 B)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8200336Z [command]/usr/bin/tar -xf /home/runner/work/_temp/df36c539-28ee-46b7-8648-fd573e8aef00/cache.tzst -P -C /home/runner/work/Database/Database --use-compress-program unzstd
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8256406Z Cache restored successfully
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8260527Z Cache restored from key: node-cache-Linux-x64-npm-056861d03b3bf9f84c2facb1f7f5c8cc85f2c1a58dcf92c98b5da6807b87f158
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8335184Z ##[end-action id=__self.__actions_setup-node;outcome=success;conclusion=success;duration_ms=5790]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8339097Z ##[start-action display=Install dependencies;id=__self.__run]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8380883Z ##[group]Run npm ci --include=dev
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8381448Z ^[[36;1mnpm ci --include=dev^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8420009Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8420447Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8421001Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8421592Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8422230Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:22:56.8422595Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:01.2393872Z npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8506823Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8508065Z > prompt-for-codex-medical-knowledge-base@0.1.0 preinstall
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8508891Z > node scripts/check-node-engine.cjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8509097Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8875448Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8876598Z > prompt-for-codex-medical-knowledge-base@0.1.0 postinstall
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8878149Z > node scripts/check-installed-lock-parity.mjs --write-stamp && node scripts/install-git-hooks.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:18.8878858Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.1593609Z [installed-lock-parity] wrote trusted install stamp for 51711 files.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.1975909Z [install-git-hooks] core.hooksPath set to .githooks
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8968100Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8969363Z added 775 packages, and audited 776 packages in 23s
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8969961Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8970580Z 205 packages are looking for funding
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8971207Z   run `npm fund` for details
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8987446Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8988170Z found 0 vulnerabilities
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8995871Z npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8996595Z npm warn allow-scripts   @sentry/cli@2.58.6 (postinstall: node ./scripts/install.js)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.8997177Z npm warn allow-scripts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9438769Z npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9450440Z ##[end-action id=__self.__run;outcome=success;conclusion=success;duration_ms=23111]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9490782Z ##[group]Run npm run check:runtime
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9491206Z ^[[36;1mnpm run check:runtime^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9523617Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9523980Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9524384Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9524989Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9525690Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:19.9526068Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.0499658Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.0500754Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:runtime
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.0501499Z > node scripts/run-tsx.mjs scripts/check-runtime.ts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.0501769Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2675128Z [Runtime Check] PASS: Node runtime 24.19.0 matches required Node 24.x.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2676207Z [Runtime Check] PASS: npm runtime 11.17.0 matches required npm 11.x.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2907237Z ##[group]Run npm run check:installed-lock-parity
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2907720Z ^[[36;1mnpm run check:installed-lock-parity^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2931658Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2932217Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2932657Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2933277Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2933757Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.2934095Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.3902841Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.3904159Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:installed-lock-parity
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.3905377Z > node scripts/check-installed-lock-parity.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.3905764Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6549326Z [installed-lock-parity] next: 16.3.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6550288Z [installed-lock-parity] react: 19.2.8
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6550948Z [installed-lock-parity] react-dom: 19.2.8
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6551726Z [installed-lock-parity] eslint: 9.39.5
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6552586Z [installed-lock-parity] playwright: 1.62.1
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6553208Z [installed-lock-parity] typescript: 6.0.3
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6553715Z [installed-lock-parity] vitest: 4.1.10
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6554333Z [installed-lock-parity] full tree: 775 package locations; 51711 files.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6730049Z ##[group]Run npm run check:upload-limit-parity
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6730561Z ^[[36;1mnpm run check:upload-limit-parity^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6754654Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6755203Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6755689Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6756263Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6756741Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.6757091Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.7705752Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.7706832Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:upload-limit-parity
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.7707920Z > node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.7708565Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8124306Z upload-limit parity self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8534751Z Upload-limit parity passed: client and server both resolve to 150 MB.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8648524Z ##[group]Run npm run check:medication-lexicon-report
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8648991Z ^[[36;1mnpm run check:medication-lexicon-report^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8673873Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8674322Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8674752Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8675307Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8675842Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.8676156Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.9676838Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.9678128Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:medication-lexicon-report
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.9679575Z > node scripts/run-tsx.mjs scripts/build-medication-lexicon-report.ts --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:20.9680168Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6395851Z [lexicon-report] docs/medication-interaction-lexicon-review.md is up to date (37 catalogue terms).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6799379Z ##[group]Run npm run check:ci-scope
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6799851Z ^[[36;1mnpm run check:ci-scope^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6824171Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6824536Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6824987Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6825612Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6826058Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.6826399Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.7735665Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.7736690Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:ci-scope
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.7737363Z > node scripts/ci-change-scope.mjs --self-test
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.7737737Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8044614Z Mockup spec parity: 14 advisory specs all match mockupPatterns.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8047141Z Budget routes query-free: 2 routes carry no query string.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8114833Z CI change scope self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8239429Z ##[group]Run npm run check:verification-plan
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8239876Z ^[[36;1mnpm run check:verification-plan^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8263370Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8263806Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8264243Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8264828Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8265355Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.8265695Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9230243Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9231441Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:verification-plan
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9232543Z > node scripts/verify-pr-local.mjs --self-test
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9232976Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9821247Z PR-local verification plan self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9967027Z ##[group]Run npm run check:gate-manifest
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9967464Z ^[[36;1mnpm run check:gate-manifest^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9991104Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9991454Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9992186Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9992761Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9993226Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:21.9993560Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.0960346Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.0961630Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:gate-manifest
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.0963033Z > node scripts/check-gate-manifest.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.0963433Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1278676Z Gate-manifest OK: all 37 verify:cheap gates are enforced in CI (static-pr + mapped jobs), and the 34 static gates are documented consistently.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1406207Z ##[group]Run npm run check:branch-review-ledger
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1406663Z ^[[36;1mnpm run check:branch-review-ledger^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1430068Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1430448Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1430921Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1431456Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1431959Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.1432457Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.2400244Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.2401755Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:branch-review-ledger
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.2404308Z > node scripts/check-branch-review-ledger.mjs --self-test && node scripts/branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.2405435Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.2779896Z branch-review-ledger self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.3157305Z branch-review-ledger self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5020772Z Branch review ledger guard passed: 880 live table records + 1206 archived + 542 immutable (880 under the 2026-07-29 machine-readable contract), immutable review writes, six cells each, no conflict markers, mojibake, heading records, or duplicates.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5214752Z ##[group]Run npm run check:outstanding-issues
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5215216Z ^[[36;1mnpm run check:outstanding-issues^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5239757Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5240184Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5240609Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5241159Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5241692Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5242298Z   OUTSTANDING_ISSUES_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.5242759Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.6151898Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.6153045Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:outstanding-issues
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.6154861Z > node scripts/check-outstanding-issues.mjs --self-test && node scripts/outstanding-issues.mjs --self-test && node scripts/ledger-inbox.mjs --self-test && node scripts/ledger-inbox.mjs check && node scripts/check-outstanding-issues.mjs && npm run check:outstanding-issues-snapshot
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.6155865Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.6590668Z outstanding-issues self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.7081931Z outstanding-issues writer self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.8199276Z ledger inbox self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.8813566Z Ledger inbox check passed: 12 pending request(s), 728 applied.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:22.9500577Z Outstanding-issues guard passed: 503 rows (91 open, 412 archived), unique display and durable ids, collision-free allocation enabled, deprecated next-id marker ignored, no merge driver, no ids deleted from base c2c689b13c6a.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.0423510Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.0424847Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:outstanding-issues-snapshot
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.0425581Z > node scripts/check-outstanding-issues-snapshot.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.0425867Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1093436Z [snapshot] in step with data/outstanding-issues-snapshot.json (91 open, 12 pending)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1266800Z ##[group]Run if [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1407554Z ^[[36;1mif [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1408238Z ^[[36;1m  echo "LEDGER_WRITE_BASE_SHA=" >> "$GITHUB_ENV"^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1408757Z ^[[36;1melse^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1409586Z ^[[36;1m  echo "LEDGER_WRITE_BASE_SHA=$LEDGER_WRITE_BASE_SHA" >> "$GITHUB_ENV"^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1410124Z ^[[36;1mfi^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1441106Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1441371Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1441694Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1442409Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1442762Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1443083Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1443402Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1519612Z ##[group]Run npm run check:ledger-write-discipline
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1519984Z ^[[36;1mnpm run check:ledger-write-discipline^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1538884Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1539146Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1539474Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1539936Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1540305Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1540637Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.1540965Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.2504447Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.2505495Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:ledger-write-discipline
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.2506322Z > node scripts/check-ledger-write-discipline.mjs --self-test && node scripts/check-ledger-write-discipline.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.2506742Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:23.3547614Z ledger write discipline self-test passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5110479Z Ledger write discipline passed for c2c689b13c6a..HEAD.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5303588Z ##[group]Run npm run docs:check-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5303916Z ^[[36;1mnpm run docs:check-index^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5327061Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5327339Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5327687Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5328173Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5328529Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5328866Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.5329202Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6305434Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6306255Z > prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6306811Z > node scripts/check-codebase-index-coverage.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6307042Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6771928Z docs/codebase-index.md coverage OK: all 62 repository roots/modules/routes and all schema tables are indexed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6878589Z ##[group]Run npm run docs:check-inventory
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6878931Z ^[[36;1mnpm run docs:check-inventory^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6902437Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6902721Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6903068Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6903553Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6903911Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6904245Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.6904576Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.7950067Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.7951024Z > prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-inventory
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.7951666Z > node scripts/update-docs-inventory.mjs --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.7951917Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8314499Z Docs inventory current: 275 script files, 279 npm scripts.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8435542Z ##[group]Run npm run docs:check-scripts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8435900Z ^[[36;1mnpm run docs:check-scripts^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8459429Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8459706Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8460054Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8460532Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8461042Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8461376Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:28.8461709Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.0272158Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.0273079Z > prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-scripts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.0273853Z > node scripts/check-docs-script-refs.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.0274181Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1314293Z docs script-ref check passed: 944 npm-run reference(s) resolve to real scripts.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1445333Z ##[group]Run npm run docs:check-links
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1445817Z ^[[36;1mnpm run docs:check-links^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1478580Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1478958Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1479515Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1480190Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1480589Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1480958Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.1481311Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.4760783Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.4761681Z > prompt-for-codex-medical-knowledge-base@0.1.0 docs:check-links
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.4762363Z > node scripts/check-docs-links.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.4762556Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7280266Z docs link check passed: 3711 repo path references resolve.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7436602Z ##[group]Run npm run check:knip
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7436920Z ^[[36;1mnpm run check:knip^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7460061Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7460344Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7460687Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7461159Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7461514Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7461841Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.7462384Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.9656370Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.9657154Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:knip
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.9658009Z > knip --no-progress --include dependencies,unlisted,unresolved,duplicates
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:29.9658432Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0161202Z Configuration hints (1)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0168039Z .css    knip.json  Compiled extension excluded by project (imports not followed)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0639746Z ##[group]Run npm run check:maintainability-budgets
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0640138Z ^[[36;1mnpm run check:maintainability-budgets^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0664557Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0664835Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0665182Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0665645Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0665995Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0666334Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.0666685Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1613556Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1614354Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:maintainability-budgets
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1614939Z > node scripts/check-maintainability-budgets.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1615159Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1938665Z [maintainability] src/components/ClinicalDashboard.tsx: 4107/4140 lines
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1953137Z [maintainability] src/lib/rag/rag.ts: 4356/4362 lines
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1957525Z [maintainability] src/components/DocumentViewer.tsx: 1700/1734 lines
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1967594Z [maintainability] supabase/functions/indexing-v3-agent/index.ts: 1971/2191 lines
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.1968097Z Maintainability hotspot budgets passed.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2081154Z ##[group]Run npm run format:changed
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2081477Z ^[[36;1mnpm run format:changed^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2105343Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2105618Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2105963Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2106671Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2107035Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2107366Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2107755Z   BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2108094Z   HEAD_SHA: db48aef0c2667301a02bc9398efc05cd38fd084b
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.2108387Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.3029688Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.3030671Z > prompt-for-codex-medical-knowledge-base@0.1.0 format:changed
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.3031182Z > node scripts/check-format-changed.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.3031384Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:33.4598785Z Checking formatting...
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7523721Z All matched files use Prettier code style!
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7955304Z ##[group]Run npm run check:type-scale
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7955637Z ^[[36;1mnpm run check:type-scale^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7978855Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7979156Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7979504Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7979975Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7980327Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7980665Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.7980994Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.8961370Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.8962504Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:type-scale
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.8963314Z > node scripts/check-type-scale.mjs --strict
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:34.8963645Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0473868Z Γ£ô type-scale: no arbitrary text-[<n>px|rem|em] font sizes in src.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0588533Z ##[group]Run npm run check:icon-scale
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0588865Z ^[[36;1mnpm run check:icon-scale^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0613532Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0613816Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0614168Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0614662Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0615017Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0615355Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.0615685Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.1557203Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.1558244Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:icon-scale
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.1559063Z > node scripts/check-icon-scale.mjs --strict
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.1559395Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2849091Z Γ£ô icon-scale: no retired 4.5 (18px) half-step icon sizes in src.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2956018Z ##[group]Run npm run brand:check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2956324Z ^[[36;1mnpm run brand:check^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2980696Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2980973Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2981323Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2981783Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2982400Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2982736Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.2983083Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.3940493Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.3941644Z > prompt-for-codex-medical-knowledge-base@0.1.0 brand:check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.3942409Z > node scripts/run-tsx.mjs scripts/generate-brand-assets.ts --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.3942699Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6163867Z Γ£ô brand: src/app/icon.svg matches the brand-mark source.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6403223Z ##[group]Run npm run check:assets
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6403541Z ^[[36;1mnpm run check:assets^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6427140Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6427412Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6427758Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6428211Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6428559Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6429082Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.6429419Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7364196Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7364883Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:assets
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7365353Z > node scripts/check-assets.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7365529Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7669345Z check:assets OK ΓÇö themed favicon markers present (SVGO multipass deferred).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7776272Z ##[group]Run npm run sitemap:check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7776597Z ^[[36;1mnpm run sitemap:check^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7799892Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7800172Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7800528Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7801003Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7801354Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7801678Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.7802197Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.8772128Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.8773030Z > prompt-for-codex-medical-knowledge-base@0.1.0 sitemap:check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.8773974Z > node scripts/run-tsx.mjs scripts/generate-site-map.ts --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:35.8774407Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9352942Z ##[group]Run npm run check:repo-awareness-snapshot
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9353330Z ^[[36;1mnpm run check:repo-awareness-snapshot^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9376690Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9376969Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9377324Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9377791Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9378147Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9378487Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:36.9378817Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.0300723Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.0301782Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:repo-awareness-snapshot
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.0303050Z > node scripts/run-tsx.mjs scripts/check-repo-awareness-snapshot.ts
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.0303507Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8192304Z [repo-awareness] in step with data/repo-awareness-snapshot.json (193 pages, 466 documents, 2628 reviews)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8740751Z ##[group]Run npm run check:therapy-data-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8741124Z ^[[36;1mnpm run check:therapy-data-index^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8764672Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8764943Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8765286Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8765754Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8766104Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8766442Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.8766777Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.9694436Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.9695408Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:therapy-data-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.9696266Z > node scripts/build-therapies-index.mjs --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:37.9696656Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1018868Z Therapy indexes are current (205 records).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1144906Z ##[group]Run npm run check:cross-mode-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1145295Z ^[[36;1mnpm run check:cross-mode-index^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1169372Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1169633Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1169982Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1170448Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1170795Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1171123Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.1171458Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2133979Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2135110Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:cross-mode-index
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2135750Z > node scripts/build-cross-mode-differentials-index.mjs --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2136378Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2547301Z Cross-mode differentials index is current (201 diagnoses, 31 presentations, 20 alias keys).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2670776Z ##[group]Run npm run check:mha-act-sections
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2671132Z ^[[36;1mnpm run check:mha-act-sections^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2694551Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2694822Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2695162Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2695628Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2695978Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2696308Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.2696635Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.3654837Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.3655676Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:mha-act-sections
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.3656304Z > node scripts/build-mha-act-sections.mjs --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.3656555Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4045327Z Act section data is current (79 sections cited by forms, 0 reviewed, 79 drafted, 0 pending; Act 02-b0-01 as at 2025-09-25).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4155349Z ##[group]Run npm run check:design-system-contract
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4155736Z ^[[36;1mnpm run check:design-system-contract^[[0m
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4179177Z shell: /usr/bin/bash -e {0}
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4179456Z env:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4179802Z   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4180301Z   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4180649Z   SUPABASE_CLI_VERSION: 2.108.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4180995Z   LEDGER_WRITE_BASE_SHA: c2c689b13c6aa2f6808ae0b6a0e556ca75aa0a61
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.4181338Z ##[endgroup]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.5159862Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.5160829Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:design-system-contract
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.5162360Z > node scripts/check-design-system-contract.mjs && npm run check:design-system-adoption && npm run check:design-sync-contract
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:38.5163157Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0435043Z Design-system contract passed (1021 production files; raw colors 2; literal shadows 0; legacy tap classes 0; sub-floor interactive min-heights 32; edge conflicts 16; 1px shadow spreads 2).
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0436933Z Motion/z/palette ratchets: hardcoded CSS durations 42; layout transitions 11; raw CSS z-index 8; legacy palette utilities 0; dark color overrides 0; legacy shadow aliases 87; arbitrary tracking 0.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0438429Z Status-colour boundary: colour-only status indicators 0; status-coloured numerals 0; image inversions 0.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0439767Z Scale ratchets: raw padding literals 42; raw radius literals 20; raw gap literals 20; raw margin literals 53; raw line-height literals 3.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0440643Z Text-role ratchet: --text-soft consumers 0.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0441064Z Error-state boundary: count-bearing title/body props 0.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0441496Z Failed-state boundary: count-bearing result nodes 0.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.0442921Z Raw-color exemptions: global theme tokens, brand artwork, diagnostic visualizations, OpenGraph artwork, error fallbacks, pre-paint theme color, printable factsheet paper.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.1583952Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.1584864Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:design-system-adoption
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.1585498Z > node scripts/generate-design-system-adoption.mjs --check
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:56.1585748Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:59.5428390Z design-system adoption checked: 55 components, 76 roots
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:59.6942155Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:59.6943193Z > prompt-for-codex-medical-knowledge-base@0.1.0 check:design-sync-contract
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:59.6943990Z > node scripts/check-design-sync-contract.mjs
+Static PR checks	UNKNOWN STEP	2026-08-26T22:23:59.6944396Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6689347Z file:///home/runner/work/Database/Database/scripts/check-design-sync-contract.mjs:147
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6690175Z   if (failures.length) throw new Error(failures.join("\n"));
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6690928Z                              ^
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6691095Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6691368Z Error: dtsPropsFor must be generated from source public Props types
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6692163Z     at main (file:///home/runner/work/Database/Database/scripts/check-design-sync-contract.mjs:147:30)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6693129Z     at file:///home/runner/work/Database/Database/scripts/check-design-sync-contract.mjs:153:81
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6693798Z     at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6694227Z     at async node:internal/modules/esm/loader:643:26
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6694703Z     at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6695024Z 
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.6695123Z Node.js v24.19.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.7071230Z ##[error]Process completed with exit code 1.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.7177386Z Post job cleanup.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.7181051Z ##[start-action display=Setup Node.js;id=__501009dd-80cb-4fc5-961f-f19a0ff68a4d.__actions_setup-node]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.7184912Z ##[end-action id=__501009dd-80cb-4fc5-961f-f19a0ff68a4d.__actions_setup-node;outcome=skipped;conclusion=skipped;duration_ms=0]
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.7266042Z Post job cleanup.
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8082716Z [command]/usr/bin/git version
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8117551Z git version 2.55.0
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8147796Z Temporarily overriding HOME='/home/runner/work/_temp/2623e408-4834-471f-a41f-81249a33d28a' before making global git config changes
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8148587Z Adding repository directory to the temporary git global config as a safe directory
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8153088Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Database/Database
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8181559Z Removing SSH command configuration
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8187764Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8218482Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8410261Z Removing HTTP extra header
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8415099Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8443649Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8629168Z Removing includeIf entries pointing to credentials config files
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8635092Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8665369Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Static PR checks	UNKNOWN STEP	2026-08-26T22:24:03.8991071Z Cleaning up orphan processes

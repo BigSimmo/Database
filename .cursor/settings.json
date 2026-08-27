@@ -5,6 +5,9 @@
     },
     "figma": {
       "enabled": true
+    },
+    "semgrep-plugin": {
+      "enabled": true
     }
   }
 }

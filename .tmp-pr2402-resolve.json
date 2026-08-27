@@ -1,0 +1,3 @@
+{
+  "query": "mutation { t1: resolveReviewThread(input: {threadId: \"PRRT_kwDOSh5Fis6cp7eQ\"}) { thread { isResolved } } t2: resolveReviewThread(input: {threadId: \"PRRT_kwDOSh5Fis6cp7eV\"}) { thread { isResolved } } t3: resolveReviewThread(input: {threadId: \"PRRT_kwDOSh5Fis6cp7ea\"}) { thread { isResolved } } }"
+}

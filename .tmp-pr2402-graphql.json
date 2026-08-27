@@ -1,0 +1,3 @@
+{
+  "query": "query { repository(owner: \"BigSimmo\", name: \"Database\") { pullRequest(number: 2402) { reviewThreads(first: 20) { nodes { id isResolved path comments(first: 3) { nodes { databaseId author { login } } } } } } } }"
+}

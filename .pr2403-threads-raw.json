@@ -1,0 +1,44 @@
+﻿{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_kwDOSh5Fis6cqgDx",
+              "isResolved": false,
+              "isOutdated": false,
+              "path": "src/lib/openai.ts",
+              "line": 721,
+              "comments": {
+                "nodes": [
+                  {
+                    "author": { "login": "chatgpt-codex-connector" },
+                    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Retarget privacy evidence before removing embedText**\n\nWhen a privacy or governance reviewer follows the data-flow references after this deletion, `docs/openai-cross-border-basis.md:46` still names `openai.ts embedText` and `docs/privacy-impact-assessment.md:104` still names `embedText/embedTexts`, although the live RAG path calls `embedTextWithTelemetry`. This leaves the APP 8 evidence pointing at a nonexistent API; update both references to the live implementation alongside the deletion.\n\nAGENTS.md reference: [AGENTS.md:L435-L447](https://github.com/BigSimmo/Database/blob/f64c4385a41ed73db6e4e1bb38314be96f2d0ae3/AGENTS.md#L435-L447)\n\nUseful? React with ≡ƒæì┬á/ ≡ƒæÄ.",
+                    "url": "https://github.com/BigSimmo/Database/pull/2403#discussion_r3867932456"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOSh5Fis6cqgD0",
+              "isResolved": false,
+              "isOutdated": false,
+              "path": "tests/helpers/caring-contacts-prohibited-language.ts",
+              "line": 18,
+              "comments": {
+                "nodes": [
+                  {
+                    "author": { "login": "chatgpt-codex-connector" },
+                    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Limit lead exemptions to actual job-title uses**\n\nWhen interface copy contains a safe-title prefix followed by commercial wordingΓÇöfor example, `sales team lead generation` or `clinical lead capture`ΓÇöthe negative lookbehind suppresses the only `lead` match, while neither `generation` nor `capture` matches another alternative. The static governance scan therefore accepts commercial lead-language it is intended to reject; constrain the exemption to actual job-title uses and add a mixed-phrase regression case.\n\nUseful? React with ≡ƒæì┬á/ ≡ƒæÄ.",
+                    "url": "https://github.com/BigSimmo/Database/pull/2403#discussion_r3867932460"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

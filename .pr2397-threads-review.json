@@ -1,0 +1,240 @@
+[
+  {
+    "id": "PRRT_kwDOSh5Fis6cpEy4",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg04v",
+          "author": {
+            "login": "cursor"
+          },
+          "body": "### Medication pin misses real home\n\n**Medium Severity**\n\n<!-- DESCRIPTION START -->\nThe Medication sidebar pin now uses `appModeSelectionHref(\"prescribing\")` (`/?mode=prescribing`) instead of the canonical `/medications` workspace. Prescribing is not a consolidated mode: `/medications` is a real standalone home and does not 307 to the shared home. `appModeHomeHref(\"prescribing\")`, the back link, sitemap, and `favourites-auth-gate.dom.test.tsx` still target `/medications`.\n<!-- DESCRIPTION END -->\n\n<!-- BUGBOT_BUG_ID: cd98882b-6700-480a-9fe1-51efb33b5847 -->\n\n<!-- LOCATIONS START\nsrc/components/clinical-dashboard/ClinicalSidebar.tsx#L78-L84\ntests/ui-smoke.spec.ts#L815-L821\ntests/sidebar-production.dom.test.tsx#L87-L88\nLOCATIONS END -->\n<details>\n<summary>Additional Locations (2)</summary>\n\n- [`tests/ui-smoke.spec.ts#L815-L821`](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/tests/ui-smoke.spec.ts#L815-L821)\n- [`tests/sidebar-production.dom.test.tsx#L87-L88`](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/tests/sidebar-production.dom.test.tsx#L87-L88)\n\n</details>\n\n<div><a href=\"https://cursor.com/open?link=eyJ2ZXJzaW9uIjoxLCJ0eXBlIjoiQlVHQk9UX0ZJWF9JTl9DVVJTT1IiLCJkYXRhIjp7InJlZGlzS2V5IjoiYnVnYm90OjdkYjNiOGJjLWFiNmEtNDhmOS1hZjM0LTZiNWJhMDAwNjg3OSIsImVuY3J5cHRpb25LZXkiOiIwcktGZGJaX1FlQ1dtWHlhX05BLXc0ZEJDMkJ2TGhma18zcVo3OUdpa25zIiwiYnJhbmNoIjoiY29kZXgvdG9vbGluZy1ob29rcy1jaS1pbnZhcmlhbnRzIiwicmVwb093bmVyIjoiQmlnU2ltbW8iLCJyZXBvTmFtZSI6IkRhdGFiYXNlIiwicHJvdmlkZXIiOiJnaXRodWIifX0\" target=\"_blank\" rel=\"noopener noreferrer\"><picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://cursor.com/assets/images/fix-in-cursor-dark.png\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://cursor.com/assets/images/fix-in-cursor-light.png\"><img alt=\"Fix in Cursor\" width=\"115\" height=\"28\" src=\"https://cursor.com/assets/images/fix-in-cursor-dark.png\"></picture></a>&nbsp;<a href=\"https://cursor.com/agents?link=eyJ2ZXJzaW9uIjoxLCJ0eXBlIjoiQlVHQk9UX0ZJWF9JTl9XRUIiLCJkYXRhIjp7InJlZGlzS2V5IjoiYnVnYm90OjdkYjNiOGJjLWFiNmEtNDhmOS1hZjM0LTZiNWJhMDAwNjg3OSIsImVuY3J5cHRpb25LZXkiOiIwcktGZGJaX1FlQ1dtWHlhX05BLXc0ZEJDMkJ2TGhma18zcVo3OUdpa25zIiwiYnJhbmNoIjoiY29kZXgvdG9vbGluZy1ob29rcy1jaS1pbnZhcmlhbnRzIiwicmVwb093bmVyIjoiQmlnU2ltbW8iLCJyZXBvTmFtZSI6IkRhdGFiYXNlIiwicHJOdW1iZXIiOjIzOTcsImNvbW1pdFNoYSI6IjNlMzEzOGQwNmVjZWU3YjA3NDc5ZTJkZmM4Njk1NzA0MmE4Mzk0YjEiLCJwcm92aWRlciI6ImdpdGh1YiJ9fQ\" target=\"_blank\" rel=\"noopener noreferrer\"><picture><source media=\"(prefers-color-scheme: dark)\" srcset=\"https://cursor.com/assets/images/fix-in-web-dark.png\"><source media=\"(prefers-color-scheme: light)\" srcset=\"https://cursor.com/assets/images/fix-in-web-light.png\"><img alt=\"Fix in Web\" width=\"99\" height=\"28\" src=\"https://cursor.com/assets/images/fix-in-web-dark.png\"></picture></a></div>\n\n\n<sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit 3e3138d06ecee7b07479e2dfc86957042a8394b1. Configure [here](https://www.cursor.com/dashboard/bugbot).</sup>\n",
+          "createdAt": "2026-08-26T22:59:24Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867364911",
+          "diffHunk": "@@ -76,7 +76,12 @@ const sidebarToolItems = [\n   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`\n   // would spend a round trip arriving at the same place.\n   { id: \"services\", label: \"Services\", icon: appModeIcons.services, href: \"/?mode=services\" },\n-  { id: \"prescribing\", label: appModeDefinition(\"prescribing\").label, icon: Pill, href: \"/medications\" },\n+  {\n+    id: \"prescribing\",\n+    label: appModeDefinition(\"prescribing\").label,\n+    icon: Pill,\n+    href: appModeSelectionHref(\"prescribing\"),\n+  },",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mi-TH",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "Fixed in a166c2da0: Medication pin now uses explicit href \\/medications\\ (not appModeSelectionHref). tests/ui-smoke.spec.ts and tests/sidebar-production.dom.test.tsx assert the workspace route.",
+          "createdAt": "2026-08-27T01:07:42Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867927751",
+          "diffHunk": "@@ -76,7 +76,12 @@ const sidebarToolItems = [\n   // redirects onto it, so pointing a pinned entry at `/services` or `/factsheets`\n   // would spend a round trip arriving at the same place.\n   { id: \"services\", label: \"Services\", icon: appModeIcons.services, href: \"/?mode=services\" },\n-  { id: \"prescribing\", label: appModeDefinition(\"prescribing\").label, icon: Pill, href: \"/medications\" },\n+  {\n+    id: \"prescribing\",\n+    label: appModeDefinition(\"prescribing\").label,\n+    icon: Pill,\n+    href: appModeSelectionHref(\"prescribing\"),\n+  },",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIYo",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "scripts/check-dev-drive-cache.mjs",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6WT",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Fail when Dev Drive trust is not verified**\n\nOn a Windows workstation where the cache is untrusted, the cache path is missing, or `fsutil` fails, `runCheck()` prints a warning and still returns 0, so the new `npm run check:dev-drive-cache` command reports success without verifying the condition it claims to check. Return a nonzero status for `warning`/`untrusted` results and add a self-test that asserts the CLI failure.\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387283",
+          "diffHunk": "@@ -0,0 +1,132 @@\n+#!/usr/bin/env node\n+/**\n+ * check-dev-drive-cache.mjs — Verify npm package cache registration in Windows Dev Drive trusted cache (#6SMMB4).\n+ *\n+ * On Windows workstations hosting worktrees on a Dev Drive (e.g. D:, ReFS),\n+ * verifies whether `npm config get cache` resolves to a path on a Dev Drive volume\n+ * and whether that cache directory is trusted by Microsoft Defender.\n+ */\n+import { execFileSync, spawnSync } from \"node:child_process\";\n+import path from \"node:path\";\n+import { pathToFileURL } from \"node:url\";\n+\n+export function resolveNpmCache(exec = execFileSync) {\n+  try {\n+    const isWin = process.platform === \"win32\";\n+    const stdout = isWin\n+      ? exec(\"cmd.exe\", [\"/c\", \"npm\", \"config\", \"get\", \"cache\"], {\n+          encoding: \"utf8\",\n+          stdio: [\"ignore\", \"pipe\", \"ignore\"],\n+        })\n+      : exec(\"npm\", [\"config\", \"get\", \"cache\"], {\n+          encoding: \"utf8\",\n+          stdio: [\"ignore\", \"pipe\", \"ignore\"],\n+        });\n+    return stdout.trim();\n+  } catch {\n+    return process.env.npm_config_cache || \"\";\n+  }\n+}\n+\n+export function inspectDevDriveTrust(cachePath, { platform = process.platform, exec = spawnSync } = {}) {\n+  if (platform !== \"win32\") {\n+    return {\n+      status: \"skipped\",\n+      reason: \"Dev Drive trust verification is specific to Windows workstations.\",\n+      cachePath,\n+    };\n+  }\n+\n+  if (!cachePath) {\n+    return {\n+      status: \"warning\",\n+      reason: \"Could not resolve npm cache directory path.\",\n+      cachePath: \"\",\n+    };\n+  }\n+\n+  const drive = path.parse(path.resolve(cachePath)).root.replace(/[\\/\\\\]$/, \"\");\n+  const queryResult = exec(\"fsutil\", [\"devdrv\", \"query\", drive], {\n+    encoding: \"utf8\",\n+    stdio: [\"ignore\", \"pipe\", \"pipe\"],\n+  });\n+\n+  const output = `${queryResult.stdout ?? \"\"}\\n${queryResult.stderr ?? \"\"}`.trim();\n+\n+  if (queryResult.status !== 0) {\n+    if (output.includes(\"Error 5\") || output.includes(\"Access is denied\")) {\n+      return {\n+        status: \"info\",\n+        reason: `fsutil devdrv query requires elevation (Error 5). From an elevated administrator prompt run: fsutil devdrv trust \"${cachePath}\"`,\n+        cachePath,\n+        drive,\n+        elevated: false,\n+      };\n+    }\n+    return {\n+      status: \"warning\",\n+      reason: `Could not query Dev Drive status for volume ${drive}: ${output || \"unknown error\"}`,\n+      cachePath,\n+      drive,\n+    };\n+  }\n+\n+  const isTrusted = /trusted/i.test(output) && !/not trusted/i.test(output);\n+  return {\n+    status: isTrusted ? \"ok\" : \"untrusted\",\n+    reason: isTrusted\n+      ? `Dev Drive on ${drive} is trusted.`\n+      : `Dev Drive on ${drive} is not registered as trusted. Run elevated: fsutil devdrv trust \"${cachePath}\"`,\n+    cachePath,\n+    drive,\n+    elevated: true,\n+    rawOutput: output,\n+  };\n+}\n+\n+export function runCheck({ log = console.log, warn = console.warn } = {}) {\n+  const cachePath = resolveNpmCache();\n+  const result = inspectDevDriveTrust(cachePath);\n+\n+  if (result.status === \"ok\") {\n+    log(`[devdrv-cache] OK: npm cache (${result.cachePath}) on ${result.drive} is registered in trusted Dev Drive.`);\n+    return 0;\n+  }\n+  if (result.status === \"skipped\" || result.status === \"info\") {\n+    log(`[devdrv-cache] ${result.reason}`);\n+    return 0;\n+  }\n+  warn(`[devdrv-cache] Note: ${result.reason}`);\n+  return 0;",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjDxl",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "System.Collections.Hashtable.body",
+          "createdAt": "2026-08-27T01:12:20Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867950181",
+          "diffHunk": "@@ -0,0 +1,132 @@\n+#!/usr/bin/env node\n+/**\n+ * check-dev-drive-cache.mjs — Verify npm package cache registration in Windows Dev Drive trusted cache (#6SMMB4).\n+ *\n+ * On Windows workstations hosting worktrees on a Dev Drive (e.g. D:, ReFS),\n+ * verifies whether `npm config get cache` resolves to a path on a Dev Drive volume\n+ * and whether that cache directory is trusted by Microsoft Defender.\n+ */\n+import { execFileSync, spawnSync } from \"node:child_process\";\n+import path from \"node:path\";\n+import { pathToFileURL } from \"node:url\";\n+\n+export function resolveNpmCache(exec = execFileSync) {\n+  try {\n+    const isWin = process.platform === \"win32\";\n+    const stdout = isWin\n+      ? exec(\"cmd.exe\", [\"/c\", \"npm\", \"config\", \"get\", \"cache\"], {\n+          encoding: \"utf8\",\n+          stdio: [\"ignore\", \"pipe\", \"ignore\"],\n+        })\n+      : exec(\"npm\", [\"config\", \"get\", \"cache\"], {\n+          encoding: \"utf8\",\n+          stdio: [\"ignore\", \"pipe\", \"ignore\"],\n+        });\n+    return stdout.trim();\n+  } catch {\n+    return process.env.npm_config_cache || \"\";\n+  }\n+}\n+\n+export function inspectDevDriveTrust(cachePath, { platform = process.platform, exec = spawnSync } = {}) {\n+  if (platform !== \"win32\") {\n+    return {\n+      status: \"skipped\",\n+      reason: \"Dev Drive trust verification is specific to Windows workstations.\",\n+      cachePath,\n+    };\n+  }\n+\n+  if (!cachePath) {\n+    return {\n+      status: \"warning\",\n+      reason: \"Could not resolve npm cache directory path.\",\n+      cachePath: \"\",\n+    };\n+  }\n+\n+  const drive = path.parse(path.resolve(cachePath)).root.replace(/[\\/\\\\]$/, \"\");\n+  const queryResult = exec(\"fsutil\", [\"devdrv\", \"query\", drive], {\n+    encoding: \"utf8\",\n+    stdio: [\"ignore\", \"pipe\", \"pipe\"],\n+  });\n+\n+  const output = `${queryResult.stdout ?? \"\"}\\n${queryResult.stderr ?? \"\"}`.trim();\n+\n+  if (queryResult.status !== 0) {\n+    if (output.includes(\"Error 5\") || output.includes(\"Access is denied\")) {\n+      return {\n+        status: \"info\",\n+        reason: `fsutil devdrv query requires elevation (Error 5). From an elevated administrator prompt run: fsutil devdrv trust \"${cachePath}\"`,\n+        cachePath,\n+        drive,\n+        elevated: false,\n+      };\n+    }\n+    return {\n+      status: \"warning\",\n+      reason: `Could not query Dev Drive status for volume ${drive}: ${output || \"unknown error\"}`,\n+      cachePath,\n+      drive,\n+    };\n+  }\n+\n+  const isTrusted = /trusted/i.test(output) && !/not trusted/i.test(output);\n+  return {\n+    status: isTrusted ? \"ok\" : \"untrusted\",\n+    reason: isTrusted\n+      ? `Dev Drive on ${drive} is trusted.`\n+      : `Dev Drive on ${drive} is not registered as trusted. Run elevated: fsutil devdrv trust \"${cachePath}\"`,\n+    cachePath,\n+    drive,\n+    elevated: true,\n+    rawOutput: output,\n+  };\n+}\n+\n+export function runCheck({ log = console.log, warn = console.warn } = {}) {\n+  const cachePath = resolveNpmCache();\n+  const result = inspectDevDriveTrust(cachePath);\n+\n+  if (result.status === \"ok\") {\n+    log(`[devdrv-cache] OK: npm cache (${result.cachePath}) on ${result.drive} is registered in trusted Dev Drive.`);\n+    return 0;\n+  }\n+  if (result.status === \"skipped\" || result.status === \"info\") {\n+    log(`[devdrv-cache] ${result.reason}`);\n+    return 0;\n+  }\n+  warn(`[devdrv-cache] Note: ${result.reason}`);\n+  return 0;",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIYr",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "docs/outstanding-issues-inbox/e4e2cc34-02da-472e-a065-287a4a50640d.json",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6WY",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Keep the snapshot-conflict issue open**\n\nWhen this request is reconciled it archives `#Y090R5`, but the commit still regenerates `data/outstanding-issues-snapshot.json` from every pending request and changes neither the snapshot generator/check nor its clinical-risk classification. Concurrent inbox PRs therefore continue editing the same generated artifact and conflicting exactly as described in `docs/outstanding-issues.md:151`; remove this done request until the shared-file dependency is actually eliminated.\n\nAGENTS.md reference: [AGENTS.md:L984-L984](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/AGENTS.md#L984-L984)\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387288",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"e4e2cc34-02da-472e-a065-287a4a50640d\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#Y090R5\",\n+    \"outcome\": \"Hardened snapshot generation and validation workflow to eliminate PR merge conflicts.\",",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjUl6",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "Addressed in upcoming commit: removed premature done request e4e2cc34 and regenerated data/outstanding-issues-snapshot.json so #Y090R5 stays open until snapshot conflict reduction is actually verified across merges.",
+          "createdAt": "2026-08-27T01:28:46Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3868019066",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"e4e2cc34-02da-472e-a065-287a4a50640d\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#Y090R5\",\n+    \"outcome\": \"Hardened snapshot generation and validation workflow to eliminate PR merge conflicts.\",",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIYu",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "docs/outstanding-issues-inbox/957765c0-c367-4eb1-8481-345f743a86f1.json",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6Wd",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Do not close the unexplained Windows guard failure**\n\nReconciling this request archives `#BJ80DB`, although its source row records that the hosted-migration guard passed on rerun in 1.55 seconds—nowhere near the prior 30-second budget—and explicitly leaves the cause unexplained. This commit only doubles the suite timeout, without testing the suspected untracked-file/directory or CRLF paths, so it masks a future slow run rather than proving the reported failure resolved; retain the issue until the Windows trigger is reproduced or ruled out.\n\nAGENTS.md reference: [AGENTS.md:L984-L984](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/AGENTS.md#L984-L984)\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387293",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"957765c0-c367-4eb1-8481-345f743a86f1\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#BJ80DB\",\n+    \"outcome\": \"Resolved platform-specific process timeout in hosted-migration-role-guard.test.ts.\",",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjUpX",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "Addressed in upcoming commit: removed premature done request 957765c0; #BJ80DB remains open until the Windows process-timeout root cause is evidenced, not just a longer test timeout.",
+          "createdAt": "2026-08-27T01:28:50Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3868019287",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"957765c0-c367-4eb1-8481-345f743a86f1\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#BJ80DB\",\n+    \"outcome\": \"Resolved platform-specific process timeout in hosted-migration-role-guard.test.ts.\",",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIYy",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "docs/outstanding-issues-inbox/d4e5d89a-c05b-4be4-8b1d-fa328e86370e.json",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6Wj",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Preserve the deferred worktree-cleanup task**\n\nWhen reconciled, this request archives `#6GW95D` as completed even though `docs/outstanding-issues.md:109` says cleanup was deliberately deferred, all 13 removed worktrees were restored, and seven live-process-held directories remain. No cleanup operation or new fleet evidence appears in this commit, so the outcome erases an explicitly outstanding owner decision; remove the done request or replace it with an update that preserves the deferred state.\n\nAGENTS.md reference: [AGENTS.md:L984-L984](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/AGENTS.md#L984-L984)\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387299",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"d4e5d89a-c05b-4be4-8b1d-fa328e86370e\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#6GW95D\",\n+    \"outcome\": \"Completed worktree inventory and safe orphan cleanup.\",",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjD-d",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "System.Collections.Hashtable.body",
+          "createdAt": "2026-08-27T01:12:30Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867951005",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"d4e5d89a-c05b-4be4-8b1d-fa328e86370e\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#6GW95D\",\n+    \"outcome\": \"Completed worktree inventory and safe orphan cleanup.\",",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIY0",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "docs/outstanding-issues-inbox/4921f31f-cdb9-48a3-9a15-774d7d4c0e73.json",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6Wm",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Keep the PreCompact context verification open**\n\nThis outcome contradicts the checked-in hook: `.claude/hooks/precompact-issues-capture.sh` documents that PreCompact has no `additionalContext` output path and deliberately emits nothing, while `tests/session-start-hook.test.ts` asserts empty stdout. The added test covers only malformed input, not a real compaction or model-context delivery, so reconciling this request would archive the still-unperformed verification recorded at `docs/outstanding-issues.md:107`; retain the task or record the actual log-based result instead.\n\nAGENTS.md reference: [AGENTS.md:L984-L984](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/AGENTS.md#L984-L984)\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387302",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"4921f31f-cdb9-48a3-9a15-774d7d4c0e73\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#RZQQBT\",\n+    \"outcome\": \"Verified PreCompact hook emits valid structured context on stdout.\",",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjEMk",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "System.Collections.Hashtable.body",
+          "createdAt": "2026-08-27T01:12:42Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867951908",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"4921f31f-cdb9-48a3-9a15-774d7d4c0e73\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#RZQQBT\",\n+    \"outcome\": \"Verified PreCompact hook emits valid structured context on stdout.\",",
+          "outdated": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "PRRT_kwDOSh5Fis6cpIY4",
+    "isResolved": false,
+    "isOutdated": true,
+    "path": "docs/outstanding-issues-inbox/c4e26cf8-4e75-4fdf-9863-7fbd5a645b77.json",
+    "line": null,
+    "startLine": null,
+    "comments": {
+      "nodes": [
+        {
+          "id": "PRRC_kwDOSh5Fis7mg6Wv",
+          "author": {
+            "login": "chatgpt-codex-connector"
+          },
+          "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Retain the real web-session hook check**\n\nReconciling this request closes `#164Z0H` using index-mode and CR-byte evidence that its source row already marks as complete; `docs/outstanding-issues.md:108` says the remaining requirement is a real Claude Code web/container session proving the hook runs and provisions Node 24. This commit supplies no such runtime evidence, so keep the task open until that environment-specific acceptance is performed.\n\nAGENTS.md reference: [AGENTS.md:L984-L984](https://github.com/BigSimmo/Database/blob/3e3138d06ecee7b07479e2dfc86957042a8394b1/AGENTS.md#L984-L984)\n\nUseful? React with 👍 / 👎.",
+          "createdAt": "2026-08-26T23:04:08Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867387311",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"c4e26cf8-4e75-4fdf-9863-7fbd5a645b77\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#164Z0H\",\n+    \"outcome\": \"Confirmed session-start hook index mode 100755 and 0 CR bytes.\",",
+          "outdated": true
+        },
+        {
+          "id": "PRRC_kwDOSh5Fis7mjEoe",
+          "author": {
+            "login": "BigSimmo"
+          },
+          "body": "System.Collections.Hashtable.body",
+          "createdAt": "2026-08-27T01:13:03Z",
+          "url": "https://github.com/BigSimmo/Database/pull/2397#discussion_r3867953694",
+          "diffHunk": "@@ -0,0 +1,11 @@\n+{\n+  \"version\": 2,\n+  \"id\": \"c4e26cf8-4e75-4fdf-9863-7fbd5a645b77\",\n+  \"createdOn\": \"2026-08-26\",\n+  \"action\": \"done\",\n+  \"payload\": {\n+    \"id\": \"#164Z0H\",\n+    \"outcome\": \"Confirmed session-start hook index mode 100755 and 0 CR bytes.\",",
+          "outdated": true
+        }
+      ]
+    }
+  }
+]
