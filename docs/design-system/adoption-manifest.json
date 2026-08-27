@@ -286,6 +286,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -309,6 +310,7 @@
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -1254,8 +1256,14 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/differentials/differential-compare-queue-page.tsx",
+        "src/components/differentials/differential-detail-page.tsx",
         "src/components/dsm/dsm-page-header.tsx",
+        "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/specifiers/specifier-compare-page.tsx",
+        "src/components/specifiers/specifier-map-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -1266,8 +1274,14 @@
         "src/components/therapy-compass/workspace.tsx"
       ],
       "productImportFiles": [
+        "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/differentials/differential-compare-queue-page.tsx",
+        "src/components/differentials/differential-detail-page.tsx",
         "src/components/dsm/dsm-page-header.tsx",
+        "src/components/factsheets/factsheets-topics-page.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/specifiers/specifier-compare-page.tsx",
+        "src/components/specifiers/specifier-map-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
