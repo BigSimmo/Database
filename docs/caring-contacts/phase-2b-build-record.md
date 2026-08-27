@@ -3031,18 +3031,18 @@ below is proposed as message copy** — a crisis-line sentence would be the owne
 input, and nobody in this programme may author patient-visible wording. The strings below are stand-ins
 used to measure length.
 
-| Scenario                                                     | Message cost | Against the 306-septet ceiling | Room left for the name |
-| ------------------------------------------------------------ | ------------ | ------------------------------ | ---------------------- |
-| Today, with the specimen name                                | 252          | 54 under                       | cap 59                 |
-| Add a Lifeline sentence, keep the `Fictional Support Line`   | 271          | **35 under — it fits**         | cap drops to ~35       |
+| Scenario                                                      | Message cost | Against the 306-septet ceiling | Room left for the name |
+| ------------------------------------------------------------- | ------------ | ------------------------------ | ---------------------- |
+| Today, with the specimen name                                 | 252          | 54 under                       | cap 59                 |
+| Add a Lifeline sentence, keep the `Fictional Support Line`    | 271          | **35 under — it fits**         | cap drops to ~35       |
 | Replace the `Fictional Support Line` with a Lifeline sentence | 230          | **76 under**                   | cap rises to ~81       |
 
 **So "nothing can be added until something comes out" is false in both directions.** Adding fits. Replacing
-fits with room to spare and *increases* the name budget, because the fictional-line sentence costs about
+fits with room to spare and _increases_ the name budget, because the fictional-line sentence costs about
 twice what a Lifeline sentence does. The owner approved A9's deferral on the premise that there was no
 room. There was, and there is.
 
-**What genuinely blocked A9 was the other half of its own recommendation** — that Lifeline be added *and*
+**What genuinely blocked A9 was the other half of its own recommendation** — that Lifeline be added _and_
 the `Fictional Support Line` dropped once a real crisis number is chosen — and the recorded reason for the
 drop being impossible was the space claim. With the space claim gone, what remains is a straightforward
 question the owner can answer, not a constraint: **a patient in a suicide-prevention programme currently
@@ -3134,15 +3134,15 @@ He was given each as a one-line question with a single recommendation and answer
 permission for all of your recommendations above"**, then confirmed a second time. Recorded here as the
 decision of record, with what each one now obliges and what it does **not**.
 
-| #   | Question                                                     | Decision                                                                       |
-| --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| 1   | Handover notes surviving patient deletion                    | **Delete them with the patient.** Do not narrow what coordinators may write.   |
-| 2   | The `Fictional Support Line` in the patient message          | **Replace with Lifeline `13 11 14`.** Wording is the owner's — see below.      |
-| 3   | Frozen wording that promises what screens cannot do          | **Reopen as ONE piece of work**, not per-row patches.                          |
-| 4   | Small-cell suppression threshold                             | **Five.** Second approver still to be named by him.                            |
-| 5   | The patient's first name in the message                      | **Keep it.**                                                                   |
-| 6   | The caring-contacts database suite in automated checks       | **Yes, run it automatically.**                                                 |
-| 7   | How a wording approval is recorded                           | **A dated record** — who approved what, and when.                              |
+| #   | Question                                               | Decision                                                                     |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| 1   | Handover notes surviving patient deletion              | **Delete them with the patient.** Do not narrow what coordinators may write. |
+| 2   | The `Fictional Support Line` in the patient message    | **Replace with Lifeline `13 11 14`.** Wording is the owner's — see below.    |
+| 3   | Frozen wording that promises what screens cannot do    | **Reopen as ONE piece of work**, not per-row patches.                        |
+| 4   | Small-cell suppression threshold                       | **Five.** Second approver still to be named by him.                          |
+| 5   | The patient's first name in the message                | **Keep it.**                                                                 |
+| 6   | The caring-contacts database suite in automated checks | **Yes, run it automatically.**                                               |
+| 7   | How a wording approval is recorded                     | **A dated record** — who approved what, and when.                            |
 
 **Decision 2 is approved in principle and is NOT executable by anyone in this programme.** The
 recommendation he agreed to says in its own text that he or a lived-experience representative writes the
@@ -3263,7 +3263,7 @@ in this project. Asking was not caution for its own sake.
 **Why it is NOT a string swap, found while preparing the brief.**
 
 1. **`crisisSupportContact` is a rule, not a decoration.** `message-policy.ts:114` and `:124` require the
-   message to *contain* it — `hasFullSupportInformation` and `hasSupportInformation` both do
+   message to _contain_ it — `hasFullSupportInformation` and `hasSupportInformation` both do
    `text.includes(rules.crisisSupportContact)`. Changing the string changes what the policy demands.
 2. **Lifeline is not a fictional contact and may not live in `FICTIONAL_CONTACTS_BY_ROLE`**, whose own
    comment says these are reserved numbers that "can never connect to a real person". It also feeds
@@ -3381,8 +3381,8 @@ the reviewer correctly deleted after using it. That file will never exist, so th
 rather than resolve. It lives on `cc-plan-detail`, which had a live agent, so it was left alone.
 
 **The generalisable half. A link checker's "missing" is a claim about one tree**, and this phase's documents
-deliberately span five. Fourteen failures reduced to one real one purely by asking, per reference, *which
-tree was it checked against* — the same question that has now been the answer three times today.
+deliberately span five. Fourteen failures reduced to one real one purely by asking, per reference, _which
+tree was it checked against_ — the same question that has now been the answer three times today.
 
 ### Ruling [147] — Task 11b's critical is closed, and the first of the four branches is merged
 
@@ -3535,7 +3535,7 @@ The merged gate names 35.
 1. **I resolved `design-system-adoption.test.ts` and `adoption-contract.json` by taking the branch's
    copy, twice.** Both predate `main`'s ward-management rename, so both reintroduced references to a
    deleted route. The trunk's post-catch-up version is the right base every time, and only the
-   branch's *new* declarations should travel — for the contract that meant merging four route
+   branch's _new_ declarations should travel — for the contract that meant merging four route
    declarations into the trunk's file rather than replacing it.
 2. **My resolution of `caring-contacts-plan-wizard.dom.test.tsx` dropped two closing braces and a
    comment opener**, because I matched conflict markers with a regex whose capture groups cut across
@@ -3545,7 +3545,7 @@ The merged gate names 35.
    the program-wide counts as a positive control that the semantic pass had genuinely run.
 
 **And a correction it made to me.** I told it three shared describe blocks "differed" between the two
-sides. They are byte-identical. My line counts came from slicing each block to the *next*
+sides. They are byte-identical. My line counts came from slicing each block to the _next_
 `test.describe(`, which sweeps the following section's doc comment into the block — **a measurement
 of the wrong thing, reported as a fact about the code.** Sliced to each block's own closing brace they
 match exactly. It said so plainly instead of reconciling three blocks that needed no reconciling.

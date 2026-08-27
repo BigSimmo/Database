@@ -60,7 +60,7 @@ Rulings [105] and [122] before you write either.
 - **The first-contact reason** (Task 6b) is **cleared** by retention, because it is clinician prose that
   will name patients and places.
 - **The attestation** (Task 9b) is **preserved** by retention, because it is `{ assurance, actorId,
-  instant }` with no patient content — the same class as an audit event, which de-identification
+instant }` with no patient content — the same class as an audit event, which de-identification
   deliberately keeps.
 
 **A cleared reason must state itself as its own fact.** A plan whose reason has been cleared, and a plan
@@ -116,7 +116,7 @@ added a pin that keeps them in sync — use it rather than writing a second one.
   message, it is **the approved example message for that pathway version** — never "this patient's
   message", and never with a name interpolated at render time.
 - **Never render a raw role identifier to a clinician.** Role wording lives in the sealed domain and is
-  resolved server-side. The vocabulary scan currently *rewards* leaving identifiers on screen — it
+  resolved server-side. The vocabulary scan currently _rewards_ leaving identifiers on screen — it
   refuses "lead" as a whole word but passes `clinicalProgrammeLead` on a missing word boundary. That
   inversion is filed; do not exploit it.
 - Every `<button>` does something. A control unavailable for a **stated reason** uses

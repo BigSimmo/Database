@@ -16,9 +16,9 @@ to any number**.
 
 Task 13 deliberately kept names off this screen, and the reviewer's judgement of that is the thing to hold
 on to: **it protects the trail, not the names.** The coordinator who needs a name can already open the
-record and generate a trail row. What an ambient page-level read would change is the *shape* of the
-record: folding `listPatientNames` into a view a coordinator refreshes all day turns *"who read patients'
-names, and when"* into a stream of page loads — and because the access trail has **no `objectId` filter**,
+record and generate a trail row. What an ambient page-level read would change is the _shape_ of the
+record: folding `listPatientNames` into a view a coordinator refreshes all day turns _"who read patients'
+names, and when"_ into a stream of page loads — and because the access trail has **no `objectId` filter**,
 that noise cannot be filtered back out afterwards.
 
 **A trail that records an intention is worth more than one that records ambient traffic.** So the design
@@ -51,7 +51,7 @@ the row-level-security preamble. A method that skips it does not fail loudly —
 **The audit row is the deliverable, not a side effect.** It must name **that patient**, so the trail can
 answer "who revealed whose name". Per **Ruling [46]** consider whether this is a new `AccessedObjectType`
 member — but read Task 15's finding first, because it is the counter-example: a member that names a
-*screen* rather than an *object* makes the trail **worse**, since the enum is single-valued and has no
+_screen_ rather than an _object_ makes the trail **worse**, since the enum is single-valued and has no
 `objectId` filter, so each new member subtracts from the answerability of the others. Decide deliberately
 and record the reasoning either way. **If what you want is screen attribution, that needs a
 `surface`/`context` dimension, not a second `objectType`** — and that is not this task.
@@ -88,7 +88,7 @@ two uses need different wording, that is a finding worth reporting, not two comp
 - Forced-colors and 320px.
 
 **"Could this possibly go red?" for every assertion you write.** Two tasks this session shipped instances
-of that family *after naming it*, and one proved a refusal on the panel that displays it rather than on the
+of that family _after naming it_, and one proved a refusal on the panel that displays it rather than on the
 control a coordinator presses.
 
 Gates: `npm run test:cc-guards` only, including for mutations. Then typecheck and **uncached** lint. If you

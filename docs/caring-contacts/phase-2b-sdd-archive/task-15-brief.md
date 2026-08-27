@@ -35,8 +35,8 @@ message silently assumes a five-letter name.
 **Therefore:** if this screen shows message text at all, it is **the approved example message for that
 pathway version** — never "this patient's message", never with a name interpolated at render time, and
 never presented as though each version has its own. **You may not author or draft any patient-visible
-wording, ever.** Copy-review item B1 is the governing rule: *a true statement about a smaller product
-beats a false one about a larger one.*
+wording, ever.** Copy-review item B1 is the governing rule: _a true statement about a smaller product
+beats a false one about a larger one._
 
 ## The governance claim you must NOT let this screen overstate
 
@@ -45,8 +45,8 @@ This is the safety-relevant part of the task and the reason it needs care.
 The demo seed populates a pathway version so the workspace has something in it. A seeded version carries
 **`PathwayVersionSnapshot.provenance`** — an optional, **weakening-only** marker whose entire purpose is
 to stop a synthetic record presenting itself as a real governance record. The seed added it because
-without it, a screen renders *"Approved by the clinical programme lead and the lived-experience
-representative"* over a record nobody approved.
+without it, a screen renders _"Approved by the clinical programme lead and the lived-experience
+representative"_ over a record nobody approved.
 
 **A templates library is precisely the screen that makes that claim.** Carry the provenance marker
 wherever an approval is shown, and **fail safe**: an absent or unrecognised provenance must resolve to
@@ -114,8 +114,8 @@ union — Task 12 added a pin that keeps them in sync, so **use it rather than w
   outside itself, Supabase or OpenAI. **A screen must never re-derive a rule a module owns.**
 - **The service-state incident `note` must never cross into a Client Component.**
 - **Never render a raw role identifier to a clinician** — and this screen is the one most likely to try,
-  because approvers *are* roles. Role wording lives in the sealed domain and is resolved server-side. The
-  vocabulary scan currently *rewards* leaving identifiers on screen: it refuses "lead" as a whole word but
+  because approvers _are_ roles. Role wording lives in the sealed domain and is resolved server-side. The
+  vocabulary scan currently _rewards_ leaving identifiers on screen: it refuses "lead" as a whole word but
   passes `clinicalProgrammeLead` on a missing word boundary. **That inversion is filed; do not exploit
   it.**
 - **The closed transport vocabulary is frozen**: high risk, safe, engagement score, campaign, lead,

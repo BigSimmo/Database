@@ -32,7 +32,7 @@ exactly this and it fails the build:
 1. Add the page.
 2. **Light up the nav link in the same change.** `src/components/caring-contacts/workspace/shell.tsx`
    already declares `{ id: "schedule", label: "Schedule", icon: CalendarDays, reason: "Contacts due, day
-   by day." }` **with no `href`** — deliberately. Ruling 89 is written above it: a navigation entry lit
+by day." }` **with no `href`** — deliberately. Ruling 89 is written above it: a navigation entry lit
    ahead of its screen points at a page that says "nothing due" whether or not anything is due, which is
    a false statement on a clinical screen. Add `href: CARING_CONTACTS_ROUTES.schedule`.
 3. `npm run sitemap:update`.
@@ -128,12 +128,12 @@ and the scan checks bare identifiers too.
   septets against a hard two-segment ceiling with no room left. Never "this patient's message", and never
   with a name interpolated at render time.
 - **Never render a raw role identifier to a clinician.** Role wording lives in the sealed domain and is
-  resolved server-side. The vocabulary scan currently *rewards* leaving identifiers on screen — it refuses
+  resolved server-side. The vocabulary scan currently _rewards_ leaving identifiers on screen — it refuses
   "lead" as a whole word but passes `clinicalProgrammeLead` on a missing word boundary. That inversion is
   filed; do not exploit it.
 - Every `<button>` does something. A control unavailable for a **stated reason** uses `aria-disabled="true"`
-  + an inert handler + `title="… — coming soon"` + an `sr-only` note; native `disabled` is for **transient**
-  inertness only, and never both on one control.
+  - an inert handler + `title="… — coming soon"` + an `sr-only` note; native `disabled` is for **transient**
+    inertness only, and never both on one control.
 - Internal navigation via `<Link>` / `router.push`, hrefs from `src/lib/caring-contacts-routes.ts`, never a
   path literal — **including in tests**, once the route exists.
 - Design tokens only, no hex. Tap targets `min-h-12` (48px), **never `min-h-11`**, on the element

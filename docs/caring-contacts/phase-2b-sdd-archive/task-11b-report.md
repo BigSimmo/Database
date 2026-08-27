@@ -76,23 +76,23 @@ repeat-submission case is therefore written on `reassignment`, and M4 reddens it
 
 ## What was built, and where
 
-| File                                                                | Change                                                                                                                                                                        |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/caring-contacts/workspace/plan-action-rules.ts`     | **New, pure.** The four actions, their conditions, the plain-words refusals, the two request bodies, the idempotency key, and what every refusal the two routes can answer with means. |
-| `src/components/caring-contacts/workspace/plan-actions.tsx`         | **New, client.** The three frozen rows wired through `WorkspaceOverlayTrigger`, plus the resume a hold owes; the two-moment guard; the writes; the outcome statement.         |
-| `src/components/caring-contacts/workspace/patient-overview.tsx`     | Renders the plan-actions card; the paused note's remedy now names a control that exists.                                                                                       |
-| `src/app/caring-contacts/patients/[patientId]/page.tsx`             | Reads the assignment, and resolves the grants, the role wording and the destinations server-side.                                                                             |
-| `tests/caring-contacts-patient-overview.dom.test.tsx`               | The new blocks, driven through the REAL route handlers; the paused-note case updated with the mechanism it describes.                                                          |
-| `tests/caring-contacts-explained-automation.dom.test.tsx`           | `plan-actions.tsx` added to `ALLOWED_CLIENT_COMPONENTS`, on the same three conditions every entry carries.                                                                     |
+| File                                                            | Change                                                                                                                                                                                 |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/plan-action-rules.ts` | **New, pure.** The four actions, their conditions, the plain-words refusals, the two request bodies, the idempotency key, and what every refusal the two routes can answer with means. |
+| `src/components/caring-contacts/workspace/plan-actions.tsx`     | **New, client.** The three frozen rows wired through `WorkspaceOverlayTrigger`, plus the resume a hold owes; the two-moment guard; the writes; the outcome statement.                  |
+| `src/components/caring-contacts/workspace/patient-overview.tsx` | Renders the plan-actions card; the paused note's remedy now names a control that exists.                                                                                               |
+| `src/app/caring-contacts/patients/[patientId]/page.tsx`         | Reads the assignment, and resolves the grants, the role wording and the destinations server-side.                                                                                      |
+| `tests/caring-contacts-patient-overview.dom.test.tsx`           | The new blocks, driven through the REAL route handlers; the paused-note case updated with the mechanism it describes.                                                                  |
+| `tests/caring-contacts-explained-automation.dom.test.tsx`       | `plan-actions.tsx` added to `ALLOWED_CLIENT_COMPONENTS`, on the same three conditions every entry carries.                                                                             |
 
 ### The four controls, and what each one is
 
-| Control     | Row of the frozen table    | Stages | What it does                                                                             |
-| ----------- | -------------------------- | ------ | ---------------------------------------------------------------------------------------- |
-| Hold        | `pause`, bottom sheet      | one    | `POST … { action: "pause" }` — the plan moves, no contact moves                          |
-| Let run     | none — this screen's own   | one    | `POST … { action: "resume" }`                                                            |
-| Withdrawal  | `withdrawal`, full-screen  | two    | `POST … { action: "withdraw", origin: "patient" }` — the service cancels every unsent one |
-| Move        | `reassignment`, bottom sheet | two  | `POST /assignments/… { action: { type: "reassign", toActorId, reason } }`                 |
+| Control    | Row of the frozen table      | Stages | What it does                                                                              |
+| ---------- | ---------------------------- | ------ | ----------------------------------------------------------------------------------------- |
+| Hold       | `pause`, bottom sheet        | one    | `POST … { action: "pause" }` — the plan moves, no contact moves                           |
+| Let run    | none — this screen's own     | one    | `POST … { action: "resume" }`                                                             |
+| Withdrawal | `withdrawal`, full-screen    | two    | `POST … { action: "withdraw", origin: "patient" }` — the service cancels every unsent one |
+| Move       | `reassignment`, bottom sheet | two    | `POST /assignments/… { action: { type: "reassign", toActorId, reason } }`                 |
 
 **`resume` is not given a twenty-fifth row and that is deliberate**: the matrix's twenty-four
 surfaces are frozen, and inventing one to carry a control would be a screen editing that contract. It
@@ -327,29 +327,29 @@ final tree, which is what catches collateral damage a narrowed selection cannot 
 
 Every attempt is itemised, greens included. **No aggregate total** — the table is the evidence.
 
-| #   | The claim the mutation attacks                                                                     | Expected | Got                                   | Gate result (`Tests`)      |
-| --- | -------------------------------------------------------------------------------------------------- | -------- | ------------------------------------- | -------------------------- |
-| M1  | THE COMMIT-TIME RECHECK ACTUALLY RECHECKS: it reads the acting account NOW, not at open time        | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
-| M2  | A GUARD REJECTION DOES NOT MUTATE: the early return is load-bearing                                | red      | **RED**, message differed — see below | 2 failed / 63 passed (65)  |
-| M3  | the version sent is the one the LAST ANSWER gave, not the prop this screen was rendered with       | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M4  | A REPEATED SUBMISSION DOES NOT ACT TWICE: one key per submission, reddening on a DUPLICATE RECORD  | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
-| M5  | PAUSE HOLDS RATHER THAN CANCELS: the control asks for the transition it says it does               | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
-| M6  | the withdrawal records the origin the frozen row is about, which the domain accepts                | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
-| M7  | the screen does not repeat the frozen drawer's "skipped for good" claim                            | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M8  | the no-sender sentence is pinned WHOLE, not by a loose match                                       | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M9  | what a hold actually changes — the write gate — is stated rather than left vague                   | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M10 | the destination is offered in the domain's wording                                                 | red      | **RED**, message differed — see below | 1 failed / 64 passed (65)  |
-| M11 | OVER-SENSITIVITY CONTROL: no assertion reads the action blocks' padding                            | green    | **GREEN**, as predicted               | 65 passed (65)             |
-| M12 | every control on this card is a production tap target, not the 44px step                           | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M13 | a version collision is stated in its OWN words                                                     | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M14 | …and a permission refusal does not borrow them — the other direction, isolated                     | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M15 | a move on a plan nobody is carrying is refused rather than offered                                 | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M16 | the paused note's remedy names a control that EXISTS on this screen                                | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M17 | the rest of the screen is asked for again after a change lands                                     | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M18 | a change already on its way holds the other controls, so a second cannot collide with it           | red      | **RED**, message differed — see below | 1 failed / 64 passed (65)  |
-| M19 | the withdrawal control raises the withdrawal row of the frozen table and no other                  | red      | **RED**, message differed — see below | 13 failed / 52 passed (65) |
-| M20 | an action nobody declared conditions for is refused by name rather than by a TypeError             | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
-| M21 | a raw role identifier never reaches a clinician, while the domain's wording does                   | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| #   | The claim the mutation attacks                                                                    | Expected | Got                                   | Gate result (`Tests`)      |
+| --- | ------------------------------------------------------------------------------------------------- | -------- | ------------------------------------- | -------------------------- |
+| M1  | THE COMMIT-TIME RECHECK ACTUALLY RECHECKS: it reads the acting account NOW, not at open time      | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
+| M2  | A GUARD REJECTION DOES NOT MUTATE: the early return is load-bearing                               | red      | **RED**, message differed — see below | 2 failed / 63 passed (65)  |
+| M3  | the version sent is the one the LAST ANSWER gave, not the prop this screen was rendered with      | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M4  | A REPEATED SUBMISSION DOES NOT ACT TWICE: one key per submission, reddening on a DUPLICATE RECORD | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
+| M5  | PAUSE HOLDS RATHER THAN CANCELS: the control asks for the transition it says it does              | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
+| M6  | the withdrawal records the origin the frozen row is about, which the domain accepts               | red      | **RED**, as predicted                 | 2 failed / 63 passed (65)  |
+| M7  | the screen does not repeat the frozen drawer's "skipped for good" claim                           | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M8  | the no-sender sentence is pinned WHOLE, not by a loose match                                      | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M9  | what a hold actually changes — the write gate — is stated rather than left vague                  | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M10 | the destination is offered in the domain's wording                                                | red      | **RED**, message differed — see below | 1 failed / 64 passed (65)  |
+| M11 | OVER-SENSITIVITY CONTROL: no assertion reads the action blocks' padding                           | green    | **GREEN**, as predicted               | 65 passed (65)             |
+| M12 | every control on this card is a production tap target, not the 44px step                          | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M13 | a version collision is stated in its OWN words                                                    | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M14 | …and a permission refusal does not borrow them — the other direction, isolated                    | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M15 | a move on a plan nobody is carrying is refused rather than offered                                | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M16 | the paused note's remedy names a control that EXISTS on this screen                               | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M17 | the rest of the screen is asked for again after a change lands                                    | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M18 | a change already on its way holds the other controls, so a second cannot collide with it          | red      | **RED**, message differed — see below | 1 failed / 64 passed (65)  |
+| M19 | the withdrawal control raises the withdrawal row of the frozen table and no other                 | red      | **RED**, message differed — see below | 13 failed / 52 passed (65) |
+| M20 | an action nobody declared conditions for is refused by name rather than by a TypeError            | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
+| M21 | a raw role identifier never reaches a clinician, while the domain's wording does                  | red      | **RED**, as predicted                 | 1 failed / 64 passed (65)  |
 
 ### Predicted message against observed, and the four that differed
 
