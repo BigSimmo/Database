@@ -141,4 +141,31 @@ describe("CompareIdsChrome", () => {
     await user.click(screen.getByRole("button", { name: "Change selection" }));
     expect(screen.getByTestId("dictionary-compare-picker")).toBeVisible();
   });
+
+  it("suppresses the dashed empty state on hybrid phone when nothing is selected", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes("639px"),
+        media: query,
+        addEventListener() {},
+        removeEventListener() {},
+      }),
+    });
+
+    render(
+      <CompareIdsChrome
+        selectedIds={[]}
+        maxCount={4}
+        minCount={2}
+        phoneLayout="hybrid"
+        onCommit={() => {}}
+        {...chromeProps}
+      />,
+    );
+
+    expect(screen.getByTestId("compare-slot-strip-pip-summary")).toBeInTheDocument();
+    expect(screen.queryByText("Search the catalogue, or start from a common pair.")).toBeNull();
+  });
 });

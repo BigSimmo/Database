@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronUp, Scale, Trash2, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -9,7 +10,7 @@ import { interactiveRowBase } from "@/components/ui/interactive-row";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { therapyCompareAddonSlotId } from "@/lib/mode-home-composer";
-import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+import { THERAPY_MAX_COMPARE, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "./bindings";
 import type { Therapy } from "./data/types";
@@ -41,6 +42,7 @@ const SLOT_LETTERS = ["A", "B", "C", "D"] as const;
  */
 export function TherapyCompareTray() {
   const b = useTcBindings();
+  const pathname = usePathname();
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetId = useId();
@@ -90,6 +92,10 @@ export function TherapyCompareTray() {
   const open = sheetOpen && count > 0;
 
   const landed = useArrivalSlot(b.compareSlugs);
+
+  // The compare page owns selection in its top chrome; duplicating the dock tray
+  // there wastes reserve and splits one mental model across two surfaces.
+  if (pathname === therapyScreenHref("compare")) return null;
 
   if (count === 0 || !host) return null;
 

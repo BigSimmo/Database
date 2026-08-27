@@ -101,7 +101,10 @@ export function CompareCatalogPicker({
       ) : null}
       {labels.length > 1 && onActiveSlotChange ? (
         <div
-          className={cn("grid items-center gap-2", labels.length === 2 ? "grid-cols-2" : "grid-cols-3")}
+          className={cn(
+            "grid items-center gap-2",
+            labels.length === 2 ? "grid-cols-2" : labels.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3",
+          )}
           role="tablist"
           aria-label="Active comparison slot"
         >
