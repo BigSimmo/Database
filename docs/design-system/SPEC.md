@@ -214,8 +214,11 @@ to `MarkText`. One wrong token, two defects. (PR 3; gate planned.)
 
 ### 4.5 Type
 
-Seven steps, each with its own line-height **and** tracking (gated — contract test
-`:194-204`). Negative tracking only from `--text-body` up; 12px floor. Step roles:
+Seven **size** steps; xs–xl are size-only; shared leading is `--leading-prose`. Hero
+keeps `--text-hero--line-height` and `--text-hero-tr` only. Do not reintroduce per-step
+`-lh` / `-tr` / `--text-{step}--line-height` orphans (gated — contract test `pins shared
+leading and hero companions, not per-step orphans`). Negative tracking only from
+`--text-body` up; 12px floor. Step roles:
 `--text-xs` eyebrows/chips/captions · `--text-sm` metadata/dense cells/hints · `--text-body`
 UI body/row titles · `--text-md` **answer prose** · `--text-lg` card and panel titles ·
 `--text-xl` page titles · `--text-hero` hero counts.

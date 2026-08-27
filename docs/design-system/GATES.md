@@ -200,14 +200,18 @@ point where the scale argument for (b) would start being true.
 
 ## 4 · Recorded verification evidence
 
-Recorded at export (31 July 2026), **not re-run for this document set**:
+The `npx tsc` / `npm run lint` / `npm run test` / `npm run verify:ui` bullets remain the
+31 July 2026 snapshot and were **not re-run** for later document-set edits. The
+`check:design-system-contract` bullet was **re-quoted** against the current
+`scripts/design-system-contract-baseline.json` (raw colours 0) so it stays aligned with
+the adoption pin.
 
 - `npx tsc --noEmit` — pass · `npm run lint` — pass
 - `npm run test` — **4 689 passed, 1 failed, 3 skipped**; the failure is
   `tests/installed-lock-parity.test.ts`, environmental (`brace-expansion` lock drift, issue
   `#149`, fixed by `npm ci`), pre-existing and unrelated
 - `npm run verify:ui` — **344 passed**, exit 0
-- `check:design-system-contract` — pass: 625 production files, raw colours 2, literal
+- `check:design-system-contract` — pass: 625 production files, raw colours 0, literal
   shadows 0, legacy tap classes 0
 
 The honest sentence includes the failure. Exit code 0 alone is never proof — quote the

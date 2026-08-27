@@ -1489,4 +1489,20 @@ describe("design-system adoption manifest", () => {
     expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
     expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
   });
+
+  it("does not re-teach per-step type companions in SPEC, conventions, or GATES §4", () => {
+    const spec = read("docs/design-system/SPEC.md");
+    const conventions = read(".design-sync/conventions.md");
+    const gates = read("docs/design-system/GATES.md");
+    const typeSection = spec.split("### 4.5 Type")[1]?.split("### 4.6")[0] ?? "";
+    const evidenceSection = gates.split("## 4 · Recorded verification evidence")[1]?.split("###")[0] ?? "";
+
+    expect(spec).not.toContain("each with its own line-height");
+    expect(spec).not.toContain(":194-204");
+    expect(typeSection).toContain("--leading-prose");
+    expect(typeSection).toContain("--text-hero--line-height");
+    expect(conventions).not.toMatch(/per-step\s+line-height\s+and\s+tracking/);
+    expect(evidenceSection).toMatch(/raw colours 0\b/);
+    expect(evidenceSection).not.toMatch(/not re-run for this document set/);
+  });
 });
