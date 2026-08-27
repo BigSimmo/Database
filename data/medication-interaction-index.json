@@ -3,10 +3,10 @@
   "generatedFrom": "data/medications-snapshot.json",
   "sourceRowCount": 531,
   "stats": {
-    "resolvedRows": 397,
-    "unresolvedRows": 134,
-    "rowsWithCatalogueTarget": 446,
-    "medicationsWithUnresolvedRows": 119
+    "resolvedRows": 395,
+    "unresolvedRows": 136,
+    "rowsWithCatalogueTarget": 444,
+    "medicationsWithUnresolvedRows": 120
   },
   "names": {
     "acamprosate": "Acamprosate",
@@ -1332,7 +1332,11 @@
           ],
           "termIds": ["acei", "diuretics"],
           "resolved": true,
-          "note": "CRITICAL — ACEi + Diuretic + Celecoxib = AKI."
+          "note": "CRITICAL — ACEi + Diuretic + Celecoxib = AKI.",
+          "requiredGroups": [
+            ["perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         }
       ],
       "unresolvedRowCount": 0
@@ -1378,7 +1382,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics"],
           "resolved": true,
-          "note": "CRITICAL — ACEi/ARB + Diuretic + Diclofenac = AKI."
+          "note": "CRITICAL — ACEi/ARB + Diuretic + Diclofenac = AKI.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -1418,7 +1426,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic. Will virtually guarantee acute renal failure. NEVER prescribe this combination."
+          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic. Will virtually guarantee acute renal failure. NEVER prescribe this combination.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1474,7 +1486,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics"],
           "resolved": true,
-          "note": "CRITICAL — ACEi/ARB + Diuretic + Ketorolac = Renal Necrosis."
+          "note": "CRITICAL — ACEi/ARB + Diuretic + Ketorolac = Renal Necrosis.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1527,7 +1543,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic = AKI."
+          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic = AKI.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1589,7 +1609,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic = AKI."
+          "note": "CRITICAL — NSAID + ACEi/ARB + Diuretic = AKI.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -1667,7 +1691,11 @@
           ],
           "termIds": ["acei", "arbs", "diuretics"],
           "resolved": true,
-          "note": "CRITICAL — ACEi/ARB + Diuretic + Parecoxib = High risk of post-op renal failure."
+          "note": "CRITICAL — ACEi/ARB + Diuretic + Parecoxib = High risk of post-op renal failure.",
+          "requiredGroups": [
+            ["candesartan", "perindopril", "ramipril"],
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"]
+          ]
         },
         {
           "rowKey": "Pharmacokinetic",
@@ -2026,7 +2054,11 @@
           ],
           "termIds": ["arbs", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — ARB + Diuretic + NSAID (Guaranteed AKI)."
+          "note": "CRITICAL — ARB + Diuretic + NSAID (Guaranteed AKI).",
+          "requiredGroups": [
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -2142,7 +2174,11 @@
           ],
           "termIds": ["acei", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow."
+          "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow.",
+          "requiredGroups": [
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -2376,7 +2412,11 @@
           ],
           "termIds": ["acei", "arbs", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — NSAIDs + ACEi/ARB + Frusemide = High risk of renal failure."
+          "note": "CRITICAL — NSAIDs + ACEi/ARB + Frusemide = High risk of renal failure.",
+          "requiredGroups": [
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["candesartan", "perindopril", "ramipril"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -2420,7 +2460,11 @@
           ],
           "termIds": ["acei", "nsaids", "thiazide-diuretics"],
           "resolved": true,
-          "note": "CRITICAL — NSAIDs + ACEi + Thiazide."
+          "note": "CRITICAL — NSAIDs + ACEi + Thiazide.",
+          "requiredGroups": [
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["perindopril", "ramipril"]
+          ]
         }
       ],
       "unresolvedRowCount": 0
@@ -2454,7 +2498,11 @@
           ],
           "termIds": ["acei", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — NSAIDs + ACEi + Indapamide."
+          "note": "CRITICAL — NSAIDs + ACEi + Indapamide.",
+          "requiredGroups": [
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"],
+            ["perindopril", "ramipril"]
+          ]
         }
       ],
       "unresolvedRowCount": 0
@@ -2497,13 +2545,13 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["fenofibrate", "rosuvastatin", "simvastatin"],
-          "termIds": ["fibrates", "statins"],
-          "resolved": true,
+          "counterparties": [],
+          "termIds": [],
+          "resolved": false,
           "note": "HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo."
         }
       ],
-      "unresolvedRowCount": 0
+      "unresolvedRowCount": 1
     },
     "ezetimibe": {
       "rows": [
@@ -10055,7 +10103,11 @@
           ],
           "termIds": ["acei", "diuretics", "nsaids"],
           "resolved": true,
-          "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow."
+          "note": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow.",
+          "requiredGroups": [
+            ["amiloride", "eplerenone", "frusemide", "hydrochlorothiazide", "indapamide", "spironolactone"],
+            ["aspirin", "celecoxib", "diclofenac", "ibuprofen", "ketorolac", "meloxicam", "naproxen", "parecoxib"]
+          ]
         },
         {
           "rowKey": "Pharmacodynamic",
@@ -10100,9 +10152,9 @@
           "rowKey": "Pharmacokinetic",
           "rowIndex": 1,
           "severity": "high",
-          "counterparties": ["atorvastatin", "fenofibrate", "rosuvastatin"],
-          "termIds": ["fibrates", "statins"],
-          "resolved": true,
+          "counterparties": [],
+          "termIds": [],
+          "resolved": false,
           "note": "HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo."
         },
         {
@@ -10115,7 +10167,7 @@
           "note": "HIGH — Moderate CYP3A4 inhibitors (Amiodarone, Diltiazem, Verapamil, Amlodipine). Limit Simvastatin dose to max 20 mg/day (or 10 mg/day with Amiodarone/Verapamil/Diltiazem) to prevent myopathy."
         }
       ],
-      "unresolvedRowCount": 1
+      "unresolvedRowCount": 2
     }
   }
 }
