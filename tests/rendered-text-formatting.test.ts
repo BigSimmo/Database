@@ -62,8 +62,20 @@ describe("document-derived text must route through a formatter", () => {
   });
 
   it("renders source-card snippets through compactSourceSnippet with the card title deduped", () => {
+    // The raw-render half is unconditional and is the actual regression guard.
     expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.snippet\}/);
-    expect(dashboardSurfaces).toContain("compactSourceSnippet(source.content, { dropTitle: title })");
+    expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.content\}/);
+
+    // The routing half is conditional because these surfaces no longer print a
+    // snippet at all: the evidence preview was rewritten from a card grid with
+    // snippets into a rail of title + page + review status, and the arrived
+    // answer carries its quote in the drawer. `compactSourceSnippet` is kept as
+    // the contract any reintroduced snippet must go through — the moment one of
+    // these surfaces touches `source.content` again, this fails unless it is
+    // formatted and the card title is deduped out of it.
+    if (dashboardSurfaces.includes("source.content")) {
+      expect(dashboardSurfaces).toContain("compactSourceSnippet(source.content, { dropTitle: title })");
+    }
   });
 
   it("renders evidence-map row details through the compact formatter, never raw", () => {

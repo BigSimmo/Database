@@ -21,7 +21,7 @@ import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-fo
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/use-document-viewer-chrome-scroll";
-import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
+import { AnswerProgress } from "@/components/clinical-dashboard/answer-status";
 import {
   appBackdrop,
   cn,
@@ -1416,7 +1416,7 @@ export function DocumentViewer({
             {(loadingSummary || summary || summaryError) && (
               <div className="min-w-0 space-y-3 lg:col-span-2">
                 {summaryProgressStartedAt && summaryProgressEvents.length > 0 ? (
-                  <AnswerProgressStepper
+                  <AnswerProgress
                     events={summaryProgressEvents}
                     startedAt={summaryProgressStartedAt}
                     active={loadingSummary}
