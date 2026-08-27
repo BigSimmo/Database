@@ -37,7 +37,7 @@ import {
 } from "@/components/ui-primitives";
 
 import { Sheet } from "@/components/ui/sheet";
-import { appModeDefinition, appModeHomeHref, appModeSelectionHref, type AppModeId } from "@/lib/app-modes";
+import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { useSidebarPins, pinnableSidebarModeIds } from "@/components/clinical-dashboard/use-sidebar-pins";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import type { ThemePreference } from "@/lib/theme";
