@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  CircleSlash,
   Clock3,
   FileCheck2,
   FileClock,
   Fingerprint,
+  History,
   Info,
   LockKeyhole,
   MapPin,
@@ -19,6 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Users,
   UserRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -27,7 +30,9 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   buildActionInbox,
   candidateReason,
+  changeAudit,
   destinationUnit,
+  effectivenessNumbers,
   eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
@@ -37,9 +42,13 @@ import {
   roleTaskLabel,
   stageSummaries,
   unitCapacity,
+  type ChangeAuditEntry,
+  type EffectivenessMeasure,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
@@ -77,6 +86,14 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
   exceptions: { title: "Action inbox", description: "Owned exceptions, deadlines and stale state" },
   transport: { title: "Transport", description: "Legal, document, booking and handover readiness" },
   governance: { title: "Governance", description: "Assurance, audit and synthetic data boundary" },
+};
+
+/** Task 9: a short human label for each `ChangeAuditEntry` kind — never the raw union value on screen. */
+const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
+  urgency: "Urgency change",
+  legal_status: "Legal status change",
+  hold_released: "Hold released",
+  transport_cancelled: "Transport cancelled",
 };
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
@@ -117,9 +134,17 @@ function ModeHeader({
   return (
     <header className={styles.modeHeader}>
       <div className={styles.modeIdentity}>
-        <span>
-          <strong>Clinical KB</strong>
-          <small>Source-backed clinical search</small>
+        {/* Ward Flow's own identity, not the host application's. This read "Clinical KB /
+            Source-backed clinical search" on every board of a sandboxed synthetic prototype that
+            does no searching and is not source-backed. Found by looking at a screenshot — every
+            measurement run against this codebase missed it, because nothing was structurally
+            wrong with it. */}
+        {/* Hidden by CSS whenever the labelled sidebar panel is open, because that panel already
+            carries this exact name and tagline — seen side by side in one eyeline on a
+            screenshot, which is the only place a duplicate like this shows up. */}
+        <span className={styles.modeBrand}>
+          <strong>Ward Flow</strong>
+          <small>Synthetic patient-flow prototype</small>
         </span>
         <div className={styles.modeTitle}>
           <h1>{copy.title}</h1>
@@ -264,7 +289,7 @@ function DecisionPanel({
           {confirmed ? <Check aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
           {confirmed ? "Match confirmed" : roleTaskLabel[role]}
         </button>
-        <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
@@ -355,48 +380,91 @@ function QueueView({ role }: { role: WardRole }) {
 }
 
 function CapacityView() {
-  const { units, now } = useWardFlow();
-  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
-  const totals = {
-    available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
-    held: capacities.reduce((sum, entry) => sum + entry.capacity.held, 0),
-    potential: capacities.reduce((sum, entry) => sum + entry.capacity.potential, 0),
-    blocked: capacities.reduce((sum, entry) => sum + entry.capacity.blocked, 0),
-    occupied: capacities.reduce((sum, entry) => sum + entry.capacity.occupied, 0),
+  const { units, bedReleases, leaveBeds, now, dispatch } = useWardFlow();
+  // Row-level bed-states grid below still reads `unitCapacity()` unchanged for available/held/
+  // blocked/occupied — those four sum to the unit's total beds
+  // (`tests/ward-capacity-reconciliation.test.ts` asserts that identity). Its own raw `potential`
+  // field is no longer rendered here (defect fix, visual pass): it counted every bed release for
+  // the unit regardless of state or timing, which duplicated and contradicted the headline's own
+  // careful `confirmedToday`/`predictedToday` split. The row now sources Confirmed/Predicted from
+  // the same per-unit `breakdown` the headline already computes below, rather than calling
+  // `unitCapacity` a second time for a figure it does not distinguish. See `unitCapacity`'s own
+  // `potential` field doc comment in ward-derivations.ts for why the field itself is untouched.
+  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit, bedReleases) }));
+
+  // Task 7 (Phase 5, spec D6): the headline above the table used to be a single `unitCapacity()`
+  // total. It is replaced here by `capacityBreakdown()`'s five figures, summed across every unit
+  // — and only those five are ever shown as a card. `availableNow` is never added to anything:
+  // that is the one rule this whole task exists to protect (see the file-level rule in
+  // ward-bed-availability.ts). The per-unit `breakdown` computed here also feeds the per-unit
+  // row's Confirmed/Predicted chips below, so both places read the same figures.
+  const breakdowns = units.map((unit) => ({ unit, breakdown: capacityBreakdown(unit, bedReleases, leaveBeds, now) }));
+  const breakdownByUnitId = new Map(breakdowns.map((entry) => [entry.unit.id, entry.breakdown]));
+  const headline = {
+    availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
+    confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
+    predictedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.predictedToday, 0),
+    held: breakdowns.reduce((sum, entry) => sum + entry.breakdown.held, 0),
+    leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
   };
+  const excludedBeyondToday = breakdowns.reduce((sum, entry) => sum + entry.breakdown.excludedBeyondToday, 0);
+  // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
+  // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
+  // "total" card impossible to add by accident the way looping over a totals object invited.
+  const headlineCards: { key: string; label: string; value: number }[] = [
+    { key: "available-now", label: "Available now", value: headline.availableNow },
+    { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
+    { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    { key: "held", label: "Held", value: headline.held },
+    { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
+  ];
+
   return (
     <section className={styles.panel} data-testid="ward-capacity-view">
       <header className={styles.panelHeader}>
         <div>
           <h2>Ward-confirmed capacity</h2>
-          <p>Availability is not suitability. Every count includes a freshness signal.</p>
+          <p>
+            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased or
+            on-leave bed.
+          </p>
         </div>
         <span className={styles.prototypeBadge}>Synthetic counts</span>
       </header>
-      <div className={styles.capacitySummary}>
-        {Object.entries(totals).map(([label, value]) => (
-          <article className={styles.summaryCard} key={label}>
-            <span>{label.replace(/^./, (character) => character.toUpperCase())}</span>
+      <div className={styles.capacitySummary} data-testid="ward-capacity-headline">
+        {headlineCards.map(({ key, label, value }) => (
+          <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
+            <span>{label}</span>
             <strong>{value}</strong>
             <small>Across {units.length} synthetic units</small>
           </article>
         ))}
       </div>
+      {excludedBeyondToday > 0 && (
+        <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">
+          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) — excluded
+          from every figure above, counted here rather than silently dropped.
+        </p>
+      )}
       <table className={styles.dataTable}>
         <thead>
           <tr>
             <th scope="col">Unit</th>
             <th scope="col">Health service</th>
             <th scope="col">Capability cue</th>
-            <th scope="col">Five bed states</th>
+            <th scope="col">Bed states</th>
+            <th scope="col">Sex mix</th>
+            <th scope="col">Specialling</th>
+            <th scope="col">MHA authorised</th>
             <th scope="col">Freshness</th>
+            <th scope="col">Coordinator action</th>
           </tr>
         </thead>
         <tbody>
           {capacities.map(({ unit, capacity }) => {
-            const fresh = now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
+            const breakdown = breakdownByUnitId.get(unit.id);
             return (
-              <tr key={unit.id}>
+              <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
                 <td>
                   <strong>{unit.name}</strong>
                   <div className={styles.microCopy}>{unit.beds} total beds</div>
@@ -406,7 +474,7 @@ function CapacityView() {
                   {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
                 </td>
                 <td>
-                  <div className={styles.bedStates}>
+                  <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
                     <span>
                       <strong>{capacity.available}</strong>Now
                     </span>
@@ -414,7 +482,10 @@ function CapacityView() {
                       <strong>{capacity.held}</strong>Held
                     </span>
                     <span>
-                      <strong>{capacity.potential}</strong>Potential
+                      <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
+                    </span>
+                    <span>
+                      <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
                     </span>
                     <span>
                       <strong>{capacity.blocked}</strong>Blocked
@@ -424,10 +495,48 @@ function CapacityView() {
                     </span>
                   </div>
                 </td>
+                <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
+                  Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                  {/* Review Finding 2: `RELEASE_BED` moves `unit.empty` (and so derived `occupied`)
+                      without touching `unit.sexMix` — the model genuinely cannot know which sex
+                      left, so this cannot be corrected by decrementing a guessed sex or by adding
+                      `sex` to `BedRelease` (spec D11 forbids it). Once the two no longer agree, a
+                      bare sex-mix figure would present a stale, possibly-wrong number as current.
+                      Failure-behaviour rule: degrade toward stating less, never toward a claim —
+                      so this says the figure may be out of date, in real visible text, rather than
+                      silently rendering a number nothing has confirmed matches current occupancy. */}
+                  {unit.sexMix.Female + unit.sexMix.Male !== capacity.occupied ? (
+                    <div className={styles.microCopy} data-testid={`ward-capacity-sexmix-stale-${unit.id}`}>
+                      May not match current occupancy — a bed here was released since this was last recorded
+                    </div>
+                  ) : null}
+                </td>
+                <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
+                <td data-testid={`ward-capacity-authorised-${unit.id}`}>
+                  {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
+                </td>
                 <td>
-                  <span className={fresh ? styles.statusGood : styles.statusWarning}>
-                    {fresh ? "Current" : "Review soon"} · {formatInstant(unit.allocatable.confirmedAt)}
-                  </span>
+                  <WardFreshness
+                    confirmedAt={unit.allocatable.confirmedAt}
+                    confirmedByRole={unit.allocatable.source === "ward" ? `NUM ${unit.name}` : undefined}
+                    now={now}
+                    derived={unit.allocatable.source !== "ward"}
+                  />
+                </td>
+                <td className={styles.refreshCell}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    data-testid={`ward-capacity-refresh-${unit.id}`}
+                    onClick={() =>
+                      dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: unit.id })
+                    }
+                  >
+                    Ask this ward to restate its numbers
+                  </button>
+                  <small className={styles.microCopy}>
+                    Records that you asked. Changes no figure — nothing leaves this sandbox and no message is sent.
+                  </small>
                 </td>
               </tr>
             );
@@ -465,7 +574,11 @@ function MovementsView() {
               .filter((patient) => patient.stage === stage.id)
               .slice(0, 4)
               .map((patient) => (
-                <Link className={styles.movementCard} href={`/ward-management/patients/${patient.id}`} key={patient.id}>
+                <Link
+                  className={styles.movementCard}
+                  href={`/mockups/ward-flow/patients/${patient.id}`}
+                  key={patient.id}
+                >
                   <span className={styles.rowTop}>
                     <strong>{patient.id}</strong>
                     <span className={toneClass(patient.urgency === 1 ? "danger" : "neutral")}>P{patient.urgency}</span>
@@ -484,10 +597,10 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
-  const { movements, now } = useWardFlow();
+  const { movements, units, now } = useWardFlow();
   // Whole-branch review Minor 6: same open-movement scoping as the coordinator screen — a closed
   // record must never appear on a live exception work list.
-  const items = buildActionInbox(movements.filter(isOpen), now);
+  const items = buildActionInbox(movements.filter(isOpen), now, units);
   // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
   // category, which is a capacity dead end, not a passed deadline — counting it under a label
   // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting
@@ -518,7 +631,7 @@ function ExceptionsView() {
                 <span className={toneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/ward-management/patients/${item.movementId}`}>
+              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
@@ -587,7 +700,7 @@ function TransportView() {
                     {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
-                <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+                <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
                   Review <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
@@ -625,6 +738,64 @@ function TransportView() {
   );
 }
 
+/**
+ * Task 9 (spec item 7): the not-a-medical-device statement. `coordinator-screen.tsx` carried this
+ * wording first; it is exported from here and imported there (see that file's own governance
+ * banner) so the two screens render the exact same statement rather than two independently
+ * maintained copies that could quietly drift apart — the failure mode the brief calls worse than
+ * a single missing statement.
+ */
+export function NotAMedicalDeviceStatement() {
+  return (
+    <p>
+      This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
+      assesses a patient&apos;s risk, acuity or treatment. A human coordinator confirms or overrides every suggestion.
+    </p>
+  );
+}
+
+/**
+ * Renders a computed effectiveness number, or its explicit absence — never a substituted `0` —
+ * always immediately beside the basis it was drawn from. Rule 4 (conservative failure): a measure
+ * this cannot compute must read as unknown, not as a suspiciously perfect result. Fix round 1: a
+ * measure computed from a thin sample must say so in the same breath as the figure, not in a
+ * tooltip or a footnote — a median of one, rendered bare, is a guess wearing the clothes of a
+ * measurement, and this board's rule is to say nothing rather than guess.
+ */
+function EffectivenessValue({
+  measure,
+  unit,
+  basisNoun,
+}: {
+  measure: EffectivenessMeasure;
+  unit: string;
+  basisNoun: string;
+}) {
+  const basis = (
+    <span className={styles.effectivenessBasis}>
+      from {measure.sampleSize} of {measure.population} {basisNoun}
+    </span>
+  );
+  if (measure.value === undefined) {
+    return (
+      <span className={styles.effectivenessLine}>
+        <span className={styles.effectivenessUnknown}>Not enough data to compute</span>
+        {basis}
+      </span>
+    );
+  }
+  const rounded = Math.round(measure.value * 10) / 10;
+  return (
+    <span className={styles.effectivenessLine}>
+      <span className={styles.effectivenessValue}>
+        {rounded}
+        <small> {unit}</small>
+      </span>
+      {basis}
+    </span>
+  );
+}
+
 function GovernanceView() {
   const { movements } = useWardFlow();
   const sources = [
@@ -641,8 +812,14 @@ function GovernanceView() {
   ];
   const sample = movements[0];
   const timeline = movementTimeline(sample);
+  const audit = changeAudit(movements);
+  const effectiveness = effectivenessNumbers(movements);
   return (
     <div data-testid="ward-governance-view">
+      <div className={styles.governanceBanner} data-testid="ward-governance-medical-device-notice">
+        <span className={styles.prototypeBadge}>Synthetic prototype</span>
+        <NotAMedicalDeviceStatement />
+      </div>
       <section className={styles.assuranceGrid}>
         <article className={styles.governanceCard}>
           <Sparkles aria-hidden="true" />
@@ -730,6 +907,79 @@ function GovernanceView() {
               </li>
             ))}
           </ul>
+        </aside>
+      </div>
+      <div className={`${styles.pageGrid} ${styles.governanceLowerGrid}`}>
+        <section className={styles.panel} data-testid="ward-governance-change-audit">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Change audit</h2>
+              <p>Every urgency change, legal status change, hold release and transport cancellation, newest first</p>
+            </div>
+          </header>
+          {audit.length > 0 ? (
+            <ol className={styles.auditList}>
+              {audit.map((entry, index) => (
+                <li key={`${entry.movementId}-${entry.kind}-${entry.at}-${index}`}>
+                  {entry.kind === "hold_released" || entry.kind === "transport_cancelled" ? (
+                    <History aria-hidden="true" />
+                  ) : (
+                    <Clock3 aria-hidden="true" />
+                  )}{" "}
+                  {formatInstant(entry.at)} · {entry.movementId} · {auditKindLabels[entry.kind]} · {entry.detail} · by{" "}
+                  {entry.by}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className={styles.emptyNote} data-testid="ward-governance-change-audit-empty">
+              None — no urgency change, legal status change, hold release or transport cancellation has been recorded
+              yet.
+            </p>
+          )}
+        </section>
+        <aside className={styles.panel} data-testid="ward-governance-effectiveness">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Effectiveness</h2>
+              <p>Two measures computed from this synthetic scenario</p>
+            </div>
+          </header>
+          <dl className={styles.effectivenessList}>
+            <div data-testid="ward-governance-effectiveness-acceptance">
+              <dt>
+                <Clock3 aria-hidden="true" /> Median time, referral to a ward accepting
+              </dt>
+              <dd>
+                <EffectivenessValue
+                  measure={effectiveness.medianMinutesToAcceptance}
+                  unit="min"
+                  basisNoun="recorded acceptances"
+                />
+              </dd>
+            </div>
+            <div data-testid="ward-governance-effectiveness-units-contacted">
+              <dt>
+                <Users aria-hidden="true" /> Average units contacted per patient
+              </dt>
+              <dd>
+                <EffectivenessValue
+                  measure={effectiveness.averageUnitsContacted}
+                  unit="units"
+                  basisNoun="movements that referred at least one unit"
+                />
+              </dd>
+            </div>
+          </dl>
+          <p className={styles.notice}>
+            Both numbers describe today&apos;s synthetic scenario only. Neither is evidence that this prototype works,
+            and neither may be read as real-world performance.
+          </p>
+          <p className={styles.droppedMeasureNote} data-testid="ward-governance-dropped-measure">
+            <CircleSlash aria-hidden="true" /> A third success measure — legal deadlines passed while a patient waits —
+            is dropped. Every legal deadline was removed from this model on the product owner&apos;s instruction, so it
+            cannot be computed and is not shown here.
+          </p>
         </aside>
       </div>
     </div>

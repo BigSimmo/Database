@@ -8,9 +8,18 @@ import type { Citation, CitationProvenance, SearchResult } from "@/lib/types";
 // label — keeps mobile/compact labels consistent with the cleaned titles
 // rendered elsewhere (cleanDisplayTitle).
 function cleanCitationTitle(value: string) {
-  return readableWhitespace(stripClassificationBanner(normalizeExtractedGlyphs(value)))
-    .replace(/^Synthetic\s+/i, "")
-    .replace(/\n/g, " "); // ensure single line
+  return (
+    readableWhitespace(stripClassificationBanner(normalizeExtractedGlyphs(value)))
+      .replace(/^Synthetic\s+/i, "")
+      .replace(/\n/g, " ") // ensure single line
+      // Uploaded titles routinely arrive with the bracket jammed against the
+      // preceding word — "Lithium Clinical Guideline(EMHS)" — because the
+      // extractor read it that way. Every citation label in the product runs
+      // through here, so normalising it once fixes the safety card, the rail
+      // cards, the drawer and print together. Display only: the stored title is
+      // untouched, and nothing downstream matches on it.
+      .replace(/(\w)\(/g, "$1 (")
+  );
 }
 
 export function citationFromResult(result: SearchResult, provenance: CitationProvenance = "retrieval_only"): Citation {

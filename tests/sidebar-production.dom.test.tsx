@@ -85,7 +85,7 @@ describe("production Clinical Guide sidebar", () => {
       "Factsheets",
       "Tools",
     ]);
-    expect(navigation.getByRole("link", { name: "Medication" })).toHaveAttribute("href", "/?mode=prescribing");
+    expect(navigation.getByRole("link", { name: "Medication" })).toHaveAttribute("href", "/medications");
     expect(navigation.getAllByRole("button").at(-1)).toHaveAccessibleName("More modes");
 
     await user.click(screen.getByRole("button", { name: "Search Clinical Guide" }));

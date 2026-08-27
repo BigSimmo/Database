@@ -1,6 +1,8 @@
+import { claimsJointAuthorship } from "./domain";
 import type {
   ManagementPlanContent,
   ManagementPlanVersion,
+  ParticipationState,
   Patient,
   PatientPlanSection,
   PatientPlanSectionKey,
@@ -44,8 +46,16 @@ import { PATIENT_PLAN_SECTION_KEYS } from "./types";
  *
  * ## Everything not confidently convertible is a gap
  *
- * A section gaps whole. It never carries part of its content, because three of
- * five points with two silently dropped looks finished and is not.
+ * Each point is converted or refused on its own. A section keeps the points that
+ * converted and is flagged for the ones that did not, with the refused source
+ * text quoted in the reason so nothing is dropped silently — that quoting is
+ * what makes partial content safe to show, rather than three of five points
+ * looking finished when they are not.
+ *
+ * A section carries no content at all in three cases: nothing in it could be
+ * converted, the Management Plan records nothing under that heading, or it is a
+ * heading that is never converted. A flagged section cannot be approved, and
+ * only an approved version prints, so partial text never reaches the person.
  *
  * The result is an incomplete draft by design, and often a mostly incomplete
  * one. That is the intended outcome, not a shortfall: the machine does the part
@@ -54,7 +64,11 @@ import { PATIENT_PLAN_SECTION_KEYS } from "./types";
  */
 
 /** The eight headings, in `PATIENT_PLAN_SECTION_KEYS` order, in the person's
- *  own voice. Written as somebody would say them, never as a field name. */
+ *  own voice. Written as somebody would say them, never as a field name.
+ *
+ *  This is the wording used when the record says the person took part in
+ *  writing the plan. Two of these claim that explicitly — see
+ *  `PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN` for what prints otherwise. */
 export const PATIENT_PLAN_SECTION_HEADING: Record<PatientPlanSectionKey, string> = {
   whyWeWroteThis: "Why we wrote this together",
   whatMattersToYou: "What matters to you",
@@ -65,6 +79,48 @@ export const PATIENT_PLAN_SECTION_HEADING: Record<PatientPlanSectionKey, string>
   whoIsInvolved: "Who's involved in your care",
   thingsThatMightHelp: "Things that might help",
 };
+
+/**
+ * The headings that replace them when the record says the person took no part
+ * in writing the plan this copy carries.
+ *
+ * Only the two that claim the person contributed appear here. The other six
+ * make no authorship claim at all — `What helps you`, `Who's involved in your
+ * care` — and are deliberately unchanged, because rewording a heading that was
+ * already honest is churn, and every extra variant is another thing that can
+ * drift.
+ *
+ * Every replacement says what the section *holds* rather than narrating an
+ * absence: `Why this plan was written`, never "why we wrote this without you".
+ * Nothing here reads as *you were not there*, *you did not say*, or *you
+ * declined*. The person has done nothing wrong, and this prototype never labels
+ * non-participation as non-compliance.
+ *
+ * `whatWeAgreedWillHappen` keeps the word "agreed" deliberately. The section is
+ * about an approach somebody agreed, and the honest fix is to say *who* agreed
+ * it — not to strip the agreement out and leave the person a bare list of what
+ * will be done to them.
+ */
+export const PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN: Partial<Record<PatientPlanSectionKey, string>> = {
+  whyWeWroteThis: "Why this plan was written",
+  whatWeAgreedWillHappen: "What your team has agreed will happen when you come to the emergency department",
+};
+
+/**
+ * The heading for one section, given what the record says about how the source
+ * Management Plan Version was written.
+ *
+ * Falls back to the joint wording only for keys that never made the claim, so a
+ * new section added to `PATIENT_PLAN_SECTION_KEYS` cannot silently acquire a
+ * claim it was never given.
+ */
+export function patientPlanSectionHeading(
+  key: PatientPlanSectionKey,
+  participationState: ParticipationState | null,
+): string {
+  if (claimsJointAuthorship(participationState)) return PATIENT_PLAN_SECTION_HEADING[key];
+  return PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN[key] ?? PATIENT_PLAN_SECTION_HEADING[key];
+}
 
 /**
  * A fixed sentence under each heading, addressed to the person. This is where
@@ -81,11 +137,53 @@ export const PATIENT_PLAN_SECTION_LEAD_IN: Record<PatientPlanSectionKey, string>
   whatHelpsYou: "These are the things that have helped before.",
   whatMakesThingsHarder: "These are the things that have made a visit harder, so we can try to avoid them.",
   whatWeAgreedWillHappen: "This is the approach you and your team agreed for when you come in.",
+  // Covers both kinds of point this heading collects: something different about
+  // today, and something that has changed in the person's life. Reading the
+  // draft, the version that named only the first left the surviving points —
+  // which are the second kind — sitting under a sentence that did not fit them.
   ifSomethingNewIsHappening:
-    "This plan is about what usually happens. If something is different this time, say so — you will be looked at afresh.",
+    "This plan is about what usually happens. If something is different this time, or something in your life has changed, say so — you will be looked at afresh.",
   whoIsInvolved: "These are the people and teams who know you.",
   thingsThatMightHelp: "These are practical things that can be arranged for you.",
 };
+
+/**
+ * The lead-ins that replace them when the record says the person took no part.
+ *
+ * Three of the eight, for the same reason as the headings: only the lines that
+ * assert the person contributed, agreed, or said something are rewritten.
+ *
+ * `whatMakesThingsHarder` is deliberately **not** here, though it says "so we
+ * can try to avoid them". That "we" is the care relationship going forward, not
+ * a claim about who wrote the page — it promises the team will try, which stays
+ * true however the plan was written, and removing it would cost the person a
+ * commitment for no gain in honesty.
+ *
+ * `whatMattersToYou` is the hardest of the three. "These are the things you
+ * have said matter to you" is false when they said nothing; "your team's
+ * understanding of what matters to you" is true, is still addressed to them,
+ * and invites correction by being visibly an understanding rather than a
+ * transcript — without apologising for itself or asking anything of them.
+ */
+export const PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN: Partial<Record<PatientPlanSectionKey, string>> = {
+  whyWeWroteThis: "This is what your team wrote down about why this plan exists.",
+  whatMattersToYou: "This is your team's understanding of what matters to you.",
+  whatWeAgreedWillHappen: "This is the approach your team has agreed for when you come in.",
+};
+
+/**
+ * The lead-in for one section, given what the record says about how the source
+ * Management Plan Version was written. The companion to
+ * `patientPlanSectionHeading`, reading the same predicate, so a heading and the
+ * sentence beneath it can never make opposite claims.
+ */
+export function patientPlanSectionLeadIn(
+  key: PatientPlanSectionKey,
+  participationState: ParticipationState | null,
+): string {
+  if (claimsJointAuthorship(participationState)) return PATIENT_PLAN_SECTION_LEAD_IN[key];
+  return PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN[key] ?? PATIENT_PLAN_SECTION_LEAD_IN[key];
+}
 
 /**
  * Which clinical fields each patient-voice heading is built from. Two fields are
@@ -950,8 +1048,20 @@ function convertLine(
       return { gapReasonKey: "unknownTerm" };
     }
 
-    const refersToThisPerson =
-      words.some((word) => ownNames.has(word)) || words.some((word) => THIRD_PERSON_PRONOUN_SET.has(word));
+    /**
+     * The possessive is stripped before the name is looked up.
+     *
+     * `wordsOf` keeps an internal apostrophe, so the token for "Rowan's" is
+     * `rowan's` and `ownNames` holds only `rowan` — which meant a sentence
+     * naming the person possessively was not counted as being *about* them, and
+     * the negation rule below never fired for it. "Rowan was not told what was
+     * happening." was correctly refused while "Rowan's family was not told."
+     * converted to "Your family was not told." and, carrying no flag at all,
+     * could be approved straight onto the person's own copy. No fixture
+     * triggers it, which is exactly why nothing went red.
+     */
+    const namesThisPerson = words.some((word) => ownNames.has(word.replace(/['’]s$/, "")));
+    const refersToThisPerson = namesThisPerson || words.some((word) => THIRD_PERSON_PRONOUN_SET.has(word));
 
     // "known as" is a naming construction; a bare "known" is not, and treating
     // it as one refused "Mira is known to the Coastal Plains team" as though it
@@ -987,6 +1097,17 @@ function convertLine(
 
   const references = personReferences(patient);
   for (const possessive of references.possessive) {
+    /*
+     * The leading `\b` is not decoration. Without it, a he/him patient's
+     * possessive "his" matched inside "This", so "This is what helps you."
+     * became "Tyour is what helps you.", failed the vocabulary check, and the
+     * clinician was told the section used wording with no everyday equivalent —
+     * which was untrue, and a false reason is the exact thing the naming rule
+     * was narrowed to avoid. It corrupted any word ending in the patient's name
+     * or pronoun. Jordan is the only he/him fixture patient and has no
+     * Management Plan, so the whole pronoun class went uncovered; the object and
+     * subject replacements below always had the boundary.
+     */
     text = text.replace(new RegExp(`\\b${escapeForRegExp(possessive)}\\b`, "gi"), "your");
   }
   for (const object of references.object) {
@@ -1044,14 +1165,66 @@ function sourceLines(content: ManagementPlanContent, key: PatientPlanSectionKey)
   });
 }
 
-function gapSection(key: PatientPlanSectionKey, reasonKey: PatientPlanGapReasonKey): PatientPlanSection {
+function gapSection(
+  key: PatientPlanSectionKey,
+  reasonKey: PatientPlanGapReasonKey,
+  participationState: ParticipationState | null,
+): PatientPlanSection {
   return {
     key,
-    heading: PATIENT_PLAN_SECTION_HEADING[key],
+    heading: patientPlanSectionHeading(key, participationState),
     body: [],
     gap: true,
     gapReason: PATIENT_PLAN_GAP_REASON[reasonKey],
   };
+}
+
+/**
+ * What a partly converted section says.
+ *
+ * It states the arithmetic, then **quotes the clinical points it refused**, then
+ * gives the reason. Quoting them is the part that matters. A count alone told a
+ * clinician a number and nothing else: on Rowan's "If something new is
+ * happening" the two survivors are administrative while the seven refused are
+ * the clinical red flags — chest pain, head injury, a change in conscious state
+ * — and none of that was visible without opening the Management Plan alongside.
+ * Combined with a flag that clears on any textual edit, a hurried clinician
+ * could satisfy the approval gate without ever learning what was missing.
+ *
+ * The quoted text is the clinician's own source wording, unconverted, shown on a
+ * draft only. It never reaches the person: a flagged section cannot be approved
+ * and only an approved version prints.
+ *
+ * The underlying reason already ends by naming who writes it, so that sentence
+ * is not repeated here.
+ */
+function partialGapReason(
+  converted: number,
+  refusals: readonly { line: string; reasonKey: PatientPlanGapReasonKey }[],
+): string {
+  /*
+   * Grouped by reason, because each quoted point is now shown to a clinician
+   * beside the reason it was refused for — and attributing every point to the
+   * first refusal's reason would put a false statement in front of them.
+   *
+   * That flaw was recorded as latent while only a count was shown, on the
+   * grounds that refusals within a section happened to share a reason. Quoting
+   * them made it live and wrong on the real fixtures at once: Rowan's "Things
+   * that might help" refuses "No interpreter needed…" as a negation and
+   * "Sensory: bright overhead lighting…" for vocabulary, and a single reason
+   * cannot be true of both.
+   */
+  const grouped = new Map<PatientPlanGapReasonKey, string[]>();
+  for (const { line, reasonKey } of refusals) {
+    grouped.set(reasonKey, [...(grouped.get(reasonKey) ?? []), line]);
+  }
+
+  const parts = [...grouped].map(([reasonKey, lines]) => {
+    const quoted = lines.map((line) => `“${line}”`).join(" ");
+    return `${quoted} ${lines.length === 1 ? "It was" : "They were"} refused because: ${PATIENT_PLAN_GAP_REASON[reasonKey]}`;
+  });
+
+  return `${converted} of ${converted + refusals.length} points converted, and ${converted === 1 ? "is" : "are"} shown here. Still to write, from the Management Plan: ${parts.join(" ")}`;
 }
 
 /**
@@ -1089,29 +1262,96 @@ export function buildPatientPlanDraft(
   const forThisPatient = resources.filter((resource) => resource.patientId === patient.id);
   const convert = createLineConverter(version, patient, resources);
 
+  /*
+   * How this version was written decides the wording of every heading below.
+   * It is read once, here, from the Management Plan Version the copy is being
+   * derived from — the only place any authorship fact lives — and it comes from
+   * the same predicate as the clinician's participation marker, so a copy and
+   * the record behind it cannot make opposite claims.
+   */
+  const participationState = version.participationState;
+
   const sections = PATIENT_PLAN_SECTION_KEYS.map((key): PatientPlanSection => {
     if ((NEVER_CONVERTED_SECTION_KEYS as readonly PatientPlanSectionKey[]).includes(key)) {
-      return gapSection(key, "agreedApproach");
+      return gapSection(key, "agreedApproach", participationState);
     }
 
     const lines = sourceLines(version.content, key);
-    if (lines.length === 0) return gapSection(key, "nothingRecorded");
+    if (lines.length === 0) return gapSection(key, "nothingRecorded", participationState);
 
+    /**
+     * Every point is converted or refused on its own, and the ones that
+     * converted are kept.
+     *
+     * This used to return on the first refusal, throwing away everything
+     * already converted with it. On the fixtures that cost real content for no
+     * safety gain: the person's own "What matters to you" held three plain,
+     * kind, correctly converted lines and one that could not be converted, and
+     * all four were discarded. What the clinician then saw was a blank box,
+     * which is strictly less to work from than three lines and a note saying
+     * what is still missing.
+     *
+     * The section is still flagged, so nothing here weakens the approval gate:
+     * a `gap` section cannot be approved, and only an approved version prints.
+     * Partial text therefore exists only in the draft a clinician is working
+     * on, which is the one place it helps.
+     */
     const body: string[] = [];
+    const refusals: { line: string; reasonKey: PatientPlanGapReasonKey }[] = [];
     for (const line of lines) {
       const outcome = convert(line);
-      if ("gapReasonKey" in outcome) return gapSection(key, outcome.gapReasonKey);
+      if ("gapReasonKey" in outcome) {
+        refusals.push({ line, reasonKey: outcome.gapReasonKey });
+        continue;
+      }
       body.push(outcome.converted);
     }
 
-    return { key, heading: PATIENT_PLAN_SECTION_HEADING[key], body, gap: false, gapReason: null };
+    const firstRefusal = refusals[0];
+    if (firstRefusal === undefined) {
+      return { key, heading: patientPlanSectionHeading(key, participationState), body, gap: false, gapReason: null };
+    }
+    // Nothing converted: the section reads exactly as it did before, so a whole
+    // section refused for one stated reason still says that one reason plainly.
+    if (body.length === 0) return gapSection(key, firstRefusal.reasonKey, participationState);
+
+    return {
+      key,
+      heading: patientPlanSectionHeading(key, participationState),
+      body,
+      gap: true,
+      gapReason: partialGapReason(body.length, refusals),
+    };
   });
 
   return { derivedFromManagementVersionId: version.id, sections, resources: forThisPatient };
 }
 
-/** The gaps still to be filled. Approval is refused while any remains: an
- *  unfilled gap prints as a heading with nothing under it. */
+/**
+ * The sections still to be finished. Approval is refused while any remains.
+ *
+ * A section counts as unfinished when it is flagged **or** when it holds
+ * nothing, and the second half is the one that makes this a guard rather than a
+ * restatement of the form's own opinion. Filtering on `gap` alone let a caller
+ * saving `{ gap: false, body: [] }` through approval, after which the page
+ * prints that section's heading and lead-in with nothing beneath them — a
+ * heading over a blank on a person's own copy, which is the Task 8 defect
+ * exactly, one dispatch away. Only the form stood between that and paper, and
+ * the reducer's own comment claimed otherwise.
+ */
 export function unfilledGapSections(sections: readonly PatientPlanSection[]): readonly PatientPlanSection[] {
-  return sections.filter((section) => section.gap);
+  return sections.filter((section) => section.gap || section.body.length === 0);
+}
+
+/**
+ * The approved headings that are missing from a version altogether.
+ *
+ * `unfilledGapSections` can only inspect the sections it is given, so a caller
+ * that sends six sections instead of eight passes it trivially. The person's
+ * copy has eight headings by specification, and a version that has quietly lost
+ * two of them is not a copy of the plan.
+ */
+export function missingSectionKeys(sections: readonly PatientPlanSection[]): readonly PatientPlanSectionKey[] {
+  const present = new Set(sections.map((section) => section.key));
+  return PATIENT_PLAN_SECTION_KEYS.filter((key) => !present.has(key));
 }

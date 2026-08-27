@@ -149,13 +149,21 @@ describe("answer follow-up chips · menu-derived output reaches both surfaces", 
 });
 
 describe("answer follow-up chips · call-site wiring contract", () => {
-  it("keeps both surfaces fed by buildAnswerFollowUpSuggestions", () => {
+  it("feeds the answer thread from buildAnswerFollowUpSuggestions, and the composer dock not at all", () => {
     expect(dashboard).toContain("buildAnswerFollowUpSuggestions");
-    // Desktop: the staged answer surface receives the memoised list.
+    // One surface owns the questions: the answer thread, on every width, as
+    // full-width rows (owner decision, 2026-08-26, "direction B").
     expect(dashboard).toContain("followUpSuggestions={answerFollowUpSuggestions}");
-    // Phone: the composer dock receives the same list in answer mode.
-    expect(dashboard).toContain('composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions');
     expect(desktopSurface).toContain("suggestions={followUpSuggestions}");
+    expect(desktopSurface).toContain('layout="rows"');
+    // The composer dock is deliberately not fed on the answer mode. It used to
+    // receive the same list and repeat all three questions a few hundred pixels
+    // lower, truncated to whatever fitted one horizontally scrolling line —
+    // which is the defect that argued for rows. Pinned so it cannot come back
+    // by accident; the header component itself still supports the prop and is
+    // still covered by the phone-composer tests above.
+    expect(dashboard).toContain("composerFollowUpSuggestions={undefined}");
+    expect(dashboard).not.toContain('composerFollowUpSuggestions={searchMode === "answer"');
     expect(phoneHeader).toContain("suggestions={composerFollowUpSuggestions}");
     expect(phoneHeader).toContain('testId="answer-composer-follow-up-suggestions"');
   });

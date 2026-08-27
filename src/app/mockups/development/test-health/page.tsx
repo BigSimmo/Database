@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/panel-primitives";
+import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { QuarantineList } from "@/components/developer-area/hub/quarantine-list";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
@@ -43,10 +43,7 @@ export default function DeveloperTestHealthPage() {
         on the same commit and lapses within thirty days, so this list should be short and should empty itself.
       </p>
 
-      <section aria-labelledby="developer-test-health-heading" className="grid gap-3">
-        <h2 id="developer-test-health-heading" className={SECTION_HEADING_CLASS}>
-          Quarantined · {counts.quarantined}
-        </h2>
+      <PanelSection headingId="developer-test-health-heading" heading={`Quarantined · ${counts.quarantined}`}>
         {quarantined.length > 0 ? (
           <QuarantineList entries={quarantined} now={now} />
         ) : (
@@ -63,7 +60,7 @@ export default function DeveloperTestHealthPage() {
             {note ? <p className={META_CLASS}>The ledger records why: {note}</p> : null}
           </div>
         )}
-      </section>
+      </PanelSection>
     </PanelPageShell>
   );
 }

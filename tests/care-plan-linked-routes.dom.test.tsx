@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,7 @@ import {
 import { diffManagementPlanContent } from "@/components/care-plan/mockups/management-plan-diff";
 import { managementPlanFieldId } from "@/components/care-plan/mockups/management-plan-form";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
-import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
+import { CarePlanPrototypeProvider, useCarePlanPrototype } from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
 import {
   FIRST_MINUTE_SECTION_LABEL,
@@ -24,11 +24,19 @@ import {
   SAFETY_PLAN_SECTION_KEYS,
   SAFETY_PLAN_SECTION_LABEL,
   formatPerthDate,
+  safetyPlanConfirmationRow,
 } from "@/components/care-plan/mockups/prototype-ui";
 import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
 import { safetyPlanFieldId } from "@/components/care-plan/mockups/safety-plan-form";
-import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
+import { FIRST_MINUTE_CONTENT_KEYS, type CarePlanPrototypeAction } from "@/components/care-plan/mockups/types";
+
+import {
+  JOINT_AUTHORSHIP_CLAIMS,
+  PAPER_INTRO_TOGETHER,
+  PAPER_INTRO_WRITTEN_BY_THE_TEAM,
+  REPROACH_SHAPES,
+} from "./helpers/care-plan-patient-copy-claims";
 
 /**
  * A route rendered with the world its own address names. The provider is seeded
@@ -308,39 +316,40 @@ describe("Care Plan route shell", () => {
   // block below asserts that none of those thirteen renders a purpose surface
   // at all.
   it.each([
-    [
-      CARE_PLAN_ROUTES.history,
-      "History",
-      "Combined plan, presentation-amendment, print, and contact-action audit chronology",
-    ],
-    [
-      CARE_PLAN_ROUTES.reviews,
-      "Reviews",
-      "Awaiting Approval, Review Suggested, contact verification, and manual identification queues",
-    ],
-    [CARE_PLAN_ROUTES.team, "Team", "Synthetic CMHT and plan-owner directory"],
-    [
-      CARE_PLAN_ROUTES.governance,
-      "Governance",
-      "Prototype boundary, roles, lifecycle rules, and unresolved identification policy",
-    ],
-    [CARE_PLAN_ROUTES.systemStates, "System states", "Deterministic degraded-state specimens and scenario controls"],
-  ])("maps %s to the %s route purpose surface", (pathname, heading, purpose) => {
+    [CARE_PLAN_ROUTES.history, "History"],
+    [CARE_PLAN_ROUTES.reviews, "Reviews"],
+    [CARE_PLAN_ROUTES.team, "Team"],
+    [CARE_PLAN_ROUTES.governance, "Governance"],
+    [CARE_PLAN_ROUTES.systemStates, "System states"],
+  ])("maps %s to the %s route heading", (pathname, heading) => {
     renderRoute(pathname);
     expect(screen.getByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
-    const surface = screen.getByTestId("care-plan-route-purpose");
-    expect(within(surface).getByText(purpose)).toBeInTheDocument();
   });
 
-  it("offers exactly one search slot and navigates it without putting record content in the URL", async () => {
+  it("hands the submitted search to Patients without putting record content in the URL", async () => {
     const user = userEvent.setup();
-    const navigate = renderRoute(CARE_PLAN_ROUTES.reviews);
+    const navigate = vi.fn();
+    const route = render(
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={CARE_PLAN_ROUTES.reviews} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>,
+    );
     const search = screen.getByRole("searchbox", { name: "Search patients" });
     expect(screen.getAllByRole("searchbox")).toHaveLength(1);
     await user.type(search, "Rowan");
     await user.click(screen.getByRole("button", { name: "Search patients" }));
     expect(navigate).toHaveBeenCalledWith(CARE_PLAN_ROUTES.patients);
     expect(navigate.mock.calls.every(([href]) => !String(href).includes("Rowan"))).toBe(true);
+
+    route.rerender(
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={CARE_PLAN_ROUTES.patients} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>,
+    );
+    expect(screen.getByRole("searchbox", { name: "Search synthetic patients" })).toHaveValue("Rowan");
+    const results = screen.getByTestId("care-plan-directory-results");
+    expect(within(results).getByRole("button", { name: "Open Rowan Sample" })).toBeInTheDocument();
+    expect(within(results).queryAllByRole("button", { name: /^Open / })).toHaveLength(1);
   });
 
   it("reads the named specimen scenario from the URL and nothing else", () => {
@@ -365,31 +374,23 @@ describe("Care Plan route shell", () => {
     expect(document.querySelector("[aria-disabled='true']")).toBeNull();
   });
 
-  it("replaces the route-purpose surface on every route that now has real content", () => {
-    for (const route of [
-      CARE_PLAN_ROUTES.home,
-      CARE_PLAN_ROUTES.patients,
-      CARE_PLAN_ROUTES.patient,
-      CARE_PLAN_ROUTES.managementPlan,
-      CARE_PLAN_ROUTES.managementPlanEdit,
-      CARE_PLAN_ROUTES.managementPlanReview,
-      CARE_PLAN_ROUTES.managementPlanPrint,
-      CARE_PLAN_ROUTES.presentations,
-      CARE_PLAN_ROUTES.newPresentation,
-      CARE_PLAN_ROUTES.presentation,
-      CARE_PLAN_ROUTES.safetyPlan,
-      CARE_PLAN_ROUTES.safetyPlanEdit,
-      CARE_PLAN_ROUTES.safetyPlanPrint,
-      CARE_PLAN_ROUTES.patientPlan,
-      CARE_PLAN_ROUTES.patientPlanEdit,
-      CARE_PLAN_ROUTES.patientPlanPrint,
-    ]) {
+  /**
+   * The completion test for the whole route family. Every route in
+   * `CARE_PLAN_ROUTES` now renders its own content, so nothing anywhere falls
+   * through to the Task 3 specimen that said what a route would eventually hold
+   * — and that surface no longer exists to fall through to.
+   */
+  it("gives every route real content rather than a statement of what it will hold", () => {
+    for (const route of Object.values(CARE_PLAN_ROUTES)) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
           <CarePlanRouteSurface pathname={route} query="" navigate={vi.fn()} />
         </CarePlanPrototypeProvider>,
       );
       expect(screen.queryByTestId("care-plan-route-purpose"), `${route} still shows a purpose surface`).toBeNull();
+      expect(document.body.textContent ?? "", `${route} still says its content is built later`).not.toMatch(
+        /built in a later stage of the prototype/i,
+      );
       unmount();
     }
   });
@@ -671,7 +672,16 @@ describe("Care Plan clinical snapshot", () => {
     expect(band).toHaveTextContent("North River Health Service");
     expect(band).toHaveTextContent(/Current Plan.*version 2/i);
     expect(band).toHaveTextContent(/Personal Safety Plan/i);
-    expect(band).toHaveTextContent(/verified/i);
+    /*
+     * Spelled out, and both halves of it. This assertion used to read
+     * `/verified/i`, which `Not verified since …` satisfies just as well — so it
+     * could not tell a team whose contact details were checked three weeks ago
+     * from one nobody has checked since, on the band a clinician reads before
+     * ringing the number. Rowan's team is `SYN-CMHT-001`, verified 21 days
+     * before `PROTOTYPE_NOW`.
+     */
+    expect(band).toHaveTextContent("Verified on 30/07/2026");
+    expect(band.textContent ?? "").not.toMatch(/Not verified since/i);
     expect(band).toHaveTextContent(/in the 12 months to 20\/08\/2026/i);
     expect(within(band).getByText("Synthetic prototype — fictional people, teams, and hospitals")).toBeInTheDocument();
   });
@@ -950,19 +960,6 @@ describe("Care Plan CMHT contact actions", () => {
     }
   });
 
-  it.each(["permission-unavailable", "version-conflict"])(
-    "prevents an unrecordable contact launch when %s blocks its audit intent",
-    (scenario) => {
-      renderRoute(CARE_PLAN_ROUTES.patient, `scenario=${scenario}`);
-      const email = screen.getByRole("link", { name: "Email North River CMHT" });
-
-      expect(email).toHaveAttribute("aria-disabled", "true");
-      expect(fireEvent.click(email)).toBe(false);
-      expect(screen.getByRole("alert")).toHaveTextContent(/nothing was changed|newer version/i);
-      expect(screen.queryByTestId("care-plan-outcome")).toBeNull();
-    },
-  );
-
   it("keeps unverified contact details visible with a warning, last-verified date and a Reviews link", () => {
     renderRoute(carePlanRoute.patient("SYN-PATIENT-003"));
     const contacts = screen.getByRole("region", { name: "Community mental health team" });
@@ -991,11 +988,6 @@ describe("Care Plan CMHT contact actions", () => {
     const contacts = screen.getByRole("region", { name: "Community mental health team" });
     expect(within(contacts).getByRole("link", { name: "Call North River CMHT" })).toBeInTheDocument();
   });
-
-  // The guarded-launch behaviour itself (aria-disabled, preventDefault, no
-  // audit outcome) is covered by "prevents an unrecordable contact launch
-  // when %s blocks its audit intent" above, across both scenarios that can
-  // block record-contact-intent.
 });
 
 describe("Care Plan Management Plan reading", () => {
@@ -2593,11 +2585,15 @@ describe("Care Plan Personal Safety Plan reading", () => {
     expect(ownership).toHaveTextContent(/never replaces fresh assessment/i);
   });
 
-  it("states the version, last-confirmed date, review currency and who wrote it with them", () => {
+  it("states the version, when the person's part was recorded, review currency and who wrote it with them", () => {
     renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
     const metadata = screen.getByTestId("care-plan-safety-version");
     expect(metadata).toHaveTextContent("Version 1");
-    expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.confirmedAt));
+    // The afternoon Rowan's part was recorded, spelled out rather than read off
+    // the fixture. Not 04/09/2025, the next morning, when the version went
+    // live — which is what this row asserted until D1 was applied to it.
+    expect(metadata).toHaveTextContent("03/09/2025");
+    expect(metadata.textContent ?? "").not.toContain("04/09/2025");
     expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.reviewDueAt));
     expect(metadata).toHaveTextContent("Morgan Sample");
     expect(metadata).toHaveTextContent(/Rowan chose the wording/);
@@ -3164,6 +3160,93 @@ describe("Care Plan Personal Safety Plan print", () => {
   });
 });
 
+/**
+ * Every patient-scoped reading surface can be left again, and every route in
+ * the family can be reached by clicking.
+ *
+ * Found by walking the running application in Chromium for the first time, in
+ * Task 11. Ten tasks of route tests proved that each address renders; none
+ * asked whether a reader could get to it, or get out of it. The Patient Plan —
+ * a whole specification feature — was linked from nothing outside its own three
+ * pages, and the Personal Safety Plan and Patient Plan reading surfaces dropped
+ * the patient section navigation, so a clinician who opened either had no way
+ * back into the record but the browser's Back button.
+ *
+ * The `safetyPlan` member of `PatientSectionKey` is the fingerprint: it has
+ * existed since Task 3 and nothing ever passed it, because the route that would
+ * have done so did not render the navigation at all.
+ */
+describe("Care Plan patient-scoped navigation", () => {
+  it.each([
+    ["Personal Safety Plan", carePlanRoute.safetyPlan("SYN-PATIENT-001")],
+    ["Patient Plan", carePlanRoute.patientPlan("SYN-PATIENT-001")],
+  ])("keeps the patient section navigation on the %s reading surface", (_label, pathname) => {
+    renderRoute(pathname);
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    for (const [label, href] of [
+      ["Overview", carePlanRoute.patient("SYN-PATIENT-001")],
+      ["Management Plan", carePlanRoute.managementPlan("SYN-PATIENT-001")],
+      ["Personal Safety Plan", carePlanRoute.safetyPlan("SYN-PATIENT-001")],
+      ["ED Presentations", carePlanRoute.presentations("SYN-PATIENT-001")],
+      ["History", carePlanRoute.history("SYN-PATIENT-001")],
+    ] as const) {
+      expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
+  });
+
+  it("marks Personal Safety Plan as the current page on its own route", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    expect(within(nav).getByRole("link", { name: "Personal Safety Plan" })).toHaveAttribute("aria-current", "page");
+  });
+
+  /**
+   * The Patient Plan is not one of the five sections, so nothing in the
+   * navigation may claim to be the page the reader is on.
+   */
+  it("claims no current section on the Patient Plan route", () => {
+    renderRoute(carePlanRoute.patientPlan("SYN-PATIENT-001"));
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    for (const link of within(nav).getAllByRole("link")) {
+      expect(link, `${link.textContent} must not claim to be the current page`).not.toHaveAttribute("aria-current");
+    }
+  });
+
+  /**
+   * The one inbound link the Patient Plan has. The Management Plan already
+   * states, in words, whether a patient copy exists and which version it is;
+   * before Task 11 that sentence was the only mention of the Patient Plan
+   * anywhere outside its own pages, and it was not a link, so the route could
+   * not be reached by clicking from anywhere in the product.
+   */
+  it("links the Patient Plan from the Management Plan's review and sharing section", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    expect(screen.getByRole("link", { name: "Open the Patient Plan" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patientPlan("SYN-PATIENT-001"),
+    );
+  });
+
+  /**
+   * The branch the first fix missed, and the one the link matters most in.
+   *
+   * A withdrawn plan is exactly the case the specification keeps a Patient Plan
+   * readable for: the person may be holding a printed copy of a plan that has
+   * since been withdrawn, and what the application says they were given has to
+   * stay reachable. Putting the link only in the `currentManagementVersion !==
+   * null` arm made the person's own copy unreachable again the moment their
+   * plan was withdrawn — the same defect as before, one branch along.
+   */
+  it("links the Patient Plan from a withdrawn Management Plan too", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-004"));
+    expect(screen.getByTestId("care-plan-withdrawn-notice")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the Patient Plan" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patientPlan("SYN-PATIENT-004"),
+    );
+  });
+});
+
 describe("Care Plan error boundary", () => {
   function Thrower(): never {
     throw new Error("Two versions are recorded as Current for SYN-MGMT-PLAN-001.");
@@ -3213,15 +3296,78 @@ describe("Care Plan Patient Plan", () => {
     "Things that might help",
   ];
 
+  /**
+   * The printed stale banner, spelled out here rather than imported, for the same
+   * reason as the headings above: an expectation read from the constant its
+   * subject renders from can never disagree with it.
+   *
+   * Every clause is load-bearing. It must be true both when a newer Management
+   * Plan version was approved and when the plan was withdrawn with nothing in its
+   * place, so it never says the team *updated* anything; it never estimates how
+   * much of the sheet is still right, because nothing computes that; and it never
+   * disowns the paper, because the person may be holding it in a waiting room.
+   */
+  const PRINTED_STALE_BANNER =
+    "Some of this may have changed. The plan this copy was written from is no longer the one your team is using, " +
+    "so some of what is here may be out of date. It is still yours to keep. Bring it with you and ask someone on " +
+    "your team to go through it with you, and they can write a new one with you.";
+
+  /**
+   * Non-participation is never labelled non-compliance, and the sheet a person
+   * is handed is the last place it could be. `REPROACH_SHAPES` holds the shapes
+   * that would turn an honest sentence into a reproach.
+   */
+  function expectNoReproach(paper: HTMLElement) {
+    const text = paper.textContent ?? "";
+    for (const shape of REPROACH_SHAPES) {
+      expect(shape.test(text), `the sheet reads as a reproach: ${shape}`).toBe(false);
+    }
+  }
+
+  function expectNoClaimOfJointAuthorship(element: HTMLElement, where: string) {
+    const text = element.textContent ?? "";
+    for (const claim of JOINT_AUTHORSHIP_CLAIMS) {
+      expect(claim.test(text), `${where} still claims joint authorship: ${claim}`).toBe(false);
+    }
+  }
+
+  /**
+   * The claim this banner used to make, and must never make again: the plan may
+   * have been withdrawn rather than updated, in which case nothing was updated
+   * and there may be no plan in use at all.
+   */
+  function expectNoClaimOfAnUpdate(banner: HTMLElement) {
+    const text = banner.textContent ?? "";
+    expect(text).not.toContain("has updated");
+    expect(text).not.toContain("Your team has updated");
+    expect(text).not.toMatch(/updated/i);
+    // And no estimate of how much of the sheet is still correct.
+    expect(text).not.toMatch(/most of it will still be right/i);
+  }
+
+  function DispatchCapture({ capture }: { capture: (dispatch: (action: CarePlanPrototypeAction) => void) => void }) {
+    capture(useCarePlanPrototype().dispatch);
+    return null;
+  }
+
   function renderJourney(pathname: string) {
     const navigate = vi.fn();
+    let capturedDispatch: ((action: CarePlanPrototypeAction) => void) | null = null;
     const view = (at: string) => (
       <CarePlanPrototypeProvider>
+        <DispatchCapture capture={(dispatch) => (capturedDispatch = dispatch)} />
         <CarePlanRouteSurface pathname={at} query="" navigate={navigate} />
       </CarePlanPrototypeProvider>
     );
     const { rerender } = render(view(pathname));
-    return { navigate, goTo: (at: string) => rerender(view(at)) };
+    return {
+      navigate,
+      goTo: (at: string) => rerender(view(at)),
+      dispatch: (action: CarePlanPrototypeAction) => {
+        if (capturedDispatch === null) throw new Error("The Care Plan prototype dispatch was not captured.");
+        capturedDispatch(action);
+      },
+    };
   }
 
   async function createDraft(user: ReturnType<typeof userEvent.setup>) {
@@ -3247,6 +3393,7 @@ describe("Care Plan Patient Plan", () => {
     renderJourney(carePlanRoute.patientPlan("SYN-PATIENT-001"));
 
     expect(screen.getByTestId("care-plan-patient-plan-no-current")).toHaveTextContent(/no approved Patient Plan/i);
+    expect(screen.queryByTestId("care-plan-patient-plan-ownership")).toBeNull();
     await createDraft(user);
 
     const draftNotice = screen.getByTestId("care-plan-patient-plan-draft-notice");
@@ -3284,6 +3431,76 @@ describe("Care Plan Patient Plan", () => {
     expect(screen.getByRole("button", { name: "Approve patient copy" })).toHaveAttribute("aria-disabled", "true");
   });
 
+  /**
+   * A part-converted section shows both halves: the points the conversion
+   * managed, in the editable field, and a flag naming what it refused. The
+   * clinician is not handed a blank box that hides work already done, and the
+   * partial text is not presented as finished.
+   */
+  it("shows a part-converted section's own lines beside the flag for the rest", async () => {
+    const user = userEvent.setup();
+    renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+
+    const field = screen.getByLabelText(/^What matters to you/);
+    /*
+     * The lines the conversion managed, verbatim, in the box the clinician
+     * edits. Two of four, not three: "To have Jess contacted only with Rowan's
+     * agreement on the day, not automatically." is a negated sentence naming
+     * the person, and is refused. It used to convert only because the
+     * possessive token never matched the name, which is the same hole that let
+     * "Rowan's family was not told." through — so this line is the price of
+     * closing it, and it is the right price.
+     */
+    expect(field).toHaveValue(
+      [
+        "To be told what is happening and roughly how long it will take, rather than being left to guess.",
+        "To go home the same day where that is safe, with a mental health team call the next working day.",
+      ].join("\n"),
+    );
+
+    const flag = screen.getByTestId("care-plan-patient-plan-form-gap-whatMattersToYou");
+    expect(flag).toHaveTextContent("Partly converted — the rest needs writing");
+    expect(flag).toHaveTextContent(/2 of 4 points converted/);
+    expect(flag).toHaveTextContent(/written by a clinician/i);
+    // Both refused points are quoted, so the clinician can see exactly what is
+    // missing without opening the Management Plan alongside.
+    expect(flag).toHaveTextContent("To have Jess contacted only with Rowan's agreement on the day, not automatically.");
+    expect(flag).toHaveTextContent("To be addressed as Rowan, and referred to as they/them.");
+    expect(flag).toHaveTextContent(/Still to write, from the Management Plan/);
+  });
+
+  /**
+   * Leaving the converted lines exactly as the machine produced them is not
+   * writing the section. If this ever passes, a copy could be approved with the
+   * refused part still missing, on the strength of text no person wrote.
+   */
+  it("keeps approval locked while a part-converted section is left as the machine produced it", async () => {
+    const user = userEvent.setup();
+    renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+
+    // Every wholly blank section written, every part-converted one untouched.
+    for (const field of screen.getAllByRole("textbox")) {
+      if ((field as HTMLTextAreaElement).value.trim() !== "") continue;
+      await user.click(field);
+      await user.paste("Written with you at the bedside.");
+    }
+
+    const approve = screen.getByRole("button", { name: "Approve patient copy" });
+    expect(approve).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("care-plan-patient-plan-approve-unavailable")).toHaveTextContent("What matters to you");
+
+    // Adding the missing part to each of them unlocks it. Rowan's plan has
+    // three part-converted sections, so editing one is deliberately not enough.
+    for (const field of screen.getAllByRole("textbox")) {
+      await user.click(field);
+      await user.keyboard("{End}");
+      await user.paste("\nAnd what we added together.");
+    }
+    expect(screen.getByRole("button", { name: "Approve patient copy" })).not.toHaveAttribute("aria-disabled");
+  });
+
   it("approves once every section is written, and shows the eight headings in order", async () => {
     const user = userEvent.setup();
     const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
@@ -3297,6 +3514,34 @@ describe("Care Plan Patient Plan", () => {
         .getAllByRole("heading", { level: 3 })
         .map((node) => node.textContent),
     ).toEqual(PATIENT_PLAN_HEADINGS);
+  });
+
+  it("keeps the form and its entered text when the reducer refuses approval after the button was rendered", async () => {
+    const user = userEvent.setup();
+    const { dispatch, navigate } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+    await fillEverySection(user);
+
+    const entered = screen.getAllByRole("textbox").map((field) => (field as HTMLTextAreaElement).value);
+    const approve = screen.getByRole("button", { name: "Approve patient copy" });
+    expect(approve).not.toHaveAttribute("aria-disabled");
+
+    /*
+     * Queue a role change and the stale click in one batch. The click handler is
+     * the one from the enabled render, but the reducer sees the newer user first
+     * and refuses both mutations. This is the race that used to navigate away
+     * and drop the clinician's local form values.
+     */
+    act(() => {
+      dispatch({ type: "set-active-user", userId: COORDINATOR });
+      fireEvent.click(approve);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("care-plan-patient-plan-form")).toHaveTextContent(/does not carry this action/i),
+    );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("textbox").map((field) => (field as HTMLTextAreaElement).value)).toEqual(entered);
   });
 
   /**
@@ -3404,14 +3649,1268 @@ describe("Care Plan Patient Plan", () => {
     ).toHaveLength(8);
     expect(screen.queryByTestId("care-plan-patient-plan-no-current")).toBeNull();
 
-    // The same currency warning shown on screen must reach the printed sheet.
-    // The screen-only StaleNotice above sits outside `[data-print-output]`, so
-    // if the print surface carries no warning of its own a clinician can print
-    // and hand over an earlier-version copy whose paper looks current.
+    /*
+     * And it says so on the paper. The printed sheet outlives the screen — it
+     * goes in a bag, then a drawer — and it is the artefact that would be lying
+     * if it stayed silent. The screen notice is worded for a clinician ("go
+     * through it with them") and stays off the paper; the sheet carries its own
+     * line, addressed to the person.
+     */
     goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
     const paper = screen.getByTestId("care-plan-patient-plan-print-output");
-    const staleOnPaper = within(paper).getByTestId("care-plan-patient-plan-print-stale");
-    expect(staleOnPaper).toHaveTextContent(/needs updating/i);
-    expect(staleOnPaper.closest("[data-print-hide='true']")).toBeNull();
+    const printedStale = screen.getByTestId("care-plan-patient-plan-paper-stale");
+    expect(printedStale.closest("[data-print-output]")).toBe(paper);
+    expect(printedStale.closest("[data-print-hide='true']")).toBeNull();
+    expect(printedStale).toHaveTextContent(PRINTED_STALE_BANNER);
+    expectNoClaimOfAnUpdate(printedStale);
+    // Written to the person, not about them: no clinician instruction reaches
+    // the sheet.
+    expect(paper.textContent ?? "").not.toContain("go through it with them");
+    expect(paper.textContent ?? "").not.toContain("Go through it with them");
+  });
+
+  /**
+   * The other way a copy goes stale, and the one the banner's old wording was
+   * simply wrong for: the Management Plan is withdrawn outright, leaving nothing
+   * in its place. Nothing was updated, and there may be no plan in use at all —
+   * so a sheet telling this person their team "has updated" their plan would be
+   * false on the exact case that most needs marking.
+   *
+   * The copy is not withdrawn alongside it. Mira may be holding the paper, and
+   * this application's account of what she was given has to match what she
+   * actually has.
+   */
+  it("marks a copy stale on paper when the plan was withdrawn, without claiming anyone updated it", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-002"));
+    await createDraft(user);
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    // Take the Management Plan out of use entirely. No earlier version is put
+    // back, so the plan has no Current version afterwards.
+    goTo(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    await signInAs(user, "SYN-USER-SENIOR-001");
+    await user.click(screen.getByRole("button", { name: /Withdraw this plan/i }));
+    const sheet = screen.getByRole("dialog", { name: /Withdraw this plan/i });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Why is this plan being withdrawn/i }),
+      "Mira has moved to another service, and this plan no longer describes the team that would use it.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: /Withdraw this plan/i }));
+    expect(screen.getByTestId("care-plan-withdrawn-notice")).toHaveTextContent(/Plan withdrawn on/i);
+
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-002"));
+    const staleNotice = screen.getByTestId("care-plan-patient-plan-stale");
+    expect(staleNotice).toHaveTextContent(/has been withdrawn/i);
+    expect(staleNotice).toHaveTextContent(/there is no Current Plan in use/i);
+    expect(staleNotice).toHaveTextContent(/if a new Current Plan is agreed/i);
+    expect(staleNotice).not.toHaveTextContent(/has moved on/i);
+    expect(staleNotice).not.toHaveTextContent(/write a new one\.$/i);
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const printedStale = screen.getByTestId("care-plan-patient-plan-paper-stale");
+    expect(printedStale.closest("[data-print-output]")).toBe(paper);
+    expect(printedStale.closest("[data-print-hide='true']")).toBeNull();
+    expect(printedStale).toHaveTextContent(PRINTED_STALE_BANNER);
+    expectNoClaimOfAnUpdate(printedStale);
+
+    // Nothing was taken off the sheet, and no clinician instruction reached it.
+    expect(within(paper).getAllByRole("heading", { level: 3 }).length).toBeGreaterThanOrEqual(8);
+    expect(paper.textContent ?? "").not.toContain("go through it with them");
+    expect(paper.textContent ?? "").not.toContain("Go through it with them");
+  });
+
+  /**
+   * Rowan's Current Plan is `co_produced`, so the sheet may say so. This is the
+   * pair to the test below, and it is here to prove the two branches are
+   * genuinely distinguished rather than one of them being unreachable.
+   *
+   * It also pins the date label. `approvedAt` on a `PatientPlanVersion` is the
+   * moment a clinician pressed *Approve patient copy* — the type carries no
+   * participation or confirmation field at all — so `Agreed on` would date a
+   * clinician's action as this person's own act, which is the defect user
+   * decision D1 was taken about, one document further on.
+   */
+  it("prints the joint-authorship sentence, dated as written rather than as agreed", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    // Nothing on the reading surface says otherwise.
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-001"));
+    expect(screen.getByTestId("care-plan-patient-plan-ownership")).toHaveTextContent(/own voice/i);
+    expect(screen.getByTestId("care-plan-patient-plan-ownership")).toHaveTextContent(/same agreement/i);
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-version")).queryByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeNull();
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    expect(screen.getByTestId("care-plan-patient-plan-paper-intro")).toHaveTextContent(PAPER_INTRO_TOGETHER);
+
+    const text = paper.textContent ?? "";
+    expect(text).toContain("Written on");
+    expect(text).not.toContain("Agreed on");
+    expect(text).not.toMatch(/\bagreed\s+on\b/i);
+
+    /*
+     * For a co-produced plan the joint wording is true, warm and reviewed, and
+     * nothing about this wave touches it. Asserted so the alternative wording
+     * cannot quietly become the only wording.
+     */
+    expect(text).toContain("Why we wrote this together");
+    expect(text).toContain("What we agreed will happen when you come to the emergency department");
+    expect(text).toContain("This is what we wrote down about why this plan exists.");
+    expect(text).toContain("These are the things you have said matter to you.");
+    expect(text).toContain("This is the approach you and your team agreed for when you come in.");
+  });
+
+  /**
+   * The defect this closes, and the sharpest one this build produced: a sheet
+   * handed to a person, opening with the claim that they helped write it, on a
+   * plan the record says was written without them. Mira's version 2 is approved
+   * at `patient_unavailable`, which puts the clinician's marker on every
+   * Management Plan surface — and the copy derived from it said the opposite, in
+   * the second person, to the one reader in a position to know it was untrue.
+   *
+   * Two things are asserted, and they are different things. The clinician's
+   * marker appears on both Patient Plan surfaces, in the words the rest of the
+   * product uses. The sheet itself never carries that third-person wording: it
+   * addresses the person, so it says who wrote the plan and that they may change
+   * it, and mentions no absence, reason, or failure of any kind.
+   */
+  it("never tells a person they helped write a plan the record says was written without them", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.managementPlanReview("SYN-PATIENT-002"));
+    await signInAs(user, "SYN-USER-SENIOR-001");
+    await user.click(screen.getByRole("button", { name: /^Approve version/ }));
+    await user.click(screen.getByRole("button", { name: "Approve and make Current" }));
+
+    // The copy is made *after* that approval, so it is written from the version
+    // approved without her. Making it first is why the existing journeys walk
+    // straight past this.
+    goTo(carePlanRoute.patientPlanEdit("SYN-PATIENT-002"));
+    await createDraft(user);
+
+    /*
+     * The authoring surface, which is where the claim would get back in.
+     *
+     * A clinician writing this copy reads these same eight headings and lead-ins
+     * as the prompt for what to type. Left on the joint wording, "These are the
+     * things you have said matter to you" would frame what they write, and what
+     * they write reaches her sheet — so the claim this wave removed would arrive
+     * on her paper by the authoring surface rather than the rendering one.
+     *
+     * The same helper as the reading surface and the paper, deliberately: one
+     * rule, one set of forbidden phrasings, checked everywhere the claim can
+     * appear.
+     */
+    expectNoClaimOfJointAuthorship(
+      screen.getByRole("region", { name: "The eight sections" }),
+      "the Patient Plan authoring form",
+    );
+
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-002"));
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-version")).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+    const ownership = screen.getByTestId("care-plan-patient-plan-ownership");
+    expect(ownership).toHaveTextContent(/the team wrote/i);
+    expect(ownership).not.toHaveTextContent(/own voice/i);
+    expect(ownership).not.toHaveTextContent(/same agreement/i);
+
+    /*
+     * On screen too, not only on paper. A clinician reads these same eight
+     * headings while deciding whether to hand the copy over, and the reading
+     * surface and the sheet must not disagree about who wrote the plan.
+     */
+    const onScreen = screen.getByTestId("care-plan-patient-plan-sections");
+    expectNoClaimOfJointAuthorship(onScreen, "the Patient Plan reading surface");
+    expect(onScreen).toHaveTextContent("Why this plan was written");
+    expect(onScreen).toHaveTextContent(
+      "What your team has agreed will happen when you come to the emergency department",
+    );
+    expect(onScreen).toHaveTextContent("This is what your team wrote down about why this plan exists.");
+    expect(onScreen).toHaveTextContent("This is your team's understanding of what matters to you.");
+    expect(onScreen).toHaveTextContent("This is the approach your team has agreed for when you come in.");
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-print-participation")).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const intro = screen.getByTestId("care-plan-patient-plan-paper-intro");
+    expect(intro).toHaveTextContent(PAPER_INTRO_WRITTEN_BY_THE_TEAM);
+
+    const introText = intro.textContent ?? "";
+    expect(introText).not.toContain("you and your team wrote together");
+    expect(introText).not.toMatch(/wrote (?:it )?together/i);
+    expect(introText).not.toContain(PAPER_INTRO_TOGETHER);
+
+    // The clinician's third-person marker stays off the sheet, and so does every
+    // shape that would read as a reproach.
+    expect(paper.textContent ?? "").not.toContain("Written without this person's involvement");
+    expectNoReproach(paper);
+
+    /*
+     * And the eight headings and lead-ins agree with the opening sentence. This
+     * is the half the first wave left undone: the intro was made honest while
+     * `Why we wrote this together` and "These are the things you have said
+     * matter to you" still sat under it, on a plan she took no part in.
+     */
+    expectNoClaimOfJointAuthorship(paper, "the printed Patient Plan");
+    const printed = paper.textContent ?? "";
+    expect(printed).toContain("Why this plan was written");
+    expect(printed).toContain("What your team has agreed will happen when you come to the emergency department");
+    expect(printed).toContain("This is what your team wrote down about why this plan exists.");
+    expect(printed).toContain("This is your team's understanding of what matters to you.");
+    expect(printed).toContain("This is the approach your team has agreed for when you come in.");
+
+    // The six headings that never made a claim are untouched — this is a
+    // wording change within the eight sections, not a restructure.
+    for (const unchanged of [
+      "What matters to you",
+      "What helps you",
+      "What makes things harder",
+      "If something new is happening",
+      "Who's involved in your care",
+      "Things that might help",
+    ]) {
+      expect(printed, `${unchanged} was reworded although it never claimed anything`).toContain(unchanged);
+    }
+    expect(within(paper).getAllByRole("heading", { level: 3 }).length).toBeGreaterThanOrEqual(8);
+  });
+});
+
+// --- Task 10: worklists, directory, governance, history, specimens -------------
+
+/**
+ * A journey that can also name a specimen scenario, which `renderJourney` above
+ * deliberately cannot: the provider is seeded from the same query the surface
+ * reads, so `?scenario=offline` degrades the reducer rather than only the
+ * rendering.
+ */
+function renderScenarioJourney(pathname: string, query = "") {
+  const navigate = vi.fn();
+  const view = (at: string, q: string) => (
+    <CarePlanPrototypeProvider scenario={scenarioFromQuery(q)}>
+      <CarePlanRouteSurface pathname={at} query={q} navigate={navigate} />
+    </CarePlanPrototypeProvider>
+  );
+  const { rerender } = render(view(pathname, query));
+  return { navigate, goTo: (at: string, q = "") => rerender(view(at, q)) };
+}
+
+/** Tab labels carry a trailing count, which is presentation rather than name. */
+function queueTabNames(): string[] {
+  return screen.getAllByRole("tab").map((tab) => (tab.textContent ?? "").replace(/\d+$/, ""));
+}
+
+async function openQueue(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+  return screen.getByTestId("care-plan-review-queue");
+}
+
+describe("Care Plan Reviews worklists", () => {
+  it("offers exactly the four approved queues, in the approved order", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    expect(queueTabNames()).toEqual([
+      "Awaiting Approval",
+      "Review Suggested",
+      "Contact Verification",
+      "Identification Review",
+    ]);
+  });
+
+  it("lists the version awaiting a decision with its reason, source, owner, and route to decide", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Awaiting Approval");
+    const entries = within(queue).getAllByRole("listitem");
+    expect(entries).toHaveLength(1);
+
+    const entry = entries[0];
+    expect(within(entry).getByRole("heading", { level: 3 })).toHaveTextContent(
+      "Mira Example — Management Plan version 2",
+    );
+    expect(entry).toHaveTextContent(/Reason for this version/);
+    expect(entry).toHaveTextContent(/Submitted by Morgan Sample/);
+    expect(entry).toHaveTextContent(/Plan owner/);
+    expect(within(entry).getByRole("link", { name: "Compare and decide on Mira Example's version 2" })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanReview("SYN-PATIENT-002"),
+    );
+    expect(within(entry).getByRole("link", { name: "Open Mira Example" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patient("SYN-PATIENT-002"),
+    );
+  });
+
+  // Worklists, not dashboards. Oldest actionable first, and never ranked by how
+  // unwell anybody is.
+  it("orders every queue oldest-actionable-first rather than by severity", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+
+    const suggested = await openQueue(user, "Review Suggested");
+    expect(
+      within(suggested)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Mira Example — Plan-use feedback", "Rowan Sample — ED Presentation outcome"]);
+
+    const contact = await openQueue(user, "Contact Verification");
+    expect(
+      within(contact)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Wandoo District CMHT", "Coastal Plains Older Adult CMHT"]);
+
+    const identification = await openQueue(user, "Identification Review");
+    expect(
+      within(identification)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo", "Jordan Test"]);
+  });
+
+  /**
+   * The list is written to be worked, not to rate the people it names.
+   *
+   * The rating check is scoped to the rendered entries rather than the whole
+   * page, because the page's own explanation legitimately uses the word
+   * "severity" to say what the screen does not do — and a body-wide match would
+   * then be a test of the disclaimer rather than of the worklist.
+   */
+  it("carries no severity ranking, score, or stigmatising label on any queue entry", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    expect(document.body.textContent ?? "").not.toMatch(/frequent flyer|high utilis|high utiliz|problem patient/i);
+
+    for (const name of ["Awaiting Approval", "Review Suggested", "Contact Verification", "Identification Review"]) {
+      const queue = await openQueue(user, name);
+      expect(queue.textContent ?? "", `${name} must not rate anybody`).not.toMatch(
+        /severity|risk score|priority \d|triage category|rank/i,
+      );
+    }
+  });
+
+  it("records what was decided about a Review Trigger, and changes no plan", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Review Suggested");
+
+    await user.click(screen.getByRole("button", { name: "Record what was decided for Mira Example" }));
+    const sheet = screen.getByRole("dialog", { name: "Record what was decided" });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /What the team decided/ }),
+      "Discussed at the weekly meeting. The assessment order still stands and the plan is unchanged.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Record the decision" }));
+
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      "Review Trigger resolved. No plan was changed.",
+    );
+    const queue = screen.getByTestId("care-plan-review-queue");
+    expect(
+      within(queue)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Rowan Sample — ED Presentation outcome"]);
+  });
+
+  it("refuses to resolve a Review Trigger with no account of what was decided", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Review Suggested");
+
+    await user.click(screen.getByRole("button", { name: "Record what was decided for Mira Example" }));
+    const sheet = screen.getByRole("dialog", { name: "Record what was decided" });
+    await user.click(within(sheet).getByRole("button", { name: "Record the decision" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(
+      /needs an account of what was decided|Nothing was changed/i,
+    );
+    // The trigger is still in the queue: a refusal changes nothing.
+    expect(within(screen.getByTestId("care-plan-review-queue")).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("records that team contact details were checked without claiming the team is available", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    const queue = await openQueue(user, "Contact Verification");
+    expect(queue).toHaveTextContent(/Checking the details is not a guarantee that the service is available/i);
+
+    await user.click(screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" }));
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      /details recorded as checked. That says the details were checked, not that the service is available/i,
+    );
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Coastal Plains Older Adult CMHT"]);
+  });
+
+  // Interaction modelling: the role explains why an action is offered. It
+  // authenticates nobody, and the reducer rechecks either way.
+  it("states why a queue action is unavailable to the signed-in clinician instead of hiding it", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Contact Verification");
+    const blocked = within(queue).getByTestId("care-plan-review-queue-blocked");
+    expect(blocked).toHaveTextContent(/Dr Casey Example is signed in with the emergency department clinician role/);
+
+    const action = screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    expect(action.getAttribute("aria-describedby")).toBe(blocked.id);
+
+    await user.click(action);
+    expect(screen.queryByTestId("care-plan-reviews-outcome")).toBeNull();
+  });
+});
+
+describe("Care Plan Identification Review workflow", () => {
+  it("closes a referral with one recorded decision and a reason, and creates no plan", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Identification Review");
+
+    await user.click(screen.getByRole("button", { name: "Record the Identification Review decision for Jordan Test" }));
+    const sheet = screen.getByRole("dialog", { name: "Record the Identification Review decision" });
+    expect(
+      within(sheet)
+        .getAllByRole("radio")
+        .map((radio) => radio.getAttribute("value")),
+    ).toEqual(["proceed_to_plan", "not_needed_now", "revisit_later"]);
+    expect(within(sheet).getByRole("radio", { name: "Proceed to a plan" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Not needed at this stage" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Revisit later" })).toBeInTheDocument();
+
+    await user.click(within(sheet).getByRole("radio", { name: "Proceed to a plan" }));
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Why the team decided this/ }),
+      "The team agreed a plan would help, and Jordan wants one written with him.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Close this Identification Review" }));
+
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      "Identification Review closed. Nothing was created; starting a Management Plan draft is a separate decision.",
+    );
+
+    // The referral leaves the queue, and the offer to start a draft is a link
+    // the reader chooses, never a plan the closure created.
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo"]);
+    expect(screen.getByRole("link", { name: "Start a Management Plan draft for Jordan Test" })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanEdit("SYN-PATIENT-003"),
+    );
+  });
+
+  it("refuses to close an Identification Review with no reason", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Identification Review");
+    await user.click(screen.getByRole("button", { name: "Record the Identification Review decision for Jordan Test" }));
+    const sheet = screen.getByRole("dialog", { name: "Record the Identification Review decision" });
+    await user.click(within(sheet).getByRole("radio", { name: "Revisit later" }));
+    await user.click(within(sheet).getByRole("button", { name: "Close this Identification Review" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(/needs a short reason/i);
+    expect(within(screen.getByTestId("care-plan-review-queue")).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  /**
+   * The one screen in the product where sorting by attendance is allowed, and
+   * the one screen where the sentence that counts decide nothing has to be.
+   */
+  it("offers the count sort only here, with the statement that counts decide nothing beside it", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Identification Review");
+
+    const sort = within(queue).getByRole("combobox", { name: "Sort this worklist" });
+    expect(Array.from(sort.querySelectorAll("option")).map((option) => option.textContent)).toEqual([
+      "Oldest referral first",
+      "Most ED Presentations in the last 12 months first",
+    ]);
+    expect(queue).toHaveTextContent(
+      /Counts describe what happened\. They do not determine eligibility for a Management Plan\./,
+    );
+
+    await user.selectOptions(sort, "presentation-count");
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Jordan Test", "Evelyn Demo"]);
+  });
+
+  it("offers the count sort on no other queue", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    for (const name of ["Awaiting Approval", "Review Suggested", "Contact Verification"]) {
+      const queue = await openQueue(user, name);
+      expect(within(queue).queryByRole("combobox", { name: /sort/i })).toBeNull();
+      expect(within(queue).queryAllByRole("button", { name: /sort|rank|most|highest|busiest/i })).toEqual([]);
+    }
+  });
+
+  it("refers a person for Identification Review without creating a plan or applying eligibility", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-005"));
+
+    await user.click(screen.getByRole("button", { name: "Refer Alex Fiction for Identification Review" }));
+    const sheet = screen.getByRole("dialog", { name: "Refer for Identification Review" });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Reason for multidisciplinary review/ }),
+      "Coordinate continuity across services.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Add to Identification Review" }));
+
+    expect(screen.getByTestId("care-plan-outcome")).toHaveTextContent(
+      "Alex was referred for Identification Review. No plan was created, and being referred decides nothing.",
+    );
+    // No plan, no eligibility, no label.
+    expect(screen.getByText("No Current Plan")).toBeInTheDocument();
+    expect(screen.queryByText(/eligible|high risk|frequent flyer/i)).toBeNull();
+
+    goTo(CARE_PLAN_ROUTES.reviews);
+    await openQueue(user, "Identification Review");
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo", "Jordan Test", "Alex Fiction"]);
+  });
+
+  it("refuses a manual referral with no stated reason, because the reason is the whole referral", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-005"));
+    await user.click(screen.getByRole("button", { name: "Refer Alex Fiction for Identification Review" }));
+    const sheet = screen.getByRole("dialog", { name: "Refer for Identification Review" });
+    await user.click(within(sheet).getByRole("button", { name: "Add to Identification Review" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(/needs a stated reason/i);
+    expect(screen.queryByTestId("care-plan-outcome")).toBeNull();
+  });
+
+  // The fixtures already hold an open referral for Jordan, so the second one is
+  // refused rather than stacked.
+  it("says plainly when a referral is already open rather than adding a second", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.patients, "scenario=no-current-plan");
+    const action = screen.getByRole("button", { name: "Refer Jordan Test for Identification Review" });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    const reason = screen.getByTestId("care-plan-referral-blocked");
+    expect(reason).toHaveTextContent(/An Identification Review for Jordan is already open/);
+    expect(action.getAttribute("aria-describedby")).toBe(reason.id);
+    expect(screen.getByText("No Current Plan")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Found by driving the app rather than by a test, which is why it survived: no
+ * fixture reaches it. The line beside the Personal Safety Plan link read
+ * `Current version 2, confirmed Not recorded` for every participation state
+ * except `confirmed`, because it was built from `confirmedAt` and the reducer
+ * sets that only for a confirmed version.
+ *
+ * The harm is that one sentence covered two different clinical facts: *this
+ * person did not confirm* and *this person confirmed and the date was lost*.
+ * The first is a decision the person made and the record should say so; the
+ * second is a hole in the record. And it reached the printed clinician summary.
+ *
+ * Every expected phrase below is spelled out literally rather than read back
+ * off `PATIENT_CONFIRMATION_LABEL`, which is the constant the component renders
+ * from — an assertion generated from the copy can never disagree with it.
+ */
+describe("Care Plan Personal Safety Plan confirmation row", () => {
+  function confirmationRowText(term: string): string | null {
+    const node = [...document.querySelectorAll("dt")].find((candidate) => candidate.textContent === term);
+    return node?.nextElementSibling?.textContent ?? null;
+  }
+
+  it("dates a confirmed version by when the person's part was recorded, on the reading surface", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    expect(confirmationRowText("Confirmed with this person on")).toBe("03/09/2025");
+
+    const surface = screen.getByTestId("care-plan-safety-surface").textContent ?? "";
+    // `confirmedAt`, the day the version went live, which this row used to show.
+    expect(surface).not.toContain("04/09/2025");
+    expect(surface).not.toContain("Last confirmed");
+  });
+
+  it("dates the sheet the person takes home by the same moment, in the second person", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    expect(confirmationRowText("Confirmed with you on")).toBe("03/09/2025");
+
+    const paper = screen.getByTestId("care-plan-safety-print-output").textContent ?? "";
+    expect(paper).not.toContain("04/09/2025");
+    expect(paper).not.toContain("Last confirmed");
+  });
+
+  /**
+   * The gate that matters. `participationRecordedAt` is written for every
+   * participation state, so a repoint gated only on the timestamp being present
+   * would print a confirmation line on the sheet of somebody who declined —
+   * worse than the defect being fixed. Evie declined, and 20/06/2026 is in her
+   * record as the moment that decision was taken down.
+   */
+  it("prints no confirmation line at all on the sheet of a person who declined", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-004"));
+    const paper = screen.getByTestId("care-plan-safety-print-output").textContent ?? "";
+
+    expect(paper).not.toContain("Confirmed with you");
+    expect(paper).not.toContain("Confirmed");
+    // Her recorded participation moment, which must not reach this sheet.
+    expect(paper).not.toContain("20/06/2026");
+    expect(paper).not.toContain("Last confirmed");
+    expect(paper).not.toContain("Not recorded");
+    // The sheet still does its job.
+    expect(paper).toContain("Evie");
+    expect(paper).toContain("1300 555 788");
+  });
+
+  it("shows no confirmation row for a version the person has not confirmed, and still says so in words", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-002"));
+    expect(confirmationRowText("Confirmed with this person on")).toBeNull();
+    expect(confirmationRowText("Confirmed with this person")).toBeNull();
+
+    // The state is never left unsaid: it is stated below the grid instead.
+    expect(screen.getByTestId("care-plan-safety-confirmation")).toHaveTextContent("Discussed, not yet confirmed");
+    const surface = screen.getByTestId("care-plan-safety-surface").textContent ?? "";
+    expect(surface).not.toContain("Last confirmed");
+  });
+
+  /**
+   * A confirmed version whose moment the record never captured. No fixture
+   * holds one — every version confirmed through the application is stamped as
+   * it is saved — so this is asserted against the pure helper directly rather
+   * than left as an unreachable branch behind a route.
+   */
+  it("says the date is not recorded for a confirmed version whose moment was never captured", () => {
+    const terms = { withDate: "Confirmed with you on", withoutDate: "Confirmed with you" };
+
+    expect(
+      safetyPlanConfirmationRow({ patientConfirmation: "confirmed", participationRecordedAt: null }, terms),
+    ).toEqual({ term: "Confirmed with you", detail: "The date is not recorded" });
+    // The other two cases, so all three stay distinguishable in the words.
+    expect(
+      safetyPlanConfirmationRow(
+        { patientConfirmation: "confirmed", participationRecordedAt: "2025-09-03T15:40:00+08:00" },
+        terms,
+      ),
+    ).toEqual({ term: "Confirmed with you on", detail: "03/09/2025" });
+    expect(
+      safetyPlanConfirmationRow(
+        { patientConfirmation: "declined", participationRecordedAt: "2026-06-20T15:30:00+08:00" },
+        terms,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("Care Plan Personal Safety Plan status beside the plan link", () => {
+  function safetyPlanStatusText(): string {
+    const term = [...document.querySelectorAll("dt")].find((node) => node.textContent === "Personal Safety Plan");
+    return term?.nextElementSibling?.textContent ?? "";
+  }
+
+  it("names a confirmed version as confirmed by the person, on the reading surface", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — Confirmed by this person");
+    expect(line).not.toContain("Not recorded");
+  });
+
+  it("states a discussed, not yet confirmed version as discussed, on the printed clinician summary", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-002"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — Discussed, not yet confirmed");
+    // The defect this replaces, in the exact words it printed.
+    expect(line).not.toContain("confirmed Not recorded");
+    expect(line).not.toContain("Not recorded");
+  });
+
+  it("states a declined version as the person's own decision rather than as a gap", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-004"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — This person chose not to write one in their own words");
+    expect(line).not.toContain("Not recorded");
+    // Never as non-compliance: what Evie declined was writing her own part.
+    expect(line).not.toMatch(/refus|non-compliant|failed|did not engage/i);
+  });
+
+  /**
+   * The state no fixture holds and the one the demonstration hit. A version
+   * made current without anybody recording the person's part is the only case
+   * where nothing was in fact recorded, and it is the only case that may say so.
+   */
+  it("says nothing was recorded only for a version where nothing was recorded", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+    // The note is required; the participation answer is deliberately left at the
+    // default a new draft starts with, because that is the state under test.
+    await user.type(
+      screen.getByLabelText(/How this version was written/i),
+      "Carried forward from the last version. Rowan was not available to go through it.",
+    );
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /Make it the current plan/i }));
+
+    goTo(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 2 — No confirmation recorded");
+    // The sentence the demonstration saw, which could not tell this state apart
+    // from a confirmed version whose date had been lost.
+    expect(line).not.toContain("confirmed Not recorded");
+    expect(line).not.toContain("Not recorded");
+  });
+});
+
+describe("Care Plan combined History", () => {
+  function historyHeadings(): string[] {
+    return within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .map((entry) => within(entry).getByRole("heading", { level: 3 }).textContent ?? "");
+  }
+
+  it("joins plan, safety-plan, presentation, and correction events into one chronology, newest first", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const list = screen.getByTestId("care-plan-history-list");
+    const times = within(list)
+      .getAllByRole("listitem")
+      .map((entry) => Date.parse(entry.getAttribute("data-occurred-at") ?? ""));
+    expect(times.length).toBeGreaterThan(5);
+    expect(times.every((value) => Number.isFinite(value))).toBe(true);
+    expect(times).toEqual([...times].sort((left, right) => right - left));
+
+    const headings = historyHeadings().join(" | ");
+    expect(headings).toMatch(/Management Plan version 2 approved and made the Current Plan/);
+    expect(headings).toMatch(/Personal Safety Plan version 1 written/);
+    expect(headings).toMatch(/ED Presentation recorded/);
+    expect(headings).toMatch(/ED Presentation corrected/);
+  });
+
+  /**
+   * The single easiest place in this product to overclaim. A contact action is
+   * a request to open an application on this device; nothing about it is
+   * evidence that anybody was reached.
+   *
+   * The claim is asserted against the entry's own heading node rather than the
+   * whole entry's `textContent`. Concatenated `textContent` runs one element's
+   * last word into the next element's first — `…was printedThe browser…` — which
+   * destroys the trailing word boundary and let an earlier form of this guard
+   * survive a heading that said the plan had been printed. The heading is the
+   * sentence that makes the claim, so that is what has to be read.
+   */
+  it("labels a contact action as a request to open an application, never as a message anyone received", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("link", { name: "Email North River CMHT" }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const list = screen.getByTestId("care-plan-history-list");
+    const entry = within(list)
+      .getAllByRole("listitem")
+      .find((node) => /email application/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent(/An external email application was asked to open/);
+    expect(entry).toHaveTextContent(/transmitted nothing and holds no evidence of delivery, readership, or reply/i);
+
+    // Spelled out literally rather than read back off the constant the entry
+    // renders from: an assertion generated from the copy can never disagree
+    // with it.
+    const heading = within(entry as HTMLElement).getByRole("heading", { level: 3 }).textContent ?? "";
+    expect(heading).toMatch(/asked to open/i);
+    expect(heading).not.toMatch(/sent|delivered|received|reply|replied|answered|acknowledged|spoke|reached/i);
+  });
+
+  it("labels a print action as the print view opening, never as a page that printed", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /^Print/ }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /print view/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent(/is not evidence that anything reached a printer/i);
+
+    const heading = within(entry as HTMLElement).getByRole("heading", { level: 3 }).textContent ?? "";
+    expect(heading).toMatch(/print view was opened/i);
+    expect(heading).not.toMatch(/printed|reached the printer|copy given|sent to/i);
+  });
+
+  /**
+   * Overclaiming is the famous direction; this is the same defect inverted. The
+   * contact-verification line was rebuilt from `CmhtContact.verifiedAt` with no
+   * actor, so it said no clinician was recorded — while the session was holding
+   * a `cmht_contact_verified` audit event that named the one who checked. A
+   * reader months later would conclude nobody owned that check.
+   *
+   * The attribution is read from its own paragraph node rather than the whole
+   * entry's `textContent`, for the reason recorded on the intent guards above.
+   */
+  it("names the clinician who checked a team's contact details, rather than denying one exists", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Contact Verification");
+    await user.click(screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" }));
+
+    // SYN-PATIENT-003 is the person in the Wandoo District catchment.
+    goTo(carePlanRoute.history("SYN-PATIENT-003"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Wandoo District CMHT contact details/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Morgan Sample/);
+    // Spelled out literally rather than read back off the constant the entry
+    // renders from.
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
+   * The same defect on the sibling entries, found by auditing the builder after
+   * the contact-verification one was fixed.
+   *
+   * This one is the worst of the set, because it did not merely decline to name
+   * somebody — it named the **wrong** person. The line was built from
+   * `version.authorId`, but `submit-management-draft` is gated on the role
+   * alone and never on authorship, so any clinician carrying the capability may
+   * submit a draft somebody else wrote. Alex's draft is Morgan Sample's, and a
+   * senior submitting it was recorded as Morgan having submitted it.
+   */
+  it("names the clinician who submitted a version, not the one who wrote it", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+    const dialog = screen.getByRole("dialog", { name: /Submit version 1 for senior approval/i });
+    await user.click(within(dialog).getByRole("button", { name: /Submit for approval/i }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-005"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /submitted for approval/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Taylor Fiction/);
+    // The author. Naming her here would be an inference the record does not hold.
+    expect(attribution).not.toMatch(/Morgan Sample/);
+  });
+
+  it("names the clinician who went through the plan with the person", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    await user.click(screen.getByRole("button", { name: /Record that this plan has been shown/i }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-002"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /shown to Mira/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Casey Example/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("says a fixture sharing record does not name who went through it, rather than that nobody did", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /shown to Rowan/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who went through it with them/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
+   * The design question — which moment this line is about — stays deferred. The
+   * defect that does not need it answered is that the line named the author at
+   * a moment the application cannot place them at: `patientConfirmation` is
+   * written by `save-safety-plan-draft`, `confirmedAt` is set later inside
+   * `make-safety-plan-current` by whoever made it current, and `authorId` is
+   * never reassigned. Rowan's fixture confirms the gap is real — his
+   * `confirmedAt` is a day after `createdAt`.
+   */
+  it("does not name the safety-plan author as having recorded the person's part", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who recorded their part/);
+    // The author, named here before this was fixed.
+    expect(attribution).not.toMatch(/Morgan Sample/);
+    // And not the generic sentence, which would claim nobody was involved in
+    // something a person certainly did.
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
+   * D1, 25 August 2026. The line is dated by the moment the person's part was
+   * recorded, which the record now holds on its own. Rowan's fixture separates
+   * the three moments deliberately: the version was written on 03/09/2025 at
+   * 10:20 am, his part was recorded that afternoon at 3:40 pm, and the version
+   * went live the next morning at 9:45 am. Only the middle one belongs here.
+   *
+   * The dates are spelled out rather than read back off the fixture, so the
+   * assertion cannot agree with a value the fixture later changes to.
+   */
+  it("dates the person's part by when it was recorded, not by when the version went live", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/03\/09\/2025, 3:40 pm/);
+    // `confirmedAt` — the moment the version went live, which this line showed
+    // before D1 and must not show now.
+    expect(attribution).not.toMatch(/04\/09\/2025/);
+    expect(attribution).not.toMatch(/9:45 am/);
+  });
+
+  /**
+   * The fallback, and it has to stay reachable. Mira's fixture version records
+   * her part without recording when it was captured — the shape a record made
+   * before this moment existed has. The line must say so in words rather than
+   * borrowing `confirmedAt`, and rather than vanishing.
+   */
+  it("says a version with no recorded moment does not name when the person's part was recorded", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-002"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who recorded their part, or when/);
+    // No date of any kind, rather than a precise one taken from another moment.
+    expect(attribution).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(attribution).not.toMatch(/Not recorded/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("says a fixture submission does not name who submitted it, rather than naming the author", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /submitted for approval/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who submitted it/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("names the clinician who produced a Patient Plan version", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: "Create the patient copy" }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Patient Plan version 1 written/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Casey Example/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
+   * The other half of the same rule. A fixture-seeded team carries a checked
+   * date and no event, and the honest sentence is that the record does not name
+   * anybody — not that no clinician was involved, which is a claim about the
+   * world rather than about the record.
+   */
+  it("says a team's check is unattributed, rather than saying no clinician was involved", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /contact details/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who checked these details/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  // The specification requires the closed decision, its reason, its author, and
+  // its time to stay visible in the person's history.
+  it("keeps a closed Identification Review decision, reason, author, and time in the person's History", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-005"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Identification Review closed/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent("Identification Review closed — Revisit later");
+    expect(entry).toHaveTextContent(/Alex should be asked first/);
+    expect(entry).toHaveTextContent(/Riley Demo/);
+    expect(entry).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  it("narrows the chronology by kind without hiding that the rest is still on the record", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const before = historyHeadings().length;
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Show" }), "safetyPlan");
+    const after = historyHeadings();
+    expect(after.length).toBeGreaterThan(0);
+    expect(after.length).toBeLessThan(before);
+    expect(after.every((heading) => /Personal Safety Plan/.test(heading))).toBe(true);
+    expect(screen.getByTestId("care-plan-history-filter-note")).toHaveTextContent(
+      /Nothing has been removed from the record/i,
+    );
+  });
+
+  /**
+   * Rowan has no patient copy, so filtering to that kind is a real empty state
+   * rather than a contrived one. It has to say that nothing of this kind was
+   * recorded rather than that nothing happened.
+   */
+  it("says plainly when nothing of the chosen kind was recorded, rather than showing an empty page", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Show" }), "patientPlan");
+
+    const empty = screen.getByTestId("care-plan-history-empty");
+    expect(empty).toHaveTextContent(/No Patient Plan action has been recorded/i);
+    expect(screen.queryByTestId("care-plan-history-list")).toBeNull();
+    expect(screen.getByTestId("care-plan-history-filter-note")).toHaveTextContent(
+      /Nothing has been removed from the record/i,
+    );
+  });
+
+  it("shows no chronology at all when the record is not confirmed as the right person", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-history-list")).toBeNull();
+  });
+});
+
+describe("Care Plan Governance", () => {
+  it("states the four approved Identification Policy facts and offers no control that could become a number", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const panel = screen.getByTestId("care-plan-governance-policy");
+    expect(within(panel).getByText("Pending local governance")).toBeInTheDocument();
+    expect(within(panel).getByText("No approved threshold count")).toBeInTheDocument();
+    expect(within(panel).getByText("No approved threshold lookback")).toBeInTheDocument();
+    expect(within(panel).getByText("Manual referral enabled")).toBeInTheDocument();
+
+    // No candidate number, default, slider, comparison line, or configuration
+    // control — anywhere on the page, not only inside this panel.
+    const surface = screen.getByRole("region", { name: "Prototype governance" });
+    expect(within(surface).queryAllByRole("spinbutton")).toEqual([]);
+    expect(within(surface).queryAllByRole("slider")).toEqual([]);
+    expect(within(surface).queryAllByRole("textbox")).toEqual([]);
+    expect(within(surface).queryAllByRole("combobox")).toEqual([]);
+    /*
+     * Digits and number words alike. A threshold a governance page states in
+     * words — "a threshold of four presentations in three months" — is the same
+     * rule to the clinician reading it as one stated in digits, and this page is
+     * the one place in the product whose entire purpose is to say that no such
+     * rule exists.
+     */
+    const COUNT =
+      "(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty)";
+    expect(surface.textContent ?? "").not.toMatch(
+      new RegExp(
+        `threshold of ${COUNT}|at least ${COUNT}|${COUNT}\\+? or more presentations|more than ${COUNT} presentation|${COUNT}\\s+presentations?\\s+(?:in|within|over|across)\\s+${COUNT}\\s+(?:day|week|month|year)s?`,
+        "i",
+      ),
+    );
+  });
+
+  /**
+   * The reader of this page is asking whether the tool labels people. One screen
+   * will order a list by how often somebody has attended, and being told that
+   * here — rather than finding it later — is what keeps the rest of the page
+   * credible.
+   */
+  it("discloses the one screen that orders a list by attendance rather than leaving it to be found", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const disclosure = screen.getByTestId("care-plan-governance-sort-disclosure");
+    expect(disclosure).toHaveTextContent(/Identification Review worklist/);
+    expect(disclosure).toHaveTextContent(/offered nowhere else/i);
+    expect(disclosure).toHaveTextContent(/not a ranking of people/i);
+  });
+
+  it("says the role display is interaction modelling and protects nothing", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const roles = screen.getByTestId("care-plan-governance-roles");
+    expect(roles).toHaveTextContent(/not authentication, authorisation, role-based access control/i);
+    expect(roles).toHaveTextContent(/no data anywhere in this prototype is protected by it/i);
+  });
+
+  it("states what an Audit Event cannot say, in the words a reader would otherwise assume", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const audit = screen.getByTestId("care-plan-governance-audit");
+    expect(audit).toHaveTextContent(/never evidence that a message was composed, sent, delivered, read/i);
+    expect(audit).toHaveTextContent(/never evidence of a connection, a conversation, or an outcome/i);
+    expect(audit).toHaveTextContent(/never sees a printer, a sheet of paper, or a reader/i);
+  });
+});
+
+describe("Care Plan System states", () => {
+  const EVERY_SCENARIO = [
+    "normal",
+    "empty",
+    "no-current-plan",
+    "overdue-plan",
+    "withdrawn-plan",
+    "unverified-contact",
+    "identity-uncertain",
+    "version-conflict",
+    "offline",
+    "permission-unavailable",
+    "launch-failure",
+    "print-failure",
+  ] as const;
+
+  it("offers every specimen as an address, and clears the query for the ordinary world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const list = screen.getByTestId("care-plan-specimen-list");
+    const hrefs = within(list)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+
+    expect(hrefs).toEqual([
+      CARE_PLAN_ROUTES.systemStates,
+      ...EVERY_SCENARIO.filter((scenario) => scenario !== "normal").map((scenario) => carePlanRoute.scenario(scenario)),
+    ]);
+  });
+
+  /**
+   * The control navigates; the shell's existing guarded effect is what puts the
+   * named scenario into the reducer. A control that dispatched as well would
+   * apply the scenario twice, and `apply-scenario` rebuilds the fixtures — so
+   * the second application would throw away whatever the first one left.
+   *
+   * An anchor cannot dispatch, so this is the structural form of that rule: a
+   * specimen entry is a link to an address and never a control that changes the
+   * world in place.
+   */
+  it("changes specimen by navigating rather than by acting on the state in place", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const list = screen.getByTestId("care-plan-specimen-list");
+    expect(within(list).getAllByRole("link")).toHaveLength(EVERY_SCENARIO.length);
+    expect(within(list).queryAllByRole("button")).toEqual([]);
+    expect(within(list).queryAllByRole("combobox")).toEqual([]);
+    expect(within(list).queryAllByRole("checkbox")).toEqual([]);
+  });
+
+  it("says what happened, what it means, and what is available for the specimen on display", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=withdrawn-plan");
+    const active = screen.getByTestId("care-plan-specimen-active");
+    expect(active).toHaveTextContent("Plan withdrawn");
+    expect(within(active).getByText("What happened")).toBeInTheDocument();
+    expect(within(active).getByText("What it means")).toBeInTheDocument();
+    expect(within(active).getByText("What you can do")).toBeInTheDocument();
+    expect(active).toHaveTextContent(/no earlier version was restored/i);
+  });
+
+  /**
+   * The other direction: the address names the specimen, and the guarded effect
+   * in the shell puts it into the reducer. The sentence asserted below is the
+   * mutation funnel's own, and it is reachable only when `connectivity.online`
+   * is false — which nothing but `apply-scenario` sets.
+   */
+  it("degrades the prototype itself from the address, not only its rendering", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=offline");
+    const blocked = screen.getByTestId("care-plan-specimen-blocked");
+    expect(blocked).toHaveTextContent(
+      "This device is offline, so nothing was changed. What is shown is the last synthetic state held in memory.",
+    );
+    // Printing is exempt from the connectivity block, because the browser print
+    // dialogue opens either way and the record must not underclaim what it did.
+    expect(screen.getByTestId("care-plan-specimen-print-available")).toHaveTextContent(
+      /Opening a print view is still available/i,
+    );
+  });
+
+  it("names the permission refusal rather than the offline one when permission is what is unavailable", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=permission-unavailable");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
+      "Permission for this action could not be confirmed, so nothing was changed.",
+    );
+  });
+
+  it("names the identity and conflict refusals, which stop a change for different reasons", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
+      /has not been confirmed as the right person/,
+    );
+
+    cleanup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=version-conflict");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(/A newer version of this record exists/);
+  });
+
+  it("refuses nothing in the ordinary world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    expect(screen.queryByTestId("care-plan-specimen-blocked")).toBeNull();
+    expect(screen.getByTestId("care-plan-specimen-available")).toHaveTextContent(
+      /Nothing is degraded in this specimen/i,
+    );
+  });
+
+  it("states plainly that nothing is saved and that a specimen rebuilds the whole world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const surface = screen.getByRole("region", { name: "Degraded-state specimens" });
+    expect(surface).toHaveTextContent(/rebuilds the synthetic world from the fixtures/i);
+    expect(surface).toHaveTextContent(/anything written in this session is discarded/i);
   });
 });

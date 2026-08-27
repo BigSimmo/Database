@@ -3,7 +3,7 @@
 **Files:**
 
 - Create: `src/components/ward-management/ward-flow-provider.tsx`
-- Create: `src/app/ward-management/layout.tsx`
+- Create: `src/app/mockups/ward-flow/layout.tsx`
 - Create: `tests/ward-flow-provider.dom.test.tsx`
 
 **Interfaces:**
@@ -81,7 +81,7 @@ const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
 
 `useWardFlow()` throws a named error when the context is absent — never a default empty state.
 
-`src/app/ward-management/layout.tsx` is a server component that renders `<WardFlowProvider>{children}</WardFlowProvider>`.
+`src/app/mockups/ward-flow/layout.tsx` is a server component that renders `<WardFlowProvider>{children}</WardFlowProvider>`.
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -102,7 +102,7 @@ Expected: 21 passed, 0 skipped. Adding a layout above the routes must change not
 
 ```bash
 npm run format
-git add src/components/ward-management/ward-flow-provider.tsx src/app/ward-management/layout.tsx tests/ward-flow-provider.dom.test.tsx
+git add src/components/ward-management/ward-flow-provider.tsx src/app/mockups/ward-flow/layout.tsx tests/ward-flow-provider.dom.test.tsx
 git commit -m "feat(ward-flow): add the state provider and the ticking clock"
 ```
 

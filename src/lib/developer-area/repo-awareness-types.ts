@@ -31,7 +31,7 @@ export type RoutesSection = {
 
 export type DocumentationSection = {
   documents: { path: string; section: string; catalogued: boolean }[];
-  sections: { name: string; documents: number; uncatalogued: number }[];
+  sections: { name: string }[];
   counts: { documents: number; catalogued: number; uncatalogued: number; sections: number };
 };
 

@@ -159,7 +159,7 @@ describe("/api/ingestion/jobs", () => {
   });
 
   it("returns ingestion jobs for an authenticated user and marks active state", async () => {
-    const chain = createQueryMock({
+    const jobsChain = createQueryMock({
       data: [
         {
           id: ingestionJobId,
@@ -168,9 +168,12 @@ describe("/api/ingestion/jobs", () => {
         },
       ] satisfies [RouteJobRow],
       error: null,
+      count: 1,
     });
+    const activeCountChain = createQueryMock({ data: null, error: null, count: 1 });
+    const from = vi.fn().mockReturnValueOnce(jobsChain).mockReturnValueOnce(activeCountChain);
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
-    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: vi.fn(() => chain) }) }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
     vi.doMock("@/lib/supabase/auth", () => ({
       AuthenticationError: authenticationErrorMockClass,
       requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
@@ -186,6 +189,10 @@ describe("/api/ingestion/jobs", () => {
     expect(payload.hasActiveJobs).toBe(true);
     expect(payload.pollAfterMs).toBe(5_000);
     expect(payload.jobs).toHaveLength(1);
+    expect(from).toHaveBeenCalledTimes(2);
+    expect(activeCountChain.in).toHaveBeenCalledWith("status", ["pending", "processing"]);
+    expect(activeCountChain.eq).toHaveBeenCalledWith("documents.owner_id", ownerId);
+    expect(activeCountChain.eq).toHaveBeenCalledWith("batch_id", "11111111-1111-4111-8111-111111111111");
   });
 });
 

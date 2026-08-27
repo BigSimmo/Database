@@ -57,7 +57,6 @@ const acceptedDynamicPatterns = [
   /^\/formulation\/[^/?#]+(?:[?#].*)?$/,
   /^\/specifiers\/[^/?#]+(?:[?#].*)?$/,
   /^\/therapy-compass\/[^/?#]+(?:[?#].*)?$/,
-  /^\/ward-management\/patients\/[^/?#]+(?:[?#].*)?$/,
 ];
 
 function pathOnly(href: string) {
@@ -86,7 +85,6 @@ function routePatternForHref(href: string) {
     if (pathname.startsWith("/formulation/")) return "/formulation/[slug]";
     if (pathname.startsWith("/specifiers/")) return "/specifiers/[slug]";
     if (pathname.startsWith("/therapy-compass/")) return "/therapy-compass/[slug]";
-    if (pathname.startsWith("/ward-management/patients/")) return "/ward-management/patients/[patientId]";
   }
   return pathname;
 }

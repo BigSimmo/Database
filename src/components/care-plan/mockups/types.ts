@@ -184,9 +184,25 @@ export type PatientPlanSectionKey = (typeof PATIENT_PLAN_SECTION_KEYS)[number];
 export type PatientPlanSection = {
   key: PatientPlanSectionKey;
   heading: string;
-  /** Converted content. Always empty when `gap` is true — the transformation
-   *  never guesses, so a gap carries no partial text to be mistaken for one. */
+  /**
+   * The content that converted. Each point is converted or refused on its own,
+   * so a section may hold some of its points and still be flagged.
+   *
+   * This is empty in three cases: nothing in the section could be converted,
+   * the Management Plan records nothing under that heading, or the section is
+   * one that is never converted at all. It is *not* empty merely because `gap`
+   * is true.
+   *
+   * The invariant that matters is the one below, not an empty body: partial
+   * text is never presented as finished, and it never reaches the person. A
+   * flagged section cannot be approved, and only an approved version prints —
+   * so partial content exists solely in the draft a clinician is working on,
+   * which is where seeing what the transformation managed actually helps them.
+   */
   body: readonly string[];
+  /** True while any part of this section still needs a person to write it.
+   *  Approval is refused while any section carries this, whether or not it also
+   *  carries converted text. */
   gap: boolean;
   gapReason: string | null;
 };
@@ -289,6 +305,16 @@ export type PersonalSafetyPlanVersion = {
   confirmedAt: string | null;
   reviewDueAt: string | null;
   patientConfirmation: PatientConfirmationState;
+  /**
+   * When a clinician recorded this person's part in this version, or null when
+   * the record does not hold that moment.
+   *
+   * Deliberately not `confirmedAt`, which is set when the version goes live and
+   * can be a different day entirely. This is the moment `patientConfirmation`
+   * was written, and it is the only one that can honestly be shown beside a
+   * statement about what the person did.
+   */
+  participationRecordedAt: string | null;
   collaborationNote: string;
   content: SafetyPlanContent;
 };

@@ -91,6 +91,10 @@ import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-vi
 import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
 import { DocumentClinicalSummary } from "@/components/document-viewer/document-clinical-summary";
+import {
+  DocumentViewerStateSurface,
+  type DocumentViewerShellState,
+} from "@/components/document-viewer/document-viewer-state-surface";
 import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
 import {
   DocumentSectionSheet,
@@ -522,7 +526,6 @@ export function DocumentViewer({
   // returns a window of pages centred on the requested one, so the neighbours
   // arrived with it.
   const loadedWindowRef = useRef<LoadedDetailWindow | null>(null);
-
   // Everything the detail request depends on except the page. Callback identity
   // is deliberately excluded — a new function reference does not change what
   // would be fetched, and letting it force a refetch is what made page flips
@@ -641,7 +644,7 @@ export function DocumentViewer({
               return (await parseApiSuccessResponse(
                 response,
                 documentDetailResponseSchema,
-                "Document details returned an invalid response.",
+                "This document could not be opened because its details were incomplete.",
               )) as DocumentDetailPayload;
             });
         // Navigation keeps the current preview; a full load re-issues only the preview URL.
@@ -696,6 +699,14 @@ export function DocumentViewer({
           setTableFacts([]);
           setChunks([]);
           setIndexHealth(null);
+          // The deferred full-reload reset also cleared bearer URLs. Fast
+          // settlement cancels that timer, so a failed navigation must drop
+          // the previous document's signed URLs here or the recovery surface
+          // keeps offering "Open source file" for the wrong document.
+          setSignedUrl(null);
+          setDownloadSignedUrl(null);
+          clearCachedSignedUrl(signedUrlEndpoint);
+          clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
           const message =
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
           if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
@@ -709,7 +720,10 @@ export function DocumentViewer({
           }
         }
 
-        if (previewResults) {
+        // Preview is fetched in parallel with detail. Applying a cache hit after
+        // a failed detail load would put a prior session's bearer URL onto the
+        // sign-in/error recovery surface.
+        if (detailLoaded && previewResults) {
           const previewResult = previewResults[0];
           if (previewResult) applyPreviewSignedUrlResult(previewResult, signedUrlEndpoint);
         }
@@ -728,9 +742,17 @@ export function DocumentViewer({
         setTableFacts([]);
         setChunks([]);
         setIndexHealth(null);
+        setSignedUrl(null);
+        setDownloadSignedUrl(null);
+        clearCachedSignedUrl(signedUrlEndpoint);
+        clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
         setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
+        // A cached or mocked response can settle before the deferred reset runs.
+        // Cancel it before publishing the settled state or that late timer will
+        // replace a ready/error surface with an indefinite loading shell.
+        window.clearTimeout(reset);
         if (!controller.signal.aborted && requestSequence === detailRequestSequenceRef.current) {
           setLoadingDocument(false);
           if (detailControllerRef.current === controller) detailControllerRef.current = null;
@@ -858,13 +880,15 @@ export function DocumentViewer({
   const effectiveLoadingDocument =
     !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument ? true : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
-  const viewerState = effectiveLoadingDocument
+  const viewerState: DocumentViewerShellState = effectiveLoadingDocument
     ? "loading"
     : document
       ? "ready"
       : authViewerError
         ? "auth-required"
-        : "error";
+        : !isOnline
+          ? "offline"
+          : "error";
   const readyDocument = viewerState === "ready" ? document : null;
   const previewFrameSource: DocumentFrameSource =
     document?.file_type === "application/pdf"
@@ -918,7 +942,9 @@ export function DocumentViewer({
       ? "Sign in required"
       : viewerState === "loading"
         ? "Document"
-        : "Source unavailable";
+        : viewerState === "offline"
+          ? "Document offline"
+          : "Source unavailable";
   const documentHomeHref = "/?mode=documents";
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
@@ -1132,12 +1158,14 @@ export function DocumentViewer({
       id="document-viewer-main"
       ref={viewerRootRef}
       tabIndex={-1}
+      data-viewer-state={viewerState}
+      data-route-recovery={viewerState !== "ready" ? "true" : undefined}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
       <PhoneHeaderCollapsePortal>
         <header
           data-document-sticky-header
-          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--e1)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
+          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 shadow-[var(--e1)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
         >
           <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <ContextualBackLink
@@ -1184,20 +1212,22 @@ export function DocumentViewer({
                 {headerTitle}
               </h1>
             )}
-            <div className="ml-auto flex shrink-0 items-center">
-              <button
-                type="button"
-                ref={documentActionsTriggerRef}
-                onClick={() => setMobileActionsOpen(true)}
-                className="grid h-tap w-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Open document actions"
-                aria-haspopup="dialog"
-                aria-expanded={mobileActionsOpen}
-                title="Document actions"
-              >
-                <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
-              </button>
-            </div>
+            {readyDocument ? (
+              <div className="ml-auto flex shrink-0 items-center">
+                <button
+                  type="button"
+                  ref={documentActionsTriggerRef}
+                  onClick={() => setMobileActionsOpen(true)}
+                  className="grid h-tap w-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label="Open document actions"
+                  aria-haspopup="dialog"
+                  aria-expanded={mobileActionsOpen}
+                  title="Document actions"
+                >
+                  <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
+                </button>
+              </div>
+            ) : null}
           </div>
           <DocumentSectionTrack sections={documentSections} activeId={activeSectionId} />
         </header>
@@ -1333,346 +1363,338 @@ export function DocumentViewer({
         </Sheet>
       ) : null}
 
-      <section
-        data-testid="document-viewer-content"
-        data-scroll-hidden={documentSearchOpen && composerScrollHidden ? "true" : undefined}
-        data-reserve-transitioning={documentSearchOpen && reserveTransitioning ? "true" : undefined}
-        data-phone-scroll-owner={activeScrollOwner}
-        data-phone-footer-owner={readyDocument && documentSearchOpen ? "document-viewer" : "none"}
-        data-phone-composer-reserve={
-          composerVisible ? "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))" : "0.75rem"
-        }
-        data-phone-chrome-transition={documentSearchOpen && reserveTransitioning ? "active" : "idle"}
-        data-document-view={compactView ? "condensed" : "full"}
-        // Hidden state releases the composer's own 9rem clearance, but keeps a
-        // small resting gap (0.75rem — the same figure the floating pill itself
-        // uses for its bottom clearance, .floating-composer-edge) so the last
-        // card never paints flush against the physical bottom edge once the pill
-        // is gone. Reported by a user whose last card sat with zero clearance at
-        // the true end of scroll. `data-reserve-hidden-pad` keeps that baseline
-        // out of the hide/reveal collapse-budget math (readChromeCollapseMetrics
-        // in use-hide-on-scroll.ts), which otherwise would treat it as space the
-        // hide would still release.
-        data-reserve-hidden-pad="0.75rem"
-        className={cn(
-          // Base `grid-cols-1` for the same reason as the rail grid: without an
-          // explicit track this is an implicit `auto` column sized by its items'
-          // min-content, so a single child that forgets `min-w-0` can widen the
-          // whole page past the viewport and get clipped by `overflow-x: clip`.
-          "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
-          // The visible fixed composer needs endpoint clearance. Once hidden,
-          // release the composer-height clearance so Safari can paint document
-          // content beneath its translucent toolbar instead of showing a blank
-          // band — but keep a small 0.75rem resting pad (see comment above).
-          composerVisible
-            ? "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] sm:pb-40"
-            : "max-sm:pb-3",
-        )}
-      >
-        {downloadError ? (
-          <InlineNotice tone="warning" className="lg:col-span-2">
-            {downloadError}
-          </InlineNotice>
-        ) : null}
-        {(loadingSummary || summary || summaryError) && (
-          <div className="min-w-0 space-y-3 lg:col-span-2">
-            {summaryProgressStartedAt && summaryProgressEvents.length > 0 ? (
-              <AnswerProgressStepper
-                events={summaryProgressEvents}
-                startedAt={summaryProgressStartedAt}
-                active={loadingSummary}
-                onStop={stopSummary}
-              />
-            ) : null}
-            {summary && (
-              <section
-                ref={generatedSummaryRef}
-                data-testid="generated-clinical-summary"
-                className={cn(panel, "p-4 source-print")}
-              >
-                <PanelHeading
-                  icon={Sparkles}
-                  title={generatedAnswerIsSummary ? "Clinical summary" : "Answer from this document"}
-                  description={
-                    generatedAnswerIsSummary
-                      ? "From indexed passages, cleaned for practical use."
-                      : "Grounded in indexed passages from this source."
-                  }
-                />
-                <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
-                  <SafeBoldText text={generatedSummaryText} />
-                </p>
-              </section>
-            )}
-            {summaryError && (
-              <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
-                <CircleAlert aria-hidden="true" className="mr-2 inline h-4 w-4" />
-                {summaryError}
-              </section>
-            )}
-          </div>
-        )}
-
-        {readyDocument ? (
-          <div
-            id={documentOverviewSectionId}
-            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] max-sm:order-1 lg:col-span-2"
-          >
-            <DocumentOverviewLanding
-              document={readyDocument}
-              signedUrl={signedUrl}
-              pages={pages}
-              onAskFromDocument={() => void summarize()}
-              onSearchDocument={(event) => openDocumentSearch(event.currentTarget)}
-              searchOpen={documentSearchOpen}
-              onDownload={() => void openSourceDownload()}
-              downloading={downloadingSource}
-              canSummarizeDocument={canSummarizeDocument}
-            />
-          </div>
-        ) : null}
-
-        {/* Phone order: the title strip, then this card, then the PDF — matching
-            desktop, where the card already sits directly under the title card
-            (both are lg:col-span-2 ahead of the PDF column). Previously this card
-            was ordered after the PDF ("source-first"); moved back ahead of it so
-            a phone reader sees the clinical priorities digest before scrolling
-            past the PDF. */}
-        {readyDocument ? (
-          <div
-            id="source-summary-card"
-            className="min-w-0 max-sm:order-2 lg:col-span-2 scroll-mt-[var(--document-anchor-offset,6rem)]"
-          >
-            <DocumentClinicalSummary
-              document={readyDocument}
-              pageHref={usefulPageHref}
-              onPageChange={navigateToPage}
-              compact={compactView}
-            />
-          </div>
-        ) : null}
-
-        {!readyDocument && viewerState !== "loading" ? (
-          <div className="min-w-0 max-sm:order-1 lg:col-span-2">
-            <section className={cn(panel, "p-4")}>
-              <button type="button" disabled className={cn(secondaryButton, "min-h-tap text-xs")}>
-                <Sparkles aria-hidden="true" className="h-4 w-4" />
-                Answer from this
-              </button>
-            </section>
-          </div>
-        ) : null}
-
-        <div className="min-w-0 space-y-4 max-sm:order-3 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <div
-            id="pdf-preview-section"
-            className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
-          >
-            <div data-testid="pdf-preview">
-              <DocumentFrame
-                alt={`${document ? documentDisplayTitle(document) : "Source document"} preview`}
-                src={previewFrameSource}
-                controls={pdfFrameControls}
-                {...(effectiveLoadingDocument
-                  ? { state: "loading" as const, loadingLabel: "Preparing PDF preview" }
-                  : effectiveViewerError || previewError
-                    ? {
-                        state: "error" as const,
-                        errorMessage: effectiveViewerError ?? previewError ?? "Source preview could not be loaded.",
-                        onRetry: retryPreview,
-                      }
-                    : { state: "ready" as const })}
-                statusDetail={
-                  effectiveLoadingDocument ? (
-                    <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
-                      <li>Loading source metadata</li>
-                      <li>Preparing PDF preview</li>
-                      <li>Loading extracted tables</li>
-                    </ul>
-                  ) : undefined
-                }
-                statusActions={
-                  <>
-                    {signedUrl ? (
-                      <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-                        <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                        Source PDF
-                      </a>
-                    ) : null}
-                    {downloadSignedUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => void openSourceDownload()}
-                        disabled={downloadingSource}
-                        className={secondaryButton}
-                      >
-                        {downloadingSource ? (
-                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Download aria-hidden="true" className="h-4 w-4" />
-                        )}
-                        {downloadingSource ? "Preparing PDF" : "Download PDF"}
-                      </button>
-                    ) : null}
-                  </>
-                }
-              >
-                {signedUrl && document?.file_type === "application/pdf" ? (
-                  <PdfCanvasViewer
-                    // Keyed on the document alone. The page must never enter this
-                    // key — that would remount pdf.js on every flip.
-                    key={documentId}
-                    url={signedUrl}
-                    title={documentDisplayTitle(document)}
-                    initialPage={activePage}
-                    onUrlExpired={handleSignedUrlExpired}
-                    onLoadSuccess={handlePdfLoadSuccess}
-                    onPageChange={navigateToPage}
-                    fitWidth={pdfFitWidth}
-                    zoom={pdfZoom}
-                    rotation={pdfRotation}
-                    fullscreen={pdfFullscreen}
-                    highlightedBbox={highlightedImage?.bbox ?? null}
-                    highlightedBboxPage={highlightedImage?.page_number ?? null}
-                    onFitWidthChange={handlePdfFitWidthChange}
-                    onZoomChange={handlePdfZoomChange}
-                    // The same handler DocumentFrame's rotate control uses, so
-                    // the keyboard reaches rotation without the viewer owning a
-                    // second copy of that state.
-                    onRotate={handlePdfRotate}
-                  />
-                ) : (
-                  <NonPdfSourcePreview
-                    fileType={document?.file_type}
-                    title={document ? documentDisplayTitle(document) : "Source document"}
-                    signedUrl={signedUrl}
-                    downloadSignedUrl={downloadSignedUrl}
-                  />
-                )}
-              </DocumentFrame>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:gap-5">
-            <PinnedSourceEvidence
-              loading={effectiveLoadingDocument}
-              chunk={selectedChunk}
-              compact
-              sectionId="source-evidence"
-              onInspectIndexedText={inspectIndexedTextSection}
-            />
-            <IndexedTextPanel
-              loading={effectiveLoadingDocument}
-              selectedPage={selectedPage}
-              chunks={chunks}
-              search={sourceSearch}
-              documentSearchResults={currentDocumentSearchResults}
-              searchingDocument={documentSearchPending}
-              documentSearchError={currentDocumentSearchError}
-              idPrefix="source-chunk"
-              sectionId="source-text"
-              selectedChunkId={activeChunkId}
-              onSearchChange={setSourceSearch}
-              compact={compactView}
-              revealRequest={inspectIndexedText || normalizedSourceSearch.length >= 2}
-            />
-          </div>
-        </div>
-
-        <DocumentViewerRail
-          className="max-sm:order-4"
-          headerHidden={headerHidden}
-          documentSections={documentSections}
-          activeSectionId={activeSectionId}
-          onSelectSection={jumpToSection}
-          compact={compactView}
-          onCompactChange={setCompactView}
-          indexWarnings={indexWarnings}
-          effectiveLoadingDocument={effectiveLoadingDocument}
-          document={document}
-          summaryBadges={summaryBadges}
-          formattedStoredSummary={formattedStoredSummary}
-          canUseAdministrativeApis={canUseAdministrativeApis}
-          clientDemoMode={clientDemoMode}
-          authorizationHeader={authorizationHeader}
-          onLabelsUpdated={handleDocumentLabelsUpdated}
-          onUnauthorized={markSessionExpired}
-          onSearchByTag={searchByTag}
-          clinicalImages={clinicalImages}
-          auditImages={auditImages}
-          tableFacts={tableFacts}
-          reviewingTableFactId={reviewingTableFactId}
-          onReviewTableFact={reviewTableFact}
-          indexHealth={indexHealth}
-          activePage={activePage}
-          onSelectPage={navigateToPage}
+      {viewerState !== "ready" ? (
+        <DocumentViewerStateSurface
+          state={viewerState}
+          message={effectiveViewerError ?? previewError}
+          documentHomeHref={documentHomeHref}
+          onRetry={retryPreview}
         />
-      </section>
-      {readyDocument && documentSearchOpen ? (
-        <PhoneFooterLayerPortal>
-          <form
-            id="document-viewer-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submitSourceSearch();
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "Escape") return;
-              event.preventDefault();
-              event.stopPropagation();
-              closeDocumentSearch();
-            }}
-            data-scroll-hidden={composerScrollHidden ? "true" : undefined}
-            onFocusCapture={() => setComposerChromeFocused(true)}
-            onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
-            }}
+      ) : (
+        <>
+          <section
+            data-testid="document-viewer-content"
+            data-scroll-hidden={documentSearchOpen && composerScrollHidden ? "true" : undefined}
+            data-reserve-transitioning={documentSearchOpen && reserveTransitioning ? "true" : undefined}
+            data-phone-scroll-owner={activeScrollOwner}
+            data-phone-footer-owner={readyDocument && documentSearchOpen ? "document-viewer" : "none"}
+            data-phone-composer-reserve={
+              composerVisible ? "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))" : "0.75rem"
+            }
+            data-phone-chrome-transition={documentSearchOpen && reserveTransitioning ? "active" : "idle"}
+            data-document-view={compactView ? "condensed" : "full"}
+            // Hidden state releases the composer's own 9rem clearance, but keeps a
+            // small resting gap (0.75rem — the same figure the floating pill itself
+            // uses for its bottom clearance, .floating-composer-edge) so the last
+            // card never paints flush against the physical bottom edge once the pill
+            // is gone. Reported by a user whose last card sat with zero clearance at
+            // the true end of scroll. `data-reserve-hidden-pad` keeps that baseline
+            // out of the hide/reveal collapse-budget math (readChromeCollapseMetrics
+            // in use-hide-on-scroll.ts), which otherwise would treat it as space the
+            // hide would still release.
+            data-reserve-hidden-pad="0.75rem"
             className={cn(
-              "search-shell",
-              glassOverlaySurface,
-              "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
-              composerScrollHidden
-                ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
-                : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
+              // Base `grid-cols-1` for the same reason as the rail grid: without an
+              // explicit track this is an implicit `auto` column sized by its items'
+              // min-content, so a single child that forgets `min-w-0` can widen the
+              // whole page past the viewport and get clipped by `overflow-x: clip`.
+              "mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start lg:px-8",
+              // The visible fixed composer needs endpoint clearance. Once hidden,
+              // release the composer-height clearance so Safari can paint document
+              // content beneath its translucent toolbar instead of showing a blank
+              // band — but keep a small 0.75rem resting pad (see comment above).
+              composerVisible
+                ? "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] sm:pb-40"
+                : "max-sm:pb-3",
             )}
           >
-            <button
-              type="button"
-              onClick={closeDocumentSearch}
-              className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Close document search"
-              title="Close document search"
-            >
-              <X aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
-            </button>
-            <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-              <span className="sr-only">Search within this document</span>
-              <input
-                ref={sourceSearchInputRef}
-                value={sourceSearch}
-                onChange={(event) => setSourceSearch(event.target.value)}
-                placeholder="Search within this document..."
-                className={cn(
-                  searchShellInput,
-                  "min-h-tap px-2 text-base font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
+            {downloadError ? (
+              <InlineNotice tone="warning" className="lg:col-span-2">
+                {downloadError}
+              </InlineNotice>
+            ) : null}
+            {(loadingSummary || summary || summaryError) && (
+              <div className="min-w-0 space-y-3 lg:col-span-2">
+                {summaryProgressStartedAt && summaryProgressEvents.length > 0 ? (
+                  <AnswerProgressStepper
+                    events={summaryProgressEvents}
+                    startedAt={summaryProgressStartedAt}
+                    active={loadingSummary}
+                    onStop={stopSummary}
+                  />
+                ) : null}
+                {summary && (
+                  <section
+                    ref={generatedSummaryRef}
+                    data-testid="generated-clinical-summary"
+                    className={cn(panel, "p-4 source-print")}
+                  >
+                    <PanelHeading
+                      icon={Sparkles}
+                      title={generatedAnswerIsSummary ? "Clinical summary" : "Answer from this document"}
+                      description={
+                        generatedAnswerIsSummary
+                          ? "From indexed passages, cleaned for practical use."
+                          : "Grounded in indexed passages from this source."
+                      }
+                    />
+                    <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
+                      <SafeBoldText text={generatedSummaryText} />
+                    </p>
+                  </section>
                 )}
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={!canViewSourceDocuments || normalizedSourceSearch.length < 2}
-              className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Search within this document"
-            >
-              {documentSearchPending ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search aria-hidden="true" className="h-4 w-4" />
-              )}
-            </button>
-          </form>
-        </PhoneFooterLayerPortal>
-      ) : null}
+                {summaryError && (
+                  <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
+                    <CircleAlert aria-hidden="true" className="mr-2 inline h-4 w-4" />
+                    {summaryError}
+                  </section>
+                )}
+              </div>
+            )}
+
+            {readyDocument ? (
+              <div
+                id={documentOverviewSectionId}
+                className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] max-sm:order-1 lg:col-span-2"
+              >
+                <DocumentOverviewLanding
+                  document={readyDocument}
+                  signedUrl={signedUrl}
+                  pages={pages}
+                  onAskFromDocument={() => void summarize()}
+                  onSearchDocument={(event) => openDocumentSearch(event.currentTarget)}
+                  searchOpen={documentSearchOpen}
+                  onDownload={() => void openSourceDownload()}
+                  downloading={downloadingSource}
+                  canSummarizeDocument={canSummarizeDocument}
+                  summarizing={loadingSummary}
+                />
+              </div>
+            ) : null}
+
+            <div className="min-w-0 space-y-4 max-sm:order-2 sm:space-y-5 lg:w-full">
+              <div
+                id="pdf-preview-section"
+                className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
+              >
+                <div data-testid="pdf-preview">
+                  <DocumentFrame
+                    alt={`${document ? documentDisplayTitle(document) : "Source document"} preview`}
+                    src={previewFrameSource}
+                    controls={pdfFrameControls}
+                    {...(effectiveLoadingDocument
+                      ? { state: "loading" as const, loadingLabel: "Preparing PDF preview" }
+                      : effectiveViewerError || previewError
+                        ? {
+                            state: "error" as const,
+                            errorMessage: effectiveViewerError ?? previewError ?? "Source preview could not be loaded.",
+                            onRetry: retryPreview,
+                          }
+                        : { state: "ready" as const })}
+                    statusDetail={
+                      effectiveLoadingDocument ? (
+                        <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
+                          <li>Loading source metadata</li>
+                          <li>Preparing PDF preview</li>
+                          <li>Loading extracted tables</li>
+                        </ul>
+                      ) : undefined
+                    }
+                    statusActions={
+                      <>
+                        {signedUrl ? (
+                          <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
+                            <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                            Source PDF
+                          </a>
+                        ) : null}
+                        {downloadSignedUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => void openSourceDownload()}
+                            disabled={downloadingSource}
+                            className={secondaryButton}
+                          >
+                            {downloadingSource ? (
+                              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                          </button>
+                        ) : null}
+                      </>
+                    }
+                  >
+                    {signedUrl && document?.file_type === "application/pdf" ? (
+                      <PdfCanvasViewer
+                        // Keyed on the document alone. The page must never enter this
+                        // key — that would remount pdf.js on every flip.
+                        key={documentId}
+                        url={signedUrl}
+                        title={documentDisplayTitle(document)}
+                        initialPage={activePage}
+                        onUrlExpired={handleSignedUrlExpired}
+                        onLoadSuccess={handlePdfLoadSuccess}
+                        onPageChange={navigateToPage}
+                        fitWidth={pdfFitWidth}
+                        zoom={pdfZoom}
+                        rotation={pdfRotation}
+                        fullscreen={pdfFullscreen}
+                        highlightedBbox={highlightedImage?.bbox ?? null}
+                        highlightedBboxPage={highlightedImage?.page_number ?? null}
+                        onFitWidthChange={handlePdfFitWidthChange}
+                        onZoomChange={handlePdfZoomChange}
+                        // The same handler DocumentFrame's rotate control uses, so
+                        // the keyboard reaches rotation without the viewer owning a
+                        // second copy of that state.
+                        onRotate={handlePdfRotate}
+                      />
+                    ) : (
+                      <NonPdfSourcePreview
+                        fileType={document?.file_type}
+                        title={document ? documentDisplayTitle(document) : "Source document"}
+                        signedUrl={signedUrl}
+                        downloadSignedUrl={downloadSignedUrl}
+                      />
+                    )}
+                  </DocumentFrame>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:gap-5">
+                <PinnedSourceEvidence
+                  loading={effectiveLoadingDocument}
+                  chunk={selectedChunk}
+                  compact
+                  sectionId="source-evidence"
+                  onInspectIndexedText={inspectIndexedTextSection}
+                />
+                {readyDocument ? (
+                  <div id="source-summary-card" className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)]">
+                    <DocumentClinicalSummary
+                      document={readyDocument}
+                      pageHref={usefulPageHref}
+                      onPageChange={navigateToPage}
+                      compact={compactView}
+                    />
+                  </div>
+                ) : null}
+                <IndexedTextPanel
+                  loading={effectiveLoadingDocument}
+                  selectedPage={selectedPage}
+                  chunks={chunks}
+                  search={sourceSearch}
+                  documentSearchResults={currentDocumentSearchResults}
+                  searchingDocument={documentSearchPending}
+                  documentSearchError={currentDocumentSearchError}
+                  idPrefix="source-chunk"
+                  sectionId="source-text"
+                  selectedChunkId={activeChunkId}
+                  onSearchChange={setSourceSearch}
+                  compact={compactView}
+                  revealRequest={inspectIndexedText || normalizedSourceSearch.length >= 2}
+                />
+              </div>
+            </div>
+
+            <DocumentViewerRail
+              className="max-sm:order-3"
+              headerHidden={headerHidden}
+              documentSections={documentSections}
+              activeSectionId={activeSectionId}
+              onSelectSection={jumpToSection}
+              compact={compactView}
+              onCompactChange={setCompactView}
+              indexWarnings={indexWarnings}
+              effectiveLoadingDocument={effectiveLoadingDocument}
+              document={document}
+              summaryBadges={summaryBadges}
+              formattedStoredSummary={formattedStoredSummary}
+              canUseAdministrativeApis={canUseAdministrativeApis}
+              clientDemoMode={clientDemoMode}
+              authorizationHeader={authorizationHeader}
+              onLabelsUpdated={handleDocumentLabelsUpdated}
+              onUnauthorized={markSessionExpired}
+              onSearchByTag={searchByTag}
+              clinicalImages={clinicalImages}
+              auditImages={auditImages}
+              tableFacts={tableFacts}
+              reviewingTableFactId={reviewingTableFactId}
+              onReviewTableFact={reviewTableFact}
+              indexHealth={indexHealth}
+              activePage={activePage}
+              onSelectPage={navigateToPage}
+            />
+          </section>
+          {readyDocument && documentSearchOpen ? (
+            <PhoneFooterLayerPortal>
+              <form
+                id="document-viewer-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submitSourceSearch();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeDocumentSearch();
+                }}
+                data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+                onFocusCapture={() => setComposerChromeFocused(true)}
+                onBlurCapture={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+                    setComposerChromeFocused(false);
+                }}
+                className={cn(
+                  "search-shell",
+                  glassOverlaySurface,
+                  "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
+                  composerScrollHidden
+                    ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                    : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={closeDocumentSearch}
+                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                  aria-label="Close document search"
+                  title="Close document search"
+                >
+                  <X aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
+                </button>
+                <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+                  <span className="sr-only">Search within this document</span>
+                  <input
+                    ref={sourceSearchInputRef}
+                    value={sourceSearch}
+                    onChange={(event) => setSourceSearch(event.target.value)}
+                    placeholder="Search within this document..."
+                    className={cn(
+                      searchShellInput,
+                      "min-h-tap px-2 text-base font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
+                    )}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={!canViewSourceDocuments || normalizedSourceSearch.length < 2}
+                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--e1)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Search within this document"
+                >
+                  {documentSearchPending ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search aria-hidden="true" className="h-4 w-4" />
+                  )}
+                </button>
+              </form>
+            </PhoneFooterLayerPortal>
+          ) : null}
+        </>
+      )}
     </main>
   );
 }

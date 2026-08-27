@@ -2,10 +2,50 @@ import { useState } from "react";
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const coverAuth = vi.hoisted(() => ({
+  authorizationHeader: { Authorization: "Bearer cover-test" },
+  session: { user: { id: "cover-test-user" } },
+}));
+
+vi.mock("@/lib/supabase/client", () => ({
+  // The real provider memoizes this value until credentials change. Keeping
+  // the mock stable prevents an ordinary state update from masquerading as a
+  // token refresh and starting a new cover lookup in the same open drawer.
+  useAuthSession: () => coverAuth,
+}));
 
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
-  SignedImage: ({ caption }: { caption?: string }) => <p>{caption}</p>,
+  SignedImage: ({
+    caption,
+    alt,
+    failurePresentation,
+    onSettledFailure,
+  }: {
+    caption?: string;
+    alt?: string;
+    failurePresentation?: "message" | "hidden";
+    onSettledFailure?: (failure: {
+      source: "response";
+      status: number;
+      retryable: boolean;
+      retryAfterMs: null;
+    }) => void;
+  }) => (
+    <>
+      <p>{caption ?? alt}</p>
+      {failurePresentation === "hidden" && onSettledFailure ? (
+        <button
+          type="button"
+          data-testid="settle-hidden-signed-image"
+          onClick={() => onSettledFailure({ source: "response", status: 404, retryable: false, retryAfterMs: null })}
+        >
+          Settle hidden image failure
+        </button>
+      ) : null}
+    </>
+  ),
 }));
 
 import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
@@ -17,6 +57,7 @@ import {
   sourceCapsuleDisplay,
   sourceSupportSentence,
 } from "@/components/clinical-dashboard/answer-source-rows";
+import { resetDocumentCoverCacheForTests } from "@/components/clinical-dashboard/use-document-cover";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { VisualEvidenceCard } from "@/lib/types";
 
@@ -78,9 +119,13 @@ function visualCard(
 function RailAndDrawer({
   sources = SOURCES,
   visualEvidence = [],
+  onScopeDocument,
+  onReportSource,
 }: {
   sources?: AnswerSourceRow[];
   visualEvidence?: VisualEvidenceCard[];
+  onScopeDocument?: (documentId: string) => void;
+  onReportSource?: (source: AnswerSourceRow) => void;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   return (
@@ -92,13 +137,15 @@ function RailAndDrawer({
         onOpenIndexChange={setOpenIndex}
         onClose={() => setOpenIndex(null)}
         visualEvidence={visualEvidence}
+        onScopeDocument={onScopeDocument}
+        onReportSource={onReportSource}
       />
     </>
   );
 }
 
 describe("answer source rail", () => {
-  it("lists one row per cited document with its page, support and status", () => {
+  it("shows one card per cited document with its page and status", () => {
     render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
     const rows = screen.getAllByTestId("answer-source-rail-row");
     expect(rows).toHaveLength(3);
@@ -106,10 +153,48 @@ describe("answer source rail", () => {
 
     const rail = screen.getByTestId("answer-source-rail");
     expect(within(rail).getByText("p. 11")).toBeInTheDocument();
-    expect(within(rail).getAllByText("Direct").length).toBeGreaterThan(0);
-    expect(within(rail).getAllByText("Partial").length).toBeGreaterThan(0);
-    // Decision 1: staleness is carried by the row, not by a second mark colour.
+    // Decision 1: staleness is carried by the card, not by a second mark colour.
     expect(within(rail).getByText("Outdated")).toBeInTheDocument();
+  });
+
+  it("carries support in each card's accessible name rather than on its face", () => {
+    // The card face is page + status (design contract §4). Support is a clause of
+    // words in the drawer, where the reader is looking at the passage it
+    // describes — but an `aria-label` REPLACES the card's own text, so dropping
+    // support from the label would take it away from screen-reader users
+    // entirely rather than relocating it.
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAccessibleName(/Source 1: Clozapine monitoring protocol, page 4, Direct/);
+    expect(rows[1]).toHaveAccessibleName(/Partial/);
+    expect(rows[2]).toHaveAccessibleName(/Outdated/);
+  });
+
+  it("numbers cited documents only, so a number always matches an in-prose mark", () => {
+    render(
+      <AnswerSourceRail
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+        onOpenSource={vi.fn()}
+      />,
+    );
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAttribute("data-cited", "true");
+    expect(rows[0]).toHaveTextContent("1");
+    expect(rows[1]).toHaveAttribute("data-cited", "false");
+    // An em-dash, never "2": a number here that no mark can reach is a promise
+    // the prose cannot keep.
+    expect(rows[1]).not.toHaveTextContent("2");
+    expect(rows[1]).toHaveAccessibleName(/Also found: Retrieved but uncited/);
+  });
+
+  it("marks the card the drawer is showing", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} activeIndex={1} />);
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAttribute("aria-pressed", "false");
+    expect(rows[1]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps every row reachable and links straight to the document when no drawer is mounted", () => {
@@ -192,6 +277,39 @@ describe("answer source drawer", () => {
     const pager = screen.getByTestId("answer-source-drawer-pager");
     expect(pager).toHaveAttribute("data-pager-variant", "compact");
     expect(pager).toHaveTextContent("1 of 5");
+  });
+
+  it("keeps an uncited source unnumbered in the drawer title and numbered pager", async () => {
+    // The rail dashing an uncited row is only half the promise: the drawer's
+    // title pill and pager print the same numbering, and while they did it
+    // unconditionally a clinician who opened an "Also found" card was shown a
+    // digit for a source no mark in the prose names. Two independent reviews
+    // found this within the hour, which is why the rule now has one home.
+    const user = userEvent.setup();
+    render(
+      <RailAndDrawer
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    const drawer = screen.getByTestId("answer-source-drawer");
+    expect(within(drawer).getByText("— · p. 4")).toBeInTheDocument();
+
+    const pager = screen.getByTestId("answer-source-drawer-pager");
+    const uncitedStep = within(pager).getByRole("button", {
+      name: "Show also found source: Retrieved but uncited",
+    });
+    expect(uncitedStep).toHaveTextContent("—");
+    expect(uncitedStep).not.toHaveTextContent("2");
+
+    // The cited row keeps its digit: this is a distinction between cited and
+    // retrieved, not a blanket removal of the numbering.
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    expect(within(screen.getByTestId("answer-source-drawer")).getByText(/1\s*·\s*p\./)).toBeInTheDocument();
   });
 
   it("does not assert a claim when the drawer was opened from the source list", async () => {
@@ -298,5 +416,257 @@ describe("support sentence", () => {
     expect(sourceSupportSentence(SOURCES[1], 1)).toContain("supports part of the claim");
     expect(sourceSupportSentence(row({ id: "x", title: "Unrelated" }), 2)).toContain("does not state the claim");
     expect(sourceSupportSentence(null, 0)).toContain("not a claim");
+  });
+
+  it("uses the claim's support, not the document's, when a claim opened the drawer", () => {
+    // A partial mark can sit on a strong row. Speaking the row's strength
+    // would contradict the mark the clinician just tapped.
+    expect(sourceSupportSentence(SOURCES[0], 0, "partial")).toContain("supports part of the claim");
+    expect(sourceSupportSentence(SOURCES[1], 1, "direct")).toBe("This page states the claim directly.");
+  });
+});
+
+describe("source drawer overflow menu", () => {
+  async function openMenu(user: ReturnType<typeof userEvent.setup>, props = {}) {
+    render(<RailAndDrawer {...props} />);
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    return screen.getByTestId("answer-source-drawer-menu");
+  }
+
+  it("keeps the secondary actions behind a menu so the passage stays the panel's subject", async () => {
+    const user = userEvent.setup();
+    const onScopeDocument = vi.fn();
+    const menu = await openMenu(user, { onScopeDocument });
+
+    expect(within(menu).getByRole("button", { name: "Copy passage" })).toBeInTheDocument();
+    await user.click(within(menu).getByRole("button", { name: "Search only this document" }));
+    expect(onScopeDocument).toHaveBeenCalledWith("doc-s1");
+  });
+
+  it("takes two steps to report that a page does not support the claim", async () => {
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    const report = within(menu).getByTestId("answer-source-drawer-report");
+    await user.click(report);
+    // One stray tap in a menu opened to copy a quote must not file a
+    // citation-quality report against a named page.
+    expect(onReportSource).not.toHaveBeenCalled();
+    expect(report).toHaveTextContent("Confirm: report this page");
+
+    await user.click(report);
+    expect(onReportSource).toHaveBeenCalledTimes(1);
+    expect(onReportSource.mock.calls[0][0].id).toBe("s1");
+  });
+
+  it("does not offer the claim-mismatch report for an uncited source", async () => {
+    // "This page doesn't support the claim" presupposes a claim pointing here.
+    // An "Also found" row has none, so the report would be a citation-quality
+    // complaint about a citation nobody made. The document actions stay.
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    render(
+      <RailAndDrawer
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+        onReportSource={onReportSource}
+        onScopeDocument={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    const menu = screen.getByTestId("answer-source-drawer-menu");
+    expect(within(menu).queryByTestId("answer-source-drawer-report")).toBeNull();
+    expect(within(menu).getByRole("button", { name: "Search only this document" })).toBeInTheDocument();
+
+    // The cited row still offers it, so this is a distinction and not a removal.
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    expect(
+      within(screen.getByTestId("answer-source-drawer-menu")).getByTestId("answer-source-drawer-report"),
+    ).toBeInTheDocument();
+  });
+
+  it("returns focus to the trigger after an action that leaves the drawer open", async () => {
+    // The focused menu button unmounts with the menu. Without an explicit
+    // return, focus falls to <body> while a modal dialog is still on screen,
+    // which leaves a keyboard user outside the dialog with nothing to tab from.
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    const report = within(menu).getByTestId("answer-source-drawer-report");
+    await user.click(report);
+    await user.click(screen.getByTestId("answer-source-drawer-report"));
+
+    expect(onReportSource).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+    // Still inside the open drawer, on the control that opened the menu.
+    expect(screen.getByTestId("answer-source-drawer")).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByTestId("answer-source-drawer-menu-trigger"));
+  });
+
+  it("closes the menu on Escape without closing the drawer underneath it", async () => {
+    const user = userEvent.setup();
+    await openMenu(user, { onScopeDocument: vi.fn() });
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+    // Sheet listens for Escape on window and this layer listens on document,
+    // which bubbles first — without stopPropagation one Escape closed both.
+    expect(screen.getByTestId("answer-source-drawer")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer")).not.toBeInTheDocument();
+  });
+
+  it("disarms report confirm when the menu is dismissed without filing", async () => {
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    await user.click(within(menu).getByTestId("answer-source-drawer-report"));
+    expect(within(menu).getByTestId("answer-source-drawer-report")).toHaveTextContent("Confirm: report this page");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    const reopened = screen.getByTestId("answer-source-drawer-menu");
+    const report = within(reopened).getByTestId("answer-source-drawer-report");
+    expect(report).toHaveTextContent("This page doesn't support the claim");
+
+    await user.click(report);
+    expect(onReportSource).not.toHaveBeenCalled();
+    expect(report).toHaveTextContent("Confirm: report this page");
+  });
+});
+
+describe("answer source drawer cover", () => {
+  /**
+   * The cover is the one thing on this surface that can misrepresent the
+   * evidence by being merely decorative. The index stores ONE first-page
+   * thumbnail per document and no per-page renders, so a picture shown beside
+   * "p. 12" with no caption reads as page 12. The caption is the guarantee, and
+   * that is what these tests pin — not the picture.
+   */
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    resetDocumentCoverCacheForTests();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function openFirstSource(user: ReturnType<typeof userEvent.setup>) {
+    render(<RailAndDrawer sources={SOURCES} />);
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+  }
+
+  it("names the front page and where the passage actually sits", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    const cover = await screen.findByTestId("answer-source-drawer-cover");
+    expect(cover).toHaveTextContent("Front page");
+    // The cited page, stated, so the thumbnail cannot be read as that page.
+    expect(cover).toHaveTextContent("passage on p. 4");
+    expect(within(cover).getByText(/Front page of/i)).toBeInTheDocument();
+  });
+
+  it("renders no cover when the document has none, and asks only once", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: null }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+
+    // A text-only upload is the common case; re-asking on every open would spend
+    // a document-read rate-limit token to learn the same null.
+    const calls = fetchMock.mock.calls.length;
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(fetchMock.mock.calls.length).toBe(calls);
+  });
+
+  it("retries after a transient failure instead of caching it as a no-cover answer", async () => {
+    // The defect this pins: a 429/5xx/offline blip used to be cached exactly
+    // like an authoritative `null`, so every later open skipped the request and
+    // the thumbnail could not return without a full page reload.
+    fetchMock
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    expect(await screen.findByTestId("answer-source-drawer-cover")).toHaveTextContent("Front page");
+  });
+
+  it("treats a 404 as an answer and does not keep asking", async () => {
+    // 404 means the document is gone or not ours to read. That is a real answer,
+    // so it caches — unlike the transient failures above.
+    fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    const calls = fetchMock.mock.calls.length;
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+  });
+
+  it("degrades to no cover when the lookup fails", async () => {
+    fetchMock.mockRejectedValue(new Error("offline"));
+    const user = userEvent.setup();
+    await openFirstSource(user);
+
+    await screen.findByTestId("answer-source-drawer-support");
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+    // The citation itself is untouched: a missing decoration must never take the
+    // passage down with it.
+    expect(screen.getByTestId("answer-source-drawer-passage")).toBeInTheDocument();
+  });
+
+  it("removes only a failed optional cover while preserving source evidence and actions", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ coverImageId: "cover-1" }) });
+    const user = userEvent.setup();
+    render(
+      <RailAndDrawer
+        sources={SOURCES}
+        visualEvidence={[visualCard({ id: "evidence-1", source_chunk_id: "s1", caption: "Ordinary evidence" })]}
+      />,
+    );
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+
+    const cover = await screen.findByTestId("answer-source-drawer-cover");
+    await user.click(within(cover).getByTestId("settle-hidden-signed-image"));
+
+    expect(screen.queryByTestId("answer-source-drawer-cover")).not.toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-passage")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-pager")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-drawer-menu-trigger")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View original PDF" })).toBeInTheDocument();
+    expect(screen.getByText("Ordinary evidence")).toBeInTheDocument();
   });
 });
