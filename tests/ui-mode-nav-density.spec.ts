@@ -182,10 +182,10 @@ test.describe("ModeNav density", () => {
   }
 
   for (const [width, labels] of [
-    [320, ["Find", "Build", "More"]],
-    [375, ["Find", "Build", "Compare", "Map"]],
-    [390, ["Find", "Build", "Compare", "Map"]],
-    [430, ["Find", "Build", "Compare", "Map"]],
+    [320, ["Search", "Build", "More"]],
+    [375, ["Search", "Build", "Compare", "Map"]],
+    [390, ["Search", "Build", "Compare", "Map"]],
+    [430, ["Search", "Build", "Compare", "Map"]],
   ] as const) {
     test(`uses available Specifiers phone space at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
@@ -213,7 +213,7 @@ test.describe("ModeNav density", () => {
 
     await page.emulateMedia({ forcedColors: "active" });
     const nav = await readNav(page);
-    expect(nav.labels.map((slot) => slot.text)).toEqual(["Find", "Build", "More"]);
+    expect(nav.labels.map((slot) => slot.text)).toEqual(["Search", "Build", "More"]);
     expectNoClippedLabels(nav, "specifiers phone in forced colors");
   });
 
