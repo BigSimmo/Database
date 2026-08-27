@@ -1,8 +1,7 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId } from "react";
 import {
-  ChevronRight,
   Clock,
   ExternalLink,
   FileText,
@@ -23,8 +22,7 @@ import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
 import { controlPressed, favouritePressed, heroCard } from "./controls";
-import { InteractiveRow } from "@/components/ui/interactive-row";
-import { Eyebrow, IconTile, StatusBadge, TagRow } from "./ui";
+import { Eyebrow, StatusBadge, TagRow } from "./ui";
 import { useTherapyFavourite } from "./use-therapy-favourite";
 
 /**
@@ -258,45 +256,5 @@ function CardCell({
       </div>
       <p className="line-clamp-2">{text}</p>
     </div>
-  );
-}
-
-/** Compact tappable therapy row for lists (home, related, pickers). */
-export function TherapyListItem({
-  therapy,
-  onClick,
-  active = false,
-  subtitle,
-  trailing,
-}: {
-  therapy: Therapy;
-  onClick: () => void;
-  active?: boolean;
-  subtitle?: string;
-  trailing?: ReactNode;
-}) {
-  return (
-    <InteractiveRow variant="card" active={active} onClick={onClick} className="gap-3.5 px-4 py-3.5">
-      <IconTile icon={Scale} size={38} variant={active ? "accent" : "soft"} />
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{therapy.name}</span>
-        <span className="mt-0.5 block overflow-hidden text-xs text-ellipsis whitespace-nowrap text-[color:var(--text-muted)]">
-          {subtitle ?? therapy.bestUsedFor ?? therapy.category}
-        </span>
-      </span>
-      {trailing ?? (
-        <span className="flex-none text-[color:var(--decoration-soft)]">
-          {therapy.reviewStatus === "reviewed" ? null : (
-            <TriangleAlert aria-hidden="true" size={15} strokeWidth={1.8} />
-          )}
-        </span>
-      )}
-      <ChevronRight
-        aria-hidden="true"
-        size={15}
-        strokeWidth={1.8}
-        className="flex-none text-[color:var(--decoration-soft)]"
-      />
-    </InteractiveRow>
   );
 }

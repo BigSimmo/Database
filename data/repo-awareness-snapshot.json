@@ -2498,6 +2498,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-apply-performance-latency-remediation.md",
         "section": "root",
         "catalogued": true
@@ -3790,9 +3795,9 @@
       }
     ],
     "counts": {
-      "documents": 466,
+      "documents": 467,
       "catalogued": 102,
-      "uncatalogued": 364,
+      "uncatalogued": 365,
       "sections": 18
     }
   },

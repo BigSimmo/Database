@@ -11,7 +11,6 @@ import {
   Copy,
   ExternalLink,
   FileText,
-  Filter,
   Loader2,
   MessageSquareWarning,
   Plus,
@@ -31,20 +30,17 @@ import {
   keyClinicalItemsFromSections,
   keyClinicalItemsFromTable,
   plainAnswerText,
-  sourceStatusDotClass,
 } from "@/components/clinical-dashboard/answer-content";
 import { CopyButton } from "@/components/clinical-dashboard/answer-status";
 import { StrengthBadge } from "@/components/clinical-dashboard/badges";
 import {
   displayItemsForClinicalDetailSection,
-  EvidenceMapTable,
   sortClinicalDetailSections,
 } from "@/components/clinical-dashboard/clinical-output-helpers";
 import { SectionHeading } from "@/components/clinical-dashboard/dashboard-shell";
-import { cleanDisplayTitle, compactSourceSnippet } from "@/components/clinical-dashboard/display-text";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { SourceActionRow, logCitationOpen } from "@/components/clinical-dashboard/source-actions";
 import {
-  chatMicroAction,
   clinicalDivider,
   cn,
   codeText,
@@ -52,11 +48,9 @@ import {
   iconTilePremium,
   ignoreUnavailableActivation,
   metadataPillDensity,
-  panelSubtle,
   proseMeasure,
   sourceCard,
   subtleStatusPill,
-  tableMicroActionRow,
   textMuted,
   toneDanger,
   toneNeutral,
@@ -1307,112 +1301,6 @@ export function AnswerFeedbackPanel({
             </button>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-function RenderModelSourceList({
-  sources,
-  query,
-  onScopeDocument,
-}: {
-  sources: SourceLink[];
-  query: string;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  if (sources.length === 0) {
-    return (
-      <EmptyState
-        icon={FileText}
-        title={emptyStates.sourcePassages.title}
-        body={emptyStates.sourcePassages.body}
-        live="polite"
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {sources.map((source, index) => {
-        const metadata = normalizeSourceMetadata(source.sourceMetadata);
-        const snippet = compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title });
-        const openLabel = `Open source ${index + 1}: ${cleanDisplayTitle(source.title)}${query ? ` for ${query}` : ""}`;
-        return (
-          <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
-            <Link
-              href={source.href}
-              className="block min-h-tap px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              aria-label={openLabel}
-            >
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                <span className={sourceStatusDotClass(metadata)} aria-hidden="true" />
-                <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                    {cleanDisplayTitle(source.title)}
-                  </p>
-                  <p className={cn("mt-1 text-xs", textMuted)}>
-                    p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
-                  </p>
-                </div>
-                <ExternalLink aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-              </div>
-              {snippet ? <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>{snippet}</p> : null}
-            </Link>
-            <div className={cn(tableMicroActionRow, "justify-start border-t px-3 py-2")}>
-              <button type="button" onClick={() => onScopeDocument(source.document_id)} className={chatMicroAction}>
-                <Filter aria-hidden="true" className="h-3.5 w-3.5" />
-                Scope document
-              </button>
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-export function VerificationWorkspace({
-  renderModel,
-  query,
-  answerEvidenceMapRows,
-  pendingFeedback,
-  onSubmitFeedback,
-  onScopeDocument,
-}: {
-  renderModel: AnswerRenderModel;
-  query: string;
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pendingFeedback: AnswerFeedbackType | null;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const verificationSources = renderModel.primarySources.slice(0, renderModel.trust === "unsupported" ? 3 : 6);
-  return (
-    <section
-      data-testid="answer-verification-workspace"
-      className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]"
-    >
-      <div className="space-y-3">
-        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-        <div className={cn(panelSubtle, "p-3")}>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Section support map</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Each answer section should resolve back to a linked cited passage before clinical use.
-          </p>
-          <div className="mt-3">
-            <EvidenceMapTable rows={answerEvidenceMapRows} />
-          </div>
-        </div>
-      </div>
-      <div className="space-y-3">
-        <div className={cn(panelSubtle, "p-3")}>
-          <p className="text-sm font-semibold text-[color:var(--text)]">Cited source excerpts</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            Open the document to inspect the PDF page and highlighted indexed passage.
-          </p>
-        </div>
-        <RenderModelSourceList sources={verificationSources} query={query} onScopeDocument={onScopeDocument} />
       </div>
     </section>
   );
