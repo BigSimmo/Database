@@ -3230,3 +3230,60 @@ direction is conservative, which is the direction this system is required to fai
 the same merge — the only Caring Contacts file carrying one. Harmless to TypeScript and invisible in every
 diff view, which is exactly the family this repository has already been bitten by. It belongs to `main`,
 not to this phase; capture it rather than fixing it here.
+
+### Ruling [144] — the owner authorised the Lifeline wording explicitly, and it is a structural change rather than a string swap
+
+**The authorisation.** The standing rule is that nobody in this programme may author patient-visible message
+wording. I raised that, the owner then wrote **"I give you explicit permission for decision 2"**, and on
+being shown the exact sentence and asked to confirm the two numbers he replied **"Lifeline 13 11 14, and
+13YARN 13 92 76. Confirm"**. He owns the rule; a reaffirmed instruction from him is a decision, not an
+override to argue with.
+
+**This is a named exception and must not become a precedent.** The rule stands unchanged for every other
+string and every other person. Its point was never that wording is unwritable — it is that the owner and a
+lived-experience representative decide what a discharged patient reads. Here the owner decided, in writing,
+twice, having been shown the words and the resulting message in full.
+
+**The authorised line:** `If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76.`
+
+Replacing `Fictional Support Line: +61 491 570 158.` It costs 66 septets against the 40 it replaces, so the
+message with an empty name slot goes 247 → 273 and the name budget goes 59 → 33 — comfortably inside the
+306 ceiling and ample for any first name. The framing is doing clinical work rather than decoration: **"If
+you need to talk"** separates it from the `In an emergency call 000.` sentence immediately before it, which
+`copy-decisions-recommended.md` identifies as the right answer for an emergency in progress and the wrong
+one for someone distressed and not in immediate danger; **"any time"** contrasts with the staffed line's
+`9 am-6 pm` two sentences earlier. 13YARN is included **universally rather than conditionally**, so the
+system never has to hold or act on a patient's cultural identity in order to offer them a culturally
+appropriate service.
+
+**Two numbers I could not verify and the owner did.** A phone number cannot be checked from inside this
+repository, and a wrong crisis number in a suicide-prevention message is the most dangerous error available
+in this project. Asking was not caution for its own sake.
+
+**Why it is NOT a string swap, found while preparing the brief.**
+
+1. **`crisisSupportContact` is a rule, not a decoration.** `message-policy.ts:114` and `:124` require the
+   message to *contain* it — `hasFullSupportInformation` and `hasSupportInformation` both do
+   `text.includes(rules.crisisSupportContact)`. Changing the string changes what the policy demands.
+2. **Lifeline is not a fictional contact and may not live in `FICTIONAL_CONTACTS_BY_ROLE`**, whose own
+   comment says these are reserved numbers that "can never connect to a real person". It also feeds
+   `DESIGNATED_FICTIONAL_MOBILE_NUMBERS`, which builds `fictionalContactMarkerPattern` — so a naive swap
+   would put a **real, live crisis number into the list of numbers the system marks as fake.** A real
+   crisis service needs its own home, outside that module, and must be absent from that list.
+3. **The same fake line is in the automated reply too** (`AUTOMATED_REPLY_RESPONSE`), which is what a
+   patient gets when they reply — plausibly a moment of greater need than the scheduled message. The
+   owner's decision reads to the same conclusion there, and Message B's own budget must be re-measured
+   rather than assumed.
+4. **The module comment claiming every one of these numbers is fictional stops being true** and must change
+   with the code, per the standing rule about doc comments in touched files.
+
+**Checked and safe: the specimen tell survives.** The concern with removing the fake crisis line is that
+the message stops identifying itself as non-sendable. It does not — `fictionalContactMarkerPattern` still
+fires on the swapped message, because the fictional staffed line `+61 491 570 157` remains in it. Verified
+by running the pattern against the swapped text rather than by reasoning about it.
+
+**Sequenced AFTER the four-branch merge, with the Ruling [143] lead-rule fix, and this is a scheduling call
+rather than a delay.** `message-copy.ts` is edited on `cc-message-name`. Changing it on the trunk now would
+create a hand-resolved conflict on the single most consequential module in the phase, which is the exact
+class the merge checklist exists to avoid. Waiting costs hours; the conflict would cost more and risk more.
+**The wording is recorded here so nothing about it depends on remembering.**
