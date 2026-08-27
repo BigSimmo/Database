@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1b5de90c0dc0bab7131d103a71fcb715c71ce306",
-    "committed_at": "2026-08-27T06:51:52+08:00"
+    "sha": "3e4f966015b826e0f84e3f1439e9e751f237fc1f",
+    "committed_at": "2026-08-27T07:49:35+00:00"
   },
   "routes": {
     "modes": [
@@ -694,6 +694,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/favourites-phone-perfected",
+        "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/favourites-review-console",
         "file": "src/app/mockups/favourites-review-console/page.tsx",
         "area": "mockup"
@@ -1290,6 +1295,10 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
+        "path": "/api/documents/images/batch",
+        "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
         "path": "/api/documents/signed-urls",
         "file": "src/app/api/documents/signed-urls/route.ts"
       },
@@ -1388,11 +1397,11 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 194,
+      "pages": 195,
       "product_pages": 55,
-      "mockup_pages": 139,
+      "mockup_pages": 140,
       "redirects": 17,
-      "api": 57
+      "api": 58
     }
   },
   "documentation": {
@@ -1406,6 +1415,41 @@
         "path": "docs/agents-guide.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -2343,6 +2387,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/FIX-GUIDE.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
@@ -2368,6 +2417,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
@@ -2389,6 +2443,11 @@
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
         "catalogued": false
       },
@@ -2493,6 +2552,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-apply-performance-latency-remediation.md",
         "section": "root",
         "catalogued": true
@@ -2501,6 +2565,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3398,6 +3467,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-clinician-check.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
         "catalogued": false
@@ -3688,6 +3762,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-6-7-decisions.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3731,6 +3815,9 @@
     "sections": [
       {
         "name": "adr"
+      },
+      {
+        "name": "agents"
       },
       {
         "name": "archive"
@@ -3785,10 +3872,10 @@
       }
     ],
     "counts": {
-      "documents": 466,
-      "catalogued": 102,
-      "uncatalogued": 364,
-      "sections": 18
+      "documents": 481,
+      "catalogued": 106,
+      "uncatalogued": 375,
+      "sections": 19
     }
   },
   "test_health": {
@@ -3800,6 +3887,30 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep (PR #2416)",
+        "head": "0ed48477cf427f95d6d1dc0999ea58be64153a4c",
+        "scope": "Run PR sweep: CI fix + review threads + drift resolution",
+        "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
+        "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -24826,8 +24937,8 @@
       }
     ],
     "counts": {
-      "records": 2628,
-      "refs": 1605
+      "records": 2631,
+      "refs": 1608
     }
   }
 }

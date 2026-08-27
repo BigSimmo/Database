@@ -162,12 +162,11 @@ export function BriefScreen() {
                         </span>
                         <TriangleAlert
                           aria-hidden="true"
-                          size={15}
                           strokeWidth={1.8}
                           className={
                             x.reviewStatus === "reviewed"
-                              ? "flex-none text-[color:var(--success-text)]"
-                              : "flex-none text-[color:var(--warning-text)]"
+                              ? "size-icon-sm flex-none text-[color:var(--success-text)]"
+                              : "size-icon-sm flex-none text-[color:var(--warning-text)]"
                           }
                         />
                       </InteractiveRow>

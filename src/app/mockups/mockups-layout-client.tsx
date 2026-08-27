@@ -137,6 +137,13 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // so shared chrome would read as a second real header and a second search bar.
   const isFactsheetsTopicsPhoneMockup = pathname === "/mockups/factsheets-topics-phone";
 
+  // Every frame draws the universal phone header, the page header and the
+  // docked composer inside itself, because measuring the chrome budget is the
+  // whole argument of the study. The `favourites-` prefix above already hides
+  // the shared composer; the shared header still has to go or it reads as a
+  // second real header above nine phone frames that each have their own.
+  const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
+
   return (
     <GlobalMockupSearchShell
       initialMode={
@@ -188,7 +195,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
-        !isFactsheetsTopicsPhoneMockup
+        !isFactsheetsTopicsPhoneMockup &&
+        !isFavouritesPhonePerfectedMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -219,7 +227,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
-        !isFactsheetsTopicsPhoneMockup
+        !isFactsheetsTopicsPhoneMockup &&
+        !isFavouritesPhonePerfectedMockup
       }
     >
       {children}

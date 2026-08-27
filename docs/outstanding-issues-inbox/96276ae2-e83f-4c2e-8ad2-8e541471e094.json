@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
+  "createdOn": "2026-08-27",
+  "action": "update",
+  "payload": {
+    "id": "#102",
+    "summary": "Operator EXPLAIN diagnostic script authored; migration and health registration still required",
+    "detail": "Authored operator EXPLAIN diagnostic script (scripts/operator-explain-documents-indexes.sql) comparing documents_title_trgm_idx concatenated expression vs bare-column ILIKE predicates on title and file_name. Documented diagnostic plan comparison and execution runbook in docs/operator-apply-performance-latency-remediation.md for execution during the approved operator window. Remaining work per that runbook: author one idempotent migration with the three indexes plus search_schema_health required_indexes registration, apply during the operator window, mirror supabase/schema.sql, and regenerate the drift manifest. Task stays open until that full sequence completes and is verified.",
+    "source": "docs/operator-apply-performance-latency-remediation.md; scripts/operator-explain-documents-indexes.sql",
+    "baseRowFingerprint": "630d12e5a90fd5ab445439dadf17cde5a29145b6eedfe450c814084f8b171db5"
+  }
+}

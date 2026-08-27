@@ -489,27 +489,47 @@ export function createPostgresRepository(
     await connection.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [team]);
   }
 
-  async function selectPlanForUpdate(connection: SqlConnection, planId: PlanId): Promise<SqlRow | null> {
-    const result = await connection.query(
-      `select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1 for update`,
-      [planId],
-    );
+  async function selectPlanForUpdate(
+    connection: SqlConnection,
+    planId: PlanId,
+    teamId?: TeamId,
+  ): Promise<SqlRow | null> {
+    const result = teamId
+      ? await connection.query(
+          `select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1 and team_id = $2 for update`,
+          [planId, teamId],
+        )
+      : await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1 for update`, [planId]);
     return result.rows[0] ?? null;
   }
 
-  async function selectContacts(connection: SqlConnection, planId: PlanId): Promise<SqlRow[]> {
-    const result = await connection.query(
-      `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 order by sequence`,
-      [planId],
-    );
+  async function selectContacts(connection: SqlConnection, planId: PlanId, teamId?: TeamId): Promise<SqlRow[]> {
+    const result = teamId
+      ? await connection.query(
+          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and team_id = $2 order by sequence`,
+          [planId, teamId],
+        )
+      : await connection.query(
+          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 order by sequence`,
+          [planId],
+        );
     return result.rows;
   }
 
-  async function selectContactsForUpdate(connection: SqlConnection, planId: PlanId): Promise<SqlRow[]> {
-    const result = await connection.query(
-      `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 order by sequence for update`,
-      [planId],
-    );
+  async function selectContactsForUpdate(
+    connection: SqlConnection,
+    planId: PlanId,
+    teamId?: TeamId,
+  ): Promise<SqlRow[]> {
+    const result = teamId
+      ? await connection.query(
+          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and team_id = $2 order by sequence for update`,
+          [planId, teamId],
+        )
+      : await connection.query(
+          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 order by sequence for update`,
+          [planId],
+        );
     return result.rows;
   }
 
@@ -723,8 +743,8 @@ export function createPostgresRepository(
         }
 
         const contactResult = await connection.query(
-          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and id = $2 for update`,
-          [input.planId, input.contactId],
+          `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and id = $2 and team_id = $3 for update`,
+          [input.planId, input.contactId, team],
         );
         const contactRow = contactResult.rows[0];
         if (!contactRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
@@ -784,11 +804,20 @@ export function createPostgresRepository(
   async function readPlanRecord(
     connection: SqlConnection,
     planId: PlanId,
+    teamId?: TeamId,
   ): Promise<{ planRow: SqlRow; contactRows: SqlRow[] } | null> {
-    const result = await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1`, [planId]);
+    const result = teamId
+      ? await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1 and team_id = $2`, [
+          planId,
+          teamId,
+        ])
+      : await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1`, [planId]);
     const planRow = result.rows[0];
     if (!planRow) return null;
-    return { planRow, contactRows: await selectContacts(connection, planId) };
+    return {
+      planRow,
+      contactRows: await selectContacts(connection, planId, teamId ?? toTeamId(textOf(planRow.team_id))),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -937,17 +966,29 @@ export function createPostgresRepository(
   // Assignment and cover
   // -------------------------------------------------------------------------
 
-  async function readAssignment(connection: SqlConnection, planId: PlanId): Promise<PlanAssignment> {
-    const current = await connection.query(
-      `select owner_id, claimed_at, covered_by, coverage_from, coverage_until
-       from caring_contacts.plan_assignments where plan_id = $1`,
-      [planId],
-    );
-    const history = await connection.query(
-      `select from_actor_id, to_actor_id, reason, at
-       from caring_contacts.plan_reassignments where plan_id = $1 order by id`,
-      [planId],
-    );
+  async function readAssignment(connection: SqlConnection, planId: PlanId, teamId?: TeamId): Promise<PlanAssignment> {
+    const current = teamId
+      ? await connection.query(
+          `select owner_id, claimed_at, covered_by, coverage_from, coverage_until
+           from caring_contacts.plan_assignments where plan_id = $1 and team_id = $2`,
+          [planId, teamId],
+        )
+      : await connection.query(
+          `select owner_id, claimed_at, covered_by, coverage_from, coverage_until
+           from caring_contacts.plan_assignments where plan_id = $1`,
+          [planId],
+        );
+    const history = teamId
+      ? await connection.query(
+          `select from_actor_id, to_actor_id, reason, at
+           from caring_contacts.plan_reassignments where plan_id = $1 and team_id = $2 order by id`,
+          [planId, teamId],
+        )
+      : await connection.query(
+          `select from_actor_id, to_actor_id, reason, at
+           from caring_contacts.plan_reassignments where plan_id = $1 order by id`,
+          [planId],
+        );
     const reassignmentHistory = history.rows.map((row) => ({
       fromActorId: toActorId(textOf(row.from_actor_id)),
       toActorId: toActorId(textOf(row.to_actor_id)),
@@ -1281,8 +1322,8 @@ export function createPostgresRepository(
           }
 
           const contactResult = await connection.query(
-            `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and id = $2 for update`,
-            [input.planId, input.contactId],
+            `select ${CONTACT_COLUMNS} from caring_contacts.contacts where plan_id = $1 and id = $2 and team_id = $3 for update`,
+            [input.planId, input.contactId, team],
           );
           const contactRow = contactResult.rows[0];
           if (!contactRow) return { ok: false, reason: REPOSITORY_REFUSALS.notFound };
@@ -1757,9 +1798,9 @@ export function createPostgresRepository(
     async getAssignment(planId: PlanId, context: ReadContext) {
       if (!mayReadOwnTeam(context, READ_ACTIONS.plan)) return null;
       return runRead(context, async (connection) => {
-        const stored = await readPlanRecord(connection, planId);
+        const stored = await readPlanRecord(connection, planId, context.actor.teamId);
         if (!stored) return null;
-        return readAssignment(connection, planId);
+        return readAssignment(connection, planId, context.actor.teamId);
       });
     },
 
@@ -1792,7 +1833,7 @@ export function createPostgresRepository(
             return { ok: false, reason: REPOSITORY_REFUSALS.permissionDenied };
           }
 
-          const current = await readAssignment(connection, input.planId);
+          const current = await readAssignment(connection, input.planId, team);
           const transitioned = applyAssignmentAction(current, input.action, clock);
           if (!transitioned.ok) return transitioned;
 
@@ -2092,9 +2133,10 @@ export function createPostgresRepository(
               [...CLEARED_PATIENT_DETAIL.patientIdentifiers],
             ],
           );
-          await connection.query("delete from caring_contacts.cultural_identity_reports where plan_id = $1", [
-            input.planId,
-          ]);
+          await connection.query(
+            "delete from caring_contacts.cultural_identity_reports where plan_id = $1 and team_id = $2",
+            [input.planId, team],
+          );
 
           return { ok: true, value: undefined };
         },
@@ -2183,15 +2225,15 @@ export function createPostgresRepository(
     async getEpisode(planId: PlanId, context: ReadContext): Promise<Episode | null> {
       if (!mayReadOwnTeam(context, READ_ACTIONS.episode)) return null;
       return runRead(context, async (connection) => {
-        const stored = await readPlanRecord(connection, planId);
+        const stored = await readPlanRecord(connection, planId, context.actor.teamId);
         if (!stored) return null;
         const { planRow, contactRows } = stored;
 
         // Cultural identity is read from the projection, never from the plan row -- the plan row
         // has no such column, which is the point.
         const cultural = await connection.query(
-          "select cultural_identity from caring_contacts.cultural_identity_reports where plan_id = $1",
-          [planId],
+          "select cultural_identity from caring_contacts.cultural_identity_reports where plan_id = $1 and team_id = $2",
+          [planId, context.actor.teamId],
         );
         const culturalIdentity = cultural.rows[0] ? textOf(cultural.rows[0].cultural_identity) : null;
 

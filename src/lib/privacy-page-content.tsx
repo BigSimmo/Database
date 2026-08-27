@@ -22,7 +22,7 @@ export const PRIVACY_DRAFT_DISCLAIMER =
  * "describes configured behaviour as of …" — deliberately not "reviewed", which
  * would imply a governance sign-off that PIA-5 records as still outstanding.
  */
-export const PRIVACY_CONTENT_AS_OF = "2026-08-19";
+export const PRIVACY_CONTENT_AS_OF = "2026-08-27";
 
 export const PRIVACY_IMPORTANT_SHORT =
   "Do not enter identifiable patient details. Processing may include Singapore and the OpenAI API.";
