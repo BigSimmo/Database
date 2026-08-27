@@ -26,7 +26,7 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { CatalogueToolbar } from "@/components/ui/catalogue-toolbar";
 import { InformationPageHeader } from "@/components/information-page-shell";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 
 import {
   findFormulationMechanism,
@@ -528,7 +528,7 @@ export function FormulationBuilderPage({
                           rows={3}
                           aria-label={section.label}
                           placeholder="Add de-identified case evidence..."
-                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          className={cn(fieldControlPlain, "mt-3 h-auto min-h-24 resize-y p-3 font-medium leading-6")}
                         />
                         {suggestions.length ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -590,7 +590,7 @@ export function FormulationBuilderPage({
                         rows={4}
                         aria-label={prompt.label}
                         placeholder="Record a concise review note..."
-                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        className={cn(fieldControlPlain, "mt-3 h-auto min-h-28 resize-y p-3 font-medium leading-6")}
                       />
                       {starter.length ? (
                         <div className="mt-2 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">
@@ -653,7 +653,7 @@ export function FormulationBuilderPage({
                   onChange={(event) => setEditedDraft(event.target.value)}
                   rows={22}
                   aria-label="Formulation draft"
-                  className="min-h-[32rem] w-full resize-y rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-4 font-mono text-sm leading-6 text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className={cn(fieldControlPlain, "h-auto min-h-[32rem] resize-y rounded-xl p-4 font-mono leading-6")}
                 />
                 <div className="rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] p-4 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                   <p className="font-extrabold text-[color:var(--text-heading)]">Review before clinical use</p>

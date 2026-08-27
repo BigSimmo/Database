@@ -18,7 +18,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import { SpecifierPageShell, SpecifierSafetyNote, specifierCard } from "@/components/specifiers/specifier-ui";
 import { pairCompareHref } from "@/components/compare";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   normalizeSpecifierSelection,
@@ -293,7 +294,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <select
                     value={diagnosisId}
                     onChange={(event) => changeDiagnosis(event.target.value as SpecifierBuilderDiagnosis)}
-                    className="min-h-12 w-full max-w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                    className={cn(fieldControlPlain, "max-w-full font-bold text-[color:var(--text-heading)]")}
                   >
                     {diagnosisPresets.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -517,18 +518,14 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                     <RotateCcw className="h-4 w-4" aria-hidden />
                     {specifierBuilderCopy.review.startOver}
                   </button>
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
                     onClick={() => void copyWording()}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    icon={copyState === "copied" ? Check : ClipboardCopy}
                   >
-                    {copyState === "copied" ? (
-                      <Check className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <ClipboardCopy className="h-4 w-4" aria-hidden />
-                    )}
                     {copyState === "copied" ? copyButton.copied : specifierBuilderCopy.review.copy}
-                  </button>
+                  </Button>
                 </div>
                 <p role="status" className="sr-only">
                   {copyState === "copied"
@@ -573,11 +570,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 {specifierBuilderCopy.navigation.previous}
               </button>
-              <button
-                type="button"
-                onClick={() => move(1)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
+              <Button type="button" variant="primary" onClick={() => move(1)} trailingIcon={ArrowRight}>
                 {activeIndex === 0
                   ? specifierBuilderCopy.navigation.continueToFeatures
                   : activeIndex === 1
@@ -585,8 +578,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                     : activeIndex === 2
                       ? specifierBuilderCopy.navigation.continueToSeverity
                       : specifierBuilderCopy.navigation.reviewWording}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>

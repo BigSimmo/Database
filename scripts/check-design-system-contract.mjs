@@ -9,7 +9,9 @@ import {
   analyzeCssContractsInSource,
   findDebtPathRegressions,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
   findSameFileTextSmMinusMix,
@@ -141,6 +143,8 @@ const metrics = {
   textSoftConsumers: 0,
   errorStateCountProps: 0,
   failedStateResultCounts: 0,
+  handRolledCommandButtons: 0,
+  elevationInversions: 0,
   sameFileTextSmMinusMix: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
@@ -184,6 +188,16 @@ for (const file of files) {
     "failedStateResultCounts",
     file.relativePath,
     findFailedStateResultCountsInSource(file.relativePath, source).length,
+  );
+  recordDebt(
+    "handRolledCommandButtons",
+    file.relativePath,
+    findHandRolledCommandButtonsInSource(file.relativePath, source).length,
+  );
+  recordDebt(
+    "elevationInversions",
+    file.relativePath,
+    findElevationInversionsInSource(file.relativePath, source).length,
   );
   recordDebt("sameFileTextSmMinusMix", file.relativePath, findSameFileTextSmMinusMix(file.relativePath, source).length);
   const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
