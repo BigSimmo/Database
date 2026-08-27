@@ -3193,13 +3193,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
+    // Source-only owns the one on-screen warning. The complete verification
+    // notice remains print-only, while its governed compact wording is folded
+    // into this disclosure instead of repeating above the prose.
+    await expect(page.getByTestId("verification-notice")).toBeHidden();
     const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
+    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
     await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
     await expect(sourceOnlyDisclosure).toContainText("Source-only");
     await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
-    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
-    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
+
+    const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
+    const railBox = await sourceOnlyRail.boundingBox();
+    expect(proseBox).not.toBeNull();
+    expect(disclosureBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
+    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await sourceOnlyButton.focus();
+    await expect(sourceOnlyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyDisclosure).toContainText(
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
+    );
+    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
+
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyButton).toBeFocused();
+    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
+      await expect(sourceOnlyDisclosure).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
 
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
@@ -3211,8 +3249,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // A source-only answer still cites real documents, so the rail must list them
     // and the drawer must open — the degraded path is exactly where a clinician
     // most needs the route back to the page.
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyRail).toBeVisible();
     const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
     await expect(sourceOnlyRow).toBeVisible();
     await sourceOnlyRow.click();
@@ -3572,10 +3608,45 @@ test.describe("Clinical KB UI smoke coverage", () => {
       (url) =>
         url.pathname === origin.pathname &&
         url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
+        url.searchParams.get("run") === origin.searchParams.get("run") &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode"),
       { timeout: 30_000 },
     );
     await expect(workspace).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("document detail back arrow skips PDF page changes at phone and desktop", async ({ page }) => {
+    await mockDemoApi(page);
+    const documentId = "22222222-2222-4222-8222-222222222222";
+
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoApp(page, "/documents/search?mode=documents&q=clozapine+monitoring&run=1");
+      const origin = new URL(page.url());
+      await page.goto(`/documents/${documentId}?page=1`, { waitUntil: "domcontentloaded" });
+      await expect(
+        page.getByRole("heading", { level: 1, name: /Synthetic clozapine monitoring protocol/i }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const historyLength = await page.evaluate(() => window.history.length);
+      await page.getByLabel("Next page").first().click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `/documents/${documentId}` && url.searchParams.get("page") === "2",
+      );
+      expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
+
+      await page.getByRole("link", { name: "Back to documents" }).click();
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === origin.pathname &&
+          url.searchParams.get("q") === origin.searchParams.get("q") &&
+          url.searchParams.get("run") === origin.searchParams.get("run") &&
+          url.searchParams.get("mode") === origin.searchParams.get("mode"),
+        { timeout: 30_000 },
+      );
+    }
   });
 
   test("opening a document reveals phone chrome hidden by the search route", async ({ page }) => {
