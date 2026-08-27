@@ -314,16 +314,15 @@ describe("ckb-v2 structure", () => {
     }
   });
 
-  it("gives every type step its own line-height and tracking (#3, #14, #35, #36)", () => {
+  it("pins shared leading and hero companions, not per-step orphans (#3, #14, #35, #36)", () => {
     for (const step of ["xs", "sm", "body", "md", "lg", "xl"]) {
       expect(structural.has(`--text-${step}`), `--text-${step} missing`).toBe(true);
-      expect(structural.has(`--text-${step}-lh`), `--text-${step}-lh missing`).toBe(true);
-      expect(structural.has(`--text-${step}-tr`), `--text-${step}-tr missing`).toBe(true);
+      expect(structural.has(`--text-${step}-lh`), `--text-${step}-lh must stay deleted`).toBe(false);
+      expect(structural.has(`--text-${step}-tr`), `--text-${step}-tr must stay deleted`).toBe(false);
     }
-    // Negative tracking only from 15px up — tightening small text hurts legibility.
-    expect(structural.get("--text-xs-tr")).toBe("0");
-    expect(structural.get("--text-sm-tr")).toBe("0");
-    expect(structural.get("--text-body-tr")).toMatch(/^-/);
+    expect(structural.get("--leading-prose")).toMatch(/^\d+(\.\d+)?$/);
+    expect(structural.get("--text-hero--line-height")).toMatch(/^\d+(\.\d+)?$/);
+    expect(structural.get("--text-hero-tr")).toMatch(/^-/);
   });
 });
 
