@@ -1,4 +1,10 @@
-import { appModeHomeHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import {
+  appModeHomeHref,
+  dsmSearchHref,
+  factsheetsSearchHref,
+  factsheetsTopicsHref,
+  type AppModeId,
+} from "@/lib/app-modes";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -33,7 +39,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
-    { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
+    { id: "search", label: "Search", href: dsmSearchHref },
     { id: "compare", label: "Compare", href: "/dsm/compare" },
   ],
   specifiers: [
@@ -302,16 +308,26 @@ export function modeSecondaryNavigationHref(params: {
   }
 
   if (modeId === "dsm") {
-    if (itemId === "search" && query) {
-      return navigationHrefWithParams(
-        appModeHomeHref("dsm", { query, focus: true, run: currentSearchParams.get("run") === "1" }),
-        currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-      );
+    if (itemId === "search") {
+      const category = currentSearchParams.get("category");
+      const support = currentSearchParams.get("support");
+      const ids = currentSearchParams.get("ids");
+      return navigationHrefWithParams(dsmSearchHref, [
+        ...(query ? ([["q", query]] as const) : []),
+        ...(category ? ([["category", category]] as const) : []),
+        ...(support ? ([["support", support]] as const) : []),
+        // Returning to Search with a carried query must reopen the results view
+        // (`run=1`), not the empty search surface — even when the previous tab
+        // lacked run. When Search is the current tab, `run` travels with the
+        // query so clicking the tab you are on does not re-place the composer.
+        ...(query ? ([["run", "1"]] as const) : []),
+        ...(ids ? ([["ids", ids]] as const) : []),
+      ]);
     }
-    return navigationHrefWithParams(
-      href,
-      currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-    );
+    return navigationHrefWithParams(href, [
+      ...(query ? ([["q", query]] as const) : []),
+      ...(currentSearchParams.get("ids") ? ([["ids", currentSearchParams.get("ids") ?? ""]] as const) : []),
+    ]);
   }
 
   if (modeId === "specifiers") {

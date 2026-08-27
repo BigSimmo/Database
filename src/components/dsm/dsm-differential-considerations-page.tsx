@@ -19,7 +19,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { appModeHomeHref } from "@/lib/app-modes";
+import { dsmSearchHref } from "@/lib/app-modes";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 
 export type DsmDifferentialConsideration = {
@@ -93,7 +93,7 @@ export function DsmDifferentialConsiderationsPage({
   return (
     <>
       <InPageNavHeader
-        back={{ href: appModeHomeHref("dsm"), label: "DSM-5" }}
+        back={{ href: dsmSearchHref, label: "DSM-5" }}
         title={diagnosis.title}
         sections={sections}
         activeId={activeId}

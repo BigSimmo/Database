@@ -91,9 +91,10 @@ export function DsmComparisonPage({
   return (
     <div data-testid="dsm-comparison-page" className="min-h-full bg-[color:var(--background)] pb-8">
       <DsmPageHeader
+        breadcrumb={false}
         eyebrow="Diagnosis comparison"
         title="Compare DSM diagnoses"
-        description="Review core criteria, course-defining features, specifiers, and differential flags side by side. This is a structured review aid, not a diagnostic score."
+        description="Side-by-side criteria review — not a diagnostic score."
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
