@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "2cfbe5647dc919f367486a4d4c2102524329b7c6",
-    "committed_at": "2026-08-27T11:41:19+00:00"
+    "sha": "9b26a3d69b447c5fa3d45b4e011b26ba46c32b69",
+    "committed_at": "2026-08-27T12:01:45+00:00"
   },
   "routes": {
     "modes": [
@@ -4006,6 +4006,14 @@
         "scope": "Run PR sweep: CI fix + review threads + drift resolution",
         "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
         "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "gemini/engineering-maintenance-and-ledger-reconciliation (PR #2418)",
+        "head": "0a370df3cb346a441124ca67938f4a4c71d4e980",
+        "scope": "Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR",
+        "outcome": "No fix pushed. mergeable_state=dirty is real: git merge origin/main conflicts only in generated data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json, both cleanly regenerable via npm run snapshot:issues / npm run snapshot:repo-awareness. Regenerated them, but the merge commit then fails the check-ledger-write-discipline.mjs pre-push guard: origin/main (PR #2417) queued 2 new pending ledger-inbox requests after this PR's branch point (474922a3-...json -> issue #TBW7BR, 5e8ec6a9-...json -> issue #BR2217), and this PR's merge commit would touch docs/outstanding-issues-inbox/applied/ (its own 33-item reconciliation) while leaving those 2 newer items unreconciled - flagged as a partial-batch reconciliation. Deciding whether #TBW7BR/#BR2217 should be marked done is outside this PR's declared 33-item scope and belongs to a dedicated npm run issues:reconcile operation, not an ad hoc merge fix, so per sweep policy for ambiguous reconciliation-content conflicts the merge was aborted (git reset --hard back to the original PR tip 0a370df3) rather than pushed with SKIP_LEDGER_WRITE_GUARD=1. Branch left exactly as found (0a370df3, matches origin). Review threads: get_review_comments returned 0 threads; the 4 PR comments are all bot rate-limit notices (Codex usage limit, CodeRabbit review limit, Cursor Bugbot usage limit, Supabase preview ignored-no-supabase-changes) with nothing actionable to reply to or resolve. Real CI: only PR Policy (pass) and PR mergeability (fail, caused by the same drift above) have run for this head; the main ci.yml required-checks aggregate (changes/static-pr/safety/coverage/build/ui-critical/db-reset-verify/pr-required) has not triggered yet on this SHA, so there is no other CI failure to diagnose. No merge to main, no force-push, no auto-merge toggle, no close, no provider-backed gate run.",
+        "checks": "node scripts/ledger-inbox.mjs check (0 pending / 33 applied at PR head, 2 pending after main merge before abort); npm run check:outstanding-issues-snapshot (83 open, 0 pending at PR head); node scripts/check-outstanding-issues.mjs (512 rows, 83 open, 429 archived, passed on merged tree before abort); node scripts/check-ledger-write-discipline.mjs --base 32652318 --head <merge-commit> = FAILED (partial reconciliation, 2 items left pending) -> merge aborted; npx tsc -p tsconfig.typecheck.json --noEmit = 0 errors (on merged tree, discarded); npm run docs:check-index/check-inventory/check-scripts/check-links = all passed (on merged tree, discarded); npm run format = no changes (on merged tree, discarded); git merge-tree --write-tree origin/main 0a370df3 = conflicts confined to data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json only"
       },
       {
         "date": "2026-08-26",
@@ -25033,8 +25041,8 @@
       }
     ],
     "counts": {
-      "records": 2643,
-      "refs": 1611
+      "records": 2644,
+      "refs": 1612
     }
   }
 }
