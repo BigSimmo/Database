@@ -115,13 +115,13 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
 }
 
 /**
- * The control a screen renders to raise one of the EIGHT overlays that record nothing.
+ * The control a screen renders to raise an overlay whose frozen row records nothing.
  *
  * ## Why this exists rather than a no-op commit
  *
- * {@link WorkspaceOverlayTrigger} above requires a commit because sixteen of the twenty-four rows
- * confirm something, and Ruling 87 makes the compiler enforce that a screen has wired what it
- * opens. The other eight carry `mutatesState: false`, and Ruling 90 established what that means:
+ * {@link WorkspaceOverlayTrigger} above requires a commit because the rows that confirm something
+ * must be wired, and Ruling 87 makes the compiler enforce that a screen has wired what it opens.
+ * The rest carry `mutatesState: false`, and Ruling 90 established what that means:
  * their controls are EXITS, not confirmations -- "Back to personalisation", "Close this detail",
  * "Sign in again" -- so there is no decision for a screen to wire.
  *
@@ -134,13 +134,13 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
  *  - `{ kind: "unavailable", reason }` carries `scope: "every-row"` -- a screen's own statement,
  *    which by design reaches read-only rows too. It would render the exit `aria-disabled` with a
  *    reason beside it, leaving a person inside a preview with no way out but Escape or the
- *    backdrop, and on the two `recovery-only` rows with nothing to do at all.
+ *    backdrop, and on a `recovery-only` row with nothing to do at all.
  *
  * Staging NOTHING is the shape that is already correct. `commitRefusalFor(null)` answers
  * `NO_STAGED_COMMIT_REASON` with `scope: "recording-rows-only"`, and the host withholds a
  * recording-only refusal from a row that records nothing -- so an exit opened this way stays live,
  * which is exactly what `overlay-trigger.dom.test.tsx`'s "a row that records nothing keeps its way
- * out" loop already proves for all eight rows. `openWorkspaceOverlay` is documented in
+ * out" loop already proves for every row that records nothing. `openWorkspaceOverlay` is documented in
  * `workspace-overlays.ts` as "deliberately NOT the trigger's route", and that sentence is about
  * the trigger above, whose whole contract is that a commit travels with the opening. Here there is
  * no commit to travel, and the absence is the correct value rather than a missing one.
@@ -151,8 +151,8 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
  * and get `NO_STAGED_COMMIT_REASON` -- a refusal that reads as though the screen were opened by
  * address when a control on it was pressed. That is a false statement to a clinician, so it throws
  * at render, in every environment, the same policy `WorkspaceOverlayTrigger` and
- * `blockReasonWording` already follow for an unknown id. A union narrowed to the eight ids was
- * rejected: Task 14 is narrowing the overlay id union on another branch, and a second, differently
+ * `blockReasonWording` already follow for an unknown id. A union narrowed to the non-recording ids
+ * was rejected: Task 14 is narrowing the overlay id union on another branch, and a second, differently
  * derived list of ids here would be a copy of the frozen table free to stop agreeing with it. The
  * check reads `mutatesState` off that table at render instead, so it can never disagree.
  */

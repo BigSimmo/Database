@@ -130,6 +130,26 @@ function bodyText(): string {
   return document.body.textContent ?? "";
 }
 
+/**
+ * A `ListEmptyState`'s body text with its HEADING excluded.
+ *
+ * Fix round 1, MINOR 4. The comparison below read `group.textContent`, which INCLUDES the
+ * heading, and the two headings are distinct string literals -- so the two values could never be
+ * equal however identical the paragraphs beneath them became, and the assertion could not fail for
+ * the reason its own comment gave. The heading is the group's `aria-label` and also its first
+ * paragraph; dropping the paragraph that carries it leaves exactly the prose the comparison claims
+ * to be about. The `action` node is a `<Link>` rather than a `<p>`, so it is outside this by
+ * construction.
+ */
+function bodyOfEmptyState(group: HTMLElement): string {
+  const heading = group.getAttribute("aria-label") ?? "";
+  return [...group.querySelectorAll("p")]
+    .map((paragraph) => paragraph.textContent ?? "")
+    .filter((text) => text !== heading)
+    .join(" ")
+    .trim();
+}
+
 function occurrencesOf(needle: string): number {
   const text = bodyText();
   let count = 0;
@@ -528,18 +548,21 @@ describe("a record this screen cannot show says WHICH fact that is", () => {
     const { unmount } = renderDetail({ kind: "not-permitted" });
     const notPermitted = screen.getByRole("group", { name: "Governed versions are not visible in this role" });
     expect(notPermitted).toBeInTheDocument();
-    const notPermittedText = notPermitted.textContent ?? "";
+    const notPermittedBody = bodyOfEmptyState(notPermitted);
     unmount();
 
     renderDetail({ kind: "not-held", pathwayId: "SYN-PATHWAY-404" });
     const notHeld = screen.getByRole("group", { name: "No governed version with this identifier" });
-    const notHeldText = notHeld.textContent ?? "";
+    const notHeldBody = bodyOfEmptyState(notHeld);
 
     // Held apart by their own words, not merely by their headings: two states that render the same
-    // paragraph are one state with two names.
-    expect(notHeldText).not.toBe(notPermittedText);
-    expect(notPermittedText).toContain("not part of the role you are acting in");
-    expect(notHeldText).toContain("looks exactly the same here");
+    // paragraph are one state with two names. The HEADINGS are excluded (see `bodyOfEmptyState`),
+    // because including them is what made this comparison unfalsifiable in round 1.
+    expect(notPermittedBody.length, "the not-permitted state rendered no body text").toBeGreaterThan(0);
+    expect(notHeldBody.length, "the not-held state rendered no body text").toBeGreaterThan(0);
+    expect(notHeldBody).not.toBe(notPermittedBody);
+    expect(notPermittedBody).toContain("not part of the role you are acting in");
+    expect(notHeldBody).toContain("looks exactly the same here");
   });
 
   it("never echoes the identifier from the address back onto the screen", () => {
@@ -643,7 +666,12 @@ describe("the template detail navigates and sizes the way this workspace require
       const { container, unmount } = open();
       present(container);
 
-      const bordered = [...container.querySelectorAll("[class*='border-[color:var(--border)]']")];
+      // EVERY border token, not one of them. Fix round 1, NIT 7: this selected only
+      // `border-[color:var(--border)]`, so a surface drawn with `--border-strong` (or any other
+      // token) matched neither the selector nor the check and was silently not examined -- a hole
+      // that opens with no red the first time such a surface is added. The prefix is the part
+      // every border token shares.
+      const bordered = [...container.querySelectorAll("[class*='border-[color:var(--']")];
       expect(bordered.length, `${name} draws no border — the check would be vacuous`).toBeGreaterThan(0);
       for (const element of bordered) {
         // `getAttribute("class")`, not `.className`: on an SVG element the latter is an

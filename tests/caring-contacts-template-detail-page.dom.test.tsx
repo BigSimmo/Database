@@ -56,7 +56,10 @@ import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-cont
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
+import {
+  CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+  EXACT_PATIENT_VISIBLE_MESSAGE,
+} from "@/lib/caring-contacts/message-copy";
 import {
   PATHWAY_APPROVAL_ROLE_WORDING,
   PATHWAY_VERSION_PROVENANCE_WORDING,
@@ -291,6 +294,15 @@ describe("the template detail page renders the demo population's governed versio
     expect(standard).toHaveTextContent(EXACT_PATIENT_VISIBLE_MESSAGE);
     expect(occurrences(document.body.textContent ?? "", EXACT_PATIENT_VISIBLE_MESSAGE)).toBe(1);
     expect(document.body.textContent ?? "").toContain("Nothing below is addressed to anybody");
+
+    // RULING [131], ASSERTED WHERE IT IS LOAD-BEARING RATHER THAN MERELY REACHABLE. This is the
+    // only render in the suite where all three sit together: two recorded approvals above, the
+    // REAL patient-visible specimen below, and the provenance qualification between them. That
+    // adjacency is what made round 1's deleted sentence dangerous, so the status is pinned here
+    // and not only against fixture markers.
+    expect(screen.getByTestId("caring-contacts-template-detail-wording-status")).toHaveTextContent(
+      CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+    );
 
     // The seed leaves `first` and `closing` empty, which is the truthful representation of "not
     // yet written". Nothing is rendered for either, and the screen says so.

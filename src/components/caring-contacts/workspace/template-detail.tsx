@@ -4,7 +4,11 @@ import type { ComponentType, SVGProps } from "react";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
-import { AUTOMATED_REPLY_RESPONSE, PATIENT_VISIBLE_NO_REPLY_NOTICE } from "@/lib/caring-contacts/message-copy";
+import {
+  AUTOMATED_REPLY_RESPONSE,
+  CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+  PATIENT_VISIBLE_NO_REPLY_NOTICE,
+} from "@/lib/caring-contacts/message-copy";
 import type { MessageType } from "@/lib/caring-contacts/model";
 import {
   PATHWAY_APPROVAL_ROLE_WORDING,
@@ -53,10 +57,22 @@ import {
  * whatever the record holds renders it correctly without being edited.
  *
  * Ruling [127] still governs what may be CLAIMED about it, and this file claims two things and no
- * more: the wording below is what this record holds, and only one patient-visible message has been
- * approved anywhere in this system -- a SPECIMEN, one approved example with its greeting and its
- * sender name in it. So a second version would hold the same wording rather than wording of its
- * own. What is never claimed is that any of this is a message prepared for a person. There is no
+ * more: the wording below is what this record holds, and that wording is PROVISIONAL and has not
+ * been clinically approved. The second claim is READ from `message-copy.ts` rather than retyped
+ * here, so a screen cannot go on calling the wording provisional after the approval gate has
+ * decided otherwise, and cannot call it approved before.
+ *
+ * RULING [131], AND THE SENTENCE THAT USED TO SIT HERE. Round 1 rendered, in this card, "Only one
+ * patient-visible message has been approved anywhere in this system ... one approved example".
+ * `message-copy.ts` opens by saying the opposite -- PROVISIONAL, not clinically approved -- and
+ * names as the owner of that decision the lived-experience and clinical-programme approval gate:
+ * the very two seats `DualApprovalRecord` displays immediately above this card. A clinician
+ * reading the two together would conclude those seats had signed off the words a discharged
+ * patient receives. They have not. No rewording of that sentence is true, so it was deleted rather
+ * than softened, and the wording's real status now stands in its place. A version's dual approval
+ * approves the VERSION; nothing in this system has approved the words.
+ *
+ * What is never claimed is that any of this is a message prepared for a person. There is no
  * patient on this screen, nothing here is addressed to anybody, and nothing in this workspace is
  * ever sent to any number.
  *
@@ -121,7 +137,17 @@ const proseClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--t
  * `null`, on purpose, so nobody can find out a record exists by being refused it.
  */
 export type TemplateDetailView =
-  { kind: "not-permitted" } | { kind: "not-held"; pathwayId: string } | { kind: "version"; version: PathwayVersion };
+  | { kind: "not-permitted" }
+  /**
+   * `pathwayId` is carried here and DELIBERATELY NEVER READ by the branch that renders it. It is
+   * not dead code and must not be "wired up": it is what lets the reflection case in
+   * `tests/caring-contacts-template-detail.dom.test.tsx` push a poisoned identifier through the
+   * real prop the page supplies and then assert it never reaches the document. Remove the field
+   * and that guard can no longer be armed -- the test would be asserting the absence of a value
+   * the component was never given.
+   */
+  | { kind: "not-held"; pathwayId: string }
+  | { kind: "version"; version: PathwayVersion };
 
 export function TemplateDetail({ view }: { view: TemplateDetailView }) {
   return (
@@ -311,16 +337,30 @@ function MessageWordingRecord({ version }: { version: PathwayVersion }) {
   const unwritten = MESSAGE_TYPE_ORDER.filter((type) => !held.includes(type));
 
   return (
-    <div className={cardClass}>
+    <div className={cardClass} data-testid="caring-contacts-template-detail-wording">
       <h3 className={cardHeadingClass}>
         <MessageSquareText aria-hidden="true" className="mr-2 inline size-icon-md shrink-0 align-text-bottom" />
         Message wording this record holds
       </h3>
       <p className={`mt-1 ${proseClass}`}>
-        Read from this version&apos;s own record. Only one patient-visible message has been approved anywhere in this
-        system, and it is a specimen — one approved example, its greeting and its sender name included — so another
-        version would hold the same wording rather than wording of its own. Nothing below is addressed to anybody, and
-        nothing in this workspace is ever sent to any number.
+        Read from this version&apos;s own record. Nothing below is addressed to anybody, and nothing in this workspace
+        is ever sent to any number.
+      </p>
+
+      {/*
+        The wording's approval status, in the sealed domain's own words and never in this screen's.
+        Ruling [131]: it is rendered UNCONDITIONALLY, beside the wording and beneath the two
+        approval seats, because the danger the deleted sentence created was an adjacency -- a
+        clinician reading two recorded approvals and then a claim about the message. A status shown
+        only when a record happens to hold wording would leave that adjacency unqualified on every
+        record that does not.
+      */}
+      <p
+        data-testid="caring-contacts-template-detail-wording-status"
+        className="mt-3 flex min-w-0 items-start gap-2 text-sm leading-6 text-[color:var(--text-muted)]"
+      >
+        <Info aria-hidden="true" className="mt-1 size-icon-sm shrink-0" />
+        <span className="min-w-0 font-medium">{CLINICIAN_FACING_WORDING_APPROVAL_STATUS}</span>
       </p>
 
       {held.length === 0 ? (
