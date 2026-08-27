@@ -863,8 +863,9 @@ function sourceFile(relativePath, root = ROOT) {
   return SOURCE_FILE_CACHE.get(key);
 }
 
-function exportedNames(relativePath, root = ROOT) {
-  if (!exists(relativePath, root)) return [];
+function exportedNames(relativePath, root = ROOT, seen = new Set()) {
+  if (!exists(relativePath, root) || seen.has(relativePath)) return [];
+  seen.add(relativePath);
   const source = sourceFile(relativePath, root);
   const names = new Set();
   for (const statement of source.statements) {
@@ -872,8 +873,16 @@ function exportedNames(relativePath, root = ROOT) {
     const exported = modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
     if (exported && "name" in statement && statement.name && ts.isIdentifier(statement.name))
       names.add(statement.name.text);
-    if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+    if (!ts.isExportDeclaration(statement)) continue;
+    if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
       for (const element of statement.exportClause.elements) names.add(element.name.text);
+      continue;
+    }
+    // Barrel `export * from "./module"` (DS-P2-21). Follow one hop so
+    // componentSrcMap can keep pointing at `ui-primitives.tsx`.
+    if (!statement.exportClause && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const resolved = resolveImport(relativePath, statement.moduleSpecifier.text, root);
+      if (resolved) for (const name of exportedNames(resolved, root, seen)) names.add(name);
     }
   }
   return [...names].sort();

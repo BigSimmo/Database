@@ -763,7 +763,7 @@ function MedicationResults({
       ) : null}
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
+        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e2)] lg:block">
           <div className="grid grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Usual dose</span>
@@ -823,7 +823,7 @@ function MedicationResults({
                     data-medication-cell="action"
                     className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
                   >
-                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
+                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (

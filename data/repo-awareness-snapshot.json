@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
-    "committed_at": "2026-08-27T05:20:05+00:00"
+    "sha": "2717fc58379236dbc41f6755cf77d55c9f6d4b12",
+    "committed_at": "2026-08-27T22:51:37+08:00"
   },
   "routes": {
     "modes": [
@@ -679,38 +679,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/favourites-command-console",
-        "file": "src/app/mockups/favourites-command-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-command-desk",
-        "file": "src/app/mockups/favourites-command-desk/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-library-view",
-        "file": "src/app/mockups/favourites-library-view/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/favourites-phone-perfected",
         "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-review-console",
-        "file": "src/app/mockups/favourites-review-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-board",
-        "file": "src/app/mockups/favourites-set-board/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-navigator",
-        "file": "src/app/mockups/favourites-set-navigator/page.tsx",
         "area": "mockup"
       },
       {
@@ -1397,9 +1367,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 195,
+      "pages": 189,
       "product_pages": 55,
-      "mockup_pages": 140,
+      "mockup_pages": 134,
       "redirects": 17,
       "api": 58
     }
@@ -2383,6 +2353,11 @@
       },
       {
         "path": "docs/design-system/DECISIONS.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
         "catalogued": true
       },
@@ -3772,6 +3747,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-pinned-clock-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-roadmap.md",
         "section": "root",
         "catalogued": false
@@ -3867,9 +3847,9 @@
       }
     ],
     "counts": {
-      "documents": 480,
-      "catalogued": 106,
-      "uncatalogued": 374,
+      "documents": 482,
+      "catalogued": 107,
+      "uncatalogued": 375,
       "sections": 19
     }
   },
@@ -3892,11 +3872,131 @@
       },
       {
         "date": "2026-08-27",
+        "ref": "claude/home-page-scroll-stability-cbnak6",
+        "head": "c917e079635ee17c3059205b5356b4c51e6362cf",
+        "scope": "Phone defects from device screenshots: safety-findings sheet scroll lock and flex-clipped card; stopped-answer notice placement plus the never-clearing pending skeleton; phone answer-results bottom padding pb-4 -> pb-10; sidebar Documents entry repointed to /?mode=documents. 11 files, +118/-39.",
+        "outcome": "Merged to main 2026-08-27 as squash 28b1fef (PR #2422). Squash verified by content: git diff c917e079 28b1fef is empty, so nothing was dropped by the auto-merge.",
+        "checks": "CI green on head c917e079 (run 33072264164): Static PR checks, Build + bundle budget, Unit coverage, Safety and config, Caring Contacts, Production UI critical and Production UI 1/2/3 (Chromium journeys), Lighthouse budget, PR required - all success. Local before push: typecheck clean; lint clean at --max-warnings 0; full offline unit suite 10,814 passed with 3 pre-existing failures confirmed identical on a stashed tree. verify:ui and the verify:phone-chrome browser stages NOT run in this container - the lock pins Playwright chromium-1234, the image ships chromium-1194, and the #255 guard forbids substituting; browser proof delegated to CI Production UI. Lighthouse desktop-root LCP read high across four branch runs (961 FAILED, then 925/900/852 passing, vs main 748/705) and is recorded as its own unresolved ledger item rather than treated as cleared."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "6e5531ce7724c63b8c29bd880141ea87c7cd5fd8",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (main advanced 5 commits past merge base to a DSM comparison-page redesign #2409 that conflicted with this PR's DSM search/compare changes); 0 unresolved review threads (5 PR comments were all bot rate-limit/housekeeping noise, no actionable findings); CI had not yet run on a clean merge. After: merged origin/main resolving real content conflicts in 5 files (dsm-compare-chrome.tsx, dsm-comparison-page.tsx, dsm-page-header.tsx, mode-secondary-navigation.ts, tests/ui-route-coverage.spec.ts) by combining both sides' intent (kept main's compact-header redesign and null-id-filter fix, kept this PR's dsmSearchHref routing, compact compare starters, and showEmptyState/slotLayout opt-ins) rather than blanket ours/theirs; pushed merge commit 6e5531ce. No review threads needed action. CI re-triggered on the new head (run 33051601015) and was still in progress (Lint/Unit coverage/Build/4x Production UI shards/Lighthouse running) after ~34 minutes of observation with no new job-log progress in the final two snapshots; left for a human or a later session to confirm green.",
+        "checks": "npm run typecheck (clean, gate-receipts recorded pass), npm run lint (clean, gate-receipts recorded pass), npx vitest run tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-comparison-page.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/information-page-shell.dom.test.tsx (75 passed), npm run format (no changes needed). No provider-backed checks run; hosted CI run 33051601015 still in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "958a6b4f7c969f07cb118ccc0c581939fd81bcab",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
+        "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "00356908c096c9bdf462d9da85b1157f9e7c70b9",
+        "scope": "Resolve CodeRabbit review comment",
+        "outcome": "CodeRabbit flagged a real SSR/client hydration mismatch: usePhoneMedia's useState lazy initializer read window.matchMedia directly on the client's first render, which could disagree with the server-rendered false and mismatch CompareIdsChrome/CompareSlotStrip's initial hybrid-layout branch. Fixed by switching usePhoneMedia to useSyncExternalStore with a server snapshot fixed to false, matching the repo's existing useIndexingAdminDesktopLayout pattern. Replied and resolved the thread.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx -- 18 passed (53 passed on the full focused set before format pass); npx tsc --noEmit -- clean; npx eslint on the changed file -- clean; npx prettier --check -- clean after --write. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "4042bdd7af523746d4c9b7a9c6a732e36c886b7d",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (real conflict in src/components/dsm/dsm-compare-chrome.tsx vs main's #2409 DSM redesign), CI red (Build/Static PR checks/Production UI x4/Lighthouse all failing on one root-cause TS2783 duplicate-prop typecheck error in the PR's own new test), 0 unresolved review threads (all 5 PR comments were bot noise: Codex/CodeRabbit/Bugbot usage-limit notices and a CI-triage bot comment). After: merged origin/main cleanly (dsm-compare-chrome.tsx conflict resolved by combining HEAD's phoneLayout/slotSummaryLabel props with main's onCommit, verified equivalent since idsCompareHref already null-filters internally), fixed the duplicate actionLabel JSX prop in tests/compare-ids-chrome.dom.test.tsx (removed the redundant explicit prop since chromeProps spread already supplies it and the test asserts nothing about its value), pushed 2 commits (13efa061 merge, 4042bdd7 fix). No review threads needed action. New CI run (33051244071) at 4042bdd7 still in_progress after 30+ min observation window (PR mergeability + PR policy + Safety and config checks + Caring Contacts database already green); Build/Static PR checks/Unit coverage/Production UI x3/Production UI critical/Lighthouse budget not yet settled — deferred to the user per babysit budget, run: https://github.com/BigSimmo/Database/actions/runs/33051244071",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts tests/dsm-comparison-page.dom.test.tsx -- 6 files / 53 passed; npm run typecheck -- passed after fix (5604 input files); npx eslint on touched files -- clean; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "4af5895f48cca785333272ece41e25bcaccb7441",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Static PR checks failing (check:repo-awareness-snapshot: committed snapshot behind — review_state differs) -> merged origin/main@603da96 (clean, no conflicts) then regenerated snapshot via npm run snapshot:repo-awareness and committed; 0 unresolved review threads found (none to fix/reply/resolve). Local full gate now green. Note: main advanced again mid-sweep to be65b8a1b (PR #2415, same DSM/compare files) producing a real post-push content conflict — left unresolved for the user, not auto-resolved.",
+        "checks": "npm run verify:cheap equivalent set run piecewise: check:repo-awareness-snapshot (fail -> pass after regenerate), full static-pr check chain (34 gates, all pass), npm run lint (pass), npm run typecheck (pass), npm run test (893 files / 10824 tests passed, 4 skipped — two initially-failing tests (clinical-hazard-controls.test.ts, privacy-readiness-contract.test.ts) were a local shallow-clone ancestry artifact, confirmed pre-existing on plain origin/main and resolved by git fetch --deepen, not a code fix). No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "871df2793ccb63ffe92f70225e8be64e25619da7",
+        "scope": "Resolve merge conflict against origin/main (requested follow-up after Run PR sweep)",
+        "outcome": "Real content conflict in compare-ids-chrome.tsx, compare-slot-strip.tsx, dsm-compare-chrome.tsx, and tests/ui-route-coverage.spec.ts caused by PR #2415 (already merged) independently reworking DsmCompareChrome to a compact horizontal rail + separate starter-chip row, while this PR added a phoneLayout=hybrid pip-summary/2x2-grid design to the same shared CompareIdsChrome/CompareSlotStrip components. Resolved by merging both prop sets into the shared components (showEmptyState/slotLayout from main plus phoneLayout/slotSummaryLabel from this PR, now coexisting) and, for the one screen both PRs redesigned (DSM compare), keeping origin/main's already-shipped compact-rail design rather than overwriting it — so this PR's hybrid layout still lands in full for Therapy compare (untouched by #2415), while DSM compare keeps its most recently reviewed design. Regenerated data/repo-awareness-snapshot.json. Pushed as merge commit 871df2793.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 53 passed; npx tsc --noEmit -- clean; npx eslint on the 4 resolved files -- clean; npm run check:repo-awareness-snapshot -- in step; npx prettier --check on the 4 resolved files -- all match. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "c718360809aa7bd0d3b681329e34bbb2be633bcb",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: Static PR checks failing (check:repo-awareness-snapshot drifted review_state), Production UI (1) failing (tests/ui-route-coverage.spec.ts DSM compare removal test expected the pre-hybrid-layout Choose-at-least-two-diagnoses heading, which this PR's own new hybrid-phone suppressEmptyState/showOneMoreHint logic intentionally replaces with an Add-one-more-to-compare hint at phone width), PR required aggregate failing as a result. No unresolved review threads existed (0 review threads; all 7 PR comments were bot usage-limit/CI-triage noise). Branch was not behind main (base 3265231 == origin/main tip). After: regenerated data/repo-awareness-snapshot.json via npm run snapshot:repo-awareness and updated the Playwright assertion to expect compare-slot-strip-one-more-hint instead of the old heading, matching the new intended UX already covered by tests/compare-slot-strip.dom.test.tsx. No drift merge needed (branch was current with main). No review threads to address.",
+        "checks": "npm run check:repo-awareness-snapshot (pass after regen), npm run test -- tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts (5 files, 52 passed), npm run typecheck (pass), npx eslint tests/ui-route-coverage.spec.ts --max-warnings 0 (pass, 0 findings), npx prettier --check tests/ui-route-coverage.spec.ts data/repo-awareness-snapshot.json (pass). No provider-backed checks run (no verify:ui/verify:release/eval:* executed)."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "fcfaa11a07bea6c04c4c4c1b046fb0ccaca469ba",
+        "scope": "Run PR follow-up: second merge-drift + real bug fix + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated). Also found and fixed a real regression from the earlier sweep's conflict resolution: DsmCompareChrome's onCommit had dropped ids.filter(Boolean) that origin/main carries, producing ids=,bipolar-ii-disorder after removing the first of two selections instead of ids=bipolar-ii-disorder -- exactly the failure tests/ui-route-coverage.spec.ts caught in CI. Restored the filter to match main. Added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/. No review threads outstanding.",
+        "checks": "npx vitest run tests/compare-catalog.test.ts tests/compare-ids-chrome.dom.test.tsx tests/compare-slot-strip.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 57 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "05e00976ab04796d7f44593b692f46cb8919943e",
+        "scope": "Run PR follow-up: second merge-drift + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated); added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/, a path scripts/pr-policy.mjs treats as clinical-risk. No review threads outstanding.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "be2d9b0291965258e5933006dc9b914961bb0dc3",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "CI was already green pre-sweep (PR required: success on d3f39c4); branch was already current with main (0 behind), so no drift merge needed. Fixed 3 unresolved CodeRabbit review threads: (1) pathway/step 'linked steps' counts used total steps.length instead of counting only steps with a matched therapySlug — added pathwayLinkedStepCount() and wired it into pathway-review-label.ts, pathway-picker-sheet.tsx (x2), pathway-step-stack.tsx; (2) ui-therapy-pathways.spec.ts readCautionGeometry substituted +/-Infinity for a missing caution/dock element, masking a broken overlap assertion — now throws if either is absent; (3) the 'Change pathway' Playwright test only re-clicked the already-active Anxiety pathway row, which could pass with a broken selectPathway — now selects Mood pathway, asserts the URL/heading changed, then switches back to Anxiety before the anxiety-scoped scroll assertions. All 3 threads replied with commit SHA and resolved.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts tests/therapy-compass-pathways.test.ts -- 34 passed; npm run lint -- exit 0 (gate-receipts pass); npm run typecheck -- exit 0, run foreground twice, gate-receipts recorded pass for typecheck:internal (5613 input files); npm run format -- applied (1 file reformatted, amended into commit); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "d2bbc44f084707d8844485c67c8cd76d57e04b39",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (conflict vs main), all real CI green on prior head (19fca0d), 0 unresolved review threads (4 PR comments were all automated bot usage-limit/status noise, no actionable findings). After: merged origin/main (b183dc65) into branch; only conflicts were generated files docs/design-system/COMPONENTS.md and docs/design-system/adoption-manifest.json, resolved by regenerating via 'node scripts/generate-design-system-adoption.mjs --write' (no manual edits); PR mergeability check now succeeds. No review threads needed action (none existed). No CI fix needed beyond the merge itself.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; npm run check:design-system-adoption -- design system adoption checked: 55 components, 76 roots; npm run check:playwright-pr-shards -- PR UI shard parity OK: 31 production specs across 3 groups; pre-commit hook ran docs:check-inventory and docs:check-index -- both current. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "f8537abbef36b5e9f72eb1c745f565253a276153",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Static PR checks red on check:repo-awareness-snapshot — committed data/repo-awareness-snapshot.json review_state was stale after prior sweep's ledger/docs commits); 0 unresolved review threads; branch already contained origin/main (no drift). After: ran npm run snapshot:repo-awareness to regenerate the snapshot, verified npm run check:repo-awareness-snapshot and npm run format:changed pass, committed and pushed f8537ab. All other required jobs (Build, Unit coverage, Production UI critical, Safety and config checks, Production UI shards 1-3, Lighthouse budget) were already green before this fix and untouched by it. No review threads existed to address. No main-sync needed (branch already up to date).",
+        "checks": "npm run check:repo-awareness-snapshot (PASS, reproduces prior CI failure then passes after regen); npm run format:changed (PASS); npm run snapshot:repo-awareness (regenerated data/repo-awareness-snapshot.json); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
         "ref": "codex/tooling-hooks-ci-invariants",
         "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep (PR #2416)",
+        "head": "0ed48477cf427f95d6d1dc0999ea58be64153a4c",
+        "scope": "Run PR sweep: CI fix + review threads + drift resolution",
+        "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
+        "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "gemini/engineering-maintenance-and-ledger-reconciliation (PR #2418)",
+        "head": "0a370df3cb346a441124ca67938f4a4c71d4e980",
+        "scope": "Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR",
+        "outcome": "No fix pushed. mergeable_state=dirty is real: git merge origin/main conflicts only in generated data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json, both cleanly regenerable via npm run snapshot:issues / npm run snapshot:repo-awareness. Regenerated them, but the merge commit then fails the check-ledger-write-discipline.mjs pre-push guard: origin/main (PR #2417) queued 2 new pending ledger-inbox requests after this PR's branch point (474922a3-...json -> issue #TBW7BR, 5e8ec6a9-...json -> issue #BR2217), and this PR's merge commit would touch docs/outstanding-issues-inbox/applied/ (its own 33-item reconciliation) while leaving those 2 newer items unreconciled - flagged as a partial-batch reconciliation. Deciding whether #TBW7BR/#BR2217 should be marked done is outside this PR's declared 33-item scope and belongs to a dedicated npm run issues:reconcile operation, not an ad hoc merge fix, so per sweep policy for ambiguous reconciliation-content conflicts the merge was aborted (git reset --hard back to the original PR tip 0a370df3) rather than pushed with SKIP_LEDGER_WRITE_GUARD=1. Branch left exactly as found (0a370df3, matches origin). Review threads: get_review_comments returned 0 threads; the 4 PR comments are all bot rate-limit notices (Codex usage limit, CodeRabbit review limit, Cursor Bugbot usage limit, Supabase preview ignored-no-supabase-changes) with nothing actionable to reply to or resolve. Real CI: only PR Policy (pass) and PR mergeability (fail, caused by the same drift above) have run for this head; the main ci.yml required-checks aggregate (changes/static-pr/safety/coverage/build/ui-critical/db-reset-verify/pr-required) has not triggered yet on this SHA, so there is no other CI failure to diagnose. No merge to main, no force-push, no auto-merge toggle, no close, no provider-backed gate run.",
+        "checks": "node scripts/ledger-inbox.mjs check (0 pending / 33 applied at PR head, 2 pending after main merge before abort); npm run check:outstanding-issues-snapshot (83 open, 0 pending at PR head); node scripts/check-outstanding-issues.mjs (512 rows, 83 open, 429 archived, passed on merged tree before abort); node scripts/check-ledger-write-discipline.mjs --base 32652318 --head <merge-commit> = FAILED (partial reconciliation, 2 items left pending) -> merge aborted; npx tsc -p tsconfig.typecheck.json --noEmit = 0 errors (on merged tree, discarded); npm run docs:check-index/check-inventory/check-scripts/check-links = all passed (on merged tree, discarded); npm run format = no changes (on merged tree, discarded); git merge-tree --write-tree origin/main 0a370df3 = conflicts confined to data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json only"
       },
       {
         "date": "2026-08-26",
@@ -24924,8 +25024,8 @@
       }
     ],
     "counts": {
-      "records": 2630,
-      "refs": 1607
+      "records": 2645,
+      "refs": 1613
     }
   }
 }

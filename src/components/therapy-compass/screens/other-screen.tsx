@@ -48,7 +48,7 @@ export function OtherScreen() {
   return (
     <section data-screen-label="Review Queue" className={pageContainer}>
       <PageHeader
-        className="mb-[22px]"
+        className="mb-5.5"
         title="Review Queue"
         description="Records awaiting source and clinical review, lowest review-completeness first."
         // A count, not a control: `meta` is the documented slot for status

@@ -712,7 +712,7 @@ function SectionsPhoneFrame({
         data-variant="sections"
         data-sections-preview={sectionsPreview}
         className={cn(
-          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]",
           large ? "h-[46rem]" : "h-[30rem]",
         )}
       >
@@ -760,7 +760,7 @@ function PhoneFrame({
       <div
         data-variant={variant}
         className={cn(
-          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]",
           large ? "h-[46rem]" : "h-[30rem]",
         )}
       >
@@ -775,7 +775,7 @@ function PhoneFrame({
 
 function ReviewPanel() {
   return (
-    <aside className="rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-soft)]">
+    <aside className="rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--e2)]">
       <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
         Design review · Phone sheet
       </p>
