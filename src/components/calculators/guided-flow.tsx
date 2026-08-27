@@ -130,8 +130,8 @@ function QuestionScreen({
         className="h-1.5 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
       >
         <div
-          className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-[var(--duration-deliberate)]"
-          style={{ width: `${(stepIndex / total) * 100}%` }}
+          className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-deliberate)]"
+          style={{ transform: `scaleX(${total > 0 ? stepIndex / total : 0})` }}
         />
       </div>
 
