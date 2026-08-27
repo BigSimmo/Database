@@ -3193,13 +3193,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
+    // Source-only owns the one on-screen warning. The complete verification
+    // notice remains print-only, while its governed compact wording is folded
+    // into this disclosure instead of repeating above the prose.
+    await expect(page.getByTestId("verification-notice")).toBeHidden();
     const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
+    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
     await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
     await expect(sourceOnlyDisclosure).toContainText("Source-only");
     await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
-    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
-    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
+
+    const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
+    const railBox = await sourceOnlyRail.boundingBox();
+    expect(proseBox).not.toBeNull();
+    expect(disclosureBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
+    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await sourceOnlyButton.focus();
+    await expect(sourceOnlyButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyDisclosure).toContainText(
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
+    );
+    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
+
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyButton).toBeFocused();
+    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
+    await page.keyboard.press("Enter");
+    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
+      await expect(sourceOnlyDisclosure).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
 
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
@@ -3211,8 +3249,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // A source-only answer still cites real documents, so the rail must list them
     // and the drawer must open — the degraded path is exactly where a clinician
     // most needs the route back to the page.
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyRail).toBeVisible();
     const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
     await expect(sourceOnlyRow).toBeVisible();
     await sourceOnlyRow.click();
