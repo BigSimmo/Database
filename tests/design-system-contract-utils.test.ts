@@ -649,6 +649,28 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
   });
 
+  it("masks only the medication accent-default swatch, not other hex in the same file", () => {
+    const reportFailure = vi.fn();
+    const source = ['export const UNRELATED = "#123456";', 'accent: row.accent ?? "#0f766e",'].join("\n");
+    const scoped = rawColorContractSource("src/lib/medication-records.ts", source, reportFailure);
+    expect(scoped).toContain("#123456");
+    expect(scoped).not.toContain("#0f766e");
+    expect(reportFailure).not.toHaveBeenCalled();
+    const meds = rawColorContractSource(
+      "src/lib/medications.ts",
+      'accent: record.accent?.trim() || "#0f766e",',
+      reportFailure,
+    );
+    expect(meds).not.toContain("#0f766e");
+  });
+
+  it("fails closed when the medication accent-default swatch disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const UNRELATED = "#123456";';
+    expect(rawColorContractSource("src/lib/medications.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+
   it("fails closed when a fixed-paper factsheet boundary disappears", () => {
     const reportFailure = vi.fn();
     const source = 'const appChrome = "#123456";';

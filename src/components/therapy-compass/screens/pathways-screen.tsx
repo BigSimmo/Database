@@ -59,7 +59,7 @@ export function PathwaysScreen() {
           on a 390px viewport it was the line that wrapped into the drawer
           handle. */}
       <PageHeader
-        className="mb-[22px]"
+        className="mb-5.5"
         icon={Waypoints}
         title="Clinical Pathways"
         description="Step-by-step workflows for common clinical problems."
@@ -77,7 +77,7 @@ export function PathwaysScreen() {
 
       <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[320px_minmax(0,_1fr)] gap-4 overflow-hidden")}>
         {/* pathway list */}
-        <div className="therapy-pathway-list border-r border-[color:var(--border)] p-[18px]">
+        <div className="therapy-pathway-list border-r border-[color:var(--border)] p-4.5">
           <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">Pathways</div>
           <div className="flex flex-col gap-2.5">
             {b.pathways.map((p) => {
@@ -111,7 +111,7 @@ export function PathwaysScreen() {
         </div>
 
         {/* pathway detail */}
-        <div className="py-[22px] px-6 min-w-0">
+        <div className="py-5.5 px-6 min-w-0">
           <div className="flex items-start gap-3.5 mb-5">
             <span className="inline-flex items-center justify-center w-[46px] h-[46px] rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] flex-none">
               <Waypoints aria-hidden="true" size={24} strokeWidth={1.5} />
@@ -193,7 +193,7 @@ export function PathwaysScreen() {
         </div>
       </div>
 
-      <div className="flex items-center gap-[18px] mt-5 py-[18px] px-[22px] bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-xl flex-wrap">
+      <div className="flex items-center gap-4.5 mt-5 py-4.5 px-5.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-xl flex-wrap">
         <TriangleAlert
           aria-hidden="true"
           size={22}
@@ -209,7 +209,7 @@ export function PathwaysScreen() {
               "Review source status, missing fields and patient-specific factors before clinical use."}
           </div>
         </div>
-        <div className="max-sm:flex-wrap flex gap-[9px]">
+        <div className="max-sm:flex-wrap flex gap-2.5">
           <Button variant="secondary" icon={copied === "pathway" ? Check : Copy} onClick={copyPathway}>
             {copied === "pathway" ? "Copied" : "Copy pathway"}
           </Button>

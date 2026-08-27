@@ -274,7 +274,7 @@ export function MobileSectionFab({
         aria-hidden={!open}
         inert={!open}
         hidden={!open}
-        className="fixed z-40 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--ring-highlight)] backdrop-blur-md"
+        className="fixed z-40 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)] backdrop-blur-md"
         style={{
           right: "max(0.75rem, env(safe-area-inset-right))",
           bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.5rem)",

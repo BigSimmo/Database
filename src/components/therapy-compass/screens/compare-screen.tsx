@@ -128,7 +128,7 @@ export function CompareScreen() {
         // which is not something `PageHeader` offers — and should not, since a
         // count that grows cannot share a line with a title that wraps.
         meta={
-          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
+          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-0.5 px-2.5 rounded-md">
             {items.length} of {THERAPY_MAX_COMPARE} selected
           </span>
         }
@@ -182,7 +182,7 @@ export function CompareScreen() {
         <>
           {/* decision summary */}
           <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5")}>
-            <div className="py-5 px-[22px]">
+            <div className="py-5 px-5.5">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
             <SummaryCell label="SHORTEST DELIVERY" value={shortestDelivery(items)?.name ?? "—"} accent />
@@ -232,15 +232,15 @@ export function CompareScreen() {
                         scope="col"
                         className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
                       >
-                        <div className="flex items-center gap-[7px]">
+                        <div className="flex items-center gap-2">
                           <Scale aria-hidden="true" className="size-icon-sm text-[color:var(--decoration-soft)]" />
                           <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                         </div>
                         <div
                           className={
                             t.reviewStatus === "reviewed"
-                              ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
-                              : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
+                              ? "mt-0.5 text-2xs font-semibold text-[color:var(--success-text)]"
+                              : "mt-0.5 text-2xs font-semibold text-[color:var(--warning-text)]"
                           }
                         >
                           {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
@@ -381,7 +381,7 @@ function SummaryCell({
 }) {
   return (
     <div
-      className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
+      className={`border-l border-[color:var(--border)] px-5.5 py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
     >
       <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
