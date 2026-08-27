@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "3e4f966015b826e0f84e3f1439e9e751f237fc1f",
-    "committed_at": "2026-08-27T07:49:35+00:00"
+    "sha": "f7527ac82d8e5945ed6a43a9c82adbcbac896467",
+    "committed_at": "2026-08-27T10:20:25+00:00"
   },
   "routes": {
     "modes": [
@@ -3902,6 +3902,14 @@
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "dependabot/npm_and_yarn/npm-production-9d7c78ff3c (PR #2296)",
+        "head": "493c018d8f90f441265b74d4b72c216b969a0c0b",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state=behind (19 commits behind main), pre-merge head CI already fully green (PR required success), 0 unresolved review threads. Action: merged origin/main (clean, no conflicts — git merge-tree confirmed clean beforehand); ran npm ci, lint, typecheck, full unit test suite, and a full production build + bundle-budget check offline, all green; pushed merge commit 493c018d. No CI failures to fix, no review threads to address. After: new head 493c018d re-triggered CI (in progress at push time), no local guardrailed action taken.",
+        "checks": "lint: PASS (0 warnings); typecheck: PASS; test: PASS (892 files, 10817 passed, 4 skipped); build: PASS (next build --webpack, compiled successfully); check:bundle-budget: PASS (production 1665.9 KiB gzip within tolerance, mockups within tolerance, routes / and /documents/search within tolerance); no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -24937,7 +24945,7 @@
       }
     ],
     "counts": {
-      "records": 2631,
+      "records": 2632,
       "refs": 1608
     }
   }
