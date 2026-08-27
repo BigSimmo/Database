@@ -537,7 +537,7 @@
 .summaryLinkCard {
   display: block;
   cursor: pointer;
-  transition: background-color var(--duration-fast, 150ms) ease;
+  transition: background-color var(--duration-fast) ease;
 }
 
 .summaryLinkCard:hover {
