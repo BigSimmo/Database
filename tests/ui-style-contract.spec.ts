@@ -309,6 +309,158 @@ test.describe("unlayered style rules render their effect", () => {
 });
 
 /**
+ * Gate 3 — visible focus. Keyboard-tab a labelled control (not a text field,
+ * not the composer pill) and assert the sanctioned 2px `--focus` outline with
+ * no Tailwind `ring-*` companion. Field/search-shell carriers stay quiet.
+ * The composer pill may keep a box-shadow; ui-smoke requires that halo.
+ */
+test.describe("visible focus outline (Gate 3)", () => {
+  test.skip(({ browserName }) => browserName !== "chromium", "computed-style serialisation is engine-specific");
+
+  test("labelled controls use 2px --focus outline without a Tailwind ring", async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    // The specifier builder's base step renders a `fieldControlPlain` <select>
+    // just after its step-progress controls — a short, stable tab distance.
+    // /forms/search has no non-composer field at all: its only <input> is the
+    // shared composer, which the classifier deliberately excludes as
+    // "composer", so a field can never be found there regardless of budget.
+    await page.goto("/specifiers/builder", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("specifier-builder-base").waitFor({ state: "visible", timeout: 20_000 });
+
+    const readFocusable = () =>
+      page.evaluate(() => {
+        const composer = (el: Element | null) =>
+          Boolean(
+            el?.closest(
+              ".answer-footer-search-pill, .answer-footer-search-input, .chat-composer-shell-delta, .search-shell, [data-composer]",
+            ),
+          );
+        const isField = (el: Element) => {
+          const tag = el.tagName.toLowerCase();
+          return (
+            tag === "input" ||
+            tag === "textarea" ||
+            tag === "select" ||
+            el.classList.contains("field-control") ||
+            el.classList.contains("search-shell-input")
+          );
+        };
+        return Array.from(document.querySelectorAll("button, a[href], summary, input, select, textarea"))
+          .filter((el) => {
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map((el) => {
+            const tag = el.tagName.toLowerCase();
+            const name = (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 80);
+            return `${tag}:${composer(el) ? "composer" : isField(el) ? "field" : "control"}:${name}`;
+          })
+          .sort();
+      });
+
+    let previous: string | null = null;
+    let streak = 0;
+    let snapshot: string[] = [];
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      snapshot = await readFocusable();
+      const key = JSON.stringify(snapshot);
+      if (key === previous) {
+        streak += 1;
+        if (streak >= 3) break;
+      } else {
+        streak = 0;
+      }
+      previous = key;
+      await page.waitForTimeout(150);
+    }
+    expect(streak, "focusable inventory did not stabilise for three consecutive reads").toBeGreaterThanOrEqual(3);
+
+    await page.locator("body").click({ position: { x: 2, y: 2 } });
+
+    const classify = () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        if (!(el instanceof HTMLElement) || el === document.body) return { kind: "none" as const };
+        const tag = el.tagName.toLowerCase();
+        const composer = Boolean(
+          el.closest(
+            ".answer-footer-search-pill, .answer-footer-search-input, .chat-composer-shell-delta, [data-composer]",
+          ),
+        );
+        const field =
+          tag === "input" ||
+          tag === "textarea" ||
+          tag === "select" ||
+          el.classList.contains("field-control") ||
+          el.classList.contains("search-shell-input") ||
+          Boolean(el.closest(".search-shell"));
+        const labelled = Boolean(
+          (el.getAttribute("aria-label") || "").trim() ||
+          (el.textContent || "").trim() ||
+          (tag === "a" && el.getAttribute("href")),
+        );
+        const style = getComputedStyle(el);
+        // Resolve --focus to the same computed color format the browser reports
+        // for outlineColor (e.g. "rgb(...)"), so the two are directly comparable
+        // rather than comparing a raw custom-property string against a resolved one.
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.color = "var(--focus)";
+        document.body.appendChild(probe);
+        const focusColor = getComputedStyle(probe).color;
+        probe.remove();
+        return {
+          kind: composer ? ("composer" as const) : field ? ("field" as const) : ("control" as const),
+          tag,
+          labelled,
+          outlineWidth: style.outlineWidth,
+          outlineStyle: style.outlineStyle,
+          outlineColor: style.outlineColor,
+          boxShadow: style.boxShadow,
+          focusColor,
+        };
+      });
+
+    let control = null as Awaited<ReturnType<typeof classify>> | null;
+    for (let step = 0; step < 40; step += 1) {
+      await page.keyboard.press("Tab");
+      const current = await classify();
+      if (current.kind === "control" && current.labelled && (current.tag === "button" || current.tag === "a")) {
+        control = current;
+        break;
+      }
+    }
+    if (control?.kind !== "control") {
+      throw new Error("expected to tab onto a labelled button or link that is not the composer pill");
+    }
+    expect(control.outlineWidth).toBe("2px");
+    expect(control.outlineStyle).toBe("solid");
+    expect(control.outlineColor).toBe(control.focusColor);
+    expect(control.boxShadow.toLowerCase()).not.toMatch(/0px 0px 0px [1-8]px/);
+    expect(control.boxShadow).not.toMatch(/--tw-ring/);
+
+    // Generous headroom past the diagnosis select's expected tab position — cheap
+    // per step, and keeps the loop from depending on an exact stop count.
+    let field = null as Awaited<ReturnType<typeof classify>> | null;
+    for (let step = 0; step < 150; step += 1) {
+      await page.keyboard.press("Tab");
+      const current = await classify();
+      if (current.kind === "field") {
+        field = current;
+        break;
+      }
+    }
+    if (field?.kind !== "field") {
+      throw new Error("expected to tab onto a field-control or search-shell field");
+    }
+    expect(field.boxShadow.toLowerCase()).not.toMatch(/0px 0px 0px [1-8]px/);
+    expect(field.boxShadow).not.toMatch(/--tw-ring/);
+    expect(field.outlineWidth === "0px" || field.outlineStyle === "none" || field.outlineWidth !== "2px").toBe(true);
+  });
+});
+
+/**
  * PR 2 — computed HCM proofs for the opt-in `.ckb-v2` layer under all three
  * cascade selectors. Class-string checks are not accepted (GATES.md).
  *
@@ -373,6 +525,98 @@ test.describe("ckb-v2 forced-colours computed tokens", () => {
       }
     });
   }
+});
+
+/**
+ * DS-P3-06 — computed overlay z-index vs named `--z-*` tokens.
+ *
+ * HCM remapping is already proven above (`ckb-v2 forced-colours computed
+ * tokens`) and is not re-litigated here. Class-string assertions are forbidden:
+ * every overlay check reads `getComputedStyle` `zIndex` / `getPropertyValue`.
+ *
+ * Live rungs: OverlayRoot hosts that Sheet (`modal`), Tooltip (`popover`), and
+ * Toast (`toast`) portal into. Exception baseline: `rawCssZIndices` in
+ * `globals.css` stays at 8 — token `var(--z-*)` declarations do not count.
+ */
+const OVERLAY_Z_RUNGS = [
+  { host: "overlay", token: "--z-overlay", component: "overlay" },
+  { host: "popover", token: "--z-popover", component: "Tooltip" },
+  { host: "modal", token: "--z-modal", component: "Sheet" },
+  { host: "toast", token: "--z-toast", component: "Toast" },
+] as const;
+
+const RAW_CSS_Z_INDEX_EXCEPTION_BASELINE = 8;
+const OFF_LADDER_INLINE_Z_INDEX = "9999";
+
+function computedZMatchesToken(computedZ: string, tokenValue: string) {
+  return computedZ === tokenValue;
+}
+
+test.describe("overlay z-index computed tokens", () => {
+  test.skip(({ browserName }) => browserName !== "chromium", "computed z-index serialisation is asserted on Chromium");
+
+  test("OverlayRoot hosts resolve to named --z-* tokens (Sheet / Toast / Tooltip rungs)", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const measured = await page.evaluate((rungs) => {
+      const root = document.documentElement;
+      const rootStyle = getComputedStyle(root);
+      return rungs.map(({ host, token, component }) => {
+        const tokenValue = rootStyle.getPropertyValue(token).trim();
+        const node = document.querySelector(`[data-overlay-host="${host}"]`);
+        const computedZ = node ? getComputedStyle(node).zIndex : "";
+        return { host, token, component, tokenValue, computedZ, present: Boolean(node) };
+      });
+    }, OVERLAY_Z_RUNGS);
+
+    for (const rung of measured) {
+      expect(rung.present, `OverlayRoot host "${rung.host}" (${rung.component}) is mounted`).toBe(true);
+      expect(rung.tokenValue, `${rung.token} is a named numeric rung`).toMatch(/^-?\d+$/);
+      expect(
+        computedZMatchesToken(rung.computedZ, rung.tokenValue),
+        `${rung.component} host ${rung.host} computed z-index ${rung.computedZ} vs ${rung.token} ${rung.tokenValue}`,
+      ).toBe(true);
+    }
+
+    const values = measured.map((rung) => Number(rung.tokenValue));
+    expect(values[2], "Sheet / --z-modal sits above Tooltip / --z-popover").toBeGreaterThan(values[1]);
+    expect(values[3], "Toast / --z-toast sits above Sheet / --z-modal").toBeGreaterThan(values[2]);
+  });
+
+  test("off-ladder inline z-index on a probe fails the named-rung check", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const mutation = await page.evaluate((offLadder) => {
+      const tokenValue = getComputedStyle(document.documentElement).getPropertyValue("--z-toast").trim();
+      const probe = document.createElement("div");
+      probe.style.position = "fixed";
+      probe.style.zIndex = offLadder;
+      document.body.append(probe);
+      const computedZ = getComputedStyle(probe).zIndex;
+      probe.remove();
+      return { tokenValue, computedZ };
+    }, OFF_LADDER_INLINE_Z_INDEX);
+
+    expect(mutation.computedZ, "inline off-ladder z-index must compute").toBe(OFF_LADDER_INLINE_Z_INDEX);
+    expect(
+      computedZMatchesToken(mutation.computedZ, mutation.tokenValue),
+      "named-rung check must fail for one off-ladder inline z-index on a probe",
+    ).toBe(false);
+  });
+
+  test("rawCssZIndices exception baseline in globals.css stays at 8 and rejects expansion", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { countRawCssZIndicesInSource } = await import("../scripts/design-system-contract-utils.mjs");
+    const globals = fs.readFileSync(path.join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    expect(countRawCssZIndicesInSource(globals), "do not expand the raw CSS z-index exception baseline").toBe(
+      RAW_CSS_Z_INDEX_EXCEPTION_BASELINE,
+    );
+    expect(
+      countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:${OFF_LADDER_INLINE_Z_INDEX}}`),
+      "one extra raw z-index must fail the exception baseline",
+    ).toBe(RAW_CSS_Z_INDEX_EXCEPTION_BASELINE + 1);
+  });
 });
 
 /**

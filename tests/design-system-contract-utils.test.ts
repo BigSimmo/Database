@@ -10,7 +10,9 @@ import {
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findHardcodedMotionClassesInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
@@ -18,12 +20,16 @@ import {
   findLayoutTransitionClassesInSource,
   findRawScaleLiteralClassesInSource,
   findRawScaleLiteralDeclarationsInSource,
+  findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
   findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
+  listPrimitiveRecipeSourcePaths,
   rawColorContractSource,
+  readPrimitiveRecipeSources,
+  UI_PRIMITIVES_BARREL,
 } from "../scripts/design-system-contract-utils.mjs";
 
 describe("design-system contract helpers", () => {
@@ -440,6 +446,38 @@ describe("design-system contract helpers", () => {
     expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
   });
 
+  it("pins the globals.css raw CSS z-index exception baseline at 8 (DS-P3-06)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    expect(countRawCssZIndicesInSource(globals)).toBe(8);
+    expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(9);
+  });
+
+  it("counts a same-file text-sm + text-sm-minus mix as one warn/ratchet hit, not a hard zero", () => {
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const probe = <p className="text-sm text-sm-minus text-[color:var(--text)]" />;',
+      ),
+    ).toEqual(["src/probe.tsx"]);
+    expect(
+      findSameFileTextSmMinusMix("src/probe.tsx", 'export const onlySm = <p className="text-sm leading-5" />;'),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const onlyMinus = <p className="text-sm-minus leading-5" />;',
+      ),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.ts",
+        'const copy = "Prefer text-sm over text-sm-minus without a className";',
+      ),
+    ).toEqual([]);
+  });
+
   it("counts bare padding, radius and line-height literals in classes but not computed values", () => {
     const found = findRawScaleLiteralClassesInSource(
       "src/probe.tsx",
@@ -649,6 +687,28 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
   });
 
+  it("masks only the medication accent-default swatch, not other hex in the same file", () => {
+    const reportFailure = vi.fn();
+    const source = ['export const UNRELATED = "#123456";', 'accent: row.accent ?? "#0f766e",'].join("\n");
+    const scoped = rawColorContractSource("src/lib/medication-records.ts", source, reportFailure);
+    expect(scoped).toContain("#123456");
+    expect(scoped).not.toContain("#0f766e");
+    expect(reportFailure).not.toHaveBeenCalled();
+    const meds = rawColorContractSource(
+      "src/lib/medications.ts",
+      'accent: record.accent?.trim() || "#0f766e",',
+      reportFailure,
+    );
+    expect(meds).not.toContain("#0f766e");
+  });
+
+  it("fails closed when the medication accent-default swatch disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const UNRELATED = "#123456";';
+    expect(rawColorContractSource("src/lib/medications.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+
   it("fails closed when a fixed-paper factsheet boundary disappears", () => {
     const reportFailure = vi.fn();
     const source = 'const appChrome = "#123456";';
@@ -657,6 +717,96 @@ describe("design-system contract helpers", () => {
       source,
     );
     expect(reportFailure).toHaveBeenCalledWith("printable factsheet paper boundary is missing");
+  });
+
+  it("flags an intrinsic command-fill button that bypasses Button/primaryControl", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] text-[color:var(--command-contrast)]">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("does not flag Link + primaryControl or the Button primitive file", () => {
+    const link = [
+      'import { primaryControl } from "@/components/ui-primitives";',
+      "export function Demo() {",
+      '  return <a className={primaryControl} href="/x">Go</a>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", link)).toEqual([]);
+    expect(
+      findHandRolledCommandButtonsInSource(
+        "src/components/ui/button.tsx",
+        '<button className="bg-[color:var(--command)]">X</button>',
+      ),
+    ).toEqual([]);
+  });
+
+  it("still flags an intrinsic command-fill button whose className literally contains the word Button", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] Button">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("flags a child with a heavier resting elevation than its in-flow parent", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="shadow-[var(--e2)]">heavy</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual(["src/components/demo.tsx:4"]);
+  });
+
+  it("does not flag lux overlay elevation against a parent surface", () => {
+    const source = [
+      "export function Overlay() {",
+      "  return (",
+      '    <section className="shadow-[var(--e1)]">',
+      '      <div className="shadow-[var(--shadow-lux)]">sheet</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag an absolutely positioned popover with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="absolute shadow-[var(--e2)]">popover</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag a fixed-positioned child (e.g. a toast) with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="fixed shadow-[var(--e2)]">toast</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
   });
 
   it("masks only the medication accent default, not other hex in the same file", () => {
@@ -703,5 +853,28 @@ describe("design-system contract helpers", () => {
 
     expect(rawColorContractSource("src/lib/medication-records.ts", source, reportFailure)).toBe(source);
     expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+});
+
+describe("primitive recipe source walkers", () => {
+  it("lists the barrel plus every primitive-recipes module", () => {
+    const paths = listPrimitiveRecipeSourcePaths();
+    expect(paths[0]).toBe(UI_PRIMITIVES_BARREL);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "src/components/primitive-recipes/recipes.ts",
+        "src/components/primitive-recipes/composer.ts",
+        "src/components/primitive-recipes/clinical.tsx",
+        "src/components/primitive-recipes/feedback.tsx",
+      ]),
+    );
+  });
+
+  it("still sees recipes that moved out of the barrel", () => {
+    const sources = readPrimitiveRecipeSources();
+    expect(sources).toContain("export const controlDisabled");
+    expect(sources).toContain('export const chatComposerInput = "chat-composer-input"');
+    expect(sources).toContain("export function AsyncButton");
+    expect(sources).toContain("statusDotReady");
   });
 });

@@ -225,7 +225,7 @@ function ToolSearch({
         // read the tap knob rather than a copy of its value — a literal here
         // overlaps the input (or undersizes the submit control) the moment
         // `--spacing-tap` moves.
-        "search-shell grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        "search-shell grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--e2)]",
         className,
       )}
     >

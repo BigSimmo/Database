@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -44,6 +44,9 @@ export const prUiSpecProfiles = Object.freeze([
   // with hosted evidence at the next timing refresh. Moved here from shard 2 by
   // Task 19 to offset the re-measured Caring Contacts workspace spec.
   { file: "tests/ui-phone-motion.spec.ts", shard: 1, fullSeconds: 5.0, criticalSeconds: 0 },
+  // Added with the Therapy Pathways mobile picker redesign; measured locally at
+  // ~2 tests. Placed on shard 1 to keep post-critical spread within the 10s ceiling.
+  { file: "tests/ui-therapy-pathways.spec.ts", shard: 1, fullSeconds: 2.0, criticalSeconds: 0 },
 
   { file: "tests/ui-phone-scroll-routes.spec.ts", shard: 2, fullSeconds: 129.6, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll.spec.ts", shard: 2, fullSeconds: 66.3, criticalSeconds: 0 },

@@ -1,5 +1,7 @@
 import { Info } from "lucide-react";
 
+import { PageHeader } from "@/components/ui/page-header";
+
 import { FactsheetsTopicsBrowse } from "@/components/factsheets/factsheets-topics-browse";
 import {
   TOPIC_SECTION_PREVIEW_LIMIT,
@@ -23,16 +25,17 @@ export function FactsheetsTopicsPage({
       data-testid="factsheets-topics-page"
       className="mx-auto w-full max-w-reading px-4 py-5 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
-      <header>
-        <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">
-          Patient information
-        </p>
-        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Topics</h1>
-        <p className="mt-2 text-sm font-medium text-[color:var(--text-muted)]">
-          <span className="nums font-bold text-[color:var(--text-heading)]">{factsheetCategories.length}</span> topics ·{" "}
-          <span className="nums font-bold text-[color:var(--text-heading)]">{factsheets.length}</span> sheets
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Patient information"
+        title="Topics"
+        description={
+          <>
+            <span className="nums font-semibold text-[color:var(--text-heading)]">{factsheetCategories.length}</span>{" "}
+            topics, <span className="nums font-semibold text-[color:var(--text-heading)]">{factsheets.length}</span>{" "}
+            sheets
+          </>
+        }
+      />
 
       <FactsheetsTopicsBrowse
         key={selectedTopic ?? "all"}
