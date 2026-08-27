@@ -286,7 +286,7 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   // one state where the user most needs to see what survived is the one where
   // the cards leave no room for it. The 72px strip keeps resume reachable and
   // gives the rows back.
-  const showCards = hasLibrary && !narrowed && !compactAlternative && !partial;
+  const showCards = hasLibrary && !narrowed && !compactAlternative && !partial && sort === "set";
   const showStrip = hasLibrary && !narrowed && (compactAlternative || partial);
 
   const visible = useMemo(() => {
