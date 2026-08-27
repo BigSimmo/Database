@@ -455,27 +455,17 @@ test.describe("previously uncovered production routes", () => {
       },
       async (currentPage) => {
         // Scope to the visible comparison owner (#093): under Production UI load,
-        // Next streaming can leave a hidden duplicate root, and same-route
-        // search-param soft-nav has been observed to click without updating the
-        // URL. Pin the visible tree and wait for navigation with the click
-        // (DsmCompareRemoveLink uses location.assign for this hop).
+        // Next streaming can leave a hidden duplicate root. Removal lives on the
+        // shared compare slot strip (`Remove ${title}`), not the old
+        // `DsmCompareRemoveLink` row.
         const pageRoot = visibleByTestId(currentPage, "dsm-comparison-page");
-        const remove = pageRoot.getByRole("link", {
-          name: "Remove Major depressive disorder from comparison",
+        const remove = pageRoot.getByRole("button", {
+          name: "Remove Major depressive disorder",
         });
         await expect(remove).toBeEnabled();
-        // `DsmCompareRemoveLink` is a `<Link>` whose `onClick` calls
-        // `preventDefault()` and then `window.location.assign(href)`. Before
-        // hydration the anchor is a bare `<a href>`, so a click there races two
-        // different navigations — the browser's native one, or React capturing
-        // the discrete event for replay once the root hydrates — and neither is
-        // guaranteed to leave the URL where this step asserts it. Waiting for
-        // the handler makes the assign hop the only path the click can take.
         await waitForReactEventHandler(remove);
-        // Same-route `?ids=` assign can update the URL without a new document
-        // load. `waitUntil: "domcontentloaded"` then hangs for 30s after the
-        // hop already happened (Production UI on #2299: waitForURL timeout
-        // while the heading assertion never ran). Wait for the URL only.
+        // Slot clear commits through `router.push` with compacted ids. Wait for
+        // the URL only — same-route `?ids=` soft-nav may not fire a document load.
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
