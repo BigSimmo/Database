@@ -3,7 +3,13 @@ import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-r
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
-import { PARALLEL_REFERRAL_CAP, REFERRAL_DECLINE_REASONS } from "@/components/ward-management/ward-model";
+import {
+  COHORTS,
+  HOME_REGIONS,
+  PARALLEL_REFERRAL_CAP,
+  REFERRAL_DECLINE_REASONS,
+  REFERRAL_SOURCES,
+} from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
   LeaveBed,
@@ -14,7 +20,7 @@ import type {
   Unit,
 } from "@/components/ward-management/ward-model";
 import { bedReleases, leaveBeds, referrals, wardMovements } from "@/components/ward-management/ward-movements";
-import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
@@ -947,9 +953,35 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "RECEIVE_REFERRAL": {
-      // The only guard is the role check above (community-only) — a referral arriving from
-      // anywhere in the network is queued as-is; the coordinator decides its fate next, not this
-      // event.
+      // Fix round B (review finding I2): the role check above used to be the ONLY guard, and
+      // this reducer's own comment said so — `source`, `homeRegion`, `ageBand`, `urgency` and
+      // `originSiteCode` all passed through unvalidated. That contradicts the spec's Failure
+      // behaviour directly: "a referral missing a required field, or carrying an unknown source
+      // … → refused with a visible `Rejection`. Never silently queued, never defaulted." Every
+      // check below is a membership check (or, for `originSiteCode`, a resolution against the
+      // real site list), not a truthiness test — same discipline as `DECLINE_REFERRAL`'s own
+      // `reason` guard below, added in the same commit as the gap this closes. Each failure names
+      // what was wrong so a rejected intake is never mistaken for a silent success.
+      if (!COHORTS.includes(event.ageBand)) {
+        return reject(state, event, `RECEIVE_REFERRAL ageBand must be chosen from COHORTS`);
+      }
+      if (!REFERRAL_SOURCES.includes(event.source)) {
+        return reject(state, event, `RECEIVE_REFERRAL source must be chosen from REFERRAL_SOURCES`);
+      }
+      // Fix round B (this task's own addition): `homeRegion` is a REGION from a fixed list —
+      // never an address, never free text. Membership-checking it here is what makes that
+      // distinction real rather than a naming convention; see `HOME_REGIONS`'s own doc comment.
+      if (!HOME_REGIONS.includes(event.homeRegion)) {
+        return reject(state, event, `RECEIVE_REFERRAL homeRegion must be chosen from HOME_REGIONS`);
+      }
+      if (event.urgency !== 1 && event.urgency !== 2 && event.urgency !== 3) {
+        return reject(state, event, `RECEIVE_REFERRAL urgency must be 1, 2 or 3`);
+      }
+      // A synthetic site code, never an address — resolved against the real network rather than
+      // merely checked for non-emptiness, so "12 Wellington St, Perth" cannot pass as a code.
+      if (!siteByCode(event.originSiteCode)) {
+        return reject(state, event, `RECEIVE_REFERRAL originSiteCode must resolve to a real site`);
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -957,6 +989,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.sex,
         secureBedNeeded: event.secureBedNeeded,
         involuntaryBedNeeded: event.involuntaryBedNeeded,
+        homeRegion: event.homeRegion,
         source: event.source,
         raisedAt: event.now,
         urgency: event.urgency,

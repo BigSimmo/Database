@@ -12,8 +12,20 @@ export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACH
  * `ward-eligibility.ts` against every unit in the network for a structural reason, not an
  * operational one. `ward-sites.ts` seeds exactly one Youth unit — see its own comment for why
  * that unit is a real, product-owner-supplied fact and not an invention.
+ *
+ * Fix round B (review finding I3): given a runtime members array, `COHORTS`, matching every
+ * other 3+-value union in this file (`SEX_DESIGNATIONS`, `REFERRAL_SOURCES`, `REFERRAL_STATES`,
+ * `REFERRAL_DECLINE_REASONS`, `MOVEMENT_STAGES`, `DECLINE_REASONS`, `BED_RELEASE_STATES`).
+ * `Cohort` was the one union in this file with no such array, and a hand-maintained
+ * `COHORT_OPTIONS: Cohort[]` picker in `ed-screen.tsx` silently omitted `"Youth"` as a result —
+ * typed as `Cohort[]` rather than derived from this list, so widening the union could never make
+ * the picker fail to compile. Named `COHORTS` (the type-derived plural, matching
+ * `SexDesignation` → `SEX_DESIGNATIONS`) rather than `AGE_BANDS`, even though the `Referral`
+ * field carrying it is `ageBand` — the array names the TYPE, like every neighbour above, not the
+ * field. `ed-screen.tsx` now derives `COHORT_OPTIONS` from this array directly.
  */
-export type Cohort = "Adult" | "Older adult" | "Youth";
+export const COHORTS = ["Adult", "Older adult", "Youth"] as const;
+export type Cohort = (typeof COHORTS)[number];
 export type Security = "Open" | "Secure";
 export type Sex = "Female" | "Male";
 
@@ -400,24 +412,58 @@ export const REFERRAL_DECLINE_REASONS = [
 export type ReferralDeclineReason = (typeof REFERRAL_DECLINE_REASONS)[number];
 
 /**
+ * Phase 7 fix round B (this task): "A sixth answer, given mid-build" in
+ * `docs/ward-flow-phase-6-7-decisions.md`. A referral records the broad area a person is from —
+ * a REGION, chosen from this fixed list, never an address, never a postcode, never free text.
+ * Real Western Australian regions, permitted by roadmap decision 12 ("real WA place names for
+ * geography and distance only") — a region name is public geography, not a fact the prototype
+ * invented about anyone's home. `RECEIVE_REFERRAL` (`ward-flow-reducer.ts`) membership-checks
+ * every referral's `homeRegion` against this array, the same discipline `REFERRAL_SOURCES` and
+ * `REFERRAL_DECLINE_REASONS` already hold to, so an address can never be entered where a region
+ * belongs.
+ *
+ * This field exists so a later phase can ask "how far from home was this person placed", never
+ * to compute a distance or a travel-time band itself — that calculation is Phase 8's, deliberately
+ * not built here. See the decisions doc for why the field is needed now: the out-of-area equity
+ * measure the roadmap names "the one with teeth" would otherwise measure distance from the
+ * referring hospital, not from home, because that is the only geography the system holds today.
+ */
+export const HOME_REGIONS = [
+  "Perth Metropolitan",
+  "Peel",
+  "South West",
+  "Great Southern",
+  "Wheatbelt",
+  "Goldfields-Esperance",
+  "Mid West",
+  "Gascoyne",
+  "Pilbara",
+  "Kimberley",
+] as const;
+export type HomeRegion = (typeof HOME_REGIONS)[number];
+
+/**
  * The front door: a referral arriving from anywhere in the network, before it is ever a
- * `Movement` inside a department. Carries EXACTLY four facts about the person referred —
- * `ageBand`, `sex`, `secureBedNeeded`, `involuntaryBedNeeded` — and nothing else: no name, date of
- * birth, record number, address, diagnosis, or narrative history or treatment. No free-text field
- * of any kind, unlike `Decline` (which has an optional `note`) — a referral has no field a
- * person's own words, or an author's summary of them, could ever land in.
+ * `Movement` inside a department. Carries EXACTLY five facts about the person referred —
+ * `ageBand`, `sex`, `secureBedNeeded`, `involuntaryBedNeeded`, `homeRegion` — and nothing else: no
+ * name, date of birth, record number, address, diagnosis, or narrative history or treatment. No
+ * free-text field of any kind, unlike `Decline` (which has an optional `note`) — a referral has
+ * no field a person's own words, or an author's summary of them, could ever land in.
  * `tests/ward-referral-model.test.ts` asserts this structurally, against this type's own field
  * set, so a future field named `patientId`, `notes`, `diagnosis` or `dob` is caught rather than
  * merely discouraged by convention.
  *
- * This list moved from three fields to four mid-build, deliberately, and only once: Task 2's
- * matching surfaced that legal status (Voluntary/Involuntary) had nothing on a referral to test
- * against, so that gate passed for every bed. `involuntaryBedNeeded` closed that gap. See
- * `docs/ward-flow-phase-6-7-decisions.md` ("A fifth answer, given mid-build") and spec D5.
+ * This list moved from three fields to four mid-build (Task 2, "A fifth answer, given mid-build"
+ * in `docs/ward-flow-phase-6-7-decisions.md`, spec D5), and from four to five in Phase 7 fix
+ * round B (this task, "A sixth answer, given mid-build" in the same doc): `homeRegion` closed the
+ * gap that a bed could be declined "out of catchment" while the system held no catchment for
+ * anybody. Each widening is deliberate and rare on purpose — widening this list again is a
+ * governance decision, not an implementation one, and this test is what makes that true rather
+ * than aspirational.
  */
 export type Referral = {
   id: string;
-  // The only four facts about a person. Nothing else may ever be added here.
+  // The only five facts about a person. Nothing else may ever be added here.
   ageBand: Cohort;
   sex: Sex;
   secureBedNeeded: boolean;
@@ -430,6 +476,12 @@ export type Referral = {
    * Voluntary/Involuntary bed label was already permitted, and this is the same category.
    */
   involuntaryBedNeeded: boolean;
+  /**
+   * The broad area this person is from — see `HOME_REGIONS`'s own doc comment. A region, never
+   * an address; membership-checked, never free text. Carries no distance, travel-time band or
+   * ordering by proximity — that is Phase 8's work, deliberately not built here.
+   */
+  homeRegion: HomeRegion;
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;

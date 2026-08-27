@@ -10,6 +10,7 @@ import type {
   BedReleaseConfidence,
   Cohort,
   DeclineReason,
+  HomeRegion,
   LegalStatus,
   ReferralDeclineReason,
   ReferralSource,
@@ -254,7 +255,7 @@ export type WardFlowEvent =
       type: "RECEIVE_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The four permitted facts about the person referred, unchanged from `Referral`'s own
+      /** The five permitted facts about the person referred, unchanged from `Referral`'s own
        *  field set (`ward-model.ts`) — see that type's own doc comment for why nothing else may
        *  ever be added here. */
       ageBand: Cohort;
@@ -263,6 +264,9 @@ export type WardFlowEvent =
       /** This REQUEST needs a bed that can hold someone involuntarily — see `Referral`'s own doc
        *  comment on the field of the same name for why this is a requirement, never a status. */
       involuntaryBedNeeded: boolean;
+      /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
+       *  `Referral.homeRegion`'s own doc comment. */
+      homeRegion: HomeRegion;
       /** Where the referral arrived from — one of `REFERRAL_SOURCES`. */
       source: ReferralSource;
       urgency: 1 | 2 | 3;

@@ -21,6 +21,7 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { legalFormName, SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
+  COHORTS,
   ED_ACCESS_TARGET_MINUTES,
   type Cohort,
   type LegalStatus,
@@ -35,7 +36,19 @@ import styles from "./ed.module.css";
 
 type EdScreenProps = { edId: string };
 
-const COHORT_OPTIONS: Cohort[] = ["Adult", "Older adult"];
+/**
+ * Fix round B (review finding I3): this used to be hand-listed as `["Adult", "Older adult"]`,
+ * typed `Cohort[]` rather than derived from `COHORTS` — so when `Cohort` widened to include
+ * `"Youth"` (Phase 7's youth cohort), the type change could not make this array fail to compile,
+ * and the ED's cohort picker silently offered no way to raise a Youth referral even though
+ * `Movement.cohort` (and the East Metropolitan Youth Unit, EMyU, at Bentley) both accept one. No
+ * evidence was found that excluding Youth from the ED picker was a deliberate clinical decision —
+ * nothing in `docs/ward-flow-phase-6-7-decisions.md` or this file says so — so the fix here is to
+ * derive the picker from `COHORTS` directly (offering all three) rather than pin the omission
+ * with a comment. If excluding Youth from the ED is ever a real decision, it belongs here as an
+ * explicit, commented exclusion with a test pinning it — not as a stale hand-written array.
+ */
+const COHORT_OPTIONS: Cohort[] = [...COHORTS];
 const SECURITY_OPTIONS: Security[] = ["Open", "Secure"];
 const SEX_OPTIONS: Sex[] = ["Female", "Male"];
 const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
@@ -343,6 +356,7 @@ export function EdScreen({ edId }: EdScreenProps) {
                 <label className={styles.referralField}>
                   Cohort
                   <select
+                    data-testid="ward-ed-referral-cohort"
                     value={draft.cohort}
                     onChange={(event) => setDraft((current) => ({ ...current, cohort: event.target.value as Cohort }))}
                   >

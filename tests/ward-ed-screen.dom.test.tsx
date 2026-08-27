@@ -16,6 +16,7 @@ vi.mock("next/link", () => ({
 import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
+import { COHORTS } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { formTitleForCode } from "@/lib/form-register";
 
@@ -83,6 +84,21 @@ describe("emergency department intake picker", () => {
       "Form 3D (Order authorising reception and detention in an authorised hospital for further examination)",
     );
     expect(option3D.textContent).toBe(`Form 3D (${formTitleForCode("3D")})`);
+  });
+
+  // Fix round B (review finding I3): `COHORT_OPTIONS` used to be hand-listed as
+  // `["Adult", "Older adult"]`, typed `Cohort[]` rather than derived from `COHORTS` — so widening
+  // `Cohort` to include `"Youth"` could never make this picker fail to compile, and the ED cohort
+  // picker silently offered no way to raise a Youth referral. This test pins the fix: the picker
+  // is now driven off `COHORTS` directly, so it is proven against the real runtime list rather
+  // than a second hand-written copy of it, and Youth is explicitly asserted present.
+  it("offers every cohort in COHORTS, Youth included", () => {
+    renderEd();
+    fireEvent.click(screen.getByTestId("ward-ed-raise-referral-toggle"));
+    const picker = screen.getByTestId("ward-ed-referral-cohort") as HTMLSelectElement;
+    const offered = [...picker.options].map((option) => option.value);
+    expect(offered).toEqual(COHORTS);
+    expect(offered).toContain("Youth");
   });
 
   it("dispatches the chosen code onto the referral it raises", () => {

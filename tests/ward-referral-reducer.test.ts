@@ -41,6 +41,7 @@ function receiveReferral(state: WardFlowState, now = NOW) {
     sex: "Female",
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
+    homeRegion: "Perth Metropolitan",
     source: "community",
     urgency: 2,
     originSiteCode: "SCGH",
@@ -60,6 +61,7 @@ describe("RECEIVE_REFERRAL", () => {
     expect(created.sex).toBe("Female");
     expect(created.secureBedNeeded).toBe(false);
     expect(created.involuntaryBedNeeded).toBe(false);
+    expect(created.homeRegion).toBe("Perth Metropolitan");
     expect(created.source).toBe("community");
     expect(created.urgency).toBe(2);
     expect(created.originSiteCode).toBe("SCGH");
@@ -72,9 +74,10 @@ describe("RECEIVE_REFERRAL", () => {
 
   // Controller ruling P1: the id source is a monotonic counter (`frontDoorReferralSequence`),
   // never `state.referrals.length` — Phase 5 shipped exactly the length-derived bug for leave
-  // beds. The seed fixture already carries 6 referrals (RF-001..RF-006), so a length-derived id
-  // would mint "RF-906" for the very first runtime referral; the counter-derived id mints
-  // "RF-901" instead. This test fails if a future change swaps the id source back to `.length`.
+  // beds. The seed fixture carries 7 referrals (RF-001..RF-007, fix round B added RF-007), so a
+  // length-derived id would mint "RF-907" for the very first runtime referral; the
+  // counter-derived id mints "RF-901" instead. This test fails if a future change swaps the id
+  // source back to `.length`.
   it("mints the runtime referral id from the sequence counter, not from the fixture's array length", () => {
     const after = receiveReferral(seeded());
     const created = after.referrals.at(-1)!;
@@ -101,6 +104,7 @@ describe("RECEIVE_REFERRAL", () => {
       sex: "Female",
       secureBedNeeded: false,
       involuntaryBedNeeded: false,
+      homeRegion: "Perth Metropolitan",
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",
@@ -110,6 +114,84 @@ describe("RECEIVE_REFERRAL", () => {
     expect(after.rejections).toHaveLength(1);
     expect(after.rejections[0].reason).toMatch(/role/i);
     expect(after.rejections[0].attempted).toBe("RECEIVE_REFERRAL");
+  });
+
+  /**
+   * I2 fix: `RECEIVE_REFERRAL`'s own comment used to say "the only guard is the role check
+   * above" — `source`, `homeRegion`, `ageBand`, `urgency` and `originSiteCode` all passed through
+   * unvalidated, contradicting the spec's Failure behaviour directly ("a referral … carrying an
+   * unknown source … → refused with a visible `Rejection`. Never silently queued, never
+   * defaulted."). Each of the five checks below is proven independently: a bad value in that ONE
+   * field refuses the referral, named, and every other field stays valid.
+   */
+  describe("validates every field, not just role (review finding I2)", () => {
+    function withBadField(overrides: Record<string, unknown>) {
+      const event = {
+        type: "RECEIVE_REFERRAL",
+        role: "community",
+        now: NOW,
+        ageBand: "Adult",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        urgency: 2,
+        originSiteCode: "SCGH",
+        transportNeeded: false,
+        ...overrides,
+      };
+      // Deliberately bypassing the event type here — that is the whole point of this helper: it
+      // constructs an event carrying a value the type system would refuse, to prove the REDUCER
+      // refuses it too, at runtime, the same discipline as this file's existing
+      // `"clinically_unsuitable" as unknown as …` cast on `DECLINE_REFERRAL`'s own reason field.
+      return wardFlowReducer(seeded(), event as unknown as Parameters<typeof wardFlowReducer>[1]);
+    }
+
+    it("refuses an ageBand outside COHORTS, by membership rather than truthiness", () => {
+      const after = withBadField({ ageBand: "Infant" });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("COHORTS");
+    });
+
+    it("refuses a source outside REFERRAL_SOURCES, by membership rather than truthiness", () => {
+      const after = withBadField({ source: "self_referral" });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("REFERRAL_SOURCES");
+    });
+
+    // The discriminating case for this field: an address, not merely a bad value — this is the
+    // exact failure scenario I2 names (a text input landing in a field that must be a region).
+    it("refuses a homeRegion outside HOME_REGIONS, including an address, by membership rather than truthiness", () => {
+      const after = withBadField({ homeRegion: "12 Wellington St, Perth" });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("HOME_REGIONS");
+    });
+
+    it("refuses an urgency outside 1, 2 or 3", () => {
+      const after = withBadField({ urgency: 4 });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("urgency");
+    });
+
+    // The discriminating case for this field, same shape as homeRegion above: an address is a
+    // non-empty string, so a mere non-emptiness check would have let it through.
+    it("refuses an originSiteCode that does not resolve to a real site, including an address", () => {
+      const after = withBadField({ originSiteCode: "123 Wellington Street, Perth" });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("originSiteCode");
+    });
+
+    it("still accepts a referral once every field is valid, proving the checks above are not vacuous", () => {
+      const after = withBadField({});
+      expect(after.rejections).toEqual([]);
+      expect(after.referrals).toHaveLength(seeded().referrals.length + 1);
+    });
   });
 });
 
@@ -130,7 +212,10 @@ describe("ACCEPT_REFERRAL", () => {
     expect(decided.state).toBe("accepted");
     expect(decided.acceptedUnitId).toBe("scgh-adult-open");
     expect(decided.decidedAt).toBe(NOW);
-    expect(decided.decidedBy).toBeTruthy();
+    // H4 fix: was `.toBeTruthy()`, which "Dr Jane Smith" would also pass — `decidedBy`'s own doc
+    // comment says "a role, never a person", and ACCEPT_REFERRAL is coordinator-only, so the
+    // exact value it can ever write is asserted, not merely its presence.
+    expect(decided.decidedBy).toBe("Flow coordinator");
     expect(decided.declineReason).toBeUndefined();
 
     // Spec D14, asserted explicitly rather than left implicit: acceptance never creates a
@@ -241,7 +326,8 @@ describe("DECLINE_REFERRAL", () => {
     expect(decided.state).toBe("declined");
     expect(decided.declineReason).toBe("no_suitable_bed");
     expect(decided.decidedAt).toBe(NOW);
-    expect(decided.decidedBy).toBeTruthy();
+    // H4 fix — same reasoning as ACCEPT_REFERRAL's own test above.
+    expect(decided.decidedBy).toBe("Flow coordinator");
     expect(decided.acceptedUnitId).toBeUndefined();
   });
 
@@ -344,8 +430,18 @@ describe("DECLINE_REFERRAL", () => {
 describe("seeding", () => {
   it("wires Task 1's Referral fixture into live state", () => {
     const state = seeded();
-    expect(state.referrals).toHaveLength(6);
-    expect(state.referrals.map((r) => r.id)).toEqual(["RF-001", "RF-002", "RF-003", "RF-004", "RF-005", "RF-006"]);
+    // Fix round B added RF-007 (review finding M1's related note: a successful youth match
+    // against EMyU, which nothing in the seed previously demonstrated) — 7 referrals, not 6.
+    expect(state.referrals).toHaveLength(7);
+    expect(state.referrals.map((r) => r.id)).toEqual([
+      "RF-001",
+      "RF-002",
+      "RF-003",
+      "RF-004",
+      "RF-005",
+      "RF-006",
+      "RF-007",
+    ]);
     expect(state.frontDoorReferralSequence).toBe(0);
   });
 

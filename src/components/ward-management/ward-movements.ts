@@ -859,12 +859,23 @@ export const leaveBeds: LeaveBed[] = [
  *     dimension is testable rather than decorative.
  *   - RF-004: declined, `declineReason: "out_of_catchment"` — an administrative fact about the
  *     referral's origin, not a judgement on the person.
- *   - RF-006: `secureBedNeeded: true`, `sex: "Male"`, accepted at `brm-adult-secure` — the
- *     network's one Adult/Secure/Male-only/forensic/authorised bed, exercising all four
- *     independent bed dimensions from one referral.
- * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded`/`involuntaryBedNeeded`
- * about the person, no free text anywhere, and `originSiteCode` is always one of `wardSites`' own
- * synthetic codes, never an address.
+ *   - RF-006: `secureBedNeeded: true`, `sex: "Male"`, accepted at `fsh-adult-secure` — the
+ *     network's `"Male only"` designated Secure bed (fix round B, review finding M1 — moved here
+ *     from `brm-adult-secure`, whose own comment explains why a forensic unit can never be the
+ *     bed a referral is recorded as accepted into). `fsh-adult-secure` correctly accepting the
+ *     sex it names mirrors RF-002's `ger-adult-open` case for the other sex. RF-006 also seeds
+ *     the out-of-area case `homeRegion` exists to measure: raised from Broome (Kimberley) and
+ *     accepted in Perth Metropolitan, hundreds of kilometres from home — a real shape for WA's
+ *     rural mental health system, and exactly what the equity ledger Phase 8 builds needs a real
+ *     example of.
+ *   - RF-007: `ageBand: "Youth"`, accepted at `bty-youth` (EMyU) — the successful youth match
+ *     RF-001 deliberately is not (review finding M1's related note): the age dimension is only
+ *     honourable if at least one seed path shows it actually working, not only failing. Also
+ *     out-of-area, from Geraldton (Mid West).
+ * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded`/`involuntaryBedNeeded`/
+ * `homeRegion` about the person, no free text anywhere, `originSiteCode` is always one of
+ * `wardSites`' own synthetic codes (never an address), and `homeRegion` is always one of
+ * `HOME_REGIONS` (never an address), chosen to be plausible for the referral's origin site.
  */
 export const referrals: Referral[] = [
   {
@@ -873,6 +884,7 @@ export const referrals: Referral[] = [
     sex: "Female",
     secureBedNeeded: true,
     involuntaryBedNeeded: false,
+    homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
@@ -886,6 +898,7 @@ export const referrals: Referral[] = [
     sex: "Female",
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
+    homeRegion: "Kimberley",
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
     urgency: 2,
@@ -894,7 +907,10 @@ export const referrals: Referral[] = [
     state: "accepted",
     acceptedUnitId: "ger-adult-open",
     decidedAt: NOW_ANCHOR - 10,
-    decidedBy: "Bed management",
+    // Fix round B (review finding M2/M3): was "Bed management", a decider ACCEPT_REFERRAL
+    // (ward-flow-reducer.ts) can never actually produce — that event is coordinator-only and
+    // always writes "Flow coordinator". Made consistent with what the live reducer writes.
+    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-003",
@@ -907,6 +923,7 @@ export const referrals: Referral[] = [
     // the network that this same referral would correctly be refused by on `legal_status` alone,
     // proving the rule actually excludes something rather than passing for every bed.
     involuntaryBedNeeded: true,
+    homeRegion: "Perth Metropolitan",
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
     urgency: 1,
@@ -923,6 +940,7 @@ export const referrals: Referral[] = [
     sex: "Female",
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
+    homeRegion: "Peel",
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
     urgency: 3,
@@ -931,7 +949,9 @@ export const referrals: Referral[] = [
     state: "declined",
     declineReason: "out_of_catchment",
     decidedAt: NOW_ANCHOR - 25,
-    decidedBy: "Duty psychiatrist",
+    // Fix round B (review finding M2/M3): was "Duty psychiatrist" — DECLINE_REFERRAL is also
+    // coordinator-only and always writes "Flow coordinator"; see RF-002's own comment above.
+    decidedBy: "Flow coordinator",
   },
   {
     id: "RF-005",
@@ -939,6 +959,7 @@ export const referrals: Referral[] = [
     sex: "Male",
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
+    homeRegion: "Perth Metropolitan",
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
     urgency: 2,
@@ -952,14 +973,51 @@ export const referrals: Referral[] = [
     sex: "Male",
     secureBedNeeded: true,
     involuntaryBedNeeded: false,
+    // Out of area on purpose — see this fixture's own doc comment above.
+    homeRegion: "Kimberley",
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
     urgency: 1,
     originSiteCode: "BRM",
     transportNeeded: false,
     state: "accepted",
-    acceptedUnitId: "brm-adult-secure",
+    // Fix round B (review finding C1): was `acceptedUnitId: "brm-adult-secure"` — that unit is
+    // `forensic: true`, and `referralEligibility` (ward-eligibility.ts) refuses every forensic
+    // unit unconditionally (D7: "never offered"), on top of the unit's own `allocatable: 0` at
+    // the time. `ACCEPT_REFERRAL` calls that same function, so the reducer would have refused
+    // this exact acceptance — the seed recorded an acceptance the live system could not produce.
+    // `fsh-adult-secure` is the network's real Male-only Secure bed (see the doc comment above)
+    // and genuinely passes every gate; `referralEligibility(referral, unitById("fsh-adult-secure"),
+    // NOW_ANCHOR).eligible` is asserted `true` for every accepted referral in
+    // `tests/ward-referral-model.test.ts`, which is the four-line test that would have caught the
+    // original seed at Task 1.
+    acceptedUnitId: "fsh-adult-secure",
     decidedAt: NOW_ANCHOR - 5,
-    decidedBy: "Bed management",
+    // Fix round B (review finding M2/M3): was "Bed management" — see RF-002's own comment above.
+    decidedBy: "Flow coordinator",
+  },
+  {
+    id: "RF-007",
+    // Fix round B (review finding M1's related note): the seed's only other youth referral,
+    // RF-001, is deliberately unmatchable everywhere — so nothing in the seed demonstrated a
+    // successful youth match against EMyU, the whole point of the age dimension being honourable
+    // rather than decorative. This referral is that missing case: Youth, no secure bed needed (so
+    // the Open EMyU can actually accept it), accepted at `bty-youth`.
+    ageBand: "Youth",
+    sex: "Female",
+    secureBedNeeded: false,
+    involuntaryBedNeeded: false,
+    // Out of area on purpose, same reason as RF-006 above — a second real example for the
+    // out-of-area ledger `homeRegion` exists to make possible.
+    homeRegion: "Mid West",
+    source: "inter_hospital",
+    raisedAt: NOW_ANCHOR - 30,
+    urgency: 2,
+    originSiteCode: "GER",
+    transportNeeded: true,
+    state: "accepted",
+    acceptedUnitId: "bty-youth",
+    decidedAt: NOW_ANCHOR - 8,
+    decidedBy: "Flow coordinator",
   },
 ];

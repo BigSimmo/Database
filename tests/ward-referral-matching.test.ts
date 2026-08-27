@@ -38,6 +38,7 @@ function referral(overrides: Partial<Referral> = {}): Referral {
     sex: "Female",
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
+    homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW - 30,
     urgency: 2,

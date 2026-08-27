@@ -383,16 +383,22 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
 ];
 
 /**
- * Task 3 (Phase 7, "The front door"): `RECEIVE_REFERRAL`'s only guard is the role check, so one
- * always-valid candidate is enough to prove the branch is reached — one candidate list, named so
- * it can be emptied by a single mutation for Step 4's own "traversal assertion names the event
- * that stopped being reached" proof.
+ * Task 3 (Phase 7, "The front door"): one always-valid candidate is enough to prove the branch is
+ * reached — one candidate list, named so it can be emptied by a single mutation for Step 4's own
+ * "traversal assertion names the event that stopped being reached" proof.
+ *
+ * Fix round B (review finding I2): `RECEIVE_REFERRAL` used to guard on role alone; it now also
+ * membership-checks `ageBand`, `source` and `homeRegion`, validates `urgency`, and resolves
+ * `originSiteCode` against the real site list (`ward-flow-reducer.ts`). Every field below must
+ * stay valid against those checks for this candidate to keep being accepted — `homeRegion` was
+ * added here for exactly that reason when the field was added to `Referral`.
  */
 const RECEIVE_REFERRAL_CANDIDATE = {
   ageBand: "Adult" as const,
   sex: "Female" as const,
   secureBedNeeded: false,
   involuntaryBedNeeded: false,
+  homeRegion: "Perth Metropolitan" as const,
   source: "community" as const,
   urgency: 2 as const,
   originSiteCode: "SCGH",

@@ -120,9 +120,17 @@ export const wardSites: Site[] = [
         allocatable: { value: 3, source: "ward", confirmedAt: NOW_ANCHOR - 10, staleAfterMinutes: 60 },
         held: 2,
         blocked: 1,
-        sexMix: { Female: 7, Male: 7 },
+        // Fix round B (review finding M1): the network's Male-only bed, moved here from
+        // `brm-adult-secure` — see that unit's own comment for why a designation living on the
+        // SAME unit as `forensic: true` can never be load-bearing. This unit is real, usable and
+        // non-forensic, so `sex_designation` actually excludes a Female referral here that every
+        // other gate would otherwise pass — mirroring `ger-adult-open`'s Female-only bed, which
+        // already proves the same shape for the other sex. sexMix kept internally consistent (no
+        // Female occupant on a Male-only bed), same discipline as `ger-adult-open` and (before
+        // this fix) `brm-adult-secure`.
+        sexMix: { Female: 0, Male: 14 },
         speciallingCapacity: 2,
-        sexDesignation: "Undesignated",
+        sexDesignation: "Male only",
         forensic: false,
       },
       {
@@ -464,16 +472,28 @@ export const wardSites: Site[] = [
         authorised: true,
         beds: 6,
         empty: { value: 1, source: "feed", confirmedAt: NOW_ANCHOR - 10, staleAfterMinutes: 20 },
-        allocatable: { value: 0, source: "ward", confirmedAt: NOW_ANCHOR - 45, staleAfterMinutes: 150 },
+        // Fix round B (review finding M1, the forensic half): this was `allocatable: 0`, which
+        // made the `forensic` gate in `referralEligibility` (ward-eligibility.ts) vacuous —
+        // deleting that gate entirely would not have changed a single candidate list, because
+        // zero allocatable beds already excluded this unit on its own. `1` makes the forensic
+        // gate load-bearing: it is now the ONLY reason this otherwise-eligible Adult/Secure/
+        // authorised bed is never offered through Phase 7 front-door matching (D7).
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 45, staleAfterMinutes: 150 },
         held: 0,
         blocked: 0,
-        // Male only AND forensic — the network's one example of an Adult, Secure, Male-only,
-        // authorised (so involuntary-capable) forensic bed, an entirely expressible combination
-        // of the four independent bed dimensions. sexMix kept internally consistent (no Female
-        // occupant on a Male-only bed).
         sexMix: { Female: 0, Male: 5 },
         speciallingCapacity: 0,
-        sexDesignation: "Male only",
+        // Fix round B (review finding M1, the Male-only half): this unit used to ALSO carry
+        // `sexDesignation: "Male only"`, combined with `forensic: true` on the same bed — the
+        // forensic gate unconditionally excludes a forensic unit from every referral (D7), so a
+        // designation living on the SAME unit can never be load-bearing: deleting `sex_designation`
+        // here would never change a candidate list either, because `forensic` already excludes it
+        // regardless. Undesignated here; the network's Male-only bed moved to `fsh-adult-secure`
+        // below, a real, usable, non-forensic unit, where the designation actually excludes
+        // something. Fix round B's C1 also moved RF-006's acceptance off this unit for the same
+        // underlying reason: a forensic bed is never offered, so it can never be the unit a
+        // referral is recorded as accepted into.
+        sexDesignation: "Undesignated",
         forensic: true,
       },
     ],
