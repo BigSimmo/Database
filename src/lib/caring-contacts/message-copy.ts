@@ -14,13 +14,22 @@ export const PATIENT_VISIBLE_NO_REPLY_NOTICE = "No one reads replies to this num
 /**
  * The patient-visible message, with the recipient's preferred name substituted into it.
  *
- * PROVISIONAL — not clinically approved, exactly as before. Ruling [127] called this string a
- * SPECIMEN rather than a template, on the ground that it carried a hardcoded name and had no slot.
- * The owner decided on 2026-08-26 that it should have one, so it is a template now — and THAT IS
- * THE WHOLE OF THE REVERSAL. Every other word is byte-identical, the wording is still an unapproved
- * draft, and final wording is still owned by the lived-experience and clinical-programme approval
- * gate (docs/caring-contacts/message-review-pack.md §1). Adding a slot to a draft is not authoring
- * one.
+ * PROVISIONAL — not clinically approved. Ruling [127] called this string a SPECIMEN rather than a
+ * template, on the ground that it carried a hardcoded name and had no slot. The owner decided on
+ * 2026-08-26 that it should have one, so it is a template now. Final wording is still owned by the
+ * lived-experience and clinical-programme approval gate (docs/caring-contacts/message-review-pack.md
+ * §1), and adding a slot to a draft is not authoring one.
+ *
+ * TWO CHANGES HAVE BEEN MADE TO THIS TEXT SINCE, BOTH BY THE OWNER AND NEITHER BY THIS PROGRAMME.
+ * The name became a slot (above), and on 2026-08-27 the closing sentence became the real crisis
+ * services — `PROVISIONAL_MESSAGE_RULES.crisisSupportContact`, whose exact wording the owner
+ * authorised in writing (Ruling [144]). It is interpolated from the rule rather than retyped here,
+ * so the sentence a patient reads and the sentence `message-policy.ts` requires cannot drift apart;
+ * two hand-maintained copies of a crisis-support sentence is precisely how one of them ends up
+ * carrying a wrong number. The independent copy of the owner's words lives in
+ * caring-contacts-message-copy.test.ts, where a reword reddens a test instead of being copied.
+ *
+ * The rule's value ends in its own full stop, so nothing follows it here but the sign-off.
  *
  * `preferredName` IS WHAT THE CLINICIAN WAS TOLD TO CALL THIS PERSON, ASKED FOR AS ITS OWN FIELD.
  * It is never derived from the stored `patientName`, here or anywhere else, and no code in this
@@ -31,7 +40,7 @@ export const PATIENT_VISIBLE_NO_REPLY_NOTICE = "No one reads replies to this num
  * opens with no name at all, and the clinician is the person actually talking to the patient.
  */
 function personalisedPatientVisibleMessage(preferredName: string): string {
-  return `Hi ${preferredName}, Alex from Example Aftercare Team is thinking of you. This is a one-way message. ${PATIENT_VISIBLE_NO_REPLY_NOTICE}. For timing changes call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}. - Alex`;
+  return `Hi ${preferredName}, Alex from Example Aftercare Team is thinking of you. This is a one-way message. ${PATIENT_VISIBLE_NO_REPLY_NOTICE}. For timing changes call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm. In an emergency call 000. ${PROVISIONAL_MESSAGE_RULES.crisisSupportContact} - Alex`;
 }
 
 /**
@@ -184,16 +193,26 @@ export function resolvePatientVisibleMessage(preferredName: string | null): Pati
 // nobody could currently know whether it was true. The replacement says only what this system can
 // actually know: who is not reading. A3 -- a patient told "no one reads replies" who then receives
 // this very message could reasonably conclude somebody read theirs first. "and this reply is
-// automatic" closes that. EXACT_PATIENT_VISIBLE_MESSAGE is deliberately NOT touched: it sits close
-// enough to the 2-segment ceiling that it has no room for THIS SENTENCE, so the fact lives only
-// here, where there is room.
+// automatic" closes that. EXACT_PATIENT_VISIBLE_MESSAGE did not receive THAT SENTENCE and still
+// does not: it sits close enough to the 2-segment ceiling that adding it would leave almost nothing
+// for the preferred-name slot, so the fact lives only here, where there is room. (Scope that claim
+// to the A2/A3 sentence: the message above WAS changed later, by Ruling [144] below.)
 //
 // CORRECTED 2026-08-26: this used to read "with no room left", which a later reader (and the
 // controller) took as meaning the message had no headroom at all. It never meant that. The
 // remaining headroom is `PREFERRED_NAME_MAX_SEPTETS` above, and it is what the preferred-name slot
 // is spent on -- see caring-contacts-message-copy.test.ts, which proves the bound rather than
 // restating a number.
-export const AUTOMATED_REPLY_RESPONSE = `No one at Example Aftercare Team reads this number, and this reply is automatic. To talk to someone, call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`;
+//
+// RULING [144], owner-authorised 2026-08-27: the fictional crisis line was replaced here as well as
+// in the message above, and deliberately so. This is what a person gets when they reply -- plausibly
+// a moment of greater need than the scheduled message -- so it is the last place a crisis number
+// that connects to nobody should survive. This string has no name slot, so its whole budget is its
+// own: re-measured rather than inherited from Message A, and pinned in
+// caring-contacts-message-copy.test.ts. The sentence is interpolated from
+// `PROVISIONAL_MESSAGE_RULES.crisisSupportContact` for the same reason as above -- one copy of the
+// owner's words in `src/`, so the two messages cannot come to carry different crisis numbers.
+export const AUTOMATED_REPLY_RESPONSE = `No one at Example Aftercare Team reads this number, and this reply is automatic. To talk to someone, call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. ${PROVISIONAL_MESSAGE_RULES.crisisSupportContact}`;
 
 export const EXACT_MESSAGE_GSM7: Gsm7Evidence = calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE);
 export const AUTOMATED_REPLY_GSM7: Gsm7Evidence = calculateGsm7(AUTOMATED_REPLY_RESPONSE);

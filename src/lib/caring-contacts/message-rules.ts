@@ -3,6 +3,11 @@
 // constants, and the two-segment GSM-7 limit. Replace this file wholesale when the clinical programme
 // lead and lived-experience representative approve the real content style guide. Do not edit
 // message-policy.ts to accommodate a rule change — the mechanism is stable, the rules are data.
+//
+// ONE VALUE IN HERE IS NOT PROVISIONAL: `CRISIS_SUPPORT_CONTACT` carries wording the owner
+// authorised himself (Ruling [144], 2026-08-27) and names real crisis services. A wholesale
+// replacement of this file is still the approval gate's to make, but nobody in this programme may
+// reword that sentence on their own — see the comment above the constant.
 import { DESIGNATED_FICTIONAL_MOBILE_NUMBERS } from "./synthetic-contacts";
 
 /** Escapes `value` for literal use inside a `RegExp` source string. */
@@ -21,15 +26,29 @@ export type ProvisionalMessageRules = {
   operatingHours: string;
   /** Tells the recipient what to do in an emergency; required in first messages. */
   emergencyDirection: string;
-  /** The one crisis-support contact; required in first and closing messages. */
+  /**
+   * The one crisis-support contact; required in first and closing messages.
+   *
+   * Since Ruling [144] (owner-authorised 2026-08-27) this is a REAL, LIVE crisis service rather
+   * than a reserved fictional number, so it is the one value in this record that must never be
+   * added to `synthetic-contacts.ts` and must never match `fictionalContactMarkerPattern`. It is
+   * the whole sentence, final full stop included, because that is the form the owner authorised.
+   */
   crisisSupportContact: string;
   /**
    * Identifies a reserved fictional contact detail inside a message. NOT in `prohibitedTerms` --
-   * Ruling 79 (item A1, 2026-08-24): both approved patient-visible messages contain
-   * `crisisSupportContact` today, so a bare prohibition on this text would make every existing
-   * message invalid. message-policy.ts instead reports `fictional-contact-detail-present`
-   * whenever a message matches this pattern, unless the caller explicitly acknowledges the
-   * number is synthetic. See task-c-brief.md, "A1".
+   * Ruling 79 (item A1, 2026-08-24): both approved patient-visible messages still name a reserved
+   * fictional number, so a bare prohibition on this text would make every existing message
+   * invalid. message-policy.ts instead reports `fictional-contact-detail-present` whenever a
+   * message matches this pattern, unless the caller explicitly acknowledges the number is
+   * synthetic. See task-c-brief.md, "A1".
+   *
+   * Ruling [144] (2026-08-27) changed WHICH number carries that marker, and the distinction is
+   * load-bearing. This used to overlap `crisisSupportContact`, which was itself fictional; the
+   * crisis contact is now a real service and no longer matches this pattern at all. What still
+   * makes both patient-visible messages match is the fictional STAFFED line they both name. That
+   * is the property keeping a specimen identifiable as non-sendable, so it is asserted rather
+   * than assumed -- see caring-contacts-message-copy.test.ts, "Ruling [144]".
    *
    * Fix round 1 (promoted finding, 2026-08-24): the first version was `crisisSupportContact.
    * split(":")[0]` -- the LABEL "Fictional Support Line" only. A message carrying the reserved
@@ -62,7 +81,29 @@ export type ProvisionalMessageRules = {
   closingStatement: string;
 };
 
-const CRISIS_SUPPORT_CONTACT = "Fictional Support Line: +61 491 570 158";
+// Ruling [144], owner-authorised 2026-08-27. This replaced `"Fictional Support Line: +61 491 570
+// 158"` -- a patient in a suicide-prevention programme was reading the literal words "Fictional
+// Support Line" before a number that connects to nobody.
+//
+// THE WORDING IS THE OWNER'S OWN, NOT THIS PROGRAMME'S. The standing rule that nobody here may
+// author patient-visible message wording is unchanged; this is a single named exception. He was
+// shown this exact sentence and the resulting message in full, confirmed both numbers, and
+// authorised it in writing twice. Do not reword, extend, retitle or "improve" it, and do not treat
+// it as a precedent for any other string. If you believe it is wrong, stop and report.
+//
+// Three things about its shape are deliberate: "If you need to talk" separates it from the
+// `In an emergency call 000.` sentence immediately before it, which is the right answer for an
+// emergency in progress and the wrong one for someone distressed and not in immediate danger;
+// "any time" contrasts with the staffed line's `9 am-6 pm` two sentences earlier; and 13YARN is
+// offered universally rather than conditionally, so this system never has to hold or act on a
+// patient's cultural identity in order to offer a culturally appropriate service.
+//
+// IT IS A REAL, LIVE SERVICE. It must never be added to `synthetic-contacts.ts`, never appear in
+// `DESIGNATED_FICTIONAL_MOBILE_NUMBERS`, and never match `fictionalContactMarkerPattern` -- filing
+// a working crisis number among the numbers this system marks as fake is the failure Ruling [144]
+// exists to prevent. The trailing full stop is part of the authorised sentence and part of what
+// `message-policy.ts` requires a first or closing message to contain.
+const CRISIS_SUPPORT_CONTACT = "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76.";
 
 // A1, fix round 1: "Fictional" (label, any case) OR any reserved fictional number from
 // synthetic-contacts.ts. Either half alone is sufficient, so relabelling the crisis contact,

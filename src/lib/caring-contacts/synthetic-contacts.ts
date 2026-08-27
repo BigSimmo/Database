@@ -1,6 +1,19 @@
-// Reserved fictional numbers only. These are ACMA/Ofcom-style numbers that can never
-// connect to a real person, so a screenshot, a test failure or a demonstration can show a
-// complete message without any possibility of contacting anyone.
+// Reserved fictional numbers only. These are ACMA/Ofcom-style numbers that can never connect to a
+// real person, so a screenshot, a test failure or a demonstration can show any of them without any
+// possibility of contacting anyone.
+//
+// THAT IS NO LONGER A CLAIM ABOUT A WHOLE MESSAGE, and the correction is deliberate. This comment
+// used to say a complete message could be shown with no possibility of contacting anyone. Since
+// Ruling [144] (owner-authorised 2026-08-27) both patient-visible messages carry the REAL
+// Australian crisis services, so a complete message now contains a number that does connect. That
+// sentence lives in `message-rules.ts` as `CRISIS_SUPPORT_CONTACT` and must NEVER be added here or
+// to `DESIGNATED_FICTIONAL_MOBILE_NUMBERS`: everything in this file is what
+// `fictionalContactMarkerPattern` marks as fake, and marking a working crisis number as fake is the
+// failure that ruling exists to prevent.
+//
+// `crisisSupportContact` below is kept, still reserved and still fictional, but it is NO LONGER IN
+// ANY PATIENT-VISIBLE MESSAGE — it is now only a specimen for the tests that prove a fictional
+// crisis contact is still detected. Do not put it back into message copy.
 export const FICTIONAL_CONTACTS_BY_ROLE = Object.freeze({
   miraPatientMobile: "+61 491 570 006",
   rowanPatientMobile: "+61 491 570 156",

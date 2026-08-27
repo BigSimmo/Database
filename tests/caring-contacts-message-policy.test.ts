@@ -12,7 +12,10 @@ import {
   validateGovernedMessage,
   type GovernedMessageInput,
 } from "@/lib/caring-contacts/message-policy";
-import { DESIGNATED_FICTIONAL_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
+import {
+  DESIGNATED_FICTIONAL_MOBILE_NUMBERS,
+  FICTIONAL_CONTACTS_BY_ROLE,
+} from "@/lib/caring-contacts/synthetic-contacts";
 
 const rules = PROVISIONAL_MESSAGE_RULES;
 
@@ -138,28 +141,45 @@ describe("rule 3: prohibited-term", () => {
 // Rule 3b — fictional-contact-detail-present (Ruling 79 / item A1, 2026-08-24)
 //
 // "Fictional" is deliberately NOT in prohibitedTerms: both approved patient-visible messages
-// contain "Fictional Support Line" today, so that would make every existing message invalid and
-// the check would have to be disabled to ship -- a disabled check is worse than no check. Instead
-// this issue is always reported unless the caller explicitly acknowledges the number is synthetic,
-// so the day a real send path is built, someone must consciously pass a flag whose name says it is
-// synthetic, or remove the fictional numbers. See docs/caring-contacts/phase-2b-sdd-archive/
-// task-c-brief.md, "A1".
+// still name a reserved fictional number -- the STAFFED line -- so that would make every existing
+// message invalid and the check would have to be disabled to ship, and a disabled check is worse
+// than no check. Instead this issue is always reported unless the caller explicitly acknowledges
+// the number is synthetic, so the day a real send path is built, someone must consciously pass a
+// flag whose name says it is synthetic, or remove the fictional numbers. See
+// docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "A1".
+//
+// UPDATED for Ruling [144] (2026-08-27). `rules.crisisSupportContact` used to BE the fictional
+// crisis line, so these cases could use it as their fictional specimen. It is now the real
+// Australian crisis services, which must NOT be marked as fictional -- so the specimen is taken
+// straight from the reserved-number record, and the real crisis line gets its own negative case.
 // ---------------------------------------------------------------------------
 
 describe("rule 3b: fictional-contact-detail-present", () => {
+  const fictionalCrisisLine = `Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`;
+
   it("fails with exactly that issue code when the fictional crisis contact is present and unacknowledged", () => {
-    const input: GovernedMessageInput = { text: rules.crisisSupportContact, messageType: "standard" };
+    const input: GovernedMessageInput = { text: fictionalCrisisLine, messageType: "standard" };
     const result = validateGovernedMessage(input);
     expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
   });
 
   it("passes the same message when syntheticFictionalContactsAcknowledged is true", () => {
     const input: GovernedMessageInput = {
-      text: rules.crisisSupportContact,
+      text: fictionalCrisisLine,
       messageType: "standard",
       syntheticFictionalContactsAcknowledged: true,
     };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
+  });
+
+  it("does NOT mark the real crisis-support line as a fictional contact detail (Ruling [144])", () => {
+    // The failure this guards is a live, real crisis number being filed among the numbers this
+    // system marks as fake. The positive control is the case directly above: the same call, with
+    // the fictional line, does raise the issue -- so this pass is the pattern discriminating
+    // between the two rather than the check being inert.
+    const input: GovernedMessageInput = { text: rules.crisisSupportContact, messageType: "standard" };
+    expect(validateGovernedMessage(input)).toEqual({ valid: true });
+    expect(rules.crisisSupportContact).toBe("If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76.");
   });
 
   it("does not raise the issue for a message with no fictional contact marker, acknowledged or not", () => {

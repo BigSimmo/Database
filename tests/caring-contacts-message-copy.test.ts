@@ -174,9 +174,11 @@ describe("caring-contacts patient-visible copy", () => {
 
   it("keeps the pinned GSM-7 evidence for the automated reply", () => {
     // 218 -> 210 septets, owner-approved 2026-08-24 (items A2 + A3): the first sentence was
-    // replaced, see the "A2 + A3" describe block below for the full covering tests. This one is
-    // still a fixed string with no slot, so an exact pin is still the right claim about it.
-    expect(AUTOMATED_REPLY_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 210, valid: true });
+    // replaced, see the "A2 + A3" describe block below for the full covering tests. 210 -> 236,
+    // owner-authorised 2026-08-27 (Ruling [144]): the fictional crisis line became the Lifeline
+    // sentence, which costs 66 septets against the 40 it replaced. This one is still a fixed
+    // string with no slot, so an exact pin is still the right claim about it.
+    expect(AUTOMATED_REPLY_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 236, valid: true });
   });
 
   it("derives its evidence from the single domain GSM-7 calculator", () => {
@@ -187,7 +189,12 @@ describe("caring-contacts patient-visible copy", () => {
   it("names the staffed line and crisis support in both strings and neither patient mobile", () => {
     for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
       expect(text).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);
-      expect(text).toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
+      // Ruling [144]: the crisis-support contact is the owner-authorised Lifeline sentence and is
+      // no longer one of this prototype's reserved fictional numbers, so it is read from the RULE
+      // rather than from the fictional-contact record. The reserved number that used to sit here
+      // must now be absent from both messages -- asserted separately below.
+      expect(text).toContain(PROVISIONAL_MESSAGE_RULES.crisisSupportContact);
+      expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
       expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile);
       expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile);
     }
@@ -260,15 +267,19 @@ describe("caring-contacts automated reply wording (A2 + A3, 2026-08-24)", () => 
     expect(AUTOMATED_REPLY_RESPONSE).toBe(
       "No one at Example Aftercare Team reads this number, and this reply is automatic. To talk to someone, " +
         `call ${FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine}, 9 am-6 pm every day. In an emergency call 000. ` +
-        `Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`,
+        "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76.",
     );
   });
 
   it("stays within the two-segment GSM-7 ceiling (measured, not assumed)", () => {
+    // 210 -> 236 septets: Ruling [144]'s crisis-line swap costs 66 septets against the 40 it
+    // replaced. Message B has no name slot, so this is its whole budget and it is 70 under the
+    // 306-septet two-segment ceiling. Measured here rather than assumed from Message A's figures.
     const evidence = calculateGsm7(AUTOMATED_REPLY_RESPONSE);
     expect(evidence.segments).toBe(2);
     expect(evidence.valid).toBe(true);
-    expect(evidence.septets).toBe(210);
+    expect(evidence.septets).toBe(236);
+    expect(evidence.septets).toBeLessThanOrEqual(maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments));
   });
 
   it("A2: drops the storage claim nobody can currently verify", () => {
@@ -281,9 +292,102 @@ describe("caring-contacts automated reply wording (A2 + A3, 2026-08-24)", () => 
   });
 
   it("leaves EXACT_PATIENT_VISIBLE_MESSAGE untouched by the A2/A3 wording change", () => {
-    // Message A is 252 septets against the 2-segment ceiling -- deliberately not touched here.
-    // See message-copy.ts's own comment and task-c-brief.md, "A2 + A3", for why.
+    // Message A carries the A2/A3 sentence nowhere -- deliberately not touched by that change.
+    // See message-copy.ts's own comment and task-c-brief.md, "A2 + A3", for why. The septet pin
+    // moved 252 -> 278 for a DIFFERENT and later change (Ruling [144]'s crisis-line swap), which
+    // is why the "untouched" claim above is about the A2/A3 sentence and not about the number.
     expect(EXACT_PATIENT_VISIBLE_MESSAGE).not.toContain("this reply is automatic");
-    expect(calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE).septets).toBe(252);
+    expect(calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE).septets).toBe(278);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ruling [144] (owner-authorised 2026-08-27) — the fictional crisis line is replaced by the real
+// Australian crisis services, in BOTH patient-visible messages.
+//
+// The owner authorised the exact sentence himself, in writing, twice, having been shown the words
+// and the resulting message in full and having confirmed both numbers. Nobody in this programme
+// may author patient-visible wording; this is a single named exception carrying his own words.
+// ---------------------------------------------------------------------------
+
+// The owner's sentence, held here as an INDEPENDENT literal rather than read back from the module
+// under test. That is the whole point of this constant: a reword, a dropped digit, or a "tidied"
+// comma in message-rules.ts reddens these cases instead of being copied silently into them.
+const AUTHORISED_CRISIS_LINE = "If you need to talk, Lifeline 13 11 14, any time. 13YARN 13 92 76.";
+
+// What it replaced, reconstructed from the fictional-contact record exactly as message-copy.ts
+// used to build it. Used as the positive control for every absence asserted below: a needle that
+// is demonstrably a real, non-empty string, so `not.toContain` is a claim rather than decoration.
+const SUPERSEDED_FICTIONAL_CRISIS_LINE = `Fictional Support Line: ${FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact}.`;
+
+describe("caring-contacts crisis-support line (Ruling [144])", () => {
+  it("holds the owner's authorised sentence byte for byte as the crisis-support rule", () => {
+    expect(PROVISIONAL_MESSAGE_RULES.crisisSupportContact).toBe(AUTHORISED_CRISIS_LINE);
+    // Both numbers, named individually, so a single-digit slip inside the sentence cannot hide
+    // behind a whole-string comparison that someone later loosens to `toContain`.
+    expect(PROVISIONAL_MESSAGE_RULES.crisisSupportContact).toContain("Lifeline 13 11 14");
+    expect(PROVISIONAL_MESSAGE_RULES.crisisSupportContact).toContain("13YARN 13 92 76");
+  });
+
+  it("puts that exact sentence into both patient-visible messages", () => {
+    expect(EXACT_PATIENT_VISIBLE_MESSAGE).toContain(AUTHORISED_CRISIS_LINE);
+    expect(AUTOMATED_REPLY_RESPONSE).toContain(AUTHORISED_CRISIS_LINE);
+  });
+
+  it("removes the fictional crisis line, its label and its number from both messages", () => {
+    // Positive control: the needle is a real, non-empty string that DOES contain both halves of
+    // what is being looked for, so each absence below could have failed.
+    expect(SUPERSEDED_FICTIONAL_CRISIS_LINE).toContain("Fictional Support Line");
+    expect(SUPERSEDED_FICTIONAL_CRISIS_LINE).toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
+
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      expect(text).not.toContain(SUPERSEDED_FICTIONAL_CRISIS_LINE);
+      expect(text).not.toContain("Fictional Support Line");
+      expect(text).not.toContain(FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact);
+    }
+  });
+
+  it("never files the real crisis service among the reserved fictional numbers", () => {
+    // The failure this guards is the one Ruling [144] names: a naive swap that put a REAL, LIVE
+    // crisis number into the list of numbers this system marks as fake.
+    expect(Object.values(FICTIONAL_CONTACTS_BY_ROLE)).not.toContain(PROVISIONAL_MESSAGE_RULES.crisisSupportContact);
+    for (const realCrisisNumber of ["13 11 14", "13 92 76"]) {
+      // Positive control: each needle really is in the authorised sentence...
+      expect(AUTHORISED_CRISIS_LINE).toContain(realCrisisNumber);
+      // ...and appears in none of the reserved fictional numbers.
+      expect(DESIGNATED_FICTIONAL_MOBILE_NUMBERS.some((number) => number.includes(realCrisisNumber))).toBe(false);
+    }
+    for (const fictionalNumber of DESIGNATED_FICTIONAL_MOBILE_NUMBERS) {
+      expect(AUTHORISED_CRISIS_LINE).not.toContain(fictionalNumber);
+    }
+  });
+
+  it("reproduces the length arithmetic rather than restating it", () => {
+    const ceiling = maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments);
+    expect(ceiling).toBe(306);
+    // 66 septets against the 40 the fictional line cost.
+    expect(calculateGsm7(AUTHORISED_CRISIS_LINE).septets).toBe(66);
+    expect(calculateGsm7(SUPERSEDED_FICTIONAL_CRISIS_LINE).septets).toBe(40);
+    // 247 -> 273 with the name slot empty, so the name budget falls 59 -> 33.
+    expect(PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS).toBe(273);
+    expect(PREFERRED_NAME_MAX_SEPTETS).toBe(33);
+    // Derived, not written down: the cap follows the base cost and the ceiling automatically.
+    expect(PREFERRED_NAME_MAX_SEPTETS).toBe(ceiling - PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS);
+    // Ample for a first name, which is the whole claim the budget has to support.
+    expect(resolvePatientVisibleMessage("Rowan")).toMatchObject({ ok: true });
+    expect(resolvePatientVisibleMessage("Christopher")).toMatchObject({ ok: true });
+  });
+
+  it("keeps both messages identifiable as non-sendable specimens", () => {
+    // The concern with removing the fictional crisis line is that a message stops announcing
+    // itself as fake. It does not: the fictional STAFFED line remains in both, so the marker
+    // pattern still fires. Proven by running the pattern, not by reasoning about it.
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      expect(text).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);
+      expect(PROVISIONAL_MESSAGE_RULES.fictionalContactMarkerPattern.test(text)).toBe(true);
+    }
+    // Negative control on the same pattern: the real crisis sentence alone is NOT marked as
+    // fictional, which is what stops a live crisis number being filed as a fake one.
+    expect(PROVISIONAL_MESSAGE_RULES.fictionalContactMarkerPattern.test(AUTHORISED_CRISIS_LINE)).toBe(false);
   });
 });
