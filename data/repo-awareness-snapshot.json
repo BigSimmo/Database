@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "bc6448fba969cc1e54f0247a176231f4b8473058",
-    "committed_at": "2026-08-27T12:01:11+00:00"
+    "sha": "b64ecf90673ad17c8650b11318c2fd7844c05e7a",
+    "committed_at": "2026-08-27T20:45:44+08:00"
   },
   "routes": {
     "modes": [
@@ -2359,7 +2359,7 @@
       {
         "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/GATES.md",
@@ -3843,8 +3843,8 @@
     ],
     "counts": {
       "documents": 481,
-      "catalogued": 106,
-      "uncatalogued": 375,
+      "catalogued": 107,
+      "uncatalogued": 374,
       "sections": 19
     }
   },

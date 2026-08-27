@@ -231,7 +231,7 @@ export function DeviceFrame({
       </figcaption>
       <div
         className={cn(
-          "relative flex flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          "relative flex flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]",
           device === "phone" ? "h-[38rem]" : "h-[28rem]",
           device === "tablet" && "mx-auto w-full max-w-[768px]",
         )}
