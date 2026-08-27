@@ -336,9 +336,8 @@ function TherapyPicker() {
         </span>
         <ChevronDown
           aria-hidden="true"
-          size={15}
           strokeWidth={1.8}
-          className="text-[color:var(--decoration-soft)] flex-none"
+          className="size-icon-sm text-[color:var(--decoration-soft)] flex-none"
         />
       </button>
       {open ? (
@@ -346,9 +345,8 @@ function TherapyPicker() {
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
             <Search
               aria-hidden="true"
-              size={15}
               strokeWidth={1.8}
-              className="absolute left-[18px] text-[color:var(--decoration-soft)]"
+              className="absolute left-[18px] size-icon-sm text-[color:var(--decoration-soft)]"
             />
             <input
               value={q}
