@@ -878,7 +878,7 @@ describe("the Schedule screen — a delivery the provider did not complete", () 
     // to the document -- that row is the frozen record's wording and not this screen's to edit.
     const text = container.textContent ?? "";
     expect(text).not.toMatch(/all three attempts/i);
-    expect(text).not.toMatch(/(?:\d+|one|two|three|several) attempts?/i);
+    expect(text).not.toMatch(/\b(?:\d+|one|two|three|several) attempts?\b/i);
   });
 
   it("offers no move control on a contact that has already been sent", async () => {
