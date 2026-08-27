@@ -178,6 +178,19 @@
   font-size: var(--text-2xs);
 }
 
+/*
+ * I2 fix pass: pairs the existing count stamp (`.freshness`, above) with the shared
+ * `WardFreshness` component's own rendering of the oldest contributing confirmation instant
+ * (`FreshnessLine` in morning-page.tsx). `gap` rather than a literal space keeps the two spans
+ * visually distinct without hardcoding a separator character into the JSX.
+ */
+.freshnessLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-space-6);
+}
+
 .viewControl {
   display: grid;
   gap: var(--mp-space-8);
@@ -328,6 +341,29 @@
 }
 
 /*
+ * C2 fix pass: print-only statement of which view produced the sheet, and its instant
+ * (`PrintViewMeta` in morning-page.tsx). Hidden on screen — the fixed/live buttons and the
+ * on-screen explainer already say this there — and restored to visible inside `@media print`
+ * below, where it is the ONLY place left that says it, since `.viewControl` (holding both of
+ * those on-screen elements) is fully hidden for print.
+ */
+.printViewMeta {
+  display: none;
+}
+
+.printViewLabel {
+  margin: 0;
+  font-weight: 700;
+}
+
+.printViewNote {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--text-2xs);
+  line-height: var(--mp-leading-body);
+}
+
+/*
  * Print: ink-on-paper, no rail, no chrome control, no interactive control. Starts from
  * `handover.module.css`'s block — read its own comments for the two traps this repeats. The
  * global print reset in globals.css hides every `header`/`nav`/`button` element already, which
@@ -373,10 +409,70 @@
   .main {
     overflow: visible;
     padding: 0;
+    gap: var(--mp-space-10);
   }
 
   .viewControl {
     display: none !important;
+  }
+
+  /*
+   * C2 fix pass: the ONLY place left, once `.viewControl` above is hidden, that states which
+   * view produced this sheet and its instant — restored from the screen-hidden default
+   * (`.printViewMeta { display: none }` above) back to visible for print only.
+   */
+  .printViewMeta {
+    display: block !important;
+    margin-bottom: var(--mp-space-8);
+  }
+
+  /*
+   * C3 fix pass (product owner's decision): the printed sheet carries hospital TOTALS only —
+   * `.figureGrid` at site level stays (rendered conditionally in `SiteBlock`, see morning-page.tsx
+   * — I4's own suppression for a no-unit site), but the per-ward rows underneath it (name,
+   * freshness AND figure grid together) do not belong on a single pinnable sheet; ward-level
+   * detail stays on screen, one look away via the same page's live view. Measured before this
+   * rule: `page.pdf({format:"A4"})` reported 5 pages for the real 17-hospital fixture.
+   */
+  .unitList {
+    display: none !important;
+  }
+
+  /*
+   * Print density, second half of C3. Dropping ward rows alone (above) still left 3 pages
+   * measured against the real 17-hospital fixture (`page.pdf({format:"A4"})`) — the remaining
+   * cost is geometric, not content: on screen, `.figureGrid`'s `repeat(auto-fit, minmax(7rem,
+   * 1fr))` wraps five items to two rows once the container is narrower than roughly five times
+   * that minimum, which a printed A4 page's content width usually is. Forcing five fixed columns
+   * here (site-level only, via `.figureGridDense` — `FigureList`'s `printDense` prop,
+   * morning-page.tsx) keeps each hospital's totals on ONE row, and every spacing token in this
+   * block is tightened only for print — none of this touches the on-screen layout.
+   */
+  /*
+   * Three columns rather than one long single-column stack: 17 hospitals is inherently tall
+   * stacked one-per-row, and a pinnable sheet is exactly the case a compact printed report
+   * conventionally uses multiple columns for. Still one block per hospital (C3's actual
+   * requirement) — this only changes how those blocks are ARRANGED on the page, not what each
+   * one contains.
+   */
+  .siteList {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--mp-space-6);
+  }
+
+  .siteBlock {
+    gap: var(--mp-space-6);
+    padding: var(--mp-space-8) var(--mp-space-10);
+  }
+
+  .figureGridDense {
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--mp-space-6);
+  }
+
+  .figureGridDense .figureItem {
+    padding: var(--mp-space-6) var(--mp-space-8);
   }
 
   .footer .printButton {
@@ -421,8 +517,25 @@
   .freshness,
   .excluded,
   .unplaced,
-  .crossLink {
+  .crossLink,
+  .printViewLabel,
+  .printViewNote {
     color: CanvasText;
+  }
+
+  /*
+   * `WardFreshness` (`ward-freshness.tsx`, mounted here via `FreshnessLine`'s I2 addition) owns
+   * its own `.stamp` class in a different CSS module (`ward-freshness.module.css`), which sets an
+   * explicit `color: var(--wf-muted)` — not `inherit` — so setting `.freshnessLine`'s own color
+   * does not cascade into it. Reached here the same way `.siteHeader`'s restore does: by
+   * selector, `!important` needed because the other module's declaration is not itself
+   * `!important` and normal specificity comparison happens only within the same importance tier
+   * (an `!important` declaration always wins over a non-`!important` one regardless of selector
+   * specificity) — this is the SAME dark-print-illegibility class of bug the `.freshness` rule
+   * above already exists to prevent, just for a stamp defined in a sibling module.
+   */
+  .freshnessLine span {
+    color: CanvasText !important;
   }
 
   .footer {

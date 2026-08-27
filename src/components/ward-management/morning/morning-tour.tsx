@@ -129,6 +129,19 @@ const BEAT_CAPTIONS: Record<number, { heading: string; body: string }> = {
 type TourPhase = "idle" | "running" | "refused";
 
 /**
+ * The reduced-motion preference at first render, read synchronously rather than via an effect
+ * (react-hooks/set-state-in-effect): calling a state setter during a mount effect for a value
+ * that is knowable up front is exactly the "cascading render" this rule flags — jsdom/the
+ * browser already knows the answer before paint, so `useState`'s own lazy initialiser is the
+ * correct place to read it once. The mount effect below keeps its real job — subscribing to
+ * FUTURE `change` events — and no longer duplicates this initial read via `setReducedMotion`.
+ */
+function getInitialReducedMotion(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
  * Task 3. Mounted by `MorningPage` alongside `MorningBody`, given the same `setView` setter
  * `MorningBody` already receives, so it can switch the page to the live view at Start without
  * reaching back into `MorningPage`'s own state (see that file's own doc comment on `MorningBody`).
@@ -144,7 +157,7 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
   const [phase, setPhase] = useState<TourPhase>("idle");
   const [beat, setBeat] = useState(0);
   const [rejection, setRejection] = useState<Rejection | null>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(getInitialReducedMotion);
 
   // Refs, not state: each is read at the moment a scheduled callback actually fires, which is
   // deliberately NOT the render that scheduled it — `now` and `reducedMotion` may have moved on
@@ -152,11 +165,21 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
   // a reduced-motion preference the visitor changed mid-tour.
   const nowRef = useRef(now);
   nowRef.current = now;
-  const reducedMotionRef = useRef(false);
+  const reducedMotionRef = useRef(reducedMotion);
   const phaseRef = useRef<TourPhase>("idle");
   phaseRef.current = phase;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSeenRejectionCountRef = useRef(rejections.length);
+  /** Holds the CURRENT render's `scheduleAdvance` so the reducer-outcome effect below (Finding 3)
+   *  can call the latest version without listing it as a dependency — `scheduleAdvance` is a
+   *  plain function redefined every render (it closes over `finish`/`runBeat`, themselves plain
+   *  functions), so adding it to that effect's own deps would make it re-run on every render
+   *  rather than only when `rejections`/`movements` actually change (react-hooks/exhaustive-deps
+   *  wants it listed all the same, since it cannot see that every value the function closes over
+   *  is itself a ref or a stable `dispatch`/setState function). Assigned during render, exactly
+   *  like `nowRef`/`phaseRef` above — not inside an effect — so it is always this render's
+   *  version by the time anything reads it. */
+  const scheduleAdvanceRef = useRef<(n: number) => void>(() => {});
   /** Beat 3 dispatches two events (`ACCEPT_IN_PRINCIPLE` then `CONFIRM_BED_RELEASE`). Firing both
    *  unconditionally would let a refused first event still leave the second's effect live — a
    *  confirmed bed release attributed to an acceptance that was actually refused (real failure
@@ -169,12 +192,14 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
 
   // Detect `window.matchMedia`, guarded for absence (spec). Mirrors the addEventListener/
   // addListener fallback every other ward-flow CSS-adjacent media-query consumer in this codebase
-  // already carries, rather than assuming only the modern API exists.
+  // already carries, rather than assuming only the modern API exists. The INITIAL read now
+  // happens in `getInitialReducedMotion` (the `useState` lazy initialiser above) — this effect's
+  // job is only to subscribe to a preference change AFTER mount, never to re-assert the value it
+  // already knows, which is what kept this effect calling `setReducedMotion` synchronously on
+  // every mount (react-hooks/set-state-in-effect).
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    reducedMotionRef.current = query.matches;
-    setReducedMotion(query.matches);
     const listener = (event: MediaQueryListEvent) => {
       reducedMotionRef.current = event.matches;
       setReducedMotion(event.matches);
@@ -211,7 +236,11 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
         dispatch({ type: "RESET_SCENARIO", role: "demo", now: nowRef.current });
       }
     },
-    [],
+    // `dispatch` comes from `useWardFlow()`'s context value rather than a `useReducer` call in
+    // THIS component, so eslint cannot statically prove it is stable — it is (the provider's
+    // `useReducer` dispatch never changes identity), so listing it here changes nothing at
+    // runtime: this cleanup still only ever runs once, on unmount, exactly as before.
+    [dispatch],
   );
 
   /**
@@ -253,9 +282,16 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
       const pending = pendingSecondEventRef.current;
       pendingSecondEventRef.current = null;
       dispatch(pending.event);
-      scheduleAdvance(pending.beat);
+      // `scheduleAdvanceRef.current`, not `scheduleAdvance` directly (see that ref's own doc
+      // comment above): this is what lets this effect's deps stay exactly `rejections`/`movements`
+      // — the reducer-state changes it actually needs to react to — plus the genuinely stable
+      // `dispatch`, without also re-running on every render just because a plain function
+      // declaration gets a fresh identity each time.
+      scheduleAdvanceRef.current(pending.beat);
     }
-  }, [rejections, movements]);
+    // `dispatch` is `useWardFlow()`'s context dispatch — stable in practice (see the unmount
+    // effect's own comment) but not provably so to eslint, hence listed explicitly.
+  }, [rejections, movements, dispatch]);
 
   /** Schedules the timed auto-advance out of beat `n` (spec: five transitions at
    *  `TOUR_BEAT_INTERVAL_MS` each), or does nothing under reduced motion (spec D12) — the Next
@@ -269,6 +305,10 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
       else runBeat(n + 1);
     }, TOUR_BEAT_INTERVAL_MS);
   }
+  // Kept current every render (assigned during render, not inside an effect — same discipline as
+  // `nowRef`/`phaseRef` above), so the reducer-outcome effect can always reach THIS render's
+  // `scheduleAdvance` via the ref without needing it in that effect's own dependency array.
+  scheduleAdvanceRef.current = scheduleAdvance;
 
   function runBeat(n: number) {
     const events = tourBeatEvents(n, nowRef.current);

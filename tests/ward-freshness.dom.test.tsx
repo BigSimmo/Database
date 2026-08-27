@@ -34,4 +34,21 @@ describe("freshness stamp", () => {
     render(<WardFreshness now={NOW_ANCHOR} derived />);
     expect(screen.getByText(`As at ${formatInstant(NOW_ANCHOR)}`)).toBeTruthy();
   });
+
+  /**
+   * Phase 6 (I2 fix pass): a group-level freshness — a whole hospital or the whole network,
+   * `RollupFreshness` in `ward-morning-rollup.ts` — has an oldest contributing confirmation
+   * instant but no single confirming role to name (it rolls up many wards' own confirmations).
+   * Before this branch existed, `confirmedAt` present without `confirmedByRole` fell all the way
+   * through to "Never confirmed" — which would have been a false claim about a rollup that HAS
+   * been confirmed, just not by one nameable role. This is the branch the morning page's
+   * `FreshnessLine` (morning-page.tsx) depends on to show its instant without inventing a second
+   * freshness vocabulary.
+   */
+  it("renders 'Confirmed <time>' without a role clause when only confirmedAt is known", () => {
+    render(<WardFreshness confirmedAt={NOW_ANCHOR - 5} now={NOW_ANCHOR} />);
+    expect(screen.getByText(`Confirmed ${formatInstant(NOW_ANCHOR - 5)}`)).toBeTruthy();
+    // Guard the guard: must not fall through to "Never confirmed" now that confirmedAt is known.
+    expect(screen.queryByText("Never confirmed")).toBeNull();
+  });
 });

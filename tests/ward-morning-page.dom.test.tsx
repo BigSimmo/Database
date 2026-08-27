@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-discharge-board.dom.test.tsx):
@@ -149,8 +149,18 @@ describe("MorningPage", () => {
   it("renders the headline as availableNow alone, never mixing in confirmedToday, predictedToday or leaveUsable", () => {
     let captured: ReturnType<typeof useWardFlow> | undefined;
 
+    // Reads the hook during render (required — hooks must be called unconditionally at the top
+    // of the component) but defers the write to the outer `captured` variable into an effect,
+    // which runs AFTER render rather than during it. Assigning an outside-scope variable while
+    // rendering is exactly what react-hooks/globals flags (render must stay pure/side-effect
+    // free); `render()` from Testing Library flushes effects before returning, so `captured` is
+    // still populated by the time the assertions below read it — same as the previous
+    // direct-assignment version, just moved to where a side effect is allowed to live.
     function Capture({ children }: { children: ReactNode }) {
-      captured = useWardFlow();
+      const flow = useWardFlow();
+      useEffect(() => {
+        captured = flow;
+      });
       return <>{children}</>;
     }
 
@@ -320,6 +330,103 @@ describe("MorningPage", () => {
     const jhc = screen.getByTestId("ward-morning-site-JHC");
     expect(within(jhc).getByText("Joondalup Health Campus")).toBeInTheDocument();
     expect(within(jhc).getByTestId("ward-morning-site-JHC-empty")).toHaveTextContent("No units recorded");
+  });
+
+  /**
+   * I4 fix pass (spec D4, "Zero is a claim"). JHC and PEEL are real fixture sites with no units
+   * — before this fix, `SiteBlock` still rendered their five-figure grid, and every field of
+   * `sumBreakdowns([])` is zero, so a reader scanning the page saw "Available now 0 · Confirmed
+   * today 0 · Predicted today 0 · Held 0 · Leave (usable) 0" under a real hospital's name, as if
+   * this page had checked and found nothing. The true fact is that it has nothing to report at
+   * all — carried by "Never confirmed" and "No units recorded" alone. This proves the FIGURE GRID
+   * itself is gone (not merely covered by a different assertion), for BOTH real no-unit sites,
+   * and proves the guard is scoped correctly: RPH — a real fixture site WITH units — still gets
+   * its grid, so this is not a blanket "never render site figures" regression.
+   */
+  it("suppresses the site-level figure grid for a no-unit site, but not for a site with units", () => {
+    renderMorningPage();
+
+    for (const code of ["JHC", "PEEL"]) {
+      const site = screen.getByTestId(`ward-morning-site-${code}`);
+      expect(
+        within(site).queryByTestId(`ward-morning-figure-site-${code}-availableNow`),
+        `${code} has no units — its figure grid must not render`,
+      ).not.toBeInTheDocument();
+      // Guard the guard: still says the two real facts, doesn't just silently render less.
+      expect(within(site).getByText("Never confirmed")).toBeInTheDocument();
+      expect(within(site).getByTestId(`ward-morning-site-${code}-empty`)).toHaveTextContent("No units recorded");
+    }
+
+    const rph = screen.getByTestId("ward-morning-site-RPH");
+    expect(within(rph).getByTestId("ward-morning-figure-site-RPH-availableNow")).toBeInTheDocument();
+  });
+
+  /**
+   * I2 fix pass (spec D4, D6). `oldestConfirmedAt` was computed by `ward-morning-rollup.ts` and
+   * mutation-tested there, but rendered nowhere on this page — `FreshnessStamp` alone only ever
+   * states a COUNT ("22 of 22 wards confirmed"), never the actual oldest-confirming instant. This
+   * computes the expected instant independently, the same way the headline-number test above
+   * does (via `serviceRollup` at the frozen handover instant, over the real fixture captured from
+   * the same provider tree), and asserts the page renders it through the shared `WardFreshness`
+   * vocabulary — "Confirmed HH:MM" — next to the existing count, not a second bespoke wording.
+   */
+  it("renders the service-level freshness's oldest-confirmed instant next to the existing count, via the shared WardFreshness wording", () => {
+    let captured: ReturnType<typeof useWardFlow> | undefined;
+
+    function Capture({ children }: { children: ReactNode }) {
+      const flow = useWardFlow();
+      useEffect(() => {
+        captured = flow;
+      });
+      return <>{children}</>;
+    }
+
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <Capture>
+          <MorningPage />
+        </Capture>
+      </WardFlowProvider>,
+    );
+
+    const { units, bedReleases, leaveBeds } = captured!;
+    const expected = serviceRollup(wardSites, units, bedReleases, leaveBeds, MORNING_HANDOVER_MINUTES).service;
+
+    // Guard the guard: the real fixture must actually have a confirmed instant to show, or the
+    // assertion below could pass by finding nothing to contradict it.
+    expect(expected.freshness.kind, "fixture assumption: service-level freshness is confirmed or partial").not.toBe(
+      "never",
+    );
+    const oldestConfirmedAt = expected.freshness.kind === "never" ? null : expected.freshness.oldestConfirmedAt;
+
+    const headline = screen.getByTestId("ward-morning-headline");
+    expect(within(headline).getByText(`Confirmed ${formatInstant(oldestConfirmedAt!)}`)).toBeInTheDocument();
+  });
+
+  /**
+   * C2 fix pass. The print-only view/instant label (`PrintViewMeta`) is screen-hidden by CSS
+   * (`.printViewMeta { display: none }`, restored under `@media print`), so its actual on-paper
+   * VISIBILITY is a rendered-CSS fact this jsdom suite cannot see (jsdom does not evaluate
+   * `@media print`) — that half is proven in `tests/ui-ward-morning.spec.ts` via a real
+   * `page.pdf()`/`emulateMedia` measurement, not here. What this DOM test can and does prove is
+   * the CONTENT logic: the label names the right view and the right instant, and switches when
+   * the view toggles — the source of truth a rendered-CSS check alone could not verify either.
+   */
+  it("states which view and instant the print-only label carries, and updates it when the view toggles", () => {
+    renderMorningPage();
+
+    expect(screen.getByTestId("ward-morning-print-view-label")).toHaveTextContent(
+      `This sheet: handover view, frozen ${formatInstant(MORNING_HANDOVER_MINUTES)}.`,
+    );
+    expect(screen.getByTestId("ward-morning-print-view-note")).toHaveTextContent(
+      "not a reconstruction of what the ward state actually was at 08:00",
+    );
+
+    fireEvent.click(screen.getByTestId("ward-morning-view-live"));
+
+    expect(screen.getByTestId("ward-morning-print-view-label")).toHaveTextContent(
+      `This sheet: live view, as at ${formatInstant(NOW_ANCHOR)}.`,
+    );
   });
 
   /**

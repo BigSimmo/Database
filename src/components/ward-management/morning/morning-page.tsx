@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { BedRelease, LeaveBed, Site, Unit } from "@/components/ward-management/ward-model";
 import {
@@ -140,17 +141,29 @@ export function MorningBody({
 }) {
   const noHandoverYet = view === "fixed" && frozen.instant === null;
   const activeRollup = view === "fixed" ? frozen.rollup : liveRollup;
+  // The instant every figure group on the active view is tagged with (spec D6: each view carries
+  // its own instant next to every figure group) — the fixed view's frozen handover instant while
+  // showing it, the live clock while showing that. Only read once `noHandoverYet` is ruled out
+  // above, so `frozen.instant` is never null here (the branches below that use it are gated the
+  // same way `activeRollup` already is).
+  const activeNow: Instant = view === "fixed" ? (frozen.instant as Instant) : liveNow;
 
   return (
     <>
       <GovernanceBanner />
+
+      {/* Print-only: which view produced this sheet, and its instant (C2). Deliberately a
+          sibling of `ViewControl`, not a descendant — `.viewControl` is fully hidden in print
+          (it holds the two interactive buttons), so anything that must survive into print has to
+          live outside it. */}
+      <PrintViewMeta view={view} liveNow={liveNow} />
 
       {noHandoverYet ? (
         <NoHandoverYet onSwitchToLive={() => onChangeView("live")} />
       ) : (
         activeRollup && (
           <>
-            <HeadlineFigure rollup={activeRollup.service} />
+            <HeadlineFigure rollup={activeRollup.service} now={activeNow} />
             <RemainingFigures rollup={activeRollup.service} />
             <ExcludedBeyondTonight count={activeRollup.service.excludedBeyondToday} />
           </>
@@ -164,7 +177,7 @@ export function MorningBody({
           <UnplacedUnitsNote unplacedUnitIds={activeRollup.unplacedUnitIds} />
           <div className={styles.siteList} data-testid="ward-morning-sites">
             {activeRollup.sites.map((siteRollup) => (
-              <SiteBlock key={siteRollup.site.code} siteRollup={siteRollup} />
+              <SiteBlock key={siteRollup.site.code} siteRollup={siteRollup} now={activeNow} />
             ))}
           </div>
         </>
@@ -172,6 +185,38 @@ export function MorningBody({
 
       <PrintFooter />
     </>
+  );
+}
+
+/**
+ * C2 fix pass. The `.viewControl` print rule (`morning.module.css`) hides the fixed/live buttons
+ * AND the explainer paragraph together — both are interactive-adjacent chrome with no place on a
+ * printed sheet. But that left a printed sheet with no statement of which view produced it or
+ * when: a sheet printed from the live view was byte-identical to one printed from the frozen
+ * 08:00 handover, exactly the hazard spec D6 names ("the danger is not that someone opens the
+ * live view; it is that someone screenshots it and calls it the morning number").
+ *
+ * Screen-hidden, print-only (`.printViewMeta` in `morning.module.css`): a sibling of
+ * `ViewControl`, so it survives `.viewControl { display: none !important }` untouched. Carries
+ * two facts, in the page's own established language:
+ * 1. Which view, and its instant — the exact fact a printed sheet could not previously state.
+ * 2. A condensed form of `ViewControl`'s own on-screen explainer, so the printed sheet still
+ *    carries the page's one honest caveat about the fixed view (a snapshot at open, not a
+ *    reconstruction of 08:00) rather than losing it entirely along with the buttons.
+ */
+function PrintViewMeta({ view, liveNow }: { view: MorningView; liveNow: Instant }) {
+  return (
+    <div className={styles.printViewMeta} data-testid="ward-morning-print-meta">
+      <p className={styles.printViewLabel} data-testid="ward-morning-print-view-label">
+        {view === "fixed"
+          ? `This sheet: handover view, frozen ${formatInstant(MORNING_HANDOVER_MINUTES)}.`
+          : `This sheet: live view, as at ${formatInstant(liveNow)}.`}
+      </p>
+      <p className={styles.printViewNote} data-testid="ward-morning-print-view-note">
+        The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock — not a
+        reconstruction of what the ward state actually was at 08:00, because this prototype keeps no event history.
+      </p>
+    </div>
   );
 }
 
@@ -199,10 +244,11 @@ export function NoHandoverYet({ onSwitchToLive }: { onSwitchToLive: () => void }
   );
 }
 
-/** The one place this page's roll-up freshness wording lives. `RollupFreshness` has no
- *  `confirmedByRole` (a roll-up spans many wards, not one), so this is a bespoke renderer rather
- *  than a reuse of `WardFreshness` — that component's contract is per-confirmation, this one's is
- *  per-group. `"never"` always reads "Never confirmed", literally, never a `0` (failure branch). */
+/** The one place this page's roll-up COUNT wording lives — "N of M wards confirmed". No
+ *  `WardFreshness` rendering here: `RollupFreshness` has no `confirmedByRole` (a roll-up spans
+ *  many wards, not one), so the count itself stays a bespoke renderer. `"never"` always reads
+ *  "Never confirmed", literally, never a `0` (failure branch). See `FreshnessLine` below for the
+ *  INSTANT this count is paired with (I2 fix pass) — that part does reuse `WardFreshness`. */
 export function rollupFreshnessLabel(freshness: RollupFreshness): string {
   if (freshness.kind === "never") return "Never confirmed";
   const { unitsConfirmed, unitsTotal } = freshness;
@@ -215,7 +261,34 @@ export function FreshnessStamp({ freshness }: { freshness: RollupFreshness }) {
   return <span className={styles.freshness}>{rollupFreshnessLabel(freshness)}</span>;
 }
 
-export function HeadlineFigure({ rollup }: { rollup: CapacityRollup }) {
+/**
+ * I2 fix pass. `oldestConfirmedAt` (`ward-morning-rollup.ts`, mutation-tested) was computed but
+ * rendered nowhere — `FreshnessStamp` alone only ever states a COUNT ("22 of 22 wards
+ * confirmed"), never the actual instant. Spec D4's central rule is that a roll-up's freshness is
+ * its OLDEST contributing confirmation, and spec D6 requires every figure group to carry its own
+ * instant — neither was visible.
+ *
+ * Reuses the existing `WardFreshness` component (`ward-freshness.tsx`) for the instant, rather
+ * than inventing a second freshness vocabulary: its "`confirmedAt` present, `confirmedByRole`
+ * absent → 'Confirmed <time>'" branch (added this pass) is exactly a group-level freshness's
+ * shape — a rollup has an oldest confirming instant but no single confirming role. `now` is
+ * passed through only to satisfy `WardFreshness`'s prop contract; `derived` is never set here, so
+ * it is not read on this path (`WardFreshness`'s own doc comment on that branch order).
+ *
+ * Skips `WardFreshness` entirely when nothing has ever been confirmed (`kind === "never"`):
+ * `FreshnessStamp` already renders "Never confirmed" for that case, and rendering it a second
+ * time from `WardFreshness` alongside it would be a duplicate claim, not a new fact.
+ */
+export function FreshnessLine({ freshness, now }: { freshness: RollupFreshness; now: Instant }) {
+  return (
+    <span className={styles.freshnessLine}>
+      <FreshnessStamp freshness={freshness} />
+      {freshness.kind !== "never" && <WardFreshness confirmedAt={freshness.oldestConfirmedAt} now={now} />}
+    </span>
+  );
+}
+
+export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: Instant }) {
   return (
     <section className={styles.headline} data-testid="ward-morning-headline">
       <h1 className={styles.headlineTitle}>Beds available right now</h1>
@@ -223,7 +296,7 @@ export function HeadlineFigure({ rollup }: { rollup: CapacityRollup }) {
         <span className={styles.headlineValue}>{rollup.availableNow}</span>
         <span className={styles.headlineLabel}>{CAPACITY_FIGURE_LABELS.availableNow}</span>
       </p>
-      <FreshnessStamp freshness={rollup.freshness} />
+      <FreshnessLine freshness={rollup.freshness} now={now} />
     </section>
   );
 }
@@ -254,9 +327,22 @@ export function RemainingFigures({ rollup }: { rollup: CapacityRollup }) {
  * `ward-morning-figure-service-<key>` (headline/remaining figures, not this component),
  * `ward-morning-figure-site-<code>-<key>` and `ward-morning-figure-unit-<unitId>-<key>`.
  */
-export function FigureList({ breakdown, idTestId }: { breakdown: CapacityBreakdown; idTestId: string }) {
+export function FigureList({
+  breakdown,
+  idTestId,
+  printDense,
+}: {
+  breakdown: CapacityBreakdown;
+  idTestId: string;
+  /** C3 fix pass: the site-level grid is the only figure grid that still prints (unit-level is
+   *  hidden entirely — see `.unitList` in the print block). A second, print-only class hook lets
+   *  `@media print` force it onto one row (five fixed columns instead of `auto-fit` wrapping to
+   *  two), without touching `RemainingFigures`' service-level grid, which shares this same base
+   *  class but is not part of this fix. */
+  printDense?: boolean;
+}) {
   return (
-    <dl className={styles.figureGrid}>
+    <dl className={printDense ? `${styles.figureGrid} ${styles.figureGridDense}` : styles.figureGrid}>
       {ALL_FIGURE_KEYS.map((key) => (
         <div key={key} className={styles.figureItem} data-testid={`ward-morning-figure-${idTestId}-${key}`}>
           <dt className={styles.figureLabel}>{CAPACITY_FIGURE_LABELS[key]}</dt>
@@ -357,37 +443,47 @@ function ViewButton({
   );
 }
 
-export function SiteBlock({ siteRollup }: { siteRollup: SiteRollup }) {
+export function SiteBlock({ siteRollup, now }: { siteRollup: SiteRollup; now: Instant }) {
   const { site, rollup, units } = siteRollup;
+  // I4 fix pass ("Zero is a claim", spec D4). A site with no units recorded (JHC, PEEL in the
+  // real fixture) always rolls up to `rollupFreshness([])` — `kind: "never"` — and
+  // `sumBreakdowns([])` — every field zero. Rendering that as a five-figure grid under a real
+  // hospital's name presents "Available now 0 · Confirmed today 0 · ..." as if it were a fact
+  // this page checked, when the true fact is that it has nothing to report at all: the words
+  // below ("No units recorded") already carry that, so the grid is suppressed rather than left to
+  // print five bold zeros a reader would scan first. A site WITH units still renders its grid
+  // even when every figure happens to be zero — that zero is a real count of real (zero) beds,
+  // not this failure mode.
+  const hasUnits = units.length > 0;
   return (
     <section className={styles.siteBlock} data-testid={`ward-morning-site-${site.code}`}>
       <header className={styles.siteHeader}>
         <h2 className={styles.siteName}>{site.name}</h2>
-        <FreshnessStamp freshness={rollup.freshness} />
+        <FreshnessLine freshness={rollup.freshness} now={now} />
       </header>
-      <FigureList breakdown={rollup} idTestId={`site-${site.code}`} />
-      {units.length === 0 ? (
+      {hasUnits && <FigureList breakdown={rollup} idTestId={`site-${site.code}`} printDense />}
+      {hasUnits ? (
+        <ul className={styles.unitList}>
+          {units.map((unitRollup) => (
+            <UnitRow key={unitRollup.unit.id} unitRollup={unitRollup} now={now} />
+          ))}
+        </ul>
+      ) : (
         <p className={styles.emptyNote} data-testid={`ward-morning-site-${site.code}-empty`}>
           No units recorded.
         </p>
-      ) : (
-        <ul className={styles.unitList}>
-          {units.map((unitRollup) => (
-            <UnitRow key={unitRollup.unit.id} unitRollup={unitRollup} />
-          ))}
-        </ul>
       )}
     </section>
   );
 }
 
-export function UnitRow({ unitRollup }: { unitRollup: UnitRollup }) {
+export function UnitRow({ unitRollup, now }: { unitRollup: UnitRollup; now: Instant }) {
   const { unit, breakdown, freshness } = unitRollup;
   return (
     <li className={styles.unitRow} data-testid={`ward-morning-unit-${unit.id}`}>
       <div className={styles.unitHeader}>
         <span className={styles.unitName}>{unit.name}</span>
-        <FreshnessStamp freshness={freshness} />
+        <FreshnessLine freshness={freshness} now={now} />
       </div>
       <FigureList breakdown={breakdown} idTestId={`unit-${unit.id}`} />
     </li>

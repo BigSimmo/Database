@@ -1,3 +1,4 @@
+import { PDFParse } from "pdf-parse";
 import { expect, test, type Page } from "playwright/test";
 
 /**
@@ -161,5 +162,70 @@ test.describe("@mockup Ward morning bed state — fixed/live views and the guide
     await page.waitForLoadState("networkidle");
 
     await expect(page.getByRole("button", { name: "WF-901", exact: true })).toHaveCount(0);
+  });
+});
+
+/**
+ * Phase 6 Task 6 fix pass (C2, C3, I4 — see the task's own blocker list). The print behaviour
+ * this page ships is a genuine RENDERING contract, not something a CSS-source-text check can
+ * verify: `tests/ward-morning-print.test.ts` reads `morning.module.css` as a string, which can
+ * see whether a rule EXISTS but not whether the sheet a browser actually produces states its own
+ * view/instant or fits one page. Both facts below come from a real Chromium print render —
+ * `page.emulateMedia({ media: "print" })` for the label/note visibility, `page.pdf({format:
+ * "A4"})` measured with `pdf-parse` for the page count — the same instruments used to find these
+ * three defects in the first place (see the CSS's own doc comments on each fix for the measured
+ * "before" numbers: 0×0 elements, zero `\d\d:\d\d` matches, and `/Count 5`).
+ */
+test.describe("@mockup Ward morning bed state — print output states its view and fits one page", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("print states which view produced the sheet and its instant, hides the interactive control, and the real PDF is exactly one A4 page", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 1400 });
+    await gotoMorning(page);
+
+    // --- C2: the print-only label names the fixed view's instant while interactive chrome is
+    // still on screen (unaffected by print media yet). ---
+    const printLabel = page.getByTestId("ward-morning-print-view-label");
+    await expect(printLabel).toHaveText("This sheet: handover view, frozen 08:00.");
+
+    // --- C2, continued: switching to live updates the SAME label — proves this is read from the
+    // real `view`/`liveNow` state, not a static string that happens to match the fixed case. ---
+    await page.getByTestId("ward-morning-view-live").click();
+    await expect(printLabel).toHaveText(/^This sheet: live view, as at \d{2}:\d{2}\.$/);
+    // Switch back to the fixed view for the PDF measurement below, matching what a coordinator
+    // would actually pin up (the frozen 08:00 handover sheet, not a live snapshot mid-shift).
+    await page.getByTestId("ward-morning-view-fixed").click();
+    await expect(printLabel).toHaveText("This sheet: handover view, frozen 08:00.");
+
+    // --- C2: under real print media, the interactive fixed/live control is hidden and the
+    // print-only label/note become the visible statement of which view this is — a rendered
+    // visibility fact `emulateMedia` can prove and a CSS-source-text check cannot. ---
+    await page.emulateMedia({ media: "print" });
+    await expect(page.getByTestId("ward-morning-view-fixed")).toBeHidden();
+    await expect(printLabel).toBeVisible();
+    await expect(page.getByTestId("ward-morning-print-view-note")).toContainText(
+      "not a reconstruction of what the ward state actually was at 08:00",
+    );
+
+    // --- I4, rendered: Joondalup and Peel (real no-unit fixture sites) state "Never confirmed"
+    // and "No units recorded" but print no five-zero figure grid, while a real site with units
+    // (Royal Perth) still prints its grid. ---
+    const jhc = page.getByTestId("ward-morning-site-JHC");
+    await expect(jhc.getByTestId("ward-morning-figure-site-JHC-availableNow")).toHaveCount(0);
+    await expect(jhc.getByText("No units recorded")).toBeVisible();
+    const rph = page.getByTestId("ward-morning-site-RPH");
+    await expect(rph.getByTestId("ward-morning-figure-site-RPH-availableNow")).toBeVisible();
+
+    // --- C3: the real PDF Chromium produces for this page is exactly one A4 page. Measured
+    // before this fix pass: `/Count 5`. `page.pdf()` only works against Chromium (this project's
+    // Playwright project), matching the `--project=chromium-mockups` this spec already runs
+    // under. ---
+    const pdfBuffer = await page.pdf({ format: "A4" });
+    const parser = new PDFParse({ data: pdfBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+    expect(parsed.pages.length, "the printed sheet must fit on exactly one A4 page").toBe(1);
   });
 });

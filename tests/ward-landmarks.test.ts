@@ -43,6 +43,7 @@ import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { HandoverPage } from "@/components/ward-management/handover/handover-page";
+import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
@@ -82,7 +83,7 @@ const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
  * `/mockups/ward-flow/constellation` is a `redirect()`-only stub (its own doc comment: "Phase 2
  * retired the constellation command view into the coordinator screen and the network diagram. The
  * route stays as a bookmark/deep-link backstop..."). It renders no landmark, no heading, and no
- * nav of its own — it is not one of the 15 live routes the D5/D7/D8 measurements are about.
+ * nav of its own — it is not one of the 17 live routes the D5/D7/D8 measurements are about.
  * Recorded here, by name, with a reason, rather than silently missing from RENDERABLE_ROUTES: the
  * coverage test below fails loudly if this set and the filesystem scan ever disagree on anything
  * else.
@@ -100,6 +101,13 @@ type RouteRender = { route: string; render: () => ReactNode };
  * same fixture movement as `patientId`). This mapping is checked against the filesystem scan in
  * the coverage test below — a route with no entry here, or an entry with no matching route, fails
  * that test rather than silently under- or over-counting.
+ *
+ * `/mockups/ward-flow/morning` (Phase 6 Task 2/6, `MorningPage`) was landed on this branch
+ * without an entry here — a SIXTH fail-closed registration site this repo's routes have to clear,
+ * beyond the five the phase plan already named (nav link, `sitemap:update`,
+ * `docs/codebase-index.md`, `route-reachability.test.ts`'s allowlist, and this file's own
+ * `RENDERABLE_ROUTES`/`REDIRECT_ONLY_ROUTES` pair). Found by the coverage test below going red
+ * ("route(s) on disk with no test coverage: /mockups/ward-flow/morning"), not by inspection.
  */
 const RENDERABLE_ROUTES: RouteRender[] = [
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
@@ -113,6 +121,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
   { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
   { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
+  { route: `${ROUTE_PREFIX}/morning`, render: () => createElement(MorningPage) },
   { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
   { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
@@ -124,11 +133,12 @@ const RENDERABLE_ROUTES: RouteRender[] = [
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 17 measured on this branch (16 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 18 measured on this branch (17 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
-    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count.
-    expect(wardFlowRoutes.length).toBe(17);
+    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 18, not 17: Phase 6 added
+    // `/mockups/ward-flow/morning` (`MorningPage`) — see RENDERABLE_ROUTES's own doc comment.
+    expect(wardFlowRoutes.length).toBe(18);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -140,8 +150,8 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 16 entries, one per live route", () => {
-    expect(RENDERABLE_ROUTES.length).toBe(16);
+  it("RENDERABLE_ROUTES has exactly 17 entries, one per live route", () => {
+    expect(RENDERABLE_ROUTES.length).toBe(17);
   });
 });
 
