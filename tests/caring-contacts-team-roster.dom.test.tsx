@@ -250,16 +250,35 @@ describe("the escalation states why it happened and what would change it (spec 4
     expect(textOf(unclaimed)).toContain("a coordinator claiming the plan");
   });
 
-  it("says every running plan has a coordinator, and renders no age at all, when nothing is unclaimed", () => {
+  it("says every running plan has a coordinator when nothing is unclaimed", () => {
     renderRoster({ coordinators: [coordinator("ACTOR-AVA", { activePlans: 4 })] });
 
-    const unclaimed = screen.getByTestId("caring-contacts-team-unclaimed");
-    expect(textOf(unclaimed)).toContain("every plan that is running has a coordinator");
+    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).toContain(
+      "every plan that is running has a coordinator",
+    );
+  });
+
+  it("does not call nothing an escalation", () => {
+    renderRoster({ coordinators: [coordinator("ACTOR-AVA", { activePlans: 4 })] });
+
     expect(screen.queryByRole("group", { name: /unclaimed work escalated/i })).toBeNull();
-    // A null age is a different fact from an age of zero and must never be rendered as one. The
-    // positive control sits in the case above, where the same block DOES render this sentence from
-    // a non-null age -- so this is an absence produced by the fixture, not by a missing block.
-    expect(textOf(unclaimed)).not.toContain("since the patient was discharged");
+  });
+
+  it("renders no age in the nothing-unclaimed statement, even from a view that carries one", () => {
+    // THE FIXTURE IS DELIBERATELY ONE THE DOMAIN DOES NOT PRODUCE -- `buildTeamWorkload` reports
+    // `noUnclaimedWork` only with a null age. It is written this way so the absence is about the
+    // BRANCH THIS SCREEN CHOSE rather than about a value that was never there to render: over an
+    // honest fixture, "no age appears" is satisfied by any branch at all, which is the shape of
+    // assertion the standing discipline calls decoration. With an age present in the view, a screen
+    // that reached for it here would print it.
+    renderRoster({
+      coordinators: [coordinator("ACTOR-AVA", { activePlans: 4 })],
+      unclaimed: { ...noUnclaimed(), oldestMinutesSinceDischarge: 145 },
+    });
+
+    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain(
+      "since the patient was discharged",
+    );
   });
 });
 
