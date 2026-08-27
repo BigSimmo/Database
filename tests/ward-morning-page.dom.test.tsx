@@ -118,18 +118,19 @@ describe("MorningPage", () => {
     expect(screen.getByTestId("ward-morning-page")).toBeInTheDocument();
     expect(screen.getByTestId("ward-morning-governance")).toHaveTextContent("not a medical device");
 
-    // `ward-morning-figure-<key>` is deliberately reused at service, site and unit level (each
-    // level carries its own five figures), so scope to one container rather than asserting a
-    // single unscoped match — the headline for `availableNow`, the service-level block for the
-    // other four.
+    // `ward-morning-figure-<level>-<key>` carries an explicit level prefix (service/site/unit) so
+    // the same five keys at three different levels never collide on one `data-testid` — see
+    // `FigureList`'s own doc comment in morning-page.tsx for why that used to be a guaranteed
+    // Playwright strict-mode violation. Still scoped to one container per assertion below, which
+    // is good practice regardless of the prefix.
     const headline = screen.getByTestId("ward-morning-headline");
-    expect(within(headline).getByTestId("ward-morning-figure-availableNow")).toBeInTheDocument();
+    expect(within(headline).getByTestId("ward-morning-figure-service-availableNow")).toBeInTheDocument();
 
     const remaining = screen.getByTestId("ward-morning-remaining-figures");
-    expect(within(remaining).getByTestId("ward-morning-figure-confirmedToday")).toBeInTheDocument();
-    expect(within(remaining).getByTestId("ward-morning-figure-predictedToday")).toBeInTheDocument();
-    expect(within(remaining).getByTestId("ward-morning-figure-held")).toBeInTheDocument();
-    expect(within(remaining).getByTestId("ward-morning-figure-leaveUsable")).toBeInTheDocument();
+    expect(within(remaining).getByTestId("ward-morning-figure-service-confirmedToday")).toBeInTheDocument();
+    expect(within(remaining).getByTestId("ward-morning-figure-service-predictedToday")).toBeInTheDocument();
+    expect(within(remaining).getByTestId("ward-morning-figure-service-held")).toBeInTheDocument();
+    expect(within(remaining).getByTestId("ward-morning-figure-service-leaveUsable")).toBeInTheDocument();
   });
 
   /**
@@ -175,7 +176,7 @@ describe("MorningPage", () => {
     expect(expected.leaveUsable).toBeGreaterThan(0);
 
     const headline = screen.getByTestId("ward-morning-headline");
-    expect(within(headline).getByTestId("ward-morning-figure-availableNow")).toHaveTextContent(
+    expect(within(headline).getByTestId("ward-morning-figure-service-availableNow")).toHaveTextContent(
       String(expected.availableNow),
     );
   });
@@ -419,5 +420,33 @@ describe("MorningPage", () => {
     const link = screen.getByRole("link", { name: "shift handover" });
     expect(link).toHaveAttribute("href", "/mockups/ward-flow/handover");
     expect(link.closest("p")).toHaveTextContent("what do I need to hand over this shift?");
+  });
+
+  /**
+   * Guard for the fix pass (Task 6 follow-up): `FigureList` used to render a bare
+   * `ward-morning-figure-<key>` `data-testid` at both site and unit level, and `HeadlineFigure`/
+   * `RemainingFigures` rendered the same five keys again at service level — 40 elements sharing
+   * one `data-testid` on the real fixture, a guaranteed Playwright strict-mode violation (this
+   * repo already has one intermittent flake of exactly this shape on a different screen; this one
+   * was certain, not intermittent). Every `data-testid` on the rendered page must now be unique,
+   * checked directly against the real fixture rather than against one hand-picked key, so a future
+   * call site cannot reintroduce the collision under a key this test did not happen to name.
+   */
+  it("renders no duplicate data-testid on the page — every figure id carries its service/site/unit level", () => {
+    const { container } = renderMorningPage();
+
+    const seen = new Map<string, number>();
+    for (const el of container.querySelectorAll("[data-testid]")) {
+      const id = el.getAttribute("data-testid")!;
+      seen.set(id, (seen.get(id) ?? 0) + 1);
+    }
+
+    const duplicates = [...seen.entries()].filter(([, count]) => count > 1);
+    expect(duplicates, `duplicate data-testid values found: ${JSON.stringify(duplicates)}`).toEqual([]);
+
+    // Guard the guard: the real fixture must actually exercise multiple sites and units, or an
+    // empty/trivial fixture could pass this test for the wrong reason (nothing to collide).
+    expect(container.querySelectorAll('[data-testid^="ward-morning-site-"]').length).toBeGreaterThan(1);
+    expect(container.querySelectorAll('[data-testid^="ward-morning-unit-"]').length).toBeGreaterThan(1);
   });
 });

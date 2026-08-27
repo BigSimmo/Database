@@ -348,9 +348,22 @@
    * banner as a dark band, not the white sheet the print reset promises everywhere else on this
    * page. Found by actually looking at the print rendering (Phase 6 Task 6), not by a test.
    */
+  /*
+   * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the
+   * root. System colours such as `CanvasText` below resolve against the *inherited*
+   * `color-scheme`, not against the active media type — so under print while the app is in
+   * dark mode, `CanvasText` resolves to white (dark-appearance ink) rather than black,
+   * printing white text on the white sheet the print reset forces. Confirmed by measuring
+   * `getComputedStyle` on `.siteName` under `emulateMedia({ media: "print", colorScheme:
+   * "dark" })`: the CanvasText declaration below was in force, but computed to
+   * `rgb(255, 255, 255)`. Pinning `color-scheme: light` here makes every `CanvasText` /
+   * `Canvas` reference under `.screen` resolve to the light (paper) appearance regardless of
+   * the on-screen theme, which is what a printed sheet needs.
+   */
   .screen {
     grid-template-columns: 1fr;
     background: none;
+    color-scheme: light;
   }
 
   .screen > aside {
@@ -368,6 +381,16 @@
 
   .footer .printButton {
     display: none !important;
+  }
+
+  /*
+   * The global print reset in globals.css (`header, nav, button { display: none !important }`)
+   * would otherwise drop this page's own hospital-name `<header>` — the same trap the
+   * safety-plan generator's patient-copy header hits, and solved the same way: restore it,
+   * scoped to this page only, so no other route's print behaviour changes.
+   */
+  .siteHeader {
+    display: flex !important;
   }
 
   /*

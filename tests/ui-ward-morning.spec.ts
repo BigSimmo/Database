@@ -16,7 +16,7 @@ import { expect, test, type Page } from "playwright/test";
  * timed path uses, deterministically and without a single `page.waitForTimeout()`.
  */
 
-const TOUR_UNIT_TESTID = "ward-morning-unit-scgh-adult-open";
+const TOUR_UNIT_ID = "scgh-adult-open";
 
 async function gotoMorning(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -25,12 +25,13 @@ async function gotoMorning(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-/** The unit-scoped figure locators (`FigureList` renders `ward-morning-figure-<key>` at page,
- *  site AND unit level, so a bare `getByTestId` would match all three — every read of a figure
- *  in this file is scoped through this helper, never a bare page-level lookup, once the unit row
- *  is on screen). */
+/** Figure `data-testid`s carry an explicit level prefix — `ward-morning-figure-service-<key>`,
+ *  `ward-morning-figure-site-<code>-<key>`, `ward-morning-figure-unit-<unitId>-<key>` — so the
+ *  same five keys rendered at service, site AND unit level never collide on one `data-testid`
+ *  (`FigureList`'s own doc comment in morning-page.tsx). Every figure read in this file goes
+ *  through a helper naming its exact level rather than a bare page-level lookup. */
 function unitFigure(page: Page, key: "confirmedToday" | "predictedToday") {
-  return page.getByTestId(TOUR_UNIT_TESTID).getByTestId(`ward-morning-figure-${key}`).locator("dd");
+  return page.getByTestId(`ward-morning-figure-unit-${TOUR_UNIT_ID}-${key}`).locator("dd");
 }
 
 test.describe("@mockup Ward morning bed state — fixed/live views and the guided tour", () => {
@@ -69,7 +70,10 @@ test.describe("@mockup Ward morning bed state — fixed/live views and the guide
     // ones the tour's beat 3 (`CONFIRM_BED_RELEASE`) moves.
     const baselineConfirmed = Number(await unitFigure(page, "confirmedToday").innerText());
     const baselinePredicted = Number(await unitFigure(page, "predictedToday").innerText());
-    expect(baselinePredicted, "fixture assumption: WR-002 seeds scgh-adult-open predictedToday >= 1").toBeGreaterThanOrEqual(1);
+    expect(
+      baselinePredicted,
+      "fixture assumption: WR-002 seeds scgh-adult-open predictedToday >= 1",
+    ).toBeGreaterThanOrEqual(1);
 
     // --- 3. The tour runs to completion and the board visibly changes at beat 4. ---
     // Beat 0 (Start) resets the scenario; beats 1-3 are driven one at a time by the reduced-motion

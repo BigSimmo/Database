@@ -219,7 +219,7 @@ export function HeadlineFigure({ rollup }: { rollup: CapacityRollup }) {
   return (
     <section className={styles.headline} data-testid="ward-morning-headline">
       <h1 className={styles.headlineTitle}>Beds available right now</h1>
-      <p className={styles.headlineNumber} data-testid="ward-morning-figure-availableNow">
+      <p className={styles.headlineNumber} data-testid="ward-morning-figure-service-availableNow">
         <span className={styles.headlineValue}>{rollup.availableNow}</span>
         <span className={styles.headlineLabel}>{CAPACITY_FIGURE_LABELS.availableNow}</span>
       </p>
@@ -232,7 +232,7 @@ export function RemainingFigures({ rollup }: { rollup: CapacityRollup }) {
   return (
     <dl className={styles.figureGrid} data-testid="ward-morning-remaining-figures">
       {REMAINING_FIGURE_KEYS.map((key) => (
-        <div key={key} className={styles.figureItem} data-testid={`ward-morning-figure-${key}`}>
+        <div key={key} className={styles.figureItem} data-testid={`ward-morning-figure-service-${key}`}>
           <dt className={styles.figureLabel}>{CAPACITY_FIGURE_LABELS[key]}</dt>
           <dd className={styles.figureValue}>{rollup[key]}</dd>
         </div>
@@ -241,13 +241,24 @@ export function RemainingFigures({ rollup }: { rollup: CapacityRollup }) {
   );
 }
 
-/** The full five-figure grid — including `availableNow` — used at site and unit level, where
- *  there is no separate big headline number to carry it instead (layout item 6). */
-export function FigureList({ breakdown }: { breakdown: CapacityBreakdown }) {
+/**
+ * The full five-figure grid — including `availableNow` — used at site and unit level, where
+ * there is no separate big headline number to carry it instead (layout item 6).
+ *
+ * `idTestId` disambiguates the per-figure `data-testid`: this component renders once per
+ * hospital (`SiteBlock`) and once per ward (`UnitRow`), and the service-level headline/remaining
+ * figures render the same five keys again — so a bare `ward-morning-figure-<key>` used to be
+ * emitted on up to 40 elements at once (one service-level, one per site, one per unit), a
+ * guaranteed Playwright strict-mode violation rather than the intermittent flake this repo has
+ * already hit once on a different screen. Every level now gets its own prefix:
+ * `ward-morning-figure-service-<key>` (headline/remaining figures, not this component),
+ * `ward-morning-figure-site-<code>-<key>` and `ward-morning-figure-unit-<unitId>-<key>`.
+ */
+export function FigureList({ breakdown, idTestId }: { breakdown: CapacityBreakdown; idTestId: string }) {
   return (
     <dl className={styles.figureGrid}>
       {ALL_FIGURE_KEYS.map((key) => (
-        <div key={key} className={styles.figureItem} data-testid={`ward-morning-figure-${key}`}>
+        <div key={key} className={styles.figureItem} data-testid={`ward-morning-figure-${idTestId}-${key}`}>
           <dt className={styles.figureLabel}>{CAPACITY_FIGURE_LABELS[key]}</dt>
           <dd className={styles.figureValue}>{breakdown[key]}</dd>
         </div>
@@ -354,7 +365,7 @@ export function SiteBlock({ siteRollup }: { siteRollup: SiteRollup }) {
         <h2 className={styles.siteName}>{site.name}</h2>
         <FreshnessStamp freshness={rollup.freshness} />
       </header>
-      <FigureList breakdown={rollup} />
+      <FigureList breakdown={rollup} idTestId={`site-${site.code}`} />
       {units.length === 0 ? (
         <p className={styles.emptyNote} data-testid={`ward-morning-site-${site.code}-empty`}>
           No units recorded.
@@ -378,7 +389,7 @@ export function UnitRow({ unitRollup }: { unitRollup: UnitRollup }) {
         <span className={styles.unitName}>{unit.name}</span>
         <FreshnessStamp freshness={freshness} />
       </div>
-      <FigureList breakdown={breakdown} />
+      <FigureList breakdown={breakdown} idTestId={`unit-${unit.id}`} />
     </li>
   );
 }

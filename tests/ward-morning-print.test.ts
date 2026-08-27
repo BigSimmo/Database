@@ -49,8 +49,68 @@ describe("Ward morning bed state — print background stays ink-on-paper under d
     const bannerRuleEnd = printBlock.indexOf("}", bannerRuleStart);
     expect(bannerRuleStart, "no .governanceBanner rule inside @media print").toBeGreaterThanOrEqual(0);
     const bannerRule = printBlock.slice(bannerRuleStart, bannerRuleEnd);
-    expect(bannerRule, ".governanceBanner must reset its on-screen background for print").toContain(
-      "background: none",
+    expect(bannerRule, ".governanceBanner must reset its on-screen background for print").toContain("background: none");
+  });
+});
+
+/**
+ * Phase 6 Task 6 follow-up (fix pass): printed under `emulateMedia({ media: "print" })`, each
+ * hospital block's own `<header className={styles.siteHeader}>` — carrying the hospital name
+ * (`h2.siteName`) and the site freshness stamp (`FreshnessStamp`, `.freshness`) — measured
+ * `0 × 0`. `globals.css`'s transitional `header, nav, button { display: none !important }`
+ * print reset hides every semantic `<header>` element, and the morning page renders one per
+ * hospital block; nothing in this file restored it, so a printed sheet named no hospital.
+ *
+ * Second half of the same defect: even once `.siteHeader` is redisplayed, `.siteName`'s
+ * `color: CanvasText` (added for the print dark-background fix) does not by itself resolve to
+ * black ink. `color-scheme` is inherited, `.dark` (globals.css) sets `color-scheme: dark` on
+ * the root, and Chromium resolves system colours like `CanvasText` against the *inherited*
+ * `color-scheme` rather than the active media type — so under print while the on-screen theme
+ * is dark, `CanvasText` resolved to `rgb(255, 255, 255)`: white text on the white sheet the
+ * print reset forces. Confirmed live with Playwright (`emulateMedia({ media: "print",
+ * colorScheme: "dark" })`) before and after the fix — see the task's fix report for the
+ * measured values. Pinning `color-scheme: light` on `.screen` inside `@media print` makes every
+ * `CanvasText` reference under it resolve to the light (paper) appearance regardless of the
+ * on-screen theme.
+ */
+describe("Ward morning bed state — the hospital header survives print, in ink, in both colour schemes", () => {
+  it("restores .siteHeader inside @media print", () => {
+    const css = source("src/components/ward-management/morning/morning.module.css");
+
+    const printStart = css.indexOf("@media print {");
+    expect(printStart, "morning.module.css: could not find the @media print block").toBeGreaterThanOrEqual(0);
+    const printBlock = css.slice(printStart);
+
+    const headerRuleStart = printBlock.indexOf(".siteHeader {");
+    expect(
+      headerRuleStart,
+      "no .siteHeader rule inside @media print — the global `header { display: none }` reset will hide every hospital name",
+    ).toBeGreaterThanOrEqual(0);
+    const headerRuleEnd = printBlock.indexOf("}", headerRuleStart);
+    const headerRule = printBlock.slice(headerRuleStart, headerRuleEnd);
+    expect(headerRule, ".siteHeader must not be hidden — it carries the hospital name and freshness stamp").not.toMatch(
+      /display:\s*none/,
     );
+    expect(
+      headerRule,
+      ".siteHeader must force its display back on to beat the global `header { display: none !important }` reset",
+    ).toMatch(/display:\s*\S+\s*!important/);
+  });
+
+  it("pins color-scheme: light on .screen inside @media print, so CanvasText ink is never white-on-white", () => {
+    const css = source("src/components/ward-management/morning/morning.module.css");
+
+    const printStart = css.indexOf("@media print {");
+    expect(printStart, "morning.module.css: could not find the @media print block").toBeGreaterThanOrEqual(0);
+    const printBlock = css.slice(printStart);
+
+    const screenRuleStart = printBlock.indexOf(".screen {");
+    const screenRuleEnd = printBlock.indexOf("}", screenRuleStart);
+    expect(screenRuleStart, "no .screen rule inside @media print").toBeGreaterThanOrEqual(0);
+    const screenRule = printBlock.slice(screenRuleStart, screenRuleEnd);
+    expect(
+      screenRule,
+      ".screen must pin color-scheme: light for print, or CanvasText inherits the app's dark color-scheme and resolves to white ink",
+    ).toContain("color-scheme: light");
   });
 });
