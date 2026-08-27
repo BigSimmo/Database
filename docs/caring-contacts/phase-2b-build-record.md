@@ -3170,8 +3170,8 @@ what is already built**, and there is no work behind Decision 4's threshold half
 **How I got it wrong is the controller failure this record names most often.** I read the trunk on
 2026-08-27, before `cc-demo-seed` merged, and wrote what I saw there as a fact about the system. The ruling
 is dated the day before the merge that made it false, and nothing re-read it afterwards. **The tell is
-again a sentence with no subject** — "no configuration surface exists" was true *of the trunk at that
-hour*, and the scope was dropped on the way into the record.
+again a sentence with no subject** — "no configuration surface exists" was true _of the trunk at that
+hour_, and the scope was dropped on the way into the record.
 
 **Why this mattered more than a typo, which is the reviewer's point and it is right:** the record is the
 handover artefact. An owner reading the original sentence concludes a disclosure control over Aboriginal
@@ -3653,8 +3653,8 @@ Task 10's module typed `NonMutatingOverlayId` and used by `patient-overview` and
 copy inside `overlay-trigger.tsx` typed `string` and used by `template-detail`. **The merge landed neither
 half of the adjudication recorded in merge-checklist §2a.**
 
-That section says, in its own words, that the two *"will not collide as a merge conflict — they will both
-survive, silently"*. **I read that section, resolved the merge, and it happened exactly as written.** A
+That section says, in its own words, that the two _"will not collide as a merge conflict — they will both
+survive, silently"_. **I read that section, resolved the merge, and it happened exactly as written.** A
 warning is not a check. The instance was recorded, the mechanism was recorded, the consequence was
 recorded — and none of that fires at the moment the merge succeeds without a conflict. **What would have
 caught it is an assertion that the name is exported once**, which is what the fix now adds.
@@ -3669,7 +3669,7 @@ deleted. `Tests 827 passed (827)`.
 **It corrected two predictions in my brief, and the corrections are better than the predictions.** I told it
 the repair would redden `caring-contacts-template-detail.dom.test.tsx:481` and would need a change to
 Task 3's pinned contract. Neither held, and the reason is the same in both cases: **those consequences follow
-from the *minimal* repair, and carrying the marker is half of the adjudication.** With the marker carried,
+from the _minimal_ repair, and carrying the marker is half of the adjudication.** With the marker carried,
 `:481` passes unchanged and now asserts the surviving module's marker; and the surviving component renders
 its own button rather than delegating, so Task 3's contract needed no pass-through prop and
 `WorkspaceOverlayTrigger` is byte-for-byte unchanged. **A brief that predicts the cost of the wrong half of a
@@ -3687,8 +3687,8 @@ fix predicts the wrong cost.**
    lands on Task 21: a browser walk will not reach those three through their controls, and must say so
    rather than record them as covered.
 
-**And one that outlives the fix:** `WorkspaceOverlayCommit` still has no member meaning *"this row's decision
-is an exit"*. Staging nothing is an **absence** at the host, indistinguishable from an overlay reached by
+**And one that outlives the fix:** `WorkspaceOverlayCommit` still has no member meaning _"this row's decision
+is an exit"_. Staging nothing is an **absence** at the host, indistinguishable from an overlay reached by
 address except through the row's `mutatesState`. The marker closes that for a test, not for the host. Owner's
 call, as Task 10 first recorded.
 
@@ -3716,8 +3716,8 @@ can reuse a build directory (`PLAYWRIGHT_BUILD_ROOT_ID` + `PLAYWRIGHT_KEEP_BUILD
 build to about one, and rounds 1–3 used it. **Two mutations touching disjoint files — one only `globals.css`,
 one only `sheet.tsx` — returned byte-identical twenty-six-element failure lists.** Two unrelated changes do
 not do that. Re-run on fresh roots, **both are green**. The whole table was then re-run on fresh roots and
-only those verdicts kept; every other row matched, so the corruption looks confined — and *"looks confined"
-is not a basis for keeping the rest*. **Do not use a kept build root for mutation testing.** This is the
+only those verdicts kept; every other row matched, so the corruption looks confined — and _"looks confined"
+is not a basis for keeping the rest_. **Do not use a kept build root for mutation testing.** This is the
 mutation-evidence trap this programme has recorded in three other disguises: a driver that wrote another
 task's ledger, a row that printed RAN and wrote an empty file, and now a build root that manufactures a red.
 
@@ -3725,15 +3725,15 @@ task's ledger, a row that printed RAN and wrote an empty file, and now a build r
 guarantee is carried by **one universal clamp in `globals.css`**, not by the ~164 `motion-reduce:` call
 sites. Removing the clamp's `transition-duration` line reddens, listing twenty-three still-transitioning
 interactive elements on Today; removing a component's `motion-reduce:transition-none` and leaving the clamp
-is **green**. So the clamp is sufficient and the variant is not — and *why* the variant is not sufficient is
+is **green**. So the clamp is sufficient and the variant is not — and _why_ the variant is not sufficient is
 unexplained, since it should set `transition-property: none` on those very elements. **A whole-app question,
 not a Caring Contacts one**, and flagged rather than chased.
 
 **F4 is the mutation rule restated in a new costume.** Two Tailwind arbitrary-value utilities added to make
 an overflow assertion fail both left it green **because neither moved the layout** — worthless as evidence
 either way. An inline `style={{ minWidth: 3000 }}` reddens it at once. A claim built on the first green was
-**withdrawn** in its own commit (`679d5749e`) rather than left standing. *Check first that the mutation
-changes a value some assertion reads* — the rule that keeps being paid for.
+**withdrawn** in its own commit (`679d5749e`) rather than left standing. _Check first that the mutation
+changes a value some assertion reads_ — the rule that keeps being paid for.
 
 **Two follow-ups recorded, neither this task's:** the per-screen blocks still use `documentOverflow` while
 the new blocks use the wider `layoutOverflow`, and only the latter is proved falsifiable (F6); and the
