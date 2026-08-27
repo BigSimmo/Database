@@ -2114,7 +2114,12 @@ describe("the plan actions - no way out of the commit that says nothing", () => 
   });
 
   /** Claims one plan for a role, so `somebody-is-carrying-this-plan` is met and a move is live. */
-  async function claimedBy(store: CaringContactRepository, plan: PlanId, role: "coordinator" | "teamLead", tag: string) {
+  async function claimedBy(
+    store: CaringContactRepository,
+    plan: PlanId,
+    role: "coordinator" | "teamLead",
+    tag: string,
+  ) {
     const claimed = await store.applyAssignment(
       { planId: plan, action: { type: "claim", actorId: actorId(`demo-${role}`) } },
       { actor: demoActorForRole(role), idempotencyKey: idempotencyKey(tag) },
