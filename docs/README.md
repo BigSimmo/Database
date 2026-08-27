@@ -85,6 +85,9 @@ npm run docs:check-links
 - [continuous-integration.md](continuous-integration.md) — workflow concurrency keys, push exemption, and Guard 2 in-flight CI push guard
 - [testing.md](testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
 - [development-speed-playbook.md](development-speed-playbook.md) — going faster without weakening any gate: arbiter, receipts, narrow selection, worktree reuse
+- [ward-flow-clinician-check.md](ward-flow-clinician-check.md) — one-page plain-English check of the four-stage bed model, for a ward clinician
+- [ward-flow-phase-6-7-decisions.md](ward-flow-phase-6-7-decisions.md) — owner decisions settled before Phases 6 and 7 are designed
+- [ward-flow-phase-6-7-kickoff-prompt.md](ward-flow-phase-6-7-kickoff-prompt.md) — paste-in prompt to open the Phase 6 and 7 design conversation
 - [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md) — labelled Safari and cold-launch PWA acceptance matrix
 - [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
