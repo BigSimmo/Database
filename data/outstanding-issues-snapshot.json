@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 13,
+    "pending": 14,
     "resolved": 431
   },
   "queue": [
@@ -840,6 +840,12 @@
       "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
       "action": "done",
       "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
+      "action": "add",
+      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
       "created_at": "2026-08-27"
     },
     {
