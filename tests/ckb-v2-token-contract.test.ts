@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { sourceFrom } from "./helpers/source-contract";
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 /**
  * Invariants of the scoped `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
@@ -331,9 +331,9 @@ describe("ckb-v2 structure", () => {
     // restoring Tailwind's 14px, and do not alias the two files at each other:
     // both layers keep the same literal so the documented source-of-truth
     // order (v2 above the compat `@theme` block) stays intact.
-    const themeStart = globalsStylesheet.indexOf("\n@theme {");
-    expect(themeStart, "@theme block is missing from globals.css").toBeGreaterThan(-1);
-    const theme = declarations(globalsStylesheet.slice(themeStart, globalsStylesheet.indexOf("\n}", themeStart)));
+    const theme = declarations(
+      sourceSegment(globalsStylesheet, "\n@theme {", "\n}", { label: "globals.css `@theme`" }),
+    );
     const v2Sm = structural.get("--text-sm");
     const themeSmMinus = theme.get("--text-sm-minus");
 
