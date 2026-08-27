@@ -84,14 +84,22 @@ export function InformationPageBreadcrumbs({
   crumbs = [],
   current,
   className,
+  /** Default ArrowLeft; pass false for text-only home crumb (e.g. compare pages with mode nav). */
+  homeIcon,
 }: {
   home: { label: string; href: string };
   crumbs?: InformationPageCrumb[];
   current?: string;
   className?: string;
+  homeIcon?: LucideIcon | false;
 }) {
   const items: Crumb[] = [
-    { label: home.label, href: home.href, icon: ArrowLeft, behavior: "history-back" },
+    {
+      label: home.label,
+      href: home.href,
+      icon: homeIcon === false ? undefined : (homeIcon ?? ArrowLeft),
+      behavior: "history-back",
+    },
     ...crumbs,
     ...(current ? [{ label: current }] : []),
   ];
