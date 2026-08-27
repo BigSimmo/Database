@@ -95,7 +95,8 @@ export const metadataPillDensity = {
   comfortable: `${metadataPillBase} min-h-8 px-2.5 text-xs`,
   roomy: `${metadataPillBase} min-h-8 px-3 text-xs`,
   tap: `${metadataPillBase} min-h-tap px-3 text-xs`,
-  interactiveCompact: `${metadataPillBase} min-h-tap px-2.5 text-2xs sm:min-h-9 sm:px-3`,
+  // DS-P2-24: metadata/disclosure only — 48px phone, 40px compact-meta from `sm`. Not a primary CTA.
+  interactiveCompact: `${metadataPillBase} min-h-tap px-2.5 text-2xs sm:min-h-compact-meta sm:px-3`,
 } as const;
 /** Standard metadata density. Use `metadataPillDensity` when a different named density is intentional. */
 export const metadataPill = metadataPillDensity.standard;
@@ -114,8 +115,9 @@ export const tableCard =
   "overflow-hidden rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] shadow-[var(--e1)]";
 export const tableCardHeader =
   "border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-heading)]";
+// DS-P2-24: table micro-actions — compact-meta from `sm`, never `--row-compact` (36px) as tap.
 export const tableMicroActionRow =
-  "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9";
+  "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-compact-meta";
 export const sidebarItem = `flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
 
 export const toneSuccess =

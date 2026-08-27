@@ -17,7 +17,8 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
+import { PageHeader } from "@/components/ui/page-header";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
@@ -35,14 +36,11 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
 
   return (
     <SpecifierPageShell>
-      <header className="grid gap-1.5 border-b border-[color:var(--border)] pb-4 sm:pb-5">
-        <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-          Find the right specifier
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Choose a clinical role, then select a specifier.
-        </p>
-      </header>
+      <PageHeader
+        className="border-b border-[color:var(--border)] pb-4 sm:pb-5"
+        title="Find the right specifier"
+        description="Choose a clinical role, then select a specifier."
+      />
 
       <nav aria-label="Choose a specifier role">
         <ol className="grid gap-2.5 md:grid-cols-3">
@@ -172,16 +170,13 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
                 </p>
               </div>
               <div className="grid gap-2">
-                <Link
-                  href={`/specifiers/${selected.slug}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]"
-                >
+                <Link href={`/specifiers/${selected.slug}`} className={cn(primaryControl)}>
                   Open full guide
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
                 <Link
                   href={`/specifiers/compare?a=${selected.slug}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
                 >
                   <GitCompareArrows className="h-4 w-4" aria-hidden />
                   Compare

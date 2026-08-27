@@ -157,6 +157,8 @@ export function rowToMedicationRecord(row: MedicationRecordRow): MedicationRecor
     class: row.class ?? "",
     subclass: row.subclass ?? "",
     category: row.category ?? "",
+    // Per-record user colour (Postgres medications.accent default). Stored as a
+    // hex swatch for inline styles; not --clinical-accent (app chrome).
     accent: row.accent ?? "#0f766e",
     tag: row.tag ?? "",
     schedule: row.schedule ?? "",

@@ -4,6 +4,7 @@
  * needs is declared here, never borrowed from another module's scope.
  */
 .screen {
+  composes: descendantKill from "../ward-reduced-motion.module.css";
   --of-space-4: 0.25rem;
   --of-space-6: 0.375rem;
   --of-space-8: 0.5rem;
@@ -239,12 +240,6 @@
    */
   .main:has(.actionRow) {
     padding-bottom: var(--of-bar-reserve);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .screen * {
-    transition: none !important;
   }
 }
 

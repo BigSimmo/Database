@@ -151,7 +151,7 @@ export function CompareCatalogPicker({
             <Link
               key={chip.id}
               href={chip.href}
-              className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold"
+              className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold"
             >
               {chip.label}
             </Link>

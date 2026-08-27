@@ -456,7 +456,7 @@ export function ResetButton({ onReset, disabled }: { onReset: () => void; disabl
       onClick={onReset}
       disabled={disabled}
       className={cn(
-        "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+        "inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
         focusRing,
       )}
     >
@@ -512,7 +512,7 @@ export function CopyResultButton({
       onClick={copy}
       disabled={!state.started}
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+        "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
         focusRing,
         className,
       )}
@@ -642,7 +642,7 @@ export function CalculatorItems({
           type="button"
           onClick={() => onAnswersChange(seedCheckboxDefaults(calc, answers))}
           className={cn(
-            "mt-1 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--text)]",
+            "mt-1 inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--text)]",
             focusRing,
           )}
         >

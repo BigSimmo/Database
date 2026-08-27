@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "6b2d6f421ee2b2e33f4ccf4fa1d31581b452d4b4",
-    "committed_at": "2026-08-27T12:18:53+00:00"
+    "sha": "072aba85fedc9a237d9a18ac2b256fb6cc92cd38",
+    "committed_at": "2026-08-27T13:11:23+00:00"
   },
   "routes": {
     "modes": [
@@ -679,38 +679,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/favourites-command-console",
-        "file": "src/app/mockups/favourites-command-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-command-desk",
-        "file": "src/app/mockups/favourites-command-desk/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-library-view",
-        "file": "src/app/mockups/favourites-library-view/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/favourites-phone-perfected",
         "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-review-console",
-        "file": "src/app/mockups/favourites-review-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-board",
-        "file": "src/app/mockups/favourites-set-board/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-navigator",
-        "file": "src/app/mockups/favourites-set-navigator/page.tsx",
         "area": "mockup"
       },
       {
@@ -1397,9 +1367,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 195,
+      "pages": 189,
       "product_pages": 55,
-      "mockup_pages": 140,
+      "mockup_pages": 134,
       "redirects": 17,
       "api": 58
     }
@@ -3894,6 +3864,14 @@
         "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
         "outcome": "FIXED",
         "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "claude/home-page-scroll-stability-cbnak6",
+        "head": "c917e079635ee17c3059205b5356b4c51e6362cf",
+        "scope": "Phone defects from device screenshots: safety-findings sheet scroll lock and flex-clipped card; stopped-answer notice placement plus the never-clearing pending skeleton; phone answer-results bottom padding pb-4 -> pb-10; sidebar Documents entry repointed to /?mode=documents. 11 files, +118/-39.",
+        "outcome": "Merged to main 2026-08-27 as squash 28b1fef (PR #2422). Squash verified by content: git diff c917e079 28b1fef is empty, so nothing was dropped by the auto-merge.",
+        "checks": "CI green on head c917e079 (run 33072264164): Static PR checks, Build + bundle budget, Unit coverage, Safety and config, Caring Contacts, Production UI critical and Production UI 1/2/3 (Chromium journeys), Lighthouse budget, PR required - all success. Local before push: typecheck clean; lint clean at --max-warnings 0; full offline unit suite 10,814 passed with 3 pre-existing failures confirmed identical on a stashed tree. verify:ui and the verify:phone-chrome browser stages NOT run in this container - the lock pins Playwright chromium-1234, the image ships chromium-1194, and the #255 guard forbids substituting; browser proof delegated to CI Production UI. Lighthouse desktop-root LCP read high across four branch runs (961 FAILED, then 925/900/852 passing, vs main 748/705) and is recorded as its own unresolved ledger item rather than treated as cleared."
       },
       {
         "date": "2026-08-27",
@@ -25041,8 +25019,8 @@
       }
     ],
     "counts": {
-      "records": 2644,
-      "refs": 1612
+      "records": 2645,
+      "refs": 1613
     }
   }
 }
