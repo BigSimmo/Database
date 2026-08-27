@@ -40,6 +40,11 @@ describe("DsmComparisonPage", () => {
     expect(screen.getByTestId("dsm-comparison-unified")).toBeInTheDocument();
     expect(screen.getByTestId("dsm-comparison-ask-this")).toBeInTheDocument();
     expect(screen.queryByLabelText("Selected diagnoses")).not.toBeInTheDocument();
+    // Remove lives on CompareSlotStrip clear controls (`Remove ${title}`), not
+    // duplicate diagnosis cards / DsmCompareRemoveLink rows.
+    expect(screen.getByRole("button", { name: `Remove ${mdd.title}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Remove ${bp2.title}` })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: `Remove ${mdd.title} from comparison` })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /Open record/i })).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: /Differential review/i })).toHaveLength(2);
     expect(
