@@ -251,8 +251,16 @@ describe("the /caring-contacts/team page - against the real demo population", ()
     const roster = screen.getByTestId("caring-contacts-team");
     const text = roster.textContent ?? "";
     // And the second half of the control: those plans reached the ROLL-UP, not merely the store.
-    // Nothing in the seed claims a plan, so every one of them is unclaimed, and the screen says so.
-    expect(screen.getByTestId("caring-contacts-team-unclaimed").textContent ?? "").toContain(String(plans.length));
+    // Nothing in the seed claims a plan and the render measures against the wall clock, so every
+    // plan the seed left open is unclaimed and long past the threshold; an empty store would render
+    // "Every plan that is running has a coordinator" here instead.
+    //
+    // NOT a count. The first version of this control asserted the block contained
+    // `String(plans.length)`, and it was wrong twice over: the seed leaves one plan ENDED, which
+    // `buildTeamWorkload` drops before any measure, so the number never matched; and it passed
+    // anyway on the first run, because the wall-clock age in the same block happened to contain the
+    // digit it was looking for. A substring check for a bare digit is not a check for a count.
+    expect(screen.getByRole("group", { name: /unclaimed work escalated/i })).toBeInTheDocument();
 
     for (const record of plans) {
       expect(text, "a plan id reached the roster").not.toContain(record.plan.id);
