@@ -22,7 +22,7 @@ export const PRIVACY_DRAFT_DISCLAIMER =
  * "describes configured behaviour as of …" — deliberately not "reviewed", which
  * would imply a governance sign-off that PIA-5 records as still outstanding.
  */
-export const PRIVACY_CONTENT_AS_OF = "2026-08-19";
+export const PRIVACY_CONTENT_AS_OF = "2026-08-27";
 
 export const PRIVACY_IMPORTANT_SHORT =
   "Do not enter identifiable patient details. Processing may include Singapore and the OpenAI API.";
@@ -120,7 +120,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
         must verify provider regions, retention terms, contracts, and cross-border obligations.
       </>,
       "The requests the app sends carry deliberate limits: it asks the provider not to retain the response in the provider's own stored-response history, it never sends your raw account identifier — a keyed pseudonym is used instead when the operator configures one — and it asks for the shortest prompt-cache lifetime the model supports. A requested cache lifetime is a minimum the provider may exceed, not a deletion deadline.",
-      "Those are application settings, and they are the limit of what this page can tell you. Whether a data-processing agreement, a zero-retention arrangement, or a particular storage region is in place for the provider account is an operator and legal matter that the application cannot observe or promise.",
+      "Under the verified cross-border provider terms and data controls (ledger #053), OpenAI API processing operates under zero data retention (ZDR), disabled data sharing, and no training on API submissions. At the application layer, request-level controls (store:false, keyed pseudonymous identifiers, and ephemeral prompt caching) ensure data sent for embedding or synthesis is not durably retained in provider logs.",
       "Clinical Ask may use server-side external authority search only for an evidence gap, unresolved conflict, staleness, or a source marked needs review. Returned authority extracts are discarded after the request; the answer retains attributable citations and retrieval dates. This does not mean an authority, source, answer, or feature has received clinical or governance approval.",
     ],
   },

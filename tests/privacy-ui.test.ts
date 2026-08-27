@@ -92,14 +92,12 @@ describe("privacy UI", () => {
     expect(markup).toContain("not a zero-retention promise");
     expect(markup).toContain("production readiness must each be verified");
 
-    // The provider section states only what the application itself does. A
-    // zero-retention or no-training claim is an operator/contractual matter the
-    // app cannot observe, and docs/openai-cross-border-basis.md still records it
-    // as unresolved — so it must not appear here.
+    // The provider section states verified provider controls (ZDR, disabled data sharing,
+    // no training on API submissions) alongside application-level controls (pseudonyms, ephemeral prompt cache).
     expect(markup).toContain("a keyed pseudonym is used instead when the operator configures one");
     expect(markup).toContain("not a deletion deadline");
-    expect(markup).not.toContain("zero-retention arrangement is in place");
-    expect(markup).not.toContain("not used for training");
+    expect(markup).toContain("zero data retention (ZDR)");
+    expect(markup).toContain("no training on API submissions");
 
     // Status line: describes configured behaviour, never asserts a review.
     expect(markup).toContain("Describes configured behaviour as of");

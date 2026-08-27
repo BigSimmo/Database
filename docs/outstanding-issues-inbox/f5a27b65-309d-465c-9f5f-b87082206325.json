@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f5a27b65-309d-465c-9f5f-b87082206325",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#TYZK23",
+    "outcome": "Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\\",
+    "baseRowFingerprint": "3883c388851904a73be8f75f9d56365a5f4a8569819bfb6d8a87e3a9f93eba7f"
+  }
+}
