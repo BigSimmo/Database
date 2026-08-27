@@ -16,7 +16,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
 import { findSpecifier, specifierRecords } from "@/lib/specifiers";
 
 const COMPARE_PATH = "/specifiers/compare";
@@ -185,7 +185,7 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
             </Link>
             <Link
               href={`/specifiers/builder?specifier=${left.slug}&specifier=${right.slug}`}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+              className={cn(primaryControl)}
             >
               Build diagnostic wording
               <ArrowRight className="h-4 w-4" aria-hidden />

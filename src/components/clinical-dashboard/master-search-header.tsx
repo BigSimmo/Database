@@ -53,6 +53,8 @@ import {
   chatComposerInput,
   chatComposerShellBase,
   chatSendButton,
+  fieldControlPlain,
+  fieldControlWithIcon,
   floatingControl,
   glassOverlaySurface,
   shellChip,
@@ -1489,7 +1491,10 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className={cn(
+                fieldControlPlain,
+                "min-w-0 text-xs font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+              )}
             />
           </label>
         ))}
@@ -1529,7 +1534,10 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className={cn(
+                fieldControlWithIcon,
+                "font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+              )}
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -1656,7 +1664,10 @@ export function MasterSearchHeader({
                 value={queryMode}
                 onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
                 aria-label="Clinical query mode"
-                className="h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                className={cn(
+                  fieldControlPlain,
+                  "text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                )}
               >
                 {queryModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -1681,7 +1692,10 @@ export function MasterSearchHeader({
                         : [],
                     })
                   }
-                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className={cn(
+                    fieldControlPlain,
+                    "min-w-0 text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                  )}
                 >
                   <option value="">Any status</option>
                   <option value="current">Current</option>
@@ -1703,7 +1717,10 @@ export function MasterSearchHeader({
                       locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
                     })
                   }
-                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className={cn(
+                    fieldControlPlain,
+                    "min-w-0 text-sm font-semibold border-[color:var(--border-lux)] bg-[color:var(--surface-lux)]",
+                  )}
                 >
                   <option value="">Any locality</option>
                   <option value="local">Local only</option>

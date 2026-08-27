@@ -24,7 +24,7 @@ import {
 import { compareRecordsHref, GuidanceSection, RecordFact } from "@/components/clinical-record-panels";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { SpecifierNavHeader } from "@/components/specifiers/specifier-nav-header";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
 import { relatedSpecifiers, type SpecifierRecord } from "@/lib/specifiers";
 
 export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
@@ -150,10 +150,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
             <section id="specifier-wording" className={cn(specifierCard, inPageAnchor, "p-4")}>
               <p className={eyebrowText}>Example wording</p>
               <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{record.wording}</p>
-              <Link
-                href={`/specifiers/builder?specifier=${record.slug}`}
-                className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]"
-              >
+              <Link href={`/specifiers/builder?specifier=${record.slug}`} className={cn(primaryControl, "mt-3 w-full")}>
                 Use in builder
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
