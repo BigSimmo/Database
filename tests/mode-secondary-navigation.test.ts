@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appModeIds, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import { appModeIds, dsmSearchHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
   MODE_NAV_ADOPTED_MODES,
@@ -86,6 +86,14 @@ describe("mode secondary navigation registry", () => {
       expect(modeSecondaryNavigationRegistry[modeId], `${modeId} must register no destinations`).toEqual([]);
       expect(routedModeSecondaryNavigationCount(modeId)).toBe(0);
     }
+  });
+
+  it("routes DSM Search tab to the catalogue search surface", () => {
+    expect(modeSecondaryNavigationRegistry.dsm[0]).toMatchObject({
+      id: "search",
+      label: "Search",
+      href: dsmSearchHref,
+    });
   });
 
   it("suppresses clean landing pages, and still opens the bar after a submitted search", () => {
@@ -260,6 +268,51 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("category=Medicines"),
       }),
     ).toBe("/factsheets/search?category=Medicines");
+
+    // Search is the CURRENT tab on /dsm/search, so its own link must not reset
+    // what you are looking at. `run` is carried with the query because dropping
+    // it flips hasSubmittedModeSearch and re-places the composer.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("q=depression&category=mood&run=1"),
+      }),
+    ).toBe("/dsm/search?q=depression&category=mood&run=1");
+
+    // Search still carries category and support filters from the results URL
+    // even when there is no query — Compare does not read those params.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("category=mood&support=specifiers"),
+      }),
+    ).toBe("/dsm/search?category=mood&support=specifiers");
+
+    // Search restores the last query and re-opens results even when the prior
+    // tab URL did not carry run=1 (e.g. Compare with a carried query).
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "search",
+        href: dsmSearchHref,
+        currentSearchParams: new URLSearchParams("q=depression&ids=major-depressive-disorder"),
+      }),
+    ).toBe("/dsm/search?q=depression&run=1&ids=major-depressive-disorder");
+
+    // Compare reuses URL-backed selection so ticks on search survive ModeNav
+    // handoff without a second client store.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dsm",
+        itemId: "compare",
+        href: "/dsm/compare",
+        currentSearchParams: new URLSearchParams("q=depression&ids=major-depressive-disorder,bipolar"),
+      }),
+    ).toBe("/dsm/compare?q=depression&ids=major-depressive-disorder%2Cbipolar");
 
     // Topics is category browse: it reads neither param, so carrying them there
     // would only put dead query string into a URL people share.
