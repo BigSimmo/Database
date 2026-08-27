@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 5,
+    "pending": 11,
     "resolved": 431
   },
   "queue": [
@@ -825,6 +825,24 @@
   ],
   "pending": [
     {
+      "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
+      "action": "done",
+      "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
+      "action": "done",
+      "summary": "#WP76E6: Clarified automated supervisor queues vs manual intervention triggers in interaction-matrix.md and verified with caring-contacts-overlay-definitions.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
+      "action": "done",
+      "summary": "#PDM6NG: Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
       "action": "add",
       "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
@@ -849,9 +867,27 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
+      "action": "done",
+      "summary": "#1CYR4V: Reconciled and pinned 640-767px overlay-modality breakpoint band across Sheet and OverlayHost with dom and workspace spec tests",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",
+      "action": "done",
+      "summary": "#XEGPCD: Hardened ensureTeam with explicit row-level update lock on conflict (id) do update set id = excluded.id and pinned assertion in tests/caring-contacts-write-serialisation.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
       "action": "add",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
+      "action": "done",
+      "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
       "created_at": "2026-08-27"
     }
   ]
