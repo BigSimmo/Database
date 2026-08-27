@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { ArrowRight, Search } from "lucide-react";
 
+import { pairCompareHref } from "@/components/compare";
+
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -73,6 +75,26 @@ function EmptySearchResults({ query }: { query: string }) {
       >
         Clear search
       </Link>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1">
+        <Link
+          href={pairCompareHref("/specifiers/compare", "with-anxious-distress", "with-mixed-features")}
+          className="text-sm font-bold text-[color:var(--clinical-accent)] hover:underline motion-reduce:transition-none"
+        >
+          Anxious distress vs mixed features
+        </Link>
+        <Link
+          href={pairCompareHref("/specifiers/compare", "with-melancholic-features", "with-atypical-features")}
+          className="text-sm font-bold text-[color:var(--clinical-accent)] hover:underline motion-reduce:transition-none"
+        >
+          Melancholic vs atypical features
+        </Link>
+        <Link
+          href="/specifiers/map"
+          className="text-sm font-bold text-[color:var(--clinical-accent)] hover:underline motion-reduce:transition-none"
+        >
+          Browse the map
+        </Link>
+      </div>
     </div>
   );
 }
