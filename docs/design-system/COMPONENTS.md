@@ -39,21 +39,14 @@ _Remaining from the original eight in this document:_ `DocumentFrame` is built l
 (`src/components/ui/document-frame.tsx`, shell-only in `DocumentViewer`) but is not yet among
 the 55 design-sync registered visual exports — registration and full controls remain follow-up.
 
-`AppliedFilters` (`src/components/ui/applied-filters.tsx`) and `CopyButton`
-(`src/components/ui/copy-button.tsx`) are built, proof-migrated (CatalogueToolbar chip row
-and answer-status copy control), and covered by DOM tests. They are **not** design-sync
-registered — do not count them toward the 55 visual exports, and do not treat them as
-specified-not-built. Registration remains follow-up (the Chip/Button add path is a 55-row
-cascade).
-
 `OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
 local publication contract. The generated snapshot records their current product-import counts;
 registration still proves only a source/API/preview/test reference and does not prove remote
 design-project publication or browser acceptance.
 
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
-`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
-`ScrollAffordance` · `SourceLink` · `Banner` · `CopyField` ·
+`AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
+`ScrollAffordance` · `SourceLink` · `Banner` · `CopyButton`/`CopyField` ·
 state family (`ErrorState`, `OfflineState`, `PermissionDeniedState`, `NotFoundState`,
 `UnavailableState`).
 
@@ -972,7 +965,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 36
+Components with product imports: 39
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -984,7 +977,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              22 |
-| `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -999,8 +992,8 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
