@@ -17,6 +17,7 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { PageHeader } from "@/components/ui/page-header";
 import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
 
 const COMPARE_PATH = "/specifiers/compare";
@@ -72,16 +73,11 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
 
   return (
     <SpecifierPageShell>
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>Side-by-side review</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-          Compare two specifiers
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Compare clinical focus, timing, and wording. The aim is not to choose a label—it is to identify which
-          specifier best fits this episode&apos;s pattern and changes management.
-        </p>
-      </header>
+      <PageHeader
+        className="border-b border-[color:var(--border)] pb-4 sm:pb-5"
+        title="Compare two specifiers"
+        description="Find the deciding clinical difference."
+      />
 
       <CompareIdsChrome
         selectedIds={[left?.slug, right?.slug]}
@@ -227,7 +223,7 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
             </Link>
             <Link
               href={`/specifiers/builder?specifier=${left.slug}&specifier=${right.slug}`}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)]"
             >
               Build diagnostic wording
               <ArrowRight className="h-4 w-4" aria-hidden />
