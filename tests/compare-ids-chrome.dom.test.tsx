@@ -160,7 +160,6 @@ describe("CompareIdsChrome", () => {
         maxCount={4}
         minCount={2}
         phoneLayout="hybrid"
-        actionLabel="Add terms"
         onCommit={() => {}}
         {...chromeProps}
       />,
