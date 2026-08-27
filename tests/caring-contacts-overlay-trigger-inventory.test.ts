@@ -31,6 +31,19 @@
 //  * That an unwired row SHOULD stay unwired. The reason strings say why each is a recorded
 //     exception today; they are the record, not the adjudication.
 //
+// THE SCAN IS TEXTUAL, AND THAT LIMIT IS REAL RATHER THAN THEORETICAL. It reads source as text and
+// cannot tell a control from a comment: writing `overlayId="pause"` inside a comment in a screen
+// would count as a trigger here, and quoting an unwired id in a comment would redden the unwired
+// check. Both were confirmed by mutation rather than assumed. The trade is deliberate — parsing
+// TSX to find a JSX attribute would be a second, heavier thing to keep working — but it means a
+// GREEN here says the strings are in the files, not that a control renders. The rendered proof of
+// each trigger lives in the screen's own DOM suite.
+//
+// A NOTE ON WHAT WAS REMOVED. A separate check asserted that a row wired through a variable carries
+// no literal trigger. Mutating it showed it could not fail on its own: the literal check already
+// records an empty expected set for such a row, so the same edit reddens that one first and for the
+// same reason. It was deleted rather than kept as a check that cannot fail.
+//
 // WHY IT SCANS THE SCREENS AND NOT `overlays/`. A trigger is a control a SCREEN renders. The
 // `overlays/` directory holds the machinery — the frozen table, the two trigger components, the
 // host — and it names ids for its own reasons: `overlay-host.tsx` keys its refusal wording on
@@ -182,10 +195,18 @@ function modulesMentioning(id: string): string[] {
 const FROZEN_IDS = WORKSPACE_OVERLAY_DEFINITIONS.map((definition) => definition.id);
 
 describe("every row of the frozen interaction matrix is accounted for by a trigger or by a recorded reason", () => {
-  it("scans screen modules at all, and excludes the overlay machinery", () => {
-    expect(MODULES).toContain(PLAN_WIZARD);
-    expect(MODULES).toContain(SCHEDULE_SCREEN);
-    expect(MODULES).toContain(TEMPLATE_DETAIL);
+  it("scans every module the inventory names", () => {
+    const named = [
+      ...new Set(
+        Object.values(TRIGGER_INVENTORY).flatMap((record) =>
+          record.kind === "literal" ? [...record.modules] : record.kind === "indirect" ? [record.module] : [],
+        ),
+      ),
+    ].sort();
+    expect(MODULES).toEqual(expect.arrayContaining(named));
+  });
+
+  it("excludes the overlay machinery from the scan", () => {
     expect(MODULES.filter((module) => module.includes("/overlays/"))).toEqual([]);
   });
 
@@ -243,16 +264,6 @@ describe("every row of the frozen interaction matrix is accounted for by a trigg
       }
     }
     expect(problems).toEqual([]);
-  });
-
-  it("keeps an id wired through a variable out of the literal set, so neither record can cover for the other", () => {
-    const bothWays: string[] = [];
-    for (const [id, record] of Object.entries(TRIGGER_INVENTORY)) {
-      if (record.kind !== "indirect") continue;
-      const found = modulesWithLiteralTrigger(id);
-      if (found.length > 0) bothWays.push(`${id}: ${JSON.stringify(found)}`);
-    }
-    expect(bothWays).toEqual([]);
   });
 
   it("finds no mention of an id recorded as unwired in any screen module", () => {
