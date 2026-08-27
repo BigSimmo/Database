@@ -1075,7 +1075,10 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
   return (
     <div
       data-testid="safety-findings-panel"
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+      // shrink-0: this card clips its own overflow, so if a flex parent ever
+      // compresses it the findings past the fold vanish with no way to reach
+      // them. Inert outside a flex container.
+      className="shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
       {sortedFindings.map((finding, index) => (
         <article
