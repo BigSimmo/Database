@@ -143,7 +143,14 @@ describe("the /caring-contacts/team page - reads", () => {
   });
 
   it("never reads a patient record - a roster needs no patient and must not be a route to one", async () => {
-    const { store } = emptyStoreWithSpy();
+    // AGAINST THE SEEDED STORE, not an empty one, and the difference is the whole assertion. The
+    // render's only per-plan work is inside `records.map`, so over an empty store that loop never
+    // runs and "getEpisode was not called" is satisfied by a page that would call it once per plan.
+    // Proved by mutation: a version of the page reading an episode per plan left this case GREEN
+    // while the store was empty.
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "coordinator" } };
+    const { store } = withAccessSpy(await createDemoWorkspaceStore(fixedClock(NOW)));
+    expect((await store.listPlans({ actor: demoActorForRole("coordinator") })).length).toBeGreaterThan(0);
     const getEpisode = vi.spyOn(store, "getEpisode");
     const listPatientNames = vi.spyOn(store, "listPatientNames");
     // THE POSITIVE CONTROL, and on this assertion above all others. Everything below is an absence,
