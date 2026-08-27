@@ -276,7 +276,9 @@
 
   .shell[data-collapsed="true"] .rail {
     width: 5.5rem;
-    height: calc(100dvh - 0.25rem);
+    /* Subtract the full vertical margin (--space-1 top + --space-1 bottom =
+       --space-2) so the border-box height plus margins fits 100dvh exactly. */
+    height: calc(100dvh - var(--space-2));
     /* 2px 7px sat off the 4px space ladder; snap to --space-1 / --space-2. */
     margin: var(--space-1) var(--space-2);
     padding: var(--radius-lg);
