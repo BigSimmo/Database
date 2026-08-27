@@ -118,4 +118,8 @@ export const WARD_NAV_INTENTIONALLY_UNLISTED: ReadonlyMap<string, string> = new 
     "/mockups/ward-flow/constellation",
     "A deliberate 307 redirect to /network, documented in its own route file (constellation/page.tsx) — not a destination.",
   ],
+  [
+    "/mockups/ward-flow/referrals/new",
+    "Phase 7 Task 4 built only the referral intake form and its route; wiring it into the rail/panel/drawer nav is Task 6's explicit job, not this task's.",
+  ],
 ]);

@@ -1,0 +1,240 @@
+/*
+ * Task 4 (Phase 7, "The front door"): the referral intake form. Same self-contained-tokens
+ * convention every other ward-management module documents on its own root class (see
+ * `ward-role-switcher.module.css`, `officer.module.css`, `discharges.module.css`) — every local
+ * custom property this file needs is declared here, never borrowed from another module's scope.
+ *
+ * This screen's audience is a police or ambulance officer standing in someone's living room, or
+ * a community mental health nurse between visits — not someone at a desk. Every field below is a
+ * full-width card in a single vertical stack on a phone, never a dense multi-column grid, and
+ * every tap target is `--spacing-tap` (3rem / `min-h-12`), never the smaller `min-h-11` that
+ * reintroduced a known `ui-smoke` flake elsewhere in this repo. Above `--ri-two-col-breakpoint`
+ * there is room to lay two cards side by side, but the phone layout is the one this form is
+ * designed for and the desktop layout only adapts upward from it.
+ */
+.screen {
+  --ri-space-4: 0.25rem;
+  --ri-space-6: 0.375rem;
+  --ri-space-8: 0.5rem;
+  --ri-space-10: 0.625rem;
+  --ri-space-12: 0.75rem;
+  --ri-space-14: 0.875rem;
+  --ri-space-16: 1rem;
+  --ri-space-20: 1.25rem;
+  --ri-space-24: 1.5rem;
+  --ri-space-48: var(--spacing-tap);
+  --ri-leading-body: 1.4;
+  --ri-leading-prose: 1.5;
+  --ri-two-col-breakpoint: 40rem;
+
+  display: grid;
+  min-height: 100dvh;
+  /* The rail track stays reserved at every supported width, matching every other ward screen. */
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ri-space-20);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--ri-space-16) var(--ri-space-20) var(--ri-space-24);
+}
+
+.governanceBanner {
+  display: flex;
+  min-height: var(--ri-space-48);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ri-space-12);
+  border-bottom: 0.0625rem solid var(--border);
+  background: var(--surface-chrome);
+  padding: var(--ri-space-8) var(--ri-space-12);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ri-leading-body);
+}
+
+.prototypeBadge {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--ri-space-4) var(--ri-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ri-space-4);
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ri-leading-body);
+}
+
+.form {
+  display: grid;
+  gap: var(--ri-space-12);
+}
+
+/* One decision per card. Phone-first: a single full-width column, always — this never becomes
+   a dense grid, even above the two-column breakpoint below (that widens to two CARDS side by
+   side, not two fields sharing one card). */
+.fieldCard {
+  display: grid;
+  gap: var(--ri-space-8);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  margin: 0;
+  padding: var(--ri-space-12) var(--ri-space-14);
+}
+
+.fieldLegend {
+  padding: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+.select {
+  min-height: var(--ri-space-48);
+  width: 100%;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--ri-space-10);
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+
+.select:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+/* A toggle is its own full-width card too — the same tap-target and visual weight as a picker
+   card, never a cramped inline checkbox. */
+.toggleCard {
+  display: flex;
+  min-height: var(--ri-space-48);
+  align-items: center;
+  gap: var(--ri-space-10);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  padding: 0 var(--ri-space-14);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
+.toggleCard input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  accent-color: var(--clinical-accent);
+}
+
+.rejection {
+  margin: 0;
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-bg);
+  padding: var(--ri-space-12) var(--ri-space-14);
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
+.confirmation {
+  margin: 0;
+  border: 0.0625rem solid var(--success-border);
+  border-radius: var(--radius-lg);
+  background: var(--success-bg);
+  padding: var(--ri-space-12) var(--ri-space-14);
+  color: var(--success-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
+.submit {
+  display: inline-flex;
+  min-height: var(--ri-space-48);
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--clinical-accent);
+  padding: 0 var(--ri-space-14);
+  color: var(--clinical-accent-contrast);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+.submit:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+@media (min-width: 40rem) {
+  .form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .rejection,
+  .confirmation,
+  .submit {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen * {
+    transition: none !important;
+  }
+}
+
+/*
+ * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
+ * place — same reserve every sibling screen declares.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}

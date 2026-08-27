@@ -436,7 +436,16 @@ it) from clinical discovery entirely.
   escalation board and unlike the frozen handover, reads the live `useWardFlow()` clock on every
   render. Renders an explicit "No matches" note rather than an empty table when nothing fits. This is
   the page's own single search composer — Ward Flow routes never mount the shared global shell
-  composer, so nothing else on the page competes with it)
+  composer, so nothing else on the page competes with it), `referrals/referral-intake.tsx` (Phase 7
+  Task 4, spec "The front door": the referral intake form — `/mockups/ward-flow/referrals/new`;
+  one form for every source (community, crisis service, police, ambulance, inter-hospital),
+  phone-first with `min-h-12` tap targets; every picker is a `<select>` derived from a runtime
+  list in `ward-model.ts` (`COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES`) or from `wardSites`
+  itself, never a hand-written array; no free-text input anywhere. Dispatches `RECEIVE_REFERRAL`
+  with the fixed `role: "community"`; a reducer refusal surfaces as a visible `Rejection`
+  (`ward-referral-intake-rejection`) rather than being swallowed. Not yet linked from the rail/
+  panel/drawer nav — recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6;
+  the coordinator's match view against these referrals is Task 5)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
@@ -448,7 +457,9 @@ it) from clinical discovery entirely.
   (both sections and their empty states), `tests/ward-patient-search.test.ts` (`searchMovements`,
   including the closed-movement exclusion proven against both a real and a constructed fixture case),
   `tests/ward-patient-search.dom.test.tsx` (the single-composer shape, live results, and the
-  "No matches" empty state)
+  "No matches" empty state), `tests/ward-referral-screens.dom.test.tsx` (Phase 7 Task 4: every
+  picker offers its full runtime list, no free-text input anywhere, the fixed community role, and
+  the rejection surface on a real reducer refusal)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

@@ -47,6 +47,7 @@ import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -108,6 +109,8 @@ type RouteRender = { route: string; render: () => ReactNode };
  * `docs/codebase-index.md`, `route-reachability.test.ts`'s allowlist, and this file's own
  * `RENDERABLE_ROUTES`/`REDIRECT_ONLY_ROUTES` pair). Found by the coverage test below going red
  * ("route(s) on disk with no test coverage: /mockups/ward-flow/morning"), not by inspection.
+ * `/mockups/ward-flow/referrals/new` (Phase 7 Task 4, `ReferralIntakeForm`) added this entry in
+ * the same commit that added the route, precisely to avoid repeating that omission.
  */
 const RENDERABLE_ROUTES: RouteRender[] = [
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
@@ -130,15 +133,17 @@ const RENDERABLE_ROUTES: RouteRender[] = [
     route: `${ROUTE_PREFIX}/patients/[patientId]`,
     render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),
   },
+  { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 18 measured on this branch (17 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 19 measured on this branch (18 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
-    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 18, not 17: Phase 6 added
-    // `/mockups/ward-flow/morning` (`MorningPage`) — see RENDERABLE_ROUTES's own doc comment.
-    expect(wardFlowRoutes.length).toBe(18);
+    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 19, not 18: Phase 7 Task 4
+    // added `/mockups/ward-flow/referrals/new` (`ReferralIntakeForm`) — see RENDERABLE_ROUTES's
+    // own doc comment.
+    expect(wardFlowRoutes.length).toBe(19);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -150,8 +155,8 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 17 entries, one per live route", () => {
-    expect(RENDERABLE_ROUTES.length).toBe(17);
+  it("RENDERABLE_ROUTES has exactly 18 entries, one per live route", () => {
+    expect(RENDERABLE_ROUTES.length).toBe(18);
   });
 });
 
