@@ -100,6 +100,38 @@ export const SENDING_PREFERENCE_OPTIONS: readonly SendingPreferenceOption[] = Ob
     ),
 );
 
+/**
+ * The approved sending window an instant sends in, or null when it sends at no approved time.
+ *
+ * THE INVERSE OF `SEND_HOUR_BY_PREFERENCE`, AND DERIVED FROM IT. Phase 2B Task 12's schedule read
+ * has to group a day's contacts by window, and `PlanRecord` carries no sending preference at all --
+ * only each contact's `sendAt`. So the read has to go back from the instant to the window, and a
+ * lookup written where the grouping happens would be a second copy of the send hours: it would go
+ * on filing contacts under "morning" after the morning hour moved, on the screen that tells a
+ * coordinator what the service is about to send. Published here for the same reason
+ * `SENDING_PREFERENCE_OPTIONS` above is, and it changes nothing about the mapping itself.
+ *
+ * NULL IS A REAL ANSWER, NOT AN ERROR PATH. `moveContactWithinDay` in ./contact-rescheduling
+ * accepts ANY hour and minute inside the approved 09:00-18:00 window, and both stores persist the
+ * result -- so a contact scheduled for 11:30 is an ordinary stored state. Nothing in this domain
+ * says which window a moved contact now belongs to, and inventing a band here (09:00-11:59 is
+ * "morning", say) would be the same second copy the paragraph above rules out, only worse for being
+ * a rule nobody approved. A moved contact is reported as belonging to no window, and the reader
+ * decides what to say about it.
+ *
+ * The minute is part of the match for the same reason: 10:30 is not the approved morning send time,
+ * and answering "morning" for it would file a contact under a time it no longer sends at.
+ */
+export function sendingPreferenceAt(instant: Date): SendingPreference | null {
+  if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) return null;
+  const { hour, minute } = toAwstParts(instant);
+  if (minute !== 0) return null;
+  for (const option of SENDING_PREFERENCE_OPTIONS) {
+    if (SEND_HOUR_BY_PREFERENCE[option.preference] === hour) return option.preference;
+  }
+  return null;
+}
+
 /** Nothing may be scheduled before 09:00 or at/after 18:00 AWST. */
 const EARLIEST_SEND_HOUR = 9;
 const LATEST_SEND_HOUR_EXCLUSIVE = 18;

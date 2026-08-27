@@ -59,6 +59,20 @@ export type AccessedObjectType =
    * own instruction followed: add a member rather than overload an existing one.
    */
   | "patientName"
+  /**
+   * A read of the team's SCHEDULE -- which contacts fall on which AWST days, and what each day's
+   * sending windows hold (Phase 2B Task 12).
+   *
+   * Its own member rather than a reuse of `plan`, on this type's own instruction above. The read is
+   * derived from `listPlans`, so recording it as `plan` would be defensible by provenance and wrong
+   * by meaning: `plan` already names the caseload read that every list screen performs, and the
+   * question a trail must answer is who looked at what, not which store call it went through. The
+   * two are asked about differently -- a caseload read is one clinician opening their patient list,
+   * a schedule read is one clinician looking at a particular set of days -- and with no `objectId`
+   * filter on the trail's query surface, a shared member would make them one undifferentiated
+   * stream.
+   */
+  | "contactSchedule"
   | "notificationPreferences"
   | "trainingRecord"
   | "pathwayVersion"

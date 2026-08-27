@@ -76,6 +76,9 @@ Smaller top-level directories that are easy to miss:
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                    | `src/app/(search-app)/` shared shell group                                                                                                                                         |
 | `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                 | `src/app/caring-contacts/`                                                                                                                                                         |
 | `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search) | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
+| `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                  | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
+| `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                     | `src/app/caring-contacts/plans/new/page.tsx`                                              |
+| `/caring-contacts/schedule` (the team's day: three approved sending windows, contacts at no approved send time, named exceptions; the day travels in `?day=`)                                  | `src/app/caring-contacts/schedule/page.tsx`                                               |
 | `/applications`                                                                                                                                                        | `src/app/applications/route.ts`                                                                                                                                                    |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                           | `src/app/(search-app)/differentials/`                                                                                                                                              |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                         | `src/app/(search-app)/dsm/`                                                                                                                                                        |
@@ -209,10 +212,45 @@ is noindex, visibly marked synthetic, and has a single inbound entry from the To
 Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
-(Today) and `/caring-contacts/patients` (the caseload) are the two built so far. Screens are
-Server Components that read the store through `auditedRead` rather than over HTTP, using the same
-access identity the matching API route records; filtering is carried in the URL and read by the
-Server Component, so a new screen adds no client boundary of its own. Ruling 94: do not restate
+(Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
+(one patient's episode), `/caring-contacts/plans/new` (the activation wizard) and
+`/caring-contacts/schedule` (the team's day) are what is built so far. Every one of them is a page that reads the store through `auditedRead` rather than over
+HTTP, using the same access identity the matching API route records; filtering and, on the patient
+overview, the choice of which plan to open are carried in the URL and read by the Server Component.
+
+The Schedule screen is the one that must not let two different days read the same. `disposition`
+alone cannot separate a quiet day from a stopped one, so the screen states each day from `counts`,
+which partition a day with nothing due into already-sent, held-by-its-own-plan and never-will-be; a
+plan somebody created and never started is surfaced as its own automated state, because a discharged
+patient receiving nothing while the plan record looks complete is an operational failure rather than
+a quiet day. It derives no schedule rule of its own -- the windows, the holds, the exceptions and the
+counts all come from `src/lib/caring-contacts/schedule-view.ts` -- and it is the one workspace screen
+that deliberately does NOT read `listPatientNames`, so that the trail row meaning "somebody read
+patients' names" is not written every time a coordinator glances at a day.
+
+`/caring-contacts/plans/new` is the one screen with a deliberate client boundary (Ruling [109]).
+The page itself is still a Server Component -- it makes the audited reads, decides the actor's
+capability, and fails closed -- and it hands a lazily-imported `PlanWizard` the referral and the
+approved pathway versions, and nothing else. The service state, which carries an incident note,
+stays on the server; `plan-wizard/stages.ts` is where Tasks 8 and 9 flip stages 3 and 4 from
+unbuilt to built, and the wizard's in-progress draft lives in `sessionStorage` alone
+(`plan-wizard/plan-draft.ts`, Ruling [110]).
+
+The patient overview is the only screen permitted to call `getEpisode`, which is the one read that
+releases a patient's name, mobile number, identifiers and cultural identity together. Every other
+screen is built to avoid it: the caseload uses `listPatientNames`, the names-only projection
+(Ruling 91). The overview calls it once, for one plan, and only after Ruling 97's rule has settled
+which plan — the route is keyed by patient, the reads are keyed by plan, and one patient can
+honestly hold two episodes, so the screen presents them and never picks. Ruling 94: do not restate
+
+The Patients caseload carries the workspace's other deliberate client boundary, and it exists for a
+confidentiality rule rather than a browser capability. Its search matches the patient's NAME, and
+while the box was a `method="get"` form that name travelled as `?q=` — into the address bar of a
+possibly-shared ward computer's history and the access log of every proxy in between. Ruling [111]
+forbids exactly that, so the typed text is React state in `patients-directory-client.tsx` and reaches
+no URL in any form. The page around it stays a Server Component and the payload it hands over is
+SMALLER than the HTML it replaced: rows are reduced to the row projection and pre-filtered by plan
+state on the server side.
 that as a count of client components — this paragraph has carried two such counts and both were
 wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
 nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue

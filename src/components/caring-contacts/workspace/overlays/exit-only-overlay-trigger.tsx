@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { overlayDefinition } from "./definitions";
+import { overlayDefinition, type NonMutatingOverlayId } from "./definitions";
 import { WorkspaceOverlayTrigger } from "./overlay-trigger";
 
 /**
@@ -70,8 +70,18 @@ import { WorkspaceOverlayTrigger } from "./overlay-trigger";
  * id rather than inventing a second policy.
  */
 export type ExitOnlyOverlayTriggerProps = {
-  /** An id from the frozen 24-row table whose row carries `mutatesState: false`. */
-  overlayId: string;
+  /**
+   * An id from the frozen 24-row table whose row carries `mutatesState: false`.
+   *
+   * NARROWED AT THE MERGE, and this realises Ruling [130] rather than working around a merge error.
+   * It was `string` while `WorkspaceOverlayTrigger`'s own prop was `string`; Task 14 narrowed that
+   * one to `WorkspaceOverlayId`, so a `string` no longer assigns to it. Taking the non-mutating
+   * subset rather than the whole union is the stronger of the two available repairs: wiring a
+   * mutating row to an exit-only trigger is now a COMPILE error at the call site instead of a
+   * throw at render. `exitOnlyOverlayCommit`'s runtime throw stays anyway -- it guards the
+   * untyped path and it is the only thing that catches a row whose `mutatesState` changes.
+   */
+  overlayId: NonMutatingOverlayId;
   /** The control's visible label, and therefore its accessible name. */
   children: ReactNode;
   className?: string;

@@ -66,6 +66,20 @@ export const CARING_CONTACTS_PLAN_PARAM = "plan" as const;
 export const CARING_CONTACTS_REFERRAL_PARAM = "referral" as const;
 
 /**
+ * Owned by `CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM`; the calendar day the Schedule screen shows.
+ *
+ * Declared here as its own literal rather than imported, for the same reason every parameter above
+ * is: nothing under `src/lib/caring-contacts/` may import a `@/lib` module outside itself, and the
+ * owning constant lives in `caring-contacts-routes.ts`. The shell suite's "recognises every query
+ * parameter the route module declares" case is what holds the two equal, and it is what caught this
+ * one -- the parameter was declared on one branch while this union lived on another, so until the
+ * merge no gate could see both.
+ *
+ * It carries a date and never anything about a patient, so Ruling [111] permits it in an address.
+ */
+export const CARING_CONTACTS_DAY_PARAM = "day" as const;
+
+/**
  * Every parameter any Caring Contacts route may carry, in the order a canonical address writes
  * them. A UNION across routes, deliberately: this set is applied by the overlay writer, which runs
  * on every screen, so a per-route set would strip another route's own parameter and break it.
@@ -79,6 +93,7 @@ export const CARING_CONTACTS_WORKSPACE_RECOGNISED_PARAMS: readonly string[] = Ob
   CARING_CONTACTS_SEARCH_NOT_APPLIED_PARAM,
   CARING_CONTACTS_PLAN_PARAM,
   CARING_CONTACTS_REFERRAL_PARAM,
+  CARING_CONTACTS_DAY_PARAM,
 ]);
 
 /**

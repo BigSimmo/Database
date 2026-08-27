@@ -100,6 +100,32 @@ export function newPlanRoute(referralId: string): string {
   return `${CARING_CONTACTS_ROUTES.newPlan}?${params.toString()}`;
 }
 
+/**
+ * The query parameter the Schedule screen accepts to name WHICH AWST calendar day is open.
+ *
+ * Declared here beside the other two query parameters and for the same reason: the builder below
+ * and the screen's own parser must agree on the name, and a second copy of the string is how they
+ * would stop agreeing.
+ *
+ * A calendar day is identifier-shaped by construction and carries nothing about a patient, which is
+ * what Ruling [111] asks of anything travelling here -- a query string is logged by every proxy
+ * between here and the browser, and "2026-08-31" tells such a log nothing it did not already have
+ * from the path.
+ */
+export const CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM = "day" as const;
+
+/**
+ * The Schedule screen, opened on one AWST calendar day.
+ *
+ * The day is always written into the href rather than left off for "today", so a link a clinician
+ * follows, keeps or reads back later means the same day it meant when it was rendered. The bare
+ * `CARING_CONTACTS_ROUTES.schedule` is the workspace navigation's entry point and resolves to today.
+ */
+export function scheduleDayRoute(calendarDay: string): string {
+  const params = new URLSearchParams({ [CARING_CONTACTS_SCHEDULE_DAY_QUERY_PARAM]: calendarDay });
+  return `${CARING_CONTACTS_ROUTES.schedule}?${params.toString()}`;
+}
+
 export function planRoute(planId: string): string {
   return `${CARING_CONTACTS_BASE}/plans/${encodeURIComponent(planId)}`;
 }
