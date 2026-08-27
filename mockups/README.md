@@ -45,20 +45,16 @@ picked — kept as-is rather than guessed at.
 
 ### Favourites page
 
-| Route                        | Status                                                                                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above.                                                                                     |
-| `favourites-command-console` | **Superseded — recommend removing.** One of six earlier studies this README already records as replaced by `favourites-phone-perfected`. |
-| `favourites-command-desk`    | **Superseded — recommend removing.** Same as above.                                                                                      |
-| `favourites-library-view`    | **Superseded — recommend removing.** Same as above.                                                                                      |
-| `favourites-review-console`  | **Superseded — recommend removing.** Same as above.                                                                                      |
-| `favourites-set-board`       | **Superseded — recommend removing.** Same as above.                                                                                      |
-| `favourites-set-navigator`   | **Superseded — recommend removing.** Same as above.                                                                                      |
+| Route                        | Status                                               |
+| ---------------------------- | ---------------------------------------------------- |
+| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above. |
 
-These six only ever link to each other (three of them share one comparison-tab component,
-`favourites-page-mockups/favourites-library-redesign-page.tsx`; the other three share
-`favourites-page-mockups/favourites-page-mockup-page.tsx`) — nothing else in the app imports
-either file, so removing all six routes together removes that whole folder cleanly.
+Six earlier studies (`favourites-command-console`, `favourites-command-desk`,
+`favourites-library-view`, `favourites-review-console`, `favourites-set-board`,
+`favourites-set-navigator`) were removed on 2026-08-27, along with their shared
+component folder `favourites-page-mockups/` — confirmed superseded by
+`favourites-phone-perfected` and confirmed (by import search) to have no other
+route depending on them before removal.
 
 ### Services filter surface — three sequential rounds, keep together
 
