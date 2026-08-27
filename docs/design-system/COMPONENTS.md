@@ -47,8 +47,9 @@ design-project publication or browser acceptance.
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
 `AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
 `ScrollAffordance` · `SourceLink` · `Banner` · `CopyButton`/`CopyField` ·
-state family (`ErrorState`, `OfflineState`, `PermissionDeniedState`, `NotFoundState`,
-`UnavailableState`).
+state family (`OfflineState`, `PermissionDeniedState`, `NotFoundState`,
+`UnavailableState`). `ErrorState` is built (`src/components/ui/error-state.tsx`) and
+locally registered — it is not outline-only.
 
 `FilterBar` and `DataTable` are retired names, not future component contracts. Use a
 surface-owned filter pattern or the canonical `AccessibleTable`; do not revive either name.

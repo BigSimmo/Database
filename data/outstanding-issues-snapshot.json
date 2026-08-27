@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 6,
+    "pending": 9,
     "resolved": 431
   },
   "queue": [
@@ -825,6 +825,18 @@
   ],
   "pending": [
     {
+      "request_id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
+      "action": "done",
+      "summary": "#4AM8Z0: Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
+      "action": "done",
+      "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
       "action": "add",
       "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
@@ -858,6 +870,12 @@
       "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
       "action": "add",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
+      "action": "done",
+      "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
       "created_at": "2026-08-27"
     }
   ]

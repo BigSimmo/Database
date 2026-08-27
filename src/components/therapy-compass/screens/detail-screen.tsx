@@ -83,7 +83,7 @@ export function DetailScreen() {
           <TherapySourceProvenance therapy={t} />
         </section>
         <InformationPageFooter className="mt-4">
-          Decision support — verify the record and linked source before clinical use.
+          Source-grounded therapy reference — verify the record and linked source before clinical use.
         </InformationPageFooter>
       </InformationPageShell>
     </>
