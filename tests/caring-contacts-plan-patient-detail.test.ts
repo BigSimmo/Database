@@ -26,6 +26,7 @@ import {
   parsePatientIdentifiers,
   personalisationIssues,
 } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
+import { PREFERRED_NAME_MAX_SEPTETS, resolvePatientVisibleMessage } from "@/lib/caring-contacts/message-copy";
 import {
   DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS,
   FICTIONAL_CONTACTS_BY_ROLE,
@@ -33,6 +34,7 @@ import {
 
 const COMPLETE = {
   patientName: "Rowan Example",
+  preferredName: "Rowan",
   patientMobileNumber: DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS[1],
   patientIdentifiers: "",
   culturalIdentity: "",
@@ -45,7 +47,12 @@ describe("stage 3's required values (Rulings [114] and [115])", () => {
       sendingPreference: null,
     });
 
-    expect(issues.map((issue) => issue.field)).toEqual(["patientName", "patientMobileNumber", "sendingPreference"]);
+    expect(issues.map((issue) => issue.field)).toEqual([
+      "patientName",
+      "preferredName",
+      "patientMobileNumber",
+      "sendingPreference",
+    ]);
     for (const issue of issues) {
       // Plain words, in place. A code is for the screen to key on; the message is what a clinician
       // reads, so an empty or code-shaped message would be a defect the field list cannot catch.
@@ -64,7 +71,7 @@ describe("stage 3's required values (Rulings [114] and [115])", () => {
     expect(issues.map((issue) => issue.field)).toEqual(["patientName", "patientMobileNumber"]);
   });
 
-  it("is satisfied by a name, a number and a sending preference, and asks for nothing else", () => {
+  it("is satisfied by the names, a number and a sending preference, and asks for nothing else", () => {
     expect(personalisationIssues({ detail: COMPLETE, sendingPreference: "earlyEvening" })).toEqual([]);
   });
 });
@@ -99,27 +106,110 @@ describe("the shape `createPlanSchema.patientDetail` requires", () => {
   it("answers null while anything required is missing, so a caller cannot post half a patient", () => {
     expect(createPlanPatientDetail({ ...COMPLETE, patientMobileNumber: " " })).toBeNull();
     expect(createPlanPatientDetail({ ...COMPLETE, patientName: "" })).toBeNull();
+    expect(createPlanPatientDetail({ ...COMPLETE, preferredName: "  " })).toBeNull();
   });
 
-  it("trims the two required fields and carries exactly the four keys the schema names", () => {
+  it("trims the required fields and carries exactly the keys the schema names", () => {
     const detail = createPlanPatientDetail({
       patientName: "  Rowan Example  ",
+      preferredName: "  Rowan  ",
       patientMobileNumber: `  ${DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS[0]}  `,
       patientIdentifiers: "SYN-MRN-4471",
       culturalIdentity: "",
     });
 
-    // `createPlanSchema.patientDetail` is `.strict()` with exactly these four keys, so a fifth one
-    // added here would be refused by the API rather than ignored.
+    // `createPlanSchema.patientDetail` is `.strict()` with exactly this key set, so one more added
+    // here would be refused by the API rather than ignored.
     expect(Object.keys(detail ?? {}).sort()).toEqual([
       "culturalIdentity",
       "patientIdentifiers",
       "patientMobileNumber",
       "patientName",
+      "preferredName",
     ]);
+    expect(detail?.preferredName).toBe("Rowan");
     expect(detail?.patientName).toBe("Rowan Example");
     expect(detail?.patientMobileNumber).toBe(DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS[0]);
     expect(detail?.patientIdentifiers).toEqual(["SYN-MRN-4471"]);
+  });
+});
+
+describe("the name the message opens with is ASKED FOR, never split off the stored one", () => {
+  // Owner decision, 2026-08-26, and the half most likely to be "simplified" away later. Splitting
+  // one free-text name fails on a person with one name, a person whose family name is written
+  // first, a typed title, multiple given names, and hyphenated names -- all ordinary in Perth. A
+  // suicide-prevention message that opens with a surname, or with "Mr", is worse than one that uses
+  // no name at all.
+  const TITLED = "Mr John Smith";
+
+  it("never derives a greeting from the stored patient name", () => {
+    // The load-bearing path: what a plan would actually be created with. `preferredName` is what
+    // the clinician typed, and no part of `patientName` reaches it.
+    const detail = createPlanPatientDetail({ ...COMPLETE, patientName: TITLED, preferredName: "Jo" });
+    expect(detail?.preferredName).toBe("Jo");
+    expect(detail?.patientName).toBe(TITLED);
+
+    const message = resolvePatientVisibleMessage(detail?.preferredName ?? null);
+    expect(message).toMatchObject({ ok: true });
+    if (message.ok) {
+      // Positive control FIRST: the name the clinician typed really is in the message, so the two
+      // absences below are a split not happening rather than the message holding no name at all.
+      expect(message.text).toContain("Hi Jo,");
+      expect(message.text).not.toContain("Mr");
+      expect(message.text).not.toContain("Smith");
+    }
+  });
+
+  it("creates no plan at all rather than falling back to the stored name", () => {
+    // The failure this guards against is not a wrong greeting but a CONVENIENT one: a later editor
+    // "helpfully" defaulting the empty preferred name to the first word of `patientName` would
+    // greet this patient as "Mr".
+    expect(createPlanPatientDetail({ ...COMPLETE, patientName: TITLED, preferredName: "" })).toBeNull();
+    expect(resolvePatientVisibleMessage(null)).toEqual({
+      ok: false,
+      issue: { code: "preferred-name-not-recorded" },
+    });
+  });
+});
+
+describe("stage 3 reports the message's own length rule rather than re-deriving it", () => {
+  const at = (length: number) => "x".repeat(length);
+
+  const fieldsFor = (preferredName: string) =>
+    personalisationIssues({ detail: { ...COMPLETE, preferredName }, sendingPreference: "morning" });
+
+  it("accepts the longest name the message can carry and refuses the next character", () => {
+    // Both ends. The cap is `PREFERRED_NAME_MAX_SEPTETS`, which message-copy.ts COMPUTES from the
+    // GSM-7 constants and the message's own length -- so this test moves with the provisional
+    // wording instead of pinning a number that a wording change would silently falsify.
+    expect(fieldsFor(at(PREFERRED_NAME_MAX_SEPTETS))).toEqual([]);
+
+    const refused = fieldsFor(at(PREFERRED_NAME_MAX_SEPTETS + 1));
+    expect(refused.map((issue) => issue.code)).toEqual(["preferred-name-too-long"]);
+    expect(refused[0].field).toBe("preferredName");
+    // Plain words a clinician reads, never the code, and never the septet arithmetic.
+    expect(refused[0].message).not.toContain("septet");
+    expect(refused[0].message).not.toContain(refused[0].code);
+  });
+
+  it("refuses a name a text message cannot carry, names the characters, and asks the person", () => {
+    const refused = fieldsFor("Zoë");
+    expect(refused.map((issue) => issue.code)).toEqual(["preferred-name-not-sendable"]);
+    expect(refused[0].message).toContain("ë");
+
+    // WHO DECIDES, and this assertion is the one with clinical weight rather than technical weight.
+    // The first draft of this message said "Enter the closest spelling an ordinary text message can
+    // send", which instructs the clinician to strip the diacritics from someone's name themselves --
+    // the exact small indignity an ASKED-FOR preferred name exists to prevent. Every refusal on this
+    // field sends them back to the person whose name it is.
+    expect(refused[0].message, "the refusal decides the spelling instead of asking the person").toMatch(
+      /ask them how they would like their name spelled/i,
+    );
+    expect(refused[0].message.toLowerCase()).not.toContain("closest spelling");
+
+    // Positive control on the alphabet: an accented name GSM-7 does carry raises nothing, so this
+    // is the transport limit rather than a blanket refusal of anything unfamiliar.
+    expect(fieldsFor("José")).toEqual([]);
   });
 });
 

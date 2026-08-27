@@ -39,7 +39,10 @@ import {
   applyCaringContactsMigrations,
   createCaringContactsTestPool,
   dropCaringContactsSchema,
+  insertAuditEvent,
+  nextAuditToken,
   poolAsSqlConnectionPool,
+  runInTeamSession,
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
@@ -156,8 +159,11 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
   const PATIENT_MOBILE = "+61 491 570 156";
   const PATIENT_IDENTIFIER = "UR-00219384";
   const CULTURAL_IDENTITY = "Noongar";
+  // Not a substring of `PATIENT_NAME`, deliberately: the preferred name is asked for rather than
+  // split off the stored one, so an absence check on it must be able to fail independently.
+  const PREFERRED_NAME = "Jordy";
 
-  it("stores no row containing the patient's name, mobile number, identifiers or cultural identity", async () => {
+  it("stores no row containing the patient's name, preferred name, mobile number, identifiers or cultural identity", async () => {
     const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
     const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
 
@@ -201,6 +207,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
           patientMobileNumber: PATIENT_MOBILE,
           patientIdentifiers: [PATIENT_IDENTIFIER],
           culturalIdentity: CULTURAL_IDENTITY,
+          preferredName: PREFERRED_NAME,
         },
       },
       context("idem-create"),
@@ -213,6 +220,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     const episode = await store.getEpisode(planId("IDEM-PLAN"), { actor: COORDINATOR });
     expect(episode?.patientName).toBe(PATIENT_NAME);
     expect(episode?.culturalIdentity).toBe(CULTURAL_IDENTITY);
+    expect(episode?.preferredName).toBe(PREFERRED_NAME);
 
     const rows = await pool.query(
       "select fingerprint, result::text as result from caring_contacts.idempotency_records",
@@ -228,6 +236,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
       "491 570 156",
       PATIENT_IDENTIFIER,
       CULTURAL_IDENTITY,
+      PREFERRED_NAME,
     ]) {
       expect(stored).not.toContain(secret);
     }
@@ -250,6 +259,94 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     for (const secret of ["Jordan", "Nguyen", "570 156", "09:12"]) {
       expect(fingerprints).not.toContain(secret);
     }
+  });
+
+  it("reads a null preferred name back as null, never as the cleared empty string", async () => {
+    // FOUND BY MUTATION, AND IT WAS UNPROVEN. Collapsing `null` onto `""` in this projection left
+    // every suite green: no test anywhere builds a plan row without a preferred name, because every
+    // route into this store supplies one. The row that has none is a plan created BEFORE migration
+    // 0007, which the migration deliberately did not backfill -- so it exists in the live database
+    // and nowhere in any fixture.
+    //
+    // The two are different facts. `""` is what `markRetentionCleared` writes, and a screen says so
+    // ("removed when this episode was de-identified"); `null` means no preferred name was ever held.
+    // Collapsing them reports a name retention removed as a name nobody ever gave.
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    const referral = await store.createReferral(
+      { referralId: referralId("NULLNAME-REFERRAL"), patientId: patientId("NULLNAME-PATIENT") },
+      context("nullname-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("NULLNAME-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("nullname-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: planId("NULLNAME-PLAN"),
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("NULLNAME-REFERRAL"),
+        patientId: patientId("NULLNAME-PATIENT"),
+        pathwayVersionId: pathwayVersionId("NULLNAME-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: PATIENT_NAME,
+          patientMobileNumber: PATIENT_MOBILE,
+          patientIdentifiers: [PATIENT_IDENTIFIER],
+          culturalIdentity: null,
+          preferredName: PREFERRED_NAME,
+        },
+      },
+      context("nullname-create"),
+    );
+    expect(created.ok).toBe(true);
+
+    // Positive control: the store really does read a recorded name back, so the null below is this
+    // projection preserving null rather than the read never returning anything.
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBe(
+      PREFERRED_NAME,
+    );
+
+    // The pre-0007 shape, made directly because no route into this store can produce it -- and made
+    // INSIDE AN AUDITED TEAM SESSION, because the schema refuses a bare `update` on this table
+    // outside one (`caring-contacts-audit-required`). A first draft used `pool.query` and failed on
+    // exactly that trigger; the failure looked like the assertion below and was not, which is why
+    // this note is here rather than only the fix.
+    await runInTeamSession(pool, { teamId: COORDINATOR.teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId: COORDINATOR.teamId,
+        actorId: COORDINATOR.id,
+        actorRoles: ["coordinator"],
+        action: "createPlan",
+        objectType: "plan",
+        objectId: "NULLNAME-PLAN",
+        outcome: "allowed",
+        idempotencyKey: "nullname-strip",
+      });
+      await client.query("update caring_contacts.plans set preferred_name = null where id = $1", ["NULLNAME-PLAN"]);
+    });
+
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBeNull();
   });
 });
 

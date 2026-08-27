@@ -98,14 +98,20 @@ export const EPISODE_STATE_MATCHES_PLAN_STATE: SameUnion<PlanState, EpisodeState
 type LacksKey<T, K extends string> = K extends keyof T ? never : true;
 
 /**
- * The four fields that say who the patient is. A CALLER supplies exactly these, which is why
- * `CreatePlanInput.patientDetail` still names this type rather than the wider stored one below.
+ * The fields that say who the patient is and what to call them. A CALLER supplies exactly these,
+ * which is why `CreatePlanInput.patientDetail` still names this type rather than the wider stored
+ * one below.
+ *
+ * `preferredName` joined them on 2026-08-26 and is patient content like the rest of them: it is
+ * released by the one read that releases a name and removed by the one write that removes one. It
+ * is ASKED FOR rather than derived from `patientName` -- see `Episode.preferredName` for why no
+ * part of this domain splits a stored name.
  *
  * Taken from `Episode` so it cannot drift from it.
  */
 export type EpisodePatientDetail = Pick<
   Episode,
-  "patientName" | "patientMobileNumber" | "patientIdentifiers" | "culturalIdentity"
+  "patientName" | "patientMobileNumber" | "patientIdentifiers" | "culturalIdentity" | "preferredName"
 >;
 
 /**
@@ -334,7 +340,15 @@ export function outcomeFor(state: PlanState): PlanOutcome {
  * — name, mobile number, identifiers, cultural identity — and `Episode` types the first two as
  * `string` rather than `string | null`, so an emptied field is the cleared value.
  *
- * `firstContactReason` is the fifth, and it is not on ../retention's list because that list names
+ * `preferredName` is cleared too, and the direction is the whole point (Ruling [105]'s class, not
+ * Ruling [122]'s). It is asked for rather than derived, but what it HOLDS is a patient's own name
+ * and nothing else -- there is no closed enum, no actor, no instant in it. The attestation below is
+ * preserved precisely because it holds no patient content; apply that same test here and it comes
+ * out the other way immediately. It clears to `""` rather than to null, matching `patientName`,
+ * because that keeps a CLEARED preferred name distinguishable from an episode that never held one
+ * (`null`) -- see `Episode.preferredName`.
+ *
+ * `firstContactReason` is the last of them, and it is not on ../retention's list because that list names
  * what identifies a patient and this names a scheduling decision. It is cleared all the same: the
  * VALUE is free text a clinician wrote about this patient (see `StoredPatientDetail`), and an
  * episode reported as de-identified while still holding that prose would be the worst outcome this
@@ -363,6 +377,7 @@ export const CLEARED_PATIENT_DETAIL: StoredPatientDetail = Object.freeze({
   patientMobileNumber: "",
   patientIdentifiers: Object.freeze([]),
   culturalIdentity: null,
+  preferredName: "",
   firstContactReason: null,
 });
 

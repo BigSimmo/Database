@@ -22,6 +22,13 @@
 // TRIMMING IS STRICTER THAN THE SCHEMA, DELIBERATELY. `z.string().min(1)` accepts `" "`. A plan
 // whose patient name is a single space passes the API and identifies nobody, so a blank-after-trim
 // entry is treated as absent here.
+//
+// THE PREFERRED NAME'S RULE IS THE SEALED DOMAIN'S, AND IS ASKED HERE RATHER THAN RE-DERIVED.
+// Whether a name fits the message is a property of the message, so `resolvePatientVisibleMessage`
+// in `@/lib/caring-contacts/message-copy` decides it and this module reports what it decided. A
+// screen that re-implemented the septet arithmetic would be a second copy of a rule that moves
+// whenever the provisional wording does.
+import { resolvePatientVisibleMessage } from "@/lib/caring-contacts/message-copy";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 
 /**
@@ -42,6 +49,15 @@ import type { SendingPreference } from "@/lib/caring-contacts/model";
  */
 export type PlanPatientDetailDraft = {
   patientName: string;
+  /**
+   * What the clinician was told to call this person in messages, AS TYPED.
+   *
+   * It is its own box because it is its own question. `patientName` is one free-text field and
+   * splitting it produces a surname, a title, or half a given name for people who are ordinary in
+   * Perth -- so nothing here parses it, and this is asked of the person actually talking to the
+   * patient (owner decision, 2026-08-26).
+   */
+  preferredName: string;
   patientMobileNumber: string;
   /** As typed, one identifier per line. */
   patientIdentifiers: string;
@@ -50,16 +66,23 @@ export type PlanPatientDetailDraft = {
 
 export const EMPTY_PLAN_PATIENT_DETAIL: PlanPatientDetailDraft = Object.freeze({
   patientName: "",
+  preferredName: "",
   patientMobileNumber: "",
   patientIdentifiers: "",
   culturalIdentity: "",
 });
 
 /** The fields stage 3 can refuse to proceed without. Cultural identity is deliberately not one. */
-export type PersonalisationField = "patientName" | "patientMobileNumber" | "sendingPreference";
+export type PersonalisationField = "patientName" | "preferredName" | "patientMobileNumber" | "sendingPreference";
 
 export type PersonalisationIssue = {
-  code: "patient-name-required" | "patient-mobile-required" | "sending-preference-required";
+  code:
+    | "patient-name-required"
+    | "preferred-name-required"
+    | "preferred-name-too-long"
+    | "preferred-name-not-sendable"
+    | "patient-mobile-required"
+    | "sending-preference-required";
   field: PersonalisationField;
   /** Plain words a clinician reads, rendered beside the field itself. Never a code. */
   message: string;
@@ -84,6 +107,38 @@ export function personalisationIssues(input: {
       field: "patientName",
       message:
         "Enter the name this plan is for. A referral carries no name, so nothing on this screen can fill it in, and a plan cannot be created without one.",
+    });
+  }
+
+  // THE REFUSAL IS THE DOMAIN'S, REPORTED HERE, and each of its three causes gets its own words
+  // because they need three different things done about them. The wording a clinician reads is
+  // written here; the DECISION is `resolvePatientVisibleMessage`'s, so a wording change to the
+  // provisional message moves the cap without this file being touched.
+  //
+  // EVERY ONE OF THE THREE SENDS THE CLINICIAN BACK TO THE PATIENT, AND THE THIRD ONE DID NOT.
+  // Its first draft read "Enter the closest spelling an ordinary text message can send" -- which
+  // handed the decision to the clinician at the exact moment this whole feature exists to keep it
+  // with the person whose name it is. A clinician quietly stripping the diacritics from someone's
+  // name is the small indignity the asked-for field was built to prevent, and a refusal that
+  // instructs them to do it is worse than no refusal at all. The field's own hint says "Ask the
+  // person"; so does every refusal beneath it.
+  const preferredNameResolution = resolvePatientVisibleMessage(input.detail.preferredName);
+  if (!preferredNameResolution.ok) {
+    const issue = preferredNameResolution.issue;
+    issues.push({
+      code:
+        issue.code === "preferred-name-not-recorded"
+          ? "preferred-name-required"
+          : issue.code === "preferred-name-too-long"
+            ? "preferred-name-too-long"
+            : "preferred-name-not-sendable",
+      field: "preferredName",
+      message:
+        issue.code === "preferred-name-not-recorded"
+          ? "Enter what this person asked to be called. It is used in the messages themselves, so it is asked for rather than taken from the name above — a name typed family-name-first, or with a title, would open the message with the wrong word."
+          : issue.code === "preferred-name-too-long"
+            ? "This is too long to fit in the message. Messages are limited to two SMS parts, and what is entered here goes inside one. Use the shorter form the person actually goes by."
+            : `A text message here cannot carry ${issue.unsupportedCharacters.join(" ")}, so this plan's message could not be sent as written. Ask them how they would like their name spelled in a text message, and enter that.`,
     });
   }
 
@@ -119,9 +174,10 @@ export function parsePatientIdentifiers(text: string): string[] {
  * Exactly the object `createPlanSchema.patientDetail` accepts, or null while anything required is
  * missing.
  *
- * `patientDetail` is `.strict()` with four keys, so this returns those four and nothing else: a
- * fifth key would be refused by the API outright rather than ignored, which is the failure mode
- * that makes returning a wider object dangerous rather than merely untidy.
+ * `patientDetail` is `.strict()` with a fixed key set, so this returns exactly that set and nothing
+ * else: an extra key is refused by the API outright rather than ignored, which is the failure mode
+ * that makes returning a wider object dangerous rather than merely untidy. Adding a field is a
+ * SCHEMA change, travelling through the route schema, the stored detail, and both stores together.
  *
  * CULTURAL IDENTITY IS ALWAYS `null` HERE, WHATEVER IS PASSED IN — round 2, finding N-1, and it is
  * the difference between a property of code and a property of state. The field is no longer
@@ -152,13 +208,35 @@ export function createPlanPatientDetail(detail: PlanPatientDetailDraft): {
   patientMobileNumber: string;
   patientIdentifiers: string[];
   culturalIdentity: string | null;
+  preferredName: string | null;
 } | null {
   const patientName = detail.patientName.trim();
   const patientMobileNumber = detail.patientMobileNumber.trim();
+  const preferredName = detail.preferredName.trim();
+  // THE PREFERRED NAME IS REQUIRED HERE, and the check is the DOMAIN'S rather than a blank test.
+  // A plan created through this wizard exists to send messages, the message opens with this name,
+  // and there is no unpersonalised wording -- `resolvePatientVisibleMessage` refuses rather than
+  // inventing one. Creating a plan whose first message could not be built defers that refusal to
+  // the moment it is least useful.
+  //
+  // ASKING THE RESOLVER RATHER THAN REPEATING ITS THREE CONDITIONS is the same argument the
+  // cultural-identity note below makes about two boundaries. `personalisationIssues` stops the
+  // screen advancing; this stops a detail object built by hand -- by a caller that never went near
+  // a form -- from carrying a name the message cannot be built from. Neither subsumes the other,
+  // and a blank test here would let the over-long and unsendable cases through the second one.
+  //
+  // It is asked and never derived from `patientName`, whatever the two happen to look like. A
+  // caller taking a first token off the name above would greet `Mr John Smith` as "Mr", and a person
+  // whose family name is written first by their surname.
+  //
+  // The API takes `min(1).nullable()`, so `null` is a legitimate wire value for a caller that holds
+  // no preferred name. This function never produces one: here, a missing name means no plan.
   if (patientName === "" || patientMobileNumber === "") return null;
+  if (!resolvePatientVisibleMessage(preferredName).ok) return null;
 
   return {
     patientName,
+    preferredName,
     patientMobileNumber,
     patientIdentifiers: parsePatientIdentifiers(detail.patientIdentifiers),
     // ALWAYS null, and never `detail.culturalIdentity`. See the note above: this is the submit

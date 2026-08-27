@@ -17,6 +17,24 @@ const GSM_7_EXTENSION_CHARACTERS = new Set("\f^{}\\[~]|€");
 const GSM_7_SINGLE_SEGMENT_LIMIT = 160;
 const GSM_7_MULTI_SEGMENT_UNIT = 153;
 
+/**
+ * The largest septet count that still fits inside `segments` GSM-7 segments.
+ *
+ * It exists so that a caller sizing something that goes INTO a message — today, the preferred name
+ * `message-copy.ts` substitutes — can derive its own ceiling from this module's thresholds rather
+ * than writing the number down. A literal is correct only for the wording in front of whoever wrote
+ * it; this stays correct when the wording changes, which for a PROVISIONAL message still awaiting
+ * clinical approval is not hypothetical.
+ *
+ * The single-segment case is NOT `153 * 1`. A message that is never split carries 160 septets,
+ * because the concatenation header costing the other 7 exists only once there is more than one
+ * segment. Returning `153 * segments` for every input would understate a one-segment budget — a
+ * quiet answer, wrong in the safe direction, which is the kind that survives review unnoticed.
+ */
+export function maxSeptetsWithin(segments: number): number {
+  return segments <= 1 ? GSM_7_SINGLE_SEGMENT_LIMIT : GSM_7_MULTI_SEGMENT_UNIT * segments;
+}
+
 export type Gsm7Evidence = {
   valid: boolean;
   segments: number;

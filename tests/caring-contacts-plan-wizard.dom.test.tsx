@@ -125,6 +125,7 @@ async function reachPersonalisationStage(user: ReturnType<typeof userEvent.setup
 async function reachReviewStage(user: ReturnType<typeof userEvent.setup>) {
   await reachPersonalisationStage(user);
   await user.type(screen.getByLabelText(/Patient.s name/i), "Rowan Example");
+  await user.type(screen.getByLabelText(/What should we call them in messages/i), "Rowan");
   await user.type(screen.getByLabelText(/Mobile number this plan will use/i), FICTIONAL_PATIENT_MOBILES[1]);
   await user.click(screen.getByRole("radio", { name: /Morning/ }));
   await user.click(screen.getByRole("button", { name: /^Continue to review/ }));
@@ -149,6 +150,7 @@ function reviewReadyDraft(overrides: Record<string, unknown> = {}) {
     pathwayVersionId: NAMED_PATHWAY,
     patientDetail: {
       patientName: "Rowan Example",
+      preferredName: "Rowan",
       patientMobileNumber: FICTIONAL_PATIENT_MOBILES[1],
       patientIdentifiers: "SYN-MRN-4471",
       culturalIdentity: "",
@@ -441,6 +443,7 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
       // a patient's name, mobile number or sending preference, so there is nothing to prefill.
       patientDetail: {
         patientName: "",
+        preferredName: "",
         patientMobileNumber: "",
         patientIdentifiers: "",
         culturalIdentity: "",
@@ -745,6 +748,70 @@ describe("the caring-contacts plan wizard — stage 3, personalisation (Ruling [
   });
 });
 
+describe("stage 3 — the message's name is asked for, never split off the stored one", () => {
+  // Owner decision, 2026-08-26. The design shows this value arriving from the hospital record; it is
+  // typed here instead, and it is its own question rather than a derivation, because splitting one
+  // free-text name greets a one-name person by their only name, a family-name-first entry by its
+  // surname, and `Mr John Smith` as "Mr".
+
+  it("offers its own field, and prefills nothing from the name above", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    const name = within(stage).getByLabelText(/patient.s name/i);
+    const preferred = within(stage).getByLabelText(/what should we call them in messages/i);
+    expect(preferred).toHaveValue("");
+
+    // THE LOAD-BEARING MOMENT: typing a titled, family-name-first name into the field above must
+    // leave this one alone. A prefill would put "Mr" into a suicide-prevention message and a
+    // clinician who trusted the screen would never see it happen.
+    await user.type(name, "Mr John Smith");
+    expect(
+      within(stage).getByLabelText(/what should we call them in messages/i),
+      "the preferred name was derived from the patient's name",
+    ).toHaveValue("");
+  });
+
+  it("blocks Continue until it is answered, and says why in words", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
+    await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
+
+    const preferred = within(stage).getByLabelText(/what should we call them in messages/i);
+    expect(preferred).toHaveAttribute("aria-invalid", "true");
+    const described = (preferred.getAttribute("aria-describedby") ?? "")
+      .split(/\s+/)
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(described).toMatch(/asked for rather than taken from the name above/i);
+    expect(within(stage).getByRole("button", { name: /^Continue to review/ })).toBeDisabled();
+
+    // Positive control: answering it is what releases the stage, so the block above is this field
+    // rather than one of the other three still being empty.
+    await user.type(preferred, "Rowan");
+    expect(within(stage).getByLabelText(/what should we call them in messages/i)).toHaveAttribute(
+      "aria-invalid",
+      "false",
+    );
+    expect(within(stage).getByRole("button", { name: /^Continue to review/ })).toBeEnabled();
+  });
+
+  it("reads it back on the review stage as entered rather than as imported", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachReviewStage(user);
+
+    expect(stage).toHaveTextContent(/Called this in messages/i);
+    expect(stage).toHaveTextContent(/from what the person asked to be called/i);
+    expect(stage).toHaveTextContent(/Never taken from the name above/i);
+  });
+});
+
 describe("stage 3 — the mobile number is required and nothing here connects (Ruling [115])", () => {
   it("states, where the number is entered, that nothing is ever sent to it", async () => {
     const user = userEvent.setup();
@@ -835,6 +902,7 @@ describe("stage 3 — cultural identity is NOT asked for (owner decision, round 
       "stage 3 collects a field it should not, or has lost one it should",
     ).toEqual([
       "caring-contacts-patient-name",
+      "caring-contacts-preferred-name",
       "caring-contacts-patient-mobile",
       "caring-contacts-patient-identifiers",
     ]);
@@ -901,6 +969,7 @@ describe("stage 3 — cultural identity is NOT asked for (owner decision, round 
     const stage = await reachPersonalisationStage(user);
 
     await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/what should we call them in messages/i), "Rowan");
     await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
     await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
 
@@ -962,6 +1031,7 @@ describe("stage 3 — validation before advancing (Ruling [115], round 1 finding
     expect(incomplete).not.toHaveAttribute("aria-disabled");
 
     await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/what should we call them in messages/i), "Rowan");
     await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
     await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
     expect(within(stage).getByRole("button", { name: /^Continue to review/ })).toBeEnabled();

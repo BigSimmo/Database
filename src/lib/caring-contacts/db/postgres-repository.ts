@@ -1114,12 +1114,18 @@ export function createPostgresRepository(
           // store re-deriving it would be a second copy of that rule free to disagree with the
           // in-memory one. The column is deliberately absent from `PLAN_COLUMNS`, so no list read
           // fetches it -- see `getEpisode`, the one read that selects it.
+          //
+          // `preferred_name` is absent from `PLAN_COLUMNS` for the SAME reason: it is a patient's
+          // own name, so fetching it for the team's whole caseload on every list render would put
+          // patient content into a read that deliberately carries none. It is written straight from
+          // the caller's detail rather than derived from anything -- nothing here parses
+          // `patient_name`, and nothing ever should.
           await connection.query(
             `insert into caring_contacts.plans
                (id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
                 discharge_at, completed_at, sending_preference, patient_name, patient_mobile_number,
-                patient_identifiers, first_contact_reason)
-             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, null, $7, $8, $9, $10, $11)`,
+                patient_identifiers, first_contact_reason, preferred_name)
+             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, null, $7, $8, $9, $10, $11, $12)`,
             [
               input.planId,
               actor.teamId,
@@ -1132,6 +1138,7 @@ export function createPostgresRepository(
               input.patientDetail.patientMobileNumber,
               [...input.patientDetail.patientIdentifiers],
               schedule.firstContactReason,
+              input.patientDetail.preferredName,
             ],
           );
 
@@ -2155,10 +2162,17 @@ export function createPostgresRepository(
           // comes from `CLEARED_PATIENT_DETAIL` rather than being spelled out here, so the two
           // stores clear to one shape; the column list beside it is what no type can check, which
           // is why the shared contract suite asserts this reason is gone from BOTH stores.
+          //
+          // `preferred_name` is cleared here too, and the direction is the point: it holds a
+          // patient's own name and nothing else, so it is Ruling [105]'s class rather than Ruling
+          // [122]'s -- the attestation is preserved because it holds no patient content, and this is
+          // nothing but patient content. It clears to `CLEARED_PATIENT_DETAIL.preferredName`, which
+          // is `''` rather than null, so a CLEARED name stays distinguishable from a plan that
+          // predates the column and genuinely holds none.
           await connection.query(
             `update caring_contacts.plans
                 set patient_name = $2, patient_mobile_number = $3, patient_identifiers = $4,
-                    first_contact_reason = $5
+                    first_contact_reason = $5, preferred_name = $6
               where id = $1`,
             [
               input.planId,
@@ -2166,6 +2180,7 @@ export function createPostgresRepository(
               CLEARED_PATIENT_DETAIL.patientMobileNumber,
               [...CLEARED_PATIENT_DETAIL.patientIdentifiers],
               CLEARED_PATIENT_DETAIL.firstContactReason,
+              CLEARED_PATIENT_DETAIL.preferredName,
             ],
           );
           await connection.query("delete from caring_contacts.cultural_identity_reports where plan_id = $1", [
@@ -2300,18 +2315,29 @@ export function createPostgresRepository(
         // screen -- the narrowing `listPatientNames` argues for, applied in the query rather than
         // only in the mapping afterwards. It is inside `runRead`, so it carries the team preamble
         // and row-level security decides whether the row is this actor's to read at all.
-        const reasonRow = await connection.query(
-          "select first_contact_reason from caring_contacts.plans where id = $1",
+        //
+        // `preferred_name` rides the SAME query rather than a third round trip: it is narrowed for
+        // exactly the reason the reason is -- patient content that a list read must never pull --
+        // and the two are wanted at precisely the same moment.
+        const detailRow = await connection.query(
+          "select first_contact_reason, preferred_name from caring_contacts.plans where id = $1",
           [planId],
         );
-        const reasonValue = reasonRow.rows[0]?.first_contact_reason;
+        const reasonValue = detailRow.rows[0]?.first_contact_reason;
         const firstContactReason = isAbsent(reasonValue) ? null : textOf(reasonValue);
+        // NULL IS PRESERVED AS NULL AND NEVER COLLAPSED TO `''`. A plan created before the column
+        // existed holds no preferred name; a cleared plan holds `''`. Mapping the first onto the
+        // second would make an episode that was never personalised indistinguishable from one whose
+        // name a retention clearance removed.
+        const preferredNameValue = detailRow.rows[0]?.preferred_name;
+        const preferredName = isAbsent(preferredNameValue) ? null : textOf(preferredNameValue);
 
         const detail: StoredPatientDetail = {
           patientName: textOf(planRow.patient_name),
           patientMobileNumber: textOf(planRow.patient_mobile_number),
           patientIdentifiers: [...((planRow.patient_identifiers as string[] | null) ?? [])],
           culturalIdentity,
+          preferredName,
           firstContactReason,
         };
         const states = contactRows.map((row) => textOf(row.state) as ContactState);
@@ -2322,6 +2348,7 @@ export function createPostgresRepository(
           patientMobileNumber: detail.patientMobileNumber,
           patientIdentifiers: detail.patientIdentifiers,
           culturalIdentity: detail.culturalIdentity,
+          preferredName: detail.preferredName,
           firstContactReason: detail.firstContactReason,
           planDates: {
             dischargeAt: instantOf(planRow.discharge_at),

@@ -60,6 +60,10 @@ export const DEFAULT_FORBIDDEN_AUDIT_FIELD_NAMES: readonly string[] = Object.fre
   "notes",
   "patientName",
   "name",
+  // The name a patient asked to be called (2026-08-26). Its own entry rather than being covered by
+  // "name" above, because the guard matches a field name exactly -- and this is no less a patient's
+  // own name for being the one they chose.
+  "preferredName",
   "culturalIdentity",
 ]);
 

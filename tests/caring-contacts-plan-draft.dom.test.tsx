@@ -249,6 +249,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
     const draft = emptyPlanDraft(REFERRAL, null);
     expect(draft.patientDetail).toEqual({
       patientName: "",
+      preferredName: "",
       patientMobileNumber: "",
       patientIdentifiers: "",
       culturalIdentity: "",
@@ -265,6 +266,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
       stage: "personalisation",
       patientDetail: {
         patientName: "Rowan Example",
+        preferredName: "Rowan",
         patientMobileNumber: RESERVED_PATIENT_MOBILE,
         patientIdentifiers: ["SYN-MRN-4471", "SYN-URN-90210"].join("\n"),
         culturalIdentity: "Noongar",
@@ -284,6 +286,10 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
 
     const read = readPlanDraft(REFERRAL);
     expect(read?.patientDetail.patientName).toBe("Rowan Example");
+    // The name the messages open with survives too. It is asked for rather than split off the name
+    // above, so losing it across a reload would mean asking the patient again -- or, worse, a
+    // later "helpful" default reaching for the first word of the name above.
+    expect(read?.patientDetail.preferredName).toBe("Rowan");
     expect(read?.patientDetail.patientMobileNumber).toBe(RESERVED_PATIENT_MOBILE);
     expect(read?.patientDetail.patientIdentifiers).toBe(draft.patientDetail.patientIdentifiers);
     expect(read?.sendingPreference).toBe("earlyEvening");
@@ -312,6 +318,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
         pathwayVersionId: "SYN-PATHWAY-001",
         patientDetail: {
           patientName: "Rowan Example",
+          preferredName: "Rowan",
           patientMobileNumber: RESERVED_PATIENT_MOBILE,
           patientIdentifiers: "SYN-MRN-4471",
           culturalIdentity: "Noongar",
@@ -361,6 +368,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
         ...base,
         patientDetail: {
           patientName: "Rowan Example",
+          preferredName: "Rowan",
           patientMobileNumber: RESERVED_PATIENT_MOBILE,
           patientIdentifiers: "",
           culturalIdentity: "",
@@ -369,6 +377,45 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
       }),
     );
     expect(readPlanDraft(REFERRAL), "a draft naming no real sending preference was accepted").toBeNull();
+  });
+
+  it("discards a draft written before the preferred name was asked for, rather than defaulting it", () => {
+    // The module's own rule, applied to the newest field (2026-08-26): half a clinician's answers
+    // with the other half silently defaulted is worse than asking again. Defaulting the preferred
+    // name to `""` would be indistinguishable from a clinician who deliberately left it blank --
+    // and the value decides the word a patient-visible message opens with.
+    //
+    // The cost is real and is accepted rather than glossed: the name and mobile number go with it.
+    const withoutPreferredName = {
+      referralId: REFERRAL,
+      stage: "personalisation",
+      assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+      pathwayVersionId: "SYN-PATHWAY-001",
+      patientDetail: {
+        patientName: "Rowan Example",
+        patientMobileNumber: RESERVED_PATIENT_MOBILE,
+        patientIdentifiers: "",
+        culturalIdentity: "",
+      },
+      sendingPreference: "morning",
+      activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" },
+      submission: null,
+    };
+
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(withoutPreferredName));
+    expect(readPlanDraft(REFERRAL), "a draft from before the preferred name existed was accepted").toBeNull();
+
+    // Positive control on the SAME draft: adding only the missing field makes it readable, so the
+    // refusal above is that one absence rather than anything else being wrong with this fixture.
+    clearPlanDraft();
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        ...withoutPreferredName,
+        patientDetail: { ...withoutPreferredName.patientDetail, preferredName: "Rowan" },
+      }),
+    );
+    expect(readPlanDraft(REFERRAL)?.patientDetail.preferredName).toBe("Rowan");
   });
 });
 
@@ -380,6 +427,7 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
       stage: "review",
       patientDetail: {
         patientName: "Rowan Example",
+        preferredName: "Rowan",
         patientMobileNumber: RESERVED_PATIENT_MOBILE,
         patientIdentifiers: "",
         culturalIdentity: "",
@@ -440,6 +488,7 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
       pathwayVersionId: "SYN-PATHWAY-001",
       patientDetail: {
         patientName: "Rowan Example",
+        preferredName: "Rowan",
         patientMobileNumber: RESERVED_PATIENT_MOBILE,
         patientIdentifiers: "",
         culturalIdentity: "",

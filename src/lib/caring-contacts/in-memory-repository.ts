@@ -585,6 +585,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
               patientMobileNumber: input.patientDetail.patientMobileNumber,
               patientIdentifiers: [...input.patientDetail.patientIdentifiers],
               culturalIdentity: input.patientDetail.culturalIdentity,
+              preferredName: input.patientDetail.preferredName,
               // The reason the SCHEDULE accepted, never `input.firstContactReason` directly: only
               // that module knows whether a reason was required, and it hands back the trimmed
               // string or null accordingly. Reading the input here would store text this domain
@@ -1384,6 +1385,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         patientMobileNumber: stored.patientDetail.patientMobileNumber,
         patientIdentifiers: [...stored.patientDetail.patientIdentifiers],
         culturalIdentity: stored.patientDetail.culturalIdentity,
+        preferredName: stored.patientDetail.preferredName,
         firstContactReason: stored.patientDetail.firstContactReason,
         planDates: {
           dischargeAt: new Date(stored.dischargeAt.getTime()),
