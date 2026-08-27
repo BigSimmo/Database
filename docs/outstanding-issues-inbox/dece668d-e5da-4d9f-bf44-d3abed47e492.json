@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#HX1KSZ",
+    "outcome": "Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
+    "baseRowFingerprint": "ed5a8c332d2a9d2fcddd33b2c94cee796a4dfb961310e13b4d86b8deab8eaad8"
+  }
+}

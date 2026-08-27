@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import formsActSectionCues from "../data/forms-act-section-cues.json";
+import formsPdfManifest from "../data/forms-pdf-manifest.json";
 
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
@@ -156,6 +157,21 @@ describe("psychiatry form records", () => {
   });
 
   it("ships a stored PDF for every downloadable form", () => {
+    const manifestAssets = (formsPdfManifest as { assets: Array<{ code: unknown; passwordProtected: unknown }> })
+      .assets;
+    for (const asset of manifestAssets) {
+      // A malformed manifest entry (missing `code`, or a non-boolean `passwordProtected`)
+      // must fail loudly here rather than silently comparing `undefined === undefined`
+      // below once both sides of the manifest lookup resolve to nothing.
+      expect(typeof asset.code, JSON.stringify(asset)).toBe("string");
+      expect(typeof asset.passwordProtected, JSON.stringify(asset)).toBe("boolean");
+    }
+    const manifestMap = new Map(
+      (manifestAssets as Array<{ code: string; passwordProtected: boolean }>).map((asset) => [
+        asset.code.toUpperCase(),
+        asset.passwordProtected,
+      ]),
+    );
     const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
     for (const details of downloadable) {
       expect(details?.localPdfPath, details?.form).toBeTruthy();
@@ -167,8 +183,33 @@ describe("psychiatry form records", () => {
         details?.localPdfSha256,
       );
       expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
-      expect(details?.officialPdfPasswordProtected, details?.form).toBe(true);
+      expect(details?.officialPdfPasswordProtected, details?.form).toBe(manifestMap.get(details!.form.toUpperCase()));
     }
+
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    expect(formCatalogDetails(form12a!)?.officialPdfPasswordProtected).toBe(false);
+  });
+
+  it("populates Form 12A statutory Authority and Criteria priority facts from readable approved PDF", () => {
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    const details = formCatalogDetails(form12a!);
+    expect(details?.priorityFacts?.clock?.title).toBe("Valid until revoked or resigned");
+    expect(details?.priorityFacts?.clock?.detail).toContain("Revocable at any time");
+    expect(details?.priorityFacts?.authority?.title).toBe("Person understanding effect (any age, incl. child)");
+    expect(details?.priorityFacts?.authority?.detail).toContain("nominee adult 18+");
+    expect(details?.priorityFacts?.authority?.body).toMatch(/s273.*s274.*s275/);
+    expect(details?.priorityFacts?.criteria?.title).toBe("Person understands effect of nomination (s273)");
+    expect(details?.priorityFacts?.criteria?.detail).toMatch(/Max 1 nominee/);
+    expect(details?.priorityFacts?.criteria?.body).toMatch(/s273.*s276.*s263.*s266/);
+    expect(details?.maker).toContain("s273");
+    expect(details?.maker).toContain("s275");
+    expect(details?.threshold).toContain("s273");
+    expect(details?.threshold).toContain("s276");
+    expect(details?.authorises).toMatch(/s266.*s263/);
+    expect(details?.doesNotAuthorise).toContain("consent to or refuse treatment");
+    expect(form12a?.summaryCards?.map((card) => card.id)).toEqual(["clock", "authority", "criteria", "act-sections"]);
   });
 
   it("retains the enriched form payload in database seed rows", () => {

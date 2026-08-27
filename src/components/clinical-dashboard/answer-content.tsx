@@ -513,6 +513,7 @@ export function NaturalLanguageAnswer({
               <button
                 type="button"
                 onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
+                // Compact-meta disclosure (not a primary CTA). Copy below already uses tap.
                 className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"

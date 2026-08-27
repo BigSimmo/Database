@@ -816,6 +816,7 @@ export function validateCodexCloudSetup() {
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
   const agents = read("AGENTS.md");
+  const modularCloudAgents = read("docs/agents/codex-cloud-environment.md");
   const envExample = read(".env.example");
   const gitignore = read(".gitignore");
   const mcp = read(".mcp.json");
@@ -1132,9 +1133,17 @@ export function validateCodexCloudSetup() {
     }
   }
 
-  const cloudHeadingCount = (agents.match(/^## Codex Cloud environment$/gm) ?? []).length;
+  const cloudHeadingCount = (modularCloudAgents.match(/^## Codex Cloud environment$/gm) ?? []).length;
   if (cloudHeadingCount !== 1) {
-    errors.push(`AGENTS.md must contain exactly one Codex Cloud environment section; found ${cloudHeadingCount}.`);
+    errors.push(
+      `docs/agents/codex-cloud-environment.md must contain exactly one Codex Cloud environment section; found ${cloudHeadingCount}.`,
+    );
+  }
+  const rootHeadingCount = (agents.match(/^## Codex Cloud environment$/gm) ?? []).length;
+  if (rootHeadingCount !== 1) {
+    errors.push(
+      `AGENTS.md must contain exactly one Codex Cloud environment pointer section; found ${rootHeadingCount}.`,
+    );
   }
   return errors;
 }

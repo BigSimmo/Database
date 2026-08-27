@@ -1,5 +1,7 @@
 "use client";
 
+/* DS-P0-06: readable mockup body uses --text-muted. Do not copy --text-soft body
+   treatment to production. Kickers, timestamps, and decorative chrome stay --text-soft. */
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -286,7 +288,7 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   // one state where the user most needs to see what survived is the one where
   // the cards leave no room for it. The 72px strip keeps resume reachable and
   // gives the rows back.
-  const showCards = hasLibrary && !narrowed && !compactAlternative && !partial;
+  const showCards = hasLibrary && !narrowed && !compactAlternative && !partial && sort === "set";
   const showStrip = hasLibrary && !narrowed && (compactAlternative || partial);
 
   const visible = useMemo(() => {
@@ -625,7 +627,7 @@ export function FavouritesPhonePerfectedMockupsPage() {
             ))}
           </ol>
 
-          <p className="mt-5 max-w-3xl text-xs font-medium leading-5 text-[color:var(--text-soft)]">
+          <p className="mt-5 max-w-3xl text-xs font-medium leading-5 text-[color:var(--text-muted)]">
             <span className="font-extrabold">How the numbers were taken — </span>
             Chromium at a 390 × 844 viewport against the local dev server, reading
             <code className="font-mono"> getBoundingClientRect()</code> on the live{" "}
@@ -654,7 +656,7 @@ export function FavouritesPhonePerfectedMockupsPage() {
               <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{frame.name}</h2>
             </div>
             <p className="mt-1.5 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{frame.summary}</p>
-            <p className="mt-1.5 text-xs font-medium leading-5 text-[color:var(--text-soft)]">
+            <p className="mt-1.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
               <span className="font-extrabold">Cost — </span>
               {frame.cost}
             </p>

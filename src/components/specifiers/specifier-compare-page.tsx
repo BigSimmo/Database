@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, GitCompareArrows, HelpCircle, Tags } from "lucide-react";
+import { ArrowRight, HelpCircle, Tags, Waypoints } from "lucide-react";
 
 import {
   CompareIdsChrome,
@@ -16,8 +16,9 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
-import { findSpecifier, specifierRecords } from "@/lib/specifiers";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
 
 const COMPARE_PATH = "/specifiers/compare";
 
@@ -48,22 +49,36 @@ const starterChips: CompareStarterChip[] = [
   },
 ];
 
+const starterPairKeys = new Set([
+  "with-anxious-distress__with-mixed-features",
+  "with-atypical-features__with-melancholic-features",
+]);
+
+function focusedDistinctionGuide(left: SpecifierRecord, right: SpecifierRecord) {
+  const pairKey = [left.slug, right.slug].sort().join("__");
+  if (!starterPairKeys.has(pairKey)) return null;
+  return {
+    mostUsefulDistinction: `${left.shortName} centres on ${left.comparison.focus.toLowerCase()}, whereas ${right.shortName} centres on ${right.comparison.focus.toLowerCase()}.`,
+    commonConfusion: `${left.comparison.caution}. ${right.comparison.caution}.`,
+    treatmentDifference: `${left.treatmentLens} ${right.treatmentLens}`,
+  };
+}
+
 export function SpecifierComparePage({ initialLeft, initialRight }: { initialLeft?: string; initialRight?: string }) {
   const router = useRouter();
   const left = initialLeft ? (findSpecifier(initialLeft) ?? null) : null;
   const right = initialRight && initialRight !== left?.slug ? (findSpecifier(initialRight) ?? null) : null;
   const ready = Boolean(left && right);
+  const guide = left && right ? focusedDistinctionGuide(left, right) : null;
 
   return (
     <SpecifierPageShell>
-      <header className="grid gap-1.5 border-b border-[color:var(--border)] pb-4 sm:pb-5">
-        <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-          Compare two specifiers
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Find the deciding clinical difference.
-        </p>
-      </header>
+      <PageHeader
+        className="border-b border-[color:var(--border)] pb-4 sm:pb-5"
+        eyebrow="Side-by-side review"
+        title="Compare two specifiers"
+        description="Find the deciding clinical difference."
+      />
 
       <CompareIdsChrome
         selectedIds={[left?.slug, right?.slug]}
@@ -99,6 +114,30 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
               </div>
             </div>
           </section>
+
+          {guide ? (
+            <section
+              className={cn(specifierCard, "grid overflow-hidden md:grid-cols-3")}
+              aria-label="Focused distinction"
+            >
+              {[
+                ["Most useful distinction", guide.mostUsefulDistinction],
+                ["Common confusion", guide.commonConfusion],
+                ["Treatment difference", guide.treatmentDifference],
+              ].map(([label, body], index) => (
+                <div
+                  key={label}
+                  className={cn(
+                    "p-4 sm:p-5",
+                    index > 0 && "border-t border-[color:var(--border)] md:border-l md:border-t-0",
+                  )}
+                >
+                  <p className={eyebrowText}>{label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{body}</p>
+                </div>
+              ))}
+            </section>
+          ) : null}
 
           <section
             className={cn(specifierCard, "overflow-hidden")}
@@ -165,7 +204,7 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
                   </p>
                   <Link
                     href={`/specifiers/${record.slug}`}
-                    className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline"
+                    className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline motion-reduce:transition-none"
                   >
                     Open full guide
                     <ArrowRight className="h-4 w-4" aria-hidden />
@@ -178,14 +217,14 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
           <div className="flex flex-wrap justify-end gap-2">
             <Link
               href="/specifiers/map"
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
             >
-              <GitCompareArrows className="h-4 w-4" aria-hidden />
+              <Waypoints className="h-4 w-4" aria-hidden />
               Browse the map
             </Link>
             <Link
               href={`/specifiers/builder?specifier=${left.slug}&specifier=${right.slug}`}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+              className={cn(primaryControl)}
             >
               Build diagnostic wording
               <ArrowRight className="h-4 w-4" aria-hidden />

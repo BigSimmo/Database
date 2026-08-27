@@ -318,7 +318,7 @@ function DesktopResultRow({
   return (
     <article
       data-testid="differential-compact-result"
-      className="group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]"
+      className="group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]"
     >
       <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
         {index + 1}

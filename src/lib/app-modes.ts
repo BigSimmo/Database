@@ -77,6 +77,9 @@ export type AppModeDefinition = {
 export const factsheetsSearchHref = "/factsheets/search";
 export const factsheetsTopicsHref = "/factsheets/topics";
 
+/** Canonical destination for the DSM diagnosis catalogue search surface. */
+export const dsmSearchHref = "/dsm/search";
+
 export const appModeDefinitions = [
   {
     id: "answer",
@@ -371,7 +374,7 @@ export const appModeDefinitions = [
   {
     id: "therapy-compass",
     label: "Therapy",
-    description: "Source-grounded therapy decision support",
+    description: "Source-grounded therapy reference",
     href: "/therapy-compass",
     // Therapy ships in production with its review state disclosed rather than
     // hidden. It was previously `devOnly`, which 404'd the route and every

@@ -4,7 +4,7 @@ import { compareSnapshots } from "../scripts/check-outstanding-issues-snapshot.m
 const BASE = {
   version: "outstanding-issues-snapshot-v1",
   ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" },
-  counts: { open: 2, p1: 1 },
+  counts: { open: 2, p1: 1, pending: 1 } as Record<string, number>,
   queue: [{ order: 1, ids: ["#1"] }],
   open: [{ id: "#1" }, { id: "#2" }],
   pending: [{ request_id: "r1", action: "add", summary: "s" }],
@@ -37,14 +37,17 @@ describe("compareSnapshots", () => {
     expect(compareSnapshots(differentSha, BASE)).toEqual([]);
   });
 
-  it("still detects drift in queue and pending, not just open", () => {
+  it("still detects drift in queue, not just open", () => {
     const queueDrift = structuredClone(BASE);
     queueDrift.queue = [{ order: 1, ids: ["#999"] }];
     expect(compareSnapshots(queueDrift, BASE).join(" ")).toMatch(/queue/);
+  });
 
+  it("ignores pending inbox drift and counts.pending drift to isolate feature branch conflicts", () => {
     const pendingDrift = structuredClone(BASE);
     pendingDrift.pending = [];
-    expect(compareSnapshots(pendingDrift, BASE).join(" ")).toMatch(/pending/);
+    pendingDrift.counts = { ...pendingDrift.counts, pending: 99 };
+    expect(compareSnapshots(pendingDrift, BASE)).toEqual([]);
   });
 
   it("notices a key the generator no longer emits", () => {

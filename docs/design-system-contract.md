@@ -25,16 +25,16 @@ npm run check:icon-scale
 - **Tokens Only**: Raw CSS hex codes (e.g. `#007a78`, `#ffffff`), RGB/RGBA, HSL, and un-tokenized Tailwind color classes (e.g. `bg-white`, `text-slate-900`, `border-red-200`) are prohibited in components.
 - **Variable Syntax**: All colors must use CSS custom properties defined in `src/app/globals.css` with semantic purpose:
   - **Brand & Clinical Accent**: `var(--clinical-accent)`, `var(--clinical-accent-hover)`, `var(--clinical-accent-soft)`, `var(--clinical-accent-border)`
-  - **Surfaces & Borders**: `var(--surface)`, `var(--surface-subtle)`, `var(--surface-wash)`, `var(--surface-lux)`, `var(--border)`, `var(--border-subtle)`
-  - **Text Roles**: `var(--text)`, `var(--text-muted)`, `var(--text-heading)`, `var(--text-soft)`
+  - **Surfaces & Borders**: `var(--surface)`, `var(--surface-subtle)`, `var(--surface-wash)`, `var(--surface-lux)`, `var(--border)`, `var(--border-strong)`, `var(--border-lux)`
+  - **Text Roles**: `var(--text)`, `var(--text-muted)`, `var(--text-heading)`. `--text-soft` is decoration (`--decoration-soft`), not a text role.
   - **Status & Safety Triads**: `--success-*`, `--warning-*`, `--danger-*`, `--info-*` (reserved exclusively for clinical/system status).
   - **Focus Ring & Outlines**: `var(--focus)` for all keyboard and visible focus rings.
-- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper).
+- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper). Medication record accent defaults (`#0f766e` in `src/lib/medications.ts` and `src/lib/medication-records.ts`) are a **scoped** exemption for the Postgres `accent` column default only — not a whole-file blank cheque, and not a mapping onto `--clinical-accent`.
 
 ### 2.2 Typography Scale
 
 - **Named Steps Only**: Font sizes must use the registered type steps in `@theme`:
-  - `text-3xs` (10px - absolute floor), `text-2xs` (11px), `text-xs` (12px), `text-sm-minus` (13px), `text-sm` (14px), `text-base-minus` (15px), `text-base` (16px), `text-lg-minus` (17px), `text-lg` (18px), `text-xl` (20px), `text-2xl-minus` (22px), `text-2xl` (24px).
+  - `text-3xs` (10px - absolute floor), `text-2xs` (11px), `text-xs` (12px), `text-sm` / `text-sm-minus` (13px; v2 `--text-sm` equals `@theme --text-sm-minus` at `0.8125rem`), `text-base-minus` (15px), `text-base` (16px), `text-lg-minus` (17px), `text-lg` (18px), `text-xl` (20px), `text-2xl-minus` (22px), `text-2xl` (24px).
 - **Arbitrary Size Prohibited**: `text-[12px]`, `text-[13px]`, etc. are blocked by `npm run check:type-scale --strict`.
 - **Declared Steps Usage**: Any type step declared in `@theme` must have production consumers (no dead or unselected type tokens).
 
@@ -47,7 +47,7 @@ npm run check:icon-scale
 
 - **Elevation**: Monotonic numeric scale `var(--e0)` through `var(--e4)`. No raw `box-shadow` values.
 - **Edge Ownership**: Prohibits simultaneous `border-*` and `ring-*` styling on the same surface to prevent clipped or competing boundaries.
-- **Motion Durations**: Transitions and animations must use standardized duration tokens (`var(--duration-fast)`, `var(--duration-normal)`) and respect `motion-reduce:`. Layout-property animation (e.g., width, height, padding) is disallowed except for explicitly audited phone-chrome transitions.
+- **Motion Durations**: Transitions and animations must use standardized duration tokens (`var(--duration-fast)`, `var(--duration-base)`) and respect `motion-reduce:`. Layout-property animation (e.g., width, height, padding) is disallowed except for explicitly audited phone-chrome transitions.
 
 ---
 

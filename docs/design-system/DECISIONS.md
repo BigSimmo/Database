@@ -147,7 +147,7 @@ source), flagged in SPEC §3 and cheap to veto mode-by-mode.
 
 ## C6 · Publication truth is source-derived; adoption truth is route-complete
 
-**Chose.** The local design-sync registry contains 53 visual exports. Each row is derived from
+**Chose.** The local design-sync registry contains 55 visual exports. Each row is derived from
 one real source file and requires an entry export, an exact TypeScript-checker-derived public
 `*Props` contract (or an explicit zero-prop root), a reference preview, and a direct publication
 test. `OverlayPortal`, `ToastProvider`, `useToast`, `AnswerState`, the answer helpers, and the
