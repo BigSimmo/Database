@@ -1,4 +1,4 @@
-import { BookOpenCheck } from "lucide-react";
+import { BookOpenCheck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
@@ -14,6 +14,8 @@ export function DsmPageHeader({
   actions,
   className,
   breadcrumb = true,
+  homeIcon,
+  icon = BookOpenCheck,
 }: {
   eyebrow?: string;
   title: string;
@@ -29,6 +31,8 @@ export function DsmPageHeader({
    * header's title is a `<span>`.
    */
   breadcrumb?: boolean;
+  homeIcon?: LucideIcon | false;
+  icon?: LucideIcon | false;
 }) {
   return (
     <div className={cn("border-b border-[color:var(--border)] bg-[color:var(--surface)]", className)}>
@@ -37,13 +41,17 @@ export function DsmPageHeader({
             `InformationPageBreadcrumbs` (now itself a `Breadcrumb`), so the
             `PageHeader` below is not given a second `breadcrumb` of its own. */}
         {breadcrumb ? (
-          <InformationPageBreadcrumbs home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }} className="mb-3" />
+          <InformationPageBreadcrumbs
+            home={{ label: "DSM search", href: "/dsm" }}
+            homeIcon={homeIcon}
+            className="mb-3"
+          />
         ) : null}
         <PageHeader
           eyebrow={eyebrow}
           title={title}
           description={description}
-          icon={BookOpenCheck}
+          icon={icon === false ? undefined : icon}
           actions={actions}
           meta={
             code || category ? (

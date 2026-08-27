@@ -37,7 +37,14 @@ export function DsmCompareChrome({
       changeLabel="Change diagnoses"
       slotPlaceholder="Choose diagnosis"
       icon={BookOpenCheck}
-      onCommit={(ids) => router.push(idsCompareHref("/dsm/compare", ids))}
+      onCommit={(ids) =>
+        router.push(
+          idsCompareHref(
+            "/dsm/compare",
+            ids.filter((id): id is string => Boolean(id)),
+          ),
+        )
+      }
     />
   );
 }
