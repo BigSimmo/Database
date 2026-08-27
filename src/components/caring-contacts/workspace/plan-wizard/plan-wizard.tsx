@@ -130,6 +130,17 @@ import { StatedReason } from "./stated-reason";
  * to decide whether the trigger's commit is `{ kind: "unavailable" }`, and once inside the commit
  * from values read at that moment. A refusal at the second point changes nothing at all.
  */
+/**
+ * Identifies the provenance line at stage 2, so a test can assert the ELEMENT is absent rather than
+ * only its text.
+ *
+ * That distinction is not pedantry: it was found by a surviving mutant. Removing the `=== null`
+ * condition renders the paragraph for every option, and a null note renders as an EMPTY paragraph —
+ * so a case asserting "this wording is not on the screen" passed against a screen that had gained an
+ * element for every version. The negative case now asserts on this handle.
+ */
+export const PATHWAY_PROVENANCE_TESTID = "caring-contacts-pathway-provenance";
+
 export type PlanWizardPathwayOption = {
   id: string;
   /** The pathway's own cadence wording, taken from its frozen snapshot. Never written here. */
@@ -140,6 +151,21 @@ export type PlanWizardPathwayOption = {
    * (round 1, M-2). Governance provenance, not a tally.
    */
   approvedBy: readonly string[];
+  /**
+   * Plain words qualifying where those approvals came from, or null when the record claims nothing.
+   *
+   * Non-null ONLY for a version whose own snapshot carries a provenance (Ruling [126]); the page
+   * resolves it through `pathwayVersionProvenanceWording`, exactly as it resolves `approvedBy`, so
+   * neither the wording nor the domain module enters this client chunk. A screen must never infer
+   * this -- "Approved by ..." is a claim about provenance, and only the record knows.
+   *
+   * It is a resolver rather than a map lookup because the lookup failed in the unsafe direction: a
+   * provenance this build does not recognise -- reachable through the Postgres reader's unchecked
+   * cast -- yielded `undefined`, and `=== null` below is then false, so the qualifier rendered
+   * empty beside an approval left standing. The resolver returns `null` or a string, never
+   * `undefined`, which is what makes the test below safe to write.
+   */
+  provenanceNote: string | null;
   /** AWST instant this version was published, or null. */
   publishedAt: string | null;
 };
@@ -1411,6 +1437,21 @@ function PathwayStage({
                         {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
                         {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
                       </p>
+                      {/*
+                        Ruling [126]. The line above states who approved this version, and for a
+                        demonstration version nobody did. It is rendered as its own line rather than
+                        appended to that sentence so it cannot be read as part of the approval, and
+                        it is inside the same `aria-describedby` region so a screen reader hears it
+                        with the option rather than after it.
+                      */}
+                      {option.provenanceNote === null ? null : (
+                        <p
+                          data-testid={PATHWAY_PROVENANCE_TESTID}
+                          className="mt-1 text-xs leading-5 font-semibold text-[color:var(--text-heading)]"
+                        >
+                          {option.provenanceNote}
+                        </p>
+                      )}
                       {/*
                         `pathway-preview` — the frozen matrix's row for this stage, and the ONE row
                         of the eight whose Mutation column reads Yes where its name suggests

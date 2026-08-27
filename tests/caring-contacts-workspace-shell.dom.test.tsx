@@ -52,6 +52,87 @@ function destinationsOf(navigation: HTMLElement) {
   }));
 }
 
+/**
+ * The Tailwind min-width variants this shell uses, and the width each one starts at.
+ *
+ * A closed map rather than a pattern, and `rendersAt` THROWS on a variant that is not in it. The
+ * whole point of this helper is that it must not guess: a silent "assume visible" would turn every
+ * reachability assertion below into an assertion about nothing, which is the exact failure mode the
+ * orphan-route gate already has and that these tests exist to close.
+ */
+const VARIANT_MIN_WIDTH: Readonly<Record<string, number>> = {
+  "": 0,
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  "2xl": 1536,
+  "min-[1440px]": 1440,
+};
+
+const DISPLAY_UTILITIES = new Set([
+  "hidden",
+  "block",
+  "flex",
+  "grid",
+  "inline-flex",
+  "inline-block",
+  "contents",
+  "flow-root",
+  "table",
+  "list-item",
+]);
+
+/**
+ * Whether `element` is displayed at `width`, from its own classes and every ancestor's.
+ *
+ * WHY THIS EXISTS. `tests/route-reachability.test.ts` reads `shell.tsx` as TEXT and regex-matches
+ * `href…CARING_CONTACTS_ROUTES.<key>`. It has no notion of which array the match sits in, whether
+ * that array is filtered, or what CSS governs the element rendering it -- so it proves a route is
+ * REFERENCED IN SOURCE and passes whether or not any viewport can reach it. Templates was
+ * unreachable below 768px for the whole of Phase 2B Task 15 with that gate green.
+ *
+ * This walks the REAL rendered ancestor chain and resolves the display utility that wins at the
+ * given width, so an element moved into a `hidden md:flex` container fails here.
+ *
+ * WHAT IT DOES NOT MODEL, stated because "renders at 375" reads stronger than what is checked. It
+ * resolves DISPLAY UTILITIES and nothing else. A link is reported as rendering when it is in fact
+ * unreachable if it is hidden by `sr-only`, `invisible`, `opacity-0`, `visibility`, a clipped or
+ * zero-size ancestor, an off-screen transform, a stacking-order overlay, or the plain `hidden`
+ * attribute -- none of which this looks at. It fails closed on an unrecognised display VARIANT,
+ * which is a narrower guarantee than failing closed on an unrecognised way of hiding something.
+ *
+ * The only thing covering that gap today is the 390px block in
+ * `tests/ui-caring-contacts-workspace.spec.ts`, which asks a real browser whether the link is
+ * visible and clicks it. Treat this helper as the fast half of a pair, never as the whole proof.
+ */
+function rendersAt(element: Element, width: number): boolean {
+  for (let node: Element | null = element; node !== null; node = node.parentElement) {
+    let winner: string | null = null;
+    let winningWidth = -1;
+    for (const token of node.classList) {
+      const cut = token.lastIndexOf(":");
+      const variant = cut === -1 ? "" : token.slice(0, cut);
+      const utility = cut === -1 ? token : token.slice(cut + 1);
+      if (!DISPLAY_UTILITIES.has(utility)) continue;
+      const from = VARIANT_MIN_WIDTH[variant];
+      if (from === undefined) {
+        throw new Error(
+          `rendersAt: unrecognised display variant "${token}" — teach this helper rather than let it guess`,
+        );
+      }
+      // Tailwind emits min-width variants in ascending order, so the widest breakpoint that has
+      // been reached is the one in force.
+      if (from <= width && from >= winningWidth) {
+        winningWidth = from;
+        winner = utility;
+      }
+    }
+    if (winner === "hidden") return false;
+  }
+  return true;
+}
+
 /** The full unavailable-control convention from docs/wiring-conventions.md. */
 function expectStatesItsReason(control: Element) {
   expect(control.tagName, `${control.textContent} should be a button, not an anchor`).toBe("BUTTON");
@@ -106,7 +187,8 @@ describe("caring-contacts workspace shell", () => {
       // change as its own page (Ruling 89).
       { label: "Patients", kind: "link" },
       { label: "Schedule", kind: "link" },
-      { label: "Templates", kind: "unavailable" },
+      // Templates became a link in Phase 2B Task 15, in the same change as its page (Ruling 89).
+      { label: "Templates", kind: "link" },
     ]);
   });
 
@@ -131,34 +213,36 @@ describe("caring-contacts workspace shell", () => {
     const { container } = renderShell();
     const internalHrefs = [...container.querySelectorAll("a[href^='/']")].map((anchor) => anchor.getAttribute("href"));
     expect(internalHrefs.length).toBeGreaterThan(0);
-    // `today`, `patients`, `schedule` and `newPlan` are the Caring Contacts routes with a page.
-    // Every other declared destination is an unavailable control until Plan 2B builds its page.
+    // These are the Caring Contacts routes with a page. Every other declared destination is an
+    // unavailable control until Plan 2B builds its page. Named by the set below rather than
+    // restated here: the list moved twice during the merge and a prose copy of it decays.
     expect(new Set(internalHrefs)).toEqual(
       new Set([
         CARING_CONTACTS_ROUTES.today,
         CARING_CONTACTS_ROUTES.patients,
         CARING_CONTACTS_ROUTES.schedule,
         CARING_CONTACTS_ROUTES.newPlan,
+        CARING_CONTACTS_ROUTES.templates,
+        CARING_CONTACTS_ROUTES.guidance,
+        CARING_CONTACTS_ROUTES.reports,
       ]),
     );
   });
 
-  it("keeps the More panel's destination set, in order, all of them unavailable", () => {
+  it("keeps the More panel's destination set, in order, with only the built screens navigable", () => {
     renderShell();
-    expect(destinationsOf(screen.getByRole("region", { name: "More destinations" }))).toEqual(
-      [
-        "Team",
-        "Guidance",
-        "Reports",
-        "Service stop",
-        "Access trail",
-        "Workload",
-        "Reconciliation",
-        "Notifications",
-        "Training",
-        "Coverage",
-      ].map((label) => ({ label, kind: "unavailable" })),
-    );
+    // Templates leads the panel and is a LINK: it is a primary destination the phone bar has no
+    // room for, so the panel carries it below 768px where the rail does not exist. Guidance and
+    // Reports became links in Phase 2B Task 19, in the same change as their pages (Ruling 89).
+    expect(destinationsOf(screen.getByRole("region", { name: "More destinations" }))).toEqual([
+      { label: "Templates", kind: "link" },
+      { label: "Team", kind: "unavailable" },
+      { label: "Guidance", kind: "link" },
+      { label: "Reports", kind: "link" },
+      ...["Service stop", "Access trail", "Workload", "Reconciliation", "Notifications", "Training", "Coverage"].map(
+        (label) => ({ label, kind: "unavailable" }),
+      ),
+    ]);
   });
 
   it("makes the workspace's primary control a real link, now that the screen behind it exists", () => {
@@ -173,10 +257,15 @@ describe("caring-contacts workspace shell", () => {
     expect(destinationKind(primary!)).toBe("link");
     expect(primary).toHaveAttribute("href", CARING_CONTACTS_ROUTES.newPlan);
     expect(primary).toHaveAttribute("data-internal-link", "true");
-    // Templates on the rail + the 10 in the More panel. The phone bar carries no unbuilt
-    // destination at all since Task 13 lit Schedule.
+    // 8, and ALL of them in the More panel: the rail and the phone bar now carry none at all.
+    // Each branch counted only its own screens -- one said 11 with Templates still unbuilt on the
+    // rail, the other 10 with Schedule unbuilt on both the rail and the phone bar. Merged, Task 13
+    // lit Schedule and Task 15 lit Templates, so both of those leave the count entirely. What
+    // remains is Team plus the seven destinations with no page: Service stop, Access trail,
+    // Workload, Reconciliation, Notifications, Training and Coverage. Derived from the two
+    // destination tables in `shell.tsx`, not from what this suite happened to print.
     expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      11,
+      8,
     );
   });
 
@@ -185,11 +274,55 @@ describe("caring-contacts workspace shell", () => {
     const unavailable = [...container.querySelectorAll("button")].filter(
       (control) => destinationKind(control) === "unavailable",
     );
-    // One unbuilt rail destination plus the More panel.
+    // The More panel and nothing else: the rail and the phone bar carry no unbuilt destination.
     // The floor stays at 5: it was written as a floor rather than a count, the exact count is
     // asserted above, and lowering a floor a change did not breach is loosening for its own sake.
     expect(unavailable.length).toBeGreaterThanOrEqual(5);
     for (const control of unavailable) expectStatesItsReason(control);
+  });
+
+  it("resolves what the rail and the phone dock are displayed at, which is what makes the next test real", () => {
+    // THE POSITIVE CONTROL FOR `rendersAt`. Every reachability assertion below is of the form
+    // "some link renders at this width"; if the helper answered `true` for everything, they would
+    // all pass over a workspace no phone could navigate. The rail and the dock are the two
+    // elements whose visibility is opposite by construction, so they pin both directions.
+    renderShell();
+    const rail = screen.getByTestId("caring-contacts-rail");
+    const dock = screen.getByTestId("caring-contacts-phone-dock");
+
+    expect(rendersAt(rail, 375), "the rail is not supposed to exist on a phone").toBe(false);
+    expect(rendersAt(rail, 900), "the rail is supposed to exist at rail width").toBe(true);
+    expect(rendersAt(dock, 375), "the phone dock is supposed to exist on a phone").toBe(true);
+    expect(rendersAt(dock, 900), "the phone dock is not supposed to exist at rail width").toBe(false);
+  });
+
+  it("gives every built route a link that a phone can reach, and one that a rail-width viewport can", () => {
+    // THE DEFECT THIS CLOSES. Templates shipped a production page, an `href` in the rail, and a
+    // green orphan-route gate -- while being unreachable below 768px, because the rail is
+    // `hidden … md:flex` and the phone bar filtered Templates out by name. The gate reads
+    // `shell.tsx` as text and cannot see either fact. This walks the rendered DOM instead.
+    const { container } = renderShell();
+    const built = [
+      CARING_CONTACTS_ROUTES.today,
+      CARING_CONTACTS_ROUTES.patients,
+      CARING_CONTACTS_ROUTES.newPlan,
+      CARING_CONTACTS_ROUTES.templates,
+      CARING_CONTACTS_ROUTES.guidance,
+      CARING_CONTACTS_ROUTES.reports,
+    ];
+
+    for (const href of built) {
+      const links = [...container.querySelectorAll(`a[href="${href}"]`)];
+      expect(links.length, `${href} is not linked from the shell at all`).toBeGreaterThan(0);
+      expect(
+        links.some((link) => rendersAt(link, 375)),
+        `${href} has no link a phone can reach — it is an orphan below 768px`,
+      ).toBe(true);
+      expect(
+        links.some((link) => rendersAt(link, 900)),
+        `${href} has no link a rail-width viewport can reach`,
+      ).toBe(true);
+    }
   });
 
   it("exposes the frozen width state so the media-class layout is observable", () => {

@@ -1879,7 +1879,7 @@ export function createPostgresRepository(
     // ---------------------------------------------------------------------
 
     async listDispatches(input: { fromIso: string; toIso: string }, context: ReadContext) {
-      if (!mayReadOwnTeam(context, "reconcileProviderDispatch")) return [];
+      if (!mayReadOwnTeam(context, READ_ACTIONS.dispatch)) return [];
       return runRead(context, async (connection) => {
         const result = await connection.query(
           `select ${DISPATCH_COLUMNS} from caring_contacts.contact_dispatches d

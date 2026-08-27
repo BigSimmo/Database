@@ -11,7 +11,11 @@ import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
-import { PATHWAY_APPROVAL_ROLE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+import {
+  PATHWAY_APPROVAL_ROLE_WORDING,
+  pathwayVersionProvenanceWording,
+  type PathwayVersion,
+} from "@/lib/caring-contacts/pathway-versions";
 // The governed patient-visible wording, resolved HERE and handed to stage 3 as a plain string.
 // Same reason as the two below it: a screen may not author or alter patient-visible copy, so it
 // reads the sealed domain's own value rather than holding a second copy of it — and resolving it
@@ -252,6 +256,17 @@ export default async function CaringContactsNewPlanPage({
         // module owns, and the interface-vocabulary scan refuses "lead" as a whole word in a
         // component. Resolving it here also keeps both domain modules out of the client bundle.
         approvedBy: version.approvals.map((approval) => PATHWAY_APPROVAL_ROLE_WORDING[approval.role]),
+        // Ruling [126]. `approvedBy` above is a claim about provenance, and a demonstration version
+        // has approvals no person gave. Resolved here for the same two reasons the role wording is:
+        // the words live in the sealed domain beside the values they name, and resolving on the
+        // server keeps that module out of this route's client chunk.
+        //
+        // Through the domain's own resolver rather than a lookup written here. Round 2 found the
+        // lookup fails unsafe: the Postgres store reads the snapshot back with an unchecked cast,
+        // so an unrecognised provenance yields `undefined` from the map, the wizard's `=== null`
+        // test is false, and the screen renders an empty qualifier beside an unqualified
+        // "Approved by ...". `pathwayVersionProvenanceWording` makes the fallback structural.
+        provenanceNote: pathwayVersionProvenanceWording(version.snapshot.provenance),
         publishedAt: version.publishedAt,
       }));
 

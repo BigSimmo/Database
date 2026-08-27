@@ -279,6 +279,14 @@ export const READ_ACTIONS = Object.freeze({
    * wants one.
    */
   patientName: "viewPatientRecord",
+  /**
+   * The reconciliation read. Named here for the same reason every other row is: the capability was
+   * written inline in BOTH stores' `listDispatches`, so a reporting surface asking whether its
+   * reader may see the answer had a third copy to keep in step. `/caring-contacts/reports` has to
+   * ask the question the store asked -- an empty dispatch list means "you may not see these" and
+   * "there are none" alike -- and it now asks it through this entry rather than through a fourth.
+   */
+  dispatch: "reconcileProviderDispatch",
 } as const satisfies Record<string, CaringContactAction>);
 
 /** Either governance action reading a pathway version's content is granted by. Same rule, same reason. */

@@ -89,9 +89,32 @@ checklist — page, inbound link **in the same change** (Ruling 89), `npm run si
 
 **But these two are not primary destinations.** `src/components/caring-contacts/workspace/shell.tsx`
 carries them in `MORE_DESTINATIONS`, whose entries are `{ id, label, reason }` — **there is no `href`
-field on that shape at all.** So you are extending the More panel's contract, not just filling in a
-value, and every other entry in that list must keep working without one. Do that deliberately and say
-why; a shape change that silently makes eight other entries look broken is worse than the missing link.
+field on that shape at all**, and every entry renders as `UnavailableDestination`. So you are extending
+the More panel's contract, not just filling in a value, and every other entry must keep working without
+one. A shape change that silently makes the remaining entries look broken is worse than the missing link.
+
+### And while you are there — fix a shipped route that no phone can reach
+
+**Templates is currently unreachable below 768px**, and this is the same missing capability. Verified by
+two independent readings: the rail is `hidden … md:flex`, `PHONE_DESTINATIONS` filters `templates` out by
+name, and every `MORE_DESTINATIONS` entry is href-less. So below 768px there is **no inbound link to a
+shipped production route.**
+
+**Route Templates through the More panel** once it carries real links. Do not solve it by displacing
+something from the phone bar — that dock is `grid-cols-4` holding three destinations plus More, so
+adding a fifth is a layout decision nobody has taken.
+
+**The reason this was not caught, which you should understand before trusting the gate you are about to
+satisfy:** `tests/route-reachability.test.ts` reads `shell.tsx` **as text** and regex-matches
+`href(?::\s*|=\{)CARING_CONTACTS_ROUTES\.(\w+)`. It has no notion of which array the match sits in,
+whether that array is filtered, or what CSS governs the element rendering it. The general orphan scan is
+the same shape for the rest of the app. **So the orphan-route gate proves a route is referenced in
+source, not that it is reachable at any viewport a user can have** — and it will pass for your two new
+routes whether or not a phone can reach them.
+
+**Therefore write a test that can actually fail on this.** A DOM assertion that the phone navigation
+renders each destination you added as a real link is the minimum; say in your report what a general fix
+would need, because this is repo-wide and not Caring Contacts' to close alone.
 
 `shell.tsx` is shared with other live branches; expect a merge conflict there and leave it to the
 controller.

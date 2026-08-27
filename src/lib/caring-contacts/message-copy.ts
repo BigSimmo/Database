@@ -197,3 +197,26 @@ export const AUTOMATED_REPLY_RESPONSE = `No one at Example Aftercare Team reads 
 
 export const EXACT_MESSAGE_GSM7: Gsm7Evidence = calculateGsm7(EXACT_PATIENT_VISIBLE_MESSAGE);
 export const AUTOMATED_REPLY_GSM7: Gsm7Evidence = calculateGsm7(AUTOMATED_REPLY_RESPONSE);
+
+/**
+ * The approval status of the patient-visible wording in this module, in words a CLINICIAN reads.
+ *
+ * NOT PATIENT-VISIBLE. Nothing in this sentence is ever sent to anybody; it is governance chrome,
+ * and it lives here rather than in a screen for the reason Ruling [131] was written. Round 1 of
+ * Task 16 shipped a screen sentence claiming the opposite -- that the one patient-visible message
+ * "has been approved" -- rendered directly beneath the two approval seats, where a clinician would
+ * read those seats as having signed off the words a discharged patient receives. They have not:
+ * the two constants above open with `PROVISIONAL -- not clinically approved`, and the decision
+ * belongs to the approval gate named there.
+ *
+ * A screen that retyped this status would put the eventual answer in two places, and the copy on
+ * the screen would go on saying "provisional" after the gate had decided. So the status is read
+ * from beside the words it is about: change it here when the gate decides, and every screen
+ * showing the wording changes with it.
+ *
+ * WHAT IT SEPARATES, and the distinction the deleted sentence collapsed: a pathway version's dual
+ * approval is an approval of the VERSION -- its cadence, its lifecycle, the governance record --
+ * and nothing anywhere in this system has approved the wording.
+ */
+export const CLINICIAN_FACING_WORDING_APPROVAL_STATUS =
+  "This wording is provisional and has not been clinically approved. Whether it may be sent to a patient is a clinical decision owned by the lived-experience and clinical-programme approval gate, and that gate has not made it. A pathway version's recorded approvals approve the version, not these words.";

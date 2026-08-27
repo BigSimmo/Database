@@ -47,7 +47,11 @@ import { fixedClock } from "@/lib/caring-contacts/clock";
 import { idempotencyKey, pathwayVersionId, patientId, referralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
-import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+import {
+  PATHWAY_VERSION_PROVENANCE_WORDING,
+  type PathwayVersion,
+  type PathwayVersionProvenance,
+} from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
@@ -91,7 +95,17 @@ function inMemoryStoreWithSpy(role = "coordinator"): {
  * neither of them the author. A fixture that bypassed that would prove the page against a version
  * shape the domain cannot produce.
  */
-async function seedApprovedVersion(store: CaringContactRepository, id: string) {
+/**
+ * `provenance` is typed loosely on purpose. A store reads the snapshot back with an unchecked cast,
+ * so a value outside the union genuinely can reach a screen with the type insisting it cannot -- and
+ * that is the case round 2 found renders an empty qualifier beside an unqualified approval. A
+ * fixture able to produce only union members could not reach it at all.
+ */
+async function seedApprovedVersion(
+  store: CaringContactRepository,
+  id: string,
+  provenance?: PathwayVersionProvenance | (string & {}),
+) {
   const author = demoActorForRole("coordinator");
   const programmeLead = demoActorForRole("clinicalProgrammeLead");
   const representative = demoActorForRole("livedExperienceRepresentative");
@@ -111,6 +125,11 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string) {
         snapshot: {
           cadenceLabels: CADENCE_LABELS,
           messageTextByType: { standard: "standard", first: "first", closing: "closing" },
+          // Cast exactly where the Postgres reader casts (`row.snapshot as PathwayVersionSnapshot`).
+          // That unchecked cast is the whole mechanism by which a provenance outside the union
+          // reaches a screen typed as one inside it, so a fixture that could not express it could
+          // not reproduce the defect.
+          ...(provenance === undefined ? {} : { provenance: provenance as PathwayVersionProvenance }),
         },
       } satisfies PathwayVersion,
     },
@@ -140,11 +159,14 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string) {
 }
 
 /** A referral this team has accepted, on an approved pathway version. */
-async function seedAcceptedReferral(store: CaringContactRepository) {
+async function seedAcceptedReferral(
+  store: CaringContactRepository,
+  provenance?: PathwayVersionProvenance | (string & {}),
+) {
   const actor = demoActorForRole("coordinator");
   const write = (key: string) => ({ actor, idempotencyKey: idempotencyKey(key) });
 
-  await seedApprovedVersion(store, PATHWAY);
+  await seedApprovedVersion(store, PATHWAY, provenance);
 
   const created = await store.createReferral(
     { referralId: referralId(REFERRAL), patientId: patientId(PATIENT) },
@@ -226,6 +248,9 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
         // Round 1, M-2: the page resolves the governance seats to plain words, so no domain
         // identifier crosses into the client bundle or onto a clinical screen.
         approvedBy: ["the clinical programme lead", "the lived-experience representative"],
+        // Ruling [126]: this fixture's version claims no provenance, so the page passes none. The
+        // page's job is to carry what the record says, never to decide it.
+        provenanceNote: null,
       }),
     ]);
     expect(wizard.props.actorRoleLabels).toEqual(["coordinator"]);
@@ -235,6 +260,45 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
     // The wording is changing (the owner has decided it gains a first-name slot), so this compares
     // against the module's export rather than against a copy of today's sentence.
     expect(wizard.props.patientVisibleMessageSpecimen).toBe(EXACT_PATIENT_VISIBLE_MESSAGE);
+  });
+
+  // Ruling [126], round 1 finding I2. `approvedBy` above is a claim about provenance, and a
+  // demonstration version's approvals were given by nobody. This is the join: the page must carry
+  // what the RECORD says into the prop the wizard prints, and must resolve it to words here so the
+  // domain module stays out of the client chunk -- the same treatment `approvedBy` gets.
+  it("carries a version's own provenance into the wizard, resolved to plain words", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    await seedAcceptedReferral(store, "syntheticDemonstration");
+
+    const element = await loadPage({ referral: REFERRAL });
+    // `loadPage` types the rendered element's props as `unknown`, which is why the cases above
+    // assert through `expect` rather than reaching in. Narrowed here rather than cast to the
+    // component's own option type: a structural read of the one field under test cannot quietly
+    // start passing because that type gained or lost something else.
+    const options = element.props.children.props.pathwayOptions as readonly { provenanceNote: unknown }[];
+
+    expect(options).toHaveLength(1);
+    expect(options[0].provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
+    // Resolved, not forwarded: the raw domain value must not cross onto the screen.
+    expect(options[0].provenanceNote).not.toBe("syntheticDemonstration");
+  });
+
+  // Round 2. The failure this covers is invisible to every other case here, because no fixture and
+  // no writer produces the value: `savePathwayVersion` copies the snapshot verbatim and the Postgres
+  // reader casts it back unchecked, so a provenance this build does not recognise arrives typed as
+  // one it does. The qualifier must survive that, because the alternative is the screen dropping it
+  // silently for exactly the record it understands least.
+  it("keeps the qualifier when the record's provenance is not one this build recognises", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    await seedAcceptedReferral(store, "someLaterProvenanceKind");
+
+    const element = await loadPage({ referral: REFERRAL });
+    const options = element.props.children.props.pathwayOptions as readonly { provenanceNote: unknown }[];
+
+    expect(options).toHaveLength(1);
+    expect(options[0].provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
+    // Not `undefined`, which is what the earlier lookup produced and what a `=== null` test cannot see.
+    expect(options[0].provenanceNote).not.toBeUndefined();
   });
 });
 

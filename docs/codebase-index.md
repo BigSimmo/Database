@@ -79,6 +79,10 @@ Smaller top-level directories that are easy to miss:
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                  | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
 | `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                     | `src/app/caring-contacts/plans/new/page.tsx`                                              |
 | `/caring-contacts/schedule` (the team's day: three approved sending windows, contacts at no approved send time, named exceptions; the day travels in `?day=`)                                  | `src/app/caring-contacts/schedule/page.tsx`                                               |
+| `/caring-contacts/templates` (the governed pathway versions this team holds: lifecycle, publication and retirement facts, and the approvals behind each one, qualified by the record's provenance)                                                                              | `src/app/caring-contacts/templates/page.tsx`                                              |
+| `/caring-contacts/templates/[pathwayId]` (ONE governed version in full: its lifecycle, both approval seats with the record's provenance qualification, the wording that record holds together with that wording's approval status, and whether a new plan may be started on it) | `src/app/caring-contacts/templates/[pathwayId]/page.tsx`                                  |
+| `/caring-contacts/guidance` (programme boundaries, incident and downtime behaviour, and the language rules; fixed text, one service-state read, no record about anybody)                                                                                                        | `src/app/caring-contacts/guidance/page.tsx`                                               |
+| `/caring-contacts/reports` (aggregate operational measures, and the §2.5 programme-reach section — which states that the field it would report on is not collected rather than showing an empty breakdown)                                                                      | `src/app/caring-contacts/reports/page.tsx`                                                |
 | `/applications`                                                                                                                                                        | `src/app/applications/route.ts`                                                                                                                                                    |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                           | `src/app/(search-app)/differentials/`                                                                                                                                              |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                         | `src/app/(search-app)/dsm/`                                                                                                                                                        |
@@ -213,10 +217,49 @@ Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns 
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
 (Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
-(one patient's episode), `/caring-contacts/plans/new` (the activation wizard) and
-`/caring-contacts/schedule` (the team's day) are what is built so far. Every one of them is a page that reads the store through `auditedRead` rather than over
-HTTP, using the same access identity the matching API route records; filtering and, on the patient
-overview, the choice of which plan to open are carried in the URL and read by the Server Component.
+(one patient's episode), `/caring-contacts/plans/new` (the activation wizard),
+`/caring-contacts/schedule` (the team's day),
+`/caring-contacts/templates` (the governed pathway versions),
+`/caring-contacts/templates/[pathwayId]` (one of them in full), `/caring-contacts/guidance` and
+`/caring-contacts/reports` are what is built so far. Every one of them is a page that reads the
+store through `auditedRead` rather than over HTTP, using the same access identity the matching API
+route records; filtering and, on the patient overview, the choice of which plan to open are carried
+in the URL and read by the Server Component.
+
+The More panel carries the destinations the rail does not, and its entries carry an `href` under the
+same Ruling 89 rule. It ALSO carries the primary destinations the phone bar has no room for, in a
+`md:hidden` row derived from the two arrays rather than listed — which is what makes
+`/caring-contacts/templates` reachable below 768px, where there is no rail. It was not:
+`tests/route-reachability.test.ts` reads `shell.tsx` as text and cannot see which array an `href`
+sits in or what CSS governs it, so it passed on a shipped route no phone could reach. The assertion
+that can fail on that walks the rendered ancestor chain, in
+`tests/caring-contacts-workspace-shell.dom.test.tsx`, and clicks the link at 390px in
+`tests/ui-caring-contacts-workspace.spec.ts`.
+
+`/caring-contacts/reports` performs NO read of `caring_contacts.cultural_identity_reports`. Spec §2.5
+promises reach reporting over Aboriginal and Torres Strait Islander status, and this system records
+none — so the screen states what is and is not collected instead of rendering an empty breakdown,
+which would read as a statement about patients rather than about collection. The two halves of §2.5
+are in different states and the screen says so: the small-cell threshold IS set (the owner's decision
+of 2026-08-26, held with its provenance in `src/lib/caring-contacts/reach-reporting-governance.ts`,
+which is the file a governance change opens and the only place the number appears); a bounded
+category set is not. The suppression rule itself lives in
+`src/lib/caring-contacts/reach-reporting.ts`: it takes the threshold as a required argument, refuses
+one too low to hide anything, and suppresses complementary cells so that no hidden figure is
+recoverable by subtracting the published ones from a total.
+
+`/caring-contacts/templates` is a governance record viewer, and the LIBRARY shows no message wording
+at all. Ruling [127]: the one patient-visible message that exists is a specimen rather than a
+template, and there is no per-version message content anywhere, so a library that printed wording
+beside a version would claim a relationship the data does not have. The DETAIL route
+`/caring-contacts/templates/[pathwayId]` does show the wording, because a record states what it
+holds where a list cannot: it reads `snapshot.messageTextByType` back verbatim and never assembles
+a string. Beside it, the route states the wording's approval status in `message-copy.ts`'s own
+words — provisional, not clinically approved — read from the sealed domain rather than retyped
+(Ruling [131]), because a version's dual approval approves the VERSION and nothing in this system
+has approved the words. What both routes carry is `PathwayVersionSnapshot.provenance`, resolved
+through `pathwayVersionProvenanceWording` so that an approval line can never stand unqualified over
+a record nobody approved.
 
 The Schedule screen is the one that must not let two different days read the same. `disposition`
 alone cannot separate a quiet day from a stopped one, so the screen states each day from `counts`,

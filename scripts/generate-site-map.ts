@@ -96,6 +96,14 @@ const routeDescriptions: Record<string, string> = {
     "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
   "/caring-contacts/schedule":
     "What this team's caring-contact plans put on one AWST day: the three approved sending windows, the contacts at no approved send time, and the named exceptions. The day travels in `?day=`; without it, today.",
+  "/caring-contacts/templates":
+    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; the list itself shows no message wording, and each row states which of the three messages its record holds text for and links to the record that shows it.",
+  "/caring-contacts/templates/[pathwayId]":
+    "One governed pathway version in full: its lifecycle, both approval seats and the qualification its own record carries, the wording that record holds, and whether a new plan may be started on it. Reached from a row of the templates library; a well-formed identifier this team does not hold is stated as a governance fact rather than an error.",
+  "/caring-contacts/guidance":
+    "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
+  "/caring-contacts/reports":
+    "Aggregate operational measures for one team — contacts still to send and already sent, plans held, and the dispatch attempts where the carrier reported something other than what was expected. Also carries the programme-reach section, which states that Aboriginal and Torres Strait Islander status is not recorded rather than rendering an empty breakdown of it. No measure names or identifies a patient, and no clinician is ranked.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/calculators/search":
     "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",

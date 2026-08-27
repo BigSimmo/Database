@@ -50,6 +50,7 @@ import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/
 import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
 import {
   assertBuiltStageHasABody,
+  PATHWAY_PROVENANCE_TESTID,
   PlanWizard,
   type PlanWizardProps,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
@@ -79,11 +80,15 @@ const OTHER_PATHWAY = "SYN-PATHWAY-002";
  */
 const FICTIONAL_PATIENT_MOBILES = DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS;
 
-function pathwayOption(id: string) {
+function pathwayOption(id: string, provenanceNote: string | null = null) {
   return {
     id,
     cadenceLabels: ["Day 1", "Week 1", "Month 1"],
     approvedBy: ["the clinical programme lead", "the lived-experience representative"],
+    // Null is the ordinary case: a version whose record claims nothing about its provenance gets no
+    // extra line. Ruling [126] adds a line only where the record itself says the approvals are
+    // invented -- see the two cases at the end of this file.
+    provenanceNote,
     publishedAt: null,
   };
 }
@@ -423,9 +428,21 @@ describe("the caring-contacts plan wizard — stage 2, pathway (Ruling [113])", 
   it("is an ordinary first choice when the referral names no pathway", async () => {
     const user = userEvent.setup();
     renderWizard({ referralPathwayVersionId: null });
-    await reachPathwayStage(user);
+    const panel = await reachPathwayStage(user);
 
     // Nothing had been decided, so nothing is stated about a decision that was never made.
+    //
+    // Asserted as a COUNT of what the panel contains, not as the absence of two known headings.
+    // Round 2: the two `queryByRole` lines below could not fail. Dropping the `=== null` guard in
+    // the component does not render either of those panels -- it renders the OTHER branch, the
+    // "cannot be used" panel, reading "Accepting this referral named null ...". Its accessible name
+    // matches neither regex, so the case passed against a screen that had grown a panel stating a
+    // decision about a referral that named nothing. The chooser's own fieldset is the one group
+    // this stage is entitled to, so counting is what actually pins the branch.
+    const groups = within(panel).getAllByRole("group");
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveAccessibleName("Choose a governed pathway version");
+
     expect(screen.queryByRole("group", { name: /decided when the referral was accepted/i })).toBeNull();
     expect(screen.queryByRole("group", { name: /changing an earlier decision/i })).toBeNull();
     for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
@@ -2383,5 +2400,50 @@ describe("the caring-contacts plan wizard — Task 11a's decision overlays", () 
     expect(wizardSource, "the wizard reaches for the sealed message module itself").not.toContain("message-copy");
     // And the words themselves are not written out here under another name.
     expect(wizardSource, "a patient-visible greeting was written into the wizard").not.toMatch(/thinking of you/i);
+  });
+});
+
+/**
+ * Ruling [126], round 1 finding I2.
+ *
+ * Stage 2 prints "Approved by the clinical programme lead and the lived-experience representative"
+ * for whatever version it is offered. A demonstration population produces a version whose approvals
+ * are structurally genuine — the domain refused anything else — and which no person ever approved,
+ * and nothing about the shape of the record distinguishes the two. So the record carries a
+ * provenance and this screen says it. The screen never infers it: a version claiming nothing gets
+ * no extra line, which is the second case here.
+ */
+describe("the pathway stage — approvals nobody gave are not presented as approvals", () => {
+  const SYNTHETIC_NOTE = "Invented for demonstration: no person recorded either approval.";
+
+  it("prints the record's provenance beside the approval, in the option's own described region", async () => {
+    const user = userEvent.setup();
+    renderWizard({
+      pathwayOptions: [pathwayOption(NAMED_PATHWAY, SYNTHETIC_NOTE), pathwayOption(OTHER_PATHWAY)],
+    });
+    await reachPathwayStage(user);
+
+    expect(screen.getByText(SYNTHETIC_NOTE)).toBeInTheDocument();
+    expect(screen.getAllByTestId(PATHWAY_PROVENANCE_TESTID)).toHaveLength(1);
+
+    // Tied to the OPTION, not floating in the panel: the radio's `aria-describedby` region has to
+    // contain it, or a screen reader announces an approval with no qualifier attached to it.
+    const radio = screen.getByRole("radio", { name: new RegExp(NAMED_PATHWAY) });
+    const describedBy = radio.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy!)).toHaveTextContent(SYNTHETIC_NOTE);
+  });
+
+  it("says nothing extra about a version whose record claims no provenance", async () => {
+    const user = userEvent.setup();
+    renderWizard({ pathwayOptions: [pathwayOption(OTHER_PATHWAY)] });
+    const panel = await reachPathwayStage(user);
+
+    expect(panel).toHaveTextContent(/Approved by the clinical programme lead/);
+    expect(screen.queryByText(SYNTHETIC_NOTE)).toBeNull();
+    expect(panel.textContent ?? "").not.toMatch(/invented|demonstration/i);
+    // The ELEMENT, not only its text. A null note renders as an empty paragraph, so asserting on
+    // wording alone cannot see the condition being removed -- a mutant survived exactly that gap.
+    expect(screen.queryAllByTestId(PATHWAY_PROVENANCE_TESTID)).toHaveLength(0);
   });
 });

@@ -1,6 +1,12 @@
 {
   "schemaVersion": 7,
-  "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
+  "requiredProofCategories": [
+    "dark",
+    "forcedColours",
+    "compact320",
+    "print",
+    "browser"
+  ],
   "globalShellRoot": {
     "file": "src/app/layout.tsx",
     "element": "html"
@@ -13,13 +19,23 @@
     }
   },
   "proofEvidencePolicy": {
-    "testFileSuffixes": [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
+    "testFileSuffixes": [
+      ".test.ts",
+      ".test.tsx",
+      ".spec.ts",
+      ".spec.tsx"
+    ],
     "evidenceDirectory": "docs/design-system/evidence/",
-    "evidenceExtensions": [".json", ".md"]
+    "evidenceExtensions": [
+      ".json",
+      ".md"
+    ]
   },
   "visualBaselinePolicy": {
     "requiredPrefix": "tests/__screenshots__/linux/",
-    "allowedExtensions": [".png"],
+    "allowedExtensions": [
+      ".png"
+    ],
     "provenanceFile": "tests/__screenshots__/linux/provenance.json",
     "provenanceSchemaVersion": 2,
     "requiredPlatform": "linux",
@@ -83,35 +99,55 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx"
       ],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source", "answer"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source",
+        "answer"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["OverlayRoot", "ClinicalDashboard", "SettingsDialog"],
+      "sanctionedSpecialPatterns": [
+        "OverlayRoot",
+        "ClinicalDashboard",
+        "SettingsDialog"
+      ],
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes."
     },
     {
@@ -145,35 +181,54 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["ModeHome", "SearchPage", "DetailPage"]
+      "sanctionedSpecialPatterns": [
+        "ModeHome",
+        "SearchPage",
+        "DetailPage"
+      ]
     },
     {
       "id": "differentials",
@@ -189,35 +244,52 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["Differential"]
+      "sanctionedSpecialPatterns": [
+        "Differential"
+      ]
     },
     {
       "id": "formulation",
@@ -232,35 +304,52 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["Formulation"]
+      "sanctionedSpecialPatterns": [
+        "Formulation"
+      ]
     },
     {
       "id": "specifiers",
@@ -275,35 +364,52 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["Specifier"]
+      "sanctionedSpecialPatterns": [
+        "Specifier"
+      ]
     },
     {
       "id": "therapy-compass",
@@ -320,36 +426,55 @@
         "src/app/(search-app)/therapy-compass/search/page.tsx"
       ],
       "routeRoots": true,
-      "roots": ["src/components/therapy-compass/ui.tsx"],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "roots": [
+        "src/components/therapy-compass/ui.tsx"
+      ],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["TherapyCompass"]
+      "sanctionedSpecialPatterns": [
+        "TherapyCompass"
+      ]
     },
     {
       "id": "documents-and-source-evidence",
@@ -360,41 +485,63 @@
         "src/app/(search-app)/documents/source/evidence/page.tsx"
       ],
       "routeRoots": true,
-      "roots": ["src/components/DocumentViewer.tsx"],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "roots": [
+        "src/components/DocumentViewer.tsx"
+      ],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"]
+      "sanctionedSpecialPatterns": [
+        "DocumentViewer",
+        "SourceEvidence"
+      ]
     },
     {
       "id": "documents-source-legacy-redirect",
       "disposition": "legacy-redirect",
-      "routes": ["src/app/(search-app)/documents/source/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/documents/source/page.tsx"
+      ],
       "routeRoots": false,
       "roots": [],
       "permittedComponentFamilies": [],
@@ -431,38 +578,57 @@
     {
       "id": "favourites",
       "disposition": "owned",
-      "routes": ["src/app/(search-app)/favourites/page.tsx"],
+      "routes": [
+        "src/app/(search-app)/favourites/page.tsx"
+      ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["FavouritesCommandLibraryPage"]
+      "sanctionedSpecialPatterns": [
+        "FavouritesCommandLibraryPage"
+      ]
     },
     {
       "id": "tools-and-calculators",
@@ -474,35 +640,52 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
+      "sanctionedSpecialPatterns": [
+        "ToolsSearchResultsPage",
+        "CalculatorsSearchPage"
+      ]
     },
     {
       "id": "caring-contacts-workspace",
@@ -512,7 +695,11 @@
         "src/app/caring-contacts/patients/page.tsx",
         "src/app/caring-contacts/patients/[patientId]/page.tsx",
         "src/app/caring-contacts/plans/new/page.tsx",
-        "src/app/caring-contacts/schedule/page.tsx"
+        "src/app/caring-contacts/schedule/page.tsx",
+        "src/app/caring-contacts/templates/page.tsx",
+        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+        "src/app/caring-contacts/guidance/page.tsx",
+        "src/app/caring-contacts/reports/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -521,30 +708,42 @@
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+          "evidence": [
+            "tests/ui-caring-contacts-workspace.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+          "evidence": [
+            "tests/ui-caring-contacts-workspace.spec.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+          "evidence": [
+            "tests/ui-caring-contacts-workspace.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+          "evidence": [
+            "tests/ui-caring-contacts-workspace.spec.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+          "evidence": [
+            "tests/ui-caring-contacts-workspace.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["CaringContactsShell"]
+      "sanctionedSpecialPatterns": [
+        "CaringContactsShell"
+      ]
     },
     {
       "id": "privacy-safety-and-reference",
@@ -556,71 +755,108 @@
       ],
       "routeRoots": true,
       "roots": [],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["PrivacyPage", "ColourCodingReferencePage", "PatientSafetyPlan"]
+      "sanctionedSpecialPatterns": [
+        "PrivacyPage",
+        "ColourCodingReferencePage",
+        "PatientSafetyPlan"
+      ]
     },
     {
       "id": "search-results-shared",
       "disposition": "shared-shell",
       "routes": [],
       "routeRoots": false,
-      "roots": ["src/components/clinical-dashboard/search-results-header-band.tsx"],
-      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "roots": [
+        "src/components/clinical-dashboard/search-results-header-band.tsx"
+      ],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
+      "sanctionedSpecialPatterns": [
+        "SearchResultsHeaderBand"
+      ],
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above."
     },
     {
@@ -632,35 +868,54 @@
         "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/clinical-dashboard/answer-thread-turn.tsx"
       ],
-      "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
+      "permittedComponentFamilies": [
+        "answer",
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner"],
+      "sanctionedSpecialPatterns": [
+        "AnswerResultSurface",
+        "RetrievalStateBanner"
+      ],
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route."
     },
     {
@@ -668,36 +923,55 @@
       "disposition": "shared-shell",
       "routes": [],
       "routeRoots": false,
-      "roots": ["src/components/clinical-dashboard/source-preview-popover.tsx"],
-      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "roots": [
+        "src/components/clinical-dashboard/source-preview-popover.tsx"
+      ],
+      "permittedComponentFamilies": [
+        "controls",
+        "feedback",
+        "layout",
+        "source"
+      ],
       "expectedShellState": "v2",
       "proof": {
         "dark": {
           "status": "passed",
-          "evidence": ["tests/ui-style-contract.spec.ts"]
+          "evidence": [
+            "tests/ui-style-contract.spec.ts"
+          ]
         },
         "forcedColours": {
           "status": "passed",
-          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+          "evidence": [
+            "tests/ckb-v2-token-contract.test.ts"
+          ]
         },
         "compact320": {
           "status": "passed",
-          "evidence": ["tests/ui-smoke.spec.ts"]
+          "evidence": [
+            "tests/ui-smoke.spec.ts"
+          ]
         },
         "print": {
           "status": "passed",
-          "evidence": ["tests/global-v2-activation.test.ts"]
+          "evidence": [
+            "tests/global-v2-activation.test.ts"
+          ]
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": [
+            "tests/ui-visual-baseline.spec.ts"
+          ]
         }
       },
       "baseline": {
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
+      "sanctionedSpecialPatterns": [
+        "SourcePreviewPopover"
+      ],
       "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route."
     }
   ],
