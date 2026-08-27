@@ -3814,3 +3814,42 @@ been merged to `main`.** Six of the nine screens are proved on an empty or state
 seeded browser server exists; the database half has no evidence on the merged tree; and three findings and
 several decisions sit with the owner. All of that is written down rather than implied by silence, which is
 the only honest form the word "complete" can take here.
+
+### Ruling [154] — MAJOR-2 is closed: the database suite is green on the merged tree
+
+The owner restored Docker on 2026-08-28 and the suite ran:
+
+```
+ Test Files  2 passed (2)
+      Tests  205 passed (205)
+   Duration  18.34s
+```
+
+`tests/caring-contacts-migrations.test.ts` and `tests/caring-contacts-postgres-repository.test.ts`, against
+a disposable Postgres 17 container on port 54329, offline and provider-free.
+
+**This was the whole-branch review's single biggest concern and it is now evidence rather than a gap.** The
+merged tree has proof of spec §3.2's team-scoped row-level security, transactional audit and duplicate
+prevention, of §11's migration tests, and of the Postgres half of the de-identification path that MAJOR-1
+turns on.
+
+**Why it mattered here rather than as tidiness.** Three migrations landed on this branch from three
+different worktrees — `0005` (first-contact reason), `0006` (plan assurances), `0007` (preferred name) — and
+commit `a2f74936a` on one of them reads _"0006 must not re-grant on every table — that restored write access
+to the audit trail"_. A real privilege defect, in a migration, found by this suite and by nothing else.
+**Migration ordering, cumulative grants and RLS are precisely the properties that are correct on each branch
+and can be wrong on the union**, which is the class Ruling [149] measured twenty-two instances of. The
+union is now checked and it holds.
+
+**The gate list in Ruling [150] was incomplete and this closes that too.** `db:test` belongs beside
+`format`, the full `test`, `build` and the Playwright spec as a gate the merge point owes, because
+`vitest.config.mts` collects those two suites **only** when `CARING_CONTACTS_DATABASE_URL` is set — so they
+are absent from `test:cc-guards` and from `npm run test` alike, and a merge can therefore complete every
+listed gate while the database half has never run.
+
+**Recorded for whoever runs it next**, because the suite refuses to skip rather than pretending:
+
+```
+docker run --rm -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 postgres:17
+CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
+```
