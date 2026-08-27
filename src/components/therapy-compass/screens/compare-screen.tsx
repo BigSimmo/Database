@@ -133,29 +133,35 @@ export function CompareScreen() {
           </span>
         }
         actions={
-          <>
-            <SegmentedControl
-              label="Comparison density"
-              value={b.density}
-              onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
-              options={[
-                { value: "comfortable", label: "Comfortable" },
-                { value: "dense", label: "Dense" },
-              ]}
-              className="w-auto"
-            />
-            <Button
-              variant="secondary"
-              icon={copied === "set" ? Check : Copy}
-              onClick={copySet}
-              disabled={items.length < 2}
-            >
-              {copied === "set" ? "Copied" : "Copy set"}
-            </Button>
+          items.length >= 2 ? (
+            <>
+              <SegmentedControl
+                label="Comparison density"
+                value={b.density}
+                onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
+                options={[
+                  { value: "comfortable", label: "Comfortable" },
+                  { value: "dense", label: "Dense" },
+                ]}
+                className="w-auto"
+              />
+              <Button
+                variant="secondary"
+                icon={copied === "set" ? Check : Copy}
+                onClick={copySet}
+                disabled={items.length < 2}
+              >
+                {copied === "set" ? "Copied" : "Copy set"}
+              </Button>
+              <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
+                Clear
+              </Button>
+            </>
+          ) : (
             <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
               Clear
             </Button>
-          </>
+          )
         }
       />
 
@@ -175,6 +181,8 @@ export function CompareScreen() {
         changeLabel="Change therapies"
         slotPlaceholder="Choose therapy"
         icon={Scale}
+        phoneLayout="hybrid"
+        slotSummaryLabel={`Up to ${THERAPY_MAX_COMPARE} therapies`}
         onCommit={(ids) => b.replaceCompareSlugs(ids.filter((id): id is string => Boolean(id)))}
       />
 

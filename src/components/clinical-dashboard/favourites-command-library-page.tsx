@@ -1593,7 +1593,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     return (
       <main
         data-testid="favourites-hub"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0"
       >
         <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
           <header data-testid="favourites-command-library" className="flex min-w-0 flex-wrap items-baseline gap-x-3">
@@ -1637,11 +1637,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:grow sm:pb-32 md:pb-0"
     >
       <div
         className={cn(
-          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]",
+          // min-h-full, not a viewport calc: the hub above grows to the shell's
+          // fill box, so 100% of it is the real remaining height and the xl
+          // split rail still reaches the bottom edge.
+          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-full",
           // The left library rail is gone — sets, quick views and types are one
           // chip rail now (ledger #164), so the workspace is a single column
           // that only splits when the item workspace opens.
