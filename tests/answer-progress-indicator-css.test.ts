@@ -44,6 +44,28 @@ function keyframes(name: string) {
   throw new Error(`${name} keyframes are unterminated`);
 }
 
+/** The character range of the `@layer components { … }` block, so a rule can be shown to sit
+ *  outside it. Layered rules lose to unlayered ones in the cascade regardless of specificity,
+ *  which is the whole reason the rail's override is declared where it is. */
+function componentsLayerRange() {
+  const start = globalsCss.indexOf("@layer components {");
+  expect(start, "@layer components is missing").toBeGreaterThanOrEqual(0);
+
+  let depth = 0;
+  for (let index = start; index < globalsCss.length; index += 1) {
+    if (globalsCss[index] === "{") depth += 1;
+    else if (globalsCss[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        const end = index;
+        return { contains: (position: number) => position > start && position < end };
+      }
+    }
+  }
+
+  throw new Error("@layer components is unterminated");
+}
+
 function dotRuleBodies() {
   return [...globalsCss.matchAll(/\.answer-progress-dot\s*{([^}]*)}/g)].map((match) => match[1] ?? "");
 }
@@ -98,6 +120,37 @@ describe("answer progress indicator CSS", () => {
     expect([...answerStatusSource.matchAll(/data-slot="answer-progress-dot"/g)]).toHaveLength(1);
     // …and it opts into the CSS contract by class, not only by data-slot.
     expect(answerStatusSource).toContain("answer-progress-dot grid");
+  });
+
+  it("paces the arriving source rail apart from the shared cascade rung", () => {
+    // The rail's cards must arrive one at a time, not as one block. `.stagger-item`
+    // ships 35ms, which is right for the prose skeleton bars directly above the rail
+    // and for search result grids; six cards at that interval is 175ms and reads as a
+    // single movement. The override is pinned here so a later edit to the shared rung
+    // cannot silently re-collapse the rail into one beat.
+    const railRule = globalsCss.match(/\.answer-sources-arriving \.stagger-item\s*{([^}]*)}/);
+    expect(railRule, "the rail's stagger override is missing").not.toBeNull();
+    expect(railRule?.[1]).toContain("var(--stagger-cascade-wide)");
+
+    // Both rungs are tokens, so the pacing is nameable and the design-system contract's
+    // hardcoded-duration ratchet stays satisfied. The wide rung must actually be wider —
+    // pointing it at the same value would leave the rule in place and the defect back.
+    const rung = (name: string) => Number(globalsCss.match(new RegExp(`--${name}:\\s*(\\d+)ms`))?.[1]);
+    expect(rung("stagger-cascade")).toBeGreaterThan(0);
+    expect(rung("stagger-cascade-wide")).toBeGreaterThan(rung("stagger-cascade"));
+
+    // Declared UNLAYERED. `.answer-sources-arriving` itself lives in @layer components,
+    // and a layered override loses to the unlayered `.stagger-item` rule whatever its
+    // specificity — the rail would silently keep the 35ms rung.
+    const railIndex = globalsCss.indexOf(".answer-sources-arriving .stagger-item");
+    expect(railIndex).toBeGreaterThan(0);
+    expect(componentsLayerRange().contains(railIndex), "the override must not sit in @layer components").toBe(false);
+
+    // And the reduced-motion resets must still come after it, so a suppressed rail
+    // shows every card at once rather than holding six invisible cards for 450ms.
+    expect(globalsCss.lastIndexOf('html[data-motion="reduced"] .stagger-item')).toBeGreaterThan(
+      globalsCss.indexOf(".answer-sources-arriving .stagger-item"),
+    );
   });
 
   it("keeps the retired ECG trace and its animation deleted", () => {
