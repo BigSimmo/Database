@@ -3549,3 +3549,60 @@ sides. They are byte-identical. My line counts came from slicing each block to t
 `test.describe(`, which sweeps the following section's doc comment into the block — **a measurement
 of the wrong thing, reported as a fact about the code.** Sliced to each block's own closing brace they
 match exactly. It said so plainly instead of reconciling three blocks that needed no reconciling.
+
+### Ruling [150] — the owed gates: the build is clean and the browser proof is finally real
+
+Three of the four gates the method has owed since the branches forked have now run on the merged tree.
+
+**`npm run format`, committed.** Eight files, all documentation plus `adoption-contract.json`, whose four
+new route declarations were added programmatically during the merge and so carried no Prettier spacing.
+Formatting is in none of `test`, `typecheck` or `lint`, which is why it is committed rather than left for
+CI to find.
+
+**The full `npm run test`: `Test Files 3 failed | 902 passed | 3 skipped (908)`, `Tests 3 failed | 11243
+passed | 75 skipped (11321)`, 1386s.** This was the first time most of these suites had run against this
+phase's work at all, and it earned its runtime immediately.
+
+**It found a real defect that every Caring Contacts gate had missed: eight literal `0x08` bytes where `\b`
+was intended**, brought in by the merge. Six sit in archive documents quoting regexes. **Two sit inside a
+live assertion** — `caring-contacts-schedule-screen.dom.test.tsx:881`'s
+`expect(text).not.toMatch(/…attempts?…/i)`, which reads as a word-boundary regex and is not one.
+
+**Measured rather than reasoned**, by running both forms over the same strings: the byte form matches
+`"after three attempts today"`, `"2 attempts were made"` and `"one attempt"` **all false**, so that
+`not.toMatch` could never fail on any input whatsoever. The repaired form matches all three and still
+rejects a control string. **The screen's behaviour was never wrong — the repaired assertion passes, so it
+genuinely renders no attempt count. What was wrong was the evidence for it**, and this is the
+"could this possibly go red?" family in the one disguise no reader can see: invisible in the diff, invisible
+in review, and silent through lint, typecheck and Prettier. `tests/source-control-bytes.test.ts` is now in
+`test:cc-guards`; it was in no branch's gate.
+
+**Two other suites failed once and neither is this phase's.** `codex-cloud-setup` timed out at 120s and
+`document-viewer-page-virtualization` returned `[4]` where it wanted `[3,4,5]`. Both pass in isolation, and
+`git diff origin/main...HEAD` shows this phase touched **neither the suites nor the subjects**. That points
+at contention during a 23-minute run on a loaded machine. **It is not called a flake**: this repository
+requires three reproductions on one SHA before that word is used, and there has been one.
+
+**`npm run build` on a cold `.next` — the gate the handover called not optional — PASSES.**
+`Compiled successfully in 76s`, `Client bundle secret surface check passed.`, and **all nine Caring Contacts
+page routes present in the route table**: the workspace root, patients, the per-patient overview, the
+activation wizard, schedule, templates, template detail, guidance and reports.
+
+**This is the one that could not be substituted.** The privacy fix split the patients directory into a
+server wrapper plus a client island, and Tasks 13, 15, 16 and 11b all added client components — and this
+repository has twice shipped Server/Client boundary defects past typecheck AND a full unit suite. **There is
+no such defect here, and that is now proven rather than inspected.**
+
+`check:bundle-budget` on the cold output: production **1713.1 KiB gzip against a 1656.0 KiB baseline, within
+tolerance**; mockups within tolerance; both measured routes within tolerance. One WARN only — the recorded
+baseline commit is not an ancestor of this trunk, so its distance is unresolvable. Not a failure and not
+this phase's to resolve.
+
+**`tests/ui-caring-contacts-workspace.spec.ts`: `84 passed (2.0m)`, zero failures, zero skips.**
+
+**Twenty-nine of those had never executed in the life of this programme** — Task 13's seven Schedule cases,
+Task 15's seven templates-library cases, Task 16's six template-detail cases and Task 19's nine
+guidance-and-reports cases. The browser proof that four separate handover notes recorded as owed, and
+deliberately unwritten, is now evidence. **The rebuilt spec's name-based screen lookup works**: had the
+positional collision survived the merge, the Templates block would have run against the Schedule screen and
+reported these same 84 passes.
