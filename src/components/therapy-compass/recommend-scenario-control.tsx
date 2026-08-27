@@ -3,6 +3,8 @@
 import { useId, useRef, useState } from "react";
 import { Pencil, Sparkles } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
 
@@ -45,19 +47,15 @@ export function RecommendScenarioControl({
 
   return (
     <div className="mb-6 sm:hidden">
-      <button
+      <InteractiveRow
         ref={triggerRef}
         type="button"
-        data-testid="therapy-recommend-scenario-trigger"
+        testId="therapy-recommend-scenario-trigger"
         aria-expanded={sheetOpen}
         aria-haspopup="dialog"
         aria-controls={sheetOpen ? panelId : undefined}
         onClick={() => setSheetOpen(true)}
-        className={cn(
-          "flex w-full min-h-tap items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors motion-reduce:transition-none",
-          "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)]",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        )}
+        className="w-full gap-3 px-3 py-2.5"
       >
         <span
           aria-hidden="true"
@@ -91,7 +89,7 @@ export function RecommendScenarioControl({
             : "No constraints active"}
           . Opens clinical scenario editor.
         </span>
-      </button>
+      </InteractiveRow>
 
       <Sheet
         open={sheetOpen}
@@ -118,17 +116,14 @@ export function RecommendScenarioControl({
             <span aria-live="polite" className="min-w-0 text-xs font-semibold text-[color:var(--text-muted)]">
               {matchLabel}
             </span>
-            <button
-              type="button"
-              data-testid="therapy-recommend-scenario-done"
+            <Button
+              variant="primary"
+              size="sm"
+              testId="therapy-recommend-scenario-done"
               onClick={() => setSheetOpen(false)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
             >
               Done
-            </button>
+            </Button>
           </div>
         }
       >
