@@ -811,13 +811,14 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Documents owns a real home: the shell mounts ClinicalDashboard for
-    // /documents, so it paints browse and recent documents rather than the
-    // shared hero. Every other consolidated mode links at the shared home
-    // directly — pointing a pinned entry at its old bare path would spend a
-    // 307 arriving in the same place. Medication is not consolidated:
-    // /medications is the prescribing workspace, not a 307 onto /?mode=prescribing.
-    { name: "Documents", href: "/documents" },
+    // Owner decision 2026-08-27: Documents joins the other consolidated modes and
+    // links at the shared home. `/documents` still exists and still paints its
+    // browse/recent workspace, but it is a second landing page — same subtitle,
+    // different title — and reaching it from the sidebar read as the wrong screen.
+    // It keeps its route and its inbound link from the Tools directory.
+    // Medication is not consolidated: /medications is the prescribing workspace,
+    // not a 307 onto /?mode=prescribing.
+    { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/?mode=services" },
     { name: "Medication", href: "/medications" },
     { name: "Factsheets", href: "/?mode=factsheets" },
@@ -1373,7 +1374,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/documents" },
+      { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
       { name: "Medication", href: "/medications" },
       { name: "Factsheets", href: "/?mode=factsheets" },
