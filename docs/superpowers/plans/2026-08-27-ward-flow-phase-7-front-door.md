@@ -167,7 +167,7 @@ Do not merge it with `forensic`.
    equality bug pass every test.
 2. At least one unit has `forensic: true`.
 3. **The Youth unit is the East Metropolitan Youth Unit (EMyU) at Bentley Health Service**, which is
-   already in the site table (`ward-sites.ts`, `code: "BEN"`). Use that name verbatim, capitalisation
+   already in the site table (`ward-sites.ts`, **`code: "BTY"`** — verified by reading the file and by the rendered page, which emits `ward-morning-site-BTY`). Use that name verbatim, capitalisation
    included — it is a real unit supplied by the product owner on 2026-08-27, not an invention, so do
    not rename it, abbreviate it differently, or move it. Add a comment recording that its **bed
    numbers** are invented like every other number here, while its name and placement are real.
