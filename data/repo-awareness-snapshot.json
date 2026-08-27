@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1b5de90c0dc0bab7131d103a71fcb715c71ce306",
-    "committed_at": "2026-08-27T06:51:52+08:00"
+    "sha": "053242453d725e9163a3209a5582a27e3750670e",
+    "committed_at": "2026-08-27T08:59:51+08:00"
   },
   "routes": {
     "modes": [
@@ -1290,6 +1290,10 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
+        "path": "/api/documents/images/batch",
+        "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
         "path": "/api/documents/signed-urls",
         "file": "src/app/api/documents/signed-urls/route.ts"
       },
@@ -1392,7 +1396,7 @@
       "product_pages": 55,
       "mockup_pages": 139,
       "redirects": 17,
-      "api": 57
+      "api": 58
     }
   },
   "documentation": {
