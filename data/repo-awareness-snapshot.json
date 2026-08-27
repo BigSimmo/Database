@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "201ae79898d8cf35daf188541818240cfac9ce38",
-    "committed_at": "2026-08-27T10:32:09+08:00"
+    "sha": "669b80b2ef598ff48084f4aaa2f0b1be027a8e16",
+    "committed_at": "2026-08-27T10:56:22+08:00"
   },
   "routes": {
     "modes": [
@@ -3816,6 +3816,14 @@
         "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
         "outcome": "FIXED",
         "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
       },
       {
         "date": "2026-08-26",
@@ -24843,8 +24851,8 @@
       }
     ],
     "counts": {
-      "records": 2629,
-      "refs": 1606
+      "records": 2630,
+      "refs": 1607
     }
   }
 }
