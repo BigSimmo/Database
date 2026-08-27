@@ -171,3 +171,19 @@ describe("the config tracks globals.css", () => {
     expect(twMergeClinical("p-2 p-4")).toBe("p-4");
   });
 });
+
+describe("cn module location", () => {
+  const primitivesSource = readFileSync(join(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+
+  it("lives in src/lib/cn.ts and is re-exported from ui-primitives", async () => {
+    const libCnSource = readFileSync(join(process.cwd(), "src/lib/cn.ts"), "utf8");
+    expect(libCnSource).toMatch(/export function cn\(/);
+    expect(libCnSource).toContain("twMergeClinical");
+    expect(primitivesSource).toMatch(/from ["']@\/lib\/cn["']/);
+    expect(primitivesSource).toMatch(/export \{[\s\S]*?\bcn\b[\s\S]*?\}/);
+    expect(primitivesSource).not.toMatch(/export function cn\(/);
+
+    const lib = await import("@/lib/cn");
+    expect(cn).toBe(lib.cn);
+  });
+});
