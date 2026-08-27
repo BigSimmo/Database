@@ -223,7 +223,7 @@ how to resolve it.
 
 ## 4. Rulings not yet in the build record
 
-`docs/…/phase-2b-build-record.md` is trunk-owned and was blocked by a live implementer. Land
+`docs/caring-contacts/phase-2b-build-record.md` is trunk-owned and was blocked by a live implementer. Land
 `scratchpad/rulings-129-130.md` — **note both were rewritten after review falsified their first versions**,
 and the rewrite is the version to land.
 
