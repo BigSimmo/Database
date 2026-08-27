@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -27,8 +27,22 @@ describe("cold-load CSS and font delivery", () => {
     const geistSans = sourceSegment(rootLayout, "const geistSans", "const geistMono", {
       label: "geistSans font configuration",
     });
+    const geistMono = sourceSegment(rootLayout, "const geistMono", "const baseMetadata", {
+      label: "geistMono font configuration",
+    });
 
+    expect(rootLayout).not.toContain("next-devtools");
+    expect(rootLayout).not.toContain("node_modules/next/dist");
+
+    expect(geistSans).toContain('src: "../fonts/geist-latin.woff2"');
     expect(geistSans).toContain('display: "swap"');
     expect(geistSans).not.toContain("preload: false");
+
+    expect(geistMono).toContain('src: "../fonts/geist-mono-latin.woff2"');
+    expect(geistMono).toContain('display: "swap"');
+    expect(geistMono).toContain("preload: false");
+
+    expect(existsSync(resolve(process.cwd(), "src/fonts/geist-latin.woff2"))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), "src/fonts/geist-mono-latin.woff2"))).toBe(true);
   });
 });

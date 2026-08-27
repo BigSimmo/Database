@@ -36,13 +36,13 @@ function supabaseOrigin() {
 }
 
 const geistSans = localFont({
-  src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
+  src: "../fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
   display: "swap",
 });
 
 const geistMono = localFont({
-  src: "../../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2",
+  src: "../fonts/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
   display: "swap",
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
