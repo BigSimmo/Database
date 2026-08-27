@@ -2963,8 +2963,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
     await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
     // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
-    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
-    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
+    // hidden S: clone (search-chrome invariant 17), which makes getByTestId strict-mode fail.
+    // AnswerProgress owns the in-flight state; AnswerSkeleton no longer renders its own
+    // "Loading answer" status line beside it, so the wait is asserted on the progress
+    // element's active state rather than the retired label.
+    await expect(page.locator('[data-testid="answer-progress"][data-progress-state="active"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
     const questionEcho = page.getByTestId("user-question-bubble");
