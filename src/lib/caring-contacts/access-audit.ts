@@ -73,6 +73,21 @@ export type AccessedObjectType =
    * stream.
    */
   | "contactSchedule"
+  /**
+   * A read of WHERE THE TEAM'S WORK SITS -- the roster behind the Team screen (Phase 2B Task 17):
+   * every plan's owner, the unclaimed group, and each coordinator's backlog, together.
+   *
+   * Its own member, decided against Ruling [134] rather than by Ruling [46]'s letter, because the
+   * two rulings pull opposite ways and the reasoning is the ruling. Ruling [134] collapsed the
+   * Templates library into `pathwayVersion` because that read was BYTE-IDENTICAL to one that
+   * already existed, so a second member would have named a screen rather than an object and split
+   * one askable question into two. This read is not identical to anything: no existing read joins
+   * `listPlans` to every plan's `getAssignment`, so recording it as `plan` would put "who looked at
+   * how work is distributed across the team" into the caseload's stream -- and with no `objectId`
+   * filter on the trail's query surface, it could then be picked out by eye and never asked for.
+   * That is Ruling [46]'s reason, and it reaches here.
+   */
+  | "teamWorkload"
   | "notificationPreferences"
   | "trainingRecord"
   | "pathwayVersion"

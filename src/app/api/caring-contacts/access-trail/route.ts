@@ -41,6 +41,7 @@ const querySchema = z
         "patientDirectory",
         "patientName",
         "contactSchedule",
+        "teamWorkload",
         "notificationPreferences",
         "trainingRecord",
         "pathwayVersion",
