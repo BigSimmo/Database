@@ -20,7 +20,7 @@ export function SpecifierPageShell({ children, className }: { children: ReactNod
 }
 
 export function SpecifierBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
+  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers/search" }} current={current} />;
 }
 
 const specifierWordingPathwaySteps = [
@@ -39,7 +39,7 @@ export function SpecifierWordingPathway() {
     >
       {specifierWordingPathwaySteps.map((label, index) => (
         <div key={label} className="contents">
-          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+          <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--text-heading)]">
             <span className="nums grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs text-[color:var(--clinical-accent-contrast)]">
               {index + 1}
             </span>
@@ -70,7 +70,7 @@ export function SpecifierDiagnosisFilter({
     <label
       className={cn(
         // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
-        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
@@ -146,7 +146,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
 
             <div
               data-specifier-card-signal
-              className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 shadow-[var(--shadow-inset)] sm:mt-0.5"
+              className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 sm:mt-0.5"
             >
               <p className={eyebrowText}>Deciding signal</p>
               <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">

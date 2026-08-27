@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "24d74362-023b-41a9-a287-76d13e580247",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#S4K1GA",
+    "outcome": "Documented physical iPhone motion preference acceptance matrix in accessibility docs.",
+    "baseRowFingerprint": "5676f5d83976cd86d804f66feba4e70edcd2a356c4d43a215f3aa642b1e5c7a0"
+  }
+}

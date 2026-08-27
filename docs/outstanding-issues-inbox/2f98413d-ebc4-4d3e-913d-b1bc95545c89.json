@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2f98413d-ebc4-4d3e-913d-b1bc95545c89",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#50QRCF",
+    "outcome": "Verified stable consecutive mobile Lighthouse CLS runs following root app-shell fix.",
+    "baseRowFingerprint": "1cd4d80e9811623073c10a530d8fd100758dbc04ec52cee5ba8608f745b01bcf"
+  }
+}

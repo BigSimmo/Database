@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "7280b503-2618-446f-b542-406e8044671d",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
+    "reason": "Superseded by PR 2406's own update record on 102, already merged to main. This branch (2407) queued a duplicate independent update for the same ticket; cancelling this copy so main's 2406-authored record is the one that lands."
+  }
+}

@@ -84,7 +84,7 @@ function DocumentTagChip({
   );
   const content = (
     <>
-      <Icon className={cn("shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+      <Icon aria-hidden="true" className={cn("shrink-0", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
       <span className="max-w-[18ch] truncate whitespace-nowrap sm:max-w-[32ch]">{tag.label}</span>
     </>
   );
@@ -138,7 +138,7 @@ export function DocumentTagCloud({
           return (
             <section key={group} className="min-w-0">
               <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+                <Icon aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--primary)]" />
                 {group}
               </h3>
               <div className="mt-2 flex flex-wrap gap-1.5">

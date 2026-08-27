@@ -76,6 +76,20 @@ describe("InformationPageShell", () => {
     expect(screen.getByText("Transport")).toHaveAttribute("aria-current", "page");
   });
 
+  it("renders a text-only home crumb when homeIcon is false", () => {
+    render(
+      <InformationPageBreadcrumbs
+        home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }}
+        homeIcon={false}
+        current="Compare"
+      />,
+    );
+
+    const home = screen.getByRole("link", { name: "DSM-5 Diagnosis home" });
+    expect(home).toHaveAttribute("href", "/dsm");
+    expect(home.querySelector("svg")).toBeNull();
+  });
+
   it("keeps a linked intermediate crumb a link after the fold onto Breadcrumb", () => {
     // The DS `Breadcrumb` decides link-vs-text from `href`, not from position.
     // Deciding on position would turn this middle crumb into dead text the
