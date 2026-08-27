@@ -198,6 +198,44 @@ refuse it, or the rule is untestable.
 
 Forensic is unchanged and stays descriptive-only.
 
+## A sixth answer, given mid-build (2026-08-28)
+
+### A referral records where the person is from, as a REGION
+
+**Decided: add it now, while the referral record is still being built.** The owner named this for what it
+is: a governance decision, not an implementation one. It widens the permitted facts about a person for
+the first time in five phases.
+
+**What prompted it.** Preparing the Phase 8 groundwork surfaced that everything geographic measures from
+somewhere, and today the system knows only which hospital a person is sitting in. Without this, the
+out-of-area ledger — the equity measure the roadmap calls "the one with teeth" — would measure distance
+from _the hospital that referred them_, not from home, and would have to be renamed to say so.
+
+The groundwork also found the gap already being papered over: **a bed can be declined today for being
+"out of catchment" while the system holds no catchment for anybody.**
+
+**A region, never an address.** The field carries a broad area chosen from a fixed list — never a street
+address, never free text, never a postcode. Roadmap decision 12 already permits real Western Australian
+place names "for geography and distance only", and a region name is exactly that: public geography, not
+a fact the prototype invented about a person's home.
+
+**The permitted-fields list now has a clearer shape, and it is worth stating in full** because it has
+grown twice in one night and the reasons differ:
+
+| Kind                                | Fields                                                                    | Why permitted                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Facts about the person**          | `ageBand`, `sex`, `homeRegion`                                            | The minimum needed to place someone safely and to measure whether they were placed far from home.   |
+| **Requirements on the request**     | `secureBedNeeded`, `involuntaryBedNeeded`                                 | Roadmap decision 5's convention — a requirement on the request, never a fact stored about a person. |
+| **Facts about the referral itself** | source, raised-at, urgency, origin site, transport needed, state, outcome | Operational. Not about the person at all.                                                           |
+
+Still absolutely excluded, and this has not moved: name, date of birth, record number, **address**,
+diagnosis, narrative history, treatment, and **free text anywhere**.
+
+**What must travel with it:** the structural privacy test asserts the type's exact field set and must be
+widened deliberately, not incidentally; the region comes from a fixed list with a membership check, so an
+address can never be entered where a region belongs; and the intake form offers a picker, never a text
+box.
+
 ## Still open
 
 - Everything the clinician check comes back with.
