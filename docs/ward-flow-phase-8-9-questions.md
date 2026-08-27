@@ -112,6 +112,14 @@ Six questions, hardest first.
 
 ### P8-1. Distance from where? Does the system need to know where a person comes from?
 
+> **ANSWERED 2026-08-28 by the product owner: yes — add it now, as a region, never an address.**
+> A referral records the broad area a person is from, chosen from a fixed list, so "three hours from
+> home" is answerable and the out-of-area ledger measures what its name says. He named it for what it
+> is: a governance decision, widening the permitted facts about a person for the first time in five
+> phases. Full reasoning and the revised field taxonomy are in `docs/ward-flow-phase-6-7-decisions.md`
+> under "A sixth answer". The field is built in Phase 7's fix round B, not deferred to Phase 8, because
+> the referral record was still open when the question was asked.
+
 Everything in Phase 8 measures a distance from something. Right now the system knows only which
 hospital a person is physically sitting in. It does not know where they live, and it has never held
 anything of that kind about anybody.
