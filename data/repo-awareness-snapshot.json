@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "d5ba26d66dc6642138d11ec04a2963618753ed4f",
-    "committed_at": "2026-08-27T08:55:08+00:00"
+    "sha": "d78b6ff168ebbba2a45830a6313f2e06d74f62ce",
+    "committed_at": "2026-08-27T10:01:21+00:00"
   },
   "routes": {
     "modes": [
@@ -3910,6 +3910,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty (conflict vs main), all real CI green on prior head (19fca0d), 0 unresolved review threads (4 PR comments were all automated bot usage-limit/status noise, no actionable findings). After: merged origin/main (b183dc65) into branch; only conflicts were generated files docs/design-system/COMPONENTS.md and docs/design-system/adoption-manifest.json, resolved by regenerating via 'node scripts/generate-design-system-adoption.mjs --write' (no manual edits); PR mergeability check now succeeds. No review threads needed action (none existed). No CI fix needed beyond the merge itself.",
         "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; npm run check:design-system-adoption -- design system adoption checked: 55 components, 76 roots; npm run check:playwright-pr-shards -- PR UI shard parity OK: 31 production specs across 3 groups; pre-commit hook ran docs:check-inventory and docs:check-index -- both current. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "f8537abbef36b5e9f72eb1c745f565253a276153",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Static PR checks red on check:repo-awareness-snapshot — committed data/repo-awareness-snapshot.json review_state was stale after prior sweep's ledger/docs commits); 0 unresolved review threads; branch already contained origin/main (no drift). After: ran npm run snapshot:repo-awareness to regenerate the snapshot, verified npm run check:repo-awareness-snapshot and npm run format:changed pass, committed and pushed f8537ab. All other required jobs (Build, Unit coverage, Production UI critical, Safety and config checks, Production UI shards 1-3, Lighthouse budget) were already green before this fix and untouched by it. No review threads existed to address. No main-sync needed (branch already up to date).",
+        "checks": "npm run check:repo-awareness-snapshot (PASS, reproduces prior CI failure then passes after regen); npm run format:changed (PASS); npm run snapshot:repo-awareness (regenerated data/repo-awareness-snapshot.json); no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -24953,7 +24961,7 @@
       }
     ],
     "counts": {
-      "records": 2633,
+      "records": 2634,
       "refs": 1609
     }
   }
