@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01Z"
+    "committed_at": "2026-08-25T17:45:01+00:00"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 18,
+    "pending": 28,
     "resolved": 412
   },
   "queue": [
@@ -943,9 +943,27 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
+      "action": "cancel",
+      "summary": "Cancel request ecabc51d-034a-4a68-91cd-280214aac6bf: Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
       "action": "done",
       "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "31bbefdc-0125-4b69-9ba5-f85ce916dc1a",
+      "action": "add",
+      "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "344cfd1b-b9b1-4b5a-a788-6560bfdc956e",
+      "action": "add",
+      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
       "created_at": "2026-08-27"
     },
     {
@@ -955,10 +973,22 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "3eebb95f-3671-41d0-afa8-85460a9b5ff3",
+      "action": "done",
+      "summary": "#321: Standardized control focus rings and ARIA descriptors across modal and drawer surfaces.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "40ff11ca-52f3-4b95-9118-5e0c107e68f0",
       "action": "cancel",
       "summary": "Cancel request 970b4089-9e76-4bcf-821e-2e70e16a3617: Superseded before reconciliation: the original wording incorrectly implied every component metric belongs in :root. The replacement distinguishes module-local one-consumer constants from shared CSS custom properties.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "454d0cd5-8f4c-4ab9-b9b3-7b5a588283a1",
+      "action": "cancel",
+      "summary": "Cancel request 76744c9f-6e7f-4390-a202-756e50be0cd1: Superseded by a539a411-4648-4f71-8b40-90d49646e8a4 on #243HCC",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "485bdac6-7f79-4539-9d90-347866604b35",
@@ -967,10 +997,34 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "531e6569-42da-4bb6-9c0f-6a410e207aea",
+      "action": "cancel",
+      "summary": "Cancel request 854ca9ba-ba3b-442b-be6d-6f5873ed60ed: Wired connection and permission unavailable recovery screens in Caring Contacts.",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "5fa0b2ee-38ea-4a6a-bada-815b021b5aac",
+      "action": "cancel",
+      "summary": "Cancel request a0548b2c-2c80-44f9-9440-5b983e169a13: Repaired closing-message refusal guard in Caring Contacts service state.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "6a9212fa-bd26-42d1-b412-6ddda9c66f88",
       "action": "done",
       "summary": "#1VFSYF: Created shadow extraction inspection utility script and documented >10% timeout rollback rule.",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "6e929764-e281-4941-9ef4-062ec5a08497",
+      "action": "cancel",
+      "summary": "Cancel request 1838b99a-9323-4e3b-84a5-8e52535ecec8: Connected governed-message validator to outbound dispatch routes with fail-closed enforcement.",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "76744c9f-6e7f-4390-a202-756e50be0cd1",
+      "action": "done",
+      "summary": "#243HCC: Emitted data-settings-nav-target on sub-navigation tabs in settings-dialog.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
@@ -994,6 +1048,12 @@
       "request_id": "a114318c-949e-46df-9b72-c9df997a72cd",
       "action": "done",
       "summary": "#8A00R7: Modularized AGENTS.md reducing per-turn token payload while updating pinning tests.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
+      "action": "done",
+      "summary": "#45V4Y7: Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
       "created_at": "2026-08-27"
     },
     {

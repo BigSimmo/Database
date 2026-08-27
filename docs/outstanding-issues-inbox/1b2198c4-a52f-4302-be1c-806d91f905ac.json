@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "ecabc51d-034a-4a68-91cd-280214aac6bf",
+    "reason": "Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27."
+  }
+}
