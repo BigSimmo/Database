@@ -78,6 +78,16 @@ describe("ward-morning-rollup", () => {
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
+        {
+          id: "r-3",
+          unitId: "unit-b",
+          state: "confirmed",
+          expectedAt: NOW,
+          confidence: null,
+          blocker: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
       ];
       const leave: LeaveBed[] = [
         {
@@ -101,11 +111,14 @@ describe("ward-morning-rollup", () => {
 
       // Hand-computed expectation: availableNow = min(empty, allocatable) per unit — unit-a
       // min(3,2)=2, unit-b min(5,4)=4, total 6. held = max(empty - availableNow, 0) per unit —
-      // unit-a max(3-2,0)=1, unit-b max(5-4,0)=1, total 2. confirmedToday = 1 (unit-a's
-      // confirmed release). predictedToday = 1 (unit-b's predicted release).
+      // unit-a max(3-2,0)=1, unit-b max(5-4,0)=1, total 2. confirmedToday = 2 (unit-a's r-1
+      // confirmed release plus unit-b's r-3 confirmed release). predictedToday = 1 (unit-b's
+      // r-2 predicted release). The two figures are deliberately asymmetric (2 vs 1) so a
+      // swap between confirmedToday and predictedToday in sumBreakdowns changes both totals
+      // and cannot pass unnoticed.
       expect(result.service.availableNow).toBe(6);
       expect(result.service.held).toBe(2);
-      expect(result.service.confirmedToday).toBe(1);
+      expect(result.service.confirmedToday).toBe(2);
       expect(result.service.predictedToday).toBe(1);
       expect(result.service.leaveUsable).toBe(1);
     });
