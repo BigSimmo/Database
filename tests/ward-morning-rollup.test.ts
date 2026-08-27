@@ -101,13 +101,7 @@ describe("ward-morning-rollup", () => {
       ];
       const testSite = site({ code: "RPH" });
 
-      const result = serviceRollup(
-        [testSite],
-        [unitA, unitB],
-        releases,
-        leave,
-        NOW,
-      );
+      const result = serviceRollup([testSite], [unitA, unitB], releases, leave, NOW);
 
       // Hand-computed expectation: availableNow = min(empty, allocatable) per unit — unit-a
       // min(3,2)=2, unit-b min(5,4)=4, total 6. held = max(empty - availableNow, 0) per unit —
@@ -149,15 +143,31 @@ describe("ward-morning-rollup", () => {
 
   describe("rule 3: freshness kind — never / partial / confirmed", () => {
     it("is 'never' when no unit below has ever confirmed", () => {
-      const a = unit({ id: "a", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 } });
-      const b = unit({ id: "b", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 } });
+      const a = unit({
+        id: "a",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 },
+      });
+      const b = unit({
+        id: "b",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 },
+      });
       const result = serviceRollup([site({ code: "RPH" })], [a, b], [], [], NOW);
       expect(result.service.freshness).toEqual({ kind: "never" });
     });
 
     it("is 'partial' when at least one unit has confirmed and at least one has not", () => {
-      const confirmed = unit({ id: "confirmed", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NOW - 20, staleAfterMinutes: 120 } });
-      const never = unit({ id: "never", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 } });
+      const confirmed = unit({
+        id: "confirmed",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW - 20, staleAfterMinutes: 120 },
+      });
+      const never = unit({
+        id: "never",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NaN, staleAfterMinutes: 120 },
+      });
       const result = serviceRollup([site({ code: "RPH" })], [confirmed, never], [], [], NOW);
       expect(result.service.freshness).toEqual({
         kind: "partial",
@@ -168,8 +178,16 @@ describe("ward-morning-rollup", () => {
     });
 
     it("is 'confirmed' when every unit below has confirmed", () => {
-      const a = unit({ id: "a", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NOW - 20, staleAfterMinutes: 120 } });
-      const b = unit({ id: "b", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 120 } });
+      const a = unit({
+        id: "a",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW - 20, staleAfterMinutes: 120 },
+      });
+      const b = unit({
+        id: "b",
+        siteCode: "RPH",
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 120 },
+      });
       const result = serviceRollup([site({ code: "RPH" })], [a, b], [], [], NOW);
       expect(result.service.freshness).toEqual({
         kind: "confirmed",
@@ -244,7 +262,13 @@ describe("ward-morning-rollup", () => {
       });
       const siteWithDifferentEmbeddedUnit = site({
         code: "RPH",
-        units: [unit({ id: "embedded-only", siteCode: "RPH", allocatable: { value: 1, source: "ward", confirmedAt: NOW, staleAfterMinutes: 120 } })],
+        units: [
+          unit({
+            id: "embedded-only",
+            siteCode: "RPH",
+            allocatable: { value: 1, source: "ward", confirmedAt: NOW, staleAfterMinutes: 120 },
+          }),
+        ],
       });
 
       const result = serviceRollup([siteWithDifferentEmbeddedUnit], [passedInUnit], [], [], NOW);

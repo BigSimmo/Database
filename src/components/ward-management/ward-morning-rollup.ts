@@ -1,7 +1,4 @@
-import {
-  capacityBreakdown,
-  type CapacityBreakdown,
-} from "@/components/ward-management/ward-bed-availability";
+import { capacityBreakdown, type CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import { unitSiteCode } from "@/components/ward-management/ward-derivations";
 import type { BedRelease, LeaveBed, Site, Unit } from "@/components/ward-management/ward-model";

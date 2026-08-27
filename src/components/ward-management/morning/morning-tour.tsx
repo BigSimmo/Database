@@ -264,13 +264,10 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
    *  multi-event beat's deferred second dispatch has actually fired. */
   function scheduleAdvance(n: number) {
     if (reducedMotionRef.current) return;
-    timerRef.current = setTimeout(
-      () => {
-        if (n >= LAST_BEAT) finish();
-        else runBeat(n + 1);
-      },
-      TOUR_BEAT_INTERVAL_MS,
-    );
+    timerRef.current = setTimeout(() => {
+      if (n >= LAST_BEAT) finish();
+      else runBeat(n + 1);
+    }, TOUR_BEAT_INTERVAL_MS);
   }
 
   function runBeat(n: number) {

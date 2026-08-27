@@ -303,9 +303,9 @@ export function ViewControl({
         />
       </div>
       <p className={styles.viewExplainer} data-testid="ward-morning-view-explainer">
-        The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock — not
-        a reconstruction of what the ward state actually was at 08:00, because this prototype keeps no event
-        history. The live view is the one that moves.
+        The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock — not a
+        reconstruction of what the ward state actually was at 08:00, because this prototype keeps no event history. The
+        live view is the one that moves.
       </p>
     </div>
   );
@@ -395,8 +395,8 @@ function PrintFooter() {
         Print
       </button>
       <p className={styles.crossLink}>
-        This page answers &quot;what can I fill right now, across the network?&quot; For &quot;what do I need to
-        hand over this shift?&quot;, see the <Link href="/mockups/ward-flow/handover">shift handover</Link>.
+        This page answers &quot;what can I fill right now, across the network?&quot; For &quot;what do I need to hand
+        over this shift?&quot;, see the <Link href="/mockups/ward-flow/handover">shift handover</Link>.
       </p>
     </footer>
   );

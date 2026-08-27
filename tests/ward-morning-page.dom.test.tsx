@@ -82,7 +82,13 @@ function NullHandoverHarness() {
   const [view, setView] = useState<MorningView>("fixed");
   const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
   return (
-    <MorningBody frozen={{ instant: null, rollup: null }} view={view} onChangeView={setView} liveRollup={liveRollup} liveNow={now} />
+    <MorningBody
+      frozen={{ instant: null, rollup: null }}
+      view={view}
+      onChangeView={setView}
+      liveRollup={liveRollup}
+      liveNow={now}
+    />
   );
 }
 
@@ -289,9 +295,7 @@ describe("MorningPage", () => {
 
   it("states a partial rollup in words: N of M wards confirmed, and how many never confirmed", () => {
     render(
-      <FreshnessStamp
-        freshness={{ kind: "partial", oldestConfirmedAt: 100, unitsConfirmed: 14, unitsTotal: 15 }}
-      />,
+      <FreshnessStamp freshness={{ kind: "partial", oldestConfirmedAt: 100, unitsConfirmed: 14, unitsTotal: 15 }} />,
     );
     expect(screen.getByText("14 of 15 wards confirmed · 1 never confirmed")).toBeInTheDocument();
   });
