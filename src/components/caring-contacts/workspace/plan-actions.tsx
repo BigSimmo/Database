@@ -349,7 +349,8 @@ export function PlanActions({ context }: PlanActionsProps) {
           // without depending on a refresh arriving at all, and what a coordinator then reads
           // beside the control is `a-different-coordinator-is-chosen` by name.
           //
-          // The announcement is taken FIRST because it reads the destination this move was for.
+          // The announcement is taken first so that what it names cannot depend on the order these
+          // are applied: it is about the destination this move was for.
           setDestination("");
           setHandoverNote("");
           setOutcome({ kind: "recorded", action, announcement });

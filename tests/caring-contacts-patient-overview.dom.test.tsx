@@ -68,10 +68,11 @@ import {
 } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import {
+  planActionCardName,
   planActionConditions,
   PLAN_ACTION_CONDITION_REFUSALS,
 } from "@/components/caring-contacts/workspace/plan-action-rules";
-import type { PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
+import type { PlanActionId, PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
 import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACT_ROLE_WORDING } from "@/lib/caring-contacts/permissions";
@@ -2580,5 +2581,20 @@ describe("the plan actions - the conditions table refuses an action nobody decla
     // all four of these mutate.
     expect(() => planActionConditions("pause")).not.toThrow();
     expect(() => planActionConditions("delivery-detail")).toThrow(/No conditions are declared/i);
+  });
+
+  /**
+   * THE GUARD THAT SURVIVED ITS OWN CALLER. `planActionLabel` no longer puts a string on this
+   * screen -- the card writes its own names -- and the one call left is the one `planActionCardName`
+   * makes and DISCARDS, so that the frozen table is still read first and an action naming no row of
+   * it still throws here. That is a real and deliberate job, and nothing was reading it: a reader
+   * finding no consumer of the returned string could have removed the call and taken every other
+   * assertion about this card staying green as licence.
+   */
+  it("still refuses an action naming no row of the frozen table, though the card writes its own names", () => {
+    // POSITIVE CONTROL: the card's own word for a row that DOES exist, so the throw below is about
+    // the missing row rather than about this function being broken for everything.
+    expect(planActionCardName("pause")).toBe("Hold this plan");
+    expect(() => planActionCardName("not-an-overlay" as PlanActionId)).toThrow(/names no row of the frozen/i);
   });
 });
