@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 3,
+    "pending": 4,
     "resolved": 431
   },
   "queue": [
@@ -834,6 +834,12 @@
       "request_id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
       "action": "add",
       "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
+      "action": "add",
+      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
       "created_at": "2026-08-27"
     },
     {
