@@ -676,7 +676,7 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     await page.waitForLoadState("networkidle");
 
     // --- Step 6: the reviewer's Proof 3. Select any open movement (the diagram renders every
-    // one of the 22 units' own capacity regardless of which movement is selected, so which
+    // one of the 23 units' own capacity regardless of which movement is selected, so which
     // movement is picked here does not matter to this proof), then select RPH Adult Secure's
     // own node in the statewide flow diagram. ---
     const diagram = page.getByRole("region", { name: "Statewide flow" });

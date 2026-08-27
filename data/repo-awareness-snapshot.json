@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "9fa1102d0845efc816d281400e28cc44201b2ea1",
-    "committed_at": "2026-08-28T04:53:13+08:00"
+    "sha": "59dcd56d1635559da7432de72da0954cee47ea23",
+    "committed_at": "2026-08-28T05:31:35+08:00"
   },
   "routes": {
     "modes": [
@@ -3487,6 +3487,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-08-28-ward-flow-phase-8-distance-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md",
         "section": "superpowers",
         "catalogued": false
@@ -3932,9 +3937,9 @@
       }
     ],
     "counts": {
-      "documents": 490,
+      "documents": 491,
       "catalogued": 106,
-      "uncatalogued": 384,
+      "uncatalogued": 385,
       "sections": 19
     }
   },

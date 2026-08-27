@@ -364,11 +364,17 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     // Connector paths are drawn by a client layout effect — this is the hydration signal.
     await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
 
-    // Every one of the 22 fixture units renders as its own node regardless of selection — a unit
+    // Every one of the 23 fixture units renders as its own node regardless of selection — a unit
     // whose service-group lookup silently fails must not just vanish from the count (review
     // Minor 6; `flow-diagram.tsx` renders an explicit "Unresolved health service" anomaly card
     // for exactly that case rather than dropping the unit).
-    await expect(diagram.locator('[data-testid^="ward-diagram-unit-"]')).toHaveCount(22);
+    //
+    // 23, not the 22 this assertion carried from PR #2289: Phase 7 Task 1 (`5401a7121`) added the
+    // youth unit at Bentley on the product owner's own instruction, and this count is deliberately
+    // exact rather than a floor, so it goes red when the fixture grows. It did — caught by Task 7,
+    // whose dispatch had wrongly asserted the branch was green because only the Vitest ward suite
+    // had been re-run. `tests/ui-ward-roles.spec.ts` repeats the same figure in prose.
+    await expect(diagram.locator('[data-testid^="ward-diagram-unit-"]')).toHaveCount(23);
 
     // Demand connectors (department → hub) exist regardless of selection, always eight. No
     // movement is selected yet, so there must be zero route connectors — proving the two kinds
