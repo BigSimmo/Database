@@ -11,6 +11,7 @@
  * distinction in words (never colour alone).
  */
 .demo {
+  composes: descendantKill from "./ward-reduced-motion.module.css";
   --dc-warn: var(--warning-text);
   --dc-warn-soft: var(--warning-bg);
   --dc-warn-border: var(--warning-border);

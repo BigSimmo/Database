@@ -129,7 +129,7 @@ export function CalculatorsClinicalConsoleMockup() {
                   aria-pressed={active}
                   onClick={() => setActiveId(entry.id)}
                   className={cn(
-                    "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm-minus font-bold",
+                    "inline-flex min-h-tap shrink-0 items-center gap-2 rounded-md border px-3 text-sm-minus font-bold",
                     active
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
@@ -196,7 +196,7 @@ export function CalculatorsClinicalConsoleMockup() {
           {/* Sticky live-score ticker */}
           <section
             aria-label="Live result"
-            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-soft)] backdrop-blur-md"
+            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--e2)] backdrop-blur-md"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
@@ -231,7 +231,7 @@ export function CalculatorsClinicalConsoleMockup() {
               onClick={() => setAnswers({})}
               disabled={!derived.started}
               className={cn(
-                "inline-flex min-h-9 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+                "inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
                 focusRing,
               )}
             >

@@ -136,7 +136,7 @@ export function AnswerCard({
       className={cn(
         bare
           ? "bg-transparent"
-          : "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
+          : "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2)]",
         className,
       )}
     >
