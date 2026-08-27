@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "25eb20f4c8ae7f7589b45a322d25c6d1f3ca1dca",
-    "committed_at": "2026-08-27T11:31:22+00:00"
+    "sha": "1d9e1234e1c6c3d642efed81ebe65a6056d5d120",
+    "committed_at": "2026-08-27T11:37:53+00:00"
   },
   "routes": {
     "modes": [
@@ -3910,6 +3910,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
         "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "00356908c096c9bdf462d9da85b1157f9e7c70b9",
+        "scope": "Resolve CodeRabbit review comment",
+        "outcome": "CodeRabbit flagged a real SSR/client hydration mismatch: usePhoneMedia's useState lazy initializer read window.matchMedia directly on the client's first render, which could disagree with the server-rendered false and mismatch CompareIdsChrome/CompareSlotStrip's initial hybrid-layout branch. Fixed by switching usePhoneMedia to useSyncExternalStore with a server snapshot fixed to false, matching the repo's existing useIndexingAdminDesktopLayout pattern. Replied and resolved the thread.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx -- 18 passed (53 passed on the full focused set before format pass); npx tsc --noEmit -- clean; npx eslint on the changed file -- clean; npx prettier --check -- clean after --write. No provider-backed checks run."
       },
       {
         "date": "2026-08-27",
@@ -24993,7 +25001,7 @@
       }
     ],
     "counts": {
-      "records": 2638,
+      "records": 2639,
       "refs": 1610
     }
   }
