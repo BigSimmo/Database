@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -101,5 +103,24 @@ describe("search / field focus is quiet and shell-owned", () => {
     });
     expect(nested).toContain("outline: none");
     expect(nested).not.toContain("input.field-control:focus-visible");
+  });
+
+  it("keeps production TSX free of focus:ring-4", () => {
+    const srcRoot = fileURLToPath(new URL("../src", import.meta.url));
+    const files: string[] = [];
+    const visit = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        if (name === "mockups" || name === "node_modules") continue;
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) visit(full);
+        else if (full.endsWith(".tsx") || full.endsWith(".ts")) files.push(full);
+      }
+    };
+    visit(srcRoot);
+    const hits = files.flatMap((file) => {
+      const text = readFileSync(file, "utf8");
+      return text.includes("focus:ring-4") ? [file.replace(/\\/g, "/")] : [];
+    });
+    expect(hits, "production TSX must not paint a Tailwind focus:ring-4 halo").toEqual([]);
   });
 });

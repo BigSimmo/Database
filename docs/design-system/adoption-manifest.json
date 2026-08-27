@@ -289,6 +289,7 @@
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
+        "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -313,6 +314,7 @@
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
+        "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/pathway-step-stack.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
@@ -344,6 +346,7 @@
         "tests/copy-button.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/design-system-contract-utils.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],

@@ -17,7 +17,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
 import { PageHeader } from "@/components/ui/page-header";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
@@ -170,10 +170,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
                 </p>
               </div>
               <div className="grid gap-2">
-                <Link
-                  href={`/specifiers/${selected.slug}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)]"
-                >
+                <Link href={`/specifiers/${selected.slug}`} className={cn(primaryControl)}>
                   Open full guide
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>

@@ -25,7 +25,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn } from "@/components/ui-primitives";
+import { cn, primaryControl } from "@/components/ui-primitives";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
@@ -69,10 +69,7 @@ function EmptySearchResults({ query }: { query: string }) {
           racing thoughts&rdquo; or &ldquo;returns every winter&rdquo;.
         </p>
       </div>
-      <Link
-        href={consolidatedModeSearchPath("specifiers")}
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
-      >
+      <Link href={consolidatedModeSearchPath("specifiers")} className={cn(primaryControl)}>
         Clear search
       </Link>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1">
