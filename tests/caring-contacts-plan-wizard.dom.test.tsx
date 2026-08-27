@@ -1217,7 +1217,7 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     renderWizardWithOverlays();
     await screen.findByRole("region", { name: "Review and activation" });
 
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     const action = await screen.findByTestId("workspace-overlay-action");
 
     // Read through `aria-describedby` rather than searching the overlay's text. That is what makes
@@ -1258,7 +1258,7 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     renderWizardWithOverlays();
     await screen.findByRole("region", { name: "Review and activation" });
 
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     await user.click(await screen.findByTestId("workspace-overlay-action"));
     // Positive control on the premise: the create really is in flight, or the two branches are not
     // both live and this case proves nothing about their order.
@@ -1271,7 +1271,7 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
       assurances: { patientAgreed: true, mobileIsPatientControlled: false },
     });
 
-    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(finalActivationTrigger());
     const action = await screen.findByTestId("workspace-overlay-action");
     const reason = document.getElementById(action.getAttribute("aria-describedby") as string);
 

@@ -701,7 +701,10 @@ describe("the patient overview - what it may show about the person", () => {
     render(
       <PatientOverview
         patientId={PATIENT}
-        view={{ kind: "episode", record, episode: { ...episode, preferredName: null }, otherPlanCount: 0 }}
+        // `episodeView` rather than a raw literal: Task 11b made `actions` a required member of the
+        // episode view, and this case predates it. The default context is right here because the
+        // case is about the preferred name, not about the actions.
+        view={episodeView({ record, episode: { ...episode, preferredName: null }, otherPlanCount: 0 })}
       />,
     );
 
