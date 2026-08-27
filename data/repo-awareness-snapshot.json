@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "5d848e0d24e4669a0fc41ef37aaab1f77ae5c323",
-    "committed_at": "2026-08-27T13:18:04+08:00"
+    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
+    "committed_at": "2026-08-27T05:20:05+00:00"
   },
   "routes": {
     "modes": [
@@ -2547,6 +2547,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-apply-performance-latency-remediation.md",
         "section": "root",
         "catalogued": true
@@ -3862,9 +3867,9 @@
       }
     ],
     "counts": {
-      "documents": 479,
+      "documents": 480,
       "catalogued": 106,
-      "uncatalogued": 373,
+      "uncatalogued": 374,
       "sections": 19
     }
   },

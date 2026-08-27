@@ -41,7 +41,8 @@ describe("document-derived text must route through a formatter", () => {
   const answerSourceRail = componentSource("clinical-dashboard/answer-source-rail.tsx");
   const answerSourceDrawer = componentSource("clinical-dashboard/answer-source-drawer.tsx");
   const answerSourceRows = componentSource("clinical-dashboard/answer-source-rows.ts");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}\n${answerSourceRail}\n${answerSourceDrawer}\n${answerSourceRows}`;
+  const answerEvidencePreview = componentSource("clinical-dashboard/answer-evidence-preview.tsx");
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}\n${answerSourceRail}\n${answerSourceDrawer}\n${answerSourceRows}\n${answerEvidencePreview}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);
@@ -62,7 +63,7 @@ describe("document-derived text must route through a formatter", () => {
 
   it("renders source-card snippets through compactSourceSnippet with the card title deduped", () => {
     expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.snippet\}/);
-    expect(dashboardSurfaces).toContain('compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title })');
+    expect(dashboardSurfaces).toContain("compactSourceSnippet(source.content, { dropTitle: title })");
   });
 
   it("renders evidence-map row details through the compact formatter, never raw", () => {

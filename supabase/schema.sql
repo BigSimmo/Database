@@ -1,4 +1,4 @@
-﻿-- Medical RAG Knowledge Base schema.
+-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -76,7 +76,8 @@ create table if not exists public.documents (
   chunk_count integer not null default 0,
   image_count integer not null default 0,
   error_message text,
-  metadata jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb
+    constraint documents_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
   ) stored,
