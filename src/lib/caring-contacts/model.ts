@@ -32,7 +32,9 @@ export type SendingPreference = "morning" | "afternoon" | "earlyEvening";
  */
 export const TERMINAL_PLAN_STATES: readonly PlanState[] = Object.freeze(["withdrawn", "cancelled", "completed"]);
 
-export const TERMINAL_CONTACT_STATES: readonly ContactState[] = Object.freeze([
+export const TERMINAL_CONTACT_STATES: readonly ContactState[] = Object.freeze(["delivered", "suppressed", "cancelled"]);
+
+export const TERMINAL_DISPATCH_REFUSED_CONTACT_STATES: readonly ContactState[] = Object.freeze([
   "delivered",
   "suppressed",
   "cancelled",

@@ -5,7 +5,7 @@
 // segment count — all live in message-rules.ts and change there, wholesale, without editing
 // this file. See message-rules.ts for why.
 import {
-  TERMINAL_CONTACT_STATES,
+  TERMINAL_DISPATCH_REFUSED_CONTACT_STATES,
   TERMINAL_PLAN_STATES,
   type ContactState,
   type MessageType,
@@ -153,7 +153,7 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
     issues.push({ code: "solicits-reply" });
   }
 
-  if (input.contactState && TERMINAL_CONTACT_STATES.includes(input.contactState)) {
+  if (input.contactState && TERMINAL_DISPATCH_REFUSED_CONTACT_STATES.includes(input.contactState)) {
     issues.push({ code: "terminated-contact-dispatch-refused", state: input.contactState });
   }
 
