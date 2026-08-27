@@ -37,27 +37,27 @@ measurement of `globals.css` / `ckb-v2-tokens.css`.
 
 ## Batch B — docs dispositions
 
-| ID       | Status     | Rationale                                                                                                                                                                                   |
-| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DS-P2-04 | Documented | Intentional Geist variable interpolation. Already explained in [`docs/design-system.md`](../design-system.md) (intermediate weights; do **not** snap to 600/700).                           |
-| DS-P2-22 | Documented | `SectionHeading` exists (`src/components/ui/section-heading.tsx`); 14 production call sites. No opportunistic migration this sweep.                                                         |
-| DS-P2-23 | Documented | `AnswerCard` `frame?: "raised" \| "bare"` — both valid. Production answer surface uses **bare**. Future visual baselines must include both. Do not commit screenshots.                      |
-| DS-P2-27 | Documented | 15-mode load: recommend first-run / Tools prominence later. No IA redesign this sweep.                                                                                                      |
-| DS-P2-28 | Documented | Settings **Motion** already has a per-control description. **Recent searches on home** does not — docs recommendation only; no extra intro copy in product this sweep.                      |
-| DS-P2-29 | Deferred   | Phone document-viewer density waits on the tap-floor (Hazard ≥3).                                                                                                                           |
-| DS-P2-30 | Documented | Toast primitive exists; there is no **universal network-error** toast. Do not build toast infra here. `OverlayRoot` remains the overlay owner.                                              |
-| DS-P2-31 | Documented | Already in TOKENS §4 / SPEC §3: add `--kind-*` **with the first call site**. No values in this sweep.                                                                                       |
-| DS-P2-32 | Documented | `--text-placeholder` is **live** (globals + v2 + `placeholder:` consumers), not planned. TOKENS §5 corrected. No further role migration.                                                    |
-| DS-P2-33 | Documented | Contract `textSoftConsumers=0` in production. Keep the `--text-soft` alias until zero `var(--text-soft)` remain **including mockups**. Do not rename; do not delete this sweep.             |
-| DS-P3-01 | Deferred   | PR-9 plan. `--shadow-focus` and dead springs are already gone. `--shadow-lift` still has live `mode-nav` and `document-search-results` consumers — do **not** delete it.                    |
-| DS-P3-02 | Documented | TOKENS already: `--tone-*` frozen, not deleted.                                                                                                                                             |
-| DS-P3-03 | Documented | TOKENS already: design-side `--quantity-unit-scale` never lands.                                                                                                                            |
-| DS-P3-04 | Documented | TOKENS already: ConfidenceMeter deferred; no token without a call site.                                                                                                                     |
-| DS-P3-05 | Documented | Registry has **55** registered visual exports. `DocumentFrame` is built shell-only and still unregistered. Register when print primitives ship (PR 11). |
-| DS-P3-07 | Documented | Full visual state matrix grows incrementally with new adoptions.                                                                                                                            |
-| DS-P3-08 | Documented | QA checklist: inspect the filter band at 414–430px. No code this sweep.                                                                                                                     |
-| DS-P3-09 | Documented | `#TYZK23` PWA install CLS already fixed (PR #2253). Regression-check note only; no speculative CSS.                                                                                         |
-| DS-P3-10 | Documented | Mockup `min-h-11` and `--text-soft` body must not leak into production.                                                                                                                     |
+| ID       | Status     | Rationale                                                                                                                                                                       |
+| -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DS-P2-04 | Documented | Intentional Geist variable interpolation. Already explained in [`docs/design-system.md`](../design-system.md) (intermediate weights; do **not** snap to 600/700).               |
+| DS-P2-22 | Documented | `SectionHeading` exists (`src/components/ui/section-heading.tsx`); 14 production call sites. No opportunistic migration this sweep.                                             |
+| DS-P2-23 | Documented | `AnswerCard` `frame?: "raised" \| "bare"` — both valid. Production answer surface uses **bare**. Future visual baselines must include both. Do not commit screenshots.          |
+| DS-P2-27 | Documented | 15-mode load: recommend first-run / Tools prominence later. No IA redesign this sweep.                                                                                          |
+| DS-P2-28 | Documented | Settings **Motion** already has a per-control description. **Recent searches on home** does not — docs recommendation only; no extra intro copy in product this sweep.          |
+| DS-P2-29 | Deferred   | Phone document-viewer density waits on the tap-floor (Hazard ≥3).                                                                                                               |
+| DS-P2-30 | Documented | Toast primitive exists; there is no **universal network-error** toast. Do not build toast infra here. `OverlayRoot` remains the overlay owner.                                  |
+| DS-P2-31 | Documented | Already in TOKENS §4 / SPEC §3: add `--kind-*` **with the first call site**. No values in this sweep.                                                                           |
+| DS-P2-32 | Documented | `--text-placeholder` is **live** (globals + v2 + `placeholder:` consumers), not planned. TOKENS §5 corrected. No further role migration.                                        |
+| DS-P2-33 | Documented | Contract `textSoftConsumers=0` in production. Keep the `--text-soft` alias until zero `var(--text-soft)` remain **including mockups**. Do not rename; do not delete this sweep. |
+| DS-P3-01 | Deferred   | PR-9 plan. `--shadow-focus` and dead springs are already gone. `--shadow-lift` still has live `mode-nav` and `document-search-results` consumers — do **not** delete it.        |
+| DS-P3-02 | Documented | TOKENS already: `--tone-*` frozen, not deleted.                                                                                                                                 |
+| DS-P3-03 | Documented | TOKENS already: design-side `--quantity-unit-scale` never lands.                                                                                                                |
+| DS-P3-04 | Documented | TOKENS already: ConfidenceMeter deferred; no token without a call site.                                                                                                         |
+| DS-P3-05 | Documented | Registry has **55** registered visual exports. `DocumentFrame` is built shell-only and still unregistered. Register when print primitives ship (PR 11).                         |
+| DS-P3-07 | Documented | Full visual state matrix grows incrementally with new adoptions.                                                                                                                |
+| DS-P3-08 | Documented | QA checklist: inspect the filter band at 414–430px. No code this sweep.                                                                                                         |
+| DS-P3-09 | Documented | `#TYZK23` PWA install CLS already fixed (PR #2253). Regression-check note only; no speculative CSS.                                                                             |
+| DS-P3-10 | Documented | Mockup `min-h-11` and `--text-soft` body must not leak into production.                                                                                                         |
 
 ---
 
