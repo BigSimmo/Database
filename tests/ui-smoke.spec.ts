@@ -3256,7 +3256,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(reviewDueTab).toContainText("Review due");
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(0);
+    const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reviewDuePanel).toBeHidden();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
 
     await testInfo.attach("review-due-tab-phone", {
@@ -3266,6 +3268,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await reviewDueTab.click();
     await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
+    await expect(reviewDuePanel).toBeVisible();
     await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
     await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
   });
