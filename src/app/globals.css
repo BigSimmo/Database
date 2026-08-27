@@ -308,8 +308,7 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
-  --animate-answer-ecg: answer-ecg-scroll 3.2s linear infinite;
-  --animate-answer-ecg-compact: answer-ecg-scroll 2.6s linear infinite;
+  --animate-answer-progress-breath: answer-progress-breath 2.4s ease-in-out infinite;
 }
 
 /* Theme tokens */
@@ -3934,24 +3933,26 @@ td,
   }
 }
 
-/* Scroll the bright ECG strip like a cardiac monitor.
+/* The answer/search progress indicator, breathing.
  *
- * The strip is two identical copies of the trace side by side inside a 200%-wide
- * HTML span, so translating it by exactly -50% lands copy 2 where copy 1 started
- * and the loop has no seam (the path starts at `M0 24` and ends at the same y).
+ * Opacity only, on a 5px dot. The ECG strip this replaces animated `transform`
+ * because mobile WebKit can report SVG path animations as running without
+ * repainting them; a plain opacity fade on a plain HTML span has never had that
+ * problem, and there is no strip to keep seamless.
  *
- * `transform` is the only animated property here on purpose. Mobile WebKit can
- * report animations on SVG path properties as running without repainting them,
- * especially in an installed PWA, and an earlier whole-line opacity pulse was
- * technically running but too subtle to read as motion on a phone hairline.
- * Translating a plain HTML layer is the same compositor-thread recipe that
- * `.animate-skeleton-shimmer::after` already uses reliably in this app. */
-@keyframes answer-ecg-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
+ * It never reaches 0. The indicator must remain visible at every frame,
+ * including the resting frame when motion is suppressed — that is the contract
+ * `ui-phone-motion.spec.ts` exists to hold, after Reduce Motion set the old
+ * trace to `opacity: 0` and left a dead panel on a physical iPhone while an
+ * answer was generating. */
+@keyframes answer-progress-breath {
+  0%,
+  100% {
+    opacity: 1;
   }
-  to {
-    transform: translate3d(-50%, 0, 0);
+
+  50% {
+    opacity: 0.35;
   }
 }
 
@@ -3968,23 +3969,22 @@ td,
  * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
-  /* `isolation` + `translateZ(0)` mirror .animate-skeleton-shimmer: they give the
-     scrolling strip its own compositor layer so WebKit repaints it. The mask is
-     static (never animated) and only softens the two clipped edges. */
-  .answer-activity-trace {
-    isolation: isolate;
-    transform: translateZ(0);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
-    mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  .answer-progress-dot {
+    animation: var(--animate-answer-progress-breath);
+    will-change: opacity;
   }
 
-  .answer-activity-trace__sweep {
-    animation: var(--animate-answer-ecg);
-    will-change: transform;
+  /* The arriving source rail fades at its right edge instead of clipping a card
+     mid-word, the same mechanism .answer-suggestion-chips-scroll already ships.
+     The mask is static and never animated. */
+  .answer-sources-arriving {
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 1.75rem), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 1.75rem), transparent);
   }
 
-  .answer-activity-trace[data-density="compact"] .answer-activity-trace__sweep {
-    animation: var(--animate-answer-ecg-compact);
+  .answer-sources-arriving::-webkit-scrollbar {
+    display: none;
   }
 
   .app-edge-backdrop {
@@ -4318,20 +4318,22 @@ td,
 }
 
 /* Suppressing motion must not delete the status indicator. `opacity: 0` here used
-   to hide the bright trace outright, so anyone with Reduce Motion on saw a dead
-   panel while an answer was generating. At translateX(0) the first copy of the
-   strip fills the box exactly, so simply stopping the animation leaves a correct,
-   clearly visible static ECG. */
+   to hide the old ECG trace outright, so anyone with Reduce Motion on saw a dead
+   panel while an answer was generating. Stopping the dot's breath leaves it at
+   full opacity — a correct, clearly visible bullet — which is the whole reason
+   the indicator is a dot rather than a spinner.
+   `html:not([data-motion="full"])` is what lets the in-app Motion preference opt
+   back IN over the OS request; a Tailwind `motion-safe:` variant could not. */
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion="full"]) .answer-activity-trace__sweep {
+  html:not([data-motion="full"]) .answer-progress-dot {
     animation: none;
-    opacity: 0.55;
+    opacity: 1;
   }
 }
 
-html[data-motion="reduced"] .answer-activity-trace__sweep {
+html[data-motion="reduced"] .answer-progress-dot {
   animation: none;
-  opacity: 0.55;
+  opacity: 1;
 }
 
 /* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */

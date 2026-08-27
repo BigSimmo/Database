@@ -84,7 +84,7 @@ import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/cli
 import { AnswerCancelledNotice } from "@/components/clinical-dashboard/answer-cancelled-notice";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
-  AnswerProgressStepper,
+  AnswerProgress,
   AnswerSkeleton,
   SearchProgressBanner,
   SharedHomeEmptyState,
@@ -93,7 +93,6 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
-import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -3650,21 +3649,22 @@ function ClinicalDashboardContent({
                 {searchMode !== "prescribing" &&
                   (activeModeResultKind === "answer" ? (
                     showAnswerProgress ? (
-                      <AnswerProgressStepper
+                      // The evidence preview is rendered by AnswerProgress rather than
+                      // as a sibling panel below it. Two separate blocks in the answer's
+                      // own position — a progress panel and an evidence panel — both
+                      // vanished when the answer arrived; as one unit the rail simply
+                      // stays and takes its numbers.
+                      <AnswerProgress
                         events={answerProgressEvents}
                         startedAt={answerProgressStartedAt}
                         active={loading}
                         onStop={stopSearch}
-                        density={loading && Boolean(answer) ? "compact" : "expanded"}
+                        evidencePreview={loading ? answerEvidencePreview : null}
                       />
                     ) : null
                   ) : loading && answerProgress ? (
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
-
-                {activeModeResultKind === "answer" && loading && answerEvidencePreview ? (
-                  <AnswerEvidencePreview preview={answerEvidencePreview} />
-                ) : null}
 
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
@@ -3784,7 +3784,13 @@ function ClinicalDashboardContent({
                     </>
                   )
                 ) : showAnswerPending ? (
-                  <AnswerSkeleton />
+                  // Only until the first progress event. From there AnswerProgress owns
+                  // the whole wait — line, prose placeholder, sources, in the order the
+                  // arrived answer uses — and rendering the skeleton here as well would
+                  // put a second prose placeholder below its sources.
+                  showAnswerProgress ? null : (
+                    <AnswerSkeleton />
+                  )
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
                     <>
