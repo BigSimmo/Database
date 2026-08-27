@@ -35,7 +35,7 @@ export function DifferentialCompareQueuePage({
     return (
       <main
         data-testid="differential-compare-empty"
-        className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8"
+        className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:min-h-0 sm:grow sm:px-6 lg:px-8"
       >
         <div className="mx-auto grid w-full max-w-4xl gap-6">
           <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
@@ -88,7 +88,7 @@ export function DifferentialCompareQueuePage({
   return (
     <main
       data-testid="differential-compare-queue"
-      className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-8 text-[color:var(--text)] sm:px-6 sm:py-10 lg:px-8"
+      className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-8 text-[color:var(--text)] sm:min-h-0 sm:grow sm:px-6 sm:py-10 lg:px-8"
     >
       <div className="mx-auto grid w-full max-w-4xl gap-5 sm:gap-6">
         <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
