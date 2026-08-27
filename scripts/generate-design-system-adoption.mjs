@@ -81,10 +81,6 @@ const CANONICAL_NON_VISUAL_ROUTES = Object.freeze({
     route: "src/app/(search-app)/documents/source/page.tsx",
     kind: "next-redirect-only",
   },
-  "ward-management-constellation-legacy-redirect": {
-    route: "src/app/ward-management/constellation/page.tsx",
-    kind: "next-redirect-only",
-  },
 });
 
 const toPosix = (value) => value.split(path.sep).join("/");

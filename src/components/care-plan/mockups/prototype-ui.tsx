@@ -7,6 +7,7 @@ import { FormField } from "@/components/ui/form-field";
 import { cn, fieldControlPlain, semanticChipTone, type SemanticChipTone } from "@/components/ui-primitives";
 
 import styles from "./care-plan.module.css";
+import { PARTICIPATION_MARKER_STATES } from "./domain";
 import { SYNTHETIC_DATA_MARKER } from "./fixtures";
 import {
   FIRST_MINUTE_CONTENT_KEYS,
@@ -146,6 +147,85 @@ export const PATIENT_CONFIRMATION_EXPLANATION: Record<PatientConfirmationState, 
   unavailable:
     "Nothing has been recorded about this person's part in this version, so nothing here says whether they have seen it.",
 };
+
+/**
+ * The one-line Personal Safety Plan status shown beside the link to it, on the
+ * Management Plan reading, review, and printed surfaces and on the patient
+ * workspace.
+ *
+ * It names the participation state in words. It used to read
+ * `Current version 2, confirmed <date>` taken from `confirmedAt`, which the
+ * reducer sets only for a `confirmed` version — so a person who had discussed
+ * the plan, or who had declined to write their own part, printed as
+ * `confirmed Not recorded`. That sentence cannot tell a reader whether the
+ * person did not confirm, or whether they confirmed and the date was lost.
+ * Those are different clinical facts: the first is a decision the person made
+ * and the record should state it plainly; the second is a hole in the record.
+ * Saying `Not recorded` about a state that *was* recorded is the same family of
+ * defect as printing `My reasons for living — Not recorded` on a sheet handed
+ * to a person.
+ *
+ * The four labels are the wording already agreed for these states and already
+ * shown on the Personal Safety Plan itself, so this asserts nothing new about
+ * anybody. A recorded non-confirmation reads as the recorded decision it is,
+ * and only `unavailable` — where genuinely nothing was recorded — says nothing
+ * was.
+ *
+ * No date on this line. The date it used to carry was `confirmedAt`, the moment
+ * the version went live, which is not a moment the person acted. What the
+ * record now holds about the person's part is `participationRecordedAt`, and
+ * whether that belongs on this line is a product decision that has not been
+ * taken, and the whole-branch review may revisit it. Dropping a date that was
+ * wrong loses nothing.
+ */
+export function safetyPlanStatusLine(
+  version: { version: number; patientConfirmation: PatientConfirmationState } | null,
+): string {
+  if (version === null) return "No current version";
+  return `Current version ${version.version} — ${PATIENT_CONFIRMATION_LABEL[version.patientConfirmation]}`;
+}
+
+/**
+ * The confirmation row on the Personal Safety Plan itself — the reading surface
+ * and the sheet the person takes home.
+ *
+ * Both rows used to read `Last confirmed <formatPerthDate(confirmedAt)>`.
+ * `confirmedAt` is set inside `make-safety-plan-current`, at the moment a
+ * clinician published the version, which is not a moment the person did
+ * anything: a draft can sit unpublished for weeks, and whoever publishes it may
+ * not be whoever sat down with them. So a row a reader takes as *the day this
+ * person confirmed their plan* was showing the day it went live — on the
+ * person's own document. User decision D1 (25 August 2026) chose to record the
+ * real moment rather than reuse that one; this applies that decision to the
+ * sheet rather than only to History.
+ *
+ * Two gates, and the second is the load-bearing one:
+ *
+ * - the moment being present, because a confirmed version whose moment the
+ *   record never captured must say so rather than borrow another date;
+ * - `patientConfirmation === "confirmed"`, because `participationRecordedAt` is
+ *   written for **every** participation state. Gating on the timestamp alone
+ *   would print a confirmation line on the sheet of somebody who declined —
+ *   a worse defect than the one being fixed, and of exactly the class this
+ *   build has spent three tasks removing.
+ *
+ * The three cases are distinguishable in the rendered words and not only in the
+ * code: a dated row, an undated row that says the date is not recorded, and no
+ * row at all when the person did not confirm. The last stays absent by the
+ * argument already settled for this sheet — a row reading `Not recorded` on a
+ * document addressed to the person tells them nothing they can use and reads as
+ * a mark against them.
+ */
+export function safetyPlanConfirmationRow(
+  version: { patientConfirmation: PatientConfirmationState; participationRecordedAt: string | null },
+  terms: { withDate: string; withoutDate: string },
+): { term: string; detail: string } | null {
+  if (version.patientConfirmation !== "confirmed") return null;
+  if (version.participationRecordedAt === null) {
+    return { term: terms.withoutDate, detail: "The date is not recorded" };
+  }
+  return { term: terms.withDate, detail: formatPerthDate(version.participationRecordedAt) };
+}
 
 export const FIRST_MINUTE_SECTION_ID_PREFIX = "care-plan-first-minute";
 
@@ -414,12 +494,14 @@ export function PlanTextArea({
   );
 }
 
-const PARTICIPATION_MARKER_STATES: readonly ParticipationState[] = ["declined", "patient_unavailable"];
-
 /**
  * A version may be approved without the person taking part — sometimes a plan
  * has to be written for someone who cannot or will not engage. It is never
  * invisible that this happened, on any view, print, or queue entry.
+ *
+ * `PARTICIPATION_MARKER_STATES` moved to `domain.ts` once the person's own copy
+ * began deciding its headings and lead-ins from the same fact. One predicate,
+ * one truth: this marker and that copy cannot drift apart.
  */
 export function ParticipationMarker({ participationState }: { participationState: ParticipationState }) {
   if (!PARTICIPATION_MARKER_STATES.includes(participationState)) return null;
@@ -434,9 +516,28 @@ export function ParticipationMarker({ participationState }: { participationState
  * the end — which is exactly the reader this section exists for. The pinned line
  * links to the full section; it never replaces it, and the full section is never
  * collapsed, truncated, or placed behind a disclosure.
+ *
+ * `medium` exists because a jump link is a screen affordance and paper has
+ * nothing to jump to. On screen the pinned line points at the full section, a
+ * click away. On the printed clinician summary the pointer and its referent are
+ * roughly forty lines apart and a page break can put them on different sheets,
+ * leaving a reader holding a count with nothing under it — so the printed form
+ * carries the boundary's own lines instead. It is still additional: section 5
+ * keeps its numbered place on the same sheet, and the duplication is the point.
+ *
+ * The printed form is withheld when the section is empty. A count of zero at
+ * least says so on its own line; a label with nothing beneath it is the heading
+ * over a blank that this project's worst defect was made of.
  */
-export function PinnedSafetyBoundary({ content }: { content: ManagementPlanContent }) {
-  const count = content.whatWouldMakeThisDifferent.length;
+export function PinnedSafetyBoundary({
+  content,
+  medium = "screen",
+}: {
+  content: ManagementPlanContent;
+  medium?: "screen" | "print";
+}) {
+  const lines = content.whatWouldMakeThisDifferent;
+  const printsItsLines = medium === "print" && lines.length > 0;
   return (
     <aside
       data-testid="care-plan-pinned-safety-boundary"
@@ -450,11 +551,21 @@ export function PinnedSafetyBoundary({ content }: { content: ManagementPlanConte
         line easy to dismiss, and it prints.
       */}
       <p className={styles.pinnedBoundaryText}>
-        <strong>Do not rely on this plan if today is different — assess afresh.</strong> Then read the full section.
+        <strong>Do not rely on this plan if today is different — assess afresh.</strong>
+        {printsItsLines ? null : " Then read the full section."}
       </p>
-      <a href={`#${firstMinuteSectionId("whatWouldMakeThisDifferent")}`} className={styles.pinnedBoundaryLink}>
-        What would make this presentation different ({count} listed)
-      </a>
+      {printsItsLines ? (
+        <div data-testid="care-plan-pinned-boundary-lines" className={styles.pinnedBoundaryLines}>
+          <p className={styles.pinnedBoundaryText}>
+            <strong>What would make this presentation different</strong>
+          </p>
+          <ContentList items={lines} />
+        </div>
+      ) : (
+        <a href={`#${firstMinuteSectionId("whatWouldMakeThisDifferent")}`} className={styles.pinnedBoundaryLink}>
+          What would make this presentation different ({lines.length} listed)
+        </a>
+      )}
     </aside>
   );
 }

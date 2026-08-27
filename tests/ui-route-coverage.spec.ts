@@ -387,7 +387,7 @@ test.describe("previously uncovered production routes", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     const compare = card.locator("[data-therapy-result-actions] button").nth(1);
-    await expect(compare).toHaveAccessibleName("Compare");
+    await expect(compare).toHaveAccessibleName("Add to compare");
     await compare.focus();
     const focusStyle = await compare.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -404,13 +404,18 @@ test.describe("previously uncovered production routes", () => {
     await expectNoHorizontalOverflow(page);
     await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
 
+    // Adding deliberately keeps the reader where they are. The set moves into
+    // the URL (so it is still shareable and survives a reload) and into the tray
+    // above the composer; the page does not change.
     await compare.focus();
     await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/\/therapy-compass\/compare(?:\?.*)?$/);
-    const comparisonUrl = new URL(page.url());
-    expect(comparisonUrl.searchParams.get("q")).toBe("CBT");
-    expect(comparisonUrl.searchParams.get("ids")).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
+    await expect(compare).toHaveAccessibleName("In compare tray");
+    await expect(page).toHaveURL(/\/therapy-compass\/search/);
+    const stayedPut = new URL(page.url());
+    expect(stayedPut.searchParams.get("q")).toBe("CBT");
+    expect(stayedPut.searchParams.get("ids")).toBeTruthy();
+    await expect(page.getByTestId("therapy-compare-tray")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toHaveCount(0);
   });
 
   // `/dsm` redirects onto the shared home, so the route this proves is the shared

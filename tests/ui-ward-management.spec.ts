@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 
-const PATH = "/ward-management";
+const PATH = "/mockups/ward-flow";
 
 async function gotoWardFlow(page: Page) {
   await page.goto(PATH, { waitUntil: "domcontentloaded" });
@@ -24,7 +24,7 @@ async function expectNoPageOverflow(page: Page) {
  * `document.documentElement` can never report an overflow on the coordinator route — `.screen`
  * sets `overflow: hidden` — so `expectNoPageOverflow` alone cannot catch a track inside the
  * region grid running wider than its box (Task 3 review Important 1). Only meaningful on
- * /ward-management itself, where the region grid testid exists.
+ * /mockups/ward-flow itself, where the region grid testid exists.
  */
 async function expectNoRegionGridOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -36,12 +36,12 @@ async function expectNoRegionGridOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Ward Flow command view", () => {
+test.describe("@mockup Ward Flow command view", () => {
   test.describe.configure({ timeout: 45_000 });
 
   // "supports role-aware queue review and human-confirmed destination choice" and "collapses
   // the queue, opens the action inbox, and reaches the patient workspace" asserted against
-  // WardManagementConsole, which Task 3 stopped rendering at /ward-management. That component is
+  // WardManagementConsole, which Task 3 stopped rendering at /mockups/ward-flow. That component is
   // unreferenced and Task 9 deletes it; the equivalent coverage on the coordinator screen has no
   // home yet. See the fixme placeholders in tests/ui-ward-coordinator.spec.ts.
   //
@@ -90,17 +90,14 @@ test.describe("Ward Flow command view", () => {
   });
 
   /**
-   * Task 9 review Critical 1: `.modeNavigation` (ward-management-modes.module.css) is a flex
-   * column, and flex items shrink by default even with an explicit `height` unless
-   * `flex-shrink: 0` is set. Without it, the eight rail mode links compressed to as little as
-   * 22px on narrow viewports — under half the mandated 3rem/48px tap-target floor — while a
-   * check run only at 1440x1024 (where the rail had room to spare) stayed green. 320x640 is
-   * short enough on both axes to force the rail's mode-link section into its scrollable
-   * fallback, which is exactly the condition that exposed the regression.
+   * Task 9 review Critical 1: the eight mode links must retain the 3rem/48px tap-target floor on
+   * the shortest supported phone viewport. The phone sidebar now lives in a drawer, so open the
+   * owning menu before measuring the same shared links.
    */
   test("keeps every rail mode link at the 3rem tap-target floor on a short, narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await gotoWardFlow(page);
+    await page.getByRole("button", { name: "Open Ward Flow menu" }).click();
 
     const nav = page.getByRole("navigation", { name: "Ward Flow views" });
     const links = await nav.getByRole("link").all();
@@ -115,7 +112,7 @@ test.describe("Ward Flow command view", () => {
 
   test("routes a selected movement across the network diagram and explains the shortlist", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
-    await page.goto("/ward-management/network", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/network", { waitUntil: "domcontentloaded" });
 
     const network = page.getByTestId("ward-network-view");
     await expect(network).toBeVisible({ timeout: 15_000 });
@@ -175,6 +172,29 @@ test.describe("Ward Flow command view", () => {
     await expect(page.getByRole("region", { name: "Priority queue" })).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoRegionGridOverflow(page);
+  });
+
+  test("keeps the header brand visible at tablet width when the remembered panel is hidden", async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 900 });
+    await page.addInitScript(() => {
+      window.localStorage.setItem("ward-flow-sidebar-collapsed", "0");
+    });
+    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    const sidebar = page.getByRole("complementary", { name: "Ward Flow sidebar", includeHidden: true });
+    await expect(sidebar).toBeAttached({ timeout: 15_000 });
+    await expect(sidebar).toBeHidden();
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeVisible();
+  });
+
+  test("uses its fixed bar as the sole Ward Flow brand on phone", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 820 });
+    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    await expect(page.getByRole("link", { name: "Ward Flow", exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(header.getByText("Ward Flow", { exact: true })).toBeHidden();
   });
 
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {

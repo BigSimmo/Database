@@ -33,20 +33,25 @@ export const differentialsMobileCompareAddonSlotId = "differentials-mobile-compa
 /** Phone search-composer slot for the medication surfaces' Patient details pill. */
 export const patientDetailsAddonSlotId = "patient-details-addon-slot";
 
+/** Phone search-composer slot for the Therapy Compass compare tray. */
+export const therapyCompareAddonSlotId = "therapy-compare-addon-slot";
+
 /**
  * Which page-owned action currently occupies the phone dock's addon slot.
  *
  * The dock carries exactly ONE addon at a time — `data-footer-addon` is a single
  * attribute value, and the scrim height, hide transform, and content reserve are
  * all keyed off it. The two claimants are mutually exclusive by surface
- * (differentials vs medications/prescribing) and `tests/phone-dock-addon-contract.test.ts`
- * pins that, so the slot never has to hold two.
+ * (differentials vs medications/prescribing vs therapy) and
+ * `tests/phone-dock-addon-contract.test.ts` pins that, so the slot never has to
+ * hold two.
  */
-export type PhoneDockAddonKind = "differentials-compare" | "patient-details";
+export type PhoneDockAddonKind = "differentials-compare" | "patient-details" | "therapy-compare";
 
 export const phoneDockAddonSlotId: Record<PhoneDockAddonKind, string> = {
   "differentials-compare": differentialsMobileCompareAddonSlotId,
   "patient-details": patientDetailsAddonSlotId,
+  "therapy-compare": therapyCompareAddonSlotId,
 };
 
 /**

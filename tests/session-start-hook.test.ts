@@ -186,6 +186,43 @@ describe("session-start hook", () => {
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("");
   });
+
+  it("emits valid JSON on stdout matching SessionStart schema when running in hook mode", () => {
+    const { home, project, hook } = stubEnvironment();
+    const envFile = join(project, "claude-env");
+    writeFileSync(envFile, "");
+
+    const payload = JSON.stringify({ hook_event_name: "SessionStart" });
+    const result = spawnSync(bashCommand, [hook.replace(/\\/g, "/")], {
+      cwd: project,
+      env: {
+        ...process.env,
+        HOME: home.replace(/\\/g, "/"),
+        CLAUDE_CODE_REMOTE: "true",
+        CLAUDE_ENV_FILE: envFile.replace(/\\/g, "/"),
+        CLAUDE_PROJECT_DIR: project.replace(/\\/g, "/"),
+      } as NodeJS.ProcessEnv,
+      encoding: "utf8",
+      input: payload,
+    });
+
+    expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
+    expect(result.stderr).toBe("");
+
+    const jsonLine = result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.startsWith('{"hookSpecificOutput"'));
+
+    expect(jsonLine, "expected hook to emit hookSpecificOutput JSON on stdout").toBeDefined();
+    const parsed = JSON.parse(jsonLine!);
+    expect(parsed).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext: expect.stringContaining("[session-start]"),
+      },
+    });
+  });
 });
 
 describe("precompact observability hook", () => {

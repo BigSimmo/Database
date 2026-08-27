@@ -3,7 +3,7 @@
 **Files:**
 
 - Create: `src/components/ward-management/tracker/live-tracker.tsx`
-- Modify: `src/app/ward-management/transport/page.tsx`, `tests/ui-ward-roles.spec.ts`
+- Modify: `src/app/mockups/ward-flow/transport/page.tsx`, `tests/ui-ward-roles.spec.ts`
 
 - [ ] **Step 1: Write the failing test**
 

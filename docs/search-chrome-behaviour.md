@@ -764,12 +764,13 @@ floating element: it portals into a slot rendered _inside_ the dock's `<form>`
 z-index, safe-area padding and scroll-hide transform. There is no bottom-offset
 arithmetic and no second scroll listener anywhere in an addon.
 
-Two claimants exist, and they are mutually exclusive by surface:
+Three claimants exist, and they are mutually exclusive by surface:
 
-| Addon kind              | Slot id                                   | Claimed by                                                  |
-| ----------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses` |
-| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)              |
+| Addon kind              | Slot id                                   | Claimed by                                                                    |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses`                   |
+| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)                                |
+| `therapy-compare`       | `therapy-compare-addon-slot`              | Therapy Compass dock routes, **and only while the URL carries a compare set** |
 
 Rules:
 
@@ -788,13 +789,43 @@ Rules:
   opens a blank band at the bottom. `/medications` is a standalone mode home with
   the composer in the hero and no dock at all; `/medications/[slug]` already opens
   the patient sheet from its own nav header, so neither claims the addon.
+- **An addon that can be empty must gate its claim on being non-empty.** The
+  therapy compare tray renders nothing until something is in the comparison, so
+  claiming the slot on every therapy route would reserve a tray-sized band under
+  a row that is not there. The shell therefore reads the set out of the URL
+  (`readTherapyCompareSlugCount`) and claims only when it is non-empty — the
+  claim and the render have to agree, in both directions.
+- **Keep an addon exactly one row tall.** The clearance is a static token, so a
+  dock that grows covers page content by exactly its own growth. Anything that
+  needs more room opens a bottom `Sheet` instead of a taller bar; that is why
+  the compare tray's expanded state is a sheet and the Patient details panel is
+  one too.
 - **Gate the portal at 639px**, matching `.phone-footer-layer`'s `sm:fixed`. The two
   Compare bars gate at 1023px, which between 640–1023px portals into a slot on a
   form that is not fixed. Do not copy that.
 
 Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/TS
-value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
-breakpoint, sheet wiring).
+value parity, therapy route/claim gating), `tests/patient-details-dock-action.dom.test.tsx`
+(portal target, breakpoint, sheet wiring), `tests/therapy-compare-tray.dom.test.tsx`
+(portal target, breakpoint, empty-set silence, sheet wiring),
+`tests/ui-therapy-nav-scroll.spec.ts` (the tray hides with the composer and
+releases its reserve to `0rem`).
+
+## Motion & Animation Preferences (#S4K1GA)
+
+The application supports explicit user motion preference overrides in addition to system-level accessibility settings. The preference is stored in local storage and mirrored onto the root element as `data-motion="full"`, `data-motion="reduced"`, or absent (defaulting to system preference).
+
+### Physical iPhone acceptance rubric
+
+To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA:
+
+1. **Motion=Full (`data-motion="full"`):**
+   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the ECG strip (`.answer-activity-trace__sweep`) visibly travels continuously and the current-step spinner rotates, even if iOS system **Reduce Motion** is enabled in Accessibility settings.
+2. **Motion=System / Motion=Reduced:**
+   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the ECG trace remains static and clearly visible at `opacity: 0.55` (`translateX(0)` aligned), rather than disappearing or rendering a blank box (`opacity: 0`).
+   - The current step spinner stops rotating and displays as a static marker without layout jumps.
+
+The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
 
 ## Clinical Ask composer chrome
 

@@ -2,42 +2,44 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { ChevronDown, ExternalLink, Layers } from "lucide-react";
+import { ChevronDown, Image as ImageIcon, Layers, Table2 } from "lucide-react";
 
-import {
-  cn,
-  sourceCapsule,
-  sourceCapsuleCountBadge,
-  sourceCapsuleHit,
-  StatusDotMarker,
-  textMuted,
-} from "@/components/ui-primitives";
+import { cn, sourceCapsule, sourceCapsuleCountBadge, sourceCapsuleHit, textMuted } from "@/components/ui-primitives";
 import { logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import {
   answerSourceRailRowId,
   type AnswerSourceRow,
-  sourceBadgeLabel,
-  sourceBadgeToneClass,
+  sourceBadgeDisplay,
   sourceCapsuleDisplay,
-  sourceStatusDotTone,
+  sourceSpokenName,
   sourceStatusShortLabel,
   sourceSupportLabel,
 } from "@/components/clinical-dashboard/answer-source-rows";
 
 /**
- * The numbered list of cited documents under an answer.
+ * The cited documents under an answer, as a horizontally scrolling row of cards.
  *
- * This is the single source-chrome surface: it replaces the "Sources" capsule
+ * This is the single source-chrome surface: it replaced the "Sources" capsule
  * and its popover/sheet pair, the Evidence sheet's Claims and Quotes tabs, the
- * Clinical notes sheet, and the wide-screen table column. One row per document,
- * and one drawer behind every row.
+ * Clinical notes sheet, and the wide-screen table column. One card per document,
+ * and one drawer behind every card.
  *
- * Two behaviours are load-bearing rather than decorative:
+ * It shipped first as a vertical list, which was the wrong shape twice over: six
+ * stacked 48 px rows is ~290 px of phone scroll spent on chrome, and a vertical
+ * list of documents reads as the answer's conclusion rather than as its
+ * references. Cards in a scroller cost one row whatever the source count.
  *
- * - Rows are `min-h-12` (48 px). Do **not** reduce them to `min-h-11` to satisfy
+ * Four behaviours are load-bearing rather than decorative:
+ *
+ * - Cards are `min-h-12` (48 px). Do **not** reduce them to `min-h-11` to satisfy
  *   generic 44 px tap-target guidance; 44 px reintroduced a sub-pixel rounding
  *   flake in `ui-smoke`.
+ * - **Only cited documents are numbered.** A retrieved-but-uncited document takes
+ *   a dashed em-dash badge, because the numbers are the same numbers the in-prose
+ *   marks use and a number here that no mark can reach would be a false promise.
+ * - Only this container scrolls sideways. The page body must never scroll
+ *   horizontally.
  * - The `compactCitations` preference collapses the rail to one chip, but the
  *   zero-source case stays worded in every mode — compact must never hide a
  *   missing-source signal.
@@ -46,12 +48,15 @@ export function AnswerSourceRail({
   sources,
   query,
   onOpenSource,
+  activeIndex = null,
   compact = false,
 }: {
   sources: AnswerSourceRow[];
   query?: string;
-  /** Opens the source drawer at this row. Omitted while the drawer is unavailable. */
+  /** Opens the source drawer at this card. Omitted while the drawer is unavailable. */
   onOpenSource?: (index: number) => void;
+  /** Card the drawer is currently showing. */
+  activeIndex?: number | null;
   compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -72,9 +77,10 @@ export function AnswerSourceRail({
     );
   }
 
-  // Collapsed: one chip carrying the count, expanded on tap. The rows below are
-  // the same rows either way, so nothing is unreachable in compact mode.
+  // Collapsed: one chip carrying the count, expanded on tap. The cards below are
+  // the same cards either way, so nothing is unreachable in compact mode.
   const collapsed = compact && !expanded;
+  const citedCount = sources.filter((source) => source.cited !== false).length;
 
   return (
     <section data-testid="answer-source-rail" aria-label="Sources behind this answer" className="min-w-0">
@@ -98,131 +104,173 @@ export function AnswerSourceRail({
             />
           </span>
         </button>
-      ) : null}
+      ) : (
+        <p
+          data-testid="answer-source-rail-heading"
+          className={cn(
+            // No top border. The rule ran the full column width while the
+            // Source-only pill above it is `w-fit`, so on a source-only answer it
+            // read as a line struck through the pill rather than as a separator.
+            "mb-1.5 flex items-baseline justify-between gap-2 text-2xs font-semibold uppercase tracking-wide",
+            textMuted,
+          )}
+        >
+          <span>Sources</span>
+          <span className="nums font-normal normal-case tracking-normal">
+            {citedCount === sources.length
+              ? `${sources.length} cited`
+              : `${citedCount} cited · ${sources.length - citedCount} also found`}
+          </span>
+        </p>
+      )}
 
       {/* `role="list"` on a div rather than a real <ol>: the rail sits inside
           `plain-answer-response`, where a ui-smoke guard asserts the primary
           answer renders as prose and not as a bullet list. The source-capsule
           preview used the same idiom for the same reason. */}
       {collapsed ? null : (
-        <div
-          id={rowListId}
-          role="list"
-          className={cn("grid gap-0 divide-y divide-[color:var(--border)]", compact && "mt-2")}
-          aria-label="Cited documents"
-        >
-          {sources.map((source, index) => (
-            <div key={`${source.id}:${index}`} role="listitem" className="min-w-0">
-              <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 py-1">
-                <span
-                  className={cn(
-                    "nums grid h-8 min-w-8 place-items-center rounded-md border px-1 text-xs font-bold shadow-[var(--shadow-inset)]",
-                    sourceBadgeToneClass(source.metadata, index),
-                  )}
-                  aria-hidden="true"
-                >
-                  {sourceBadgeLabel(index)}
-                </span>
-                {/* Title and metadata share one tap target rather than stacking a
-                    48 px control on top of a separate caption line: the rail lists
-                    every cited source inline where the old capsule was a single
-                    chip, so each row's height is phone scroll budget.
-                    A historical thread turn mounts no drawer, so its rows link
-                    straight to the document rather than advertising a panel that
-                    will not open. */}
-                {onOpenSource ? (
-                  <button
-                    type="button"
-                    id={answerSourceRailRowId(index)}
-                    data-testid="answer-source-rail-row"
-                    onClick={() => onOpenSource(index)}
-                    className={railRowLabelClass}
-                    aria-label={`${railRowLabel(source, index)} — open source detail`}
-                  >
-                    <span className="block line-clamp-2">{cleanDisplayTitle(source.title)}</span>
-                    <span
-                      className={cn(
-                        "mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal",
-                        textMuted,
-                      )}
-                    >
-                      <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
-                      <span aria-hidden>·</span>
-                      <span>{sourceSupportLabel(source, index)}</span>
-                      <StatusDotMarker
-                        tone={sourceStatusDotTone(source.metadata)}
-                        label={sourceStatusShortLabel(source.metadata)}
-                        labelClassName={
-                          source.metadata.document_status === "review_due" ||
-                          source.metadata.document_status === "outdated"
-                            ? "font-semibold text-[color:var(--warning)]"
-                            : undefined
-                        }
-                      />
-                    </span>
-                  </button>
-                ) : (
-                  <Link
-                    href={source.href}
-                    data-testid="answer-source-rail-row"
-                    onClick={() => query && logSourceOpen(query, source)}
-                    className={railRowLabelClass}
-                    aria-label={`${railRowLabel(source, index)} — open source`}
-                  >
-                    <span className="block line-clamp-2">{cleanDisplayTitle(source.title)}</span>
-                    <span
-                      className={cn(
-                        "mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal",
-                        textMuted,
-                      )}
-                    >
-                      <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
-                      <span aria-hidden>·</span>
-                      <span>{sourceSupportLabel(source, index)}</span>
-                      <StatusDotMarker
-                        tone={sourceStatusDotTone(source.metadata)}
-                        label={sourceStatusShortLabel(source.metadata)}
-                        labelClassName={
-                          source.metadata.document_status === "review_due" ||
-                          source.metadata.document_status === "outdated"
-                            ? "font-semibold text-[color:var(--warning)]"
-                            : undefined
-                        }
-                      />
-                    </span>
-                  </Link>
-                )}
-                <Link
-                  href={source.href}
-                  onClick={() => query && logSourceOpen(query, source)}
-                  className="grid h-12 w-12 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Open ${sourceBadgeLabel(index)} source page`}
-                >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                </Link>
+        <div className={cn("relative min-w-0", compact && "mt-2")}>
+          <div
+            id={rowListId}
+            role="list"
+            aria-label="Cited documents"
+            className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 pr-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {sources.map((source, index) => (
+              <div key={`${source.id}:${index}`} role="listitem" className="flex-none">
+                <AnswerSourceCard
+                  source={source}
+                  index={index}
+                  active={activeIndex === index}
+                  query={query}
+                  onOpenSource={onOpenSource}
+                />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          {/* Tells the eye there is more to the right without adding a control.
+              Inert so it can never swallow a tap on the last card. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[color:var(--surface-raised)] to-transparent"
+          />
         </div>
       )}
     </section>
   );
 }
 
+function AnswerSourceCard({
+  source,
+  index,
+  active,
+  query,
+  onOpenSource,
+}: {
+  source: AnswerSourceRow;
+  index: number;
+  active: boolean;
+  query?: string;
+  onOpenSource?: (index: number) => void;
+}) {
+  const stale = source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated";
+  const cited = source.cited !== false;
+  const body = (
+    <>
+      <span
+        className={cn(
+          "nums grid h-[22px] min-w-[22px] shrink-0 place-items-center rounded-[var(--radius-sm)] border px-1 text-2xs font-bold",
+          !cited
+            ? "border-dashed border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
+            : stale
+              ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+              : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        )}
+        aria-hidden="true"
+      >
+        {sourceBadgeDisplay(source, index)}
+      </span>
+      <span className="grid min-w-0 gap-0.5 text-left">
+        <span
+          className={cn(
+            "block truncate text-xs font-semibold leading-tight text-[color:var(--text-heading)]",
+            cardTextWidth,
+          )}
+        >
+          {cleanDisplayTitle(source.title)}
+        </span>
+        <span className={cn("flex items-center gap-1.5 truncate text-2xs leading-tight", cardTextWidth, textMuted)}>
+          {/* Tabular figures keep page numbers aligned between cards; the mono
+              face the old list row used opened a visible gap after "p." at this
+              size. */}
+          <span className="shrink-0 tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
+          <span aria-hidden>·</span>
+          <span className={stale ? "font-semibold text-[color:var(--warning)]" : undefined}>
+            {sourceStatusShortLabel(source.metadata)}
+          </span>
+          {source.hasTable ? (
+            <Table2 className="h-3 w-3 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          ) : null}
+          {source.hasImage ? (
+            <ImageIcon className="h-3 w-3 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          ) : null}
+        </span>
+      </span>
+    </>
+  );
+
+  // A historical thread turn mounts no drawer, so its cards link straight to the
+  // document rather than advertising a panel that will not open.
+  if (!onOpenSource) {
+    return (
+      <Link
+        href={source.href}
+        data-testid="answer-source-rail-row"
+        onClick={() => query && logSourceOpen(query, source)}
+        className={cn(cardClass, "border-[color:var(--border)]")}
+        aria-label={`${cardLabel(source, index)} — open source`}
+      >
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      id={answerSourceRailRowId(index)}
+      data-testid="answer-source-rail-row"
+      data-cited={cited ? "true" : "false"}
+      aria-pressed={active}
+      onClick={() => onOpenSource(index)}
+      className={cn(
+        cardClass,
+        active
+          ? "border-[color:var(--clinical-accent)] shadow-[var(--e1)]"
+          : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
+      )}
+      aria-label={`${cardLabel(source, index)} — open source detail`}
+    >
+      {body}
+    </button>
+  );
+}
+
 /**
- * The row's accessible name. It has to restate the support level and review
- * status, because an `aria-label` replaces the row's own text: without them a
+ * The card's accessible name. It has to restate the support level and review
+ * status, because an `aria-label` replaces the card's own text: without them a
  * screen reader would hear the title and page but never that the document is
- * outdated or that it only partly supports the claim.
+ * outdated or that it only partly supports the answer.
  */
-function railRowLabel(source: AnswerSourceRow, index: number) {
+function cardLabel(source: AnswerSourceRow, index: number) {
   return [
-    `${sourceBadgeLabel(index)}: ${cleanDisplayTitle(source.title)}`,
+    `${sourceSpokenName(source, index)}: ${cleanDisplayTitle(source.title)}`,
     `page ${source.pageNumber ?? "not available"}`,
-    sourceSupportLabel(source, index),
+    sourceSupportLabel(source),
     sourceStatusShortLabel(source.metadata),
   ].join(", ");
 }
 
-const railRowLabelClass =
-  "flex min-h-12 w-full min-w-0 flex-col justify-center rounded-md py-1 text-left text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const cardClass =
+  "inline-flex min-h-12 min-w-0 items-center gap-2.5 rounded-[var(--radius-lg)] border bg-[color:var(--surface-raised)] px-3 py-1.5 text-left shadow-[var(--shadow-inset)] transition-[border-color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const cardTextWidth = "max-w-[158px]";

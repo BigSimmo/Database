@@ -77,7 +77,26 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 
 ### Dev Drive trusted package cache verification (#6SMMB4)
 
-On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the whole volume as a trusted Dev Drive (`fsutil devdrv query D:` and `fsutil devdrv trust D:`). Trusting the volume enables Defender performance mode with asynchronous scanning; it does not disable Defender. Querying or trusting a Dev Drive requires an elevated administrator command prompt; non-elevated prompts return `Error 5: Access is denied`.
+On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the npm package cache as a trusted Dev Drive cache to prevent Microsoft Defender real-time scanning overhead during `npm ci` extractions across worktrees.
+
+**Elevated registration command (run once in an Administrator PowerShell or CMD):**
+
+```powershell
+fsutil devdrv trust D:\.npm-cache
+```
+
+**Diagnostics & verification:**
+
+1. **Elevated Dev Drive query:**
+   ```powershell
+   fsutil devdrv query D:
+   ```
+   Inspect the output for `Developer volume is trusted: Yes` and check that filesystem filters are attached in performance mode. (Note: Non-elevated prompts return `Error 5: Access is denied`).
+2. **Fallback registry probe (non-elevated PowerShell diagnostic):**
+   ```powershell
+   Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue
+   ```
+   Or verify volume file system properties (`(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`). Trusting the volume or cache enables Defender asynchronous performance mode without disabling Defender real-time protection on untrusted files.
 
 ### PreCompact hook contract and logging (#RZQQBT)
 
@@ -270,6 +289,22 @@ failure is a `toHaveScreenshot` pixel mismatch: drift creates a workflow warning
 downloadable expected/actual/diff artifact instead of a failed check. Missing baselines, setup,
 runtime/assertion, and artifact-publication failures remain visible as job failures because those
 runs produced no trustworthy comparison evidence.
+
+**Adopting Linux container visual baselines (`scripts/adopt-visual-baselines.mjs`).**
+When document viewer layout changes (e.g. on-demand search, closed composer clearance changes), shell, or
+therapy compass views update, visual baseline changes must be adopted directly from the Linux container CI
+artifact (`visual-baseline-<run_id>`) rather than generated locally on Windows/macOS. Run:
+
+```bash
+node scripts/adopt-visual-baselines.mjs \
+  --from <extracted-artifact-dir> \
+  --run-id <id> \
+  --head <40-char-sha> \
+  --reviewed-by "<display name>" \
+  --write
+```
+
+This updates the authoritative Linux baselines under `tests/__screenshots__/linux/` and regenerates `tests/__screenshots__/linux/provenance.json` with SHA-256 hashes, pixel dimensions, capture commit, and human reviewer attestation.
 
 ## Performance budget
 

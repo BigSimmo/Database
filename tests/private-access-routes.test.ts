@@ -8,6 +8,31 @@ const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
 
+function documentDetailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: documentId,
+    owner_id: userId,
+    title: "Clinical guideline",
+    description: null,
+    file_name: "guideline.pdf",
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `${userId}/documents/guideline.pdf`,
+    content_hash: null,
+    source_path: null,
+    import_batch_id: null,
+    status: "indexed",
+    page_count: 2,
+    chunk_count: 1,
+    image_count: 0,
+    error_message: null,
+    metadata: {},
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function expectFeedbackTokenBoundToAnswer(payload: Record<string, unknown>) {
   expect(payload.interactionId).toEqual(expect.any(String));
   expect(payload.feedbackToken).toEqual(expect.any(String));
@@ -766,21 +791,18 @@ describe("private document API access", () => {
   it("redacts owner-internal fields when an authenticated user reads a public document they do not own", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
-        return ok({
-          id: documentId,
-          owner_id: null,
-          title: "Public guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          storage_path: "someone-else/documents/guideline.pdf",
-          content_hash: "sha256:leaky-hash",
-          source_path: "/import/guideline.pdf",
-          import_batch_id: "batch-99",
-          error_message: "internal stage error",
-          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
-        });
+        return ok(
+          documentDetailRow({
+            owner_id: null,
+            title: "Public guideline",
+            storage_path: "someone-else/documents/guideline.pdf",
+            content_hash: "sha256:leaky-hash",
+            source_path: "/import/guideline.pdf",
+            import_batch_id: "batch-99",
+            error_message: "internal stage error",
+            metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+          }),
+        );
       }
       if (call.table === "document_summaries") {
         return ok({
@@ -788,7 +810,7 @@ describe("private document API access", () => {
           document_id: documentId,
           owner_id: null,
           summary: "Public summary text.",
-          clinical_specifics: null,
+          clinical_specifics: {},
           source_chunk_ids: ["chunk-a", "chunk-b"],
           source_image_ids: ["image-a"],
           model: "gpt-internal",
@@ -841,19 +863,15 @@ describe("private document API access", () => {
   it("returns full owner-internal fields when the authenticated caller owns the document", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
-        return ok({
-          id: documentId,
-          owner_id: userId,
-          title: "Owned guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          storage_path: `${userId}/documents/guideline.pdf`,
-          content_hash: "sha256:owned-hash",
-          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
-        });
+        return ok(
+          documentDetailRow({
+            title: "Owned guideline",
+            content_hash: "sha256:owned-hash",
+            metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+          }),
+        );
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
         return ok([]);
       }
@@ -881,17 +899,15 @@ describe("private document API access", () => {
   it("allows anonymous users to read public document detail", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call)) {
-        return ok({
-          id: documentId,
-          owner_id: null,
-          title: "Public guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          metadata: { index_generation_id: "generation-a" },
-        });
+        return ok(
+          documentDetailRow({
+            owner_id: null,
+            title: "Public guideline",
+            metadata: { index_generation_id: "generation-a" },
+          }),
+        );
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
         return ok([]);
       }
@@ -3281,16 +3297,17 @@ describe("private document API access", () => {
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
-        return ok({
-          id: documentId,
-          owner_id: userId,
-          page_count: 1,
-          chunk_count: 1,
-          image_count: 1,
-          metadata: { index_generation_id: committedGeneration },
-        });
+        return ok(
+          documentDetailRow({
+            page_count: 1,
+            chunk_count: 1,
+            image_count: 1,
+            metadata: { index_generation_id: committedGeneration },
+          }),
+        );
       }
-      if (call.table === "document_pages") return ok([{ id: "page-1", page_number: 1, text: "Page", metadata: {} }]);
+      if (call.table === "document_pages")
+        return ok([{ id: "page-1", page_number: 1, text: "Page", ocr_used: false, metadata: {} }]);
       if (call.table === "document_images") {
         return ok([
           {
@@ -3315,6 +3332,7 @@ describe("private document API access", () => {
             id: "chunk-old",
             page_number: 1,
             chunk_index: 0,
+            section_heading: null,
             content: "Old",
             image_ids: [],
             metadata: { index_generation_id: committedGeneration },
@@ -3323,6 +3341,7 @@ describe("private document API access", () => {
             id: "chunk-new",
             page_number: 1,
             chunk_index: 1,
+            section_heading: null,
             content: "New",
             image_ids: [],
             metadata: { index_generation_id: replacementGeneration },
@@ -3331,10 +3350,33 @@ describe("private document API access", () => {
       }
       if (call.table === "document_table_facts") {
         return ok([
-          { id: "fact-old", document_id: documentId, metadata: { index_generation_id: committedGeneration } },
-          { id: "fact-new", document_id: documentId, metadata: { index_generation_id: replacementGeneration } },
+          {
+            id: "fact-old",
+            document_id: documentId,
+            source_image_id: null,
+            page_number: 1,
+            table_title: null,
+            row_label: null,
+            clinical_parameter: null,
+            threshold_value: null,
+            action: null,
+            metadata: { index_generation_id: committedGeneration },
+          },
+          {
+            id: "fact-new",
+            document_id: documentId,
+            source_image_id: null,
+            page_number: 1,
+            table_title: null,
+            row_label: null,
+            clinical_parameter: null,
+            threshold_value: null,
+            action: null,
+            metadata: { index_generation_id: replacementGeneration },
+          },
         ]);
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       return ok([]);
     });
     mockRuntime(client);

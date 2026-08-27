@@ -84,9 +84,15 @@ export function inspectDevDriveTrust(cachePath, { platform = process.platform, e
   };
 }
 
-export function runCheck({ log = console.log, warn = console.warn } = {}) {
+export function exitCodeForDevDriveResult(result) {
+  if (result.status === "ok") return 0;
+  if (result.status === "skipped" || result.status === "info") return 0;
+  return 1;
+}
+
+export function runCheck({ log = console.log, warn = console.warn, inspect = inspectDevDriveTrust } = {}) {
   const cachePath = resolveNpmCache();
-  const result = inspectDevDriveTrust(cachePath);
+  const result = inspect(cachePath);
 
   if (result.status === "ok") {
     log(`[devdrv-cache] OK: npm cache (${result.cachePath}) on ${result.drive} is registered in trusted Dev Drive.`);
@@ -96,8 +102,8 @@ export function runCheck({ log = console.log, warn = console.warn } = {}) {
     log(`[devdrv-cache] ${result.reason}`);
     return 0;
   }
-  warn(`[devdrv-cache] Note: ${result.reason}`);
-  return 0;
+  warn(`[devdrv-cache] ${result.status === "untrusted" ? "FAIL" : "WARN"}: ${result.reason}`);
+  return exitCodeForDevDriveResult(result);
 }
 
 function selfTest() {
@@ -118,6 +124,22 @@ function selfTest() {
   const trustedResult = inspectDevDriveTrust("D:\\.npm-cache", { platform: "win32", exec: trustedExec });
   if (trustedResult.status !== "ok" || trustedResult.elevated !== true) {
     throw new Error("Trusted output should return ok status");
+  }
+
+  const untrustedExec = () => ({
+    status: 0,
+    stdout: "This is a Developer Volume (Dev Drive). Volume is not trusted.",
+    stderr: "",
+  });
+  const untrustedResult = inspectDevDriveTrust("D:\\.npm-cache", { platform: "win32", exec: untrustedExec });
+  if (untrustedResult.status !== "untrusted") {
+    throw new Error("Untrusted output should return untrusted status");
+  }
+  if (exitCodeForDevDriveResult(untrustedResult) !== 1) {
+    throw new Error("Untrusted result should map to exit code 1");
+  }
+  if (exitCodeForDevDriveResult({ status: "warning", reason: "missing cache" }) !== 1) {
+    throw new Error("Warning result should map to exit code 1");
   }
 
   console.log("[devdrv-cache] self-test passed.");

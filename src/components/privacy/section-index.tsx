@@ -30,10 +30,10 @@ export function PrivacySectionIndex({
             onClick={() => onSelect(section.id)}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "relative flex min-h-tap w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-xl px-2.5 text-left transition",
+              "relative flex min-h-tap w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-lg px-2.5 text-left transition",
               searchFocusRing,
               active
-                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                ? "bg-[color:var(--clinical-accent-soft)]/55 text-[color:var(--clinical-accent)]"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
             )}
           >
@@ -46,10 +46,10 @@ export function PrivacySectionIndex({
             <span
               aria-hidden="true"
               className={cn(
-                "nums grid h-6 w-6 shrink-0 place-items-center rounded-md text-3xs font-extrabold",
+                "nums grid h-6 w-7 shrink-0 place-items-center rounded text-3xs font-extrabold",
                 active
                   ? "bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+                  : "text-[color:var(--text-muted)]",
               )}
             >
               {String(index + 1).padStart(2, "0")}
