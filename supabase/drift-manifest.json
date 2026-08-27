@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-08-27T05:23:30.262Z",
+  "generated_at": "2026-08-27T06:12:59.010Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "c0a031282d64c86ab2965210a5acc07dbcae6d4562ffc561b0cc7fad23dae2ea",
+  "schema_sha256": "3266b5376a36adf72f884ca63fde72c7867974219938d574bc62cf93e441f2eb",
   "replay_seconds": 11,
   "snapshot": {
     "views": [
@@ -8611,7 +8611,7 @@
       },
       {
         "def": "CHECK ((jsonb_typeof(metadata) = 'object'::text))",
-        "name": "documents_metadata_check",
+        "name": "documents_metadata_object_check",
         "table": "documents"
       },
       {
