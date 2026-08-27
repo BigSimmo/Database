@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Square,
   Activity,
   Wrench,
 } from "lucide-react";
@@ -82,6 +81,7 @@ import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboar
 import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { resolveModeHomeCanvasClass } from "@/components/clinical-dashboard/mode-home-canvas";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
+import { AnswerCancelledNotice } from "@/components/clinical-dashboard/answer-cancelled-notice";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerProgressStepper,
@@ -3537,29 +3537,8 @@ function ClinicalDashboardContent({
               )}
             >
               <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
-              {/* "Generation stopped" is a status notice about the last action, not a
-                  page state, so it belongs with the other top-of-content notices rather
-                  than inside the mode-home canvas. In the canvas it was centred as one
-                  group with the `SharedHomeEmptyState` hero, which on a phone left it
-                  floating in the middle of the screen under a tall empty gap. */}
               {showAnswerCancelledNotice ? (
-                <EmptyState
-                  icon={Square}
-                  title="Generation stopped"
-                  body="No partial clinical answer was kept. You can safely run the same question again."
-                  live="polite"
-                  testId="answer-cancelled"
-                  actions={
-                    <button
-                      type="button"
-                      className={cn(primaryControl, "text-xs")}
-                      onClick={() => void ask(answerLifecycle.query ?? query)}
-                    >
-                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                      Run again
-                    </button>
-                  }
-                />
+                <AnswerCancelledNotice onRunAgain={() => void ask(answerLifecycle.query ?? query)} />
               ) : null}
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
