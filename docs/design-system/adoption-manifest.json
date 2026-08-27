@@ -3463,6 +3463,7 @@
         "src/app/caring-contacts/plans/new/page.tsx",
         "src/app/caring-contacts/reports/page.tsx",
         "src/app/caring-contacts/schedule/page.tsx",
+        "src/app/caring-contacts/team/page.tsx",
         "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "src/app/caring-contacts/templates/page.tsx"
       ],
@@ -3566,6 +3567,16 @@
         },
         {
           "file": "src/app/caring-contacts/schedule/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/team/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3923,6 +3934,7 @@
       "src/app/caring-contacts/plans/new/page.tsx",
       "src/app/caring-contacts/reports/page.tsx",
       "src/app/caring-contacts/schedule/page.tsx",
+      "src/app/caring-contacts/team/page.tsx",
       "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
       "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
@@ -4000,6 +4012,7 @@
       "src/app/caring-contacts/plans/new/page.tsx",
       "src/app/caring-contacts/reports/page.tsx",
       "src/app/caring-contacts/schedule/page.tsx",
+      "src/app/caring-contacts/team/page.tsx",
       "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
       "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
@@ -4012,7 +4025,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 82,
+    "inheritedCkbV2RootCount": 83,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4021,8 +4034,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 39,
-    "rootCount": 83,
-    "productionRouteCount": 75,
-    "nextUiEntryCount": 135
+    "rootCount": 84,
+    "productionRouteCount": 76,
+    "nextUiEntryCount": 136
   }
 }

@@ -172,6 +172,31 @@ const GUIDANCE_ROUTE = `${WORKSPACE_ROUTE}/guidance`;
 const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
 
 /**
+ * Where this team's caring-contact work is sitting.
+ *
+ * On this server the store is empty, for the same reason the wizard and the templates library
+ * render their empty states: `demoSeedRequested()` excludes the isolated Playwright server unless
+ * `CARING_CONTACTS_DEMO_SEED=on`. So the roster renders its "nobody is carrying work" state, and
+ * the unclaimed standing renders the case where nothing is unclaimed -- which is the branch this
+ * server can reach, and it is a real one rather than a stand-in: it is what a coordinator sees on a
+ * quiet morning, and it still has to state the threshold rather than saying nothing.
+ *
+ * THE BLOCK IS `caring-contacts team`, BELOW. Being in `WORKSPACE_SCREENS` proves nothing on its
+ * own -- see the note on that array -- so the entry and the block landed together. What the block
+ * covers is what only a browser can answer: that the More panel's Team link is reachable at a rail
+ * width and on a phone, that the screen holds 320px without spilling sideways, and that its own
+ * surfaces re-resolve in dark rather than carrying a light value.
+ *
+ * WHAT IT CANNOT REACH, AND WHERE THAT IS PROVED INSTEAD. Every populated branch -- a coordinator
+ * row, a held plan, coverage, an exception backlog, and the escalation `AutomatedState` -- needs
+ * claimed plans, and nothing in this browser can write one: the assignment route has no create
+ * surface reachable from these screens. Those are proved against real views in
+ * `tests/caring-contacts-team-roster.dom.test.tsx` and, through the real store, in
+ * `tests/caring-contacts-team-page.dom.test.tsx`.
+ */
+const TEAM_ROUTE = `${WORKSPACE_ROUTE}/team`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
@@ -206,7 +231,8 @@ const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
  *   * `caring-contacts template detail` names `TEMPLATE_DETAIL_SCREEN`;
  *   * `caring-contacts guidance and reports` names `GUIDANCE_SCREEN` and
  *     `REPORTS_SCREEN`, and is the block that proves a phone can reach the More
- *     panel's links at all.
+ *     panel's links at all;
+ *   * `caring-contacts team` names `TEAM_SCREEN`.
  *
  * So each screen is proved by the block written for it, and by nothing else.
  * Adding an entry here without writing that block proves nothing about the new
@@ -233,6 +259,7 @@ const WORKSPACE_SCREENS = [
   { name: "Template detail", route: TEMPLATE_DETAIL_ROUTE, heading: "Template" },
   { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
   { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
+  { name: "Team", route: TEAM_ROUTE, heading: "Team" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -273,6 +300,7 @@ const TEMPLATES_SCREEN: WorkspaceScreen = workspaceScreen("Templates");
 const TEMPLATE_DETAIL_SCREEN: WorkspaceScreen = workspaceScreen("Template detail");
 const GUIDANCE_SCREEN: WorkspaceScreen = workspaceScreen("Guidance");
 const REPORTS_SCREEN: WorkspaceScreen = workspaceScreen("Reports");
+const TEAM_SCREEN: WorkspaceScreen = workspaceScreen("Team");
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -2792,3 +2820,152 @@ function reachColours(page: Page) {
     };
   });
 }
+
+/** The unclaimed standing's own surface and ink, so a dark-mode claim is made about THIS screen
+ *  rather than about the shell chrome, which is identical on every route. */
+function unclaimedColours(page: Page) {
+  return page.evaluate(() => {
+    const block = document.querySelector('[data-testid="caring-contacts-team-unclaimed"]');
+    if (!block) throw new Error("the unclaimed standing is missing");
+    const heading = block.querySelector("h2");
+    if (!heading) throw new Error("the unclaimed standing has no heading");
+    return {
+      surface: getComputedStyle(block).backgroundColor,
+      border: getComputedStyle(block).borderTopColor,
+      ink: getComputedStyle(heading).color,
+    };
+  });
+}
+
+/**
+ * Phase 2B Task 18. The Team screen, and the More panel link that is the only way to reach it.
+ *
+ * WHAT ONLY A BROWSER CAN PROVE HERE. `tests/caring-contacts-team-roster.dom.test.tsx` resolves
+ * this screen's behaviour against real views, and `caring-contacts-workspace-shell.dom.test.tsx`
+ * resolves Tailwind display variants FROM CLASS NAMES. Both are stronger than a text scan and both
+ * are still models of the CSS rather than the CSS. This block sets real viewports: the desktop
+ * table and the compact roster are two renderings of the same figures with one hidden at each
+ * width, so a stylesheet that shipped neither variant -- or both -- reddens here and nowhere else.
+ */
+test.describe("caring-contacts team", () => {
+  test("serves the roster and states what nobody has claimed", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(TEAM_SCREEN.route, { waitUntil: "load" });
+
+    // Kept for the refusals made before the stream opens -- the production demo lock, or the route
+    // failing to resolve -- and deliberately NOT the load-bearing assertion; this route is dynamic
+    // and a `notFound()` reached during the render arrives as content after the headers flush.
+    expect(response?.status(), "the team route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: TEAM_SCREEN.heading, exact: true })).toBeVisible();
+
+    const team = page.getByTestId("caring-contacts-team");
+    await expect(team).toBeVisible();
+    // The screen says what its order means, so a reader is not left to infer that it is a placing.
+    await expect(team).toContainText("identifier order");
+    // The threshold is stated even on a quiet server where nothing is unclaimed: an escalation rule
+    // a reader can only discover by tripping it is a rule they cannot plan around.
+    await expect(page.getByTestId("caring-contacts-team-unclaimed")).toContainText("60 minutes");
+  });
+
+  test("states that no staff name is held rather than leaving a reader to wonder", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEAM_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-team")).toContainText("no name for a member of staff");
+  });
+
+  test("holds one width state and the empty roster at both a desktop and a phone width", async ({ page }) => {
+    // On this empty server neither rendering has rows, so the two are asserted through the width
+    // states the shell already publishes plus the empty state that stands in their place. The
+    // populated case cannot be reached here -- nothing in this browser can claim a plan.
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEAM_SCREEN);
+    expect(await displayedWidthStates(page), "width state at 1024px on the team screen").toEqual([widthStateFor(1024)]);
+    await expect(page.getByRole("group", { name: "Nobody is carrying work" })).toBeVisible();
+
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, TEAM_SCREEN);
+    expect(await displayedWidthStates(page), "width state at 390px on the team screen").toEqual([widthStateFor(390)]);
+    await expect(page.getByRole("group", { name: "Nobody is carrying work" })).toBeVisible();
+  });
+
+  test("reaches the team screen from the More panel at 1024px", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    const panel = page.getByRole("region", { name: "More destinations" });
+    await panel.getByRole("link", { name: "Team" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: TEAM_SCREEN.heading, exact: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(TEAM_SCREEN.route);
+  });
+
+  test("reaches the team screen on a phone, where there is no rail at all", async ({ page }) => {
+    // Team is a More-panel destination and appears in neither the rail nor the phone bar, so the
+    // panel is the ONLY inbound link it has at any width. The orphan-route gate reads `shell.tsx`
+    // as text and cannot see that.
+    await openWorkspace(page, 390);
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+
+    const panel = page.getByRole("region", { name: "More destinations" });
+    await panel.getByRole("link", { name: "Team" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: TEAM_SCREEN.heading, exact: true })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(TEAM_SCREEN.route);
+  });
+
+  test("holds the screen at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, TEAM_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal overflow at 320px on the team screen").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px on the team screen").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+  });
+
+  test("re-resolves the team screen in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEAM_SCREEN);
+    const light = await shellColours(page);
+    const lightUnclaimed = await unclaimedColours(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, TEAM_SCREEN);
+    const dark = await shellColours(page);
+    const darkUnclaimed = await unclaimedColours(page);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    // The shell chrome above is identical on every route, so on its own it would claim the category
+    // on a screen it had not inspected. These read this screen's own surface.
+    expect(darkUnclaimed.surface, "the unclaimed standing's surface did not change in dark").not.toBe(
+      lightUnclaimed.surface,
+    );
+    expect(darkUnclaimed.ink, "the unclaimed standing's ink did not change in dark").not.toBe(lightUnclaimed.ink);
+    for (const value of Object.values(darkUnclaimed)) {
+      expect(value, "a dark colour on the unclaimed standing resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+
+  test("states the threshold in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, TEAM_SCREEN);
+
+    // Forced colours drop the author's tint, so the words are all that carries the statement --
+    // which is the point of stating an escalation rather than tinting a chip.
+    await expect(page.getByTestId("caring-contacts-team-unclaimed")).toContainText("60 minutes");
+    const border = await page.evaluate(() => {
+      const block = document.querySelector('[data-testid="caring-contacts-team-unclaimed"]');
+      if (!block) throw new Error("the unclaimed standing is missing");
+      const style = getComputedStyle(block);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    });
+    expect(
+      Number.parseFloat(border.width),
+      "the unclaimed standing has no border under forced colours",
+    ).toBeGreaterThan(0);
+    expect(border.colour, "the unclaimed standing's border is transparent under forced colours").not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+});

@@ -118,7 +118,13 @@ const PHONE_OVERFLOW_DESTINATIONS = PRIMARY_DESTINATIONS.filter(
 type MoreDestination = { id: string; label: string; reason: string; href?: string };
 
 const MORE_DESTINATIONS: readonly MoreDestination[] = [
-  { id: "team", label: "Team", reason: "Ownership, capacity and unclaimed work." },
+  {
+    id: "team",
+    label: "Team",
+    // A link since Phase 2B Task 18 built the screen behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.team,
+    reason: "Ownership, coverage and unclaimed work.",
+  },
   {
     id: "guidance",
     label: "Guidance",

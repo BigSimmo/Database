@@ -225,6 +225,7 @@ describe("caring-contacts workspace shell", () => {
         CARING_CONTACTS_ROUTES.templates,
         CARING_CONTACTS_ROUTES.guidance,
         CARING_CONTACTS_ROUTES.reports,
+        CARING_CONTACTS_ROUTES.team,
       ]),
     );
   });
@@ -233,10 +234,11 @@ describe("caring-contacts workspace shell", () => {
     renderShell();
     // Templates leads the panel and is a LINK: it is a primary destination the phone bar has no
     // room for, so the panel carries it below 768px where the rail does not exist. Guidance and
-    // Reports became links in Phase 2B Task 19, in the same change as their pages (Ruling 89).
+    // Reports became links in Phase 2B Task 19, in the same change as their pages (Ruling 89), and
+    // Team in Task 18 for the same reason.
     expect(destinationsOf(screen.getByRole("region", { name: "More destinations" }))).toEqual([
       { label: "Templates", kind: "link" },
-      { label: "Team", kind: "unavailable" },
+      { label: "Team", kind: "link" },
       { label: "Guidance", kind: "link" },
       { label: "Reports", kind: "link" },
       ...["Service stop", "Access trail", "Workload", "Reconciliation", "Notifications", "Training", "Coverage"].map(
@@ -257,16 +259,28 @@ describe("caring-contacts workspace shell", () => {
     expect(destinationKind(primary!)).toBe("link");
     expect(primary).toHaveAttribute("href", CARING_CONTACTS_ROUTES.newPlan);
     expect(primary).toHaveAttribute("data-internal-link", "true");
-    // 8, and ALL of them in the More panel: the rail and the phone bar now carry none at all.
-    // Each branch counted only its own screens -- one said 11 with Templates still unbuilt on the
-    // rail, the other 10 with Schedule unbuilt on both the rail and the phone bar. Merged, Task 13
-    // lit Schedule and Task 15 lit Templates, so both of those leave the count entirely. What
-    // remains is Team plus the seven destinations with no page: Service stop, Access trail,
-    // Workload, Reconciliation, Notifications, Training and Coverage. Derived from the two
-    // destination tables in `shell.tsx`, not from what this suite happened to print.
-    expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      8,
-    );
+    // ALL of them in the More panel: the rail and the phone bar now carry none at all. Each branch
+    // counted only its own screens -- one said 11 with Templates still unbuilt on the rail, the
+    // other 10 with Schedule unbuilt on both the rail and the phone bar. Merged, Task 13 lit
+    // Schedule, Task 15 lit Templates and Task 18 lit Team, so all three leave the count entirely.
+    // What remains is exactly the destinations with no page, named rather than counted so the
+    // expectation states which set it is about: Service stop, Access trail, Workload,
+    // Reconciliation, Notifications, Training and Coverage. Derived from the two destination tables
+    // in `shell.tsx`, not from what this suite happened to print.
+    const unbuilt = [
+      "Service stop",
+      "Access trail",
+      "Workload",
+      "Reconciliation",
+      "Notifications",
+      "Training",
+      "Coverage",
+    ];
+    expect(
+      [...container.querySelectorAll("button")]
+        .filter((c) => destinationKind(c) === "unavailable")
+        .map((c) => (c.textContent ?? "").trim()),
+    ).toEqual(unbuilt);
   });
 
   it("states a reason on every destination that is not built yet", () => {
@@ -309,6 +323,7 @@ describe("caring-contacts workspace shell", () => {
       CARING_CONTACTS_ROUTES.templates,
       CARING_CONTACTS_ROUTES.guidance,
       CARING_CONTACTS_ROUTES.reports,
+      CARING_CONTACTS_ROUTES.team,
     ];
 
     for (const href of built) {

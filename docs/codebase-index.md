@@ -83,6 +83,7 @@ Smaller top-level directories that are easy to miss:
 | `/caring-contacts/templates/[pathwayId]` (ONE governed version in full: its lifecycle, both approval seats with the record's provenance qualification, the wording that record holds together with that wording's approval status, and whether a new plan may be started on it) | `src/app/caring-contacts/templates/[pathwayId]/page.tsx`                                                                                                                           |
 | `/caring-contacts/guidance` (programme boundaries, incident and downtime behaviour, and the language rules; fixed text, one service-state read, no record about anybody)                                                                                                        | `src/app/caring-contacts/guidance/page.tsx`                                                                                                                                        |
 | `/caring-contacts/reports` (aggregate operational measures, and the §2.5 programme-reach section — which states that the field it would report on is not collected rather than showing an empty breakdown)                                                                      | `src/app/caring-contacts/reports/page.tsx`                                                                                                                                         |
+| `/caring-contacts/team` (where the team's work is sitting: plans sending, plans their own state is holding, coverage, exception backlog and unclaimed work against the 60-minute escalation — operational only, and it ranks nobody)                                            | `src/app/caring-contacts/team/page.tsx`                                                                                                                                            |
 | `/applications`                                                                                                                                                                                                                                                                 | `src/app/applications/route.ts`                                                                                                                                                    |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                                                                                                    | `src/app/(search-app)/differentials/`                                                                                                                                              |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                                                                                                  | `src/app/(search-app)/dsm/`                                                                                                                                                        |
@@ -220,8 +221,8 @@ renders as an unavailable control that states what it will hold (Ruling 52). `/c
 (one patient's episode), `/caring-contacts/plans/new` (the activation wizard),
 `/caring-contacts/schedule` (the team's day),
 `/caring-contacts/templates` (the governed pathway versions),
-`/caring-contacts/templates/[pathwayId]` (one of them in full), `/caring-contacts/guidance` and
-`/caring-contacts/reports` are what is built so far. Every one of them is a page that reads the
+`/caring-contacts/templates/[pathwayId]` (one of them in full), `/caring-contacts/guidance`,
+`/caring-contacts/reports` and `/caring-contacts/team` are what is built so far. Every one of them is a page that reads the
 store through `auditedRead` rather than over HTTP, using the same access identity the matching API
 route records; filtering and, on the patient overview, the choice of which plan to open are carried
 in the URL and read by the Server Component.
@@ -247,6 +248,21 @@ category set is not. The suppression rule itself lives in
 `src/lib/caring-contacts/reach-reporting.ts`: it takes the threshold as a required argument, refuses
 one too low to hide anything, and suppresses complementary cells so that no hidden figure is
 recoverable by subtracting the published ones from a total.
+
+`/caring-contacts/team` renders `buildTeamWorkload` and draws three FEWER columns than the approved
+design does, each because nothing in this system holds the value (Task 17's findings 1–3, and none of
+them is an oversight). There is no staff display NAME: the stores hold an `ActorId` and nothing else
+about a person, and a staff directory is a system this build is not connected to — so the identifier
+is rendered as an identifier and the screen states that a name is not held. There is no ROLE column:
+nothing returns the roles an `ActorId` holds, `Actor` being assembled at the session seam for the one
+person acting. And there is no per-member UNCLAIMED count, because unclaimed means there is no owner
+to file the work under; the design's unclaimed row is rendered once, above both the desktop table and
+the compact roster, as the spec §4.4 pair — the escalation as an `AutomatedState` carrying the
+threshold that produced it and the one thing that clears it. Both ages it shows are upper bounds
+measured from the earliest instant the work could have been waiting, and are named for that rather
+than called a queue age. Its Reassign work control is a link to the caseload: a reassignment needs
+one plan, this read deliberately carries no plan id, and the control that performs one already exists
+on `plan-actions.tsx`.
 
 `/caring-contacts/templates` is a governance record viewer, and the LIBRARY shows no message wording
 at all. Ruling [127]: the one patient-visible message that exists is a specimen rather than a
