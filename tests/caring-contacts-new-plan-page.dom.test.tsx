@@ -46,6 +46,7 @@ import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { idempotencyKey, pathwayVersionId, patientId, referralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
+import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 
@@ -228,6 +229,12 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
       }),
     ]);
     expect(wizard.props.actorRoleLabels).toEqual(["coordinator"]);
+    // Task 11a: the patient-visible wording stage 3 previews comes from the SEALED DOMAIN, resolved
+    // here. This is the assertion that can actually fail -- a page that wrote the sentence out, or
+    // paraphrased it, would satisfy the wizard's own "renders what it is handed" case perfectly.
+    // The wording is changing (the owner has decided it gains a first-name slot), so this compares
+    // against the module's export rather than against a copy of today's sentence.
+    expect(wizard.props.patientVisibleMessageSpecimen).toBe(EXACT_PATIENT_VISIBLE_MESSAGE);
   });
 });
 

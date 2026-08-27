@@ -1,7 +1,8 @@
-import { CalendarClock, EyeOff } from "lucide-react";
+import { CalendarClock, ClipboardCheck, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
+import { planAssuranceWording, type PlanAssuranceAttestation } from "@/lib/caring-contacts/assurances";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { Episode } from "@/lib/caring-contacts/episode";
 import { contactSendability, type ContactState, type MessageType, type PlanState } from "@/lib/caring-contacts/model";
@@ -16,7 +17,9 @@ import {
 
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
-import { UnavailableDestination } from "./unavailable-destination";
+import { ExitOnlyOverlayTrigger } from "./overlays/exit-only-overlay-trigger";
+import type { PlanActionsContext } from "./plan-action-rules";
+import { PlanActions } from "./plan-actions";
 
 /**
  * One patient's caring-contact episode -- who they are, which plan is running, what has happened
@@ -103,10 +106,51 @@ import { UnavailableDestination } from "./unavailable-destination";
  * looking at — a role that may not read the episode, a retention clearance, or a plan older than
  * the field — rather than reporting one absence for three different facts. See `FirstContact`.
  *
- * A Server Component with no hooks and no client boundary (Ruling 13). The chooser is a set of
- * `<Link>`s that put the choice in the URL; nothing on this screen needs JavaScript to work, and
- * the only client component it renders is `UnavailableDestination`, which the shell's navigation
- * already ships on every screen.
+ * THIS SCREEN IS THE PLAN DETAIL, AND THERE IS NO SECOND ROUTE (Ruling [128])
+ * -------------------------------------------------------------------------
+ * "Plan and contact detail" reads like two more routes and is neither. Plan detail is
+ * `/caring-contacts/patients/[patientId]?plan=<planId>` -- this screen, deepened -- and contact
+ * detail is the `delivery-detail` OVERLAY, which `docs/caring-contacts/interaction-matrix.md` lists
+ * as a full-screen stage on a phone and an inspection drawer on a desktop, `mutation: No`.
+ *
+ * A `/caring-contacts/plans/[planId]` route would be a second surface that must independently
+ * re-validate that the plan belongs to this patient AND this team, which is the failure this domain
+ * guards against hardest; `CARING_CONTACTS_ROUTES` carries no key for it, which is the routes module
+ * saying the same thing. So the deepening adds NO read either: the attestations travel on
+ * `PlanRecord` (Ruling [122]) and the first-contact reason on `Episode` (Ruling [105]), both of
+ * which the page has already read for this plan. Per Ruling [46] the deliberate conclusion is that
+ * no new `AccessedObjectType` member is owed, because there is no new object being read -- adding
+ * one would put a second name on the trail for a read that did not happen.
+ *
+ * THE TWO STORED FIELDS THAT MOVE IN OPPOSITE DIRECTIONS, ON ONE SCREEN
+ * --------------------------------------------------------------------
+ * The first-contact reason is CLEARED by a retention clearance (Ruling [105]) because it is
+ * clinician prose that will name patients and places. The attestation is PRESERVED (Ruling [122])
+ * because it is an act, an actor and an instant with no patient content -- the same class as an
+ * audit event, which de-identification deliberately keeps. `FirstContactReason` and
+ * `PlanAssurances` below are the two halves, and a cleared plan renders both at once: the reason
+ * states which absence it is, and the attestation is still there beside it.
+ *
+ * WHAT THE ATTESTATION MAY NOT BE READ AS. It records that a coordinator confirmed they checked the
+ * hospital record. Nothing here may say the patient consented: the agreement lives in that record
+ * and not in this system. The wording says "recorded on the plan" rather than "stored" or "kept",
+ * because this system distinguishes held in a tab's storage from written onto the plan and ordinary
+ * English does not.
+ *
+ * THE PLAN ACTIONS ARE THIS SCREEN'S, AND THEY ARE THE ONLY CONTROLS THAT STOP THE PROGRAMME
+ * ------------------------------------------------------------------------------------------
+ * `docs/caring-contacts/interaction-matrix.md` puts `pause`, `withdrawal` and `reassignment` under
+ * "Plan actions" and "Plan/team actions", and plan detail is this screen (Ruling [128]). They write,
+ * so they live in `plan-actions.tsx` on the client side of the seam -- a Server Component cannot
+ * pass a commit function across it -- and everything that reaches them is plain data this file and
+ * the page resolved. In particular every role reaches them as WORDS: actor identifiers here are
+ * `demo-<role>`, and a raw role identifier is never put in front of a clinician.
+ *
+ * A Server Component with no hooks of its own (Ruling 13). The chooser is a set of `<Link>`s that
+ * put the choice in the URL; nothing on this screen needs JavaScript to READ it. Two client
+ * components are rendered beneath it: `ExitOnlyOverlayTrigger`, the smallest control that can raise
+ * the `delivery-detail` and `activation-success` drawers, and `PlanActions`, which owns the three
+ * mutating rows and the resume that pause owes.
  */
 
 const PLAN_STATE_LABELS: Readonly<Record<PlanState, string>> = Object.freeze({
@@ -176,6 +220,11 @@ export type PatientOverviewView =
       kind: "episode";
       record: PlanRecord;
       /**
+       * Everything the plan-actions surface needs, resolved by the page from the actor, the plan
+       * and the assignment. Serialisable throughout: it crosses a client boundary.
+       */
+      actions: PlanActionsContext;
+      /**
        * Null when the acting role may not read an episode -- decided by the page from the actor,
        * never inferred here. The plan is still shown; the person is not.
        */
@@ -228,6 +277,7 @@ export function PatientOverview({ patientId, view }: PatientOverviewProps) {
       record={view.record}
       episode={view.episode}
       otherPlanCount={view.otherPlanCount}
+      actions={view.actions}
     />
   );
 }
@@ -330,11 +380,13 @@ function EpisodeOverview({
   record,
   episode,
   otherPlanCount,
+  actions,
 }: {
   patientId: string;
   record: PlanRecord;
   episode: Episode | null;
   otherPlanCount: number;
+  actions: PlanActionsContext;
 }) {
   const name = episode !== null && episode.patientName !== "" ? episode.patientName : null;
   const entries = [...record.contacts].sort((left, right) => left.planned.sequence - right.planned.sequence);
@@ -345,6 +397,7 @@ function EpisodeOverview({
   // plan -- or one stopped by a recorded death -- was announced as ten messages still to come.
   const summary = summariseStoredContacts(entries);
   const firstContact = entries.find((entry) => entry.planned.messageType === "first") ?? entries[0];
+  const notRunning = planNotRunningNote(record.plan.state, summary);
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -500,40 +553,52 @@ function EpisodeOverview({
         )}
       </section>
 
+      <PlanAssurances attestations={record.assuranceAttestations} planState={record.plan.state} />
+
+      {/*
+        The frozen matrix's three plan actions, on the screen its own "Plan actions" context names.
+        The card is this screen's; what each control does, and what it refuses, is decided in
+        `plan-action-rules.ts` from what the domain does.
+      */}
+      <section className={cardClass}>
+        <PlanActions context={actions} />
+      </section>
+
       <section aria-labelledby="caring-contacts-schedule-heading" className={cardClass}>
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2
-              id="caring-contacts-schedule-heading"
-              className="text-base font-semibold text-[color:var(--text-heading)]"
-            >
-              Twelve-month schedule
-            </h2>
-            {/*
-              Counted from the plan's own entries every render (Ruling 98). The approved mockup
-              says "10 contacts over 12 months"; that is true only while nothing is suppressed,
-              and a plan whose first contact is discharge + 7 has nine sendable messages.
-            */}
-            <p
-              data-testid="caring-contacts-schedule-summary"
-              className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
-            >
-              {scheduleSummarySentence(summary)}
-            </p>
-          </div>
-          {/*
-            `label` is a destination NOUN, not an instruction: `UnavailableDestination` renders its
-            screen-reader note as "<label> is not built yet."
-          */}
-          <UnavailableDestination
-            id={`plan-detail-${record.plan.id}`}
-            label={`The plan detail for ${record.plan.id}`}
-            reason="Every message in this plan with the decisions still waiting on it, and the controls that change them."
-            className="inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] sm:shrink-0"
+        <div className="min-w-0">
+          <h2
+            id="caring-contacts-schedule-heading"
+            className="text-base font-semibold text-[color:var(--text-heading)]"
           >
-            <span className="truncate">Plan detail &mdash; {record.plan.id}</span>
-          </UnavailableDestination>
+            Twelve-month schedule
+          </h2>
+          {/*
+            Counted from the plan's own entries every render (Ruling 98). The approved mockup
+            says "10 contacts over 12 months"; that is true only while nothing is suppressed,
+            and a plan whose first contact is discharge + 7 has nine sendable messages.
+          */}
+          <p
+            data-testid="caring-contacts-schedule-summary"
+            className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
+          >
+            {scheduleSummarySentence(summary)}
+          </p>
         </div>
+
+        {/*
+          The sentence above is about the RECORD; this says whether the plan it belongs to is
+          running. See `planNotRunningNote` -- the two are different questions and only one of them
+          `contactSendability` can answer.
+
+          The `UnavailableDestination` that used to sit here pointed at "the plan detail", which is
+          now this screen (Ruling [128]). A control offering to take a clinician to the screen they
+          are already on is worse than no control.
+        */}
+        {notRunning === null ? null : (
+          <div className="mt-3 min-w-0">
+            <AutomatedState state={notRunning.state} because={notRunning.because} changedBy={notRunning.changedBy} />
+          </div>
+        )}
 
         <ul aria-label="Twelve-month schedule" className="mt-4 flex min-w-0 flex-col gap-3">
           {entries.map((entry) => (
@@ -763,7 +828,237 @@ function ScheduleEntry({ entry, plan }: { entry: StoredContact; plan: PlanRecord
           />
         </div>
       )}
+      {/*
+        CONTACT DETAIL: the `delivery-detail` row of the frozen matrix, and its ONLY inbound path in
+        this workspace.
+
+        Offered exactly where the domain says a message left. `contactSendability` is asked rather
+        than a list of states written out here, for the reason `summariseStoredContacts` exists: that
+        classification lives beside the state machine that produces it, and a screen holding a second
+        copy of it is the defect this module has already paid for once. A scheduled, suppressed,
+        cancelled or missed message has no transport report, so a control promising one would open a
+        drawer about nothing.
+
+        WHAT THE DRAWER CAN AND CANNOT SAY, stated here because it is a real limit rather than a
+        choice. `OverlayHost` renders each row's frozen `summary` and takes no children, so the
+        overlay cannot name the contact it was opened from -- it states what a transport report is
+        and is not, which is the row's own copy. The per-contact fact therefore stays ON this row,
+        above, where `CONTACT_STATE_LABELS` already labels every provider state as a receipt.
+
+        SO THE LABEL PROMISES ONLY WHAT THE DRAWER HOLDS. The first version read "What the phone
+        network reported -- Day 1", which advertises this contact's own report and then opens a
+        surface holding no contact data at all. Disclosing that in a comment is not discharging it.
+        The visible words are now generic, because the drawer is generic; the cadence label follows
+        as the control's ORIGIN, which is what tells one schedule row's control from another's for a
+        reader who cannot see which row it sits in, and it claims nothing about what opens.
+      */}
+      {contactSendability(entry.contact.state) === "alreadySent" ? (
+        <div className="mt-2 min-w-0">
+          <ExitOnlyOverlayTrigger overlayId="delivery-detail" className="w-full sm:w-auto">
+            <span className="truncate">What a delivery receipt means</span>
+            <span className="sr-only"> &mdash; opened from the {entry.planned.cadenceLabel} row</span>
+          </ExitOnlyOverlayTrigger>
+        </div>
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * Whether the PLAN is running, said beside the summary of what its messages hold -- or null when
+ * there is nothing that could be misread.
+ *
+ * THE DEFECT THIS EXISTS FOR, AND IT IS THE ONE THIS SCREEN MOST PLAUSIBLY REINTRODUCES. `pausePlan`
+ * is a plain lifecycle transition: it moves the plan and touches no contact. So a paused plan's
+ * messages are still `scheduled`, `contactSendability` still classifies them `stillToSend`, and
+ * `scheduleSummarySentence` above still says "every one of them is still to be sent" -- a true
+ * statement about the RECORD that reads as a promise about the future. A draft plan is the same
+ * shape: created, dated, and not started.
+ *
+ * That is deliberately NOT fixed by re-deriving sendability here. The classification is correct and
+ * belongs to ./model; what is missing is the second fact, which lives on `plan.state`, and stating
+ * it is this screen's job. `withdrawPlan` and `recordHospitalStatusEvent` cancel every unsent
+ * contact, so an ENDED plan explains itself row by row through `notSentExplanation` and needs
+ * nothing here -- which is why the terminal branch below is guarded by `stillToSend` and says the
+ * record disagrees with itself rather than inventing a cause.
+ *
+ * Nothing here claims what a dispatcher would do with a paused plan's contact. It says what the two
+ * records hold and leaves the reader in no doubt that a date on this screen is not a message on its
+ * way.
+ *
+ * An exhaustive switch, so a seventh plan state cannot default into silence.
+ */
+function planNotRunningNote(
+  state: PlanState,
+  summary: StoredContactSummary,
+): { state: string; because: string; changedBy: string } | null {
+  if (summary.stillToSend === 0) return null;
+
+  const notOnItsWay = "so a date below is not a message on its way.";
+  switch (state) {
+    case "active":
+      return null;
+    case "draft":
+      return {
+        state: PLAN_STATE_LABELS.draft,
+        because: `The messages below are dated and still to be sent, and this plan has not been started. A plan that has not been started is not running, ${notOnItsWay}`,
+        changedBy:
+          "Starting the plan, which is the last step of the sign-up that created it. Nothing on this screen does it.",
+      };
+    case "paused":
+      return {
+        state: PLAN_STATE_LABELS.paused,
+        because: `The messages below are dated and still to be sent, and this plan is paused. A paused plan is not running, ${notOnItsWay}`,
+        changedBy:
+          "Letting the plan run again, which the plan actions on this screen offer to a role that is granted it.",
+      };
+    case "withdrawn":
+    case "cancelled":
+    case "completed":
+      // Unreachable through any store write today: every ending runs the unsent contacts through
+      // `{ type: "cancel" }`, so an ended plan holds nothing still to send. Written rather than
+      // omitted because the types permit the combination, and the honest thing to say about it is
+      // that the two records disagree -- not a cause invented to reconcile them.
+      return {
+        state: PLAN_STATE_LABELS[state],
+        because: `This plan has ended, and the messages below are still recorded as still to be sent. Those two facts disagree, ${notOnItsWay}`,
+        changedBy: "Nothing on this screen. A record that disagrees with itself is for the service to look at.",
+      };
+    default: {
+      const unhandled: never = state;
+      return unhandled;
+    }
+  }
+}
+
+/**
+ * What a coordinator attested to having confirmed before this plan was created (Ruling [122]).
+ *
+ * WHAT AN ATTESTATION IS: an act, an actor and an instant. WHAT IT IS NOT: a consent record. It says
+ * a coordinator confirmed they had checked the hospital record; the agreement itself is held there
+ * and not in this system, and no wording here may say the patient consented. The design's
+ * `Agreement confirmed: Yes` is exactly that mistake, and the sign-up's last screen already refuses
+ * it in the same words.
+ *
+ * WHY THE ACTOR IS NOT ON SCREEN, WHICH IS A LIMIT RATHER THAN A CHOICE. The attestation holds an
+ * actor ID, and this workspace's actor IDs are `demo-<role>` -- so printing one would put a raw role
+ * identifier in front of a clinician, which this workspace does not do: role wording lives in the
+ * sealed domain (`CARING_CONTACT_ROLE_WORDING`) and is resolved from a ROLE, and nothing maps an
+ * actor id to one. So the screen says the plan records who, and shows what and when. Naming the
+ * person needs a directory this prototype has not got, and guessing at the identifier's shape here
+ * would be a screen re-deriving a rule the session module owns.
+ *
+ * WHY THE EMPTY CASE IS ITS OWN SENTENCE. A plan created before the attestation existed holds none,
+ * there was no backfill on purpose, and a blank space would read as "nobody confirmed anything" --
+ * a false statement about a clinical record. Same shape as `FirstContactReason`'s older-plan branch
+ * and `ListEmptyState`'s whole reason for being.
+ *
+ * WHY THE RETENTION SENTENCE IS HERE AT ALL. This is the first screen to render the attestation and
+ * the first-contact reason together, and their retention rules are deliberate OPPOSITES: the reason
+ * is cleared because it is prose about a patient, the attestation survives because it holds no
+ * patient content. On a cleared plan a reader sees both at once, and the reason a reader might
+ * otherwise reach for -- "this one was missed" -- is the wrong one.
+ */
+function PlanAssurances({
+  attestations,
+  planState,
+}: {
+  attestations: readonly PlanAssuranceAttestation[];
+  /**
+   * Which state the plan is in, read only to decide whether the `activation-success` row has
+   * anything to be about. Never used to re-derive what the attestations mean.
+   */
+  planState: PlanState;
+}) {
+  const headingId = "caring-contacts-assurances-heading";
+  return (
+    <section aria-labelledby={headingId} className={cardClass}>
+      <h2
+        id={headingId}
+        className="flex min-w-0 items-center gap-2 text-base font-semibold text-[color:var(--text-heading)]"
+      >
+        <ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="min-w-0">What was confirmed before this plan started</span>
+      </h2>
+
+      {attestations.length === 0 ? (
+        <>
+          <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+            This plan holds no record of those confirmations. It was created before this plan began recording them, and
+            nothing was written into the older plans afterwards — a placeholder here would be a clinical record nobody
+            made. Nobody failed to confirm anything.
+          </p>
+          <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+            A retention clearance is not what emptied this. A clearance removes the patient&rsquo;s detail from a plan
+            and leaves these confirmations on it, because each holds only which check was made and when, and no patient
+            detail at all.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+            Each line is a coordinator&rsquo;s own confirmation, recorded on the plan when the plan was created,
+            together with which account made it and the time. What is recorded is that the check was made — not what the
+            patient agreed to, which is held in the patient&rsquo;s hospital record and not in this system.
+          </p>
+          <ul aria-label="Confirmations recorded on this plan" className="mt-3 flex min-w-0 flex-col gap-2">
+            {attestations.map((attestation) => (
+              <li
+                key={attestation.assurance}
+                className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2"
+              >
+                <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+                  <span className="font-medium text-[color:var(--text)]">A coordinator confirmed </span>
+                  {planAssuranceWording(attestation.assurance)} — recorded on the plan on{" "}
+                  {awstCalendarDay(attestation.attestedAt)} (AWST).
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+            A retention clearance leaves these on the plan while it removes the patient&rsquo;s detail — the name, the
+            mobile number, the identifiers, the cultural identity and the reason any first contact was moved. Each line
+            above holds no patient detail, only which check was made and when, so removing it would destroy the evidence
+            that the check happened while keeping the plan it belongs to.
+          </p>
+        </>
+      )}
+      <p className="mt-3 max-w-[var(--measure)] text-xs leading-5 text-[color:var(--text-muted)]">
+        The account that made each confirmation is recorded on the plan and is not shown here: this demonstration
+        identifies accounts by an identifier rather than by a person.
+      </p>
+
+      {/*
+        `activation-success` — the frozen matrix's "Patient overview outcome" row, and its ONLY
+        inbound path in this workspace.
+
+        WHY IT SITS ON A RUNNING PLAN RATHER THAN ON A JUST-FINISHED SIGN-UP. The wizard clears its
+        draft and navigates the moment both writes land, so a control rendered there would exist for
+        the width of a navigation. The matrix puts the row on this screen instead, and this is the
+        card it belongs beside: what activation recorded IS the confirmations above, and the row's
+        own summary — "The plan is recorded. This confirmation carries no patient detail" — is what
+        this card spends four paragraphs establishing.
+
+        Offered only while the plan is RUNNING. On a paused, draft or ended plan, a confirmation that
+        the plan is recorded and started would contradict what `planNotRunningNote` says a few
+        sections below, and two statements about one fact disagreeing on one screen is the defect
+        Task 9 found in the wizard's own copy.
+
+        The row is `mutatesState: false` and its decision is "View the plan" — an exit, on the screen
+        that IS the plan (Ruling [128]), so the host's own close is the whole action.
+        `ExitOnlyOverlayTrigger`'s module records why an inline no-op and `{ kind: "unavailable" }`
+        are both the wrong answer for a row like this. As with `delivery-detail` on the rows below,
+        the visible words promise only what the drawer holds: `OverlayHost` takes no children, so the
+        drawer carries the row's own generic copy and no patient detail whatever.
+      */}
+      {planState === "active" ? (
+        <div className="mt-3 min-w-0">
+          <ExitOnlyOverlayTrigger overlayId="activation-success" className="w-full sm:w-auto">
+            <span className="truncate">What starting a plan puts on the record</span>
+          </ExitOnlyOverlayTrigger>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

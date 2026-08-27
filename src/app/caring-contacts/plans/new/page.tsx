@@ -12,6 +12,13 @@ import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-cont
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
 import { PATHWAY_APPROVAL_ROLE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+// The governed patient-visible wording, resolved HERE and handed to stage 3 as a plain string.
+// Same reason as the two below it: a screen may not author or alter patient-visible copy, so it
+// reads the sealed domain's own value rather than holding a second copy of it — and resolving it
+// on the server keeps `message-copy.ts` and the GSM-7 machinery it imports out of this route's
+// client chunk. The wording is changing (the owner has decided it gains a first-name slot); this
+// page passes whatever that module exports and the wizard renders what it is handed.
+import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import { CARING_CONTACT_ROLE_WORDING, canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS } from "@/lib/caring-contacts/repository";
 // Both resolved HERE rather than in the wizard, and for the reason round 1 finding M-2 settled: a
@@ -259,6 +266,7 @@ export default async function CaringContactsNewPlanPage({
         pathwayOptions={pathwayOptions}
         sendingPreferenceOptions={SENDING_PREFERENCE_OPTIONS}
         fictionalPatientMobileNumbers={DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS}
+        patientVisibleMessageSpecimen={EXACT_PATIENT_VISIBLE_MESSAGE}
       />
     );
   }

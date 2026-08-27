@@ -30,12 +30,14 @@
 //      about the plan being old.
 //
 // Built on the helper shape `caring-contacts-patients-page.dom.test.tsx` established for Task 5.
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   store: { current: null as unknown },
+  router: { refresh: vi.fn(), push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() },
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
   }),
@@ -48,18 +50,43 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   notFound: mocks.notFound,
+  // `PlanActions` asks the router to read the rest of this screen again after a change lands. There
+  // is no app-router context in jsdom, so the real hook throws; this is the same substitution the
+  // wizard's own suite makes for `push`.
+  useRouter: () => mocks.router,
 }));
 
 vi.mock("@/lib/caring-contacts-server/store", () => ({
   caringContactsStore: async () => mocks.store.current,
 }));
 
-import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
+import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
+import { overlayDefinition } from "@/components/caring-contacts/workspace/overlays/definitions";
+import {
+  clearStagedWorkspaceOverlayCommit,
+  commitRefusalFor,
+} from "@/components/caring-contacts/workspace/overlays/overlay-commits";
+import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
+import {
+  planActionCardName,
+  planActionConditions,
+  PLAN_ACTION_CONDITION_REFUSALS,
+} from "@/components/caring-contacts/workspace/plan-action-rules";
+import type { PlanActionId, PlanActionsContext } from "@/components/caring-contacts/workspace/plan-action-rules";
+import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
+import { CARING_CONTACT_ROLE_WORDING } from "@/lib/caring-contacts/permissions";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
-import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+import {
+  PLAN_ASSURANCES,
+  PLAN_ASSURANCE_VALUES,
+  planAssuranceWording,
+  type PlanAssurance,
+  type PlanAssuranceAttestation,
+} from "@/lib/caring-contacts/assurances";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import {
+  actorId,
   contactId,
   idempotencyKey,
   pathwayVersionId,
@@ -68,9 +95,10 @@ import {
   referralId,
   type PlanId,
 } from "@/lib/caring-contacts/ids";
-import type { ContactState } from "@/lib/caring-contacts/model";
+import type { ContactState, MessageType } from "@/lib/caring-contacts/model";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import type { CaringContactRepository, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
+import type { NextRequest } from "next/server";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
 
@@ -534,9 +562,7 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
     expect(note).toHaveTextContent(ABSORBING_FIRST_CONTACT_DAY);
@@ -731,9 +757,7 @@ describe("the patient overview - a contact suppressed by a later transition stil
   };
 
   it("subtracts it from the count, and explains it as the cause this screen does not hold", () => {
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
       "3 entries: 2 still to send, and 1 that will not be sent.",
@@ -829,9 +853,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     const cancelled = screen.getByRole("group", { name: "Cancelled" });
     expect(cancelled).toHaveTextContent(/does not hold what caused that/i);
@@ -882,9 +904,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       ],
     };
 
-    render(
-      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
-    );
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
 
     // All three buckets at once -- the only shape that proves the sentence is built from the
     // summary rather than from the absence of one state.
@@ -892,5 +912,1760 @@ describe("the patient overview - a plan that has ended says so, and never promis
       "3 entries: 1 already sent, 1 still to send, and 1 that will not be sent.",
     );
     expect(screen.getByRole("group", { name: "Missed" })).toHaveTextContent(/window for sending this message closed/i);
+  });
+});
+
+/**
+ * Fixture helpers for the Task 10 blocks below.
+ *
+ * Hand-built rather than driven through the store, and only where the case CANNOT be reached
+ * through one: a plan holding no attestation is a row created before the attestation existed, and
+ * `createPlan` refuses an empty assurance list by name, so no store can produce one now. The
+ * schedule shape is likewise not the subject of those blocks -- the store-driven blocks above own
+ * that -- so a two-entry schedule keeps each assertion pointed at the one thing it is about.
+ *
+ * Every store-reachable case in this file's Task 10 blocks still goes through the real store.
+ */
+const FIXTURE_TEAM = demoActorForRole("coordinator").teamId;
+const FIXTURE_PLAN = "plan-fixture";
+
+function attestationFixture(assurance: PlanAssurance): PlanAssuranceAttestation {
+  return { assurance, actorId: actorId("demo-coordinator"), attestedAt: new Date(NOW) };
+}
+
+function scheduleEntryFixture(
+  sequence: number,
+  state: ContactState,
+  options: { cadenceLabel?: string; messageType?: MessageType } = {},
+): StoredContact {
+  return {
+    contact: {
+      id: contactId(`${FIXTURE_PLAN}--contact-${sequence}`),
+      planId: planId(FIXTURE_PLAN),
+      state,
+      version: 1,
+    },
+    planned: {
+      sequence,
+      cadenceLabel: options.cadenceLabel ?? `Month ${sequence}`,
+      calendarDay: `2026-0${sequence}-01`,
+      sendAt: new Date(`2026-0${sequence}-01T02:00:00.000Z`),
+      messageType: options.messageType ?? "standard",
+    },
+  };
+}
+
+/** The same plan, held in each of the two states that are not running. */
+function pausedPlanFixture(): PlanRecord["plan"] {
+  return { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "paused", version: 1 };
+}
+
+function draftPlanFixture(): PlanRecord["plan"] {
+  return { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "draft", version: 1 };
+}
+
+/**
+ * The plan-actions context a hand-built episode view is given when a case is not about the actions.
+ *
+ * DELIBERATELY THE PERMITTED, RUNNING, CARRIED SHAPE -- the one where every control is live. A
+ * fixture that refused everything would let a case about some other part of the screen pass while
+ * the actions rendered nothing at all, which is the vacuous-fixture failure this file already
+ * guards against elsewhere. The cases that are about the actions build their own context or go
+ * through the page.
+ */
+function planActionsFixture(overrides: Partial<PlanActionsContext> = {}): PlanActionsContext {
+  return {
+    planId: FIXTURE_PLAN,
+    planState: "active",
+    planVersion: 1,
+    actingAccount: "coordinator",
+    actingAccountWording: CARING_CONTACT_ROLE_WORDING.coordinator,
+    carriedBy: { actorId: "demo-coordinator", wording: CARING_CONTACT_ROLE_WORDING.coordinator },
+    destinations: [{ actorId: "demo-teamLead", wording: CARING_CONTACT_ROLE_WORDING.teamLead }],
+    granted: { pause: true, resume: true, withdrawal: true, reassignment: true },
+    ...overrides,
+  };
+}
+
+/** An episode view, with the plan-actions context defaulted for the cases that are not about it. */
+function episodeView(
+  view: Omit<Extract<PatientOverviewView, { kind: "episode" }>, "kind" | "actions"> & {
+    actions?: PlanActionsContext;
+  },
+): PatientOverviewView {
+  const { actions, ...rest } = view;
+  return {
+    kind: "episode",
+    ...rest,
+    actions:
+      actions ?? planActionsFixture({ planState: rest.record.plan.state, planVersion: rest.record.plan.version }),
+  };
+}
+
+function planRecordFixture(overrides: Partial<PlanRecord> = {}): PlanRecord {
+  return {
+    plan: { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "active", version: 1 },
+    patientId: patientId(PATIENT),
+    referralId: referralId("referral-fixture"),
+    pathwayVersionId: pathwayVersionId("pathway-1"),
+    dischargeAt: DISCHARGE,
+    completedAt: null,
+    outcome: "inProgress",
+    assuranceAttestations: PLAN_ASSURANCE_VALUES.map(attestationFixture),
+    contacts: [
+      scheduleEntryFixture(1, "scheduled", { cadenceLabel: "Day 1", messageType: "first" }),
+      scheduleEntryFixture(2, "scheduled"),
+    ],
+    ...overrides,
+  };
+}
+
+/**
+ * Task 10. The plan detail screen is this screen DEEPENED, not a second one (Ruling [128]):
+ * `/caring-contacts/patients/[patientId]?plan=<planId>` already exists, `patientPlanRoute()` builds
+ * it, and `CARING_CONTACTS_ROUTES` carries no key for a standalone plan page. So everything below
+ * asserts against the same render the blocks above use.
+ *
+ * THE DEFECT THIS BLOCK IS WRITTEN FIRST FOR. A plan that is not RUNNING still holds contacts in
+ * `scheduled`, because `pausePlan` is a plain lifecycle transition -- it moves the plan and touches
+ * no contact -- so `contactSendability` classifies every one of them `stillToSend` and the summary
+ * sentence above reads "every one of them is still to be sent". On a paused plan that sentence is
+ * about the RECORD and reads as a promise about the future. The withdrawn and death-stopped plans
+ * covered above are the case the domain already closes for itself (both cancel every unsent
+ * contact); paused and draft are the two it does not, and they are where this screen could
+ * reintroduce the "a stopped plan would still send" defect.
+ */
+describe("the patient overview - a plan that is not running must not read as forthcoming", () => {
+  it("says a PAUSED plan is not running, and that a date below is not a message on its way", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    const actor = demoActorForRole("coordinator");
+    const activated = await store.activatePlan(
+      { planId: id, expectedVersion: 1 },
+      { actor, idempotencyKey: idempotencyKey("activate-pause") },
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+    const paused = await store.pausePlan(
+      { planId: id, expectedVersion: activated.value.plan.version },
+      { actor, idempotencyKey: idempotencyKey("pause-plan-solo") },
+    );
+    if (!paused.ok) throw new Error(`pausePlan refused: ${paused.reason}`);
+
+    await renderPage();
+
+    // The domain's own classification is unchanged and is still reported honestly: pausing moved
+    // the plan, not the contacts.
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and every one of them is still to be sent.",
+    );
+    // And the qualification that stops that sentence reading as a promise.
+    const note = screen.getByRole("group", { name: "Paused" });
+    expect(note).toHaveTextContent("this plan is paused");
+    expect(note).toHaveTextContent("a date below is not a message on its way");
+    // The remedy names a control that now EXISTS on this screen (Task 11b). It used to say there
+    // was none, and that sentence was true when it was written and false the moment the plan
+    // actions landed -- a remedy that points at nothing is worse than no remedy at all.
+    expect(note).toHaveTextContent(/Letting the plan run again/i);
+    expect(note, "the note still says this screen offers no way to lift a hold").not.toHaveTextContent(
+      /no control for that on this screen/i,
+    );
+    expect(screen.getByTestId("caring-contacts-plan-action-resume")).toBeInTheDocument();
+  });
+
+  it("says a DRAFT plan has not been started, in different words from the paused one", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    const note = screen.getByRole("group", { name: "Draft" });
+    expect(note).toHaveTextContent("this plan has not been started");
+    expect(note).toHaveTextContent("a date below is not a message on its way");
+  });
+
+  it("does not let draft and paused collapse into one note, and proves the locators first", () => {
+    // REVIEW ROUND 2. These two negatives used to sit at the end of the case above, behind
+    // `getByRole("group", { name: "Draft" })` -- and the mutation aimed at them (M6, the draft label
+    // swapped for the paused one) makes THAT line fail first, so neither negative was ever reached.
+    // A sibling that fails first does not prove the assertion behind it. They live in their own case
+    // now, each preceded by the positive control that shows its locator can find what it is denying.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({
+          record: planRecordFixture({ plan: pausedPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        })}
+      />,
+    );
+    // Positive control: both locators DO find a paused note when the plan is paused.
+    expect(screen.getByRole("group", { name: "Paused" })).toHaveTextContent(/paused/i);
+    cleanup();
+
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({
+          record: planRecordFixture({ plan: draftPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        })}
+      />,
+    );
+    // The group negative FIRST, so a mutated label reaches it rather than failing the line above it.
+    expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Draft" })).not.toHaveTextContent(/paused/i);
+  });
+
+  it("adds no such note to a running plan, so the note means something when it appears", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    const activated = await store.activatePlan(
+      { planId: id, expectedVersion: 1 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("activate-running") },
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+
+    // Positive control first (review round 2): the same locator DOES find a not-running note when
+    // the plan is not running, so the two absences below are the plan's state rather than a query
+    // that never matches anything.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({
+          record: planRecordFixture({ plan: draftPlanFixture() }),
+          episode: null,
+          otherPlanCount: 0,
+        })}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Draft" })).toBeInTheDocument();
+    cleanup();
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-plan-summary")).toHaveTextContent("Plan state: Active");
+    expect(screen.queryByRole("group", { name: "Draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
+  });
+
+  it("adds no plan-level note to an ENDED plan, which already explains itself row by row", async () => {
+    // The `stillToSend === 0` guard, which would otherwise be an unproven check. `withdrawPlan`
+    // cancels every unsent contact, so a withdrawn plan has nothing that could read as forthcoming
+    // and `notSentExplanation` has already given each row its own reason. A second, plan-level
+    // sentence over the top of ten explained rows would be the screen saying the same thing twice
+    // in different words -- and the branch it would come from says the record disagrees with
+    // itself, which about a withdrawn plan would be false.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and none of them will be sent.",
+    );
+    expect(screen.queryByRole("group", { name: "Withdrawn" })).not.toBeInTheDocument();
+    // The rows still carry their own reason, so nothing was lost by withholding the note -- and this
+    // is the positive control for the absence above: the same `getByRole("group", { name })` locator
+    // finds plenty here, so "no Withdrawn group" is the screen's answer, not a query that matches
+    // nothing. Held to expected CONTENT rather than to a count greater than zero (review round 2),
+    // because a count is satisfied by a group carrying any words at all.
+    const cancelled = screen.getAllByRole("group", { name: "Cancelled" });
+    expect(cancelled[0]).toHaveTextContent(
+      "This plan ended (withdrawn), and the system cancelled every message that had not already gone out.",
+    );
+  });
+});
+
+/**
+ * The two stored fields whose retention rules are deliberate OPPOSITES, on the first screen that
+ * renders both.
+ *
+ * Ruling [105]: the first-contact reason is CLEARED, because it is clinician prose that will name
+ * patients and places. Ruling [122]: the attestation is PRESERVED, because it is
+ * `{ assurance, actorId, instant }` -- no patient content -- and is the same class as an audit
+ * event, which de-identification deliberately keeps.
+ *
+ * The third case is the one that makes the pair visible at all: one cleared plan, rendered once,
+ * where the reason is gone and the attestation is still there. A test that only proved each field
+ * separately would pass against a screen that quietly rendered neither.
+ */
+describe("the patient overview - the attestation is recorded on the plan, and is not consent", () => {
+  it("reads both attestations back in plain words, and never says the patient consented", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    // HELD TO EXPECTED CONTENT, not to `planAssuranceWording`'s own return value. Asserting the
+    // rendered text against the same function that produced it is the shape Task 9b's mutation
+    // falsified: emptying the map would move both sides together and the assertion would agree with
+    // itself. The literals are here, and the map is pinned to them separately below, so a change to
+    // either has to be made in two places by somebody who meant it.
+    expect(card).toHaveTextContent("A coordinator confirmed that the patient had agreed to receive caring contacts");
+    expect(card).toHaveTextContent("that the mobile number this plan uses is the patient's own");
+    expect(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed)).toBe(
+      "that the patient had agreed to receive caring contacts",
+    );
+    expect(planAssuranceWording(PLAN_ASSURANCES.patientControlsMobileConfirmed)).toBe(
+      "that the mobile number this plan uses is the patient's own",
+    );
+
+    // "Recorded on the plan" survives; "stored", "kept" and "recorded" alone do not -- this system
+    // distinguishes held in a tab's storage from written onto the plan, ordinary English does not.
+    // Asserted on the LIST rather than the card, so the claim is pinned where each attestation is
+    // read back and not satisfied by the paragraph above it.
+    const list = within(card).getByRole("list", { name: "Confirmations recorded on this plan" });
+    expect(list).toHaveTextContent(/recorded on the plan on/i);
+    // The instant is part of what an attestation is; a row without it is not one.
+    expect(list).toHaveTextContent("2026-03-02 (AWST)");
+    // The claim the design's `Agreement confirmed: Yes` makes, and the one this domain cannot back.
+    expect(card).not.toHaveTextContent(/consent/i);
+    expect(card).toHaveTextContent(/hospital record/i);
+  });
+
+  it("says a plan created before the attestation existed holds none, rather than rendering a blank", () => {
+    // No backfill, on purpose: writing a placeholder would fabricate a clinical record. So the
+    // emptiness is a fact to be stated, and a screen that showed nothing at all would leave a
+    // reader to conclude nobody confirmed anything.
+    // Positive control first (review round 2): on a plan that HOLDS attestations, both the list
+    // locator and the wording below are found. Without it, the two absence assertions would agree
+    // just as happily with a card that never renders a list under any circumstances.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({ record: planRecordFixture(), episode: null, otherPlanCount: 0 })}
+      />,
+    );
+    const populated = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(within(populated).getByRole("list", { name: "Confirmations recorded on this plan" })).toBeInTheDocument();
+    expect(populated).toHaveTextContent("that the patient had agreed to receive caring contacts");
+    cleanup();
+
+    const record = planRecordFixture({ assuranceAttestations: [] });
+
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(card).toHaveTextContent(/holds no record of those confirmations/i);
+    expect(card).toHaveTextContent(/before this plan began recording them/i);
+    expect(card).not.toHaveTextContent("that the patient had agreed to receive caring contacts");
+    expect(within(card).queryByRole("list", { name: "Confirmations recorded on this plan" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the attestation on a cleared plan while the first-contact reason has gone", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo", {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Patient was interstate for the first week.",
+    });
+    await endPlan(store, id);
+    const cleared = await store.markRetentionCleared(
+      { planId: id },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("clear-plan-solo") },
+    );
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    await renderPage();
+
+    // Cleared: the prose a clinician wrote is gone, and the screen says WHICH absence it is.
+    const reason = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(reason).not.toHaveTextContent("Patient was interstate for the first week.");
+    expect(reason).toHaveTextContent(/retention clearance has since removed it/i);
+
+    // Preserved: same render, same plan. Held to expected content for the reason the first case
+    // records -- a cleared plan whose attestation had ALSO gone would agree with a screen that
+    // rendered neither.
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(card).toHaveTextContent("A coordinator confirmed that the patient had agreed to receive caring contacts");
+    expect(card).toHaveTextContent(/no patient detail/i);
+  });
+});
+
+/**
+ * `delivery-detail`'s inbound path (`docs/caring-contacts/interaction-matrix.md`): full-screen stage
+ * on a phone, inspection drawer on a desktop, `mutation: No`.
+ *
+ * The control is offered only where the domain says a message left, and it asks
+ * `contactSendability` rather than listing states here -- that classification lives in ./model
+ * beside the state machine that produces it, and a second copy of it on a screen is the defect
+ * `summariseStoredContacts` exists to have removed once.
+ */
+describe("the patient overview - the delivery detail overlay is wired only where a message left", () => {
+  it("offers it on a message that went out, naming the row it was opened from", () => {
+    const record = planRecordFixture({
+      contacts: [
+        scheduleEntryFixture(1, "delivered", { cadenceLabel: "Day 1", messageType: "first" }),
+        scheduleEntryFixture(2, "scheduled", { cadenceLabel: "Month 1" }),
+      ],
+    });
+
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
+
+    // FILTERED BY ROW, not counted across the screen. Task 11a added the `activation-success`
+    // control to the confirmations card above, so a bare count is no longer a statement about this
+    // row -- and a bare count that quietly absorbed a second row would be worse than no count.
+    const triggers = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "delivery-detail");
+    expect(triggers).toHaveLength(1);
+    // The row appears as the control's ORIGIN, so ten of these are told apart by a reader who
+    // cannot see which row each sits in.
+    expect(triggers[0]).toHaveAccessibleName(/opened from the Day 1 row/);
+    // And the promise itself is GENERIC, because the drawer is: `OverlayHost` takes no children and
+    // renders only the row's frozen summary, so a label reading "what the phone network reported for
+    // Day 1" would advertise a per-contact report that the surface it opens does not contain
+    // (review round 2).
+    expect(triggers[0]).toHaveAccessibleName(/^What a delivery receipt means/);
+  });
+
+  it("offers none on a plan where nothing has left yet", () => {
+    const record = planRecordFixture({
+      contacts: [
+        scheduleEntryFixture(1, "scheduled", { cadenceLabel: "Day 1", messageType: "first" }),
+        scheduleEntryFixture(2, "cancelled", { cadenceLabel: "Month 1" }),
+      ],
+    });
+
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
+
+    expect(
+      screen
+        .queryAllByTestId("workspace-overlay-trigger")
+        .filter((element) => element.getAttribute("data-overlay-trigger") === "delivery-detail"),
+    ).toHaveLength(0);
+  });
+
+  it("refuses to be the workspace's escape hatch from Ruling 87 on a row that records something", () => {
+    // The guard is what separates this from the silent no-op Ruling 87 forbids: it is legitimate
+    // ONLY because the row's decision is an exit and the host performs the close itself.
+    expect(() => exitOnlyOverlayCommit("delivery-detail")).not.toThrow();
+    // REVIEW ROUND 2, and this is the assertion the first version was missing. "Does not throw" says
+    // nothing about WHICH commit comes back, and the whole decision this module exists to take is
+    // `record` rather than `unavailable`. `commitRefusalFor` is exported, pure and TOTAL over the
+    // three states of the slot, so the difference is decidable right here: an `unavailable` commit
+    // answers with an `every-row` refusal, which the host would render as an aria-disabled EXIT --
+    // the defect Ruling [90] fixed. Only a `record` commit answers null.
+    //
+    // I first reported this as unprovable offline and deferred it to Playwright. That was wrong, and
+    // the reason is worth more than the fix: `tests/caring-contacts-overlay-trigger.dom.test.tsx`
+    // already draws exactly this distinction, and it is NOT in `test:cc-guards`. Reasoning from
+    // "what does my gate run?" I concluded no offline test could tell two behaviours apart that an
+    // unrun suite tells apart today. A gate that omits a suite does not merely skip coverage -- it
+    // hides the precedent.
+    expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull();
+    expect(() => exitOnlyOverlayCommit("withdrawal")).toThrow(/records a decision/i);
+    expect(() => exitOnlyOverlayCommit("not-an-overlay")).toThrow(/No overlay is defined/i);
+  });
+});
+
+/**
+ * `activation-success`'s inbound path (`docs/caring-contacts/interaction-matrix.md`, "Patient
+ * overview outcome"): bottom sheet on a phone, dialog on a desktop, `mutation: No`.
+ *
+ * WHY IT IS OFFERED ON A RUNNING PLAN AND NOWHERE ELSE. The wizard clears its draft and navigates
+ * the instant both writes land, so a control rendered there would exist for the width of a
+ * navigation; the frozen row puts it on this screen instead. And on a plan that is NOT running, a
+ * confirmation that the plan is recorded and started would contradict `planNotRunningNote` a few
+ * sections below — two statements about one fact disagreeing on one screen is the defect Task 9
+ * found in the wizard's own copy.
+ */
+describe("the patient overview - the activation outcome is offered only while the plan is running", () => {
+  it("offers it beside the confirmations on a running plan, promising only what the drawer holds", () => {
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({ record: planRecordFixture(), episode: null, otherPlanCount: 0 })}
+      />,
+    );
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    const triggers = within(card)
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "activation-success");
+    expect(triggers, "the activation outcome has no inbound path on a running plan").toHaveLength(1);
+    // Generic, because the drawer is: `OverlayHost` takes no children and renders only the row's
+    // frozen summary, so a label naming THIS plan would advertise something the surface it opens
+    // does not contain. Same limit `delivery-detail` records above.
+    expect(triggers[0]).toHaveAccessibleName(/^What starting a plan puts on the record/);
+    expect(triggers[0].className, "the outcome control is not a production tap target").toContain("min-h-tap");
+    expect(triggers[0].className).not.toContain("min-h-11");
+  });
+
+  for (const notRunning of [pausedPlanFixture(), draftPlanFixture()] as const) {
+    it(`offers none on a ${notRunning.state} plan, which this screen says is not running`, () => {
+      render(
+        <PatientOverview
+          patientId={PATIENT}
+          view={episodeView({ record: planRecordFixture({ plan: notRunning }), episode: null, otherPlanCount: 0 })}
+        />,
+      );
+
+      expect(
+        screen
+          .queryAllByTestId("workspace-overlay-trigger")
+          .filter((element) => element.getAttribute("data-overlay-trigger") === "activation-success"),
+      ).toHaveLength(0);
+    });
+  }
+
+  it("takes the exit commit, which refuses any row that records something", () => {
+    // The same guard `delivery-detail` leans on, asked of this row: `exitOnlyOverlayCommit` is
+    // legitimate ONLY because the row's decision is an exit and the host performs the close itself.
+    // "Does not throw" says nothing about WHICH commit comes back, so the second line decides it:
+    // an `unavailable` commit answers with an `every-row` refusal the host would render as an
+    // aria-disabled EXIT, which is the defect Ruling [90] fixed. Only a `record` commit answers null.
+    expect(() => exitOnlyOverlayCommit("activation-success")).not.toThrow();
+    expect(commitRefusalFor(exitOnlyOverlayCommit("activation-success"))).toBeNull();
+    // And the guard still bites for the plan actions on this same screen's roadmap, so this is not
+    // a universal escape hatch from Ruling 87.
+    expect(() => exitOnlyOverlayCommit("pause")).toThrow(/records a decision/i);
+  });
+});
+
+/*
+ * ===========================================================================
+ * Task 11b -- `pause`, `withdrawal` and `reassignment`, the three plan actions
+ * ===========================================================================
+ *
+ * THE THREE CONTROLS IN THIS WORKSPACE THAT STOP A SUICIDE-PREVENTION PROGRAMME FOR A PERSON, which
+ * is why two of them are two-stage in the frozen matrix and why the assertions below are written
+ * against the RECORD rather than against the copy.
+ *
+ * WHY THESE CASES DRIVE THE REAL ROUTE HANDLERS RATHER THAN A STUBBED ANSWER. Every claim this
+ * block makes is about what the DOMAIN does -- pausing holds and cancels nothing, withdrawal
+ * cancels everything unsent, a stale version is refused, a replayed key acts once. A stubbed
+ * `fetch` would let each of those be asserted against an answer this file invented, which is the
+ * self-comparison trap the standing discipline names. So `fetch` is dispatched into
+ * `src/app/api/caring-contacts/**`'s own POST handlers against the SAME in-memory store the page
+ * reads, and every "did it mutate?" assertion reads that store back.
+ */
+
+/** One request the screen sent, captured at the seam. */
+type SentRequest = { url: string; body: Record<string, unknown> };
+
+/**
+ * `fetch`, dispatched into the real route handlers.
+ *
+ * `swallow` models the failure the idempotency key exists for: the service acted, and the answer
+ * never arrived. The handler still runs -- that is the point -- and the rejection happens after it.
+ *
+ * `garble` models the OTHER degraded transport, and it is the only way this screen's `plan` becomes
+ * null: the write LANDS and its answer comes back in a shape `planFromWriteAnswer` cannot read. The
+ * handler still runs against the real store; only what the screen is handed back is replaced.
+ */
+function routeFetch(
+  options: {
+    swallow?: (sent: SentRequest, index: number) => boolean;
+    garble?: (sent: SentRequest, index: number) => boolean;
+    gate?: Promise<void>;
+  } = {},
+) {
+  const swallow = options.swallow ?? (() => false);
+  const garble = options.garble ?? (() => false);
+  const sent: SentRequest[] = [];
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = String(input);
+
+    if (url === "/api/caring-contacts/session") {
+      const { GET } = await import("@/app/api/caring-contacts/session/route");
+      return GET();
+    }
+
+    // A write held open, so a second control can be inspected while the first is still on its way.
+    if (options.gate !== undefined) await options.gate;
+
+    const raw = typeof init?.body === "string" ? init.body : "{}";
+    const record: SentRequest = { url, body: JSON.parse(raw) as Record<string, unknown> };
+    const index = sent.length;
+    sent.push(record);
+
+    const request = new Request(`http://localhost${url}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: raw,
+    }) as unknown as NextRequest;
+    const id = decodeURIComponent(url.slice(url.lastIndexOf("/") + 1));
+
+    let answer: Response;
+    if (url.startsWith("/api/caring-contacts/plans/")) {
+      const { POST } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+      answer = await POST(request, { params: Promise.resolve({ planId: id }) });
+    } else if (url.startsWith("/api/caring-contacts/assignments/")) {
+      const { POST } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+      answer = await POST(request, { params: Promise.resolve({ planId: id }) });
+    } else {
+      throw new Error(`the plan actions asked for a URL this dispatcher does not know: ${url}`);
+    }
+
+    // The handler has already run against the real store by the time this fires, which is exactly
+    // the state a lost answer leaves behind.
+    if (swallow(record, index)) throw new TypeError("Failed to fetch");
+    // Likewise: the write has happened, and only the shape of the answer is spoiled. `200 {}` is
+    // valid JSON the screen can parse and cannot read a plan out of, which is the case
+    // `planFromWriteAnswer` returns null for.
+    if (garble(record, index)) {
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return answer;
+  });
+  // `sent` HOLDS WRITES ONLY, and by construction rather than by filtering: the session read
+  // returns above before anything is captured, so there has never been anything here to exclude.
+  // The accessor keeps its name because that is what every "how many writes?" assertion is asking,
+  // and it is stated here rather than implied by a filter that removes nothing.
+  return { sent, spy, writes: () => sent };
+}
+
+/** The real page plus the overlay host the shell mounts in production, as ONE tree. */
+async function pageWithOverlays(patient = PATIENT): Promise<ReactElement> {
+  const { default: PatientOverviewPage } = await import("@/app/caring-contacts/patients/[patientId]/page");
+  const element = await PatientOverviewPage({
+    params: Promise.resolve({ patientId: patient }),
+    searchParams: Promise.resolve({}),
+  });
+  return (
+    <>
+      {(element as ReactElement<{ children: ReactElement }>).props.children}
+      <WorkspaceOverlays />
+    </>
+  );
+}
+
+/** Renders that tree. */
+async function renderPageWithOverlays(patient = PATIENT): Promise<ReturnType<typeof render>> {
+  return render(await pageWithOverlays(patient));
+}
+
+/**
+ * Asks the server for this screen again and hands the answer to the SAME mounted tree.
+ *
+ * This is what `router.refresh()` does in production: the server renders the screen again and React
+ * reconciles it into the components already mounted, so a Client Component keeps its state and
+ * receives new props. A fresh `render` would prove nothing about that -- it builds new components,
+ * which hold whatever their initialisers give them.
+ */
+async function rereadTheScreen(view: ReturnType<typeof render>, patient = PATIENT): Promise<void> {
+  view.rerender(await pageWithOverlays(patient));
+}
+
+/** The trigger for ONE row, refusing anything but exactly one -- never "the trigger on screen". */
+function planActionTrigger(row: string): HTMLElement {
+  const matches = screen
+    .getAllByTestId("workspace-overlay-trigger")
+    .filter((element) => element.getAttribute("data-overlay-trigger") === row);
+  if (matches.length !== 1) {
+    throw new Error(`expected exactly one ${row} trigger on screen, found ${matches.length}`);
+  }
+  return matches[0];
+}
+
+/** ONE action's block on the card, by the heading it carries -- never "the block on screen". */
+function planActionBlock(heading: string): HTMLElement {
+  const container = screen.getByRole("heading", { level: 3, name: heading }).parentElement;
+  if (container === null) throw new Error(`the "${heading}" block has no container to read`);
+  return container;
+}
+
+/**
+ * Opens one row's confirmation and presses its decision control `stages` times.
+ *
+ * `withdrawal` and `reassignment` are `requiresFreshAuthentication` in the frozen table, so the host
+ * commits only on the SECOND activation; `pause` commits on the first. The stage count is passed
+ * rather than derived so a case that expects two and gets one fails here rather than silently.
+ */
+async function confirmPlanAction(user: ReturnType<typeof userEvent.setup>, row: string, stages: 1 | 2): Promise<void> {
+  await user.click(planActionTrigger(row));
+  for (let stage = 0; stage < stages; stage += 1) {
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+  }
+}
+
+/** Creates a plan through the real store and starts it, so the plan actions have something live. */
+async function runningPlan(store: CaringContactRepository, id = "plan-actions"): Promise<PlanId> {
+  const plan = await createPlan(store, id);
+  const actor = demoActorForRole("coordinator");
+  const started = await store.activatePlan(
+    { planId: plan, expectedVersion: 1 },
+    { actor, idempotencyKey: idempotencyKey(`activate-${id}`) },
+  );
+  if (!started.ok) throw new Error(`activatePlan(${id}) refused: ${started.reason}`);
+  return plan;
+}
+
+/** What the store holds for one plan, as the shape every "did it mutate?" assertion compares. */
+async function planShape(store: CaringContactRepository, plan: PlanId, role = "coordinator") {
+  const record = await store.getPlan(plan, { actor: demoActorForRole(role as "coordinator") });
+  if (record === null) throw new Error(`getPlan(${plan}) released nothing`);
+  return {
+    state: record.plan.state,
+    version: record.plan.version,
+    contacts: record.contacts.map((entry) => [entry.planned.cadenceLabel, entry.contact.state] as const),
+  };
+}
+
+const outcomeRegion = () => screen.getByTestId("caring-contacts-plan-action-outcome");
+
+describe("the plan actions - Ruling [129]: a hold is not a cancellation, and the record says so", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("holds the plan and cancels NOTHING, read back from the record rather than from the copy", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const after = await planShape(store, plan);
+    // THE CLAIM, FIRST: not one contact moved. Held to expected content on one side, then the other
+    // compared to it -- three empty lists agree perfectly, so "these agree" alone proves nothing.
+    expect(before.contacts).toContainEqual(["Day 1", "scheduled"]);
+    expect([...new Set(before.contacts.map(([, state]) => state))]).toEqual(["scheduled"]);
+    expect(after.contacts).toEqual(before.contacts);
+    // And the plan itself moved, which is what a hold is.
+    expect(before.state).toBe("active");
+    expect(after.state).toBe("paused");
+    expect(after.version).toBe(before.version + 1);
+  });
+
+  it("withdraws by cancelling every message not already gone, which is the opposite shape", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    // Two stages: the frozen table marks this row `requiresFreshAuthentication`.
+    await confirmPlanAction(user, "withdrawal", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const after = await planShape(store, plan);
+    expect(after.state).toBe("withdrawn");
+    expect(after.contacts).toContainEqual(["Day 1", "cancelled"]);
+    // Every one of them, and the same entries as before -- the schedule is not shortened, it is
+    // moved to cancelled.
+    expect([...new Set(after.contacts.map(([, state]) => state))]).toEqual(["cancelled"]);
+    expect(after.contacts.map(([label]) => label)).toEqual(before.contacts.map(([label]) => label));
+  });
+
+  it("says on the screen that a hold keeps the schedule, where the frozen drawer says the opposite", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    expect(card).toHaveTextContent(/keeps its whole schedule/i);
+    expect(card).toHaveTextContent(/no dated message is removed, no date moves/i);
+    expect(card).toHaveTextContent(/can be let run again/i);
+    // THE CONTRAST IS BETWEEN TWO REAL STRINGS, not between the screen and a phrase this test
+    // invented: the frozen row's own summary says contacts inside the pause are skipped for good,
+    // which is not what `pausePlan` does. Positive control for the negative below.
+    expect(overlayDefinition("pause")?.summary).toMatch(/skipped for good/i);
+    expect(card, "the screen repeated the frozen drawer's claim about contacts being skipped").not.toHaveTextContent(
+      /skipped for good/i,
+    );
+  });
+
+  it("never says a hold stopped a message going out, and says why no screen may", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    // Pinned whole. The claim this replaces has been made wrongly on a screen in this programme in
+    // BOTH directions, so a loose match is not enough.
+    expect(card).toHaveTextContent(
+      "There is no messaging provider connected to this workspace at all, so nothing any of these controls does can send a message to anybody or stop one being sent.",
+    );
+    // What the hold DOES change, which is a fact about the write gate rather than about a sender.
+    expect(card).toHaveTextContent(/the service refuses any attempt to dispatch one of its messages/i);
+  });
+
+  /**
+   * THE ONE SENTENCE THAT SAYS THE SCHEDULE IS DESTROYED RATHER THAN KEPT, on the only action here
+   * that cannot be undone, and nothing read it. The pause copy is asserted three ways beside it, so
+   * the property was proven where it was convenient and not where it is load-bearing -- and the
+   * plausible later edit is exactly the dangerous one: making the two blocks read consistently
+   * would put the hold's reassuring wording onto the withdrawal and nothing would go red. A
+   * coordinator ending a person's participation in a suicide-prevention programme would be told the
+   * schedule is kept when the service has just cancelled every message on it.
+   */
+  it("says what a withdrawal does to the schedule, in the block that offers it", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const withdrawal = planActionBlock("Record a withdrawal the patient asked for");
+    // PINNED WHOLE, because this is derived from what `withdrawPlan` does -- it runs
+    // `cancelAllNonTerminalContacts` -- and a loose match would survive the sentence being softened.
+    expect(withdrawal).toHaveTextContent(
+      "A withdrawal ends the plan, and the service moves every message on it that had not already gone to cancelled.",
+    );
+    expect(withdrawal).toHaveTextContent(
+      "That is the opposite of holding it: nothing is kept to come back to, and it cannot be undone.",
+    );
+    // AND SCOPED TO THAT BLOCK. Positive control first: the hold's reassurance is present where it
+    // belongs, so the negative below is about WHERE the sentence is rather than about a phrase this
+    // test invented and would never have found anywhere.
+    expect(planActionBlock("Hold this plan")).toHaveTextContent(/keeps its whole schedule/i);
+    expect(withdrawal, "the withdrawal block took on the hold's reassuring wording").not.toHaveTextContent(
+      /keeps its whole schedule/i,
+    );
+    // AND THE SAME AGAIN FOR THE SECOND NEGATIVE, which had neither control nor mutation.
+    //
+    // PINNED TO THE HOLD'S OWN CLAUSE rather than to the loose phrase, and a mutation is what
+    // forced that. The loose phrase is ALSO produced inside this block by the resume refusal's
+    // heading -- "Only a plan that is being held can be let run again" (`plan-action-rules.ts`) --
+    // which renders here whenever the plan is running, as it is in this fixture. A control written
+    // loosely therefore passes on the refusal heading while the explanation beside it could say
+    // anything at all, which is the decoration this control exists to prevent.
+    expect(planActionBlock("Hold this plan")).toHaveTextContent(
+      "no date moves, and the plan can be let run again from this screen",
+    );
+    expect(withdrawal, "the withdrawal block offered a way back from an irreversible action").not.toHaveTextContent(
+      /can be let run again/i,
+    );
+  });
+
+  /**
+   * The card teaches HOLD rather than PAUSE throughout, for the reason the case above exists -- and
+   * the one sentence a coordinator reads AFTER the action was the single place it reverted to the
+   * frozen row's word. The frozen row is not edited; it is simply not quoted here.
+   */
+  it("announces the hold in the words the card teaches, not the frozen row's", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    // TWO REAL STRINGS. The frozen label is asserted to be the word this card avoids, before
+    // anything is concluded from its absence.
+    expect(overlayDefinition("pause")?.label).toBe("Pause");
+    expect(outcomeRegion()).toHaveTextContent("Hold this plan — recorded on the plan");
+    expect(
+      outcomeRegion().textContent ?? "",
+      "the outcome reverted to the vocabulary the rest of this card replaces",
+    ).not.toMatch(/pause/i);
+  });
+});
+
+describe("the plan actions - a guard rejection does not mutate", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("refuses a move this role may not make, keeps the control focusable, and leaves the record alone", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    // Claimed, so `somebody-is-carrying-this-plan` is met and the ROLE is the only obstacle left.
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-coordinator") } },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("claim-guard") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    const before = await planShape(store, plan);
+    const assignmentBefore = await store.getAssignment(plan, { actor: demoActorForRole("coordinator") });
+    const { writes } = routeFetch();
+
+    // A coordinator is granted pausePlan and withdrawPlan and is NOT granted reassignPlan.
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+
+    // The frozen matrix's guard-rejection shape: the surface is retained, the action keeps its tab
+    // stop and carries `aria-disabled`, and the named reason is on screen.
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    const reasonId = action.getAttribute("aria-describedby");
+    expect(reasonId).not.toBeNull();
+    expect(document.getElementById(reasonId!)).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["the-acting-role-holds-this-action"].heading,
+    );
+
+    await user.click(action);
+
+    // THE CLAUSE THAT MATTERS: nothing was sent, and the record is unchanged. Both records, because
+    // a reassignment could move either.
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+    expect(await store.getAssignment(plan, { actor: demoActorForRole("coordinator") })).toEqual(assignmentBefore);
+  });
+
+  it("POSITIVE CONTROL: the same row is live for a role that is granted it, so the refusal is about the role", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-control") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await user.click(planActionTrigger("reassignment"));
+
+    expect(await screen.findByTestId("workspace-overlay-action")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("refuses a move on a plan nobody is carrying, saying which fact that is", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store, "plan-unclaimed");
+    const before = await planShape(store, plan, "teamLead");
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    expect(card).toHaveTextContent(/nobody has taken this plan on/i);
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(document.getElementById(action.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["somebody-is-carrying-this-plan"].heading,
+    );
+    await user.click(action);
+
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan, "teamLead")).toEqual(before);
+    expect(await store.getAssignment(plan, { actor: demoActorForRole("teamLead") })).toEqual({
+      ownerId: null,
+      claimedAt: null,
+      coveredBy: null,
+      reassignmentHistory: [],
+    });
+  });
+
+  it("refuses a hold on a plan that is not running, and sends nothing", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await createPlan(store, "plan-draft-actions");
+    const before = await planShape(store, plan);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    await user.click(action);
+
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+    expect(before.state).toBe("draft");
+  });
+});
+
+describe("the plan actions - the commit-time recheck actually rechecks", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("refuses a withdrawal confirmed after the acting account changed, and names that refusal", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    // OPEN in one account, CHANGE it, then CONFIRM -- the sequence the matrix's commit-time clause
+    // is about. The role switcher is a separate surface, so this is a state another tab can move.
+    await user.click(planActionTrigger("withdrawal"));
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() =>
+      expect(outcomeRegion()).toHaveTextContent(
+        PLAN_ACTION_CONDITION_REFUSALS["the-acting-account-has-not-changed"].heading,
+      ),
+    );
+  });
+
+  /**
+   * THE CLAUSE NOBODY WRITES, ON ITS OWN, AND FIRST. The case above proves the refusal is shown and
+   * named; this one proves the refused decision CHANGED NOTHING, with that assertion ahead of every
+   * other so it is the one a mutation reddens rather than a sibling that fails before it is reached.
+   */
+  it("and that refused withdrawal reaches the service not at all, leaving the record where it was", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("withdrawal"));
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    // Settle on the outcome region having SOMETHING in it, rather than on what it says -- what it
+    // says is the case above's claim, and asserting it here would put a sibling in front of this
+    // one. The region itself is mounted from the first render, so its presence settles nothing.
+    await waitFor(() => expect(outcomeRegion()).not.toBeEmptyDOMElement());
+
+    expect(writes()).toEqual([]);
+    expect(await planShape(store, plan)).toEqual(before);
+  });
+
+  it("POSITIVE CONTROL: the same sequence without the account changing records the withdrawal", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "withdrawal", 2);
+
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+    expect(writes()).toHaveLength(1);
+    expect((await planShape(store, plan)).state).toBe("withdrawn");
+  });
+
+  it("sends the version it holds, so a plan changed while the surface was open is refused by the service", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+
+    // Somebody else moves the plan while the confirmation sits open.
+    const elsewhere = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere") },
+    );
+    if (!elsewhere.ok) throw new Error(`the other write refused: ${elsewhere.reason}`);
+    const afterTheOtherWrite = await planShape(store, plan);
+
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+    // The refused attempt changed nothing: the plan is exactly as the OTHER write left it.
+    expect(await planShape(store, plan)).toEqual(afterTheOtherWrite);
+  });
+
+  it("tells a permission refusal apart from a version collision, in the words it uses", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const before = await planShape(store, plan);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // The screen believes this role may hold a plan -- it was rendered for one that may. The
+    // account the SERVICE acts as changes to one that may not, and `pause` carries no account
+    // check, so the write goes and the service is what refuses it.
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "clinicalProgrammeLead" } };
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() =>
+      expect(outcomeRegion()).toHaveTextContent("This action is not granted to the role acting here"),
+    );
+    const permissionWords = outcomeRegion().textContent ?? "";
+    // Disjoint, deliberately: "somebody changed this plan" and "you may not do this" are different
+    // facts, and a coordinator acting on a suicide-prevention plan needs to know which.
+    expect(permissionWords).not.toMatch(/changed after this screen read it/i);
+    expect(permissionWords).toMatch(/nothing was recorded on this plan/i);
+    expect(await planShape(store, plan)).toEqual(before);
+  });
+
+  /**
+   * THE OTHER DIRECTION, which the case above's title used to claim and no assertion made. What was
+   * unguarded: an edit giving `stale-version` the permission remedy -- the two `changedBy` strings
+   * are already near-identical in shape -- would have reddened nothing, and a coordinator could no
+   * longer tell "the plan moved under this screen" from "you may not do this".
+   */
+  it("and the other way round: a version collision does not read like a permission refusal", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    const elsewhere = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-disjoint") },
+    );
+    if (!elsewhere.ok) throw new Error(`the other write refused: ${elsewhere.reason}`);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+    const collisionWords = outcomeRegion().textContent ?? "";
+    // Positive control: the refusal really is stated in full, so the negatives below are about the
+    // permission wording being absent rather than about an empty region.
+    expect(collisionWords).toMatch(/nothing was recorded on this plan/i);
+    expect(collisionWords).not.toMatch(/not granted to the role/i);
+    expect(collisionWords).not.toMatch(/may not carry out this action/i);
+    expect(collisionWords).not.toMatch(/acting in a role that is granted it/i);
+  });
+
+  it("holds the other controls while a change is on its way, so a second one cannot collide with it", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    routeFetch({ gate });
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+
+    const resume = await screen.findByTestId("caring-contacts-plan-action-resume");
+    // THE NAMED REASON IS THE LOAD-BEARING HALF, so it is what the wait is on. `aria-disabled` alone
+    // would prove nothing here and the mutation ledger is what showed it: a running plan's resume
+    // control is refused anyway, for being a plan nobody is holding, so that attribute is already
+    // "true" before any change is on its way. Only the SENTENCE distinguishes the two.
+    await waitFor(() =>
+      expect(document.getElementById("caring-contacts-plan-action-resume-reason")).toHaveTextContent(
+        PLAN_ACTION_CONDITION_REFUSALS["no-other-change-to-this-plan-is-on-its-way"].heading,
+      ),
+    );
+    expect(resume).toHaveAttribute("aria-disabled", "true");
+    release();
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+  });
+});
+
+describe("the plan actions - two actions in a row from one screen", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /**
+   * THE DEFECT THIS CASE EXISTS FOR, and its absence is what hid it on a sibling branch. The version
+   * arrives as a PROP, and a prop cannot change without a server render. A screen that kept sending
+   * the version it was rendered with would have its SECOND action refused as `stale-version` -- and
+   * the honest wording for that is that the plan moved after this screen read it, which would tell a
+   * coordinator somebody else had changed a suicide-prevention plan when nobody had.
+   */
+  it("holds the plan and then lets it run again, sending the version the first change answered", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now being held/i));
+
+    await user.click(screen.getByTestId("caring-contacts-plan-action-resume"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/running again/i));
+
+    // Both changes landed, in order, and the second carried the version the FIRST answered.
+    expect(writes().map((entry) => [entry.body.action, entry.body.expectedVersion])).toEqual([
+      ["pause", 2],
+      ["resume", 3],
+    ]);
+    const after = await planShape(store, plan);
+    expect([after.state, after.version]).toEqual(["active", 4]);
+    // A hold and its lifting leave the schedule exactly where it was.
+    expect(after.contacts).toContainEqual(["Day 1", "scheduled"]);
+    expect([...new Set(after.contacts.map(([, state]) => state))]).toEqual(["scheduled"]);
+    // Nobody was told somebody else had touched this plan.
+    expect(outcomeRegion().textContent ?? "").not.toMatch(/changed after this screen read it/i);
+    // The rest of this screen was rendered before both changes, so the server is asked again.
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("the plan actions - a repeated submission does not act twice", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /**
+   * ON REASSIGNMENT, BECAUSE THAT IS WHERE A SECOND PRESS PRODUCES A SECOND RECORD. The assignment
+   * route carries no `expectedVersion` at all, so nothing but the idempotency key stands between one
+   * press-after-a-timeout and two moves of one patient's plan. The lifecycle writes have the version
+   * guard as well; this one has only the key.
+   */
+  it("moves the plan once when the answer is lost and the coordinator presses again", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-replay") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    // The FIRST attempt reaches the service and its answer is lost on the way back.
+    routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+
+    // The coordinator presses again, exactly as the wording invites.
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    // ONE RECORD, held to expected CONTENT rather than to a count of presses, and asserted before
+    // anything about the key: a second press that moved the plan twice must redden here.
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId, entry.reason])).toEqual([
+      ["demo-teamLead", "demo-coordinator", "Going on leave from Friday."],
+    ]);
+    expect(assignment?.ownerId).toBe("demo-coordinator");
+  });
+
+  it("carries ONE key across both attempts, which is what makes the second a replay", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-replay-key") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    const { writes } = routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    const keys = writes().map((entry) => entry.body.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(typeof keys[0]).toBe("string");
+  });
+
+  /**
+   * WHICH MECHANISM REFUSES THE SECOND PRESS ONCE THE RE-READ HAS LANDED -- and it is not the key.
+   *
+   * `refuse()` asks for this screen again on EVERY refusal, the props that come back carry the
+   * version the lost write itself produced, and the sync adopts it. A lifecycle body carrying a
+   * different `expectedVersion` fingerprints differently, so the retry mints a NEW key and reaches
+   * the service as a new submission rather than as a replay. What refuses it is the row's own state
+   * condition, read against the state that same re-read brought back.
+   *
+   * Nothing else in this suite presses AFTER the refresh: the replay cases above it press inside
+   * the window where nothing has come back yet, which is the window the key covers. A later reader
+   * relaxing `the-plan-is-running` on the belief that the key stands behind it would be removing
+   * the only guard there is in the common case.
+   */
+  it("refuses the press after a lost answer by the state the re-read brought back, not by the key", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    // The hold reaches the service; its answer is lost on the way back.
+    routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    const view = await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+    // POSITIVE CONTROL: the hold LANDED. What follows is therefore a refusal about a real state
+    // change rather than about a screen whose write never got anywhere.
+    expect((await planShape(store, plan)).state).toBe("paused");
+
+    // What `refuse()`'s own `router.refresh()` asks for, delivered to the same mounted tree.
+    await rereadTheScreen(view);
+
+    await user.click(planActionTrigger("pause"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action, "the retry after the re-read was offered rather than refused").toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    // PINNED AS A LITERAL, not read back out of `PLAN_ACTION_CONDITION_REFUSALS`. A mutation is
+    // what forced that too: rewording that map's entry moves BOTH sides of a read-it-back
+    // assertion together, so it stayed green -- it was comparing two reads of one value. The
+    // literal makes this about which condition refused AND about the sentence a coordinator reads.
+    expect(
+      document.getElementById(action.getAttribute("aria-describedby") ?? ""),
+      "the retry was refused for some reason other than the state the re-read brought back",
+    ).toHaveTextContent("Only a running plan can be held");
+  });
+});
+
+describe("the plan actions - no way out of the commit that says nothing", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /** Claims one plan for a role, so `somebody-is-carrying-this-plan` is met and a move is live. */
+  async function claimedBy(
+    store: CaringContactRepository,
+    plan: PlanId,
+    role: "coordinator" | "teamLead",
+    tag: string,
+  ) {
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId(`demo-${role}`) } },
+      { actor: demoActorForRole(role), idempotencyKey: idempotencyKey(tag) },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+  }
+
+  /**
+   * THE SILENT NO-OP THIS CASE EXISTS FOR. A reassignment deliberately does not depend on this
+   * screen knowing the plan's version, because the assignment route carries none -- so a plan this
+   * screen has lost track of is not a reason to refuse a move. A guard belonging to the LIFECYCLE
+   * writes must not defeat that: a coordinator who presses through both stages of a two-stage
+   * surface and is told nothing would leave responsibility for a discharged patient with the wrong
+   * person while the screen signalled that it had moved.
+   */
+  it("moves a plan whose last answer could not be read, rather than closing and saying nothing", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-unreadable-answer");
+    // The hold LANDS, and its answer comes back in a shape this screen cannot read. That is the
+    // only way `plan` becomes null, and the card says so in words.
+    const { writes } = routeFetch({ garble: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() =>
+      expect(screen.getByTestId("caring-contacts-plan-actions")).toHaveTextContent(/not known here any more/i),
+    );
+
+    await confirmPlanAction(user, "reassignment", 2);
+
+    // THE CLAIM: a write leaves this screen, and the screen says what happened. Never silence.
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+    expect(writes().map((entry) => entry.url)).toEqual([
+      `/api/caring-contacts/plans/${plan}`,
+      `/api/caring-contacts/assignments/${plan}`,
+    ]);
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.ownerId).toBe("demo-coordinator");
+  });
+
+  /**
+   * THE REMEDY A SCREEN STATES MUST BE ONE THE SCREEN PERFORMS. `stale-version` tells a coordinator
+   * to read this screen again so it holds the plan as it now stands. Nothing here re-read it: the
+   * refusal path asked for no server render, and a `useState` initialiser is ignored on re-render
+   * anyway -- so pressing again sent the identical body and earned the identical refusal.
+   */
+  it("asks for this screen again after a refusal, and holds what comes back", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // Somebody else holds the plan while the confirmation sits open.
+    const elsewhere = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-remedy") },
+    );
+    if (!elsewhere.ok) throw new Error(`the other write refused: ${elsewhere.reason}`);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+
+    // HALF ONE: the screen asks the server for itself again, which is the remedy it just stated.
+    expect(mocks.router.refresh).toHaveBeenCalled();
+
+    // HALF TWO: what comes back LANDS. The plan is now held, so the control that lifts a hold is
+    // live and the version it sends is the one the other write left behind.
+    await rereadTheScreen(view);
+    await user.click(screen.getByTestId("caring-contacts-plan-action-resume"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/running again/i));
+    expect(writes().map((entry) => [entry.body.action, entry.body.expectedVersion])).toEqual([
+      ["pause", 2],
+      ["resume", 3],
+    ]);
+  });
+
+  /**
+   * A KEY NAMES A SUBMISSION, AND A SUBMISSION IS THE ACTION AND ITS BODY. Held per action until one
+   * succeeds, a key outlives the submission it was minted for: a coordinator whose write was refused
+   * and who then corrects it is making a genuinely NEW submission, and the service refuses a key it
+   * recorded against different answers as `idempotency-key-reused-for-a-different-write`. The remedy
+   * that refusal states clears nothing, so the action could not be completed from this screen at all.
+   */
+  it("mints a new key for a corrected submission, so a refusal is not the end of the action", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // Somebody else holds the plan and lets it run again while the confirmation sits open, so this
+    // screen's version is stale AND the plan is still running when it confirms.
+    const held = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-hold") },
+    );
+    if (!held.ok) throw new Error(`the other hold refused: ${held.reason}`);
+    const lifted = await store.resumePlan(
+      { planId: plan, expectedVersion: 3 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-lift") },
+    );
+    if (!lifted.ok) throw new Error(`the other lift refused: ${lifted.reason}`);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+
+    // The coordinator reads the screen again, exactly as the refusal said to, and holds the plan.
+    await rereadTheScreen(view);
+    await confirmPlanAction(user, "pause", 1);
+
+    // THE CLAIM: the corrected submission is carried out. A key held past its submission would be
+    // refused here for a second, worse reason and the hold could never be recorded from this screen.
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+    expect(writes().map((entry) => entry.body.expectedVersion)).toEqual([2, 4]);
+    const keys = writes().map((entry) => entry.body.idempotencyKey);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect((await planShape(store, plan)).state).toBe("paused");
+  });
+
+  /**
+   * A CONDITION MUST PERFORM THE CHECK ITS NAME AND ITS REFUSAL CLAIM. `a-different-coordinator-is-
+   * chosen` says the choice may not be the coordinator already carrying the plan, and the server's
+   * list of destinations excludes that account -- but the choice is CLIENT state and survives the
+   * screen being read again, while the list does not. `applyAssignmentAction` does not refuse a move
+   * from an account to itself, so a second press appends a handover row saying the plan changed
+   * hands when it did not, indistinguishable afterwards from a real one.
+   */
+  it("refuses a move to the coordinator now carrying the plan, saying which fact that is", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-same-destination");
+    routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    // The screen is read again and the plan has moved -- but the choice made a moment ago is still
+    // held here, and it now names the coordinator carrying the plan.
+    await rereadTheScreen(view);
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(document.getElementById(action.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["a-different-coordinator-is-chosen"].heading,
+    );
+  });
+
+  /** THE CLAUSE NOBODY WRITES, on its own and first, so a mutation reddens it rather than a sibling. */
+  it("and that refused move appends no second handover to the record", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-same-destination-record");
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    await rereadTheScreen(view);
+    await confirmPlanAction(user, "reassignment", 2);
+
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId])).toEqual([
+      ["demo-teamLead", "demo-coordinator"],
+    ]);
+    expect(writes()).toHaveLength(1);
+  });
+
+  /**
+   * CLEARED WHERE THE MOVE IS RECORDED, so there is nothing live left in the window between a
+   * successful move and the arrival of that move's `router.refresh()`.
+   *
+   * `planCarriedBy` is a PROP and cannot change until the server render lands, while the choice and
+   * the note are client state. Left standing, they describe a move that has already happened: the
+   * choice names the account NOW carrying the plan while the prop still names the old one, so
+   * `a-different-coordinator-is-chosen` is met, every other condition is met, and the trigger is
+   * live. `applyAssignmentAction` does not refuse a move from an account to itself, so a second
+   * confirmation appends a handover row saying the plan changed hands when it did not -- permanent,
+   * and afterwards indistinguishable from a real one. Clearing at the point of RECORDING closes
+   * that without depending on the refresh arriving at all.
+   */
+  it("clears the chosen coordinator and the handover note when the move is recorded", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-clears-the-choice");
+    routeFetch();
+
+    await renderPageWithOverlays();
+    const destination = screen.getByLabelText("Who this plan moves to");
+    const note = screen.getByLabelText("Why this plan is changing hands");
+    await user.type(note, "Going on leave from Friday.");
+    await user.selectOptions(destination, "demo-coordinator");
+    // POSITIVE CONTROLS, before the act rather than after it: both fields hold what the coordinator
+    // put in them, so the emptiness below is what RECORDING the move did rather than what the
+    // fixture was.
+    expect(destination).toHaveValue("demo-coordinator");
+    expect(note).toHaveValue("Going on leave from Friday.");
+
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    expect(destination, "the choice that has already been acted on is still standing").toHaveValue("");
+    expect(note, "the note kept with the move that has already been made is still in the field").toHaveValue("");
+  });
+
+  /**
+   * THE RECORD, READ INSIDE THAT WINDOW. The case above reads the two fields; this one reads what a
+   * second confirmation writes while the props still name the OLD holder.
+   *
+   * `rereadTheScreen` is deliberately NOT called, and what that reproduces is the STATE the defect
+   * needs rather than its timing: in a browser the window closes when the move's RSC round trip
+   * lands, and in jsdom it never closes at all, because `router.refresh()` is a mock that delivers
+   * no props. The pair above proves the other side -- once the re-read HAS landed, the stale choice
+   * equals the holder and the named condition refuses it.
+   */
+  it("appends no second handover when the move is confirmed again before this screen has been read back", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-inside-the-window");
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    await confirmPlanAction(user, "reassignment", 2);
+
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(
+      assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId]),
+      "a handover was appended for a move that had already happened, from an account to itself",
+    ).toEqual([["demo-teamLead", "demo-coordinator"]]);
+  });
+});
+
+describe("the plan actions - what a clinician is shown, and what never reaches them", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  it("names the coordinator carrying the plan and the one it would move to, in the domain's own words", async () => {
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId("demo-teamLead") } },
+      { actor: demoActorForRole("teamLead"), idempotencyKey: idempotencyKey("claim-wording") },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    // The losing side, in the sealed domain's wording. Positive control for the negative below: the
+    // constant is asserted PRESENT before anything is concluded from what is absent.
+    expect(card).toHaveTextContent(CARING_CONTACT_ROLE_WORDING.teamLead);
+    expect(
+      screen.getByRole("option", { name: `a ${CARING_CONTACT_ROLE_WORDING.coordinator} account` }),
+    ).toHaveAttribute("value", "demo-coordinator");
+    // And never the identifier behind either of them, IN THE WORDS A CLINICIAN READS. That scope is
+    // the assertion rather than an aside: an `<option>`'s `value` is required to BE the identifier
+    // -- it is what the write names -- and is asserted so four lines above. It is not rendered
+    // text, and this is the only sense in which the identifier is forbidden.
+    const renderedWords = card.textContent ?? "";
+    expect(renderedWords, "an actor identifier reached the words a clinician reads").not.toMatch(/demo-/);
+    expect(renderedWords, "a raw role identifier reached the words a clinician reads").not.toMatch(/teamLead/);
+  });
+
+  it("puts the withdrawal on a full-screen stage on a phone, where the hold is a bottom sheet", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("withdrawal"));
+
+    const surface = await screen.findByTestId("workspace-overlay-content");
+    expect(surface).toHaveAttribute("data-overlay-modality", "full-screen-stage");
+
+    // The contrast, at the SAME width, so the assertion is about this row rather than about 320px.
+    // A fresh tree rather than dismissing the first: closing unwinds a history entry through an
+    // asynchronous `popstate`, and racing that would make the second assertion about timing.
+    cleanup();
+    clearStagedWorkspaceOverlayCommit();
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+    await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    expect(await screen.findByTestId("workspace-overlay-content")).toHaveAttribute(
+      "data-overlay-modality",
+      "bottom-sheet",
+    );
+  });
+
+  it("keeps every control a production tap target and visible in forced colours", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const card = screen.getByTestId("caring-contacts-plan-actions");
+    const controls = [...card.querySelectorAll("button"), ...card.querySelectorAll("select, textarea")];
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of controls) {
+      expect(control.className, `${control.textContent ?? control.id} is not a production tap target`).toContain(
+        "min-h-tap",
+      );
+      expect(control.className).not.toContain("min-h-11");
+      // EVERY control THIS LOOP REACHES, the way the tap-target assertion beside it already does:
+      // `controlBase` on the buttons and `fieldClass` on the select and the textarea each carry
+      // their own variant, so one control standing in for the card would go on passing after either
+      // of those lost it. `blockClass` carries a variant too, and it is on the block `<div>`s --
+      // which this loop does not reach, so its loss is not covered here.
+      expect(control.className, `${control.textContent ?? control.id} disappears in forced colours`).toContain(
+        "forced-colors:",
+      );
+    }
+  });
+
+  /**
+   * A live region created together with its first content is the pattern assistive technology is
+   * least reliable about: the region has to exist BEFORE the text arrives for the change to be
+   * announced rather than merely rendered. What jsdom can prove is that it is mounted and empty
+   * before any action; that the announcement REACHES assistive technology it cannot prove at all,
+   * and this case does not claim to.
+   */
+  it("mounts the region that announces an outcome before there is an outcome to announce", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const region = screen.getByTestId("caring-contacts-plan-action-outcome");
+    expect(region).toHaveAttribute("role", "status");
+    expect(region).toBeEmptyDOMElement();
+  });
+
+  /**
+   * THE BARGAIN THIS SYSTEM STATES: a read that cannot be recorded does not happen. Who is carrying
+   * the plan is read on the server so this card can be built, and `PlanAssignment` carries free
+   * clinician text about every handover -- so replacing that audited read with a bare
+   * `store.getAssignment` would release it with no access record at all, and every other assertion
+   * about this card would stay green.
+   */
+  it("records the read of who is carrying this plan on the access trail", async () => {
+    const { store, recorded } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({ kind: "view", objectType: "plan", objectId: plan, outcome: "allowed" }),
+    );
+    // Its own row, keyed by the plan it released -- not the plan LIST's row, which is a search
+    // across every plan and says nothing about this one having been looked at.
+    expect(recorded()).toContainEqual(expect.objectContaining({ kind: "search", objectType: "plan", objectId: "all" }));
+  });
+
+  it("sends nothing about the patient in a URL, and no query string at all", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { sent } = routeFetch();
+
+    await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+
+    expect(sent.length).toBeGreaterThan(0);
+    for (const entry of sent) {
+      expect(entry.url).not.toContain("?");
+      expect(entry.url).not.toMatch(/Rowan/i);
+      expect(entry.url).not.toContain(PATIENT);
+    }
+    // The one identifier that does travel is the plan's, which is synthetic and is on the screen.
+    expect(sent.some((entry) => entry.url.endsWith(`/${plan}`))).toBe(true);
+  });
+});
+
+describe("the plan actions - the conditions table refuses an action nobody declared", () => {
+  it("throws for an id no action carries, rather than answering with an empty list", () => {
+    // An empty list would make a mistyped id look identical to an action with no guard at all, and
+    // all four of these mutate.
+    expect(() => planActionConditions("pause")).not.toThrow();
+    expect(() => planActionConditions("delivery-detail")).toThrow(/No conditions are declared/i);
+  });
+
+  /**
+   * THE GUARD THAT SURVIVED ITS OWN CALLER. `planActionLabel` no longer puts a string on this
+   * screen -- the card writes its own names -- and the one call left is the one `planActionCardName`
+   * makes and DISCARDS, so that the frozen table is still read first and an action naming no row of
+   * it still throws here. That is a real and deliberate job, and nothing was reading it: a reader
+   * finding no consumer of the returned string could have removed the call and taken every other
+   * assertion about this card staying green as licence.
+   */
+  it("still refuses an action naming no row of the frozen table, though the card writes its own names", () => {
+    // POSITIVE CONTROL: the card's own word for a row that DOES exist, so the throw below is about
+    // the missing row rather than about this function being broken for everything.
+    expect(planActionCardName("pause")).toBe("Hold this plan");
+    expect(() => planActionCardName("not-an-overlay" as PlanActionId)).toThrow(/names no row of the frozen/i);
   });
 });
