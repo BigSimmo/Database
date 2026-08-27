@@ -77,7 +77,7 @@ create table if not exists public.documents (
   image_count integer not null default 0,
   error_message text,
   metadata jsonb not null default '{}'::jsonb
-    check (jsonb_typeof(metadata) = 'object'),
+    constraint documents_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
   ) stored,
