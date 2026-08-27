@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { FileText, Pause, Play, RotateCcw, Search, Square } from "lucide-react";
+import { Activity, Check, FileText, Loader2, Pause, Play, RotateCcw, Search, Square } from "lucide-react";
 
-import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
-import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import {
   Composer,
   DesktopFrame,
@@ -30,18 +28,19 @@ import { cn } from "@/components/ui-primitives";
  * follow-up chips and the also-matches panel were deleted. What is left is
  * quiet — muted 2xs status text, one accent, hairlines, and the sources.
  *
- * The loading state was not part of that pass, so `AnswerProgressStepper` still
- * ships as written: a filled accent panel carrying an icon tile, a five-circle
+ * The loading state was not part of that pass, so `AnswerProgressStepper` went on
+ * shipping as written: a filled accent panel carrying an icon tile, a five-circle
  * stepper with connecting rails, a scrolling ECG trace, a per-second elapsed
- * counter and a Processing details disclosure. It is the loudest element on the
- * answer surface, and it occupies that surface for the four to twelve seconds
- * before the answer — so it is the first thing a reader sees and the thing that
- * sets their expectation of the answer's register.
+ * counter and a Processing details disclosure. It was the loudest element on the
+ * answer surface, and it occupied that surface for the four to twelve seconds
+ * before the answer — so it was the first thing a reader saw and the thing that
+ * set their expectation of the answer's register.
  *
- * Panel One draws the real component (imported, not redrawn) so the comparison
- * is against what ships. Panels Two and Three propose three replacements and
- * recommend one. Panel Four draws the states that are not the happy path,
- * because the wait is where most of them are decided.
+ * Direction B below was chosen and applied to the live surface, which is why
+ * Panel One is now a redraw: the component it used to import no longer exists.
+ * Panels Two and Three hold the three replacements and the argument for the one
+ * that won. Panel Four draws the states that are not the happy path, because the
+ * wait is where most of them are decided.
  *
  * Nothing here is wired to retrieval. All copy and all counts are synthetic.
  */
@@ -652,26 +651,161 @@ function Fragment({ title, note, children }: { title: string; note: string; chil
 
 /* ══════════════════════  panel one: what ships  ══════════════════════ */
 
-function TodayStepper({ density }: { density: "expanded" | "compact" }) {
-  // Fixed at first render so the counter climbs from a plausible seven seconds
-  // instead of starting at zero every time this page re-renders. The events are
-  // shaped exactly as `normalizeAnswerProgressEvent` produces them.
-  const [startedAt] = useState(() => Date.now() - 7_000);
-  const events: TimedAnswerProgressUpdate[] = [
-    { stage: "scoping", message: "scoping", receivedAt: startedAt },
-    { stage: "retrieving", message: "retrieving", receivedAt: startedAt + 900 },
-    { stage: "retrieved", message: "retrieved", resultCount: 24, receivedAt: startedAt + 2_600 },
-    {
-      stage: "ranking",
-      message: "ranking",
-      australianSourceCount: 4,
-      waSourceCount: 2,
-      receivedAt: startedAt + 4_200,
-    },
-    { stage: "generating", message: "generating", receivedAt: startedAt + 5_600 },
-  ];
+/**
+ * The stepper as it shipped, redrawn.
+ *
+ * Panel One originally imported the real `AnswerProgressStepper` so the
+ * comparison could not be accused of flattering the proposal. Direction B has
+ * since been applied to the live surface and that component no longer exists,
+ * so what stands here is a faithful redraw kept for the record: same accent
+ * panel, same 36px icon tile, same five circles and connecting rail, same
+ * counter, same disclosure. The ECG trace is drawn as a static path — its
+ * scrolling strip and the CSS that moved it were deleted with the component.
+ */
+const RETIRED_STEPS = [
+  ["Prepare scope", "Interpreting your question"],
+  ["Search sources", "Scanning indexed clinical documents"],
+  ["Select evidence", "Prioritising relevant passages"],
+  ["Draft answer", "Synthesising the response and citations"],
+  ["Check answer", "Checking citations and clinical details"],
+] as const;
+
+const RETIRED_ECG_PATH =
+  "M0 24 H46 L52 23 L57 7 L64 37 L72 24 H122 L128 23 L133 4 L141 40 L149 24 H198 L204 23 L209 9 L216 35 L224 24 H272 L278 23 L283 10 L290 34 L298 24 H320";
+
+function RetiredEcg({ compact }: { compact: boolean }) {
   return (
-    <AnswerProgressStepper events={events} startedAt={startedAt} active onStop={() => undefined} density={density} />
+    <div className={cn("relative w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}>
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 320 44"
+        preserveAspectRatio="none"
+        className="block size-full"
+      >
+        <path
+          d={RETIRED_ECG_PATH}
+          pathLength="320"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={compact ? 1.75 : 2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          className="text-[color:var(--clinical-accent)]"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function TodayStepper({ density }: { density: "expanded" | "compact" }) {
+  const compact = density === "compact";
+  const currentStep = 3;
+
+  return (
+    <section
+      className={cn(
+        "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]",
+        compact ? "rounded-lg px-3 py-2.5" : "rounded-xl p-3 sm:p-4",
+      )}
+    >
+      {compact ? <RetiredEcg compact /> : null}
+      <div className={cn("flex", compact ? "mt-1.5 items-start gap-2" : "items-start gap-3")}>
+        {compact ? null : (
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--e1)]">
+            <Activity className="size-icon-lg" aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="text-sm font-semibold sm:text-base">
+              {compact ? "Creating cited answer" : "Creating your cited answer"}
+            </p>
+            <span className="nums shrink-0 text-xs font-medium text-[color:var(--text-muted)]">7s elapsed</span>
+          </div>
+          <p className={cn("mt-0.5 text-xs text-[color:var(--text-muted)]", compact ? "leading-snug" : "sm:text-sm")}>
+            {compact ? (
+              <>
+                <span className="font-medium text-[color:var(--text-body)]">Step 4 of 5 · Draft answer</span>
+                <span aria-hidden="true"> — </span>
+              </>
+            ) : null}
+            Drafting a cited answer from the selected passages.
+          </p>
+        </div>
+        <span className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold shadow-[var(--shadow-inset)]">
+          <Square className="size-icon-xs shrink-0 fill-current" aria-hidden="true" />
+          Stop
+        </span>
+      </div>
+
+      {compact ? null : (
+        <>
+          <div className="mt-2">
+            <RetiredEcg compact={false} />
+          </div>
+          <div className="relative mt-3">
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-[10%] top-7 hidden h-px bg-[color:var(--border)] sm:block"
+            >
+              <span
+                className="block h-full origin-left bg-[color:var(--clinical-accent)]"
+                style={{ width: `${(currentStep / 4) * 100}%` }}
+              />
+            </span>
+            <ol className="relative grid gap-1 sm:grid-cols-5 sm:gap-2">
+              {RETIRED_STEPS.map(([label, description], index) => {
+                const complete = index < currentStep;
+                const current = index === currentStep;
+                return (
+                  <li
+                    key={label}
+                    className={cn(
+                      "relative flex min-w-0 items-start gap-3 rounded-lg px-2 py-2 sm:flex-col sm:items-center sm:gap-2 sm:py-3 sm:text-center",
+                      current
+                        ? "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--e1)]"
+                        : complete
+                          ? "text-[color:var(--clinical-accent-strong)]"
+                          : "text-[color:var(--text-muted)]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "relative z-5 grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                        complete
+                          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-strong)]"
+                          : current
+                            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                            : "border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+                      )}
+                    >
+                      {complete ? (
+                        <Check className="size-icon-md" aria-hidden="true" />
+                      ) : current ? (
+                        <Loader2 className="size-icon-md" aria-hidden="true" />
+                      ) : (
+                        <span aria-hidden="true">{index + 1}</span>
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 pt-0.5 sm:pt-0">
+                      <span className="block text-xs font-semibold leading-tight sm:text-sm">{label}</span>
+                      <span className="mt-0.5 block text-xs leading-snug text-[color:var(--text-muted)] sm:hidden lg:block">
+                        {description}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+          <p className="mt-1 inline-flex min-h-tap items-center text-xs font-medium text-[color:var(--text-muted)]">
+            Processing details
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -728,6 +862,9 @@ export function AnswerLoadingRedesignMockupsPage() {
             <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               Clinical KB · answer page · the wait
             </p>
+            <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--success-soft)] px-2 text-3xs font-semibold text-[color:var(--success)]">
+              Direction B shipped
+            </span>
           </div>
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-heading)] sm:text-3xl">
             Show the sources arriving, not the pipeline running
@@ -736,15 +873,16 @@ export function AnswerLoadingRedesignMockupsPage() {
             The answer surface was quietened in PRs #2386 and #2388 — the assistant tile off the turn, one number per
             claim, the safety rail&rsquo;s colour moved into its own icon, two panels made one. The loading state was
             not part of that pass, so a filled accent panel with a five-circle stepper, a scrolling ECG trace and a
-            per-second counter still owns the four to twelve seconds before every answer. Three replacements below,
-            drawn moving, with one recommended.
+            per-second counter owned the four to twelve seconds before every answer. Three replacements are drawn below,
+            moving, with one recommended — and direction B is the one that was chosen and applied to the live surface.
+            This page is kept as the record of that argument.
           </p>
         </header>
 
         <Panel
           step="One"
           title="What ships today"
-          intro="The real AnswerProgressStepper, imported rather than redrawn, so nothing here is an unflattering approximation. Left is the expanded form used on the answer page; right is the compact form the document viewer gets. The counter is live — it is climbing while you read this."
+          intro="What the answer page rendered until direction B was applied to it. Kept as a faithful redraw for the record — same accent panel, same icon tile, same five circles, same counter, same disclosure. The ECG trace is static here because the scrolling strip and the CSS that moved it were deleted with the component."
         >
           <div className="grid gap-4 lg:grid-cols-2">
             <DetailCard

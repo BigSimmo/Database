@@ -817,13 +817,15 @@ The application supports explicit user motion preference overrides in addition t
 
 ### Physical iPhone acceptance rubric
 
-To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA:
+To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the then-current ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA.
+
+The indicator under test changed when the answer wait was redrawn as a single quiet status line: the scrolling ECG strip and the five-circle stepper are gone, and what remains is one breathing dot (`.answer-progress-dot`, `data-slot="answer-progress-dot"`) at the head of the line. The rubric is otherwise unchanged, and the dot was chosen partly because it makes step 2 trivial to satisfy — its resting frame is a complete, correct bullet, where a stopped spinner is a fragment of a circle.
 
 1. **Motion=Full (`data-motion="full"`):**
-   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the ECG strip (`.answer-activity-trace__sweep`) visibly travels continuously and the current-step spinner rotates, even if iOS system **Reduce Motion** is enabled in Accessibility settings.
+   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the dot visibly breathes (a continuous opacity cycle, 2.4s) even if iOS system **Reduce Motion** is enabled in Accessibility settings.
 2. **Motion=System / Motion=Reduced:**
-   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the ECG trace remains static and clearly visible at `opacity: 0.55` (`translateX(0)` aligned), rather than disappearing or rendering a blank box (`opacity: 0`).
-   - The current step spinner stops rotating and displays as a static marker without layout jumps.
+   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the dot stops breathing and remains clearly visible at full opacity, rather than disappearing or rendering a blank box (`opacity: 0`).
+   - The status line beside it still reads out what is happening, and the arriving source rail (when `NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER` is enabled) appears without layout jumps.
 
 The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
 

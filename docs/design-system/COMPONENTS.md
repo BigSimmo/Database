@@ -478,8 +478,13 @@ into the previous sentence; `RouteAnnouncer` skips the first render (arrival is 
 navigation), moves focus to the new `<h1>` unless focus sits inside a dialog or a
 `data-preserve-focus` workflow, and announces the page title once. Retiring the visible
 `aria-live` nodes that remain in production — `document-search-results.tsx`, `StageList`,
-`AnswerProgressStepper`, `EmptyState`'s default — is adoption work in PR 13, because each
+`AnswerProgress`, `EmptyState`'s default — is adoption work in PR 13, because each
 one needs its own surface diff. Until then two announcement mechanisms coexist.
+
+`AnswerProgress` is the successor to `AnswerProgressStepper`, which was retired when the
+answer wait was redrawn as a single quiet status line plus the arriving source rail. Its
+live region moved with it and is now the status line itself (`answer-progress-line`) rather
+than a wrapper, because the line is the element that persists while its text is replaced.
 
 ---
 

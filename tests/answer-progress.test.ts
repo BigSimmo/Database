@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   answerProgressDisplayMessage,
   answerProgressStepIndex,
+  answerProgressTookUnusualRoute,
   normalizeAnswerProgressEvent,
 } from "../src/components/clinical-dashboard/answer-progress";
 import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
@@ -103,7 +104,7 @@ describe("answer progress events", () => {
     const progress = normalizeAnswerProgressEvent({ message: "Selected fast route using private-model-marker." });
 
     expect(progress).toMatchObject({ stage: "ranking" });
-    expect(answerProgressDisplayMessage(progress!)).toBe("Selecting the most relevant source passages.");
+    expect(answerProgressDisplayMessage(progress!)).toBe("Selecting the most relevant passages\u2026");
     expect(answerProgressDisplayMessage(progress!)).not.toMatch(/fast|private|model|route/i);
   });
 
@@ -116,9 +117,54 @@ describe("answer progress events", () => {
       waSourceCount: 4,
     });
 
-    expect(answerProgressDisplayMessage(progress!)).toBe("Prioritising 4 Australian source passages, including 4 WA.");
+    expect(answerProgressDisplayMessage(progress!)).toBe("Prioritising 4 Australian sources, 4 from WA");
     expect(answerProgressStepIndex("fallback")).toBe(3);
-    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toContain("source-backed answer");
+    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toBe(
+      "Assembling the answer from the sources directly\u2026",
+    );
+  });
+
+  // The status line counts two different things and must never call them the same
+  // thing: `resultCount` is every candidate chunk retrieval touched, while the
+  // arriving rail shows the trimmed sources. Collapsing both into one noun is how
+  // a reader ends up believing two dozen documents are behind an answer that
+  // cites three.
+  it("counts passages during retrieval and never calls them sources", () => {
+    const line = (stage: "retrieving" | "retrieved", resultCount?: number) =>
+      answerProgressDisplayMessage({
+        stage,
+        message: "private",
+        ...(resultCount === undefined ? {} : { resultCount }),
+      });
+
+    expect(line("retrieving")).toBe("Searching your documents\u2026");
+    expect(line("retrieved")).toBe("Searching your documents\u2026");
+    expect(line("retrieved", 1)).toBe("Searching your documents \u00b7 1 passage found");
+    expect(line("retrieved", 24)).toBe("Searching your documents \u00b7 24 passages found");
+    expect(line("retrieved", 24)).not.toMatch(/source/i);
+  });
+
+  // The wait is where a reader should learn the answer is being assembled without
+  // the model, rather than meeting a source-only answer that then has to defend
+  // itself.
+  it("names the unusual route while it is happening", () => {
+    expect(answerProgressDisplayMessage({ stage: "fallback", message: "private" })).toMatch(/sources directly/);
+    expect(answerProgressDisplayMessage({ stage: "retrying", message: "private" })).toMatch(/Revising the draft/);
+  });
+
+  // A routine answer has nothing to disclose, which is why the retired Processing
+  // details panel held the same five stages for every question. Only a
+  // non-ordinary route earns the disclosure.
+  it("offers the build disclosure only when the answer left the ordinary route", () => {
+    const ordinary = (["scoping", "retrieving", "ranking", "generating", "verifying", "complete"] as const).map(
+      (stage) => ({ stage, message: "private" }),
+    );
+
+    expect(answerProgressTookUnusualRoute(ordinary)).toBe(false);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "fallback", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "retrying", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([...ordinary, { stage: "cached", message: "private" }])).toBe(true);
+    expect(answerProgressTookUnusualRoute([])).toBe(false);
   });
 
   it("rejects invalid progress objects and clamps safe counts", () => {

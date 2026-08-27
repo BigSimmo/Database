@@ -4,14 +4,6 @@ import { isDeliverableVerifiedUnit } from "@/lib/answer-stream-contract";
 export type AnswerProgressUpdate = PublicAnswerProgressEvent;
 export type TimedAnswerProgressUpdate = AnswerProgressUpdate & { receivedAt: number };
 
-export const answerProgressSteps = [
-  { label: "Prepare scope", description: "Interpreting your question", stage: "scoping" },
-  { label: "Search sources", description: "Scanning indexed clinical documents", stage: "retrieving" },
-  { label: "Select evidence", description: "Prioritising relevant passages", stage: "ranking" },
-  { label: "Draft answer", description: "Synthesising the response and citations", stage: "generating" },
-  { label: "Check answer", description: "Checking citations and clinical details", stage: "verifying" },
-] as const;
-
 const answerProgressStages = new Set<PublicAnswerProgressStage>([
   "scoping",
   "retrieving",
@@ -83,30 +75,53 @@ export function answerProgressStepIndex(stage: PublicAnswerProgressStage) {
   return 4;
 }
 
-/** UI copy is derived from the public stage/counts and never from an incoming message. */
+/** UI copy is derived from the public stage/counts and never from an incoming message.
+ *
+ * Written for a single quiet line rather than a stepper panel, so each string is
+ * a clause the reader can take in at a glance while waiting. Two rules hold it
+ * together:
+ *
+ *  - **One noun per stage.** Retrieval counts *passages* (`resultCount`, every
+ *    candidate chunk) and selection counts *sources* (the trimmed documents the
+ *    rail actually shows). Those are different numbers, and using one word for
+ *    both is how a reader ends up believing 24 documents are behind an answer
+ *    that cites three.
+ *  - **The unusual route says so while it is happening.** `fallback` means the
+ *    answer is being assembled without the model, which on the only measurement
+ *    in the handover was the majority case. The wait is the honest place to set
+ *    that expectation — not the answer, which would then have to defend it.
+ */
 export function answerProgressDisplayMessage(progress: AnswerProgressUpdate) {
-  if (progress.stage === "scoping") return "Preparing the clinical search scope.";
-  if (progress.stage === "retrieved" && progress.resultCount !== undefined) {
-    return `Found ${progress.resultCount} candidate source passage${progress.resultCount === 1 ? "" : "s"}.`;
-  }
+  if (progress.stage === "scoping") return "Reading your question\u2026";
   if (progress.stage === "retrieving" || progress.stage === "retrieved") {
-    return "Searching indexed clinical documents.";
+    return progress.resultCount === undefined
+      ? "Searching your documents\u2026"
+      : `Searching your documents \u00b7 ${progress.resultCount} passage${progress.resultCount === 1 ? "" : "s"} found`;
   }
   if (progress.stage === "ranking") {
     if (progress.australianSourceCount) {
-      const waDetail = progress.waSourceCount ? `, including ${progress.waSourceCount} WA` : "";
-      return `Prioritising ${progress.australianSourceCount} Australian source passage${progress.australianSourceCount === 1 ? "" : "s"}${waDetail}.`;
+      const waDetail = progress.waSourceCount ? `, ${progress.waSourceCount} from WA` : "";
+      return `Prioritising ${progress.australianSourceCount} Australian source${progress.australianSourceCount === 1 ? "" : "s"}${waDetail}`;
     }
-    return "Selecting the most relevant source passages.";
+    return "Selecting the most relevant passages\u2026";
   }
-  if (progress.stage === "retrying") {
-    return "The draft needs another pass; revising it against the evidence.";
-  }
-  if (progress.stage === "fallback") {
-    return "Building a source-backed answer from the selected passages.";
-  }
-  if (progress.stage === "generating") return "Drafting a cited answer from the selected passages.";
-  if (progress.stage === "verifying") return "Checking citations, clinical numbers, and source metadata.";
-  if (progress.stage === "cached") return "Loading a recent cited answer.";
+  if (progress.stage === "retrying") return "Revising the draft against the evidence\u2026";
+  if (progress.stage === "fallback") return "Assembling the answer from the sources directly\u2026";
+  if (progress.stage === "generating") return "Writing the answer\u2026";
+  if (progress.stage === "verifying") return "Checking citations and clinical numbers\u2026";
+  if (progress.stage === "cached") return "Loading a recent cited answer\u2026";
   return "Answer ready.";
+}
+
+/** The stages worth disclosing after the fact.
+ *
+ * A routine answer has nothing to explain — scope, search, select, write, check,
+ * in that order, every time — which is why the old Processing details disclosure
+ * held the same five lines for every question and nobody opened it. These three
+ * stages mean the answer did NOT take the ordinary route, and that is worth a
+ * reader being able to read back. */
+const disclosableStages = new Set<PublicAnswerProgressStage>(["retrying", "fallback", "cached"]);
+
+export function answerProgressTookUnusualRoute(events: readonly AnswerProgressUpdate[]) {
+  return events.some((event) => disclosableStages.has(event.stage));
 }

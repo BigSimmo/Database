@@ -5407,7 +5407,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
-    await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
+    await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
     await expect(page.getByText(/Answer ready in 1s/)).toBeVisible();
     await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
     await expect(generatedSummary).not.toContainText("Key practical points:");
