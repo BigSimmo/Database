@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "8ccaaaf25040f2f9f394b19bfbc20a6a007eefb2",
-    "committed_at": "2026-08-27T04:17:52+00:00"
+    "sha": "9cc091d5b3034def48bbf5f41d27a0d5e3db652f",
+    "committed_at": "2026-08-27T04:53:21+00:00"
   },
   "routes": {
     "modes": [
@@ -1415,6 +1415,41 @@
         "path": "docs/agents-guide.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -3757,6 +3792,9 @@
         "name": "adr"
       },
       {
+        "name": "agents"
+      },
+      {
         "name": "archive"
       },
       {
@@ -3809,10 +3847,10 @@
       }
     ],
     "counts": {
-      "documents": 469,
+      "documents": 476,
       "catalogued": 103,
-      "uncatalogued": 366,
-      "sections": 18
+      "uncatalogued": 373,
+      "sections": 19
     }
   },
   "test_health": {

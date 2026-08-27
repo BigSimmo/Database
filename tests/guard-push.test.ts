@@ -294,6 +294,33 @@ describe("push-range parsing", { timeout: 60_000 }, () => {
     expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["feature.md", "post-merge.md"]);
   });
 
+  it("prevents false-red CI runs on merge commits by resolving git merge-base HEAD origin/main", () => {
+    const { root, git } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "feature.md"), "feature\n");
+    git("add", "feature.md");
+    git("commit", "--quiet", "-m", "feature commit");
+    const featureCommitSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-advance.md"), "main\n");
+    git("add", "main-advance.md");
+    git("commit", "--quiet", "-m", "advance main");
+    const mainSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", mainSha);
+
+    git("switch", "--quiet", "feature");
+    git("merge", "--quiet", "--no-edit", "main");
+    const mergeCommitSha = git("rev-parse", "HEAD");
+
+    const resolvedBase = guardBaseForRange({ localSha: mergeCommitSha, remoteSha: featureCommitSha }, root);
+    expect(resolvedBase).toBe(mainSha);
+
+    const changed = changedFilesForRange({ localSha: mergeCommitSha, remoteSha: featureCommitSha }, root);
+    expect(changed).toEqual(["feature.md"]);
+    expect(changed).not.toContain("main-advance.md");
+  });
+
   // A force-push abandons the old remote tip. Comparing against it makes every
   // file the discarded history carried look deleted, which is unanswerable for
   // transaction guards; the merge base is the question CI actually asks.
