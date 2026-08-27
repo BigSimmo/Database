@@ -73,7 +73,7 @@
     "ToastRegion": "",
     "ToggleSwitch": "\"aria-label\"?: string; className?: string; disabled?: boolean; enabled: boolean; onToggle?: (() => void);",
     "Tooltip": "children: ReactElement<Record<string, unknown>, string | import(\"react\").JSXElementConstructor<any>>; className?: string; content: string; placement?: \"bottom\" | \"top\";",
-    "VerificationNotice": "attribution?: \"model\" | \"extractive\"; audience?: \"clinician\" | \"plain\"; className?: string; medium?: \"screen\" | \"print\"; presentation?: \"inline\" | \"full\" | \"responsive-compact\"; printedAt?: string; printedBy?: string; sourceCount?: number; state: VerificationState;"
+    "VerificationNotice": "attribution?: VerificationAttribution; audience?: \"clinician\" | \"plain\"; className?: string; medium?: \"screen\" | \"print\"; presentation?: \"inline\" | \"full\" | \"responsive-compact\"; printedAt?: string; printedBy?: string; sourceCount?: number; state: VerificationState;"
   },
   "overrides": {
     "Sheet": {
