@@ -97,7 +97,7 @@ no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-let
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
 
-## Favourites, phone-first (2026-08-26)
+## Favourites, phone-first (2026-08-26, arrangement chosen 2026-08-27)
 
 Runnable study at [`/mockups/favourites-phone-perfected`](../src/app/mockups/favourites-phone-perfected/page.tsx).
 One perfected direction rather than a set of alternatives — the six earlier favourites studies
@@ -108,42 +108,43 @@ One perfected direction rather than a set of alternatives — the six earlier fa
 `getBoundingClientRect()` on the live `/favourites` route: the first row of the saved list begins at
 **y = 1141**, roughly 300px below the fold, behind a hint strip, an in-flow composer, a privacy
 notice, a results band, a Continue card and a Recent card. Each item card is **228px**. Nothing of
-the library itself is on the first screen. This direction spends **165px** of app chrome and **72px**
-a row, which puts **seven rows fully above the fold and an eighth partly**.
+the library itself is on the first screen. The three derived cards above the list measure Continue
+113px, Recent 277px and Your sets 255px — 645px of that 1141px.
 
-| Decision                                   | Trade-off                                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------------- |
-| One header, not six bands                  | Sort, sets and clear-all cost a tap behind the ellipsis sheet              |
-| Sets as a scrolling chip rail              | Later sets sit off-screen until the rail is scrolled                       |
-| One-line rows                              | No description, so near-identical forms are told apart by code and set     |
-| Pinned rows lead, with a real toggle       | One 28px group label, which disappears when nothing is pinned              |
-| The shared composer stays the only input   | The input is at the far end of the phone from the count it changes         |
-| Continue survives at 72px; Recent does not | Continue costs exactly one saved row (six above the fold instead of seven) |
+**The arrangement, chosen by the owner 2026-08-27.** Both derived cards are kept and drawn in full —
+Continue with its own action, Recent with View all, type pills and per-row Open — rather than the
+72px compressed resume strip the first pass proposed. What pays for them is a single rule:
+
+> Continue and Recent are the **landing** surface, and nothing else. Tap a set or type in the
+> composer and they hand the screen back to the list.
+
+Narrowing means the user is hunting for something specific, and a resume affordance is not what they
+asked for. Measured: **one** saved row above the fold on arrival, **seven** the moment you narrow. A
+degraded load also falls back to the strip — with the failure notice plus both full cards, **zero**
+saved rows fitted, which is the wrong screen to show nothing on.
+
+The library groups by the user's own sets rather than by recency, because a recency-sorted list under
+a Recent card is a second copy of that card. Continue, Recent and the library then answer three
+different questions: what was I mid-way through, what did I just touch, what have I filed. `View all`
+switches the list to recency, which is what makes that control do something.
+
+| Decision                                        | Trade-off                                                              |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Continue and Recent as the landing surface only | One saved row above the fold on arrival                                |
+| Library groups by set, not recency              | Finding the newest thing means Recent or View all                      |
+| One header, not six bands                       | Sort, sets and clear-all cost a tap behind the ellipsis sheet          |
+| One-line rows with a type pill                  | No description, so near-identical forms are told apart by code and set |
+| Pinned rows lead, with a real toggle            | One 28px group label, which disappears when nothing is pinned          |
+| The shared composer stays the only input        | The input is at the far end of the phone from the count it changes     |
 
 A **weighted segment track** (the `DocumentSectionTrack` shape the in-page navigation template
 prescribes) was tried first and dropped: eight sets across 390px leaves each segment about 48px,
 under the width a set name needs, so the track degrades to unlabelled slivers.
 
-**What survived from the shipped page.** Measured at 390px, the three derived cards above the list are
-Continue 113px, Recent 277px and Your sets 255px — 645px of the 1141px. Continue is kept because it
-answers a different question from the list ("what was I in the middle of", not "what have I saved"),
-rebuilt so the strip _is_ the button rather than stacking a button under a title: 72px, exactly one
-row, and it does not scroll away. The resumed item is then drawn once — the shipped page shows it in
-Continue, again in Recent and again in the table. Recent is dropped: the list below it is already
-sorted by recency, so its three rows are the first three rows. Your sets is replaced by the rail,
-which is always visible for 53px instead of 255px.
-
-**Frame 10 draws the opposite choice**, added at the owner's request: both shipped cards rebuilt in
-full — Continue with its own action, Recent with View all, type pills and per-row Open — and the
-library grouped by set beneath them, so Continue, Recent and the library answer three different
-questions rather than repeating one. Measured at 390px that lands **one** saved row above the fold
-against six with the compact strip (Continue 152px with a title that wraps, Recent 271px). Both are
-kept because the choice is real and belongs to the owner, not to the mockup.
-
-Twelve phone frames cover library, one set selected, filtering, no matches, first run, item actions,
-set management, partial load, signed out, both cards restored, the library without Continue, and the
-type shown as the shipped Recent card's pill instead of a coloured word. One 1280px frame shows the
-desktop translation.
+Twelve phone frames: landing, one set selected, filtering, no matches, first run, item actions, set
+management, partial load, signed out, and two kept alternatives — the compact resume strip (the
+rejected first pass, kept as the record of the choice) and the type drawn as a coloured word rather
+than a pill. One 1280px frame shows the desktop translation.
 
 **Content honesty.** Only `service | form | differential | therapy` are drawn, because
 `favouriteContentTypeSchema` permits nothing else. The six earlier favourites mockups draw saved
@@ -151,6 +152,8 @@ medications, documents, quotes and searches, none of which has a content type an
 be persisted. `tests/favourites-phone-perfected-mockups.test.ts` pins that, the controlled set
 vocabulary, and the 48px tap knob. Differentials and therapies borrow `--tone-purple` / `--tone-indigo`
 because the identity group has no `--type-differential` or `--type-therapy`; promotion would add them.
+The shipped Continue card tints its rule with `--success`; TOKENS.md scopes the clinical-state layer
+to source state and sanctioned urgency, so the accent carries that job here instead.
 
 Shared chrome is suppressed because every frame draws its own top bar, page header and composer.
 

@@ -41,7 +41,7 @@ import {
 } from "./fixtures";
 
 /**
- * Design scratch: Favourites on a phone, one perfected direction.
+ * Design scratch: Favourites on a phone, the chosen arrangement.
  *
  * WHAT THIS ARGUES
  *
@@ -52,30 +52,37 @@ import {
  * strip, an in-flow composer, a privacy notice, a results band, a Continue
  * card and a Recent card. None of the library itself is on the first screen.
  *
- * This design puts 165px of app chrome above the list and 72px rows under it.
- * Measured: the Continue strip plus six saved rows sit fully above the fold
- * and a seventh is partly visible; with Continue removed it is seven rows.
- * The strip costs exactly one row.
+ * THE ARRANGEMENT
  *
- * The argument here is one sentence: for a surface whose entire content is
- * things you already chose, THE LIST IS THE PAGE, and a band earns its
- * vertical space only by beating a row of favourites for it.
+ * The owner chose to keep both derived cards rather than the compressed
+ * resume strip, so this is drawn as the design and the strip is kept as
+ * frame 10, the record of the choice. What makes the cards affordable is a
+ * single rule:
  *
- * FIVE DECISIONS
+ *   Continue and Recent are the LANDING surface, and nothing else. Tap a set
+ *   or type in the composer and they give the screen back to the list.
  *
- *  1. One header, not six bands. Title, live count, one ellipsis sheet.
- *  2. Sets are the navigation, as a scrolling chip rail. The weighted segment
- *     track was tried and dropped - see `SetRail` for why.
- *  3. A row costs one line: 72px against the shipped card's measured 228px.
- *  4. Pinning finally gets a control. `pinnedAt` has been in the schema and
- *     the PATCH contract with no UI anywhere.
- *  5. The shared composer stays the only input. No search field in the header.
- *  6. Continue survives from the shipped page, at 72px instead of 113px, and
- *     the recency-sorted list makes a Recent card redundant. Frame 10 draws
- *     the opposite choice at the owner's request: both cards in full, with
- *     the library grouped by set so the three surfaces answer three different
- *     questions. Measured, that lands one saved row above the fold instead of
- *     six. The frames are the argument; the numbers are on each of them.
+ * Narrowing means you are hunting for something specific, and a resume
+ * affordance is not what you asked for. So the cards cost the fold only on
+ * the screen where arriving, not searching, is what you are doing: one saved
+ * row on the landing view, seven the moment you narrow. A degraded load also
+ * falls back to the 72px strip, because the notice plus two full cards left
+ * zero rows visible on the one screen that most needs to show what survived.
+ *
+ * The library groups by the user's own sets rather than by recency, because a
+ * recency-sorted list under a Recent card is a second copy of that card. So
+ * the three surfaces answer three different questions: what was I mid-way
+ * through, what did I just touch, and what have I filed.
+ *
+ * THE REST OF IT
+ *
+ *  - One header, not six bands: title, live count, one ellipsis sheet.
+ *  - Sets are the navigation, as a scrolling chip rail. The weighted segment
+ *    track was tried and dropped - see `SetRail` for why.
+ *  - A row costs one line: 72px against the shipped card's measured 228px.
+ *  - Pinning finally gets a control. `pinnedAt` has been in the schema and
+ *    the PATCH contract with no UI anywhere.
+ *  - The shared composer stays the only input. No search field in the header.
  *
  * WHAT IT REFUSES TO DRAW
  *
@@ -96,9 +103,8 @@ type FrameState =
   | "sets-sheet"
   | "partial"
   | "signed-out"
-  | "no-continue"
-  | "type-chips"
-  | "cards";
+  | "compact-strip"
+  | "type-word";
 
 type SortMode = "recent" | "title" | "set";
 
@@ -113,10 +119,10 @@ const frames: ReadonlyArray<{
   {
     id: "library",
     number: "01",
-    name: "The library",
+    name: "Landing",
     summary:
-      "32 saved items, four pinned. Continue plus six saved rows sit fully above the fold and a seventh is partly visible, where the shipped page shows none of the library at all. The rail, the header, Continue and the composer are the entire chrome budget.",
-    cost: "A row carries no description, so two similarly named forms are told apart by their code and set rather than by a summary line.",
+      "Continue and Recent as the shipped page draws them, then the library grouped by your own sets. The three answer three different questions: what was I mid-way through, what did I just touch, and what have I filed.",
+    cost: "Measured: Continue 152px, Recent 271px, one saved row above the fold. That is the price of arriving on the two cards, and frame 10 draws the alternative.",
     note: "interactive",
   },
   {
@@ -124,8 +130,8 @@ const frames: ReadonlyArray<{
     number: "02",
     name: "One set selected",
     summary:
-      "Ward round, 7 items. The rail is the filter; the header count follows it. Pinned items inside the set still lead.",
-    cost: "Later sets sit off-screen until you scroll the rail. That is the price of keeping every set name legible.",
+      "Tap a set and the cards hand the screen back. Narrowing means you are hunting for something specific, and a resume affordance is not what you asked for — so seven rows of Ward round fill the space the cards had.",
+    cost: "Continue is two taps away again once you have narrowed: clear the set, then tap it.",
     note: "interactive",
   },
   {
@@ -133,7 +139,7 @@ const frames: ReadonlyArray<{
     number: "03",
     name: "Filtering as you type",
     summary:
-      "Typing in the shared composer filters in place. The header becomes a matched-of-total pair and the rail counts re-weight to the match, so no chip promises rows the search has already excluded.",
+      "Typing in the shared composer does the same thing a set chip does — the cards give way and matches fill the screen. The header becomes a matched-of-total pair and the rail counts re-weight, so no chip promises rows the search has excluded.",
     cost: "The composer is at the far end of the phone from the count it changes.",
   },
   {
@@ -149,7 +155,7 @@ const frames: ReadonlyArray<{
     number: "05",
     name: "Nothing saved yet",
     summary:
-      "First run names the four things that can actually be saved. Somebody with an empty library cannot infer them, and no other surface tells them.",
+      "First run names the four things that can actually be saved. Somebody with an empty library cannot infer them, and no other surface tells them. No cards, because there is nothing to resume.",
     cost: "It spends the whole first screen on explanation, which is only ever seen once.",
   },
   {
@@ -157,7 +163,7 @@ const frames: ReadonlyArray<{
     number: "06",
     name: "Item actions",
     summary:
-      "Everything the card carried inline, plus the pin toggle the API has always supported and no screen has ever exposed. Four full-width 48px targets.",
+      "Everything the shipped card carried inline, plus the pin toggle the API has always supported and no screen has ever exposed. Four full-width 48px targets.",
     cost: "Removing a favourite is now two taps rather than one. On a destructive action that is a gain.",
     note: "interactive",
   },
@@ -175,7 +181,7 @@ const frames: ReadonlyArray<{
     name: "Partial load",
     summary:
       "Some favourites failed to fetch. The header reports what actually loaded, the notice says how many did not, and Retry is present. No fabricated zero.",
-    cost: "A warning band above the list is the one band that buys its space back, and only in this state.",
+    cost: "Resume degrades to the 72px strip here — with the notice and the two full cards, zero saved rows fitted above the fold, which is the wrong screen to show nothing on.",
   },
   {
     id: "signed-out",
@@ -186,29 +192,21 @@ const frames: ReadonlyArray<{
     cost: "Nothing here hints at what is behind the gate beyond naming the four kinds.",
   },
   {
-    id: "cards",
+    id: "compact-strip",
     number: "10",
-    name: "Continue and Recent restored",
+    name: "Alternative — compact resume strip",
     summary:
-      "Both shipped cards rebuilt in full — Continue with its own action, Recent with View all, type pills and per-row Open. The library beneath then groups by set rather than by recency, so the three parts answer three different questions instead of repeating one.",
-    cost: "Measured: Continue 152px, Recent 271px, and one saved row above the fold — against six with the compact strip. You land on the two cards and scroll to reach your library.",
+      "The rejected alternative, kept as the record of a real choice. Continue compressed to a 72px strip where the strip is the button, no Recent card, and the library sorted by recency beneath it.",
+    cost: "Six saved rows above the fold instead of one — but resuming and re-opening this morning's work both become a scan rather than a tap.",
     note: "interactive",
   },
   {
-    id: "no-continue",
+    id: "type-word",
     number: "11",
-    name: "Without Continue",
+    name: "Alternative — type as a word",
     summary:
-      "The same library with the resume strip removed, for comparison. One more row fits. The question is whether resuming what you were doing is worth a row of what you saved.",
-    cost: "Resuming costs a scan of the list instead of a tap, and after a set filter the item you were on may not be in view at all.",
-  },
-  {
-    id: "type-chips",
-    number: "12",
-    name: "Type as a chip",
-    summary:
-      "The metadata line carries the shipped Recent card's pill instead of a coloured word. It scans faster down a column of mixed kinds, which is what the shipped card got right.",
-    cost: "The pill costs about 14px of a line that also holds the qualifier and the timestamp, so a long service name truncates sooner.",
+      "The chosen rows carry the shipped Recent card's type pill. This draws the alternative: the type as a coloured word on the metadata line, which buys back about 14px of a line that also holds the qualifier and the timestamp.",
+    cost: "Down a column of mixed kinds the word is markedly harder to scan than the pill, which is what the shipped Recent card got right.",
   },
 ];
 
@@ -223,19 +221,17 @@ function sortRows(rows: readonly FavouriteRow[], sort: SortMode) {
 }
 
 function FavouritesPhoneScreen({ state }: { state: FrameState }) {
-  // Continue is suppressed only in the comparison frame and in the states
-  // where there is nothing to resume.
-  const showContinue = !["no-continue", "empty", "signed-out", "no-matches", "cards"].includes(state);
-  // The shipped page's two cards, restored in full. The library beneath then
-  // groups by set: a recency-sorted list under a Recent card would repeat its
-  // three rows immediately.
-  const cardsMode = state === "cards";
-  const typeAs = state === "type-chips" || cardsMode ? "chip" : "word";
+  // The two alternatives the study keeps for comparison. Everything else is
+  // the chosen arrangement.
+  const compactAlternative = state === "compact-strip";
+  const typeAs = state === "type-word" ? "word" : "chip";
+
   const [activeSet, setActiveSet] = useState<FavouriteSetId>(state === "set" ? "ward-round" : "all");
-  // Cards mode lands on the user's own filing, because a recency-sorted list
-  // under a Recent card repeats it. "View all" switches to recency, which is
-  // what makes that control do something.
-  const [sort, setSort] = useState<SortMode>(state === "cards" ? "set" : "recent");
+  // The landing view is the user's own filing. A recency-sorted list under a
+  // Recent card repeats that card's three rows, so keeping the card means the
+  // library below it has to be something else. "View all" switches to
+  // recency, which is what makes that control do something.
+  const [sort, setSort] = useState<SortMode>(compactAlternative ? "recent" : "set");
   const [sheet, setSheet] = useState<null | "item" | "sets" | "page">(
     state === "item-sheet" ? "item" : state === "sets-sheet" ? "sets" : null,
   );
@@ -272,14 +268,35 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
     [loadedRows, resumeRow],
   );
 
+  /**
+   * THE RULE THAT PAYS FOR THE CARDS.
+   *
+   * Continue and Recent are the landing surface for the whole library, and
+   * nothing else. The moment you narrow — tap a set, or type in the composer —
+   * they give the screen back to the list, because at that point you are
+   * hunting for something specific and a resume affordance is not what you
+   * asked for. So the cards cost the fold only on the screen where arriving,
+   * not searching, is what you are doing.
+   */
+  const narrowed = activeSet !== "all" || query.trim() !== "";
+  const hasLibrary = !empty && !signedOut && loadedRows.length > 0;
+  // A degraded load falls back to the cheap resume form. Measured, the failure
+  // notice plus the two full cards left ZERO saved rows above the fold: the
+  // one state where the user most needs to see what survived is the one where
+  // the cards leave no room for it. The 72px strip keeps resume reachable and
+  // gives the rows back.
+  const showCards = hasLibrary && !narrowed && !compactAlternative && !partial;
+  const showStrip = hasLibrary && !narrowed && (compactAlternative || partial);
+
   const visible = useMemo(() => {
     const inSet = activeSet === "all" ? queryMatched : queryMatched.filter((row) => row.setId === activeSet);
     // Drawn once. The shipped page shows the resumed item in Continue AND
     // again in Recent AND again in the table; on a phone that is the same
     // 72px row spent twice on the same thing, and it reads as a bug.
-    const withoutResume = showContinue ? inSet.filter((row) => row.id !== resumeRow.id) : inSet;
+    const liftedOut = showCards || showStrip;
+    const withoutResume = liftedOut ? inSet.filter((row) => row.id !== resumeRow.id) : inSet;
     return sort === "recent" ? pinnedFirst(withoutResume) : sortRows(withoutResume, sort);
-  }, [queryMatched, activeSet, sort, showContinue, resumeRow]);
+  }, [queryMatched, activeSet, sort, showCards, showStrip, resumeRow]);
 
   // Rail counts reflect the search, so a chip never promises rows the query
   // has already excluded.
@@ -312,7 +329,7 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
           <SetRail sets={rails} activeId={activeSet} onSelect={(id) => setActiveSet(id as FavouriteSetId)} />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--surface)]">
             {partial ? <PartialLoadNotice failed={5} /> : null}
-            {showContinue && visible.length > 0 ? (
+            {showStrip ? (
               <ContinueStrip
                 row={resumeRow}
                 onOpen={(row) => {
@@ -321,7 +338,7 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
                 }}
               />
             ) : null}
-            {cardsMode ? (
+            {showCards ? (
               <div className="space-y-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
                 <ContinueCard
                   row={resumeRow}
@@ -345,8 +362,8 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
             ) : (
               <FavouritesList
                 rows={visible}
-                showPinnedGroup={sort === "recent" && !cardsMode}
-                groupBySet={cardsMode && sort !== "recent"}
+                showPinnedGroup={sort === "recent"}
+                groupBySet={!narrowed && sort === "set"}
                 typeAs={typeAs}
                 onOpen={(row) => {
                   setActiveRow(row);
@@ -531,33 +548,33 @@ function DesktopReference() {
 const decisions: ReadonlyArray<{ n: string; head: string; body: string }> = [
   {
     n: "1",
+    head: "Continue and Recent are the landing surface",
+    body: "Both shipped cards, drawn in full. They show on arrival and nowhere else: tap a set or type in the composer and they hand the screen back to the list. That rule is what pays for them — one saved row above the fold on arrival, seven the moment you narrow.",
+  },
+  {
+    n: "2",
+    head: "The library groups by your sets",
+    body: "Not by recency. A recency-sorted list under a Recent card is a second copy of that card, so keeping the card means the library below it has to be your own filing. View all switches to recency when that is what you want.",
+  },
+  {
+    n: "3",
     head: "One header, not six bands",
     body: "Title, live count, one ellipsis sheet. Sort, set management and clear-all move behind it. Everything above the list — app header, page header and set rail — measures 165px.",
   },
   {
-    n: "2",
-    head: "Sets become the navigation",
-    body: "A scrolling chip rail carrying every set name and its count. A weighted segment track was tried first and dropped: eight sets across 390px leaves each about 48px, under the width a set name needs.",
-  },
-  {
-    n: "3",
-    head: "A row costs one line",
-    body: "Glyph, title, one metadata line, one trailing control. 72px against the shipped card's measured 228px, and both targets clear 44px.",
-  },
-  {
     n: "4",
+    head: "A row costs one line",
+    body: "Type pill, title, one metadata line, one trailing control. 72px against the shipped card's measured 228px, and both targets clear 44px.",
+  },
+  {
+    n: "5",
     head: "Pinning finally gets a control",
     body: "`pinnedAt` has been in the schema and the PATCH contract since August with no UI anywhere. Pinned rows lead every view under one label that disappears when nothing is pinned.",
   },
   {
-    n: "5",
+    n: "6",
     head: "The composer stays the only input",
     body: "Typing filters in place; the count becomes a matched-of-total pair and the rail counts re-weight. No header search field. The six existing favourites mockups each draw a second search bar, which the one-composer contract forbids.",
-  },
-  {
-    n: "6",
-    head: "Continue stays; Recent does not",
-    body: "The shipped Continue card measures 113px because the title, the metadata and a full-width button are three stacked things. Here the strip is the button, so it costs 72px — one row. The Recent card measures 277px to show three items the recency-sorted list already has as its first three rows.",
   },
 ];
 
@@ -577,11 +594,11 @@ export function FavouritesPhonePerfectedMockupsPage() {
           </h1>
           <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
             Favourites is where you go to get back to something you already chose. Measured at 390 × 844, the shipped
-            page puts the first row of your saved list at <strong>y = 1141</strong> — about 300px below the fold —
-            behind a hint strip, a composer, a privacy notice, a results band, a Continue card and a Recent card, and
-            then spends <strong>228px</strong> on each item. Nothing of the library is on the first screen. This
-            direction spends <strong>165px</strong> of chrome and <strong>72px</strong> a row, which puts Continue plus
-            six saved rows above the fold, and it is drawn across every state that actually occurs.
+            page puts the first row of your saved list at <strong>y = 1141</strong> — about 300px below the fold — and
+            then spends <strong>228px</strong> on each item. Nothing of the library is on the first screen. This keeps
+            the Continue and Recent cards, and pays for them with one rule: they are the landing surface only. Tap a set
+            or type in the composer and they hand the screen back to the list —<strong>one</strong> saved row above the
+            fold on arrival, <strong>seven</strong> the moment you narrow.
           </p>
 
           <ol className="mt-6 grid max-w-5xl gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
