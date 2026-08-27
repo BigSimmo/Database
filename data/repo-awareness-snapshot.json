@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "dbe1d10573cb2f761fa95da389efd540310a2738",
-    "committed_at": "2026-08-27T07:46:35+00:00"
+    "sha": "d5ba26d66dc6642138d11ec04a2963618753ed4f",
+    "committed_at": "2026-08-27T08:55:08+00:00"
   },
   "routes": {
     "modes": [
@@ -3894,6 +3894,14 @@
         "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
         "outcome": "FIXED",
         "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "05e00976ab04796d7f44593b692f46cb8919943e",
+        "scope": "Run PR follow-up: second merge-drift + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated); added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/, a path scripts/pr-policy.mjs treats as clinical-risk. No review threads outstanding.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -24945,7 +24953,7 @@
       }
     ],
     "counts": {
-      "records": 2632,
+      "records": 2633,
       "refs": 1609
     }
   }
