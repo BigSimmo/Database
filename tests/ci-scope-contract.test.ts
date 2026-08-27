@@ -46,5 +46,9 @@ describe("site-content CI owner contract", () => {
     expect(source).toContain("validateSiteContentChangeOwners");
     expect(source).toContain("site-content-owner-manifest-malformed");
     expect(source).toContain("site-content-owner-manifest-broad-path");
+    expect(source).toContain("site-content-owner-manifest-empty-owner");
+    expect(source).toContain("site-content-owner-manifest-missing-owner");
+    expect(source).toContain("site-content-owner-manifest-unknown-root");
+    expect(source).toContain("site-content-owner-manifest-malformed-glob");
   });
 });

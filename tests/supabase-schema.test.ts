@@ -10,6 +10,14 @@ const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const siteContentHealthSqlFixture = readFileSync(
+  new URL("./fixtures/site-content/site-content-health-state-machine.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const siteContentInvocationSqlFixture = readFileSync(
+  new URL("./fixtures/site-content/site-content-invocation-state-machine.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 describe("site-content Task 4 health schema", () => {
   it("adds immutable administrator attestation and private forced-RLS invocation evidence", () => {
@@ -77,6 +85,18 @@ describe("site-content Task 4 health schema", () => {
     expect(health).not.toMatch(/for update|pg_advisory|delete from|insert into|update public/i);
     const publicObject = health.slice(health.lastIndexOf("select jsonb_build_object("));
     expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
+  });
+
+  it("ships executable non-active-release and nullable-invocation state fixtures", () => {
+    for (const state of ["candidate", "superseded", "abandoned", "rolled_back"]) {
+      expect(siteContentHealthSqlFixture).toContain(`'${state}'`);
+    }
+    expect(siteContentHealthSqlFixture).toContain("activePublicSiteRelease");
+    expect(siteContentHealthSqlFixture).toContain("rollbackAvailable");
+    expect(siteContentInvocationSqlFixture).toContain("set local role service_role");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => null");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => 'succeeded', p_outcome_code => null");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => 'failed', p_outcome_code => null");
   });
 });
 const documentIndexUnitsMigration = readFileSync(

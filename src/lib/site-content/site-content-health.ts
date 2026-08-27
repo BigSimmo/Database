@@ -10,7 +10,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
 const RELEASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CHANGE_EPOCH = /^(?:0|[1-9][0-9]*)$/;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
 
 export type SiteContentBootstrapIntegrityState = "not_applicable" | "valid_retained" | "invalid";
@@ -162,8 +162,33 @@ function isCount(value: unknown): value is number {
 }
 function isTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
+  const match = ISO_TIMESTAMP.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[10] === undefined ? 0 : Number(match[10]);
+  const offsetMinute = match[11] === undefined ? 0 : Number(match[11]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > (daysInMonth[month - 1] ?? 0) ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 23 ||
+    offsetMinute > 59
+  ) {
+    return false;
+  }
   const timestamp = Date.parse(value);
-  return ISO_TIMESTAMP.test(value) && Number.isFinite(timestamp);
+  return Number.isFinite(timestamp);
 }
 function isRelease(value: unknown): value is ActiveSiteContentRelease {
   if (!isRecord(value)) return false;
@@ -373,7 +398,9 @@ export function classifySiteContentHealth(input: SiteContentHealthInput): SiteCo
 
   const nonStopping = new Set<SiteContentHealthReasonCode>(["activation_slo_exceeded", "partition_disabled"]);
   const stoppingReasons = [...reasons].filter((reason) => !nonStopping.has(reason));
-  if (stoppingReasons.length > 0 && state !== "stale") state = "unavailable";
+  const staticMismatchOnly =
+    state === "stale" && stoppingReasons.length === 1 && stoppingReasons[0] === "static_manifest_mismatch";
+  if (stoppingReasons.length > 0 && !staticMismatchOnly) state = "unavailable";
   const operationStop = state === "stale" || state === "unavailable" || stoppingReasons.length > 0;
   const ready = !operationStop && (state === "disabled" || state === "current" || state === "updating");
   const failedCount = input.retryPendingCount + input.quarantinedCount;

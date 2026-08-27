@@ -28,13 +28,17 @@ async function recordInvocation(
   phase: InvocationPhase,
   outcome: InvocationOutcome,
 ) {
-  const result = await supabase.rpc("record_site_content_sync_worker_invocation", {
-    p_worker_id: workerId,
-    p_invocation_id: invocationId,
-    p_phase: phase,
-    p_outcome_code: outcome,
-  });
-  return !result.error && result.data === true;
+  try {
+    const result = await supabase.rpc("record_site_content_sync_worker_invocation", {
+      p_worker_id: workerId,
+      p_invocation_id: invocationId,
+      p_phase: phase,
+      p_outcome_code: outcome,
+    });
+    return !result.error && result.data === true;
+  } catch {
+    return false;
+  }
 }
 
 function fixedLog(code: string, event: ClaimedEvent, count = 0) {

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { Buffer } from "node:buffer";
+import ts from "typescript";
 
 import {
   runSiteContentSync,
@@ -33,6 +35,27 @@ function plan(): SiteContentSyncPlan {
   };
 }
 
+async function loadRecordInvocation() {
+  const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
+  const start = source.indexOf("async function recordInvocation(");
+  const end = source.indexOf("\n}\n", start) + 2;
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  const moduleSource = `${source.slice(start, end)}\nexport { recordInvocation };`;
+  const compiled = ts.transpileModule(moduleSource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`) as Promise<{
+    recordInvocation: (
+      supabase: { rpc: ReturnType<typeof vi.fn> },
+      workerId: string,
+      invocationId: string,
+      phase: string,
+      outcome: string,
+    ) => Promise<boolean>;
+  }>;
+}
+
 describe("site-content synchronization worker", () => {
   it("records one admitted invocation and one fixed terminal outcome around the existing one-event worker", () => {
     const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
@@ -46,6 +69,31 @@ describe("site-content synchronization worker", () => {
       expect(source).toContain(`| "${outcome}"`);
     }
     expect(source).toContain("crypto.randomUUID()");
+  });
+
+  it("makes one terminal RPC attempt and returns the fixed failure when transport throws", async () => {
+    const { recordInvocation } = await loadRecordInvocation();
+    const rpc = vi.fn(async () => {
+      throw new Error("ambiguous transport result");
+    });
+
+    const response = await (async () => {
+      const terminalRecorded = await recordInvocation(
+        { rpc },
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222",
+        "failed",
+        "worker_failed",
+      );
+      if (!terminalRecorded) {
+        return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
+      }
+      return Response.json({ ok: true });
+    })();
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" });
   });
 
   it("keeps the automatic Edge executor JWT-protected, bounded, fenced, and changed-only", () => {

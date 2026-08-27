@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, readFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
@@ -86,17 +86,24 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
     }
     if (owners.join("|") !== [...new Set(owners)].sort().join("|")) throw new Error(label);
     for (const owner of owners) {
-      if (
-        owner !== normalizePath(owner) ||
-        owner.startsWith("/") ||
-        owner.includes("..") ||
-        owner.includes("\\") ||
-        /[*?[\]{}]/.test(owner.replace(/\/\*\*$/, "")) ||
-        (/\*/.test(owner) && !owner.endsWith("/**"))
-      ) {
+      if (owner.length === 0) throw new Error("site-content-owner-manifest-empty-owner");
+      if (owner !== normalizePath(owner) || owner.startsWith("/") || owner.includes("..") || owner.includes("\\")) {
         throw new Error(label);
       }
+      if (/[?\[\]{}]/.test(owner) || (/\*/.test(owner) && !owner.endsWith("/**"))) {
+        throw new Error("site-content-owner-manifest-malformed-glob");
+      }
       if (owner === "data/**" || owner === "src/**") throw new Error("site-content-owner-manifest-broad-path");
+      const repositoryRoot = owner.split("/", 1)[0];
+      if (!new Set(["data", "public", "src"]).has(repositoryRoot)) {
+        throw new Error("site-content-owner-manifest-unknown-root");
+      }
+      const ownerPath = owner.endsWith("/**") ? owner.slice(0, -3) : owner;
+      if (!existsSync(ownerPath)) throw new Error("site-content-owner-manifest-missing-owner");
+      const ownerStat = lstatSync(ownerPath);
+      if (ownerStat.isSymbolicLink() || (owner.endsWith("/**") ? !ownerStat.isDirectory() : !ownerStat.isFile())) {
+        throw new Error("site-content-owner-manifest-missing-owner");
+      }
     }
   }
   return producers;
@@ -1432,6 +1439,24 @@ function selfTest() {
     throw new Error("site-content-owner-manifest-broad-path:self-test-did-not-fail");
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-broad-path")) throw error;
+  }
+  for (const [expectedError, owner] of [
+    ["site-content-owner-manifest-empty-owner", ""],
+    ["site-content-owner-manifest-missing-owner", "src/lib/therpies.ts"],
+    ["site-content-owner-manifest-missing-owner", "src/lib/site-content/missing-owner-root/**"],
+    ["site-content-owner-manifest-unknown-root", "unknown/owner.ts"],
+    ["site-content-owner-manifest-unknown-root", "unknown/**"],
+    ["site-content-owner-manifest-malformed-glob", "src/lib/*.ts"],
+  ]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error(`${expectedError}:self-test-did-not-fail`);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes(expectedError)) throw error;
+    }
   }
   console.log("CI change scope self-test passed.");
 }

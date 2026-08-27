@@ -43,12 +43,14 @@ declare
   v_row public.site_content_sync_worker_invocations%rowtype;
   v_active public.site_content_sync_worker_invocations%rowtype;
 begin
-  if p_worker_id is null or p_invocation_id is null or p_phase not in ('started', 'succeeded', 'failed') then
+  if p_worker_id is null or p_invocation_id is null or p_phase is null
+    or p_phase not in ('started', 'succeeded', 'failed') then
     return false;
   end if;
   if (p_phase = 'started' and p_outcome_code is not null)
-    or (p_phase = 'succeeded' and p_outcome_code not in ('idle', 'ready'))
-    or (p_phase = 'failed' and p_outcome_code not in ('claim_failed', 'event_failed', 'lease_lost', 'worker_failed')) then
+    or (p_phase = 'succeeded' and (p_outcome_code is null or p_outcome_code not in ('idle', 'ready')))
+    or (p_phase = 'failed' and (p_outcome_code is null
+      or p_outcome_code not in ('claim_failed', 'event_failed', 'lease_lost', 'worker_failed'))) then
     return false;
   end if;
   perform pg_catalog.pg_advisory_xact_lock(93206432);
@@ -293,7 +295,10 @@ as $$
   with recursive
   db_clock as (select statement_timestamp() as now),
   sync_state as (select s.* from public.site_content_sync_state s where s.singleton),
-  active_release as (select r.* from public.site_content_releases r join sync_state s on s.active_release_id = r.id),
+  active_release as (
+    select r.* from public.site_content_releases r join sync_state s on s.active_release_id = r.id
+    where r.state = 'active'
+  ),
   active_records as (select rr.* from public.site_content_release_records rr join active_release r on r.id = rr.release_id),
   outstanding_heads as (
     select h.* from public.site_content_public_records h cross join sync_state s
@@ -460,7 +465,7 @@ as $$
     'activePublicSiteRelease', case when r.id is null then null else jsonb_build_object(
       'version','clinical-kb-site-release-v1','releaseId',r.id::text,'registryVersion',r.registry_version,
       'staticManifestDigest',r.static_manifest_digest,'dynamicStateDigest',r.dynamic_state_digest,
-      'releaseDigest',r.release_digest,'state','active','activatedAt',coalesce(r.activated_at,r.created_at)) end,
+      'releaseDigest',r.release_digest,'state',r.state,'activatedAt',coalesce(r.activated_at,r.created_at)) end,
     'publicSiteChangeEpoch', s.served_change_epoch::text,
     'outstandingHeadCount', (select count(*) from outstanding_heads),
     'populationComplete',i.population_complete,'releaseDigestValid',i.release_digest_valid,
