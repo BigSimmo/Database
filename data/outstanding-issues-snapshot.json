@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01Z"
+    "sha": "362cc5dd50698e44481cfff76f578e075fa6a2bf",
+    "committed_at": "2026-08-27T20:30:32+08:00"
   },
   "counts": {
     "open": 81,
@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 6,
+    "pending": 7,
     "resolved": 431
   },
   "queue": [
@@ -829,6 +829,12 @@
       "action": "done",
       "summary": "#GQ5X8T: NOT A PRODUCT REGRESSION — classified as environment-specific Windows/busy-host measurement noise. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. No product, budget, tolerance, request-count, or proven CLS change was made. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
+      "action": "add",
+      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
