@@ -2741,6 +2741,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const header = page.locator("header.universal-header");
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
+    // Measure the edge-to-edge contract from the revealed state. Expanding the
+    // disclosure above scrolls this short page to its end, which is a genuine
+    // downward gesture, so the dock may legitimately be scroll-hidden by the
+    // time the panel collapses again — hide-on-scroll working, not a defect
+    // (one upward drag brings it straight back). Whether that hide engages
+    // depends on the exact answer height, so asserting the resting transform
+    // here would pin content height rather than the geometry this test names.
+    // Return to the top first: the assertions below are about where a *visible*
+    // dock sits (flush bottom, full-bleed), and that is what must hold.
+    await scrollPrimarySurface(page, 0);
+    await expect
+      .poll(async () => await dock.evaluate((node) => window.getComputedStyle(node).transform))
+      .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
     const edgeGeometry = await dock.evaluate((node) => {
       const rect = node.getBoundingClientRect();
       const style = window.getComputedStyle(node);
