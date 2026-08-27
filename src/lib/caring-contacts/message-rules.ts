@@ -73,7 +73,18 @@ export type ProvisionalMessageRules = {
    * is open-ended, so that allowlist was itself a defect -- "lead nurturing", "lead magnet",
    * "qualify this lead" and similar phrasing all passed silently. The current version inverts
    * this: it refuses "lead"/"leads" as a whole word BY DEFAULT, and exempts only the closed,
-   * small set of job titles this domain's own wording ever uses. See task-c-brief.md, "B2", and
+   * small set of job titles this domain's own wording ever uses.
+   *
+   * Ruling [143] (2026-08-27): the same rule is also defined for INTERFACE copy, in
+   * `tests/helpers/caring-contacts-prohibited-language.ts`, and that definition was the stricter of
+   * the two. A message a discharged patient reads was permitting seven phrases a clinician's screen
+   * refused -- the plural was exempted outright, and with no commercial-phrase list any exempting
+   * word immediately before "lead" licensed whatever followed it. The pattern below now mirrors the
+   * interface definition's three "lead" alternatives, so the surface with the worse consequence is
+   * no longer the looser one. Nothing in `src/lib/caring-contacts/**` may import a test helper, so
+   * the two definitions stay separate by necessity; what holds them in step is the parity block in
+   * `tests/caring-contacts-interface-vocabulary.test.ts`, which fails on any phrase the screen
+   * refuses and a message would permit. Change one definition and run that. See task-c-brief.md, "B2", and
    * task-c-report.md's "fix round 1" section.
    */
   prohibitedTermPatternOverrides: Readonly<Partial<Record<string, RegExp>>>;
@@ -116,10 +127,27 @@ const FICTIONAL_CONTACT_MARKER_PATTERN = new RegExp(
 // B2, fix round 1: refuses "lead"/"leads" as a whole word BY DEFAULT (a negative lookbehind, not
 // an allowlist of commercial phrasing), exempting only this domain's closed set of job titles --
 // "incident lead", "programme lead", "clinical lead", "team lead", "service lead". A job title is
-// exempted only when the qualifying word sits IMMEDIATELY before "lead"/"leads" (so "clinical
-// programme lead" is still exempt: "programme lead" is the qualifying pair actually adjacent to
-// the word), never merely because one of those words appears anywhere earlier in the message.
-const COMMERCIAL_LEAD_PATTERN = /(?<!\b(?:incident|programme|clinical|team|service)\s)\bleads?\b/i;
+// exempted only when the qualifying word sits IMMEDIATELY before "lead" (so "clinical programme
+// lead" is still exempt: "programme lead" is the qualifying pair actually adjacent to the word),
+// never merely because one of those words appears anywhere earlier in the message.
+//
+// RULING [143], 2026-08-27: three alternatives now, mirroring the interface definition in
+// `tests/helpers/caring-contacts-prohibited-language.ts` term for term, because that definition was
+// the stricter of the two and this is the surface a discharged patient reads.
+//
+//   1. `leads` (plural) is refused OUTRIGHT, with no job-title exemption. The single pattern this
+//      replaced put `leads?` behind the lookbehind, so "team leads", "clinical leads", "programme
+//      leads", "service leads" and "incident leads" all read as job titles and were permitted in a
+//      patient's message while the screen refused them. Nobody's title is plural.
+//   2. "lead" followed by a commercial companion word is refused even when an exempting word sits
+//      immediately before it, which is what "clinical lead capture" and "team lead nurturing
+//      numbers" exploited: the exemption licensed whatever followed the word it exempted.
+//   3. Otherwise "lead" as a whole word, exempt only after one of the five job-title qualifiers.
+//
+// The companion list in (2) is NOT an allowlist returning by the back door -- refusal is still the
+// default from (1) and (3), and (2) only removes an exemption that (3) would otherwise grant.
+const COMMERCIAL_LEAD_PATTERN =
+  /\bleads\b|\blead\s+(?:generation|capture|gen\b|nurturing|magnet|source|score|scoring|pipeline|qualification|conversion|database|numbers)\b|(?<!\b(?:incident|programme|clinical|service|team) )\blead\b/i;
 
 export const PROVISIONAL_MESSAGE_RULES: ProvisionalMessageRules = Object.freeze({
   maxSegments: 2,
