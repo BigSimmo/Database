@@ -423,13 +423,13 @@
       "directImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
-        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
-        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/recommend-scenario-fields.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx"
       ],
       "designSync": {
@@ -1661,6 +1661,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/tools/tools-search-results-page.tsx",
@@ -1694,6 +1695,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/tools/tools-search-results-page.tsx",
