@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "364177bad72f7c2dae7a266b5cf8f61837dbd0e5",
-    "committed_at": "2026-08-27T04:33:41+00:00"
+    "committed_at": "2026-08-27T04:33:41Z"
   },
   "counts": {
     "open": 98,
@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 33,
+    "pending": 35,
     "resolved": 414
   },
   "queue": [
@@ -1048,6 +1048,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "474922a3-d9d3-4ea5-a085-209a1fb1304b",
+      "action": "done",
+      "summary": "#TBW7BR: FIXED, and half of it was already done. AGENTS.md no longer carries the stale claim: PR #2404 had already reworded it to state that run-playwright.mjs exits 75 with a DATABASE_HEAVY_RUN_ADMISSION_BUSY marker on admission contention, a distinct non-zero code from an ordinary test failure. Verified by reading AGENTS.md, not assumed. The remaining half - nothing pinned the exit codes, so the guidance had been free to drift from the code and could drift back - is now closed by tests/playwright-exit-code-contract.test.ts. It asserts the 75 constant, the marker, that Playwright's own status is propagated, that no process.exit(0) exists on the run path, and that AGENTS.md, the speed playbook and the Phase 5 handover do not ASSERT the stale claim while still permitting them to quote it in order to refute it. It also asserts the guidance still says the right thing, so deleting the sentence cannot satisfy the gate. Mutation-tested both ways: swallowing the exit code turns it red, and re-adding the unrefuted claim to a document turns it red.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "59d16d75-adcd-4bce-8ffd-3066f249fce9",
       "action": "cancel",
       "summary": "Cancel request a193dfb0-236c-44bd-bfc1-f955eb20f273: Superseded by PR 2406's own closure of 023, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
@@ -1057,6 +1063,12 @@
       "request_id": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
       "action": "done",
       "summary": "#S4K1GA: Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "5e8ec6a9-d4c7-4a29-924c-d0a7819b15be",
+      "action": "done",
+      "summary": "#BR2217: FIXED. scripts/generate-outstanding-issues-snapshot.mjs now resolves ledger_revision monotonically: it refuses only a move it can PROVE is backwards, keeping the committed revision, and falls through to the previous behaviour whenever either timestamp is missing or unparseable so an unprovable comparison never changes behaviour. Pinned by tests/outstanding-issues-revision-monotonic.test.ts, which includes the exact ca376969b shape (2026-08-25 -> 2026-08-22) and a case proving the comparison is by instant rather than string, so +00:00 and Z are treated as the same moment. Mutation-tested: reverting the guard turns the backwards case red.",
       "created_at": "2026-08-27"
     },
     {
