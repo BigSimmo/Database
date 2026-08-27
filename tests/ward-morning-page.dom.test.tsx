@@ -29,6 +29,8 @@ import {
   CAPACITY_FIGURE_LABELS,
   MORNING_HANDOVER_MINUTES,
   serviceRollup,
+  type CapacityRollup,
+  type ServiceRollup,
 } from "@/components/ward-management/ward-morning-rollup";
 import { NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
@@ -313,6 +315,66 @@ describe("MorningPage", () => {
     const jhc = screen.getByTestId("ward-morning-site-JHC");
     expect(within(jhc).getByText("Joondalup Health Campus")).toBeInTheDocument();
     expect(within(jhc).getByTestId("ward-morning-site-JHC-empty")).toHaveTextContent("No units recorded");
+  });
+
+  /**
+   * The spec requires the beyond-tonight exclusion count to be stated even when it is zero —
+   * silent truncation reads as "we counted everything" when it did not, so `ExcludedBeyondTonight`
+   * must render unconditionally at its real call site in `MorningBody`. Both branches are
+   * asserted here (mirroring `UnplacedUnitsNote`'s own dual-branch test below), but the zero
+   * branch asserts PRESENCE, the opposite of that test's empty branch.
+   *
+   * Deliberately drives this through `MorningBody` — the real call site (spec D-required, and
+   * `morning-page.tsx`'s own comment on that component explains this is exactly the seam a test
+   * needing a hand-authored value uses) — rather than rendering `ExcludedBeyondTonight` directly.
+   * A direct render only proves the component's own text formatting; it cannot see a
+   * `{count > 0 && <ExcludedBeyondTonight ... />}` mutation at the call site, because that
+   * conditional lives in `MorningBody`, not in `ExcludedBeyondTonight` itself. Proved by running
+   * exactly that mutation: rendering `<ExcludedBeyondTonight count={0} />` directly still passed,
+   * while this version goes red (see the fix-round report for the quoted failure).
+   */
+  it("states the number of beds excluded beyond tonight from the real MorningBody call site, and keeps stating it even when the count is zero", () => {
+    function syntheticServiceRollup(excludedBeyondToday: number): ServiceRollup {
+      const service: CapacityRollup = {
+        availableNow: 4,
+        confirmedToday: 1,
+        predictedToday: 1,
+        held: 1,
+        leaveUsable: 1,
+        excludedBeyondToday,
+        unitsTotal: 1,
+        freshness: { kind: "never" },
+      };
+      return { service, sites: [], at: MORNING_HANDOVER_MINUTES, unplacedUnitIds: [] };
+    }
+
+    const nonZero = syntheticServiceRollup(3);
+    render(
+      <MorningBody
+        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: nonZero }}
+        view="fixed"
+        onChangeView={() => {}}
+        liveRollup={nonZero}
+        liveNow={MORNING_HANDOVER_MINUTES}
+      />,
+    );
+    expect(screen.getByTestId("ward-morning-excluded")).toHaveTextContent(
+      "3 beds excluded from the figures above — expected beyond tonight.",
+    );
+
+    const zero = syntheticServiceRollup(0);
+    const { container } = render(
+      <MorningBody
+        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: zero }}
+        view="fixed"
+        onChangeView={() => {}}
+        liveRollup={zero}
+        liveNow={MORNING_HANDOVER_MINUTES}
+      />,
+    );
+    expect(within(container).getByTestId("ward-morning-excluded")).toHaveTextContent(
+      "0 beds excluded from the figures above — expected beyond tonight.",
+    );
   });
 
   it("states how many units could not be placed under a hospital, and renders nothing when there are none", () => {

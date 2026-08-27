@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { formatInstant, splitDuration } from "@/components/ward-management/ward-clock";
 import {
@@ -77,6 +78,11 @@ export function HandoverPage() {
         <HeldBedsSection snapshot={snapshot} />
         <InTransitSection snapshot={snapshot} units={frozen.units} />
         <PlacementGoneWrongSection snapshot={snapshot} />
+
+        <p className={styles.crossLink}>
+          This handover answers &quot;what do I need to hand over this shift?&quot; For &quot;what can I fill right
+          now, across the network?&quot;, see the <Link href="/mockups/ward-flow/morning">morning bed state</Link>.
+        </p>
       </main>
     </div>
   );

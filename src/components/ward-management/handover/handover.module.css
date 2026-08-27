@@ -156,6 +156,23 @@
   border-bottom: none;
 }
 
+/* Spec D9: one-line link back to the morning bed state, naming the question each page answers —
+ * same register as `morning.module.css`'s own `.crossLink`. */
+.crossLink {
+  margin: 0;
+  max-width: 68ch;
+  border-top: 0.0625rem solid var(--border);
+  padding-top: var(--ho-space-16);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ho-leading-body);
+}
+
+.crossLink a {
+  color: var(--clinical-accent-strong);
+  font-weight: 600;
+}
+
 /*
  * Print: ink-on-paper, no rail, no chrome, no interactive control. The global print reset in
  * globals.css already hides every `header`/`nav`/`button` element (which drops the Print
@@ -195,6 +212,11 @@
   .table th,
   .table td {
     border-bottom-color: CanvasText;
+  }
+
+  .crossLink {
+    border-top-color: CanvasText;
+    color: CanvasText;
   }
 }
 

@@ -134,6 +134,20 @@ describe("HandoverPage", () => {
   // about "zero open movements" is fabricated clinical data, it is simply an empty array), and
   // each section component takes that snapshot as a plain prop, with no dependency on the
   // provider or the freeze. Rendering each one directly proves the empty-note branch for real.
+  /**
+   * Spec D9: the morning page and this handover page must each carry a one-line link to the
+   * other, naming the question each one answers, so the two are never confused. The morning
+   * page's own reciprocal link (`morning-page.tsx`) is already covered by
+   * `tests/ward-morning-page.dom.test.tsx`; this is the other half.
+   */
+  it("carries a one-line cross-link back to the morning bed state, naming the question each page answers", () => {
+    renderHandover();
+
+    const link = screen.getByRole("link", { name: "morning bed state" });
+    expect(link).toHaveAttribute("href", "/mockups/ward-flow/morning");
+    expect(link.closest("p")).toHaveTextContent("what can I fill right now, across the network?");
+  });
+
   describe("renders the explicit empty note for every section, given an empty snapshot", () => {
     const emptySnapshot: HandoverSnapshot = {
       frozenAt: NOW_ANCHOR,
