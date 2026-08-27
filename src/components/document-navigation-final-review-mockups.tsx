@@ -491,7 +491,7 @@ function DesktopFrame({ version }: { version: VersionId }) {
   const single = version === "single";
 
   return (
-    <div className="flex h-[27rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="flex h-[27rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="desktop" />
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         <div className="relative">
@@ -520,7 +520,7 @@ function TabletFrame({ version }: { version: VersionId }) {
   const single = version === "single";
 
   return (
-    <div className="mx-auto flex h-[27rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="mx-auto flex h-[27rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="tablet" />
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         <div className="relative">
@@ -546,7 +546,7 @@ function PhoneFrame({ state }: { state: PhoneState }) {
   return (
     // 330 x 592 keeps the frame close to a 390 x 844 phone's aspect, so the
     // sheet reads at the height it would actually occupy.
-    <div className="relative flex h-[37rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="relative flex h-[37rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       {scrolled ? null : (
         <>
           <UniversalTopBar device="phone" />

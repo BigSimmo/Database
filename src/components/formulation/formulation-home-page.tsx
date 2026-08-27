@@ -242,7 +242,7 @@ function FormulationResults({ query }: { query: string }) {
               data-formulation-result-card
               className={cn(
                 formulationCard,
-                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
+                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--e2)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
                 index === 0 &&
                   hasUniqueTopMatch &&
                   "border-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10",

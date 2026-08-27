@@ -1316,6 +1316,13 @@ describe("design-system adoption manifest", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
     expect(manifest.schemaVersion).toBe(7);
+    // DS-P2-21 barrel: componentSrcMap stays on ui-primitives.tsx; `export *`
+    // from primitive-recipes still counts as a declared-source export.
+    for (const name of ["AsyncButton", "EmptyState", "IconButton", "ToggleSwitch"]) {
+      const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
+      expect(component.source, `${name} source map`).toBe("src/components/ui-primitives.tsx");
+      expect(component.sourceExported, `${name} barrel re-export`).toBe(true);
+    }
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",
