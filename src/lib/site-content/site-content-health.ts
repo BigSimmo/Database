@@ -340,16 +340,31 @@ export function classifySiteContentHealth(input: SiteContentHealthInput): SiteCo
   if (input.artifactDeploymentSha !== undefined && !COMMIT_SHA.test(input.artifactDeploymentSha))
     reasons.add("artifact_deployment_sha_invalid");
 
+  const retainedBootstrapOperationallyClean =
+    input.outstandingHeadCount === 0 &&
+    input.pendingCount === 0 &&
+    input.retryPendingCount === 0 &&
+    input.processingCount === 0 &&
+    input.readyCount === 0 &&
+    input.quarantinedCount === 0 &&
+    input.expiredProcessingLeaseCount === 0 &&
+    input.pendingSetExact &&
+    input.outstandingHeadCountAgrees &&
+    input.oldestOutstandingOriginAgeMs === null;
   const retainedBootstrapOverride =
     !input.initialized &&
     input.bootstrapIntegrityState === "valid_retained" &&
+    retainedBootstrapOperationallyClean &&
     input.partition.state === "unavailable" &&
-    input.partition.reasons.includes("expected_static_digest_missing") &&
+    input.partition.reasons.length === 1 &&
+    input.partition.reasons[0] === "expected_static_digest_missing" &&
     input.partition.releaseId !== null;
   let state: SiteContentPartitionSnapshot["state"] = retainedBootstrapOverride ? "disabled" : input.partition.state;
   if (retainedBootstrapOverride) reasons.delete("expected_static_digest_missing");
   if (input.bootstrapIntegrityState === "invalid") reasons.add("bootstrap_invalid");
-  if (!input.initialized && !retainedBootstrapOverride) reasons.add("bootstrap_missing");
+  if (!input.initialized && !retainedBootstrapOverride) {
+    reasons.add(input.bootstrapIntegrityState === "not_applicable" ? "bootstrap_missing" : "bootstrap_invalid");
+  }
   if (input.initialized && input.bootstrapIntegrityState !== "not_applicable") reasons.add("bootstrap_invalid");
 
   if (input.initialized) {

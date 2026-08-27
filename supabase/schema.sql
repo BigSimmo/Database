@@ -11718,7 +11718,7 @@ returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  v_now timestamptz := pg_catalog.clock_timestamp();
+  v_now timestamptz;
   v_row public.site_content_sync_worker_invocations%rowtype;
   v_active public.site_content_sync_worker_invocations%rowtype;
 begin
@@ -11733,6 +11733,7 @@ begin
     return false;
   end if;
   perform pg_catalog.pg_advisory_xact_lock(93206432);
+  v_now := pg_catalog.clock_timestamp();
   select * into v_row from public.site_content_sync_worker_invocations
   where invocation_id = p_invocation_id for update;
   if p_phase = 'started' then
@@ -12044,6 +12045,9 @@ as $$
           or rr.embedding_dimensions <> 1536
           or rr.embedding_fingerprint is distinct from 'bootstrap-no-embedding-1536-v1'
           or rr.embedding is not null or rr.embedding_value_digest is not null or rr.tombstone or not rr.public_visible)
+        and not exists (select 1 from outstanding_heads)
+        and not exists (select 1 from live_events)
+        and (select quarantined_count = 0 and expired_lease_count = 0 from queue)
         then 'valid_retained'
       when not s.initialized or r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid or r.target_change_epoch = 0
         then 'invalid'
@@ -12062,7 +12066,17 @@ as $$
             or p.render_payload is distinct from rr.render_payload or p.retired is distinct from rr.tombstone))
         and not exists (select 1 from public.site_content_public_records h
           left join active_records rr on rr.target_publication_id = h.current_publication_id
-          where h.head_change_epoch <= s.served_change_epoch and rr.logical_id is null)
+          where h.head_change_epoch <= s.served_change_epoch
+            and (rr.logical_id is null or h.retired is distinct from rr.tombstone))
+        -- A newer outstanding head may legitimately name a later publication,
+        -- but every served active record must remain tracked by logical identity.
+        and not exists (select 1 from active_records rr
+          left join public.site_content_public_records h on h.logical_id = rr.logical_id
+          where s.initialized and rr.target_publication_id is not null and (
+            h.logical_id is null
+            or (h.head_change_epoch <= s.served_change_epoch and (
+              h.current_publication_id is distinct from rr.target_publication_id
+              or h.retired is distinct from rr.tombstone))))
         and not exists (select 1 from outstanding_heads h
           left join public.site_content_publications p on p.id = h.current_publication_id
           where p.id is null or p.logical_id is distinct from h.logical_id or p.retired is distinct from h.retired)

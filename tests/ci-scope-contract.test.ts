@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import owners from "@/lib/site-content/site-content-change-owners.json";
@@ -7,6 +9,26 @@ import { siteContentProducerRegistry } from "@/lib/site-content/site-content-reg
 
 function classify(file: string): string {
   return execFileSync("node", ["scripts/ci-change-scope.mjs", "--files", file], { encoding: "utf8" });
+}
+
+function runSelectorWithInjectedOwner(owner: string): void {
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "site-content-ci-owner-"));
+  const temporaryScript = join(temporaryDirectory, "ci-change-scope.mjs");
+  try {
+    const source = readFileSync("scripts/ci-change-scope.mjs", "utf8");
+    const injected = source.replace(
+      /const siteContentOwnerManifest = JSON\.parse\([\s\S]*?\);\r?\nconst siteContentProducerOwners/,
+      `const siteContentOwnerManifest = ${JSON.stringify({
+        version: "site-content-change-owners-v1",
+        producers: { injected: [owner] },
+      })};\nconst siteContentProducerOwners`,
+    );
+    expect(injected).not.toBe(source);
+    writeFileSync(temporaryScript, injected, "utf8");
+    execFileSync("node", [temporaryScript, "--self-test"], { cwd: process.cwd(), encoding: "utf8" });
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
 }
 
 describe("site-content CI owner contract", () => {
@@ -50,5 +72,21 @@ describe("site-content CI owner contract", () => {
     expect(source).toContain("site-content-owner-manifest-missing-owner");
     expect(source).toContain("site-content-owner-manifest-unknown-root");
     expect(source).toContain("site-content-owner-manifest-malformed-glob");
+  });
+
+  it.each([
+    ["exact duplicate separator", "src/lib//dictionary-data.ts"],
+    ["exact internal dot segment", "src/lib/./dictionary-data.ts"],
+    ["glob duplicate separator", "public/therapy-compass-data//**"],
+    ["glob internal dot segment", "public/therapy-compass-data/./**"],
+  ])("rejects the %s alias before filesystem existence checks", (_name, owner) => {
+    expect(() => runSelectorWithInjectedOwner(owner)).toThrow(/site-content-owner-manifest-noncanonical-owner/);
+  });
+
+  it("still triggers for canonical exact and glob owner paths", () => {
+    expect(classify("src/lib/dictionary-data.ts")).toContain("site_content_changed=true");
+    expect(classify("public/therapy-compass-data/therapies.d0358686e452b00b.json")).toContain(
+      "site_content_changed=true",
+    );
   });
 });

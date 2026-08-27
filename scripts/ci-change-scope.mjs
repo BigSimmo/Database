@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, lstatSync, readFileSync } from "node:fs";
+import { posix as posixPath } from "node:path";
 
 const zeroSha = /^0{40}$/;
 
@@ -87,7 +88,19 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
     if (owners.join("|") !== [...new Set(owners)].sort().join("|")) throw new Error(label);
     for (const owner of owners) {
       if (owner.length === 0) throw new Error("site-content-owner-manifest-empty-owner");
-      if (owner !== normalizePath(owner) || owner.startsWith("/") || owner.includes("..") || owner.includes("\\")) {
+      const normalizedOwner = normalizePath(owner);
+      const canonicalOwner = posixPath.normalize(normalizedOwner);
+      if (
+        owner !== normalizedOwner ||
+        canonicalOwner !== normalizedOwner ||
+        canonicalOwner === "" ||
+        canonicalOwner === "." ||
+        normalizedOwner.includes("//") ||
+        normalizedOwner.split("/").includes(".")
+      ) {
+        throw new Error("site-content-owner-manifest-noncanonical-owner");
+      }
+      if (owner.startsWith("/") || owner.includes("..") || owner.includes("\\")) {
         throw new Error(label);
       }
       if (/[?\[\]{}]/.test(owner) || (/\*/.test(owner) && !owner.endsWith("/**"))) {
@@ -1424,6 +1437,10 @@ function selfTest() {
     }
   }
   assertScope("site-content-shared-owner", ["src/lib/retrieval-selection.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-exact-owner", ["src/lib/dictionary-data.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-glob-owner", ["public/therapy-compass-data/representative.json"], {
+    site_content_changed: true,
+  });
   assertScope("site-content-negative-ui", ["src/components/ordinary-card.tsx"], { site_content_changed: false });
   try {
     validateSiteContentChangeOwners({ version: "site-content-change-owners-v1", producers: {} });
@@ -1447,6 +1464,10 @@ function selfTest() {
     ["site-content-owner-manifest-unknown-root", "unknown/owner.ts"],
     ["site-content-owner-manifest-unknown-root", "unknown/**"],
     ["site-content-owner-manifest-malformed-glob", "src/lib/*.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib//dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib/./dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data//**"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data/./**"],
   ]) {
     try {
       validateSiteContentChangeOwners({

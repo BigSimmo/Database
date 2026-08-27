@@ -57,6 +57,15 @@ describe("site-content Task 4 health schema", () => {
     expect(siteContentHealthMigration).toContain("pg_catalog.pg_advisory_xact_lock(93206432)");
     expect(siteContentHealthMigration).toContain("admission_expires_at <= v_now");
     expect(siteContentHealthMigration).toContain("outcome_code = 'invocation_expired'");
+    expect(siteContentHealthMigration).toContain("v_now timestamptz;");
+    const invocationLock = siteContentHealthMigration.indexOf("pg_catalog.pg_advisory_xact_lock(93206432)");
+    const serializedClock = siteContentHealthMigration.indexOf("v_now := pg_catalog.clock_timestamp()", invocationLock);
+    const firstInvocationRead = siteContentHealthMigration.indexOf(
+      "select * into v_row from public.site_content_sync_worker_invocations",
+      invocationLock,
+    );
+    expect(serializedClock).toBeGreaterThan(invocationLock);
+    expect(serializedClock).toBeLessThan(firstInvocationRead);
     expect(siteContentHealthMigration).toContain(
       "v_row.terminal_phase = p_phase and v_row.outcome_code = p_outcome_code",
     );
@@ -87,16 +96,23 @@ describe("site-content Task 4 health schema", () => {
     expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
   });
 
-  it("ships executable non-active-release and nullable-invocation state fixtures", () => {
+  it("ships executable health-integrity and serialized invocation state fixtures", () => {
     for (const state of ["candidate", "superseded", "abandoned", "rolled_back"]) {
       expect(siteContentHealthSqlFixture).toContain(`'${state}'`);
     }
     expect(siteContentHealthSqlFixture).toContain("activePublicSiteRelease");
     expect(siteContentHealthSqlFixture).toContain("rollbackAvailable");
+    expect(siteContentHealthSqlFixture).toContain(
+      "bootstrap retained integrity ignored an extra outstanding head/live event",
+    );
+    expect(siteContentHealthSqlFixture).toContain("missing public head did not make populationComplete false");
     expect(siteContentInvocationSqlFixture).toContain("set local role service_role");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => null");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => 'succeeded', p_outcome_code => null");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => 'failed', p_outcome_code => null");
+    expect(siteContentInvocationSqlFixture).toContain("retry-after-lock-expiry");
+    expect(siteContentInvocationSqlFixture).toContain("terminal-after-lock-expiry");
+    expect(siteContentInvocationSqlFixture).toContain("where locktype = 'advisory' and not granted");
   });
 });
 const documentIndexUnitsMigration = readFileSync(

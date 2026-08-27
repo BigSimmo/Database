@@ -102,4 +102,153 @@ reset role;
 
 rollback;
 
+create table public.task4_invocation_concurrency_results (
+  case_name text primary key,
+  result boolean not null,
+  observed_terminal_phase text,
+  observed_outcome_code text
+);
+grant insert on public.task4_invocation_concurrency_results to service_role;
+
+insert into public.site_content_sync_worker_invocations (
+  invocation_id, worker_id, started_at, admission_expires_at
+)
+select
+  '30000000-0000-4000-8000-000000000001'::uuid,
+  '30000000-0000-4000-8000-000000000002'::uuid,
+  sampled.now - interval '4 minutes 55 seconds',
+  sampled.now + interval '5 seconds'
+from (select pg_catalog.clock_timestamp() as now) sampled;
+
+begin;
+select pg_catalog.pg_advisory_xact_lock(93206432);
+\! psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -c "set role service_role; insert into public.task4_invocation_concurrency_results(case_name, result) select 'retry-after-lock-expiry', public.record_site_content_sync_worker_invocation('30000000-0000-4000-8000-000000000002'::uuid, '30000000-0000-4000-8000-000000000001'::uuid, 'started', null);" >/tmp/task4-invocation-retry.log 2>&1 &
+do $$
+declare
+  v_deadline timestamptz := pg_catalog.clock_timestamp() + interval '10 seconds';
+begin
+  while not exists (select 1 from pg_catalog.pg_locks where locktype = 'advisory' and not granted) loop
+    if pg_catalog.clock_timestamp() >= v_deadline then
+      raise exception 'retry session did not wait on the advisory lock';
+    end if;
+    perform pg_catalog.pg_sleep(0.05);
+  end loop;
+end;
+$$;
+select pg_catalog.pg_sleep(
+  greatest(
+    0,
+    extract(epoch from (
+      (select admission_expires_at from public.site_content_sync_worker_invocations
+       where invocation_id = '30000000-0000-4000-8000-000000000001'::uuid)
+      - pg_catalog.clock_timestamp()
+    ))
+  ) + 0.25
+);
+commit;
+
+do $$
+declare
+  v_deadline timestamptz := pg_catalog.clock_timestamp() + interval '10 seconds';
+begin
+  while not exists (
+    select 1 from public.task4_invocation_concurrency_results where case_name = 'retry-after-lock-expiry'
+  ) loop
+    if pg_catalog.clock_timestamp() >= v_deadline then
+      raise exception 'retry session did not publish its result';
+    end if;
+    perform pg_catalog.pg_sleep(0.05);
+  end loop;
+end;
+$$;
+
+update public.task4_invocation_concurrency_results result
+set observed_terminal_phase = invocation.terminal_phase,
+  observed_outcome_code = invocation.outcome_code
+from public.site_content_sync_worker_invocations invocation
+where result.case_name = 'retry-after-lock-expiry'
+  and invocation.invocation_id = '30000000-0000-4000-8000-000000000001'::uuid;
+
+update public.site_content_sync_worker_invocations
+set terminal_phase = 'failed',
+  terminal_at = pg_catalog.clock_timestamp(),
+  outcome_code = 'invocation_expired'
+where invocation_id = '30000000-0000-4000-8000-000000000001'::uuid
+  and terminal_phase is null;
+
+insert into public.site_content_sync_worker_invocations (
+  invocation_id, worker_id, started_at, admission_expires_at
+)
+select
+  '30000000-0000-4000-8000-000000000003'::uuid,
+  '30000000-0000-4000-8000-000000000004'::uuid,
+  sampled.now - interval '4 minutes 55 seconds',
+  sampled.now + interval '5 seconds'
+from (select pg_catalog.clock_timestamp() as now) sampled;
+
+begin;
+select pg_catalog.pg_advisory_xact_lock(93206432);
+\! psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -c "set role service_role; insert into public.task4_invocation_concurrency_results(case_name, result) select 'terminal-after-lock-expiry', public.record_site_content_sync_worker_invocation('30000000-0000-4000-8000-000000000004'::uuid, '30000000-0000-4000-8000-000000000003'::uuid, 'succeeded', 'ready');" >/tmp/task4-invocation-terminal.log 2>&1 &
+do $$
+declare
+  v_deadline timestamptz := pg_catalog.clock_timestamp() + interval '10 seconds';
+begin
+  while not exists (select 1 from pg_catalog.pg_locks where locktype = 'advisory' and not granted) loop
+    if pg_catalog.clock_timestamp() >= v_deadline then
+      raise exception 'terminal session did not wait on the advisory lock';
+    end if;
+    perform pg_catalog.pg_sleep(0.05);
+  end loop;
+end;
+$$;
+select pg_catalog.pg_sleep(
+  greatest(
+    0,
+    extract(epoch from (
+      (select admission_expires_at from public.site_content_sync_worker_invocations
+       where invocation_id = '30000000-0000-4000-8000-000000000003'::uuid)
+      - pg_catalog.clock_timestamp()
+    ))
+  ) + 0.25
+);
+commit;
+
+do $$
+declare
+  v_deadline timestamptz := pg_catalog.clock_timestamp() + interval '10 seconds';
+begin
+  while not exists (
+    select 1 from public.task4_invocation_concurrency_results where case_name = 'terminal-after-lock-expiry'
+  ) loop
+    if pg_catalog.clock_timestamp() >= v_deadline then
+      raise exception 'terminal session did not publish its result';
+    end if;
+    perform pg_catalog.pg_sleep(0.05);
+  end loop;
+end;
+$$;
+
+update public.task4_invocation_concurrency_results result
+set observed_terminal_phase = invocation.terminal_phase,
+  observed_outcome_code = invocation.outcome_code
+from public.site_content_sync_worker_invocations invocation
+where result.case_name = 'terminal-after-lock-expiry'
+  and invocation.invocation_id = '30000000-0000-4000-8000-000000000003'::uuid;
+
+do $$
+begin
+  if exists (
+    select 1 from public.task4_invocation_concurrency_results
+    where result is distinct from false
+      or observed_terminal_phase is distinct from 'failed'
+      or observed_outcome_code is distinct from 'invocation_expired'
+  ) then
+    raise exception 'serialized expiry admitted a waiting retry/terminal call: %',
+      (select jsonb_agg(to_jsonb(result) order by case_name) from public.task4_invocation_concurrency_results result);
+  end if;
+end;
+$$;
+
+drop table public.task4_invocation_concurrency_results;
+
 \echo 'PASS site-content invocation state-machine fixture'

@@ -177,6 +177,55 @@ describe("site-content partition classification", () => {
         }),
       ),
     ).toMatchObject({ state: "disabled", ready: true, operationStop: false });
+
+    const contradictoryBootstrapEvidence: Array<{
+      name: string;
+      overrides: Partial<SiteContentHealthInput>;
+    }> = [
+      {
+        name: "outstanding head",
+        overrides: { outstandingHeadCount: 1, oldestOutstandingOriginAgeMs: 60_000 },
+      },
+      {
+        name: "pending event",
+        overrides: { outstandingHeadCount: 1, pendingCount: 1, oldestOutstandingOriginAgeMs: 60_000 },
+      },
+      {
+        name: "retry-pending event",
+        overrides: { outstandingHeadCount: 1, retryPendingCount: 1, oldestOutstandingOriginAgeMs: 60_000 },
+      },
+      {
+        name: "processing event",
+        overrides: { outstandingHeadCount: 1, processingCount: 1, oldestOutstandingOriginAgeMs: 60_000 },
+      },
+      {
+        name: "ready event",
+        overrides: { outstandingHeadCount: 1, readyCount: 1, oldestOutstandingOriginAgeMs: 60_000 },
+      },
+      { name: "quarantined event", overrides: { quarantinedCount: 1 } },
+      { name: "broken closure", overrides: { pendingSetExact: false } },
+      { name: "outstanding count disagreement", overrides: { outstandingHeadCountAgrees: false } },
+      { name: "expired processing lease", overrides: { expiredProcessingLeaseCount: 1 } },
+      { name: "queue age without an outstanding head", overrides: { oldestOutstandingOriginAgeMs: 60_000 } },
+    ];
+    for (const testCase of contradictoryBootstrapEvidence) {
+      expect(
+        classifySiteContentHealth(
+          healthy({
+            partition: bootstrapPartition,
+            initialized: false,
+            bootstrapIntegrityState: "valid_retained",
+            synchronizerSeen: false,
+            lastInvocationAt: null,
+            lastSuccessfulInvocationAt: null,
+            latestInvocationSucceeded: false,
+            ...testCase.overrides,
+          }),
+        ),
+        testCase.name,
+      ).toMatchObject({ state: "unavailable", ready: false, operationStop: true });
+    }
+
     expect(
       classifySiteContentHealth(
         healthy({ partition: bootstrapPartition, initialized: false, bootstrapIntegrityState: "invalid" }),
@@ -188,6 +237,12 @@ describe("site-content partition classification", () => {
     expect(classifySiteContentHealth(healthy({ latestInvocationSucceeded: false }))).toMatchObject({
       state: "unavailable",
       operationStop: true,
+    });
+    expect(classifySiteContentHealth(healthy({ populationComplete: false }))).toMatchObject({
+      state: "unavailable",
+      ready: false,
+      operationStop: true,
+      reasons: expect.arrayContaining(["population_incomplete"]),
     });
   });
 
