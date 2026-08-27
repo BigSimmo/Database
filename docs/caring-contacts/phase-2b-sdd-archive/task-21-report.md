@@ -1,8 +1,9 @@
 # Task 21 — the responsive and accessibility proof, per screen and per condition
 
 Run on the merged tree, per Ruling [133]. Branch `claude/browser-test-gate-handoff-d5c1db`, from
-`b824f4f98`. Four commits: `8fb2c5d79`, `7b2cbc2f3`, `d3015f4e2`, `679d5749e`. Nothing was pushed
-and no pull request was opened.
+`b824f4f98`. The spec commits, in order, are `8fb2c5d79`, `7b2cbc2f3`, `d3015f4e2` and
+`679d5749e`; this report and its corrections follow them and change no code. Nothing was pushed and
+no pull request was opened.
 
 **The result in one line:** every screen × condition cell now names the `file:line` that proves it,
 and all forty-five are proved — but each is proved on the state this server can reach, which for six
