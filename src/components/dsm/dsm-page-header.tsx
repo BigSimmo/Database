@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
-import { dsmSearchHref } from "@/lib/app-modes";
 
 export function DsmPageHeader({
   eyebrow = "DSM-5 Diagnosis",
@@ -43,7 +42,7 @@ export function DsmPageHeader({
             `PageHeader` below is not given a second `breadcrumb` of its own. */}
         {breadcrumb ? (
           <InformationPageBreadcrumbs
-            home={{ label: "DSM search", href: dsmSearchHref }}
+            home={{ label: "DSM search", href: "/dsm" }}
             homeIcon={homeIcon}
             className="mb-3"
           />

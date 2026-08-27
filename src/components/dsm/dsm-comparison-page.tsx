@@ -87,6 +87,7 @@ export function DsmComparisonPage({
   const rows = comparisonRows(diagnoses);
   const chromeIds = selectedIds ?? diagnoses.map((diagnosis) => diagnosis.slug);
   const comparisonLabel = diagnoses.map((diagnosis) => diagnosis.title).join(" compared with ");
+  const summaryById = new Map(catalog.map((item) => [item.id, item.snippet]));
 
   return (
     <div data-testid="dsm-comparison-page" className="min-h-full bg-[color:var(--background)] pb-8">
@@ -139,7 +140,11 @@ export function DsmComparisonPage({
                       </span>
                       <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{diagnosis.title}</h2>
                     </div>
-                    <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{diagnosis.summary}</p>
+                    <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                      {summaryById.get(diagnosis.slug) ??
+                        diagnosis.key_features[0]?.text ??
+                        "Review the complete diagnostic record."}
+                    </p>
                     <Link
                       href={`/dsm/diagnoses/${diagnosis.slug}`}
                       className="inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline"
