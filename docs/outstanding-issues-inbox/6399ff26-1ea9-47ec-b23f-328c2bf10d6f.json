@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6399ff26-1ea9-47ec-b23f-328c2bf10d6f",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#KFRC3H",
+    "outcome": "Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Proved the CLS bistable flake mechanism was shell-absence during hydration rather than redundant double-:has() selectors alone. Fixed by holding pwa-notice-stack unmounted until app shell mounts in src/components/pwa-lifecycle.tsx. Verified locally (0.2230 -> 0.000) and in hosted CI Lighthouse budget run 32531103787. Closed together with #50QRCF and #TYZK23.",
+    "baseRowFingerprint": "eb6482766dd62eea748975f7c209661e937051dd130315d4a73203f55b92c41e"
+  }
+}

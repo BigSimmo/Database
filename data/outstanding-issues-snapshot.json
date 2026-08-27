@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01+00:00"
+    "sha": "364177bad72f7c2dae7a266b5cf8f61837dbd0e5",
+    "committed_at": "2026-08-27T04:33:41+00:00"
   },
   "counts": {
     "open": 98,
@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 6,
+    "pending": 15,
     "resolved": 414
   },
   "queue": [
@@ -1000,9 +1000,39 @@
   ],
   "pending": [
     {
+      "request_id": "13ea8c93-7134-4e18-9f7c-6c0f9a624726",
+      "action": "done",
+      "summary": "#TF6TPJ: Resolved and verified. scripts/guard-push.mjs enforces Guard 2 (inFlightCiGuard) across all PR push workflows, and scripts/sync-pr-branches.mjs checks hasRequiredCiInFlight() to prevent main-merges while CI is in-flight. Verified via unit and contract tests in tests/ci-cache-safety.test.ts and tests/guard-push.test.ts. Merging main into open PR branches no longer triggers cancel-in-progress on active required CI or produces false-red PR required states with zero failing jobs.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "1836d32f-6db8-45f2-bc71-f429b22f5a1c",
+      "action": "done",
+      "summary": "#HVTYAT: Reconciled docs/openai-cross-border-basis.md §8 status table with ledger #053 and updated src/lib/privacy-page-content.tsx. External provider processing disclosures now accurately reflect verified zero data retention (ZDR), no training on API submissions, executed DPA (v.010126), ephemeral prompt caching controls, and store:false / pseudonymous user controls. Updated tests/privacy-ui.test.ts.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
       "action": "done",
       "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
+      "action": "done",
+      "summary": "#9X40BT: Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
+      "action": "done",
+      "summary": "#S4K1GA: Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "6399ff26-1ea9-47ec-b23f-328c2bf10d6f",
+      "action": "done",
+      "summary": "#KFRC3H: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Proved the CLS bistable flake mechanism was shell-absence during hydration rather than redundant double-:has() selectors alone. Fixed by holding pwa-notice-stack unmounted until app shell mounts in src/components/pwa-lifecycle.tsx. Verified locally (0.2230 -> 0.000) and in hosted CI Lighthouse budget run 32531103787. Closed together with #50QRCF and #TYZK23.",
       "created_at": "2026-08-27"
     },
     {
@@ -1012,15 +1042,33 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
+      "action": "update",
+      "summary": "#102: summary → Operator EXPLAIN diagnostic script authored; migration and health registration still required; detail → Authored operator EXPLAIN diagnostic script (scripts/operator-explain-documents-indexes.sql) comparing documents_title_trgm_idx concatenated expression vs bare-column ILIKE predicates on title and file_name. Documented diagnostic plan comparison and execution runbook in docs/operator-apply-performance-latency-remediation.md for execution during the approved operator window. Remaining work per that runbook: author one idempotent migration with the three indexes plus search_schema_health required_indexes registration, apply during the operator window, mirror supabase/schema.sql, and regenerate the drift manifest. Task stays open until that full sequence completes and is verified.; source → docs/operator-apply-performance-latency-remediation.md; scripts/operator-explain-documents-indexes.sql",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "a114318c-949e-46df-9b72-c9df997a72cd",
       "action": "done",
       "summary": "#8A00R7: Modularized AGENTS.md reducing per-turn token payload while updating pinning tests.",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
+      "action": "done",
+      "summary": "#023: Completed scheduled browser matrix verification and human labeling disposition. release-browser-matrix is verified unblocked from dependency audits and green across Firefox and WebKit. Human review disposition of the stable 0.0917 irrelevant-at-10 fixture set completed using #084 per-rank diagnostic grades (338 graded top rows, 33 grade-0 tail rows): all 12 non-zero cases audited and confirmed genuine off-topic tail rows rather than ranking defects. Labels and ranking thresholds retained unchanged as evaluation audit baseline. Documented in docs/evidence/rag-irrelevant-at-10-disposition.md.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "a7275b7e-ce79-4050-959b-f045a24e6f53",
       "action": "done",
       "summary": "#RVK6BJ: Repaired empty Claude Code worktrees and verified worktree dependency setup.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "c6533595-1f18-4be2-ba89-7a793a122779",
+      "action": "done",
+      "summary": "#50QRCF: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Root cause was PWA notice stack (div.pwa-notice-stack) mounting during Next.js 16 streaming hydration window before #main-content mounted, causing phone-footer owner :has() selector flip (0.2230 shift). Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #TYZK23 and #KFRC3H.",
       "created_at": "2026-08-27"
     },
     {
@@ -1033,6 +1081,12 @@
       "request_id": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
       "action": "done",
       "summary": "#TF6TPJ: Validated Guard 2 in guard-push.mjs to ensure merge-base resolution on main merges.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "f5a27b65-309d-465c-9f5f-b87082206325",
+      "action": "done",
+      "summary": "#TYZK23: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\"hero\"]) as false so the card paints tall then compacts when the shell returns. Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #50QRCF and #KFRC3H.",
       "created_at": "2026-08-27"
     }
   ]

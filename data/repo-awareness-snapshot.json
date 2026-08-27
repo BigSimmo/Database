@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "fe5df587e60451e48f8c7ea6ade1df87f964c6be",
-    "committed_at": "2026-08-27T04:25:21+00:00"
+    "sha": "254870c3df82530aa981809c465a2dc726605d23",
+    "committed_at": "2026-08-27T04:37:45+00:00"
   },
   "routes": {
     "modes": [
@@ -2442,6 +2442,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/rag-reliability-evidence-2026-07-27.md",
         "section": "evidence",
         "catalogued": false
@@ -2537,6 +2542,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/openai-cross-border-basis.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/openai-cross-border-basis.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/openai-rag-operations.md",
         "section": "root",
         "catalogued": true
@@ -2550,6 +2565,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3837,9 +3857,9 @@
       }
     ],
     "counts": {
-      "documents": 474,
-      "catalogued": 103,
-      "uncatalogued": 371,
+      "documents": 478,
+      "catalogued": 105,
+      "uncatalogued": 373,
       "sections": 19
     }
   },
