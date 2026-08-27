@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
-    "committed_at": "2026-08-27T05:20:05+00:00"
+    "sha": "dbe1d10573cb2f761fa95da389efd540310a2738",
+    "committed_at": "2026-08-27T07:46:35+00:00"
   },
   "routes": {
     "modes": [
@@ -3889,6 +3889,14 @@
         "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
         "outcome": "FIXED",
         "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "d2bbc44f084707d8844485c67c8cd76d57e04b39",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (conflict vs main), all real CI green on prior head (19fca0d), 0 unresolved review threads (4 PR comments were all automated bot usage-limit/status noise, no actionable findings). After: merged origin/main (b183dc65) into branch; only conflicts were generated files docs/design-system/COMPONENTS.md and docs/design-system/adoption-manifest.json, resolved by regenerating via 'node scripts/generate-design-system-adoption.mjs --write' (no manual edits); PR mergeability check now succeeds. No review threads needed action (none existed). No CI fix needed beyond the merge itself.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; npm run check:design-system-adoption -- design system adoption checked: 55 components, 76 roots; npm run check:playwright-pr-shards -- PR UI shard parity OK: 31 production specs across 3 groups; pre-commit hook ran docs:check-inventory and docs:check-index -- both current. No provider-backed checks run."
       },
       {
         "date": "2026-08-27",
@@ -24924,8 +24932,8 @@
       }
     ],
     "counts": {
-      "records": 2630,
-      "refs": 1607
+      "records": 2631,
+      "refs": 1608
     }
   }
 }
