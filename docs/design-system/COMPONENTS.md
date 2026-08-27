@@ -982,7 +982,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 36
+Components with product imports: 39
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -994,7 +994,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              22 |
-| `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -1009,8 +1009,8 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
