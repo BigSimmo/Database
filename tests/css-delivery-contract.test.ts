@@ -36,11 +36,19 @@ describe("cold-load CSS and font delivery", () => {
 
     expect(geistSans).toContain('src: "../fonts/geist-latin.woff2"');
     expect(geistSans).toContain('display: "swap"');
+    expect(geistSans).toContain('weight: "100 900"');
     expect(geistSans).not.toContain("preload: false");
 
     expect(geistMono).toContain('src: "../fonts/geist-mono-latin.woff2"');
     expect(geistMono).toContain('display: "swap"');
+    expect(geistMono).toContain('weight: "100 900"');
     expect(geistMono).toContain("preload: false");
+
+    // AuthProvider must stay a static import. next/dynamic + ssr:false is illegal
+    // in this RSC root layout and would hide the session until hydration.
+    expect(rootLayout).toContain('import { AuthProvider } from "@/lib/supabase/client"');
+    expect(rootLayout).not.toContain("ssr: false");
+    expect(rootLayout).not.toMatch(/\bnext\/dynamic\b/);
 
     expect(existsSync(resolve(process.cwd(), "src/fonts/geist-latin.woff2"))).toBe(true);
     expect(existsSync(resolve(process.cwd(), "src/fonts/geist-mono-latin.woff2"))).toBe(true);
