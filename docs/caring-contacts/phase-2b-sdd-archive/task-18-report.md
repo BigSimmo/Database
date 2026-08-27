@@ -113,6 +113,13 @@ that both are measured from the earliest instant the work could have been waitin
 is never longer than the figure shown. `M11` and `M13` rename them and both go red; `M12b` drops the
 upper-bound clause and it goes red.
 
+**SUPERSEDED IN PART, 2026-08-28.** The upper-bound clause was a false assurance rendered to a
+clinician: the anchor is the plan wizard's midday convention rather than an observed instant, so the
+figure bounds the true wait in neither direction. The screen no longer makes the claim, the age is
+worded "145 minutes past the discharge recorded on its plan", and the case that pinned the false
+sentence now pins the honest one. The naming of the two ages stands. See `group-4-review.md`
+MAJOR-1 and `group-4-round-1-report.md`.
+
 **5. The threshold is inclusive**, and the screen states it as "escalates at 60 minutes" / "escalates
 once it has waited 60 minutes" rather than "after", which would not determine the boundary. The
 inclusive behaviour itself is the domain's and is pinned there.

@@ -160,6 +160,13 @@ late one. The field is named `oldestMinutesSinceDischarge` rather than "queue ag
 as something it is not. **Closing this properly is a repository-contract change** (release the
 creation instant, or add a claimable-since column) and is the owner's call, not mine.
 
+**SUPERSEDED IN PART, 2026-08-28.** The bound claimed above is false, and the Group 4 review
+reproduced it by execution: `dischargeAt` is not an observed instant but the plan wizard's midday
+display convention, so an unclaimed plan reports zero all morning on its own discharge day and the
+escalation cannot raise before midday. Everything else in this finding stands, including that
+closing it is a repository-contract change and the owner's call. See `group-4-review.md` MAJOR-1
+and `group-4-round-1-report.md`.
+
 **5. Contacts have no "entered this state" instant either**, so backlog age is measured from the
 scheduled send time — `oldestMinutesSinceScheduledSend`. For a `missed` or `notDelivered` contact
 that is tight, because the attempt happened at or just after its send time; in general it is the same
