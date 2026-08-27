@@ -589,5 +589,13 @@ Every attempt is itemised, greens included. **No aggregate total** — the table
 2. **The `1/` directory in the worktree.** An untracked Node compile-cache directory
    (`1/v24.19.0-x64-…`) exists at the worktree root. It is not mine and it is not staged. I did not
    delete it — nothing in this task authorised removing anything from the worktree.
-3. **`test:cc-guards` still does not name the eight suites above.** Left alone as ruled; the union is
+3. **`test:cc-guards` still does not name the nine suites above.** Left alone as ruled; the union is
    yours at the merge point.
+4. **`node scripts/check-docs-links.mjs` is ALREADY RED on this branch, for seven pre-existing
+   references, and none of them is mine.** I ran it because it resolves backticked paths inside docs
+   and this report is input to it. The seven are other documents': the Task 11b review names
+   `tests/zz-review-probe-task11b.dom.test.tsx`, the probe it created, quoted and deleted; the Task 12
+   and 13 briefs name reports that do not exist yet; Task 9's report names a scratch probe; Task 9b's
+   names a `tsc` diagnostic fragment that parses as a path. Several are the same shape the script's own
+   `SCOPED_ALLOWLIST` already carries entries for. Not mine to fix and not in this round's scope, but it
+   will fail at the merge point if nothing is done, and the review's probe is the newest of them.
