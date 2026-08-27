@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "3e4f966015b826e0f84e3f1439e9e751f237fc1f",
-    "committed_at": "2026-08-27T07:49:35+00:00"
+    "sha": "33f32158e0e6d27cb8c248956c4a3ca15748fff0",
+    "committed_at": "2026-08-27T10:42:36+00:00"
   },
   "routes": {
     "modes": [
@@ -3902,6 +3902,14 @@
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "dependabot/npm_and_yarn/npm-development-2db4774c1b (PR #2297)",
+        "head": "f9374424027b1c0b32f3854445c06b52a07b9d44",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Head was already CI-green (Safety/Unit coverage/Build/Static PR/PR required all success) after a prior sweep's main-sync merge; main advanced 19 more commits (through PR #2416) so branch was behind again with 0 conflicts. Merged origin/main locally (clean, no conflicts), reinstalled deps (npm ci), and pushed. No unresolved review threads existed (Cursor bot auto-approved, no reviewer comments); nothing to reply/resolve.",
+        "checks": "npm run lint: pass; npm run typecheck: pass (exit 0); npm run test: 892 files / 10817 tests passed, 4 skipped, exit 0. No provider-backed checks run."
       },
       {
         "date": "2026-08-27",
@@ -24937,7 +24945,7 @@
       }
     ],
     "counts": {
-      "records": 2631,
+      "records": 2632,
       "refs": 1608
     }
   }
