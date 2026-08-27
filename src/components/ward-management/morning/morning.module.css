@@ -16,6 +16,11 @@
   --mp-space-24: 1.5rem;
   --mp-tap: var(--spacing-tap);
   --mp-leading-body: 1.4;
+  /* The headline figure sits on its own line at 2.5rem, so it takes no extra leading. Declared as
+     a token rather than written inline: check:design-system-contract counts raw line-height
+     literals and a bare `line-height: 1` on .headlineValue took this file from 0 to 1, turning
+     that gate red at HEAD. Same shape as --mp-leading-body immediately above. */
+  --mp-leading-headline: 1;
 
   display: grid;
   min-height: 100dvh;
@@ -126,7 +131,7 @@
   color: var(--clinical-accent-strong);
   font-size: 2.5rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: var(--mp-leading-headline);
 }
 
 .headlineLabel {
