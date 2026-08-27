@@ -162,10 +162,15 @@ the reason each is shaped that way:
 1. **Age** — a bed accepts a referral whose age band matches the bed's. Equality happens to be correct
    here, and it is still written as an accepts-rule so the four read uniformly and so a future change
    ("this adult unit will take a 17-year-old") lands in one place.
-2. **Legal status** — an **Involuntary** bed accepts **both** voluntary and involuntary referrals; a
-   **Voluntary** bed accepts voluntary referrals only. _(Owner's answer, 2026-08-27.)_ The existing
-   `requiresAuthorisedDestination()` already behaves exactly this way, so this is a rename of an
-   existing correct rule rather than a new one.
+2. **Legal status** — a referral that does **not** need an involuntary bed is accepted by **any** bed;
+   a referral that **does** need one is accepted **only** by a bed that can hold someone involuntarily
+   (the existing `unit.authorised`). _(Owner's answers, 2026-08-27 — see D5's fourth field.)_
+
+   **Amended mid-build.** This rule originally read "an Involuntary bed accepts both; a Voluntary bed
+   accepts voluntary only", which presumed the referral carried a legal status. It did not, so the gate
+   had nothing to compare and passed for every bed — making the dimension decorative. The owner's fix
+   was to add the fourth referral field rather than to accept a dead dimension.
+
 3. **Sex** — **Undesignated accepts everyone.** Female only accepts female referrals. Male only
    accepts male referrals.
 4. **Forensic** — a forensic bed accepts **no Phase 7 referral at all** (D7).
@@ -209,6 +214,11 @@ be silent and would produce wrong matching in both directions.
 - `ageBand` — Older adult · Adult · Youth
 - `sex` — Female · Male
 - `secureBedNeeded` — yes / no
+- `involuntaryBedNeeded` — yes / no. **Added mid-build 2026-08-27**, and the one place this list moved
+  from three fields to four. Like `secureBedNeeded` it is a **requirement on the request**, never a fact
+  stored about a person — roadmap decision 5's convention, where the word never attaches to a patient.
+  It is not a legal determination and introduces no figure, timeframe, threshold or duration from the
+  Mental Health Act.
 
 No name, no date of birth, no record number, no address, no diagnosis, no narrative history, no
 treatment, and **no free text anywhere**. Free text counts as data.

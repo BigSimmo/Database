@@ -162,6 +162,42 @@ referral work is fresh and expensive to retrofit into a page people have already
 Everything Phase 6 decided about that page still holds: the figure is derived, never computed on the
 page, and it is never summed into any bed figure.
 
+## A fifth answer, given mid-build (2026-08-27)
+
+### A referral gains a fourth field: whether an involuntary bed is needed
+
+**Decided: add it.** This is the one place the permitted-field list moves from three to four, and the
+owner moved it deliberately after being shown what the three-field version cost.
+
+**What prompted it.** Task 2 built bed matching and surfaced that the Voluntary/Involuntary dimension
+could not affect matching at all. A referral carried age band, sex and secure-bed-needed, and nothing
+about legal status — so the gate had nothing to compare and passed for every bed. Two of the four bed
+dimensions were therefore decorative in matching: forensic by the owner's explicit choice, legal status
+by accident of the field list.
+
+**The field is a requirement on the REQUEST, never a fact stored about a person.** This matters and it
+follows roadmap decision 5's existing convention exactly — cohort is expressed as "this request needs an
+adolescent bed", and the word never attaches to a patient. So the field is
+`involuntaryBedNeeded: boolean`, read as "this request needs a bed that can hold someone
+involuntarily". It is not a legal determination, not a status, and not a claim about the person.
+
+**It is not a legal figure and does not weaken that constraint.** No figure, timeframe, threshold or
+duration from the Mental Health Act is introduced. A plain requirement flag sits in exactly the same
+category as the Voluntary/Involuntary bed label the owner already permitted.
+
+**The matching rule it makes real** — an accepts-rule, never an equality:
+
+- A referral that does **not** need an involuntary bed is accepted by **any** bed.
+- A referral that **does** need one is accepted **only** by a bed that can hold someone involuntarily
+  (the existing `unit.authorised`).
+
+Consequences that must travel with it: the structural privacy test asserts the type's exact field set
+and must be widened to four deliberately, not incidentally; the intake form gains the field; and the
+seed must contain at least one referral needing an involuntary bed **and** at least one bed that must
+refuse it, or the rule is untestable.
+
+Forensic is unchanged and stays descriptive-only.
+
 ## Still open
 
 - Everything the clinician check comes back with.
