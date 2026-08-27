@@ -1663,6 +1663,11 @@ describe("the plan actions - Ruling [129]: a hold is not a cancellation, and the
     expect(withdrawal, "the withdrawal block took on the hold's reassuring wording").not.toHaveTextContent(
       /keeps its whole schedule/i,
     );
+    // AND THE SAME AGAIN FOR THE SECOND NEGATIVE, which had neither control nor mutation: the way
+    // back is asserted present where it is true before it is asserted absent where it is not, so a
+    // rewording of the hold block cannot leave this passing forever about a phrase that by then
+    // exists nowhere on the card.
+    expect(planActionBlock("Hold this plan")).toHaveTextContent(/can be let run again/i);
     expect(withdrawal, "the withdrawal block offered a way back from an irreversible action").not.toHaveTextContent(
       /can be let run again/i,
     );
@@ -2103,6 +2108,49 @@ describe("the plan actions - a repeated submission does not act twice", () => {
     expect(keys[0]).toBe(keys[1]);
     expect(typeof keys[0]).toBe("string");
   });
+
+  /**
+   * WHICH MECHANISM REFUSES THE SECOND PRESS ONCE THE RE-READ HAS LANDED -- and it is not the key.
+   *
+   * `refuse()` asks for this screen again on EVERY refusal, the props that come back carry the
+   * version the lost write itself produced, and the sync adopts it. A lifecycle body carrying a
+   * different `expectedVersion` fingerprints differently, so the retry mints a NEW key and reaches
+   * the service as a new submission rather than as a replay. What refuses it is the row's own state
+   * condition, read against the state that same re-read brought back.
+   *
+   * Nothing else in this suite presses AFTER the refresh: the replay cases above it press inside
+   * the window where nothing has come back yet, which is the window the key covers. A later reader
+   * relaxing `the-plan-is-running` on the belief that the key stands behind it would be removing
+   * the only guard there is in the common case.
+   */
+  it("refuses the press after a lost answer by the state the re-read brought back, not by the key", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    // The hold reaches the service; its answer is lost on the way back.
+    routeFetch({ swallow: (_sent, index) => index === 0 });
+
+    const view = await renderPageWithOverlays();
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/did not reach the service/i));
+    // POSITIVE CONTROL: the hold LANDED. What follows is therefore a refusal about a real state
+    // change rather than about a screen whose write never got anywhere.
+    expect((await planShape(store, plan)).state).toBe("paused");
+
+    // What `refuse()`'s own `router.refresh()` asks for, delivered to the same mounted tree.
+    await rereadTheScreen(view);
+
+    await user.click(planActionTrigger("pause"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action, "the retry after the re-read was offered rather than refused").toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      document.getElementById(action.getAttribute("aria-describedby") ?? ""),
+      "the retry was refused for some reason other than the state the re-read brought back",
+    ).toHaveTextContent(PLAN_ACTION_CONDITION_REFUSALS["the-plan-is-running"].heading);
+  });
 });
 
 describe("the plan actions - no way out of the commit that says nothing", () => {
@@ -2298,6 +2346,76 @@ describe("the plan actions - no way out of the commit that says nothing", () => 
       ["demo-teamLead", "demo-coordinator"],
     ]);
     expect(writes()).toHaveLength(1);
+  });
+
+  /**
+   * CLEARED WHERE THE MOVE IS RECORDED, so there is nothing live left in the window between a
+   * successful move and the arrival of that move's `router.refresh()`.
+   *
+   * `planCarriedBy` is a PROP and cannot change until the server render lands, while the choice and
+   * the note are client state. Left standing, they describe a move that has already happened: the
+   * choice names the account NOW carrying the plan while the prop still names the old one, so
+   * `a-different-coordinator-is-chosen` is met, every other condition is met, and the trigger is
+   * live. `applyAssignmentAction` does not refuse a move from an account to itself, so a second
+   * confirmation appends a handover row saying the plan changed hands when it did not -- permanent,
+   * and afterwards indistinguishable from a real one. Clearing at the point of RECORDING closes
+   * that without depending on the refresh arriving at all.
+   */
+  it("clears the chosen coordinator and the handover note when the move is recorded", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-clears-the-choice");
+    routeFetch();
+
+    await renderPageWithOverlays();
+    const destination = screen.getByLabelText("Who this plan moves to");
+    const note = screen.getByLabelText("Why this plan is changing hands");
+    await user.type(note, "Going on leave from Friday.");
+    await user.selectOptions(destination, "demo-coordinator");
+    // POSITIVE CONTROLS, before the act rather than after it: both fields hold what the coordinator
+    // put in them, so the emptiness below is what RECORDING the move did rather than what the
+    // fixture was.
+    expect(destination).toHaveValue("demo-coordinator");
+    expect(note).toHaveValue("Going on leave from Friday.");
+
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    expect(destination, "the choice that has already been acted on is still standing").toHaveValue("");
+    expect(note, "the note kept with the move that has already been made is still in the field").toHaveValue("");
+  });
+
+  /**
+   * THE RECORD, READ INSIDE THAT WINDOW. The case above reads the two fields; this one reads what a
+   * second confirmation writes while the props still name the OLD holder.
+   *
+   * `rereadTheScreen` is deliberately NOT called, and what that reproduces is the STATE the defect
+   * needs rather than its timing: in a browser the window closes when the move's RSC round trip
+   * lands, and in jsdom it never closes at all, because `router.refresh()` is a mock that delivers
+   * no props. The pair above proves the other side -- once the re-read HAS landed, the stale choice
+   * equals the holder and the named condition refuses it.
+   */
+  it("appends no second handover when the move is confirmed again before this screen has been read back", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-inside-the-window");
+    routeFetch();
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    await confirmPlanAction(user, "reassignment", 2);
+
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(
+      assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId]),
+      "a handover was appended for a move that had already happened, from an account to itself",
+    ).toEqual([["demo-teamLead", "demo-coordinator"]]);
   });
 });
 

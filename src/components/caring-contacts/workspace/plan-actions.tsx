@@ -318,7 +318,25 @@ export function PlanActions({ context }: PlanActionsProps) {
         delete keys.current[action];
 
         if (action === "reassignment") {
-          setOutcome({ kind: "recorded", action, announcement: reassignmentAnnouncement(destinationWording()) });
+          const announcement = reassignmentAnnouncement(destinationWording());
+          // THE CHOICE AND THE NOTE ARE PART OF THE SUBMISSION, so recording it clears them.
+          //
+          // WHY, AND WHY HERE RATHER THAN AFTER THE REFRESH. `planCarriedBy` is a PROP and cannot
+          // change until the server render lands, while these two are client state. Left standing
+          // they describe a move that has already happened: in the window before that render
+          // arrives, the choice names the account NOW carrying the plan while the prop still names
+          // the old one, so `a-different-coordinator-is-chosen` is MET, every other condition is
+          // met, and the trigger is live. `applyAssignmentAction` does not refuse a move from an
+          // account to itself, and the key was just spent, so a second confirmation appends a
+          // handover row saying the plan changed hands when it did not -- permanent, and
+          // afterwards indistinguishable from a real one. Clearing them here closes that window
+          // without depending on a refresh arriving at all, and what a coordinator then reads
+          // beside the control is `a-different-coordinator-is-chosen` by name.
+          //
+          // The announcement is taken FIRST because it reads the destination this move was for.
+          setDestination("");
+          setHandoverNote("");
+          setOutcome({ kind: "recorded", action, announcement });
         } else {
           // The version this screen acts on next comes from the answer the service just gave, never
           // from the prop it was rendered with — see the module note.
