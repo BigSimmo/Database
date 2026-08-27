@@ -3853,3 +3853,76 @@ listed gate while the database half has never run.
 docker run --rm -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 postgres:17
 CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
 ```
+
+### Ruling [155] — Group 4 built, reviewed, fixed and accepted; Phase 2B is complete
+
+The owner reversed his deferral of Group 4 on 2026-08-28 and asked for it built, against current
+`origin/main`, autonomously. **Tasks 17 and 18 are built, reviewed, and their one Major is closed.**
+
+**Task 17 — the team read.** `buildTeamWorkload` in the **sealed domain**, not the API layer, and the
+reason is recorded: every rule it composes is already owned there, so assembling it in a route puts a
+read one edit from re-deriving a rule a module owns — and Task 18's Server Component reads it directly
+as well as the route publishing it, so two readers must get one answer. Deliberately **not** in
+`operational-reporting.ts`, whose own header asserts that no function in it groups by an actor; a
+roster does. `AccessedObjectType` gained `teamWorkload`, decided from Ruling [134]'s reasoning rather
+than [46]'s letter.
+
+**Its three "no source" findings, all confirmed by the reviewer rather than accepted:** there is **no
+staff display name anywhere** — a staff directory is a _sixth_ assumed system on top of the five the
+standing discipline names; **no role source exists for anybody but the acting user**; and a per-member
+**unclaimed count has no referent**, because unclaimed means there is no owner to file it under. The
+screen states both absences rather than printing a bare identifier. **Nothing was invented.**
+
+**Task 18 — the roster screen**, reachable, `Team` lit in the same change as its page (Ruling 89).
+Its **"Reassign work"** control is a `<Link>` to the caseload with a visible stated reason, not a
+"coming soon" — reassignment genuinely exists and is per-plan, so an unavailable control would have
+stated something **false about a product that has the action**. Where the acting role may not
+reassign, no control renders and the screen says so in words.
+
+**The Group 4 review: spec compliance PASS WITH ONE MAJOR, task quality HIGH** — it called this the
+strongest method work in the phase. **§4.2's never-rank requirement is MET and proven on both
+surfaces**: sort is actor id only, on a fixture whose work order is the exact reverse so it cannot
+pass by coincidence; no share, total, percentile or placing exists; no colour reads as a grade.
+
+**MAJOR-1, and it is the finding of the day.** The unclaimed-work age was anchored on `dischargeAt`,
+which **is not an observed instant** — the wizard writes it as `DISCHARGE_WALL_CLOCK_HOUR`, midday, on
+a typed calendar day, and its own author wrote that nothing in the domain used its time of day. Task 17
+was the first reader to do instant arithmetic on it. **Reproduced by execution** for a plan activated
+08:00 and never claimed: unclaimed 60 min → age **0**, unclaimed 180 min → age **0**, escalating only
+at 300 min — **four hours late**.
+
+**And the screen was telling a clinician the opposite**: that the true wait is never longer than the
+figure shown. **A DOM test pinned that false sentence, which is why the suite was green.** The module
+header's _"raise one early, never miss a late one"_ described the one failure that actually occurs.
+
+**Fixed narrowly and honestly, which was the right scope.** The screen now says the age is _"past the
+discharge recorded on its plan"_, and states in place, per §4.4, that _"nothing records when a plan
+became free for a coordinator to take. A plan can therefore show fewer minutes than it has been
+unclaimed, and reach the threshold later than it should."_ **The deeper fix — a real became-claimable
+instant — is a repository-contract change and stays the owner's**, exactly where Task 17 put it.
+
+**The lesson, which is not a new one here but is the sharpest instance of it.** The method was strong
+— every absence had a positive control, the `getEpisode` spy was proven live, two self-found test
+defects were disclosed, a wrong mutation prediction was reported as wrong — **and none of that could
+reach this, because no fixture in either task crossed the seam the false premise lived on.** Mutation
+testing falsifies the assertions you wrote. It cannot falsify a premise you never doubted. **Executing
+the thing, against the real modules, at a time of day that mattered, is what found it.**
+
+### The final gates, on the finished tree
+
+- **Full `npm run test`: `Test Files 923 passed | 3 skipped (926)`, `Tests 11561 passed | 75 skipped
+(11636)` — zero failures.** The `document-viewer-page-virtualization` case that failed under load
+  twice is green here, which is its third clean observation and settles it as contention rather than a
+  defect.
+- **`npm run build` on a cold `.next`: compiled successfully.**
+- **`check:bundle-budget`: production 1724.4 KiB gzip against a 1656.0 KiB baseline, within tolerance**
+  (145 routes now, two more than before Group 4); mockups within tolerance.
+- **`tests/ui-caring-contacts-workspace.spec.ts`: `126 passed (3.0m)`** — up from 84 when the merge
+  began, and from zero for five of its blocks.
+- **`npm run caring-contacts:db:test`: `Test Files 2 passed (2)`, `Tests 205 passed (205)`**, re-run
+  after the `origin/main` catch-up changed `readPlanRecord`, because the earlier verdict covered a tree
+  that no longer existed.
+- `npm run format`, committed.
+
+**Phase 2B is complete.** Fourteen screens, all four owner groups, every gate green, nothing pushed, no
+pull request, nothing on `main`.
