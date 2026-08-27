@@ -21,7 +21,29 @@ import { describe, expect, it } from "vitest";
  * the Phase 5 handover was in. A document that says "this branch is merged, do
  * not check it out" passes; one that silently says "check this out" does not.
  */
-const MARKER = /\b(MERGED|merged|OBSOLETE|obsolete|HISTORICAL|historical|superseded|do not check ?it out)\b/;
+/**
+ * An accepted statement of a branch's status. Both directions count: saying a
+ * branch is finished, and saying it is still the live one. The failure message
+ * below offers both, so the pattern must accept both — an earlier version
+ * offered "still the live working branch" as a fix while rejecting exactly that
+ * wording, which is guidance that cannot be followed. Raised in review on
+ * PR #2417.
+ */
+const MARKER =
+  /\b(MERGED|merged|OBSOLETE|obsolete|HISTORICAL|historical|superseded|do not check ?it out|still live|still the live|live working branch|current working branch|active branch)\b/i;
+
+/**
+ * How far from a checkout instruction a status marker may sit and still be
+ * describing it. A marker anywhere in the document is too weak: a file could
+ * say one branch is merged and silently instruct a checkout of a different,
+ * unmarked one. Also raised in review on PR #2417.
+ */
+const MARKER_WINDOW = 700;
+
+/** Does a status marker sit near this particular checkout instruction? */
+export function markerNear(text: string, index: number, windowSize = MARKER_WINDOW): boolean {
+  return MARKER.test(text.slice(Math.max(0, index - windowSize), index + windowSize));
+}
 
 /**
  * `git checkout <branch>` / `git switch <branch>` naming an EXISTING feature
@@ -60,16 +82,13 @@ describe("documents do not silently tell a session to resume on a feature branch
 
     for (const path of trackedDocs()) {
       const text = readFileSync(path, "utf8");
-      const branches = [...text.matchAll(CHECKOUT)]
+      const unmarked = [...text.matchAll(CHECKOUT)]
         .filter((match) => isConcreteBranch(text, match))
+        .filter((match) => !markerNear(text, match.index ?? 0))
         .map((match) => match[1]);
-      if (branches.length === 0) continue;
 
-      // The marker must appear somewhere in the document. Requiring it on the
-      // same line would be trivially satisfied by a comment and would miss the
-      // banner-at-the-top pattern that actually reads well.
-      if (!MARKER.test(text)) {
-        offenders.push(`${path} → ${[...new Set(branches)].join(", ")}`);
+      if (unmarked.length > 0) {
+        offenders.push(`${path} → ${[...new Set(unmarked)].join(", ")}`);
       }
     }
 
@@ -94,6 +113,29 @@ describe("documents do not silently tell a session to resume on a feature branch
     expect(MARKER.test("git checkout claude/thing")).toBe(false);
     expect(MARKER.test("This branch is merged; do not check it out.")).toBe(true);
     expect(MARKER.test("> **OBSOLETE — Phase 5 is built and merged.**")).toBe(true);
+  });
+
+  it("accepts the live-branch wording its own failure message recommends", () => {
+    // The failure text offers "still the live working branch" as a valid fix.
+    // If the pattern rejected that, the advice would be unfollowable.
+    expect(MARKER.test("This is still the live working branch for Phase 6.")).toBe(true);
+    expect(MARKER.test("current working branch")).toBe(true);
+  });
+
+  it("binds the marker to the instruction, not merely to the document", () => {
+    // The case review raised: a document states one branch's status, then
+    // silently instructs a checkout of a different, unmarked branch far away.
+    const filler = " ".repeat(3000);
+    const doc = `claude/one is merged.${filler}git checkout claude/two`;
+    const at = doc.indexOf("git checkout claude/two");
+
+    expect(markerNear(doc, at)).toBe(false);
+    expect(markerNear(doc, doc.indexOf("claude/one"))).toBe(true);
+  });
+
+  it("accepts a marker sitting near its instruction", () => {
+    const doc = "This branch is merged.\n\n```bash\ngit checkout claude/thing\n```";
+    expect(markerNear(doc, doc.indexOf("git checkout"))).toBe(true);
   });
 
   it("matches the checkout forms it claims to match, and only those", () => {

@@ -76,8 +76,44 @@ describe("guidance describing that contract stays true to it", () => {
   it("at least one document still tells the reader to check the status AND the output line", () => {
     // Guarding only against the wrong sentence would be satisfied by deleting
     // every sentence. The guidance has to still say the right thing.
+    //
+    // Both facts must appear in ONE bounded passage. Asserting the two tokens
+    // separately would pass on a document containing `75` as a line number in
+    // one section and `N passed` in an unrelated one, while no longer telling
+    // anybody to check both. Raised in review on PR #2417.
     const playbook = readFileSync("docs/development-speed-playbook.md", "utf8");
-    expect(playbook).toMatch(/75/);
-    expect(playbook).toMatch(/N passed/);
+
+    expect(passageTeachingBothSignals(playbook)).not.toBeNull();
+  });
+});
+
+/**
+ * The first window in `text` that teaches both halves of the contract: the exit
+ * status (as the reserved `75`) and the decisive output line (`N passed`).
+ * Order-independent, because either reads fine.
+ */
+export function passageTeachingBothSignals(text: string, windowSize = 700): string | null {
+  for (const match of text.matchAll(/\b75\b/g)) {
+    const at = match.index ?? 0;
+    const window = text.slice(Math.max(0, at - windowSize), at + windowSize);
+    if (/N passed/.test(window)) return window;
+  }
+  return null;
+}
+
+describe("the bounded-passage helper is not vacuous", () => {
+  it("finds both signals in one passage, in either order", () => {
+    expect(passageTeachingBothSignals("exits 75 when blocked; otherwise grep the N passed line")).not.toBeNull();
+    expect(passageTeachingBothSignals("grep the N passed line; 75 means blocked")).not.toBeNull();
+  });
+
+  it("rejects the two facts sitting in unrelated parts of a document", () => {
+    const farApart = `see line 75 of the config${" ".repeat(3000)}the run said N passed`;
+    expect(passageTeachingBothSignals(farApart)).toBeNull();
+  });
+
+  it("rejects a document teaching only one half", () => {
+    expect(passageTeachingBothSignals("the wrapper exits 75 when the coordinator refuses")).toBeNull();
+    expect(passageTeachingBothSignals("always grep for the N passed line")).toBeNull();
   });
 });
