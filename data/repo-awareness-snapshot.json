@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "053242453d725e9163a3209a5582a27e3750670e",
-    "committed_at": "2026-08-27T08:59:51+08:00"
+    "sha": "ca9a7990a043e371529001c3e1df978b137374d4",
+    "committed_at": "2026-08-27T10:05:24+08:00"
   },
   "routes": {
     "modes": [
@@ -691,6 +691,11 @@
       {
         "path": "/mockups/favourites-library-view",
         "file": "src/app/mockups/favourites-library-view/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/favourites-phone-perfected",
+        "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
         "area": "mockup"
       },
       {
@@ -1392,9 +1397,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 194,
+      "pages": 195,
       "product_pages": 55,
-      "mockup_pages": 139,
+      "mockup_pages": 140,
       "redirects": 17,
       "api": 58
     }
