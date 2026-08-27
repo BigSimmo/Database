@@ -255,6 +255,9 @@ describe("the escalation states why it happened and what would change it (spec 4
     // block that failed to render.
     expect(unclaimed).toHaveTextContent("60 minutes");
     expect(textOf(unclaimed)).toContain("a coordinator claiming the plan");
+    // The anchor note is rendered by a different branch here than in the escalated case above, so
+    // it is asserted on both rather than on whichever one was convenient.
+    expect(textOf(unclaimed)).toContain("nothing records when a plan became free for a coordinator to take");
   });
 
   it("says every running plan has a coordinator when nothing is unclaimed", () => {
@@ -489,15 +492,26 @@ describe("the screen says when it was measured in words, not as a machine timest
    * screen was rendering `2026-08-30T11:00:00+08:00` as body text -- the only machine timestamp
    * anywhere in the workspace.
    */
-  it("renders the measurement time in plain words and keeps the machine value in the attribute", () => {
+  it("renders the measurement time in plain words", () => {
     const { container } = renderRoster({});
 
     const stamp = container.querySelector("time");
     expect(stamp).not.toBeNull();
-    // The positive control: the machine-readable value is still held, on the attribute where a
-    // machine reads it, so the absence below is about what a CLINICIAN is shown.
-    expect(stamp).toHaveAttribute("dateTime", AS_AT);
     expect(stamp).toHaveTextContent("11:00 am AWST on Sunday 30 August 2026");
+  });
+
+  /**
+   * SPLIT FROM THE CASE ABOVE DELIBERATELY. Held together, a screen that printed the ISO string as
+   * its text would fail the plain-words assertion FIRST and the refusal below would never be
+   * evaluated -- an assertion behind a sibling that fails first is never reached, so it would have
+   * been unproven however red the case went.
+   */
+  it("keeps the machine value on the attribute and out of the words a clinician reads", () => {
+    const { container } = renderRoster({});
+
+    // The positive control: the ISO value IS in this document, on the attribute where a machine
+    // reads it, so the refusal below is about WHERE it appears and not about a value nothing held.
+    expect(container.querySelector("time")).toHaveAttribute("dateTime", AS_AT);
     expect(textOf(screen.getByTestId("caring-contacts-team"))).not.toContain(AS_AT.toLowerCase());
   });
 });
