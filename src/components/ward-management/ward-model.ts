@@ -27,7 +27,24 @@ export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACH
 export const COHORTS = ["Adult", "Older adult", "Youth"] as const;
 export type Cohort = (typeof COHORTS)[number];
 export type Security = "Open" | "Secure";
-export type Sex = "Female" | "Male";
+
+/**
+ * Fix round C (Phase 7 Task 5, review finding I3 all over again): `Sex` and urgency were the
+ * two remaining 2/3-value unions in this file with no runtime array of their own — see
+ * `COHORTS`'s own doc comment above for the defect class this closes, and for why every other
+ * 3+-value union here (`SEX_DESIGNATIONS`, `REFERRAL_SOURCES`, `REFERRAL_STATES`,
+ * `REFERRAL_DECLINE_REASONS`, `MOVEMENT_STAGES`, `DECLINE_REASONS`, `BED_RELEASE_STATES`) already
+ * carries one. `SEXES` and `URGENCY_LEVELS` below are what every Sex/urgency `<select>` in this
+ * codebase (`referral-intake.tsx`, `referral-match.tsx`, `ed-screen.tsx`, `shortlist-panel.tsx`)
+ * must now derive its option list from, never a hand-written array — the same fix Task 4 already
+ * applied to `COHORT_OPTIONS` in `ed-screen.tsx`, generalised to the two unions it left behind.
+ */
+export const SEXES = ["Female", "Male"] as const;
+export type Sex = (typeof SEXES)[number];
+
+/** See `SEXES`'s own doc comment immediately above — the same fix, for urgency. */
+export const URGENCY_LEVELS = [1, 2, 3] as const;
+export type UrgencyLevel = (typeof URGENCY_LEVELS)[number];
 
 /**
  * Phase 7 (spec "The front door"): the bed-facing counterpart of `Sex`, and a CONSTRAINT on who

@@ -122,4 +122,8 @@ export const WARD_NAV_INTENTIONALLY_UNLISTED: ReadonlyMap<string, string> = new 
     "/mockups/ward-flow/referrals/new",
     "Phase 7 Task 4 built only the referral intake form and its route; wiring it into the rail/panel/drawer nav is Task 6's explicit job, not this task's.",
   ],
+  [
+    "/mockups/ward-flow/referrals",
+    "Phase 7 Task 5 built only the referral board and match view and their route; wiring it into the rail/panel/drawer nav is Task 6's explicit job, same reason as /mockups/ward-flow/referrals/new above.",
+  ],
 ]);

@@ -15,10 +15,20 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
-import { COHORTS, HOME_REGIONS, REFERRAL_SOURCES } from "@/components/ward-management/ward-model";
-import { NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
+import {
+  COHORTS,
+  HOME_REGIONS,
+  REFERRAL_SOURCES,
+  SEXES,
+  URGENCY_LEVELS,
+  type Referral,
+  type Unit,
+} from "@/components/ward-management/ward-model";
+import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /** Mirrors `ward-discharge-board.dom.test.tsx`'s own harness pattern: a real reducer-backed
  *  count, read off shared context, so a test can prove a dispatch actually happened (or did
@@ -111,18 +121,18 @@ describe("ReferralIntakeForm", () => {
     expect(optionValues(select)).toEqual(wardSites.map((site) => site.code));
   });
 
-  it("offers both sexes", () => {
+  it("offers every sex from SEXES — Task 5's fix for the same defect class COHORTS already closed", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-sex");
-    expect(optionValues(select)).toEqual(["Female", "Male"]);
+    expect(optionValues(select)).toEqual([...SEXES]);
   });
 
-  it("offers all three urgency tiers", () => {
+  it("offers every urgency tier from URGENCY_LEVELS", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-urgency");
-    expect(optionValues(select)).toEqual(["1", "2", "3"]);
+    expect(optionValues(select)).toEqual(URGENCY_LEVELS.map(String));
   });
 
   it("describes the request, never the person, for the two need toggles", () => {
@@ -166,5 +176,227 @@ describe("ReferralIntakeForm", () => {
     expect(rejection).toBeInTheDocument();
     expect(rejection).toHaveTextContent(/must resolve to a real site/i);
     expect(screen.queryByTestId("ward-referral-intake-confirmation")).not.toBeInTheDocument();
+  });
+});
+
+function renderBoard() {
+  return render(
+    <WardFlowProvider initialNow={NOW_ANCHOR}>
+      <ReferralBoard />
+    </WardFlowProvider>,
+  );
+}
+
+describe("ReferralBoard", () => {
+  it("renders exactly the real fixture's two queued referrals, in urgency-then-longest-wait order", () => {
+    renderBoard();
+    // RF-001 (raised 40 min ago) and RF-005 (raised 20 min ago) are both tier 2 in the real
+    // fixture — RF-001 goes first because it has waited longer. See
+    // tests/ward-referral-model.test.ts for the pure-function proof this table order is built on.
+    const table = screen.getByTestId("ward-referral-board-queued-table");
+    const ids = within(table)
+      .getAllByRole("row")
+      .slice(1) // drop the header row
+      .map((row) => row.querySelector("td button")?.textContent);
+    expect(ids).toEqual(["RF-001", "RF-005"]);
+  });
+
+  it("renders 'waiting since' prominently on every queued row", () => {
+    renderBoard();
+    expect(screen.getByTestId("ward-referral-board-wait-RF-001")).toHaveTextContent(/waiting/i);
+    expect(screen.getByTestId("ward-referral-board-wait-RF-005")).toHaveTextContent(/waiting/i);
+  });
+
+  it("renders the real fixture's five decided referrals, most recently decided first", () => {
+    renderBoard();
+    // Real fixture decidedAt offsets from NOW_ANCHOR: RF-002 -10, RF-003 -15, RF-004 -25,
+    // RF-006 -5, RF-007 -8 — most recent (smallest offset) first.
+    const table = screen.getByTestId("ward-referral-board-decided-table");
+    const ids = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelector("td")?.textContent);
+    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004"]);
+  });
+
+  it("selecting a queued referral opens its match view, and none is open before that", () => {
+    renderBoard();
+    expect(screen.queryByTestId("ward-referral-match-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-001"));
+    const panel = screen.getByTestId("ward-referral-match-panel");
+    expect(panel).toBeInTheDocument();
+    expect(panel).toHaveTextContent("RF-001");
+  });
+
+  it("every data-testid is unique, including with a match view open", () => {
+    const { container } = renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-001"));
+    const ids = Array.from(container.querySelectorAll("[data-testid]")).map((el) => el.getAttribute("data-testid"));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("RF-001's match view: no bed accepts, and every unit still carries a reason — never an empty list", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-001"));
+
+    expect(screen.getByTestId("ward-referral-match-no-bed")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-referral-match-structural-gap")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-match-accepting-count")).toHaveTextContent(/^0 of \d+ units/);
+
+    const list = screen.getByTestId("ward-referral-match-list");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.length).toBe(allUnits().length);
+    expect(within(list).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("accepting an eligible unit for RF-005 moves it from queued to recently decided", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-005"));
+
+    const list = screen.getByTestId("ward-referral-match-list");
+    const acceptButtons = within(list).getAllByRole("button", { name: /^Accept at/ });
+    expect(acceptButtons.length).toBeGreaterThan(0);
+    fireEvent.click(acceptButtons[0]);
+
+    expect(screen.queryByTestId("ward-referral-board-select-RF-005")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-board-decided-row-RF-005")).toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(/^Accepted at /);
+  });
+
+  it("declining a queued referral moves it to recently decided with the chosen reason", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-005"));
+
+    fireEvent.change(screen.getByTestId("ward-referral-match-decline-reason"), {
+      target: { value: "out_of_catchment" },
+    });
+    fireEvent.click(screen.getByTestId("ward-referral-match-decline"));
+
+    expect(screen.queryByTestId("ward-referral-board-select-RF-005")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-board-decided-row-RF-005")).toBeInTheDocument();
+    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(/^Declined — Out of catchment\.$/);
+  });
+});
+
+/** A referral this suite constructs itself, so the structural-gap and rejection-surfacing tests
+ *  below can control `units` directly rather than depending on the real fixture happening to
+ *  contain the right shape of gap. */
+const SYNTHETIC_YOUTH_REFERRAL: Referral = {
+  id: "RF-TEST-STRUCTURAL",
+  ageBand: "Youth",
+  sex: "Female",
+  secureBedNeeded: false,
+  involuntaryBedNeeded: false,
+  homeRegion: "Perth Metropolitan",
+  source: "community",
+  raisedAt: NOW_ANCHOR - 10,
+  urgency: 2,
+  originSiteCode: "RPH",
+  transportNeeded: false,
+  state: "queued",
+};
+
+/** `ReferralMatchView` takes `units`/`referral` as explicit props (never reading them from
+ *  context itself, the same reason `ShortlistPanel` takes `units` as a prop) — this harness is
+ *  what lets a test hand it a deliberately different `units` array from the provider's own live
+ *  state, either to construct a structural gap the real fixture does not contain, or (in the
+ *  rejection-surfacing suite below) to prove the reducer validates independently of what this
+ *  component's own props believe. */
+function MatchHarness({ referral, units }: { referral: Referral; units: Unit[] }) {
+  const { now, dispatch, rejections } = useWardFlow();
+  return <ReferralMatchView referral={referral} units={units} now={now} dispatch={dispatch} rejections={rejections} />;
+}
+
+function renderMatch(referral: Referral, units: Unit[]) {
+  return render(
+    <WardFlowProvider initialNow={NOW_ANCHOR}>
+      <MatchHarness referral={referral} units={units} />
+    </WardFlowProvider>,
+  );
+}
+
+describe("ReferralMatchView — structural vs operational gap", () => {
+  it("an age band with no unit anywhere in the network reads as a structural fact, never 'no bed available'", () => {
+    const unitsWithoutYouth = allUnits().filter((unit) => unit.cohort !== "Youth");
+    renderMatch(SYNTHETIC_YOUTH_REFERRAL, unitsWithoutYouth);
+
+    const banner = screen.getByTestId("ward-referral-match-structural-gap");
+    expect(banner).toHaveTextContent("No youth unit exists in this network.");
+    expect(banner).not.toHaveTextContent(/no bed available/i);
+    expect(screen.queryByTestId("ward-referral-match-no-bed")).not.toBeInTheDocument();
+  });
+
+  it("the same age band against the real, unmodified network shows no structural gap", () => {
+    renderMatch(SYNTHETIC_YOUTH_REFERRAL, allUnits());
+    expect(screen.queryByTestId("ward-referral-match-structural-gap")).not.toBeInTheDocument();
+  });
+});
+
+/** Raises a fresh, real referral (via `RECEIVE_REFERRAL`, so it genuinely resolves inside the
+ *  live reducer's `state.referrals`) and reviews it against a DECEIVED copy of `units` — every
+ *  unit as this harness's own props see it, except the network's one forensic bed
+ *  (`brm-adult-secure`), which this harness lies about (`forensic: false`) so the component's own
+ *  rendering believes it is eligible and shows an Accept button for it. The live provider's real
+ *  internal unit list is untouched, so `ACCEPT_REFERRAL`'s own `referralEligibility` check (inside
+ *  the reducer) still sees the real forensic bed and refuses — proving the reducer validates
+ *  independently of what the UI believes, the same property `referral-intake.tsx`'s own rejection
+ *  test proves for `RECEIVE_REFERRAL`. */
+function RaiseAndReviewForensicHarness() {
+  const { referrals, units, now, dispatch, rejections } = useWardFlow();
+  const created = referrals.find((referral) => referral.id === "RF-901");
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="raise-forensic-test-referral"
+        onClick={() =>
+          dispatch({
+            type: "RECEIVE_REFERRAL",
+            role: "community",
+            now,
+            ageBand: "Adult",
+            sex: "Male",
+            secureBedNeeded: false,
+            involuntaryBedNeeded: false,
+            homeRegion: "Kimberley",
+            source: "police",
+            urgency: 2,
+            originSiteCode: "BRM",
+            transportNeeded: false,
+          })
+        }
+      >
+        Raise
+      </button>
+      {created ? (
+        <ReferralMatchView
+          referral={created}
+          units={units.map((unit) => (unit.id === "brm-adult-secure" ? { ...unit, forensic: false } : unit))}
+          now={now}
+          dispatch={dispatch}
+          rejections={rejections}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+describe("ReferralMatchView — reducer refusal surfaces visibly, never swallowed", () => {
+  it("an acceptance the reducer refuses (forensic bed) surfaces as a visible Rejection naming the failing gate", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <RaiseAndReviewForensicHarness />
+      </WardFlowProvider>,
+    );
+    fireEvent.click(screen.getByTestId("raise-forensic-test-referral"));
+
+    fireEvent.click(screen.getByTestId("ward-referral-match-accept-brm-adult-secure"));
+
+    const rejection = screen.getByTestId("ward-referral-match-rejection");
+    expect(rejection).toBeInTheDocument();
+    expect(rejection).toHaveTextContent(/forensic/i);
+    // A refused acceptance never silently succeeds — the referral still reads as queued.
+    expect(screen.getByTestId("ward-referral-match-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-referral-match-decided")).not.toBeInTheDocument();
   });
 });

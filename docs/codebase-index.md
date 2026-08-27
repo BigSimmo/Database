@@ -440,12 +440,27 @@ it) from clinical discovery entirely.
   Task 4, spec "The front door": the referral intake form — `/mockups/ward-flow/referrals/new`;
   one form for every source (community, crisis service, police, ambulance, inter-hospital),
   phone-first with `min-h-12` tap targets; every picker is a `<select>` derived from a runtime
-  list in `ward-model.ts` (`COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES`) or from `wardSites`
-  itself, never a hand-written array; no free-text input anywhere. Dispatches `RECEIVE_REFERRAL`
-  with the fixed `role: "community"`; a reducer refusal surfaces as a visible `Rejection`
-  (`ward-referral-intake-rejection`) rather than being swallowed. Not yet linked from the rail/
-  panel/drawer nav — recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6;
-  the coordinator's match view against these referrals is Task 5)
+  list in `ward-model.ts` (`COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES`, `SEXES`,
+  `URGENCY_LEVELS`) or from `wardSites` itself, never a hand-written array; no free-text input
+  anywhere. Dispatches `RECEIVE_REFERRAL` with the fixed `role: "community"`; a reducer refusal
+  surfaces as a visible `Rejection` (`ward-referral-intake-rejection`) rather than being
+  swallowed. Not yet linked from the rail/panel/drawer nav — recorded in
+  `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6), `referrals/referral-board.tsx`
+  and `referrals/referral-match.tsx` (Phase 7 Task 5, spec "The front door": the coordinator's
+  referral board and match view — `/mockups/ward-flow/referrals`. The board lists queued referrals
+  first (urgency tier, then longest-waiting first — `referralQueueOrder`, `ward-referrals.ts`),
+  then recently decided ones, with "waiting since" rendered prominently on every queued row
+  (`referralWaitLabel`). Selecting a queued referral opens the match view, keyed on the referral's
+  own id: every unit in the network via `referralCandidates` (never truncated, sorted or ranked —
+  site-table order throughout), each either accepting the referral or carrying its single reason
+  (`matchReason`) — a forensic bed is shown with its own badge and is never offered; an age band
+  with no unit anywhere in the network reads as a structural fact ("No youth unit exists in this
+  network"), never as an operational "no bed available"; a unit that has never confirmed its
+  capacity states that plainly ("has never confirmed its allocatable bed count"), never a
+  fabricated number or a bare zero. Dispatches `ACCEPT_REFERRAL`/`DECLINE_REFERRAL`
+  with role `coordinator`; a reducer refusal (including the failing gate's own name) surfaces as a
+  visible `Rejection` rather than being swallowed. Not yet linked from the rail/panel/drawer nav —
+  recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)

@@ -8,6 +8,8 @@ import {
   COHORTS,
   HOME_REGIONS,
   REFERRAL_SOURCES,
+  SEXES,
+  URGENCY_LEVELS,
   type Cohort,
   type HomeRegion,
   type ReferralSource,
@@ -28,21 +30,21 @@ import styles from "./referrals.module.css";
  * and the reducer's own subject fields as separate facts.
  *
  * Every picker here is derived directly from the runtime lists `ward-model.ts` exports —
- * `COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES` — or, for the origin site, from `wardSites`
- * itself, never a hand-written array in this file. That is the fix for a defect class that has
- * shipped four separate times in this project: a hand-maintained option list a type or fixture
- * change cannot reach, most recently an emergency-department picker that silently omitted a new
- * age band. `Sex` and urgency (`1 | 2 | 3`) are the two exceptions — both are fixed, already-
- * exhaustive literal unions with no runtime array of their own anywhere in `ward-model.ts` (see
- * that file's own comment on `COHORTS` for why: only 3+-value unions get one), so `SEX_OPTIONS`
- * and `URGENCY_OPTIONS` below mirror the exact same fixed literals `ed-screen.tsx` and
- * `shortlist-panel.tsx` already use for the same two types.
+ * `COHORTS`, `HOME_REGIONS`, `REFERRAL_SOURCES`, `SEXES`, `URGENCY_LEVELS` — or, for the origin
+ * site, from `wardSites` itself, never a hand-written array in this file. That is the fix for a
+ * defect class that has shipped four separate times in this project: a hand-maintained option
+ * list a type or fixture change cannot reach, most recently an emergency-department picker that
+ * silently omitted a new age band. `Sex` and urgency used to be the two exceptions — fixed,
+ * already-exhaustive literal unions with no runtime array of their own anywhere in
+ * `ward-model.ts` — until Phase 7 Task 5 added `SEXES` and `URGENCY_LEVELS` there for exactly
+ * this reason (see that file's own comment on `SEXES`); `SEX_OPTIONS` and `URGENCY_OPTIONS`
+ * below now derive from them like every other picker on this form.
  */
 const AGE_BAND_OPTIONS: Cohort[] = [...COHORTS];
 const HOME_REGION_OPTIONS: HomeRegion[] = [...HOME_REGIONS];
 const SOURCE_OPTIONS: ReferralSource[] = [...REFERRAL_SOURCES];
-const SEX_OPTIONS: Sex[] = ["Female", "Male"];
-const URGENCY_OPTIONS: (1 | 2 | 3)[] = [1, 2, 3];
+const SEX_OPTIONS: Sex[] = [...SEXES];
+const URGENCY_OPTIONS: (1 | 2 | 3)[] = [...URGENCY_LEVELS];
 
 /** Display labels only — never the picker's own option set, which is always
  *  `SOURCE_OPTIONS.map(...)`. A source missing from this map still renders (as its own raw

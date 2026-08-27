@@ -38,6 +38,7 @@ import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
@@ -98,14 +99,14 @@ const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((ent
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
   it("finds every known page.tsx under src/app/mockups/ward-flow, both static and dynamic", () => {
-    // 19 page.tsx files measured on this branch at HEAD: 16 static + 3 dynamic
+    // 20 page.tsx files measured on this branch at HEAD: 17 static + 3 dynamic
     // (ed/[edId], patients/[patientId], ward/[unitId]) — Task 6 added the discharges board,
     // Phase 6 Task 2 added the morning bed state page, Phase 7 Task 4 added the referral intake
-    // form's route (referrals/new).
+    // form's route (referrals/new), Phase 7 Task 5 added the referral board's route (referrals).
     // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
     // handful, and every assertion below would then vacuously pass — so this is checked before
     // trusting any of them.
-    expect(wardFlowRoutes.length).toBe(19);
+    expect(wardFlowRoutes.length).toBe(20);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -113,6 +114,7 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/discharges`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/morning`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals/new`);
+    expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/transport/officer`);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ward/rph-adult-secure`))).toBe(true);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ed/peel-ed`))).toBe(true);
@@ -309,6 +311,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
     render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),
   },
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
+  { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
 ];
 
 describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on the map)", () => {
@@ -320,7 +323,7 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
-    expect(RENDERABLE_ROUTES.length).toBe(18);
+    expect(RENDERABLE_ROUTES.length).toBe(19);
   });
 });
 

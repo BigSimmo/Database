@@ -23,6 +23,8 @@ import { legalFormName, SELECTABLE_LEGAL_FORMS } from "@/components/ward-managem
 import {
   COHORTS,
   ED_ACCESS_TARGET_MINUTES,
+  SEXES,
+  URGENCY_LEVELS,
   type Cohort,
   type LegalStatus,
   type Movement,
@@ -50,14 +52,17 @@ type EdScreenProps = { edId: string };
  */
 const COHORT_OPTIONS: Cohort[] = [...COHORTS];
 const SECURITY_OPTIONS: Security[] = ["Open", "Secure"];
-const SEX_OPTIONS: Sex[] = ["Female", "Male"];
+// Phase 7 Task 5: derived from `SEXES`/`URGENCY_LEVELS` (`ward-model.ts`) rather than
+// hand-listed, closing the same gap `COHORT_OPTIONS` above closed for `Cohort` — see that
+// file's own doc comment on `SEXES` for the defect class this prevents.
+const SEX_OPTIONS: Sex[] = [...SEXES];
 const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
   "Voluntary",
   "Referred for psychiatric examination",
   "Detained awaiting examination",
   "Involuntary inpatient",
 ];
-const URGENCY_OPTIONS = [1, 2, 3] as const;
+const URGENCY_OPTIONS = URGENCY_LEVELS;
 
 /**
  * The `<option>` value standing for "no form". A `<select>` option value is always a string, so

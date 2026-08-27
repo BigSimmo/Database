@@ -16,7 +16,14 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
-import type { BedRelease, LeaveBed, Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
+import type {
+  BedRelease,
+  LeaveBed,
+  Movement,
+  Referral,
+  Rejection,
+  Unit,
+} from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -39,6 +46,12 @@ import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 type WardFlowContextValue = {
   movements: Movement[];
   units: Unit[];
+  /** Task 5 (Phase 7, "The front door"): the referral board and match view need every front-door
+   *  referral, live from reducer state — the same reasoning `bedReleases`/`leaveBeds` below
+   *  already document for their own collections. Previously omitted: the intake form's own
+   *  success banner (`referral-intake.tsx`) could not echo the referral it had just raised,
+   *  because nothing on this context carried it. */
+  referrals: Referral[];
   rejections: Rejection[];
   /** Task 11 (spec item 9): beds expected to free up, live from reducer state so a ward's own
    *  `FLAG_BED_RELEASE` shows up on every screen reading `unitCapacity()`'s `potential` figure. */
@@ -121,6 +134,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     () => ({
       movements: state.movements,
       units: state.units,
+      referrals: state.referrals,
       rejections: state.rejections,
       bedReleases: state.bedReleases,
       leaveBeds: state.leaveBeds,
@@ -134,6 +148,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     [
       state.movements,
       state.units,
+      state.referrals,
       state.rejections,
       state.bedReleases,
       state.leaveBeds,

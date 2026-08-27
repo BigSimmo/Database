@@ -31,6 +31,7 @@ import type { WardFlowEvent } from "@/components/ward-management/ward-flow-event
 import { legalFormName } from "@/components/ward-management/ward-legal-forms";
 import {
   PARALLEL_REFERRAL_CAP,
+  URGENCY_LEVELS,
   type BedRelease,
   type LegalStatus,
   type Movement,
@@ -91,7 +92,9 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
   "Involuntary inpatient",
 ];
 
-const URGENCY_OPTIONS = [1, 2, 3] as const;
+// Phase 7 Task 5: derived from `URGENCY_LEVELS` (`ward-model.ts`) rather than hand-listed —
+// see that file's own doc comment on `SEXES` for the defect class this prevents.
+const URGENCY_OPTIONS = URGENCY_LEVELS;
 
 function capacityLine(unit: Unit, bedReleases: BedRelease[]) {
   const capacity = unitCapacity(unit, bedReleases);
