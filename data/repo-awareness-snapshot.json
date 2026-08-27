@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "7bf475681cd1e28bb118bb17a32137ff7adbe005",
-    "committed_at": "2026-08-27T07:55:39+00:00"
+    "sha": "69212e2fb3e902de6e7d1336ac14bc9bc60d7b4a",
+    "committed_at": "2026-08-27T10:41:00+00:00"
   },
   "routes": {
     "modes": [
@@ -3902,6 +3902,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty (main advanced 5 commits past merge base to a DSM comparison-page redesign #2409 that conflicted with this PR's DSM search/compare changes); 0 unresolved review threads (5 PR comments were all bot rate-limit/housekeeping noise, no actionable findings); CI had not yet run on a clean merge. After: merged origin/main resolving real content conflicts in 5 files (dsm-compare-chrome.tsx, dsm-comparison-page.tsx, dsm-page-header.tsx, mode-secondary-navigation.ts, tests/ui-route-coverage.spec.ts) by combining both sides' intent (kept main's compact-header redesign and null-id-filter fix, kept this PR's dsmSearchHref routing, compact compare starters, and showEmptyState/slotLayout opt-ins) rather than blanket ours/theirs; pushed merge commit 6e5531ce. No review threads needed action. CI re-triggered on the new head (run 33051601015) and was still in progress (Lint/Unit coverage/Build/4x Production UI shards/Lighthouse running) after ~34 minutes of observation with no new job-log progress in the final two snapshots; left for a human or a later session to confirm green.",
         "checks": "npm run typecheck (clean, gate-receipts recorded pass), npm run lint (clean, gate-receipts recorded pass), npx vitest run tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-comparison-page.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/information-page-shell.dom.test.tsx (75 passed), npm run format (no changes needed). No provider-backed checks run; hosted CI run 33051601015 still in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "958a6b4f7c969f07cb118ccc0c581939fd81bcab",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
+        "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
       },
       {
         "date": "2026-08-27",
@@ -24945,7 +24953,7 @@
       }
     ],
     "counts": {
-      "records": 2632,
+      "records": 2633,
       "refs": 1609
     }
   }
