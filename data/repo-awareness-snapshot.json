@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1d30232368149a28c5211a9f1f2533c8865971c0",
-    "committed_at": "2026-08-27T18:46:54+08:00"
+    "sha": "9fa1102d0845efc816d281400e28cc44201b2ea1",
+    "committed_at": "2026-08-28T04:53:13+08:00"
   },
   "routes": {
     "modes": [
@@ -954,6 +954,16 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/referrals",
+        "file": "src/app/mockups/ward-flow/referrals/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/referrals/new",
+        "file": "src/app/mockups/ward-flow/referrals/new/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/search",
         "file": "src/app/mockups/ward-flow/search/page.tsx",
         "area": "mockup"
@@ -1402,9 +1412,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 196,
+      "pages": 198,
       "product_pages": 55,
-      "mockup_pages": 141,
+      "mockup_pages": 143,
       "redirects": 17,
       "api": 58
     }
@@ -3177,6 +3187,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-08-28-ward-flow-ward-board.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
         "catalogued": false
@@ -3472,6 +3487,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/testing.md",
         "section": "root",
         "catalogued": true
@@ -3487,6 +3507,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-autonomous-session-2026-08-28.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-clinician-check.md",
         "section": "root",
         "catalogued": true
@@ -3498,6 +3523,11 @@
       },
       {
         "path": "docs/ward-flow-context.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-handover-2026-08-28.md",
         "section": "root",
         "catalogued": false
       },
@@ -3792,6 +3822,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-phase-8-9-questions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-phase-8-decisions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3892,9 +3932,9 @@
       }
     ],
     "counts": {
-      "documents": 484,
+      "documents": 490,
       "catalogued": 106,
-      "uncatalogued": 378,
+      "uncatalogued": 384,
       "sections": 19
     }
   },
