@@ -91,6 +91,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ urls: {} });
     }
 
+    // Sign all valid images uniformly. The single-image route (/api/images/[id]/signed-url)
+    // always signs regardless of corpus visibility; doing the same here avoids a silent
+    // breakage if the image bucket policy is ever tightened from public to private.
     const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string }> =
       {};
 
