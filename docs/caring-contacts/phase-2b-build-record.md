@@ -3287,3 +3287,50 @@ rather than a delay.** `message-copy.ts` is edited on `cc-message-name`. Changin
 create a hand-resolved conflict on the single most consequential module in the phase, which is the exact
 class the merge checklist exists to avoid. Waiting costs hours; the conflict would cost more and risk more.
 **The wording is recorded here so nothing about it depends on remembering.**
+
+### Ruling [145] — the merge map re-verified after the catch-up, and a squash-merge artefact sitting in the inbox
+
+**The conflict map is unchanged.** Re-running `git merge-tree --write-tree` for all four branches against
+the trunk **as it now stands** — after the second catch-up merge and today's rulings — reproduces the
+recorded map exactly: `cc-message-name` **clean**; `cc-plan-detail` one conflict, the client-component
+allowlist array in `tests/caring-contacts-explained-automation.dom.test.tsx`; `cc-schedule` that same array
+plus `STANDING-DISCIPLINE.md` add/add and the generated design-system set; `cc-demo-seed` the same generated
+set plus `task-19-brief.md` add/add and `docs/site-map.md`. `patient-overview.tsx` still does not appear,
+and §2b of the merge checklist already explains why — it conflicts at step 4, once step 3 has landed Task
+10's additions. **Re-derived rather than carried forward**, because a conflict map is a claim about two
+trees and both trees moved today.
+
+**The new finding: `check-docs-links` is red on the trunk, and for two unrelated reasons.**
+
+**The first is an artefact of the split and will resolve itself.** Archive briefs on the trunk reference
+report files that live on other branches — `task-seed-brief.md` naming `task-seed-report.md`, which is on
+`cc-templates`. The merge brings them together. Nothing to fix; do not "repair" these by deleting the
+references, which would destroy real cross-references a few hours before they resolve.
+
+**The second is real and blocks the check outright.** `scripts/outstanding-issues.mjs` throws rather than
+completing: `issue ULID 01M0SA6T7M0HYHTHE5MHJJ66G1 appears 2 times (lines 128, 178) — durable identities
+are never reused`. Traced rather than guessed: **eleven of the trunk's forty-seven root inbox requests are
+byte-identical to files already sitting under `docs/outstanding-issues-inbox/applied/`**, and their content
+is already in the canonical ledger. Replaying them would add issues that have already been added, which is
+exactly what the guard refuses.
+
+**The cause is the squash-merge trap this repository documents, seen from the far side.** The trunk created
+these requests at `2bac3fb1e`. That work reached `main` as squash commit `82f20e64d` (#2350), and `main`
+then reconciled them at `707b96596` (#2372), deleting the root copies and writing the `applied/` records.
+Because a squash commit carries no parent link back to the branch it came from, the merge base cannot see
+the trunk's `2bac3fb1e` as the ancestor of `main`'s copy — so `main`'s deletion never propagated, and the
+trunk's originals survived alongside `main`'s applied records. **Neither side did anything wrong and the
+result is still wrong**, which is the whole character of this trap.
+
+**Resolution deferred to the merge point, deliberately.** The eleven root copies should go: `main` deleted
+these exact files, their `applied/` records are present, and their content is in the ledger, so deleting
+them restores the state `main` already reached rather than discarding queued work. But
+`check:ledger-write-discipline` rejects deleted requests by design, and **I will not delete a ledger
+request on my own reading of a rule written to stop exactly that.** Run the gate first and act on its
+verdict. It was started here and had not returned before the heavy lease went to the re-review; it is on
+the merge-point list.
+
+**What must NOT happen: nobody may run `npm run issues:reconcile` to clear this.** That command is the one
+thing permitted to edit the canonical ledger, it runs from a deliberately serialised fresh-base branch, and
+pointing it at a trunk carrying four unmerged branches is how a reconciliation transaction stops matching
+its own recorded diff.
