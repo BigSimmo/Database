@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 5,
+    "pending": 6,
     "resolved": 431
   },
   "queue": [
@@ -824,6 +824,12 @@
     }
   ],
   "pending": [
+    {
+      "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
+      "action": "add",
+      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
+      "created_at": "2026-08-27"
+    },
     {
       "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
       "action": "add",
