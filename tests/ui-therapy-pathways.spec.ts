@@ -47,11 +47,14 @@ async function readCautionGeometry(page: Page) {
   return page.evaluate(() => {
     const caution = document.querySelector<HTMLElement>('[data-testid="therapy-pathway-caution"]');
     const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
-    const cautionRect = caution?.getBoundingClientRect();
-    const dockRect = dock?.getBoundingClientRect();
+    if (!caution || !dock) {
+      throw new Error("Expected both the pathway caution band and the answer footer search dock to be present");
+    }
+    const cautionRect = caution.getBoundingClientRect();
+    const dockRect = dock.getBoundingClientRect();
     return {
-      cautionBottom: cautionRect?.bottom ?? Number.NEGATIVE_INFINITY,
-      dockTop: dockRect?.top ?? Number.POSITIVE_INFINITY,
+      cautionBottom: cautionRect.bottom,
+      dockTop: dockRect.top,
       reserve: getComputedStyle(document.querySelector("#main-content")!)
         .getPropertyValue("--mobile-composer-reserve")
         .trim(),
@@ -74,10 +77,22 @@ test("phone pathways picker opens, anxiety steps scroll above composer, caution 
   await expect(page.getByTestId("therapy-pathway-steps")).toBeVisible();
   await expect(page.locator(".therapy-pathway-list")).toBeHidden();
 
+  // Selecting a different pathway must actually change the active pathway, not just close the
+  // sheet — clicking the already-active row would pass a check that only asserts the panel closed.
+  await page.getByRole("button", { name: "Change pathway" }).click();
+  await expect(page.getByTestId("therapy-pathway-picker-panel")).toBeVisible();
+  await page.getByRole("button", { name: "Mood pathway" }).click();
+  await expect(page.getByTestId("therapy-pathway-picker-panel")).toBeHidden();
+  await expect(page).toHaveURL(/pathway=mood-pathway/);
+  await expect(picker.getByText("Mood pathway", { exact: false }).first()).toBeVisible();
+
+  // Switch back to Anxiety pathway so the remaining steps/caution/composer assertions below,
+  // which are scoped to the anxiety fixture data, stay valid.
   await page.getByRole("button", { name: "Change pathway" }).click();
   await expect(page.getByTestId("therapy-pathway-picker-panel")).toBeVisible();
   await page.getByRole("button", { name: "Anxiety pathway" }).click();
   await expect(page.getByTestId("therapy-pathway-picker-panel")).toBeHidden();
+  await expect(page).toHaveURL(/pathway=anxiety-pathway/);
 
   const lastStep = page.getByTestId("therapy-pathway-steps").getByRole("button", { name: "Open record" }).last();
   await expect(lastStep).toBeVisible();

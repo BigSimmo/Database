@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 
 import type { Pathway, PathwayStep, Therapy } from "./data/types";
+import { pathwayLinkedStepCount } from "./pathway-review-label";
 
 type PathwayStepStackProps = {
   steps: PathwayStep[];
@@ -188,7 +189,7 @@ export function PathwayDetailHeader({ pathway, reviewBadge }: { pathway: Pathway
         </p>
         <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
           <Waypoints aria-hidden="true" size={14} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
-          {pathway.steps.length} linked therapy steps
+          {pathwayLinkedStepCount(pathway)} linked therapy steps
         </div>
       </div>
     </div>

@@ -1,7 +1,11 @@
 import type { Pathway } from "./data/types";
 
+export function pathwayLinkedStepCount(pathway: Pick<Pathway, "steps">): number {
+  return pathway.steps.filter((step) => Boolean(step.therapySlug)).length;
+}
+
 export function pathwayRowAccessibleName(pathway: Pathway, active: boolean): string {
-  const parts = [pathway.name, `${pathway.steps.length} linked steps`, pathwayReviewLabel(pathway)];
+  const parts = [pathway.name, `${pathwayLinkedStepCount(pathway)} linked steps`, pathwayReviewLabel(pathway)];
   if (active) parts.push("currently selected");
   return parts.join(", ");
 }
