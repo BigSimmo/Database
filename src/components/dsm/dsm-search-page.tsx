@@ -180,7 +180,7 @@ export function DsmSearchPage({
               <Link
                 href={compareHref(selected)}
                 data-testid="dsm-search-compare"
-                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-10"
+                className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg bg-[color:var(--command)] px-2.5 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
               >
                 <GitCompareArrows className="h-4 w-4" aria-hidden />
                 Compare {selected.length}

@@ -182,7 +182,7 @@ export function FormattedHighYieldSummary({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className={cn(floatingControl, "sm:min-h-9 px-3 text-xs")}
+          className={cn(floatingControl, "sm:min-h-compact-meta px-3 text-xs")}
           data-testid="toggle-full-summary"
         >
           {expanded ? "Show key points only" : "Show full summary"}
@@ -415,7 +415,7 @@ export function DocumentImage({
         <>
           {figcaptionBlock}
           <details className="group mt-3">
-            <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] sm:min-h-9">
+            <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] sm:min-h-compact-meta">
               <FileImage aria-hidden="true" className="h-4 w-4 shrink-0" />
               Show original table image
               <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
@@ -593,7 +593,7 @@ export function TableReviewPanel({
                     disabled={!canReview || busyFactId === fact.id}
                     onClick={() => onReview(fact, value)}
                     className={cn(
-                      "inline-flex min-h-tap items-center rounded-md border px-2 text-2xs font-semibold transition sm:min-h-8",
+                      "inline-flex min-h-tap items-center rounded-md border px-2 text-2xs font-semibold transition sm:min-h-compact-meta",
                       reviewClass === value
                         ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -757,10 +757,7 @@ export function PinnedSourceEvidence({
           <div className="mt-3 grid grid-cols-3 gap-1.5 sm:gap-2">
             <a
               href="#pdf-preview-section"
-              className={cn(
-                primaryButton,
-                "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
-              )}
+              className={cn(primaryButton, "min-w-0 justify-center px-1.5 text-center text-2xs sm:px-3 sm:text-xs")}
             >
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
               <span>View PDF</span>
@@ -771,7 +768,7 @@ export function PinnedSourceEvidence({
                 onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
                 className={cn(
                   secondaryButton,
-                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
+                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-compact-meta sm:px-3 sm:text-xs",
                 )}
                 data-testid="toggle-full-passage"
                 aria-expanded={expanded}
@@ -788,7 +785,7 @@ export function PinnedSourceEvidence({
                 onClick={onInspectIndexedText}
                 className={cn(
                   secondaryButton,
-                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-9 sm:px-3 sm:text-xs",
+                  "min-w-0 justify-center px-1.5 text-center text-2xs sm:min-h-compact-meta sm:px-3 sm:text-xs",
                 )}
                 data-testid="inspect-indexed-text"
               >
@@ -1142,7 +1139,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             >
               <summary
                 onClick={handleNestedSummaryClick}
-                className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+                className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-compact-meta"
               >
                 <span>
                   <span className="block text-sm font-semibold text-[color:var(--text)]">Full extracted page text</span>
@@ -1260,7 +1257,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                   >
                     <summary
                       onClick={handleNestedSummaryClick}
-                      className="flex min-h-tap cursor-pointer list-none items-start justify-between gap-2 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+                      className="flex min-h-tap cursor-pointer list-none items-start justify-between gap-2 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-compact-meta"
                     >
                       <span className="min-w-0">
                         <span
