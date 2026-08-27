@@ -502,7 +502,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Compare two specifiers", level: 1 })).toBeVisible();
-        await expect(currentPage.getByText("Find the deciding clinical difference.", { exact: true })).toBeVisible();
+        await expect(currentPage.getByText("Side-by-side review", { exact: true })).toBeVisible();
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
