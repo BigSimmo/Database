@@ -1,23 +1,28 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { WARD_VIEWS } from "@/components/ward-management/ward-nav";
+
 import { elapsedLabel } from "../src/components/ward-management/ward-derivations";
+import { legalFormName } from "../src/components/ward-management/ward-legal-forms";
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
-import { toolCatalogRecordById } from "../src/lib/tools-catalog";
 
 const modesSource = readFileSync("src/components/ward-management/ward-management-modes.tsx", "utf8");
 
 /**
- * The mode strip renders one literal `<Link href="...">` per view so
- * `tests/route-reachability.test.ts` can find the hrefs by static AST scan. Reading the
- * source back is therefore the only way to assert the strip and the routes agree.
+ * The eight views, read from the data the rail, the panel and the drawer all render from.
+ *
+ * This used to be a regex over `WardModeNavigation`'s own source text, because the eight
+ * destinations only existed as eight literal `<Link href="...">` blocks inside that function.
+ * They now live in `WARD_VIEWS` (`ward-nav.ts`), which is both a stronger check — it reads what
+ * ships rather than what the source happens to spell — and the reason a labelled sidebar was
+ * possible at all: a panel cannot read a rail's icon-only JSX, and a second hand-maintained copy
+ * of the same eight destinations is the exact defect `ward-nav.ts` exists to prevent.
  */
 function wardModeHrefs() {
-  const source = readFileSync("src/components/ward-management/ward-management-navigation.tsx", "utf8");
-  const modeStrip = source.slice(source.indexOf("export function WardModeNavigation"));
-  return [...modeStrip.matchAll(/href="(\/ward-management[^"]*)"/g)].map((match) => match[1]);
+  return WARD_VIEWS.map((view) => view.href);
 }
 
 function routeFileFor(href: string) {
@@ -27,25 +32,32 @@ function routeFileFor(href: string) {
 describe("Ward Flow synthetic prototype", () => {
   it("declares every queue and capacity header as a column header", () => {
     const thTags = [...modesSource.matchAll(/<th(?:\s[^>]*)?>/g)].map((match) => match[0]);
-    expect(thTags).toHaveLength(12);
+    // Task 8 (spec item 6) added three capacity-board columns — Sex mix, Specialling, and MHA
+    // authorised — raising the count from 12 to 15. Phase 5 added a fourth, "Coordinator action"
+    // (the coordinator's refresh control, spec D12), raising it again to 16. The former "Bed
+    // states" header covered five raw counts in one cell; it now shows Confirmed and Predicted
+    // (via capacityBreakdown) instead of a single undifferentiated count, so the header text
+    // dropped its "five" framing — the column itself is unchanged and still counted once here.
+    expect(thTags).toHaveLength(16);
     expect(thTags.every((tag) => tag.includes('scope="col"'))).toBe(true);
   });
 
-  it("keeps the production route reachable from the Tools catalogue", () => {
-    expect(toolCatalogRecordById("ward-management").href).toBe("/ward-management");
-  });
+  // Ward Flow is deliberately absent from the Tools catalogue — see
+  // tests/ward-flow-sandbox.test.ts, which asserts no catalogue entry's href
+  // starts with "/ward-management" or "/mockups/ward-flow". Reachability here
+  // is instead through the developer-gated hub panel (also asserted there).
 
   it("maps every Ward Flow view to a distinct reachable route", () => {
     const hrefs = wardModeHrefs();
     expect(hrefs).toEqual([
-      "/ward-management",
-      "/ward-management/network",
-      "/ward-management/queue",
-      "/ward-management/capacity",
-      "/ward-management/movements",
-      "/ward-management/exceptions",
-      "/ward-management/transport",
-      "/ward-management/governance",
+      "/mockups/ward-flow",
+      "/mockups/ward-flow/network",
+      "/mockups/ward-flow/queue",
+      "/mockups/ward-flow/capacity",
+      "/mockups/ward-flow/movements",
+      "/mockups/ward-flow/exceptions",
+      "/mockups/ward-flow/transport",
+      "/mockups/ward-flow/governance",
     ]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     for (const href of hrefs) {
@@ -108,7 +120,14 @@ describe("Ward Flow synthetic prototype", () => {
     const referredMovement = movementById("WF-001");
     expect(referredMovement?.legalStatus).toBe("Referred for psychiatric examination");
     expect(referredMovement?.legalForm?.code).toBe("1A");
-    expect(referredMovement?.legalForm?.label).toBe("Referral for examination");
+    // MEANING CHANGED 2026-08-24, deliberately. This used to assert the prototype's own stored
+    // label, "Referral for examination". Ward Flow no longer holds titles: the movement stores
+    // the code, and `legalFormName` resolves the Chief Psychiatrist register's official title —
+    // which for a 1A is "Referral for examination by a psychiatrist", four words longer. The
+    // assertion is now about what a reader actually sees, not about a field that no longer
+    // exists, and it would fail if the register stopped listing 1A rather than passing on a
+    // locally-held fallback.
+    expect(legalFormName(referredMovement!.legalForm!)).toBe("Form 1A (Referral for examination by a psychiatrist)");
   });
 
   it("labels how long a movement has been waiting, not how overdue it is", () => {

@@ -32,7 +32,7 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
     return true;
   // factsheets/factsheet-nav-header.tsx, mounted by the detail page.
-  if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;

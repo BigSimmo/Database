@@ -5,6 +5,7 @@ import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
+import { CARING_CONTACTS_ROUTES, type CaringContactsRouteKey } from "@/lib/caring-contacts-routes";
 import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
@@ -43,10 +44,11 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
-  [
-    "/ward-management/constellation",
-    "Retired Phase 1 constellation view. It redirects to /ward-management/network so live-main bookmarks keep working; in-app navigation uses the eight remaining rail modes and does not send readers through the redirect.",
-  ],
+  // The former "/ward-management/constellation" entry was removed, not repointed at
+  // "/mockups/ward-flow/constellation": Ward Flow's sandbox move put every one of its routes
+  // under /mockups, and staticPageRoutes below excludes every /mockups route outright, so the
+  // constellation redirect is no longer a static page route at all and an allowlist entry for it
+  // would trip "reachability allowlist has no stale entries" below.
 ]);
 
 function isMockupPath(relPosix: string) {
@@ -518,6 +520,36 @@ for (const match of tcReservedSegments) {
   builderTargets.add(`${tcBase}/${match[1]}`);
 }
 
+// The Caring Contacts workspace owns its own navigation. `shell.tsx` holds one frozen
+// destination table and renders each entry as a `<Link href={href}>` — an identifier, never a
+// literal — so the JSX scan above sees no path at all. The table is the source of truth for what
+// is linked, and an entry carries an `href` only once its page exists (Ruling 52), so reading it
+// here is reading the same fact the shell renders rather than a second copy of it.
+// `caring-contacts-routes.ts` is deliberately React-free string data, so importing it is safe.
+// `tests/caring-contacts-workspace-shell.dom.test.tsx` independently pins that each of these is
+// rendered as a real link, which is what stops this builder from vouching for a dead entry.
+const workspaceShellSrc = readFileSync(path.join(srcRoot, "components/caring-contacts/workspace/shell.tsx"), "utf8");
+const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href:\s*CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
+  (match) => match[1],
+);
+// Fail loudly rather than silently covering nothing: an empty parse here would let every built
+// workspace destination read as an orphan, or — worse — let a future one go unchecked.
+if (workspaceHrefKeys.length === 0) {
+  throw new Error(
+    "route-reachability: parsed no `href: CARING_CONTACTS_ROUTES.*` entries from the Caring Contacts shell — " +
+      "update this parser to match the current source so workspace destinations stay covered.",
+  );
+}
+for (const key of workspaceHrefKeys) {
+  const href = CARING_CONTACTS_ROUTES[key as CaringContactsRouteKey];
+  if (!href) {
+    throw new Error(
+      `route-reachability: the Caring Contacts shell links CARING_CONTACTS_ROUTES.${key}, which does not exist.`,
+    );
+  }
+  builderTargets.add(pathOnly(href));
+}
+
 /** A route is reachable if a builder emits it, or a non-mockup source file links to it. */
 function isReachable(route: string, selfFile: string) {
   if (builderTargets.has(route)) return true;
@@ -634,6 +666,17 @@ describe("route reachability", () => {
         `(sidebar/launcher/mode home/search), or add to REACHABILITY_ALLOWLIST with a reason: ${orphans.join(", ")}`,
     ).toEqual([]);
   });
+
+  // The three narrowed reachability assertions that used to live here (handover, escalation,
+  // search — Tasks 4, 5, 7) each pinned one Ward Flow route into `staticPageRoutes` so a
+  // regression named the exact route rather than surfacing in the combined orphan list. Ward
+  // Flow's sandbox move put every one of its routes under `/mockups/ward-flow/**`, and
+  // `staticPageRoutes` deliberately excludes every `/mockups` route (mockups are design-scratch
+  // and not required to be linked — see the file header comment), the same way no such narrowed
+  // test exists for Care Plan or Caring Contacts. The property these three tests asserted no
+  // longer applies, so they are removed rather than repointed at the new path, which would
+  // silently fail `toBeDefined()` on every run since the route can never appear in
+  // `staticPageRoutes` again.
 
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));

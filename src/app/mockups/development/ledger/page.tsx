@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { CARD_CLASS, CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
 import { LEDGER_DETAIL_CLASS, LEDGER_DISCLOSURE_CLASS, LedgerItem } from "@/components/developer-area/hub/ledger-item";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
@@ -33,29 +34,6 @@ const ACUITY_NOTE: Record<string, string> = {
   A3: "start when there is room",
 };
 
-const TILE_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
-const TILE_NUMBER_CLASS = "text-2xl font-extrabold text-[color:var(--text-heading)]";
-const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
-const SECTION_HEADING_CLASS = "text-lg font-extrabold text-[color:var(--text-heading)]";
-const META_CLASS = "text-xs text-[color:var(--text-muted)]";
-
-/**
- * The number gets its own test id so an assertion can read it on its own. The
- * tile's label is prose and may contain digits of its own — "blocking, priority
- * P1" carries a `1` — which would make a `toHaveTextContent` check on the whole
- * tile pass against any value whenever the real count happened to be 1.
- */
-function CountTile({ id, value, label }: { id: string; value: number; label: string }) {
-  return (
-    <div data-testid={`developer-ledger-count-${id}`} className={TILE_CLASS}>
-      <span data-testid={`developer-ledger-count-${id}-value`} className={TILE_NUMBER_CLASS}>
-        {value}
-      </span>
-      <span className={TILE_LABEL_CLASS}>{label}</span>
-    </div>
-  );
-}
-
 export default function DeveloperLedgerPage() {
   const snapshot = loadLedgerSnapshot();
   const freshness = resolveFreshness(snapshot, new Date());
@@ -75,23 +53,25 @@ export default function DeveloperLedgerPage() {
   const unrecognised: LedgerOpenItem[] = snapshot.open.filter((item) => !recognised.has(item));
 
   return (
-    <PanelPageShell testId="developer-ledger" title="Task ledger" freshness={freshness}>
+    <PanelPageShell testId="developer-ledger" title="Task ledger" freshness={freshness} freshnessLabel="Ledger">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <CountTile id="open" value={snapshot.counts.open} label="open items" />
-        <CountTile id="p1" value={snapshot.counts.p1} label="blocking, priority P1" />
-        <CountTile id="queued" value={snapshot.counts.queued} label="in the running order" />
-        <CountTile id="pending" value={snapshot.counts.pending} label="requests not yet applied" />
+        <CountTile testId="developer-ledger-count-open" value={snapshot.counts.open} label="open items" />
+        <CountTile testId="developer-ledger-count-p1" value={snapshot.counts.p1} label="blocking, priority P1" />
+        <CountTile testId="developer-ledger-count-queued" value={snapshot.counts.queued} label="in the running order" />
+        <CountTile
+          testId="developer-ledger-count-pending"
+          value={snapshot.counts.pending}
+          label="requests not yet applied"
+        />
       </div>
 
       {grouped.P1.length > 0 ? (
-        <section
-          data-testid="developer-ledger-blockers"
-          aria-labelledby="developer-ledger-blockers-heading"
+        <PanelSection
+          testId="developer-ledger-blockers"
+          headingId="developer-ledger-blockers-heading"
+          heading="Blocking now"
           className="grid gap-2 rounded-xl border border-[color:var(--danger)]/40 bg-[color:var(--danger-soft)] px-4 py-3"
         >
-          <h2 id="developer-ledger-blockers-heading" className={SECTION_HEADING_CLASS}>
-            Blocking now
-          </h2>
           <ul className="grid gap-2">
             {grouped.P1.map((item) => (
               <li key={item.id} className="text-sm leading-6 text-[color:var(--text-heading)]">
@@ -100,13 +80,10 @@ export default function DeveloperLedgerPage() {
             ))}
           </ul>
           <p className={META_CLASS}>Full detail for each of these is in the open items list below.</p>
-        </section>
+        </PanelSection>
       ) : null}
 
-      <section aria-labelledby="developer-ledger-queue-heading" className="grid gap-3">
-        <h2 id="developer-ledger-queue-heading" className={SECTION_HEADING_CLASS}>
-          Recommended running order
-        </h2>
+      <PanelSection headingId="developer-ledger-queue-heading" heading="Recommended running order">
         <p data-testid="developer-ledger-queue-caption" className={META_CLASS}>
           Ordered by acuity — urgency, not priority. Acuity says how soon to start something; the priority badges
           further down say how much an item matters. They are separate scales kept on separate tables, and neither is
@@ -152,12 +129,9 @@ export default function DeveloperLedgerPage() {
             );
           })}
         </ol>
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-ledger-open-heading" className="grid gap-3">
-        <h2 id="developer-ledger-open-heading" className={SECTION_HEADING_CLASS}>
-          Open items
-        </h2>
+      <PanelSection headingId="developer-ledger-open-heading" heading="Open items">
         {/*
          * A wrapper rather than one `<ul>`: each priority group needs its own
          * heading, and a heading between `<li>` siblings is not valid list
@@ -170,25 +144,30 @@ export default function DeveloperLedgerPage() {
             if (items.length === 0) return null;
             const headingId = `developer-ledger-open-${group.priority}`;
             return (
-              <section key={group.priority} aria-labelledby={headingId} className="grid gap-2">
-                <h3 id={headingId} className="text-sm font-extrabold text-[color:var(--text-heading)]">
-                  {group.heading} · {items.length}
-                </h3>
+              <PanelSection
+                key={group.priority}
+                headingId={headingId}
+                headingLevel="h3"
+                className="grid gap-2"
+                heading={`${group.heading} · ${items.length}`}
+              >
                 <p className={META_CLASS}>{group.note}</p>
                 <ul className="grid gap-3">
                   {items.map((item) => (
                     <LedgerItem key={item.id} item={item} />
                   ))}
                 </ul>
-              </section>
+              </PanelSection>
             );
           })}
 
           {unrecognised.length > 0 ? (
-            <section aria-labelledby="developer-ledger-open-other" className="grid gap-2">
-              <h3 id="developer-ledger-open-other" className="text-sm font-extrabold text-[color:var(--text-heading)]">
-                Other · {unrecognised.length}
-              </h3>
+            <PanelSection
+              headingId="developer-ledger-open-other"
+              headingLevel="h3"
+              className="grid gap-2"
+              heading={`Other · ${unrecognised.length}`}
+            >
               <p className={META_CLASS}>
                 These rows carry a priority this page does not recognise. They are shown as they are rather than
                 dropped, so the list still adds up to the {snapshot.counts.open} open items counted above.
@@ -198,15 +177,12 @@ export default function DeveloperLedgerPage() {
                   <LedgerItem key={item.id} item={item} />
                 ))}
               </ul>
-            </section>
+            </PanelSection>
           ) : null}
         </div>
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-ledger-pending-heading" className="grid gap-3">
-        <h2 id="developer-ledger-pending-heading" className={SECTION_HEADING_CLASS}>
-          Requests not yet applied
-        </h2>
+      <PanelSection headingId="developer-ledger-pending-heading" heading="Requests not yet applied">
         <p className={META_CLASS}>
           Inbox records waiting on the next reconcile. They are not in the open items above yet, so the two lists do not
           overlap.
@@ -217,7 +193,7 @@ export default function DeveloperLedgerPage() {
               <li
                 key={request.request_id}
                 data-testid={`developer-ledger-pending-${request.request_id}`}
-                className="grid gap-1 rounded-xl border border-[color:var(--border)] p-4"
+                className={CARD_CLASS}
               >
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="rounded-lg border border-[color:var(--border)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">
@@ -235,7 +211,7 @@ export default function DeveloperLedgerPage() {
             No requests are waiting.
           </p>
         )}
-      </section>
+      </PanelSection>
     </PanelPageShell>
   );
 }

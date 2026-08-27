@@ -35,7 +35,7 @@
   display: grid;
   height: 100dvh;
   min-height: 44rem;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   overflow: hidden;
   background: var(--surface);
   color: var(--text);
@@ -859,11 +859,13 @@
 }
 
 /*
- * `potential` is drawn from bed releases, never from `unit.beds`, and must never be summed into
- * the four states above (ruling 3). Dashed styling marks it visually as the separate,
- * forward-looking figure it is — the same convention the Phase 1 network diagram already uses.
+ * Confirmed and Predicted are drawn from bed releases, never from `unit.beds`, and must never be
+ * summed into the four states above (ruling 3). Dashed styling marks them visually as the
+ * separate, forward-looking figures they are — the same convention the Phase 1 network diagram
+ * already uses.
  */
-.diagramBedChip[data-state="potential"] {
+.diagramBedChip[data-state="confirmed"],
+.diagramBedChip[data-state="predicted"] {
   border-style: dashed;
   border-color: var(--clinical-accent);
   color: var(--clinical-accent);
@@ -1541,6 +1543,16 @@
   line-height: var(--co-leading-body);
 }
 
+.shortlistOverrideSelect {
+  min-height: var(--co-space-48);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--co-space-8);
+  color: var(--text);
+  font-size: var(--text-2xs);
+}
+
 .shortlistOverrideSubmit {
   display: inline-flex;
   min-height: var(--co-space-48);
@@ -1917,5 +1929,16 @@
   .diagramUnit[data-routed="true"][data-eligible="false"],
   .diagramUnitSelected[data-routed="true"][data-eligible="false"] {
     outline-color: Highlight;
+  }
+}
+
+/*
+ * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
+ * place. The bar is fixed rather than sticky because it has to sit above ten different shells
+ * whose scroll containers are all in a different place, so each shell reserves the shared phone-bar height here.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
   }
 }

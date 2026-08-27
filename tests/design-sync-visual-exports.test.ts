@@ -17,6 +17,7 @@ const visualExports = [
   "Button",
   "Checkbox",
   "Chip",
+  "ChoiceChip",
   "Citation",
   "CitationList",
   "ConfirmDialog",
@@ -83,10 +84,15 @@ describe("design-sync visual exports", () => {
   it("records the final high-drift API contracts", () => {
     expect(config.dtsPropsFor.Chip).toContain("appearance?: ChipAppearance");
     expect(config.dtsPropsFor.Chip).toContain("size?: ChipSize");
+    expect(config.dtsPropsFor.ChoiceChip).toContain("pressed: boolean");
+    expect(config.dtsPropsFor.ChoiceChip).toContain("onPressedChange: (pressed: boolean) => void");
     expect(config.dtsPropsFor.SegmentedControl).toContain("options: readonly SegmentedControlOption<string>[]");
     expect(config.dtsPropsFor.OverlayRoot).toBe("");
     expect(config.dtsPropsFor.EmptyState).toContain('live?: "off" | "assertive" | "polite"');
-    expect(config.dtsPropsFor.VerificationNotice).toContain('presentation?: "full" | "responsive-compact"');
+    // `inline` joined the union on 2026-08-25 for the chat-framed answer. The
+    // assertion still pins every member, so a variant cannot be added or dropped
+    // without this line moving with it.
+    expect(config.dtsPropsFor.VerificationNotice).toContain('presentation?: "inline" | "full" | "responsive-compact"');
     expect(config.dtsPropsFor.AccessibleTable).toContain("caption: string");
     expect(config.dtsPropsFor.AccessibleTable).not.toContain("caption?:");
     expect(config.dtsPropsFor.ConfirmDialog).toContain("confirmLabel: string");

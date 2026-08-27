@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "f7c6371d-b92b-4050-9629-9aac5065f0a8",
+  "createdOn": "2026-08-26",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
+    "detail": "Spec D9 (docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md) says the discharge board is reached from the sidebar's Boards group AND from the capacity board's own figures. Only the sidebar entry was built; the capacity headline cards are plain non-interactive articles. Found by the Phase 5 whole-branch review. Unimplemented spec clause, not a defect. Small, and best done at the start of Phase 6 while the numbers are fresh. Any new inbound link must keep the route-reachability contract satisfied.",
+    "issueUlid": "01M0YKQY6WWG24JB27SRD3KYKK"
+  }
+}

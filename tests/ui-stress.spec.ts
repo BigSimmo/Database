@@ -2,6 +2,7 @@ import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 const longTitle =
@@ -418,14 +419,18 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-      const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-      await expect(evidenceDrawer).toBeVisible();
-      await evidenceDrawer.click();
-      const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-      await expect(evidenceSheet).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      // The evidence sheet gave way to the source rail and its per-source drawer;
+      // under long titles and narrow viewports neither may overflow.
+      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
+      const sourceRail = page.getByTestId("answer-source-rail");
+      await expect(sourceRail).toBeVisible();
+      await sourceRail.getByTestId("answer-source-rail-row").first().click();
+      const sourceDrawer = page.getByTestId("answer-source-drawer");
+      await expect(sourceDrawer).toBeVisible();
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(sourceDrawer).toHaveCount(0);
       await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
@@ -436,6 +441,19 @@ test.describe("Medication responsive stress coverage", () => {
   test("phone and tablet cards remain inset and safe across breakpoint boundaries", async ({ page }) => {
     test.setTimeout(90_000);
     await mockMedicationStressData(page);
+    await page.addInitScript(
+      ({ storageKey }) => {
+        window.sessionStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            scr: 140,
+            scrUnit: "umol/L",
+            medications: [],
+          }),
+        );
+      },
+      { storageKey: PATIENT_PROFILE_STORAGE_KEY },
+    );
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/?mode=prescribing&q=acamprosate%20renal%20dose&run=1", { waitUntil: "domcontentloaded" });
 
@@ -443,6 +461,8 @@ test.describe("Medication responsive stress coverage", () => {
     const desktopResult = page.getByTestId("medication-result-acamprosate-desktop");
     await expect(phoneResult).toBeVisible({ timeout: 30_000 });
     await expect(phoneResult).toHaveAttribute("data-selected", "true");
+    await expect(phoneResult).toHaveAttribute("data-verdict", "danger");
+    await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
     const viewports = [
@@ -565,5 +585,11 @@ test.describe("Medication responsive stress coverage", () => {
     expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
     expect(chromeGeometry.overflowY).toBe("visible");
     expect(chromeGeometry.keyboardHeight === "" || chromeGeometry.keyboardHeight === "0px").toBe(true);
+
+    await phoneResult.focus();
+    await expect(phoneResult).toBeFocused();
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
   });
 });

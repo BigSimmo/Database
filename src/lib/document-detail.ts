@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
+import { parseDocumentDetailPayload } from "@/lib/document-client-contracts";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import {
@@ -132,31 +133,38 @@ function metadataBoolean(metadata: Record<string, unknown>, key: string) {
   return typeof value === "boolean" ? value : null;
 }
 
-function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
-  const metadata = safeMetadata(image.metadata);
+function withImageTableMetadata<T extends object>(image: T) {
+  const metadata = safeMetadata((image as { metadata?: unknown }).metadata);
   const rawTableText = metadataText(metadata, "table_text");
   const tableText = rawTableText ?? metadataText(metadata, "table_text_snippet");
-  const publicImage = { ...image };
+  const publicImage = { ...image } as Record<string, unknown>;
   delete publicImage.metadata;
+  delete publicImage.document_id;
+  delete publicImage.storage_path;
+  delete publicImage.signed_url;
+  delete publicImage.mime_type;
   return {
     ...publicImage,
-    tableLabel: metadataText(metadata, "table_label"),
-    tableTitle: metadataText(metadata, "table_title"),
-    tableRole: metadataText(metadata, "table_role"),
-    tableTextSnippet: compactTableText(tableText),
-    clinicalUseClass: metadataText(metadata, "clinical_use_class"),
-    clinicalUseReason: metadataText(metadata, "clinical_use_reason"),
-    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
-    tableRows: metadataStringArrayRows(metadata, "table_rows"),
-    tableColumns: metadataStringArray(metadata, "table_columns"),
-    rowCount: metadataNumber(metadata, "row_count"),
-    rowsTruncated: metadataBoolean(metadata, "rows_truncated"),
-    columnCount: metadataNumber(metadata, "column_count"),
-    cropCompleteness: metadataNumber(metadata, "crop_completeness"),
-    imageQualityScore: metadataNumber(metadata, "image_quality_score"),
-    ocrTextDensity: metadataNumber(metadata, "ocr_text_density"),
-    structuredExtractionConfidence: metadataNumber(metadata, "structured_extraction_confidence"),
-    retainedForDocumentView: metadataBoolean(metadata, "retained_for_document_view"),
+    tableLabel: publicImage.tableLabel ?? metadataText(metadata, "table_label"),
+    tableTitle: publicImage.tableTitle ?? metadataText(metadata, "table_title"),
+    tableRole: publicImage.tableRole ?? metadataText(metadata, "table_role"),
+    tableTextSnippet: publicImage.tableTextSnippet ?? compactTableText(tableText),
+    clinicalUseClass: publicImage.clinicalUseClass ?? metadataText(metadata, "clinical_use_class"),
+    clinicalUseReason: publicImage.clinicalUseReason ?? metadataText(metadata, "clinical_use_reason"),
+    accessibleTableMarkdown:
+      publicImage.accessibleTableMarkdown ?? metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
+    tableRows: publicImage.tableRows ?? metadataStringArrayRows(metadata, "table_rows"),
+    tableColumns: publicImage.tableColumns ?? metadataStringArray(metadata, "table_columns"),
+    rowCount: publicImage.rowCount ?? metadataNumber(metadata, "row_count"),
+    rowsTruncated: publicImage.rowsTruncated ?? metadataBoolean(metadata, "rows_truncated"),
+    columnCount: publicImage.columnCount ?? metadataNumber(metadata, "column_count"),
+    cropCompleteness: publicImage.cropCompleteness ?? metadataNumber(metadata, "crop_completeness"),
+    imageQualityScore: publicImage.imageQualityScore ?? metadataNumber(metadata, "image_quality_score"),
+    ocrTextDensity: publicImage.ocrTextDensity ?? metadataNumber(metadata, "ocr_text_density"),
+    structuredExtractionConfidence:
+      publicImage.structuredExtractionConfidence ?? metadataNumber(metadata, "structured_extraction_confidence"),
+    retainedForDocumentView:
+      publicImage.retainedForDocumentView ?? metadataBoolean(metadata, "retained_for_document_view"),
     bbox: normalizeImageBbox((image as { bbox?: unknown }).bbox),
   };
 }
@@ -165,6 +173,28 @@ function withoutMetadata<T extends { metadata?: unknown }>(row: T) {
   const projected = { ...row };
   delete projected.metadata;
   return projected;
+}
+
+function projectDetailPage(page: DocumentDetailPage) {
+  return {
+    id: page.id,
+    page_number: page.page_number,
+    text: page.text,
+    ocr_used: page.ocr_used,
+    ...(page.metadata === undefined ? {} : { metadata: page.metadata }),
+  };
+}
+
+function projectDetailChunk(chunk: DocumentDetailChunk) {
+  return {
+    id: chunk.id,
+    page_number: chunk.page_number,
+    chunk_index: chunk.chunk_index,
+    section_heading: chunk.section_heading,
+    content: chunk.content,
+    image_ids: chunk.image_ids,
+    ...(chunk.metadata === undefined ? {} : { metadata: chunk.metadata }),
+  };
 }
 
 function withTableFactReviewMetadata<T extends { metadata?: unknown }>(fact: T) {
@@ -319,7 +349,7 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
     pageRange,
     (image) => preservedImageIds.has(image.id),
     false,
-  );
+  ).map(withImageTableMetadata);
   const tableFacts = filterDemoAssets(
     payload.tableFacts ?? [],
     query.assetScope,
@@ -340,19 +370,19 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
     chunkTotal: payload.document.chunk_count ?? allChunks.length,
   });
 
-  return {
+  return parseDocumentDetailPayload({
     document: payload.document,
-    pages: (payload.pages ?? []).filter(
-      (page) => page.page_number >= pageRange.from && page.page_number <= pageRange.to,
-    ),
+    pages: (payload.pages ?? [])
+      .filter((page) => page.page_number >= pageRange.from && page.page_number <= pageRange.to)
+      .map(projectDetailPage),
     images,
     tableFacts,
-    chunks,
+    chunks: chunks.map(projectDetailChunk),
     ...(payload.indexHealth ? { indexHealth: payload.indexHealth } : {}),
     demoMode: true,
     assetScope: query.assetScope,
     ...metadata,
-  };
+  });
 }
 
 /**
@@ -511,7 +541,7 @@ export async function loadAuthorizedDocumentDetail(args: {
     chunkTotal: document.chunk_count ?? null,
   });
 
-  return {
+  return parseDocumentDetailPayload({
     document: {
       ...responseDocument,
       labels: publicRows(labels as Record<string, unknown>[]),
@@ -548,7 +578,7 @@ export async function loadAuthorizedDocumentDetail(args: {
     demoMode: false,
     assetScope: query.assetScope,
     ...metadata,
-  };
+  });
 }
 
 export function sanitizeDocumentDetailError(error: unknown) {

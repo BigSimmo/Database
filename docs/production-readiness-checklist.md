@@ -88,6 +88,9 @@ Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 
 ## Clinical Ask evidence separation
 
+The Clinical Ask implementation is dormant and has no user-visible composer entry point. The controls below remain
+required before any future UI reactivation; dormant repository code is not a launch claim.
+
 The readiness script reads local, gitignored evidence receipts from `.local/clinical-ask-evidence/`:
 `hosted-migration.json`, `authority-approval.json`, `synthetic-evaluation.json`,
 `protected-staging-canary.json`, `contractual-basis.json`, and `physical-iphone-acceptance.json`. A receipt counts as
@@ -96,7 +99,7 @@ supplied only when it is a JSON object whose `area` exactly matches the readines
 `approved`, `green`, `passed`, or `verified`. This structural validation rejects empty or unrelated files; it does not
 independently establish truth, so reviewers must still inspect the receipt.
 
-- [ ] Clinical Ask master and external-search flags are explicitly set; a seven-mode launch has an empty
+- [ ] Before reactivation, Clinical Ask master and external-search flags are explicitly set; a seven-mode launch has an empty
       `CLINICAL_ASK_DISABLED_MODES` emergency denylist and an explicit `OPENAI_TRANSCRIPTION_MODEL`.
 - [ ] The feedback migration `20260822120000_expand_answer_feedback_for_clinical_ask.sql` is present locally, and a
       separate hosted-migration artefact proves it was applied to the intended project. Repository presence is not

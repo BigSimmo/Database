@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui-primitives";
 import styles from "./care-plan.module.css";
 import { buildPatientSnapshot, getCurrentManagementPlanVersion } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
+import { IdentificationReferralAction } from "./operations-pages";
 import { PatientDirectory } from "./patient-directory";
 import { PatientWorkspace } from "./patient-workspace";
 import { useCarePlanPrototype } from "./prototype-provider";
@@ -130,6 +131,7 @@ export function ClinicalSnapshotSurface({
         onRecordContactIntent={recordContactIntent}
         contactActionBlockedReason={contactActionBlockedReason}
         showFullRecordLink={variant !== "patient"}
+        identificationReferral={<IdentificationReferralAction patient={snapshot.patient} />}
       />
     );
 

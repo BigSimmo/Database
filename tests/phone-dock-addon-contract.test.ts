@@ -17,6 +17,7 @@ import {
   phoneDockAddonSlotId,
   differentialsMobileCompareAddonSlotId,
   patientDetailsAddonSlotId,
+  therapyCompareAddonSlotId,
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import {
@@ -24,6 +25,11 @@ import {
   resolveDashboardVisibleMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import {
+  isTherapyPhoneDockRoute,
+  readTherapyCompareSlugCount,
+  THERAPY_MAX_COMPARE,
+} from "@/lib/therapy-compass-navigation";
 
 function read(relativePath: string): string {
   return readFileSync(path.resolve(process.cwd(), relativePath), "utf8");
@@ -34,12 +40,12 @@ const dashboard = read("src/components/ClinicalDashboard.tsx");
 const shell = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const header = read("src/components/clinical-dashboard/master-search-header.tsx");
 
-const ADDON_KINDS: PhoneDockAddonKind[] = ["differentials-compare", "patient-details"];
+const ADDON_KINDS: PhoneDockAddonKind[] = ["differentials-compare", "patient-details", "therapy-compare"];
 
 describe("phone dock addon registry", () => {
   it("maps every addon kind to a distinct slot id", () => {
     const ids = ADDON_KINDS.map((kind) => phoneDockAddonSlotId[kind]);
-    expect(ids).toEqual([differentialsMobileCompareAddonSlotId, patientDetailsAddonSlotId]);
+    expect(ids).toEqual([differentialsMobileCompareAddonSlotId, patientDetailsAddonSlotId, therapyCompareAddonSlotId]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -56,8 +62,9 @@ describe("addon kinds are mutually exclusive", () => {
     expect(dashboard).toMatch(/patientDetailsAddonActive\s*=\s*\n?\s*searchMode === "prescribing"/);
   });
 
-  it("leaves the shell with a single claimant", () => {
+  it("keys the shell's two claimants on different modes", () => {
     expect(shell).toMatch(/differentialsCompareAddonActive\s*=\s*\n?\s*searchMode === "differentials"/);
+    expect(shell).toMatch(/therapyCompareAddonActive\s*=\s*\n?\s*searchMode === "therapy-compass"/);
     // No shell route claims the patient-details addon: `/medications` is a
     // standalone mode home with no dock, and `/medications/[slug]` already opens
     // the same sheet from its nav header. Claiming it here would inflate the
@@ -88,6 +95,35 @@ describe("every addon kind carries its dock wiring", () => {
   it.each(ADDON_KINDS)("%s has clearance tokens", (kind) => {
     expect(globalsCss).toContain(`--phone-dock-${kind}-clearance:`);
     expect(globalsCss).toContain(`--phone-dock-${kind}-compact-clearance:`);
+  });
+});
+
+describe("the therapy tray only claims a dock that exists and has something in it", () => {
+  it("restricts the claim to therapy routes that render the phone dock", () => {
+    // `/therapy-compass/recommend` hides the shell composer and every record
+    // route is an information page, so neither has a slot to portal into.
+    // Claiming one would inflate the reserve for a row that never mounts.
+    expect(isTherapyPhoneDockRoute("/therapy-compass")).toBe(true);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/search")).toBe(true);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/compare")).toBe(true);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/pathways")).toBe(true);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/review")).toBe(true);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/recommend")).toBe(false);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/cognitive-behavioural-therapy-cbt")).toBe(false);
+    expect(isTherapyPhoneDockRoute("/therapy-compass/cognitive-behavioural-therapy-cbt/brief")).toBe(false);
+  });
+
+  it("requires the URL to carry a compare set before claiming the slot", () => {
+    // The reserve inflates on claim, not on render. An empty tray renders
+    // nothing, so a claim without `ids` is a blank band by construction.
+    expect(shell).toMatch(/readTherapyCompareSlugCount\(searchParams\) > 0/);
+    expect(readTherapyCompareSlugCount(new URLSearchParams("q=trauma&run=1"))).toBe(0);
+    expect(readTherapyCompareSlugCount(new URLSearchParams("ids=cbt,act"))).toBe(2);
+    expect(readTherapyCompareSlugCount(new URLSearchParams("ids=,,"))).toBe(0);
+  });
+
+  it("caps the counted set at the comparison ceiling", () => {
+    expect(readTherapyCompareSlugCount(new URLSearchParams("ids=a,b,c,d,e,f"))).toBe(THERAPY_MAX_COMPARE);
   });
 });
 
@@ -127,6 +163,29 @@ describe("reserve resolvers honour the patient-details addon", () => {
     ).toBe(mobileComposerVisibleReserve.differentialsCompare);
   });
 
+  it("returns the therapy-compare reserve in the shell", () => {
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: true,
+        heroOwnsPhoneComposer: false,
+        searchMode: "therapy-compass",
+        differentialsCompareAddonActive: false,
+        therapyCompareAddonActive: true,
+      }),
+    ).toBe(mobileComposerVisibleReserve.therapyCompare);
+  });
+
+  it("returns the therapy-compare reserve on the dashboard", () => {
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "therapy-compass",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        therapyCompareAddonActive: true,
+      }),
+    ).toBe(mobileComposerVisibleReserve.therapyCompare);
+  });
+
   it("keeps the standalone mode home on the idle pad — no dock, no addon reserve", () => {
     // `/medications` is a standalone mode home: the composer lives in the hero,
     // so reserving dock-sized space there would open a blank bottom band.
@@ -146,6 +205,7 @@ describe("CSS and TS reserve values stay in step", () => {
   it.each([
     ["differentials-compare", mobileComposerVisibleReserve.differentialsCompare],
     ["patient-details", mobileComposerVisibleReserve.patientDetails],
+    ["therapy-compare", mobileComposerVisibleReserve.therapyCompare],
   ] as const)("%s clearance token matches the TS constant", (kind, reserve) => {
     const token = new RegExp(`--phone-dock-${kind}-clearance:\\s*([\\d.]+)rem`).exec(globalsCss);
     expect(token, `missing --phone-dock-${kind}-clearance`).not.toBeNull();

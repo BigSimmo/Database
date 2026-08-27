@@ -1,6 +1,7 @@
 // tests/ward-model-phase3.test.ts
 import { describe, expect, it } from "vitest";
 
+import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { DECLINE_REASONS } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -53,14 +54,43 @@ describe("Phase 3 model additions", () => {
     }
   });
 
-  it("puts a patient on 1A while awaiting examination and on 3B once examined", () => {
-    // Settled by the product owner: 1A means awaiting exam; 3B means in the department awaiting a
-    // bed. Form 3A is not used. The form therefore follows the examination, in both directions.
+  /**
+   * DELIBERATELY WEAKENED on 2026-08-24, and the weakening is the change, not an oversight.
+   *
+   * This used to pin the 1A/3B invariant in both directions — a movement on 1A has no
+   * `examination`, a movement on 3B has one with outcome `inpatient_order`. That WAS the rule the
+   * product owner asked to remove: the software no longer decides which form a patient is on, so
+   * the form and the examination are independently recorded facts and neither implies the other.
+   * Asserting the old invariant would now be asserting a rule the system does not have.
+   *
+   * What remains is the honest, weaker statement — the model RECORDS a form and infers none —
+   * plus a non-vacuity floor, so this still goes red if the fixture stops carrying forms
+   * altogether or starts carrying a code nobody declared.
+   */
+  it("records the form each patient is on and infers none from the examination", () => {
+    const carried = wardMovements.filter((movement) => movement.legalForm !== undefined);
+
+    // Non-vacuity floor: a fixture that carried no forms at all would make every claim below
+    // pass while proving nothing.
+    expect(carried.length, "no fixture movement carries a legal form").toBeGreaterThan(0);
+
+    const declaredCodes = new Set(SELECTABLE_LEGAL_FORMS.map((form) => form.code));
+    for (const movement of carried) {
+      // Every form the fixture carries is one the picker could have produced — the fixture and
+      // the clinician's choices come from the same declared set, and Form 3A is not in it.
+      expect(declaredCodes, `${movement.id} carries an undeclared Form ${movement.legalForm!.code}`).toContain(
+        movement.legalForm!.code,
+      );
+      expect(movement.legalForm!.code).not.toBe("3A");
+    }
+
+    // The examination is recorded independently of the form. Both combinations that the deleted
+    // invariant forbade are now simply allowed, so the only thing pinned here is that an
+    // examination, where present, is a real recorded outcome rather than something derived from
+    // the form code.
     for (const movement of wardMovements) {
-      const code = movement.legalForm?.code;
-      if (code === "1A") expect(movement.examination).toBeUndefined();
-      if (code === "3B") expect(movement.examination?.outcome).toBe("inpatient_order");
-      expect(code).not.toBe("3A");
+      if (movement.examination === undefined) continue;
+      expect(["inpatient_order", "community_order", "revoked"]).toContain(movement.examination.outcome);
     }
   });
 

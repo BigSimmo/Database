@@ -48,6 +48,24 @@ describe("privacy page interaction", () => {
     expect(panelFor("Where data is stored and processed").panel.dataset.open).toBe("true");
   });
 
+  it("exposes the full safety obligation through an accessible disclosure", () => {
+    render(<PrivacyQuietSignalPage />);
+
+    const openButton = screen.getByRole("button", { name: "Read more" });
+    expect(openButton).toHaveAttribute("aria-expanded", "false");
+    const panelId = openButton.getAttribute("aria-controls");
+    expect(panelId).toBeTruthy();
+
+    fireEvent.click(openButton);
+
+    const closeButton = screen.getByRole("button", { name: "Show less" });
+    expect(closeButton).toHaveAttribute("aria-expanded", "true");
+    const panel = document.getElementById(panelId as string);
+    expect(panel).toHaveRole("region");
+    expect(panel).not.toHaveClass("hidden");
+    expect(panel).toHaveTextContent("Do not enter identifiable patient details such as names");
+  });
+
   it("opens the section named by the URL hash on arrival", () => {
     window.location.hash = "#third-parties";
     render(<PrivacyQuietSignalPage />);

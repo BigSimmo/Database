@@ -28,7 +28,7 @@ undefined` guard in the effect, the `elapsed` and `now` formulas — is unchange
   `null`, following the exact pattern already used by `useAccountData` in
   `src/components/account-data-provider.tsx` (`if (!context) throw new Error(...)`).
 
-### `src/app/ward-management/layout.tsx` (new)
+### `src/app/mockups/ward-flow/layout.tsx` (new)
 
 - A server component (no `"use client"`, no hooks) that renders `<WardFlowProvider>{children}</WardFlowProvider>`.
   This is exactly the "Context providers" pattern documented in
@@ -199,6 +199,6 @@ used`) — confirmed untouched by this diff (`git diff --stat HEAD` on both retu
 ## Commit
 
 ```
-git add src/components/ward-management/ward-flow-provider.tsx src/app/ward-management/layout.tsx tests/ward-flow-provider.dom.test.tsx
+git add src/components/ward-management/ward-flow-provider.tsx src/app/mockups/ward-flow/layout.tsx tests/ward-flow-provider.dom.test.tsx
 git commit -m "feat(ward-flow): add the state provider and the ticking clock"
 ```

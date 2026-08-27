@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "40ff11ca-52f3-4b95-9118-5e0c107e68f0",
+  "createdOn": "2026-08-26",
+  "action": "cancel",
+  "payload": {
+    "requestId": "970b4089-9e76-4bcf-821e-2e70e16a3617",
+    "reason": "Superseded before reconciliation: the original wording incorrectly implied every component metric belongs in :root. The replacement distinguishes module-local one-consumer constants from shared CSS custom properties."
+  }
+}
