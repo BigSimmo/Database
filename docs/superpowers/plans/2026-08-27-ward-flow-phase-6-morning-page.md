@@ -132,8 +132,22 @@ export type SiteRollup = { site: Site; rollup: CapacityRollup; units: UnitRollup
 export type ServiceRollup = { service: CapacityRollup; sites: SiteRollup[]; at: Instant };
 
 export function morningHandoverInstant(now: Instant): Instant | null;
-export function serviceRollup(sites: Site[], releases: BedRelease[], leave: LeaveBed[], now: Instant): ServiceRollup;
+export function serviceRollup(
+  sites: Site[],
+  units: Unit[],
+  releases: BedRelease[],
+  leave: LeaveBed[],
+  now: Instant,
+): ServiceRollup;
 ```
+
+**Why `serviceRollup` takes both `sites` and `units` (controller ruling R2).** `sites` gives grouping,
+display order and names. **The figures must come from the `units` argument, which the caller passes
+from `WardFlowState`** — never from the units embedded in `wardSites`. The provider seeds units from
+`scenarioUnits(scenario)`, so reading `wardSites`' embedded units would show standard-scenario numbers
+while the `scarce` scenario is selected. Match a unit to its site with `unitSiteCode(unit)` from
+`ward-derivations.ts`. A unit whose site code matches no site in `sites` is **reported, not dropped** —
+add it to a `ServiceRollup.unplacedUnitIds: string[]` field so the page can say so.
 
 **Rules, each of which gets its own test:**
 
@@ -160,14 +174,22 @@ Cover all five rules above, plus this structural contract test, which is spec D2
 be written as its own named test with its reasoning in a comment:
 
 ```ts
+import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
+
 it("never lets a release or a leave bed reach the headline figure", () => {
-  const withReleases = serviceRollup(sites, seededReleases, seededLeaveBeds, NOW_ANCHOR);
-  const withNone = serviceRollup(sites, [], [], NOW_ANCHOR);
+  const units = allUnits();
+  const withReleases = serviceRollup(wardSites, units, bedReleases, leaveBeds, NOW_ANCHOR);
+  const withNone = serviceRollup(wardSites, units, [], [], NOW_ANCHOR);
   // availableNow is computed from unit.allocatable/unit.empty before any release is examined.
   // If a release could ever reach it, these two would differ.
   expect(withReleases.service.availableNow).toBe(withNone.service.availableNow);
 });
 ```
+
+**Use these real identifiers, not invented ones:** `wardSites`, `allUnits`, `NOW_ANCHOR` from
+`ward-sites.ts`; `bedReleases`, `leaveBeds` from `ward-movements.ts`. Confirm each import resolves
+before writing the test body.
 
 - [ ] **Step 2: Run them and watch them fail**
 
@@ -211,10 +233,19 @@ git commit -m "Roll Phase 5's per-unit figures up to hospital and service, oldes
 - Produces: `export function MorningPage()`, default-exported route at `/mockups/ward-flow/morning`
   with `metadata.title = "Morning bed state — Ward Flow"`.
 
-**The freeze, and it must be done this way** (spec D5): read `now` **once** inside a `useState`
-initialiser and hold it, exactly as `handover/handover-page.tsx` does — read that file's doc comment
-before writing this. No section of the page may read `now` from `useWardFlow()` again while the fixed
-view is selected. Freeze to `morningHandoverInstant(now)`, not to `now`.
+**The freeze, and it must be done this way** (spec D5, controller ruling R1): inside a `useState`
+initialiser, compute `morningHandoverInstant(now)` and then **the whole `ServiceRollup` at that
+instant**, and hold both — exactly as `handover/handover-page.tsx` freezes `handoverSnapshot()`. Read
+that file's doc comment before writing this.
+
+**The fixed view freezes the snapshot, not merely the instant.** No part of the fixed view reads
+`now`, `units`, `bedReleases` or `leaveBeds` from `useWardFlow()` again after the initialiser. The
+live view recomputes `serviceRollup(...)` at the live `now` on every render.
+
+**The page must state what that means, in words, rather than implying more than it can deliver:** the
+fixed view is a snapshot taken when the page was opened, read against the 08:00 handover clock; the
+live view is the one that moves. The prototype keeps no event history, so the fixed view is not a
+reconstruction of what the state actually was at 08:00, and the page must not suggest it is.
 
 **Layout, top to bottom:**
 
@@ -240,6 +271,17 @@ view is selected. Freeze to `morningHandoverInstant(now)`, not to `now`.
 - `freshness.kind === "never"` → the unit or roll-up reads `Never confirmed`, never `0`.
 - `freshness.kind === "partial"` → state it in words: `14 of 15 wards confirmed · 1 never confirmed`.
 - A site with no units → render it with `No units recorded`. Never omit the site.
+- `unplacedUnitIds` is non-empty → state how many units could not be placed under a hospital. Never
+  drop them silently.
+
+**Test harness (controller ruling R3):** wrap in `<WardFlowProvider initialNow={NOW_ANCHOR}>` and mock
+`next/link`, following `tests/ward-discharge-board.dom.test.tsx` verbatim — jsdom cannot provide App
+Router context, and every sibling ward DOM suite already does this.
+
+**Stable selectors (controller ruling R5):** every figure and every control carries a `data-testid`
+(`ward-morning-headline`, `ward-morning-figure-<key>`, `ward-morning-view-fixed`,
+`ward-morning-view-live`, `ward-morning-site-<code>`, `ward-morning-print`). Task 5's browser journey
+selects on these, not on prose.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -304,12 +346,32 @@ git commit -m "The morning bed state: one page, frozen to the handover, five fig
 **Four beats, in this order, each dispatching real events into the real reducer with the real acting
 role, through the same `EVENT_ROLE` gate every screen uses** (spec D10):
 
-| Beat | What it shows               | Acting role   |
-| ---- | --------------------------- | ------------- |
-| 1    | A patient waiting           | `demo`        |
-| 2    | A coordinator finding a bed | `coordinator` |
-| 3    | A ward confirming           | `ward`        |
-| 4    | The board updating          | —             |
+| Beat | What it shows               | Event(s) dispatched                          | Acting role   |
+| ---- | --------------------------- | -------------------------------------------- | ------------- |
+| 0    | Reset, stated on screen     | `RESET_SCENARIO`                             | `demo`        |
+| 1    | A patient waiting           | `RAISE_REFERRAL`                             | `ed`          |
+| 2    | A coordinator finding a bed | `REFER_TO_UNITS`                             | `coordinator` |
+| 3    | A ward confirming           | `ACCEPT_IN_PRINCIPLE`, `CONFIRM_BED_RELEASE` | `ward`        |
+| 4    | The board updating          | none — the live board re-renders             | —             |
+
+**These roles are taken from `EVENT_ROLE` and are not negotiable** (controller ruling R4): a beat
+dispatched under the wrong role is refused by the gate and the tour stops on a `Rejection`. Verify
+each against `EVENT_ROLE` in `ward-flow-events.ts` before writing the beat. If a chosen event cannot
+be dispatched against the seeded scenario's data (for example no movement is at a referrable stage),
+pick a different existing event that tells the same beat — **never add one**, and report the
+substitution as a concern.
+
+**The tour runs in the live view** and switches the page to it at beat 0, because the fixed view is a
+frozen snapshot (ruling R1) and would not show beat 4. Switching views is itself part of the
+demonstration.
+
+**Beat 1's `ReferralDraft`** uses `legalStatus: "Voluntary"` and `legalFormCode: null` — the most
+conservative draft available, touching nothing legal-adjacent. `null` is a first-class choice per the
+type's own doc comment, not a missing value.
+
+**Stable selectors (ruling R5):** `ward-morning-tour-start`, `ward-morning-tour-stop`,
+`ward-morning-tour-next`, `ward-morning-tour-beat` (carrying the beat number),
+`ward-morning-tour-caption`.
 
 **Hard requirements:**
 
