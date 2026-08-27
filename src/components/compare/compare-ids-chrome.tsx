@@ -30,6 +30,8 @@ export function CompareIdsChrome({
   swapLabel,
   icon,
   filterLocally = true,
+  showEmptyState = true,
+  slotLayout = "default",
   onCommit,
 }: {
   selectedIds: readonly (string | null | undefined)[];
@@ -50,11 +52,18 @@ export function CompareIdsChrome({
   swapLabel?: string;
   icon?: LucideIcon;
   filterLocally?: boolean;
+  /** When slot placeholders already invite selection, skip the large dashed empty panel. */
+  showEmptyState?: boolean;
+  /** `compact` lays out three slots in a horizontal phone rail instead of a vertical stack. */
+  slotLayout?: "default" | "compact";
   onCommit: (ids: Array<string | null>) => void;
 }) {
   const ids = padCompareIds(selectedIds, maxCount);
   const filled = ids.filter(Boolean).length;
-  const picker = useComparePicker(filled < minCount, firstEmptySlot(ids) ?? 0);
+  // When the empty panel is suppressed (compact slot rail + inline starters),
+  // do not auto-open the picker — the slots invite selection without a second
+  // starter surface competing for attention.
+  const picker = useComparePicker(showEmptyState && filled < minCount, firstEmptySlot(ids) ?? 0);
   const [announcement, setAnnouncement] = useState("");
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const labels = slotLetters(maxCount);
@@ -93,6 +102,7 @@ export function CompareIdsChrome({
     <>
       <CompareSlotStrip
         slots={slots}
+        layout={slotLayout}
         activeIndex={picker.open ? picker.activeSlot : null}
         onSelectSlot={picker.openSlot}
         onClearSlot={(index) => commit(ids.map((id, slotIndex) => (slotIndex === index ? null : id)))}
@@ -130,7 +140,7 @@ export function CompareIdsChrome({
           starters={starters}
         />
       </ComparePickerShell>
-      {filled < minCount ? (
+      {showEmptyState && filled < minCount ? (
         <CompareEmptyState
           icon={icon}
           title={emptyTitle}
