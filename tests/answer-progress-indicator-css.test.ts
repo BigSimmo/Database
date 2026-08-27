@@ -130,8 +130,14 @@ describe("answer progress indicator CSS", () => {
     // cannot silently re-collapse the rail into one beat.
     const railRule = globalsCss.match(/\.answer-sources-arriving \.stagger-item\s*{([^}]*)}/);
     expect(railRule, "the rail's stagger override is missing").not.toBeNull();
-    const interval = Number(railRule?.[1]?.match(/\*\s*(\d+)ms/)?.[1]);
-    expect(interval).toBeGreaterThan(35);
+    expect(railRule?.[1]).toContain("var(--stagger-cascade-wide)");
+
+    // Both rungs are tokens, so the pacing is nameable and the design-system contract's
+    // hardcoded-duration ratchet stays satisfied. The wide rung must actually be wider —
+    // pointing it at the same value would leave the rule in place and the defect back.
+    const rung = (name: string) => Number(globalsCss.match(new RegExp(`--${name}:\\s*(\\d+)ms`))?.[1]);
+    expect(rung("stagger-cascade")).toBeGreaterThan(0);
+    expect(rung("stagger-cascade-wide")).toBeGreaterThan(rung("stagger-cascade"));
 
     // Declared UNLAYERED. `.answer-sources-arriving` itself lives in @layer components,
     // and a layered override loses to the unlayered `.stagger-item` rule whatever its
