@@ -1935,17 +1935,20 @@ test.describe("caring-contacts every screen, at every reviewed width", () => {
 
         // Nothing spills sideways — the failure that makes a screen unusable.
         //
-        // `layoutOverflow`, NOT `documentOverflow`, and the difference was
-        // measured rather than reasoned about. `globals.css` gives both `html`
-        // and `body` `overflow-x: clip`, and mutation M1 — a 1600px minimum width
-        // forced onto Guidance's own grid at and above 768px — left
-        // `documentOverflow` reporting no overflow at all, because
-        // `documentElement.scrollWidth` is clamped by that rule. The identical
-        // mutation reddens the assertion below once it reads `layoutOverflow`,
-        // which also consults `body.scrollWidth`. The older helper is still used
-        // by the per-screen blocks above; that it cannot see a spill is recorded
-        // in the Task 21 report as a finding about them rather than repaired
-        // here, because those assertions belong to other tasks.
+        // `layoutOverflow` rather than `documentOverflow`, because it takes the
+        // larger of `documentElement.scrollWidth` and `body.scrollWidth`, and
+        // `globals.css` gives BOTH of those elements `overflow-x: clip`. Whether
+        // the narrower helper can also see a spill through that rule is untested
+        // and is NOT claimed here.
+        //
+        // WHAT IT TOOK TO MAKE THIS ASSERTION FAIL, because the two attempts that
+        // did not are the more useful half. Adding `md:min-w-[1600px]` to
+        // Guidance's own grid left it green, and so did dropping the `min-w-0`
+        // beside it: neither Tailwind arbitrary min-width utility moved the
+        // layout, so both were mutations that changed the source and changed no
+        // value any assertion reads. What reddens it is an inline
+        // `style={{ minWidth: 3000 }}`, which no cascade can lose —
+        // `horizontal overflow on Guidance at 320px`.
         expect(await layoutOverflow(page), `horizontal overflow on ${label}`).toBeLessThanOrEqual(2);
 
         // Exactly one width state is displayed, and it is the one the frozen
@@ -2083,10 +2086,11 @@ function movingElements(page: Page) {
       if (!transitioning && !animating) continue;
 
       // WHICH of the two fired is named, because without it a red here says an
-      // element moves and not what is moving it. Mutation M17 removed the
-      // universal animation clamp and returned a list of buttons and links that
-      // read as transitions, and the row's evidence stayed uninterpretable until
-      // this said `transition` or `animation` against each entry.
+      // element moves and not what is moving it. A mutation round produced a
+      // list of buttons and links after touching only animation declarations,
+      // and the row stayed uninterpretable until each entry said `transition` or
+      // `animation`. (That round's reds turned out to be build-cache artefacts —
+      // see the Task 21 report — which the labels are also what exposed.)
       const cause = transitioning ? (animating ? "transition+animation" : "transition") : "animation";
       const identity =
         node.getAttribute("data-testid") ?? node.getAttribute("id") ?? (node.getAttribute("class") ?? "").slice(0, 48);
