@@ -77,9 +77,12 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
-`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
-16 from Tailwind) · `text-sm-minus` 13px · `text-base-minus` 15px · (`text-lg` 18 / `text-xl`
-20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
+`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-base` 16 from Tailwind) ·
+`text-sm` / `text-sm-minus` 13px (v2 `--text-sm` equals `@theme --text-sm-minus` at
+`0.8125rem`; Tailwind's default `text-sm` 14px is overridden app-wide because `ckb-v2` is
+mounted on `<html>`. Pinned in `tests/ckb-v2-token-contract.test.ts`; do not restore 14px
+and do not alias the two files at each other) · `text-base-minus` 15px · (`text-lg` 18 /
+`text-xl` 20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
 
 - **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
   density in a clinical product. Do not reintroduce a sub-10px step.
