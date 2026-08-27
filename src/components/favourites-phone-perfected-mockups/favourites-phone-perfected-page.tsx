@@ -16,6 +16,7 @@ import {
   focusRing,
 } from "./favourites-phone-shell";
 import {
+  ClearAllSheetBody,
   ContinueCard,
   ContinueStrip,
   FavouritesList,
@@ -232,7 +233,7 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
   // library below it has to be something else. "View all" switches to
   // recency, which is what makes that control do something.
   const [sort, setSort] = useState<SortMode>(compactAlternative ? "recent" : "set");
-  const [sheet, setSheet] = useState<null | "item" | "sets" | "page">(
+  const [sheet, setSheet] = useState<null | "item" | "sets" | "page" | "clear-all">(
     state === "item-sheet" ? "item" : state === "sets-sheet" ? "sets" : null,
   );
   const [activeRow, setActiveRow] = useState<FavouriteRow>(favouriteRows[1]);
@@ -406,6 +407,17 @@ function FavouritesPhoneScreen({ state }: { state: FrameState }) {
               setSheet(null);
             }}
             onOpenSets={() => setSheet("sets")}
+            onRequestClearAll={() => setSheet("clear-all")}
+          />
+        </FrameSheet>
+      ) : null}
+
+      {sheet === "clear-all" ? (
+        <FrameSheet title="Remove all favourites?" description="This cannot be undone" onClose={() => setSheet("page")}>
+          <ClearAllSheetBody
+            total={loadedRows.length}
+            onCancel={() => setSheet("page")}
+            onConfirm={() => setSheet(null)}
           />
         </FrameSheet>
       ) : null}

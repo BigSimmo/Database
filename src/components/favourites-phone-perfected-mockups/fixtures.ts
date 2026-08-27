@@ -422,6 +422,17 @@ export function countsBySet(rows: readonly FavouriteRow[]): Record<FavouriteSetI
 
 /** Pinned first, then the caller's order. Pinning is the only reordering a
  *  phone user can reach; `sortOrder` up/down stays a desktop affordance. */
+/** Landing-library order: pinned rows first, then the remaining rows grouped by
+ *  set rail order. Mirrors `FavouritesList` when `groupBySet` is true. */
+export function landingLibrarySectionOrder(rows: readonly FavouriteRow[]): string[] {
+  const pinned = rows.filter((row) => row.pinned).map((row) => row.id);
+  const rest = rows.filter((row) => !row.pinned);
+  const bySet = setOrder
+    .filter((id) => id !== "all")
+    .flatMap((id) => rest.filter((row) => row.setId === id).map((row) => row.id));
+  return [...pinned, ...bySet];
+}
+
 export function pinnedFirst(rows: readonly FavouriteRow[]): FavouriteRow[] {
   return [...rows].sort((a, b) => {
     if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
