@@ -28,6 +28,7 @@ import {
   type Referral,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /** Mirrors `ward-discharge-board.dom.test.tsx`'s own harness pattern: a real reducer-backed
@@ -199,6 +200,30 @@ describe("ReferralBoard", () => {
       .slice(1) // drop the header row
       .map((row) => row.querySelector("td button")?.textContent);
     expect(ids).toEqual(["RF-001", "RF-005"]);
+  });
+
+  /**
+   * Task 6. The intake form is deliberately absent from the rail (recorded against
+   * `WARD_REFERRAL_INTAKE_HREF` in `WARD_NAV_INTENTIONALLY_UNLISTED`), which makes this board the
+   * only way a coordinator reaches it. That makes the link load-bearing rather than decorative:
+   * delete it and the intake route becomes unreachable from inside the running app while every
+   * structural nav test stays green, because the exemption map still explains the absence.
+   *
+   * Asserted as an anchor with a real `href`, not merely as text: `router.push` from a click
+   * handler would satisfy a "the words New referral appear" check while breaking middle-click,
+   * hover preview and every static reachability scan.
+   */
+  it("offers the intake form as a real link, the only way into it now the rail deliberately omits it", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <ReferralBoard />
+      </WardFlowProvider>,
+    );
+    const link = screen.getByTestId("ward-referral-board-new");
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("href", WARD_REFERRAL_INTAKE_HREF);
+    expect(link).toHaveAttribute("href", "/mockups/ward-flow/referrals/new");
+    expect(link.textContent?.trim()).toBe("New referral");
   });
 
   it("renders 'waiting since' prominently on every queued row", () => {

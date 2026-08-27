@@ -105,12 +105,19 @@ const mockupPatterns = [
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
   // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
-  // and the three ui-ward-*.spec.ts journeys carry no "mockup" in the path, so
-  // every rule above misses them. After those specs moved into chromium-mockups,
-  // a component-only or spec-only edit left advisory_ui_changed=false and the
+  // and the ui-ward-*.spec.ts journeys carry no "mockup" in the path, so every
+  // rule above misses them. After those specs moved into chromium-mockups, a
+  // component-only or spec-only edit left advisory_ui_changed=false and the
   // 46 journeys ran in neither lane.
+  //
+  // `morning` was added to playwright.config.ts's `mockupSpecPattern` by Phase 6
+  // Task 2 but never here, so `assertMockupSpecParity` below had been failing
+  // `check:ci-scope` on this branch — the exact drift that guard exists to name,
+  // caught by it and repaired here rather than by widening the guard. Keep this
+  // alternation and that one in step; a spec in one and not the other either
+  // never runs or trips this gate.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles)\.spec\.ts$/,
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {

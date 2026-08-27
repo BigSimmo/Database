@@ -48,6 +48,7 @@ import {
   WARD_DEVELOPER_HUB_HREF,
   WARD_NAV,
   WARD_NAV_INTENTIONALLY_UNLISTED,
+  WARD_REFERRAL_INTAKE_HREF,
   WARD_VIEWS,
 } from "../src/components/ward-management/ward-nav";
 import { WARD_NAV_ICONS } from "../src/components/ward-management/ward-nav-icons";
@@ -193,6 +194,32 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
     expect(exampleOnlyHrefs).toEqual(
       ["/mockups/ward-flow/ed/peel-ed", "/mockups/ward-flow/ward/rph-adult-secure"].sort(),
     );
+  });
+
+  /**
+   * Task 6 (Phase 7), pinned by name rather than left to the two generic directions above.
+   * Direction 2 is satisfied by a route being in EITHER a nav array OR
+   * `WARD_NAV_INTENTIONALLY_UNLISTED`, so it stays green if the referral board silently moves
+   * from the nav into the exemption map — it cannot tell "wired into nav" from "exempted with a
+   * reason". This phase's whole premise is that the referral board IS the coordinator's front
+   * door, so which of the two it lands in is the decision, and the decision is what needs an
+   * assertion. The board is a `board` alongside Escalation and Discharges; the intake form is an
+   * action reached from it, never a peer in the rail.
+   */
+  it("puts the referral board in the coordinator's boards and keeps the intake form out of the rail", () => {
+    const board = WARD_NAV.find((item) => item.href === "/mockups/ward-flow/referrals");
+    expect(board, "the referral board must be a WARD_NAV destination, not an unlisted exemption").toBeDefined();
+    expect(board?.group).toBe("board");
+    expect(board?.label).toBe("Referral board");
+
+    // The intake form is deliberately NOT a nav destination — it is reached from the board. Both
+    // halves are asserted: absent from every nav array, and present in the exemption map with the
+    // reason, so "not in the nav" can never be satisfied by the route simply having vanished.
+    expect(WARD_VIEWS.map((view) => view.href)).not.toContain(WARD_REFERRAL_INTAKE_HREF);
+    expect(WARD_NAV.map((item) => item.href)).not.toContain(WARD_REFERRAL_INTAKE_HREF);
+    expect(WARD_NAV_INTENTIONALLY_UNLISTED.has(WARD_REFERRAL_INTAKE_HREF)).toBe(true);
+    expect(WARD_REFERRAL_INTAKE_HREF).toBe("/mockups/ward-flow/referrals/new");
+    expect(staticRoutes, "the intake route the constant names must exist on disk").toContain(WARD_REFERRAL_INTAKE_HREF);
   });
 
   it("groups every item as either a role screen or a specialist board", () => {

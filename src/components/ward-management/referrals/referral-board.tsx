@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { formatInstant, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { Referral } from "@/components/ward-management/ward-model";
+import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
 import {
   recentlyDecidedReferrals,
   referralQueueOrder,
@@ -82,6 +84,17 @@ export function ReferralBoard() {
         <header className={styles.pageHeader}>
           <h2 className={styles.pageTitle}>Referral board</h2>
           <p className={styles.pageSubtitle}>Queued referrals first, then recently decided.</p>
+          {/*
+           * Task 6. The intake form's ONLY entry point, and deliberately so: it is an action taken
+           * from this queue rather than a section of the app, which is the reason recorded against
+           * `WARD_REFERRAL_INTAKE_HREF` in `WARD_NAV_INTENTIONALLY_UNLISTED` (ward-nav.ts). A real
+           * `<Link>`, never a `router.push` from a click handler — the same rule
+           * `ward-role-switcher.tsx` states for its own destinations, and what keeps the
+           * destination visible to a middle-click, a hover preview and the reachability scan.
+           */}
+          <Link className={styles.headerAction} href={WARD_REFERRAL_INTAKE_HREF} data-testid="ward-referral-board-new">
+            New referral
+          </Link>
         </header>
 
         <QueuedSection queued={queued} now={now} selectedId={selectedReferralId} onSelect={setSelectedReferralId} />

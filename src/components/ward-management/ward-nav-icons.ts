@@ -4,6 +4,7 @@ import {
   Building2,
   CircleAlert,
   ClipboardList,
+  Inbox,
   LayoutDashboard,
   ListFilter,
   LogOut,
@@ -48,4 +49,5 @@ export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
   search: Search,
   discharges: LogOut,
   morning: Sunrise,
+  referrals: Inbox,
 };

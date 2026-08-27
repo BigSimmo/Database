@@ -97,6 +97,7 @@ export const WARD_NAV: readonly WardNavItem[] = [
   { id: "search", href: "/mockups/ward-flow/search", label: "Patient search", group: "board" },
   { id: "discharges", href: "/mockups/ward-flow/discharges", label: "Discharges", group: "board" },
   { id: "morning", href: "/mockups/ward-flow/morning", label: "Morning bed state", group: "board" },
+  { id: "referrals", href: "/mockups/ward-flow/referrals", label: "Referral board", group: "board" },
 ];
 
 /**
@@ -105,6 +106,17 @@ export const WARD_NAV: readonly WardNavItem[] = [
  * why.
  */
 export const WARD_DEVELOPER_HUB_HREF = "/mockups/development";
+
+/**
+ * The referral intake form. Named here, beside the nav data, for the same reason
+ * `WARD_DEVELOPER_HUB_HREF` is: it is a destination reached by a `<Link>` from inside a screen
+ * rather than from the rail, so nothing in `WARD_NAV` would otherwise pin its path, and a
+ * hand-written string in `referral-board.tsx` could drift from the route on disk with nothing
+ * noticing. `WARD_NAV_INTENTIONALLY_UNLISTED` below keys its exemption off this same constant,
+ * and `tests/ward-nav.test.ts` checks that key against the real route tree — so the constant, the
+ * exemption and the route are one fact in one place.
+ */
+export const WARD_REFERRAL_INTAKE_HREF = "/mockups/ward-flow/referrals/new";
 
 /**
  * Static Ward Flow routes intentionally absent from `WARD_VIEWS` and `WARD_NAV`, each with the
@@ -119,11 +131,7 @@ export const WARD_NAV_INTENTIONALLY_UNLISTED: ReadonlyMap<string, string> = new 
     "A deliberate 307 redirect to /network, documented in its own route file (constellation/page.tsx) — not a destination.",
   ],
   [
-    "/mockups/ward-flow/referrals/new",
-    "Phase 7 Task 4 built only the referral intake form and its route; wiring it into the rail/panel/drawer nav is Task 6's explicit job, not this task's.",
-  ],
-  [
-    "/mockups/ward-flow/referrals",
-    "Phase 7 Task 5 built only the referral board and match view and their route; wiring it into the rail/panel/drawer nav is Task 6's explicit job, same reason as /mockups/ward-flow/referrals/new above.",
+    WARD_REFERRAL_INTAKE_HREF,
+    "An action taken from the referral board, not a section of the app: the board (WARD_NAV's `referrals`) carries the 'New referral' <Link> that is the only way in, mirroring how a coordinator actually reaches it — they are looking at the queue when they raise the next one. Listing an intake form in the rail beside Handover, Escalation and Discharges would present a form as though it were a board.",
   ],
 ]);

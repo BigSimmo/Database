@@ -100,6 +100,30 @@
   line-height: var(--ri-leading-body);
 }
 
+/* Task 6: the board's "New referral" link — the intake form's only entry point. `align-self`
+   keeps it to its own width inside `.pageHeader`'s column flex, which would otherwise stretch it
+   edge to edge and make a single action read as a page-wide banner. Same `--ri-space-48`
+   (`--spacing-tap`, 3rem) tap target every other control in this file uses; never `min-h-11`. */
+.headerAction {
+  display: inline-flex;
+  align-self: flex-start;
+  min-height: var(--ri-space-48);
+  align-items: center;
+  border: 0.0625rem solid var(--clinical-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--clinical-accent);
+  padding: 0 var(--ri-space-14);
+  color: var(--clinical-accent-contrast);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.headerAction:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
 .form {
   display: grid;
   gap: var(--ri-space-12);
