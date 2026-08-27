@@ -501,6 +501,12 @@
   --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
+  /* Documented stacking ladder (TOKENS). Live overlay/popover/modal/toast plus
+     v2 base/raised/chrome. Do not invent rungs; z-index:30 phone stack and
+     z-index:2 carets have no named token and stay literal. */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-chrome: 60;
   --z-overlay: 80;
   --z-popover: 95;
   --z-modal: 100;
@@ -1250,9 +1256,9 @@ summary::-webkit-details-marker {
       0 8px 24px rgb(16 24 40 / 8%);
     backdrop-filter: blur(18px) saturate(140%);
     transition:
-      border-color 180ms var(--ease-out-soft),
-      box-shadow 180ms var(--ease-out-soft),
-      transform 180ms var(--ease-spring);
+      border-color var(--duration-base) var(--ease-out-soft),
+      box-shadow var(--duration-base) var(--ease-out-soft),
+      transform var(--duration-base) var(--ease-spring);
   }
 }
 
@@ -1282,6 +1288,7 @@ summary::-webkit-details-marker {
   position: absolute;
   inset-inline: 0;
   top: 0;
+  /* Below the documented ladder; no --z rung for underlay scrims. */
   z-index: -1;
   height: max(6.5rem, calc(var(--safe-area-top) + 5.5rem));
   overflow: hidden;
@@ -1323,7 +1330,7 @@ summary::-webkit-details-marker {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
-  z-index: 0;
+  z-index: var(--z-base);
   height: max(6.5rem, calc(var(--safe-area-bottom) + 5.25rem));
   background: linear-gradient(
     180deg,
@@ -1351,7 +1358,7 @@ summary::-webkit-details-marker {
 .differentials-mobile-compare-fab {
   pointer-events: none;
   position: relative;
-  z-index: 10;
+  z-index: var(--z-raised);
   display: flex;
   width: 100%;
   justify-content: center;
@@ -1381,6 +1388,7 @@ summary::-webkit-details-marker {
   letter-spacing: -0.01em;
   box-shadow: 0 18px 42px rgb(0 0 0 / 24%);
   touch-action: manipulation;
+  /* 160ms has no duration rung — do not invent one; nearest is --duration-quick (150ms). */
   transition:
     transform 160ms var(--ease-spring),
     background-color 160ms var(--ease-out-soft),
@@ -1411,7 +1419,7 @@ summary::-webkit-details-marker {
 .patient-details-fab {
   pointer-events: none;
   position: relative;
-  z-index: var(--z-raised, 10);
+  z-index: var(--z-raised);
   display: flex;
   width: 100%;
   justify-content: center;
@@ -1492,7 +1500,7 @@ summary::-webkit-details-marker {
    and disabled behaviour come from the design system, per COMPONENTS.md 9.1. */
 .therapy-compare-tray {
   position: relative;
-  z-index: var(--z-raised, 10);
+  z-index: var(--z-raised);
   display: flex;
   width: 100%;
   align-items: center;
@@ -1606,7 +1614,7 @@ summary::-webkit-details-marker {
   inset-inline: 0;
   bottom: 0;
   top: auto;
-  z-index: 0;
+  z-index: var(--z-base);
   height: var(--footer-scrim-height);
   overflow: hidden;
   /* Localized glass only: tint around the pill, then return to true zero at
@@ -1648,7 +1656,7 @@ summary::-webkit-details-marker {
   opacity: 1;
   visibility: visible;
   transition:
-    opacity 180ms var(--ease-out-soft),
+    opacity var(--duration-base) var(--ease-out-soft),
     visibility 0s linear;
 }
 
@@ -1850,6 +1858,7 @@ summary::-webkit-details-marker {
   position: absolute;
   bottom: -0.42rem;
   left: var(--mode-action-caret-left, 2.4rem);
+  /* Caret stacking; no --z rung between base (0) and raised (10). */
   z-index: 2;
   width: 0.9rem;
   height: 0.9rem;
@@ -1867,6 +1876,7 @@ summary::-webkit-details-marker {
   position: absolute;
   top: -0.42rem;
   left: var(--mode-action-caret-left, 2.4rem);
+  /* Caret stacking; no --z rung between base (0) and raised (10). */
   z-index: 2;
   width: 0.9rem;
   height: 0.9rem;
@@ -1885,13 +1895,13 @@ summary::-webkit-details-marker {
 }
 
 .mode-action-surface[data-placement="up"] .mode-action-panel {
-  border-bottom-left-radius: 1rem;
-  border-bottom-right-radius: 1rem;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 .mode-action-surface[data-placement="down"] .mode-action-panel {
-  border-top-left-radius: 1rem;
-  border-top-right-radius: 1rem;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
 }
 
 .mode-action-mode-option:focus-visible {
@@ -1921,9 +1931,9 @@ summary::-webkit-details-marker {
   text-align: left;
   color: var(--text-muted);
   transition:
-    background-color 150ms var(--ease-out-soft),
-    border-color 150ms var(--ease-out-soft),
-    color 150ms var(--ease-out-soft);
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft),
+    color var(--duration-quick) var(--ease-out-soft);
 }
 
 .mode-action-mode-option:hover {
@@ -2078,10 +2088,10 @@ summary::-webkit-details-marker {
   place-items: center;
   border-radius: 999px;
   transition:
-    background-color 150ms var(--ease-out-soft),
-    color 150ms var(--ease-out-soft),
-    box-shadow 150ms var(--ease-out-soft),
-    transform 150ms var(--ease-spring);
+    background-color var(--duration-quick) var(--ease-out-soft),
+    color var(--duration-quick) var(--ease-out-soft),
+    box-shadow var(--duration-quick) var(--ease-out-soft),
+    transform var(--duration-quick) var(--ease-spring);
 }
 
 .chat-composer-icon-button {
@@ -2163,6 +2173,7 @@ summary::-webkit-details-marker {
 }
 /* Mirrors the `motion-safe` variant: animate when the OS allows it, and also when
    the in-app Motion preference explicitly opts in over an OS reduce request. */
+/* 170ms has no duration rung — do not invent one; nearest is --duration-base (180ms). */
 @media (prefers-reduced-motion: reduce) {
   html[data-motion="full"] .mode-action-surface[data-placement="up"] {
     animation: mode-action-fold-up 170ms var(--ease-out-soft) both;
@@ -2254,6 +2265,7 @@ summary::-webkit-details-marker {
   font-weight: 700;
   box-shadow: 0 2px 10px rgb(16 24 40 / 6%);
   backdrop-filter: blur(14px);
+  /* 160ms has no duration rung — leave literal (search-chip chrome). */
   transition:
     border-color 160ms var(--ease-out-soft),
     background-color 160ms var(--ease-out-soft),
@@ -2612,6 +2624,7 @@ summary::-webkit-details-marker {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 160ms has no duration rung — leave literal (suggestion-chip chrome). */
   transition:
     border-color 160ms var(--ease-out-soft),
     background-color 160ms var(--ease-out-soft),
@@ -2982,6 +2995,9 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
     opacity: 0;
     visibility: hidden;
+    /* Phone-chrome hide delay must stay 240ms (--duration-slow). Keep the
+       0ms / 240ms pair literal: mobile-chrome-paint-contract pins this string,
+       and 0ms delays are not token-swapped. */
     transition-delay: 0ms, 240ms;
   }
 
@@ -3158,7 +3174,7 @@ summary::-webkit-details-marker {
   --pwa-motion-enter: 280ms;
 
   position: fixed;
-  z-index: 95;
+  z-index: var(--z-popover);
   left: max(0.5rem, var(--safe-area-left));
   right: max(0.5rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
@@ -4034,6 +4050,7 @@ td,
     .phone-sticky-header-stack {
       position: sticky;
       top: 0;
+      /* Between raised (10) and chrome (60); no named rung. Do not retune. */
       z-index: 30;
     }
 
@@ -4227,9 +4244,9 @@ td,
   .source-capsule-face {
     border-color: var(--border);
     transition:
-      border-color 150ms var(--ease-out-soft),
-      box-shadow 150ms var(--ease-out-soft),
-      transform 150ms var(--ease-spring);
+      border-color var(--duration-quick) var(--ease-out-soft),
+      box-shadow var(--duration-quick) var(--ease-out-soft),
+      transform var(--duration-quick) var(--ease-spring);
   }
 
   .source-capsule-hit:hover .source-capsule-face {
@@ -4258,7 +4275,7 @@ td,
   .polished-scroll {
     scrollbar-color: color-mix(in srgb, var(--border-strong) 65%, transparent) transparent;
     scrollbar-width: thin;
-    transition: scrollbar-color 200ms ease;
+    transition: scrollbar-color var(--duration-moderate) ease;
   }
 
   .polished-scroll:hover,
@@ -4283,8 +4300,8 @@ td,
     background-color: color-mix(in srgb, var(--border-strong) 60%, transparent);
     background-clip: padding-box;
     border: 3px solid transparent;
-    border-radius: 999px;
-    transition: background-color 150ms ease;
+    border-radius: var(--radius-pill);
+    transition: background-color var(--duration-quick) ease;
   }
 
   .polished-scroll:hover::-webkit-scrollbar-thumb {
@@ -4341,6 +4358,7 @@ html[data-motion="reduced"] .answer-activity-trace__sweep {
 
 .stagger-item {
   animation: cascade-fade-up var(--duration-moderate) var(--ease-out-soft) both;
+  /* 35ms stagger interval has no duration rung. */
   animation-delay: calc(var(--stagger-index, 0) * 35ms);
 }
 

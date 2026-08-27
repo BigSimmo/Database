@@ -545,7 +545,7 @@ const OVERLAY_Z_RUNGS = [
   { host: "toast", token: "--z-toast", component: "Toast" },
 ] as const;
 
-const RAW_CSS_Z_INDEX_EXCEPTION_BASELINE = 8;
+const RAW_CSS_Z_INDEX_EXCEPTION_BASELINE = 4;
 const OFF_LADDER_INLINE_Z_INDEX = "9999";
 
 function computedZMatchesToken(computedZ: string, tokenValue: string) {
@@ -604,7 +604,7 @@ test.describe("overlay z-index computed tokens", () => {
     ).toBe(false);
   });
 
-  test("rawCssZIndices exception baseline in globals.css stays at 8 and rejects expansion", async () => {
+  test("rawCssZIndices exception baseline in globals.css stays at 4 and rejects expansion", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const { countRawCssZIndicesInSource } = await import("../scripts/design-system-contract-utils.mjs");
