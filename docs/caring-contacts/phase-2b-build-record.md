@@ -3383,3 +3383,57 @@ rather than resolve. It lives on `cc-plan-detail`, which had a live agent, so it
 **The generalisable half. A link checker's "missing" is a claim about one tree**, and this phase's documents
 deliberately span five. Fourteen failures reduced to one real one purely by asking, per reference, *which
 tree was it checked against* — the same question that has now been the answer three times today.
+
+### Ruling [147] — Task 11b's critical is closed, and the first of the four branches is merged
+
+**CRITICAL-1 and MAJOR-1 are both CLOSED**, on the scoped re-review at `0b121f4c3`. What makes that verdict
+worth having is that the reviewer refused to accept the round's own framing at either point.
+
+**On CRITICAL-1 it tested the invariant instead of reading it.** Round 1 declares in a doc comment that no
+path out of `carryOut` is silent. The reviewer **enumerated all six exits** and established what a
+coordinator sees at each, then took the one claimed exception — a throw in `planLifecycleExpectedVersion` —
+and checked **both** halves of the claim made about it. It is genuinely unreachable, because all three
+lifecycle rows declare `this-screen-still-knows-the-plan` first, evaluated against the same
+`live.current.plan` the throw reads with no interleaving `await`. And it does reach `error.tsx` — which was
+worth checking and nearly was not true: `WorkspaceOverlays` is rendered by the shell, and the shell is
+imported by the **page** rather than by `caring-contacts/layout.tsx`. **Had it been in the layout, the
+segment's own error boundary would not have caught it and the claim would have been false.** A doc comment
+asserting an invariant is a claim like any other.
+
+**On MAJOR-1 it checked the half the report never had to argue** — that the client's fingerprint is a
+faithful proxy for the server's. `runWrite` fingerprints `{ method, input }`, and for both routes `input`
+derives from the path plan id and the client body alone, with the actor absent. So the proxy holds **in both
+directions**, which is what makes "same submission shares a key, changed submission does not" true rather
+than merely intended.
+
+**R15, the round's self-reported wrong prediction, checks out literally.** The case exists, was added in its
+own commit after the assertions commit, asserts what the mutation removes, and would redden.
+
+**Round 2 dispatched for four MINOR findings and five NITs, and it is intended to be the last.** The one
+that earns a round on its own is **MINOR-A**, which is the round-1 fix carrying forward the shape of the
+finding it answered: the new self-handover refusal reads a **prop**, so in the window between a successful
+move and its `router.refresh()` arriving, the stale prop names the old holder while the un-cleared
+destination names the new one. A second confirmation then moves the plan to the account that already holds
+it, `applyAssignmentAction` does not refuse `from === to`, and a **permanent handover row is appended saying
+the plan changed hands when it did not — indistinguishable afterwards from a real one.** Given Ruling
+[139]'s finding that this same history outlives retention clearance, a false row in it is not a cosmetic
+defect.
+
+**It is reasoned rather than reproduced** — both new cases call `rereadTheScreen` first and jsdom's mocked
+refresh cannot reach the window — and in a browser it is a sub-second race against a two-stage
+confirmation. **It is fixed anyway, at the source**: clear the destination and the note when a reassignment
+is recorded, which closes it without depending on a refresh arriving and is right independently of the race.
+
+### The merge, step 2 — `cc-message-name` is in
+
+`08c5f4867`. **Clean, as the map predicted**, and re-dry-run against the trunk as it stood rather than
+trusting the recorded verdict. Thirty-three files, including the preferred-name migration and Task P's brief,
+report and re-review.
+
+Verified on the merged tree, not on the branch: `Test Files 18 passed (18)` / `Tests 433 passed (433)` for
+the guard set with `GATE_RECEIPTS=refresh`, and `Test Files 3 passed (3)` / `Tests 83 passed (83)` for
+`message-copy`, `message-policy` and `plan-patient-detail` — **the suites the hand-maintained gate does not
+name, which are precisely the direct behavioural suites for the modules this branch changed.** Running them
+here is the gate-drift rule applied at the moment it matters rather than recorded as a concern.
+
+Remaining order: `cc-plan-detail` once round 2 lands, then `cc-schedule`, then `cc-demo-seed`.
