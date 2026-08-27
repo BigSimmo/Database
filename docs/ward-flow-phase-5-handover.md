@@ -1,9 +1,18 @@
 # Ward Flow Phase 5 — session handover
 
-**Written 2026-08-26.** This file exists so a session with no memory of the work can pick it up
-exactly where it stopped. It records what was built, what is proven and by what evidence, what is
-still broken, and the one decision waiting for a human. It is deliberately blunt about the things
-that are unfinished — a handover that reads as though everything is fine is worse than none.
+> **STATUS: Phase 5 is COMPLETE and MERGED. This file is a historical record, not a resume
+> point.** PR [#2390](https://github.com/BigSimmo/Database/pull/2390) was squash-merged into `main`
+> on 2026-08-26 as `ea5482b9`, with every CI check green — including the `Build` check that was
+> red while this document was being written. **Do not check out
+> `claude/ward-flow-phase-5-p8rwcm`, and do not re-open the §6 bundle-budget decision; both are
+> settled.** The only genuinely outstanding items are the two in §10. Banner and in-place
+> corrections added 2026-08-27.
+
+**Written 2026-08-26**, before the merge; corrected 2026-08-27 to mark what the merge settled. It
+exists so a session with no memory of the work can understand what was built, what is proven and by
+what evidence, and what genuinely remains. The original tense is left in place where it reads as
+history. Every claim that would have sent a later session to redo settled work has been corrected
+where it stands, and the correction says so.
 
 Companion documents, none of which this file duplicates:
 
@@ -16,21 +25,23 @@ Companion documents, none of which this file duplicates:
 
 ---
 
-## 1. Resume in sixty seconds
+## 1. Where Phase 5 actually is
 
 ```bash
-git fetch origin claude/ward-flow-phase-5-p8rwcm
-git checkout claude/ward-flow-phase-5-p8rwcm
+git checkout main && git pull   # Phase 5 is here. There is nothing to resume.
 ```
 
-- **Branch:** `claude/ward-flow-phase-5-p8rwcm`
-- **Pull request:** [#2390](https://github.com/BigSimmo/Database/pull/2390), open, not draft
-- **Last commit that changed code:** `400cedd9` — 20 commits ahead of `main`, 52 files,
-  +4052 / −166. Anything after it on this branch is this handover document; check the branch tip
-  rather than assuming that SHA is still the head.
-- **Phase 5 is functionally complete.** Every task in the plan is built, reviewed and pushed.
-- **One check is still red and is this branch's to fix:** `Build`, on the mockups bundle budget.
-  Section 6 has the full diagnosis and the decision it needs. Nothing else is known-red.
+- **Landed as:** squash commit `ea5482b9` on `main`, merged 2026-08-26T14:32:06Z — 54 files,
+  +4488 / −322. Verified by content, not by SHA: the squash commit's tree hash equals the branch
+  tip's tree hash repo-wide, so the squash dropped nothing.
+- **Pull request:** [#2390](https://github.com/BigSimmo/Database/pull/2390) — **merged**, every
+  check green.
+- **Branch `claude/ward-flow-phase-5-p8rwcm` is merged.** Do not check it out to continue work. Its
+  individual SHAs (`400cedd9`, `47b51405`, `6d1b4bc04`) are **not reachable from `main`** — a
+  squash merge makes them unreachable, so quoting one as "the head" will mislead you.
+- **The `Build` red is resolved.** Cleared by refreshing `mockups.gzipBytes` only, leaving the
+  production and per-route baselines untouched. §6 is kept as the record of why.
+- **Still genuinely owed:** the two items in §10. Nothing else.
 
 ---
 
@@ -103,8 +114,12 @@ LATE_AFTERNOON_MINUTES    = 16 * 60   // 960
 EVENING_SHIFT_END_MINUTES = 22 * 60   // 1320  ← "tonight" ends here
 ```
 
-`released → "now"`; beyond `EVENING_SHIFT_END_MINUTES` → `"beyond-today"`; then `now`, `by-midday`,
-`by-1600`, `tonight`.
+`released` **on the current operating day** → `"now"`; a release carried over from an earlier
+operating day → `"beyond-today"`; beyond `EVENING_SHIFT_END_MINUTES` → `"beyond-today"`; then
+`now`, `by-midday`, `by-1600`, `tonight`.
+
+The day comparison on a released record was added before merge — see §7.4 item 4. It is
+deliberate. Do not simplify it back to an unconditional `"now"`.
 
 ### 4.4 The discharge and egress board
 
@@ -157,7 +172,9 @@ the rendered screen, not that a test rendered it.
 - `npx prettier --check` on all changed files — clean
 - `tests/ui-ward-discharges.spec.ts` — `1 passed (3.6s)`, and proven able to fail: mutating
   `CONFIRM_BED_RELEASE` to coordinator-only turns it red with the release stuck at "Predicted"
-- Every `static-pr` sub-check run individually — all pass at `400cedd9`
+- Every `static-pr` sub-check run individually — all passed on the branch, and CI then passed in
+  full on the merged tree at `ea5482b9`. (`400cedd9` is not reachable from `main`, and two code
+  commits landed after it, so that SHA alone never covered the merged tree.)
 
 ### The three failing unit tests are NOT this branch's
 
@@ -174,9 +191,13 @@ untouched here. **Do not "fix" them inside this branch.**
 
 ---
 
-## 6. THE ONE THING STILL BROKEN — read this before anything else
+## 6. The bundle-budget red, and how it was resolved — HISTORICAL
 
-**`Build` fails on `check:bundle-budget`.** Reproduced locally at `400cedd9` after
+> **Resolved 2026-08-26. Nothing in this section is outstanding.** It is kept because the
+> apportionment measurement and the reasoning are worth preserving, and because the `rm -rf .next`
+> trap at the end is still live. Do not re-open the decision.
+
+**`Build` failed on `check:bundle-budget` before the merge.** Reproduced locally at the time, after
 `rm -rf .next && npm run build`:
 
 ```
@@ -191,7 +212,7 @@ FAIL — mockups scratch +25.7% vs baseline (tolerance 25%).
   — is within tolerance. The failing bucket is chunks reachable **only** from `/mockups/**`, which
   404 in production. `AGENTS.md` describes it as "a repo-hygiene ceiling for unbounded
   accumulation, not a per-mockup gate".
-- It is over by **0.7 percentage points**.
+- At the time it was over by **0.7 percentage points**. Against the current baseline it is at 0%.
 - The growth is **not all Phase 5's**. `main` gained the entire Care Plan synthetic prototype
   during this branch's life. A comparison build on clean `origin/main` was started to apportion it
   **has since been completed, and it settles the question** — see the apportionment below.
@@ -232,9 +253,8 @@ drift of its own too.
 3. **Not permitted:** refreshing the _production_ baseline to clear a _production_ failure. That is
    not the situation here, but do not let the two get conflated.
 
-**Recommended, now that the apportionment is measured: option 2, with one important caveat.**
-Pruning is not available to this branch — the growth is `main`'s, not Phase 5's, and pruning other
-people's mockups is well outside this change.
+**Chosen: option 2, in its conservative form.** Pruning was not available to this branch — the
+growth is `main`'s, not Phase 5's, and pruning other people's mockups is well outside this change.
 
 **The caveat matters.** `--update` rewrites **every** baseline in `bundle-budget.json` —
 production, per-route, and mockups alike (`scripts/check-bundle-budget.mjs`, "refresh every
@@ -248,10 +268,22 @@ drift as the new normal, which is precisely the hiding-a-regression failure the 
   is the more conservative option and the one to prefer, because it changes exactly the number the
   evidence justifies changing and nothing else.
 
-Either way, **this is the owner's call, not an agent's** — it is a repo-wide config change that
-governs every future pull request, and no measurement makes that decision automatic.
+**What was actually done — the second one.** `mockups.gzipBytes` was moved by hand from `499284`
+to `627814` (the measured 613.1 KiB). `production.gzipBytes` (`1695752`), both per-route baselines
+(`285184`, `288358`) and `totalGzipBytes` (`2195036`) were left untouched, and remain untouched on
+`main` today. Confirmed by reading `bundle-budget.json` on `main`.
 
-### Reproducing it
+Two things follow, both worth keeping:
+
+- **A baseline set to the measured value passes by arithmetic**, not by luck. `compareToBudget()`
+  computes `(current − baseline) / baseline`, so `baseline == measurement` is exactly 0% over
+  against a 25% tolerance. An edit of that shape can be checked without rebuilding.
+- **`--update` is still the trap it was.** It rewrites _every_ baseline, production included. The
+  hand-edit exists precisely to avoid that.
+
+This was the owner's call and it was made on 2026-08-26. **Do not re-open it without instruction.**
+
+### How the measurement was taken
 
 ```bash
 rm -rf .next          # MANDATORY — a cached .next makes this check report stale numbers
@@ -299,9 +331,15 @@ The "Confirmed" freshness test asserted only the role, so swapping `formatInstan
    same parser the leave-bed form already uses.
 2. **P2** — leave-bed id collision.
 3. **P2** — `confirmedAt` not refreshed on transitions.
-4. **P2** — released beds banding "now" across the day boundary. Initially fixed, then **reverted
-   on the controller's ruling** after review of the in-flight diff. Reasoning is in
-   `.superpowers/sdd/…/review-fix-report.md`.
+4. **P2** — released beds banding "now" across the day boundary. Reverted once on the
+   controller's ruling, then **re-implemented before merge in a narrower form** and shipped: a
+   released record bands `beyond-today` only when its `confirmedAt` falls on an earlier operating
+   day than `now`. That version is what is on `main` (`ward-bed-availability.ts`, `releaseBand()`).
+   **Do not revert it back to an unconditional `"now"`.** Scope is the discharge board's display
+   only — `capacityBreakdown()` skips released records before it derives any figure, so
+   `availableNow` and the other four capacity figures are unaffected either way. (The original
+   revert's reasoning lived in `.superpowers/sdd/…/review-fix-report.md`, which is git-ignored
+   and no longer present.)
 
 ### 7.5 One reversal worth recording
 
@@ -326,8 +364,13 @@ These cost real time and will cost it again.
    because `data/outstanding-issues-snapshot.json` was behind after two `issues:add` requests.
    Regenerate with the repo's own tool (`node scripts/generate-outstanding-issues-snapshot.mjs`);
    never hand-edit.
-4. **`scripts/run-playwright.mjs` exits 0 when tests fail and when it refuses to run.** Read the
-   "N passed" line. An exit code is not evidence.
+4. **Read both the exit status and the "N passed" line from `scripts/run-playwright.mjs`.**
+   **Corrected 2026-08-27:** this entry previously said the wrapper "exits 0 when tests fail and
+   when it refuses to run". That is not true of the script — it exits **75** with a
+   `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker on admission contention, propagates Playwright's own
+   status on test failure, and exits 1 on a wrapper error. Discarding the status throws away the
+   signal that distinguishes _blocked_ from _red_. The output line still matters separately: a run
+   can exit 0 having produced no result line at all, which proves nothing ran.
 5. **Never run tests while a helper agent is editing source.** The dev server rebuilds on change,
    and a run against a half-swapped page produces failures that are not real. This happened twice.
 
@@ -361,18 +404,33 @@ What is established:
 - No `Suspense`, no `loading.tsx`, no `template.tsx` anywhere in the ward-flow tree.
 - The accessibility snapshot shows one complete screen with one `h1`, so the second element is
   empty or hidden.
-- One run on clean `origin/main` gave `19 passed`; one run on the branch gave `1 failed / 18
-passed`. **A single run each is not enough to attribute this.**
 
-Current best hypothesis, **not established**: the failing runs happened while a helper agent was
-editing source, and Next's development server rebuilt the page mid-run. The honest next step is to
-run `node scripts/run-playwright.mjs tests/ui-ward-roles.spec.ts --project=chromium-mockups` three
-times on a completely quiet tree, and three times on `origin/main` in a worktree.
+> **This experiment was already run. Do not run it again.** The full result is tabulated in
+> `docs/ward-flow-complete-ledger.md` §5d-ii and §5d-iii. The paragraph below was written before
+> those runs and is kept only for the reasoning it records.
 
-**If it proves to be this branch's regression, fix the product, not the assertion.** If it proves
-pre-existing or genuinely flaky, leave one comment on the pull request saying so and do not weaken
-the test. The repo's flake policy requires three reproductions on the same SHA before any
-quarantine.
+**Answered: the flake is pre-existing and is not Phase 5's.** Measured on a quiet tree: 3 runs on
+the branch (1 failure, `ward-unit-screen`) and **7 runs on clean `origin/main`** (1 failure,
+`ward-ed-screen` — an emergency-department screen Phase 5 does not touch in any way), with
+`tests/ui-ward-roles.spec.ts` byte-identical between the two refs. A third observation later hit a
+third identifier again. What every instance shares is the shape of the assertion, not the screen:
+an expectation placed immediately after `page.goto(…, { waitUntil: "domcontentloaded" })`, and it
+is likelier under load.
+
+**The mechanism is still unproven**, and saying otherwise would be a guess. Nothing was
+quarantined, skipped or loosened; the repo's flake policy requires three reproductions on the same
+SHA before any quarantine, and that has not happened. The assertion is correct as written — the
+screen genuinely should appear once.
+
+The superseded pre-experiment hypothesis, kept because it is still plausible as a contributing
+factor: the failing runs happened while a helper agent was editing source and Next's development
+server rebuilt the page mid-run.
+
+**If a future session does revisit this, fix the product, not the assertion** — and note that
+`scripts/run-playwright.mjs` builds a full isolated production app per invocation, so looping it N
+times pays N builds. Use Playwright's own `--repeat-each=N` in one invocation to pay the build
+once. That is not identical evidence to N cold runs for a state-leak hypothesis, so choose
+deliberately rather than by habit.
 
 ---
 

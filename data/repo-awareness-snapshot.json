@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1b5de90c0dc0bab7131d103a71fcb715c71ce306",
-    "committed_at": "2026-08-27T06:51:52+08:00"
+    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
+    "committed_at": "2026-08-27T05:20:05+00:00"
   },
   "routes": {
     "modes": [
@@ -694,6 +694,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/favourites-phone-perfected",
+        "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/favourites-review-console",
         "file": "src/app/mockups/favourites-review-console/page.tsx",
         "area": "mockup"
@@ -1290,6 +1295,10 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
+        "path": "/api/documents/images/batch",
+        "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
         "path": "/api/documents/signed-urls",
         "file": "src/app/api/documents/signed-urls/route.ts"
       },
@@ -1388,11 +1397,11 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 194,
+      "pages": 195,
       "product_pages": 55,
-      "mockup_pages": 139,
+      "mockup_pages": 140,
       "redirects": 17,
-      "api": 57
+      "api": 58
     }
   },
   "documentation": {
@@ -1406,6 +1415,41 @@
         "path": "docs/agents-guide.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -2368,6 +2412,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
@@ -2389,6 +2438,11 @@
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
         "catalogued": false
       },
@@ -2493,6 +2547,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-apply-performance-latency-remediation.md",
         "section": "root",
         "catalogued": true
@@ -2501,6 +2560,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3398,6 +3462,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-clinician-check.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
         "catalogued": false
@@ -3688,6 +3757,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-6-7-decisions.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3731,6 +3810,9 @@
     "sections": [
       {
         "name": "adr"
+      },
+      {
+        "name": "agents"
       },
       {
         "name": "archive"
@@ -3785,10 +3867,10 @@
       }
     ],
     "counts": {
-      "documents": 466,
-      "catalogued": 102,
-      "uncatalogued": 364,
-      "sections": 18
+      "documents": 480,
+      "catalogued": 106,
+      "uncatalogued": 374,
+      "sections": 19
     }
   },
   "test_health": {
@@ -3800,6 +3882,22 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -24826,8 +24924,8 @@
       }
     ],
     "counts": {
-      "records": 2628,
-      "refs": 1605
+      "records": 2630,
+      "refs": 1607
     }
   }
 }

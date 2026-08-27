@@ -374,3 +374,86 @@ test.describe("ckb-v2 forced-colours computed tokens", () => {
     });
   }
 });
+
+/**
+ * #2TAQDC static style contract: prevents unconstrained descendant `:has()` queries
+ * on root hydration nodes (such as `body:has(#main-content...)`).
+ *
+ * Established during the mobile-root CLS investigation (PR #2253): on streaming hydration,
+ * `#main-content` may temporarily not exist in the DOM, causing `body:has(#main-content...)`
+ * rules to evaluate to false during initial paint and restyle when hydration settles.
+ * Only post-hydration components (such as `.pwa-notice-stack` which is held unmounted until
+ * shell mount) are safely permitted to consume these selectors.
+ */
+test.describe("root hydration :has() selector safety contract", () => {
+  const HERO_MAIN_CONTENT_SELECTOR = 'body:has(#main-content[data-phone-footer-owner="hero"])';
+  const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-notice-stack`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-grip`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-tagline`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-copy`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-support`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-benefits`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-header`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-body`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-compact-copy`,
+    `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
+  ]);
+
+  function splitCssSelectors(prelude: string) {
+    const parts: string[] = [];
+    let current = "";
+    let depth = 0;
+    for (const char of prelude) {
+      if (char === "(") depth += 1;
+      else if (char === ")") depth = Math.max(0, depth - 1);
+      if (char === "," && depth === 0) {
+        parts.push(current.replace(/\s+/g, " ").trim());
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    const last = current.replace(/\s+/g, " ").trim();
+    if (last) parts.push(last);
+    return parts.filter(Boolean);
+  }
+
+  function normalizeCssSelector(selector: string) {
+    return selector
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/:has\(\s+/g, ":has(")
+      .replace(/\s+\)/g, ")");
+  }
+
+  test("rejects unconstrained descendant :has(#main-content...) selectors in globals.css", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const styles = fs.readFileSync(path.join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const disallowed: string[] = [];
+    let token = "";
+    for (const char of withoutComments) {
+      if (char === "{") {
+        const prelude = token.replace(/\s+/g, " ").trim();
+        if (!prelude.startsWith("@")) {
+          for (const selector of splitCssSelectors(prelude).map(normalizeCssSelector)) {
+            if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
+              disallowed.push(selector);
+            }
+          }
+        }
+        token = "";
+        continue;
+      }
+      if (char === "}") {
+        token = "";
+        continue;
+      }
+      token += char;
+    }
+
+    expect(disallowed).toEqual([]);
+  });
+});

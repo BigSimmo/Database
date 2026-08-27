@@ -1176,7 +1176,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
-  test("Medication shortcut opens the prescribing workspace", async ({ page }) => {
+  test("Medication shortcut opens the standalone Medication home", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/");
@@ -1185,8 +1185,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("link", { name: "Medication" }).click();
 
-    await expect(page).toHaveURL(/\/medications$/);
-    await expect(page.getByTestId("medication-home")).toBeVisible();
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
+    await expect(page.getByTestId("medication-home").first()).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -3258,6 +3258,55 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(sourceOnlyDrawer).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("review-due sources collapse into a compact expandable tab", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          sources: base.sources.map((source, index) =>
+            index === 0
+              ? {
+                  ...source,
+                  source_metadata: {
+                    ...source.source_metadata!,
+                    document_status: "review_due" as const,
+                    review_date: "2025-11-01",
+                  },
+                }
+              : source,
+          ),
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(reviewDueTab).toContainText("Review due");
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
+    const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reviewDuePanel).toBeHidden();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
+    await expectNoPageHorizontalOverflow(page);
+
+    await testInfo.attach("review-due-tab-phone", {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+
+    await reviewDueTab.click();
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
+    await expect(reviewDuePanel).toBeVisible();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
+    await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
   });
 
   for (const viewport of [

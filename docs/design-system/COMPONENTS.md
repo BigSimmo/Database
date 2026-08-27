@@ -222,10 +222,12 @@ type RetrievalStateBannerProps = {
   `NoAnswer` is excluded from the union: offline / no-confident-answer renders **no answer
   card** — the `EmptyState` path with last sync, cached sources, and a "search cached
   sources" action. Neutral, not amber.
-- The banner renders above the prose. `stale_evidence` lists every overdue source with its
-  review date (`DateDisplay`) and an open-at-cited-page action; the answer remains readable —
-  caution, never a gate (DECISIONS §Q1). When every cited source is overdue, the banner
-  states totality: "Every source for this answer is past its review date."
+- The banner renders above the prose. `stale_evidence` starts as a compact “Review due” tab
+  with the affected-source count, matching the source-only disclosure rather than occupying
+  a full warning panel. Expanding it lists every overdue source with its review date
+  (`DateDisplay`) and an open-at-cited-page action; the answer remains readable — caution,
+  never a gate (DECISIONS §Q1). When every cited source is overdue, the expanded detail states
+  totality: “Every source for this answer is past its review date.”
 - **A source is a document, not a chunk.** `RagAnswer.sources` is chunk-level and several
   chunks of one document is the normal case, so `answerStateFromRetrieval()` dedupes and
   counts by `document_id`. Chunk-level counting is wrong in both directions, and the
@@ -974,7 +976,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              17 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
@@ -1010,7 +1012,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              30 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              31 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

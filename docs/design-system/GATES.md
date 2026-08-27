@@ -269,3 +269,26 @@ again. Since `ui-style-contract.spec.ts` runs in the required `Production UI` jo
 an intermittent version would have blocked every merge in the repo, which is worse than the
 gap it closes. Recorded here so the next attempt starts from a deterministic surface rather
 than re-deriving the same six runs.
+
+## 6 · Visual baseline adoption workflow & post-merge refresh protocol
+
+Ledger `#61TZJA`.
+
+The visual baseline harness (`tests/ui-visual-baseline.spec.ts`) verifies pixel drift across canonical surfaces on Linux CI. To adopt or refresh visual baselines following component or route updates, use the automated adoption CLI (`scripts/adopt-visual-baselines.mjs`):
+
+```bash
+npm run design-system:baselines:adopt -- \
+  --from <extracted-artifact-dir> \
+  --run-id <github-actions-run-id> \
+  --head <40-char-git-commit-sha> \
+  --reviewed-by "<Reviewer Display Name>" \
+  [--reviewed-by-login <github-login>] \
+  --write
+```
+
+### Core Invariants:
+
+1. **Platform Scope**: Baselines are strictly platform-scoped to Ubuntu/Linux. Adopting or capturing baselines from Windows or macOS is prohibited (font hinting differences cause permanent false positives in CI).
+2. **Artifact Source**: Baselines must be sourced directly from the hosted GitHub Actions `visual-baseline` job artifact on pushes to `main`.
+3. **Reviewer Attestation**: `--reviewed-by` is required. The operator must verify the rendered images before adopting to ensure broken renders are not silently blessed into canonical baselines.
+4. **Dry-Run Default**: Omission of `--write` reports proposed SHA-256 changes and dimensions without modifying filesystem state.
