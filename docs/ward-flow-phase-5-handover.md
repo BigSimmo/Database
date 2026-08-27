@@ -364,8 +364,13 @@ These cost real time and will cost it again.
    because `data/outstanding-issues-snapshot.json` was behind after two `issues:add` requests.
    Regenerate with the repo's own tool (`node scripts/generate-outstanding-issues-snapshot.mjs`);
    never hand-edit.
-4. **`scripts/run-playwright.mjs` exits 0 when tests fail and when it refuses to run.** Read the
-   "N passed" line. An exit code is not evidence.
+4. **Read both the exit status and the "N passed" line from `scripts/run-playwright.mjs`.**
+   **Corrected 2026-08-27:** this entry previously said the wrapper "exits 0 when tests fail and
+   when it refuses to run". That is not true of the script — it exits **75** with a
+   `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker on admission contention, propagates Playwright's own
+   status on test failure, and exits 1 on a wrapper error. Discarding the status throws away the
+   signal that distinguishes _blocked_ from _red_. The output line still matters separately: a run
+   can exit 0 having produced no result line at all, which proves nothing ran.
 5. **Never run tests while a helper agent is editing source.** The dev server rebuilds on change,
    and a run against a half-swapped page produces failures that are not real. This happened twice.
 

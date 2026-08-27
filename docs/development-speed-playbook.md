@@ -196,13 +196,28 @@ The consequence is direct: **looping the script N times pays N production builds
   `check:installed-lock-parity` or `check:playwright-browser-revision` reports Chromium drift. Do
   not force a mismatched browser path: a browser gate against the wrong revision is not evidence.
 
-**And read the result line, never the exit code.** `run-playwright.mjs` exits 0 both when tests fail
-and when it refuses to run. Grep for the "N passed" line. If a run produces _no_ result line at all,
-it proved nothing — do not record it as a pass.
+**Read the exit status _and_ the decisive output line — neither alone is enough.**
+`scripts/run-playwright.mjs` does propagate a failure: it exits **75** with a
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker when the coordinator refuses admission, propagates
+Playwright'"'"'s own exit status when tests fail, and exits 1 on a wrapper error. The status is a real
+signal and must not be discarded — **75 means blocked, retry later; any other non-zero means red.**
+Verified by reading `scripts/run-playwright.mjs` on 2026-08-27.
+
+The output line still matters, for a different reason: a run can exit 0 having produced no "N
+passed" line at all, which proves nothing was actually verified. Observed here on 2026-08-27, where
+an invocation held the exclusive lock for nine minutes, wrote no result record and printed nothing.
+**Use the status to tell blocked from red; use the "N passed" line to tell passed from never-ran.**
+
+(Older guidance in this repository — `AGENTS.md` and the Phase 5 handover — says this wrapper
+"exits 0 when tests fail and when it refuses to run". That is **not true** of the script at this
+commit, and repeating it throws away a reliable signal. Raised by automated review on PR #2405 and
+confirmed against the source. `AGENTS.md` still carries the stale wording and is tracked separately,
+because changing it is a policy edit.)
 
 **Never pipe a long run through a bare `tail`.** `node script.mjs | tail -30` buffers everything
-until the process exits, so a slow run and a hung run look identical, and a wrapper ending in `tail`
-also masks the inner exit code. Use `| tee full.log | grep -E --line-buffered "<terminal signals>"`,
+until the process exits, so a slow run and a hung run look identical — and because a pipeline's
+status is its **last** command's, `... | tail` reports `tail`'s success and discards the very exit
+code the previous point says you must read. Use `| tee full.log | grep -E --line-buffered "<terminal signals>"`,
 and make the filter match failure signatures as well as success ones.
 
 ---

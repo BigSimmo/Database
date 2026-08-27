@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 21,
+    "pending": 22,
     "resolved": 412
   },
   "queue": [
@@ -952,6 +952,12 @@
       "request_id": "31bbefdc-0125-4b69-9ba5-f85ce916dc1a",
       "action": "add",
       "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "344cfd1b-b9b1-4b5a-a788-6560bfdc956e",
+      "action": "add",
+      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
       "created_at": "2026-08-27"
     },
     {
