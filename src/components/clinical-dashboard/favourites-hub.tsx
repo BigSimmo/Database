@@ -379,7 +379,7 @@ export function FavouritesHub({
             aria-describedby="favourites-sort-unavailable"
             className={cn(
               floatingControl,
-              "min-h-tap cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:px-2.5",
             )}
           >
             <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
@@ -395,7 +395,7 @@ export function FavouritesHub({
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
-              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--e1)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--e1)] active:translate-y-0 sm:px-2.5",
             )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
@@ -558,7 +558,7 @@ export function FavouritesHub({
               aria-describedby="favourites-new-set-unavailable"
               className={cn(
                 floatingControl,
-                "mt-3 min-h-9 w-full cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)]",
+                "mt-3 w-full cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)]",
               )}
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
@@ -592,10 +592,10 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         </div>
       </div>
       <div className="hidden items-center gap-1.5 sm:flex">
-        <Link href={item.href} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+        <Link href={item.href} className={cn(floatingControl, "px-2.5 text-xs")}>
           {item.primaryAction}
         </Link>
-        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "px-2.5 text-xs")}>
           <Folder aria-hidden="true" className="h-3.5 w-3.5" />
           Browse sets
         </button>

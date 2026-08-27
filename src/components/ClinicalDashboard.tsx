@@ -531,9 +531,15 @@ function ClinicalDashboardContent({
       if (!target) return;
       setActiveHash(href);
       const targetTop = target.getBoundingClientRect().top;
-      const top = ownsVerticalScroll(main)
+      const unclamped = ownsVerticalScroll(main)
         ? main.scrollTop + targetTop - main.getBoundingClientRect().top - 8
         : window.scrollY + targetTop - 8;
+      // Clamp like settings-dialog: short #quotes|#images|#sources sections can
+      // compute a top past the runway. scrollSurface also clamps; keep the
+      // local clamp so this hash path does not fight use-hide-on-scroll.
+      const scroller = ownsVerticalScroll(main) ? main : (document.scrollingElement ?? document.documentElement);
+      const maxOffset = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const top = Math.min(Math.max(0, unclamped), maxOffset);
       scrollSurface(main, top);
       if (shouldUpdateHistory) window.history.replaceState(null, "", href);
       navSyncLockRef.current = window.setTimeout(() => {

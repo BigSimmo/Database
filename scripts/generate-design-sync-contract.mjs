@@ -32,6 +32,84 @@ function publicComponentDeclaration(source, componentName) {
   );
 }
 
+function toPosix(filePath) {
+  return filePath.replaceAll("\\", "/");
+}
+
+function findProgramSourceFile(program, absolutePath) {
+  return (
+    program.getSourceFile(absolutePath) ??
+    program.getSourceFile(toPosix(absolutePath)) ??
+    program.getSourceFiles().find((file) => path.normalize(file.fileName) === path.normalize(absolutePath)) ??
+    null
+  );
+}
+
+function resolveExportStarTarget(fromSource, specifier, program, root) {
+  let candidate;
+  if (specifier.startsWith("@/")) candidate = path.join(root, "src", specifier.slice(2));
+  else if (specifier.startsWith("."))
+    candidate = path.normalize(path.join(path.dirname(fromSource.fileName), specifier));
+  else return null;
+  const candidates = path.extname(candidate)
+    ? [candidate]
+    : [`${candidate}.ts`, `${candidate}.tsx`, path.join(candidate, "index.ts"), path.join(candidate, "index.tsx")];
+  for (const absolutePath of candidates) {
+    const source = findProgramSourceFile(program, absolutePath);
+    if (source) return source;
+  }
+  return null;
+}
+
+/**
+ * Locate an exported function (and its source file) including barrel
+ * `export * from "./module"` hops so componentSrcMap can stay on
+ * `ui-primitives.tsx` after DS-P2-21.
+ */
+function resolveExportedFunction(source, componentName, program, root, seen = new Set()) {
+  if (seen.has(source.fileName)) return null;
+  seen.add(source.fileName);
+  const local = publicComponentDeclaration(source, componentName);
+  if (local) return { component: local, source };
+  for (const statement of source.statements) {
+    if (
+      !ts.isExportDeclaration(statement) ||
+      !statement.moduleSpecifier ||
+      !ts.isStringLiteral(statement.moduleSpecifier)
+    )
+      continue;
+    if (statement.exportClause) {
+      if (!ts.isNamedExports(statement.exportClause)) continue;
+      const aliases = statement.exportClause.elements.filter((element) => element.name.text === componentName);
+      if (aliases.length === 0) continue;
+    }
+    const target = resolveExportStarTarget(source, statement.moduleSpecifier.text, program, root);
+    if (!target) continue;
+    const resolved = resolveExportedFunction(target, componentName, program, root, seen);
+    if (resolved) return resolved;
+  }
+  return null;
+}
+
+function collectExportStarRoots(sourceMap, root) {
+  const extras = [];
+  for (const relativePath of new Set(Object.values(sourceMap))) {
+    const absolutePath = path.join(root, relativePath);
+    if (!fs.existsSync(absolutePath)) continue;
+    const text = fs.readFileSync(absolutePath, "utf8");
+    for (const match of text.matchAll(/export \* from ["'](\.[^"']+)["']/g)) {
+      const candidate = path.normalize(path.join(path.dirname(absolutePath), match[1]));
+      for (const withExt of [`${candidate}.ts`, `${candidate}.tsx`, candidate]) {
+        if (fs.existsSync(withExt) && fs.statSync(withExt).isFile()) {
+          extras.push(withExt);
+          break;
+        }
+      }
+    }
+  }
+  return extras;
+}
+
 function propertyName(name) {
   return /^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name);
 }
@@ -50,7 +128,8 @@ function createProgram(sourceMap, root) {
   const configPath = path.join(root, "tsconfig.json");
   const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, ts.sys);
   if (!parsed) throw new Error(`Unable to parse ${configPath}`);
-  const rootNames = [...new Set(Object.values(sourceMap))].map((relativePath) => path.join(root, relativePath));
+  const mapped = [...new Set(Object.values(sourceMap))].map((relativePath) => path.join(root, relativePath));
+  const rootNames = [...new Set([...mapped, ...collectExportStarRoots(sourceMap, root)])];
   return ts.createProgram({ rootNames, options: parsed.options });
 }
 
@@ -63,10 +142,11 @@ export function deriveDesignSyncProps({ root = ROOT, config = JSON.parse(read(CO
   for (const [componentName, relativePath] of Object.entries(sourceMap).sort(([left], [right]) =>
     left.localeCompare(right),
   )) {
-    const source = program.getSourceFile(path.join(root, relativePath));
-    if (!source) throw new Error(`${componentName} source is not in the TypeScript program: ${relativePath}`);
-    const component = publicComponentDeclaration(source, componentName);
-    if (!component) throw new Error(`${componentName} is not an exported function in ${relativePath}`);
+    const barrel = findProgramSourceFile(program, path.join(root, relativePath));
+    if (!barrel) throw new Error(`${componentName} source is not in the TypeScript program: ${relativePath}`);
+    const resolved = resolveExportedFunction(barrel, componentName, program, root);
+    if (!resolved) throw new Error(`${componentName} is not an exported function in ${relativePath}`);
+    const { component, source } = resolved;
 
     const declaration = publicPropsDeclaration(source, componentName);
     if (!declaration) {

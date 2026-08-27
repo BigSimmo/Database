@@ -649,6 +649,15 @@ stated here falls back to the universal rules (SPEC §6) and the authoring defin
 done (SPEC §14). **Open defects** name their closing PR from the playbook (SPEC §13);
 until that PR lands the defect stands and is not re-litigated per review.
 
+### Focus chrome
+
+Two carriers, never a third:
+
+- **Controls** (`button` / `a` / `summary` / checkbox-radio-range): `outline: 2px solid var(--focus)` on `:focus-visible`, same as `controlBase`. No Tailwind `ring-*` companion on the same node.
+- **Text fields / search shells:** quiet 1px color-mix hairline. Use `fieldControl` / `fieldControlPlain` / `fieldControlWithIcon`, or `searchShell` + `searchShellInput`. Nested inputs stay `outline: none`. Never put `controlBase`'s 2px outline on a text field.
+
+`focus:ring-4` plus `focus:border` on leftover fields is forbidden: those rings win over the unlayered field `box-shadow`. Residual: the production composer pill (`.answer-footer-search-pill` / `.answer-footer-search-input`) keeps the `ui-smoke` halo until a dedicated chrome PR — do not restyle that pill here.
+
 ### 9.1 `Button`
 
 **Purpose.** The one action primitive. `AsyncButton` and hand-rolled `<button>`s converge
@@ -661,7 +670,16 @@ tab order, never removes its accessible name); disabled via `controlBase` encodi
 `--focus` outline only. **Rules.** Verb-first specific labels, never "OK"/bare "Confirm" ·
 hover/active from semantic tokens, never `brightness-*` filters · one filled command per
 surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-floor comment.
+**Tap vs compact-meta (DS-P1-09 / DS-P2-24).** Primary `Button` / `primaryControl` / filled command actions stay `min-h-tap` at **all** breakpoints — no `sm:min-h-10`, `sm:min-h-9`, `lg:min-h-9`, or `min-h-11`. Metadata, disclosure, filter chips, and table micro-actions may use `min-h-compact-meta` (40px) or a documented prefixed compact (`sm:min-h-compact-meta`). `--row-compact` / `min-h-9` (36px) is row height, not a tap target. Recipes: `interactiveCompact` and `tableMicroActionRow` are the named compact-meta exceptions in `ui-primitives.tsx`; `controlBase` stays tap-sized. Full table: TOKENS §2 “Compact-meta vs tap”.
 **Open defects → PR.** ref forwarding and the needless client boundary → follow-on.
+
+**Command CTA path.** Pick one encoding; do not invent a fourth.
+
+| Situation                                         | Winner                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Real button action (copy, continue, submit, busy) | `<Button variant="primary">` from `src/components/ui/button.tsx`                                                             |
+| Navigation that must look like the filled command | `Link` + `primaryControl` (`Button` has no `href` / `asChild`)                                                               |
+| Unavailable placeholder                           | `aria-disabled` + `ignoreUnavailableActivation` from ui-primitives; **never** native `disabled` and `aria-disabled` together |
 
 ### 9.2 `IconButton`
 
@@ -691,7 +709,9 @@ component; broader Gate 9 motion sweep still tracks other surfaces.
 ### 9.5 `Chip`
 
 **Purpose.** Compact label for tones, filters, categories. Static chips are text, not
-targets (tap-exempt under the inline exception). **Modes (union, PR 4).** `static` (no
+targets (tap-exempt under the inline exception). Interactive filter chips that are **not**
+primary CTAs may use `min-h-compact-meta` (or `sm:min-h-compact-meta`) per TOKENS density
+policy; do not copy that step-down onto a filled command action. **Modes (union, PR 4).** `static` (no
 removal props representable) · `removable` (`onRemove` + `removeLabel` both required).
 **Rules.** Remove control keeps a small visible glyph inside an overlapping hit target
 that does not inflate the chip · truncated labels need a full-value path · category tones
@@ -959,7 +979,10 @@ sanitiser's tiny grammar renders as plain text.
 `disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
 (`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
 contract) so generic primitives stop importing clinical application modules · recipes
-never restate a token value. The 2026-07-31 icon regression (lucide imports replaced
+never restate a token value. `interactiveCompact` and `tableMicroActionRow` use
+`min-h-tap` on phones and `sm:min-h-compact-meta` on pointer layouts (metadata /
+disclosure, not primaries). Do not copy that step-down onto `controlBase` or
+`primaryControl`. The 2026-07-31 icon regression (lucide imports replaced
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
@@ -970,7 +993,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 36
+Components with product imports: 39
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -981,9 +1004,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              19 |
-| `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -997,8 +1020,8 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
@@ -1006,7 +1029,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |

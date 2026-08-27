@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
-import { Clipboard, ClipboardCheck, History, Square } from "lucide-react";
+import { History, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -15,48 +15,18 @@ import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-su
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { ShowAllChip } from "@/components/show-all-chip";
-import { cn, floatingControl } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
   answerLoading,
-  copyButton,
   sharedHomeEmptyState,
   sharedHomePresentation,
   type SharedHomePresentation,
 } from "@/lib/ui-copy";
 
-export function CopyButton({
-  label,
-  shortLabel,
-  ariaLabel,
-  copied,
-  onClick,
-}: {
-  label: string;
-  shortLabel?: string;
-  ariaLabel?: string;
-  copied: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel ?? label}
-      className={cn(floatingControl, "px-3 text-xs")}
-    >
-      {copied ? (
-        <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
-      ) : (
-        <Clipboard aria-hidden="true" className="h-4 w-4" />
-      )}
-      <span className="sm:hidden">{copied ? copyButton.copied : (shortLabel ?? label)}</span>
-      <span className="hidden sm:inline">{copied ? copyButton.copied : label}</span>
-    </button>
-  );
-}
+export { CopyButton } from "@/components/ui/copy-button";
 
 export function SharedHomeEmptyState({
   modeId,
