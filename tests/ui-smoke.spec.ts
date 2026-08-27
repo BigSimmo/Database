@@ -1134,7 +1134,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (viewport.width < 640) {
         const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
         const dailyActions = await openDailyActions(page);
-        const searchAction = dailyActions.getByRole("button", { name: "Search" });
+        const searchAction = dailyActions.getByRole("button", { name: "Search sources", exact: true });
         await expect(searchAction).toBeVisible();
         await expect(dailyActions.getByRole("button", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
