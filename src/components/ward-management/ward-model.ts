@@ -401,20 +401,35 @@ export type ReferralDeclineReason = (typeof REFERRAL_DECLINE_REASONS)[number];
 
 /**
  * The front door: a referral arriving from anywhere in the network, before it is ever a
- * `Movement` inside a department. Carries EXACTLY three facts about the person referred —
- * `ageBand`, `sex`, `secureBedNeeded` — and nothing else: no name, date of birth, record number,
- * address, diagnosis, or narrative history or treatment. No free-text field of any kind, unlike
- * `Decline` (which has an optional `note`) — a referral has no field a person's own words, or an
- * author's summary of them, could ever land in. `tests/ward-referral-model.test.ts` asserts this
- * structurally, against this type's own field set, so a future field named `patientId`, `notes`,
- * `diagnosis` or `dob` is caught rather than merely discouraged by convention.
+ * `Movement` inside a department. Carries EXACTLY four facts about the person referred —
+ * `ageBand`, `sex`, `secureBedNeeded`, `involuntaryBedNeeded` — and nothing else: no name, date of
+ * birth, record number, address, diagnosis, or narrative history or treatment. No free-text field
+ * of any kind, unlike `Decline` (which has an optional `note`) — a referral has no field a
+ * person's own words, or an author's summary of them, could ever land in.
+ * `tests/ward-referral-model.test.ts` asserts this structurally, against this type's own field
+ * set, so a future field named `patientId`, `notes`, `diagnosis` or `dob` is caught rather than
+ * merely discouraged by convention.
+ *
+ * This list moved from three fields to four mid-build, deliberately, and only once: Task 2's
+ * matching surfaced that legal status (Voluntary/Involuntary) had nothing on a referral to test
+ * against, so that gate passed for every bed. `involuntaryBedNeeded` closed that gap. See
+ * `docs/ward-flow-phase-6-7-decisions.md` ("A fifth answer, given mid-build") and spec D5.
  */
 export type Referral = {
   id: string;
-  // The only three facts about a person. Nothing else may ever be added here.
+  // The only four facts about a person. Nothing else may ever be added here.
   ageBand: Cohort;
   sex: Sex;
   secureBedNeeded: boolean;
+  /**
+   * Whether THIS REQUEST needs a bed that can hold someone involuntarily — never a fact stored
+   * about the person, and never a legal determination. Same convention as `secureBedNeeded` and
+   * roadmap decision 5's cohort framing: the request needs an adolescent bed, a secure bed, or
+   * here, a bed that can hold someone involuntarily — the word never attaches to the patient.
+   * Introduces no figure, timeframe or threshold from the Mental Health Act; a plain
+   * Voluntary/Involuntary bed label was already permitted, and this is the same category.
+   */
+  involuntaryBedNeeded: boolean;
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;

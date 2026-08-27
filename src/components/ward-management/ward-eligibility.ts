@@ -136,10 +136,10 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
   const sameSexOccupants = unit.sexMix[referral.sex] ?? 0;
   const designationAccepts = sexDesignationAccepts(unit.sexDesignation, referral.sex);
   const securityMet = !referral.secureBedNeeded || unit.security === "Secure";
-  // See the `legal_status` gate's own comment below for why this is a fixed fact about every
-  // Phase 7 referral rather than a read of a field `Referral` does not have.
-  const referralNeedsAuthorisedDestination = false;
-  const legalStatusMet = !referralNeedsAuthorisedDestination || unit.authorised;
+  // See the `legal_status` gate's own comment below for why this is an accepts-rule, never an
+  // equality: a referral that does not need an involuntary bed is accepted by ANY bed, including
+  // an authorised one — `unit.authorised` is a capability a bed has, not a value to match against.
+  const legalStatusMet = !referral.involuntaryBedNeeded || unit.authorised;
 
   const gates: GateResult[] = [
     {
@@ -151,20 +151,22 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
           : `${unit.cohort} unit does not match ${article(referral.ageBand)} ${referral.ageBand.toLowerCase()} referral`,
     },
     {
-      // A referral (Task 1's `Referral`) carries no legal-status fact — the front door precedes
-      // any legal determination (spec D14), so a referral never yet needs an authorised
-      // destination. This is a fixed fact about a REFERRAL, never a read of a field that does
-      // not exist. Requiring `unit.authorised` unconditionally here would be the same shape of
-      // mistake as `bed.sexDesignation === referral.sex`: a plausible-looking "legal status must
-      // match" rule that actually narrows which beds a referral may reach for a reason that has
-      // nothing to do with the referral itself. An authorised unit is still, correctly,
-      // involuntary-capable and accepts this referral too (D3 rule 2) — it is a capability, not
-      // a value to equality-match.
+      // D3 rule 2 / D5's fourth field: a referral that does NOT need an involuntary bed is
+      // accepted by ANY bed; a referral that DOES need one is accepted only by a bed that can
+      // hold someone involuntarily (`unit.authorised`). Written as an accepts-rule, never an
+      // equality, for the same reason as `sex_designation` below — `unit.authorised ===
+      // referral.involuntaryBedNeeded` would refuse an involuntary-bed referral from an
+      // authorised unit whenever the referral itself happened not to need one, which is backwards:
+      // an authorised unit's extra capability never disqualifies it. The detail describes the bed
+      // or the requirement, never the person: it is not a legal determination about who was
+      // referred, only whether this bed can hold someone involuntarily if the request calls for it.
       gate: "legal_status",
       pass: legalStatusMet,
-      detail: unit.authorised
-        ? `${unit.name} is authorised under the Mental Health Act`
-        : `${unit.name} is not authorised under the Mental Health Act; no authorised destination is required yet`,
+      detail: referral.involuntaryBedNeeded
+        ? legalStatusMet
+          ? `${unit.name} is authorised under the Mental Health Act`
+          : `${unit.name} is not authorised under the Mental Health Act`
+        : "No authorised destination required",
     },
     {
       gate: "sex_designation",

@@ -212,14 +212,19 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
 });
 
 /**
- * Task 1's privacy discipline, from the binding phase spec: a referral carries exactly three
- * facts about the person referred — `ageBand`, `sex`, `secureBedNeeded` — and nothing else. No
- * free text anywhere, unlike `Decline` (which carries an optional `note`). Following the
- * Phase 4/5 pattern (`tests/ward-flow-reducer.test.ts`'s `BedRelease` allowlist,
+ * Task 1's privacy discipline, from the binding phase spec: a referral carries exactly four
+ * facts about the person referred — `ageBand`, `sex`, `secureBedNeeded`, `involuntaryBedNeeded` —
+ * and nothing else. No free text anywhere, unlike `Decline` (which carries an optional `note`).
+ * Following the Phase 4/5 pattern (`tests/ward-flow-reducer.test.ts`'s `BedRelease` allowlist,
  * `tests/ward-bed-availability-model.test.ts`'s `LeaveBed` allowlist): an ALLOWLIST of the exact
  * field set, checked against the type's own shape via a fully-populated canonical instance —
  * never against what a single partial fixture entry happens to show — so a future field named
  * `patientId`, `notes`, `diagnosis` or `dob` is caught rather than merely discouraged.
+ *
+ * `involuntaryBedNeeded` was added mid-build, deliberately, once — see
+ * `docs/ward-flow-phase-6-7-decisions.md` ("A fifth answer, given mid-build"). This list widens
+ * from three to four fields here on purpose; widening it again is a governance decision, not an
+ * implementation one, and this test is what makes that true rather than aspirational.
  */
 describe("Referral privacy — structural", () => {
   const ALLOWED_REFERRAL_FIELDS = [
@@ -227,6 +232,7 @@ describe("Referral privacy — structural", () => {
     "ageBand",
     "sex",
     "secureBedNeeded",
+    "involuntaryBedNeeded",
     "source",
     "raisedAt",
     "urgency",
@@ -248,6 +254,7 @@ describe("Referral privacy — structural", () => {
       ageBand: "Adult",
       sex: "Female",
       secureBedNeeded: false,
+      involuntaryBedNeeded: false,
       source: "community",
       raisedAt: NOW_ANCHOR,
       urgency: 2,

@@ -37,6 +37,7 @@ function referral(overrides: Partial<Referral> = {}): Referral {
     ageBand: "Adult",
     sex: "Female",
     secureBedNeeded: false,
+    involuntaryBedNeeded: false,
     source: "community",
     raisedAt: NOW - 30,
     urgency: 2,
@@ -70,25 +71,61 @@ describe("age", () => {
 });
 
 describe("legal_status", () => {
-  it("an authorised (involuntary-capable) unit accepts a referral", () => {
-    const verdict = referralEligibility(referral(), unit({ authorised: true }), NOW);
+  // D3 rule 2 / spec's second most important test: a referral that does NOT need an involuntary
+  // bed is accepted by ANY bed, authorised or not — this is the "not needed" half of the
+  // accepts-rule, and it is what makes the rule an accepts-rule rather than an equality. Mutating
+  // the gate to strict equality (`unit.authorised === referral.involuntaryBedNeeded`) breaks
+  // exactly this case, because an authorised unit would then wrongly refuse a referral that
+  // doesn't need one.
+  it("a referral that does not need an involuntary bed is accepted by an authorised unit", () => {
+    const verdict = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(true);
   });
 
-  // D3 rule 2 / spec's second most important test: a referral carries no legal-status fact
-  // (Task 1's `Referral`), so it never yet needs an authorised destination — an unauthorised
-  // (voluntary-only) unit must still accept it. This is the one that actually discriminates:
-  // mutating the gate to strict equality (`unit.authorised === true` unconditionally) breaks
-  // exactly this case, because an unauthorised unit would then wrongly refuse every referral.
-  it("an unauthorised (voluntary-only) unit also accepts a referral, since a referral never yet needs an authorised destination", () => {
-    const verdict = referralEligibility(referral(), unit({ authorised: false }), NOW);
+  it("a referral that does not need an involuntary bed is also accepted by an unauthorised (voluntary-only) unit", () => {
+    const verdict = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: false }), NOW);
     expect(gate(verdict, "legal_status")?.pass).toBe(true);
   });
 
-  it("gives the legal_status gate a different detail string for an authorised unit than an unauthorised one", () => {
-    const authorised = referralEligibility(referral(), unit({ authorised: true }), NOW);
-    const unauthorised = referralEligibility(referral(), unit({ authorised: false }), NOW);
+  // The "needed" half of the accepts-rule: only a bed that can hold someone involuntarily may
+  // accept it. This is the case a bare "always pass" gate (the dimension's pre-Phase-7 state) can
+  // never catch, because it would pass here too.
+  it("a referral that needs an involuntary bed is accepted by an authorised unit", () => {
+    const verdict = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    expect(gate(verdict, "legal_status")?.pass).toBe(true);
+  });
+
+  it("a referral that needs an involuntary bed is refused by an unauthorised (voluntary-only) unit", () => {
+    const verdict = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: false }), NOW);
+    expect(gate(verdict, "legal_status")?.pass).toBe(false);
+  });
+
+  it("gives the legal_status gate a different detail string for an authorised unit than an unauthorised one, when a referral needs an involuntary bed", () => {
+    const authorised = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    const unauthorised = referralEligibility(
+      referral({ involuntaryBedNeeded: true }),
+      unit({ authorised: false }),
+      NOW,
+    );
     expect(gate(authorised, "legal_status")?.detail).not.toBe(gate(unauthorised, "legal_status")?.detail);
+  });
+
+  it("neither detail string judges the person — both describe the bed or the requirement", () => {
+    const authorised = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
+    const unauthorised = referralEligibility(
+      referral({ involuntaryBedNeeded: true }),
+      unit({ authorised: false }),
+      NOW,
+    );
+    const notNeeded = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
+    for (const detail of [
+      gate(authorised, "legal_status")?.detail,
+      gate(unauthorised, "legal_status")?.detail,
+      gate(notNeeded, "legal_status")?.detail,
+    ]) {
+      expect(detail).toBeDefined();
+      expect(detail).not.toMatch(/patient|person|unsuitable|assessed/i);
+    }
   });
 });
 

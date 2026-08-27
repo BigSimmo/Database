@@ -852,15 +852,19 @@ export const leaveBeds: LeaveBed[] = [
  *     `ger-adult-open` ("Female only") would correctly exclude this same referral. This is the
  *     seed rule-4(d) case: an equality-shaped matching bug (`bed.sexDesignation === referral.sex`)
  *     would wrongly refuse this referral everywhere, because `"Undesignated" !== "Male"` reads as
- *     a mismatch even though an undesignated bed accepts every sex.
+ *     a mismatch even though an undesignated bed accepts every sex. RF-003 also carries
+ *     `involuntaryBedNeeded: true`, seeding the `legal_status` accepts-rule: `scgh-adult-open` is
+ *     authorised and correctly accepts it, while `sjgs-adult-open` (Adult/Open/Undesignated, but
+ *     NOT authorised) is a real bed elsewhere in the network that correctly refuses it — the
+ *     dimension is testable rather than decorative.
  *   - RF-004: declined, `declineReason: "out_of_catchment"` — an administrative fact about the
  *     referral's origin, not a judgement on the person.
  *   - RF-006: `secureBedNeeded: true`, `sex: "Male"`, accepted at `brm-adult-secure` — the
  *     network's one Adult/Secure/Male-only/forensic/authorised bed, exercising all four
  *     independent bed dimensions from one referral.
- * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded` about the person, no free
- * text anywhere, and `originSiteCode` is always one of `wardSites`' own synthetic codes, never an
- * address.
+ * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded`/`involuntaryBedNeeded`
+ * about the person, no free text anywhere, and `originSiteCode` is always one of `wardSites`' own
+ * synthetic codes, never an address.
  */
 export const referrals: Referral[] = [
   {
@@ -868,6 +872,7 @@ export const referrals: Referral[] = [
     ageBand: "Youth",
     sex: "Female",
     secureBedNeeded: true,
+    involuntaryBedNeeded: false,
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
@@ -880,6 +885,7 @@ export const referrals: Referral[] = [
     ageBand: "Adult",
     sex: "Female",
     secureBedNeeded: false,
+    involuntaryBedNeeded: false,
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
     urgency: 2,
@@ -895,6 +901,12 @@ export const referrals: Referral[] = [
     ageBand: "Adult",
     sex: "Male",
     secureBedNeeded: false,
+    // Seeds the `legal_status` accepts-rule (D3 rule 2): needs a bed that can hold someone
+    // involuntarily. Accepted at `scgh-adult-open`, which is authorised — and SJGS Adult Open
+    // (`sjgs-adult-open`, Adult/Open/Undesignated but NOT authorised) is a real bed elsewhere in
+    // the network that this same referral would correctly be refused by on `legal_status` alone,
+    // proving the rule actually excludes something rather than passing for every bed.
+    involuntaryBedNeeded: true,
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
     urgency: 1,
@@ -910,6 +922,7 @@ export const referrals: Referral[] = [
     ageBand: "Older adult",
     sex: "Female",
     secureBedNeeded: false,
+    involuntaryBedNeeded: false,
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
     urgency: 3,
@@ -925,6 +938,7 @@ export const referrals: Referral[] = [
     ageBand: "Older adult",
     sex: "Male",
     secureBedNeeded: false,
+    involuntaryBedNeeded: false,
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
     urgency: 2,
@@ -937,6 +951,7 @@ export const referrals: Referral[] = [
     ageBand: "Adult",
     sex: "Male",
     secureBedNeeded: true,
+    involuntaryBedNeeded: false,
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
     urgency: 1,

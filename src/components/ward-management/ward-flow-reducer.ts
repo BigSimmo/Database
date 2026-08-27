@@ -956,6 +956,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         ageBand: event.ageBand,
         sex: event.sex,
         secureBedNeeded: event.secureBedNeeded,
+        involuntaryBedNeeded: event.involuntaryBedNeeded,
         source: event.source,
         raisedAt: event.now,
         urgency: event.urgency,

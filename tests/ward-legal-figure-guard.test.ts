@@ -392,6 +392,7 @@ const RECEIVE_REFERRAL_CANDIDATE = {
   ageBand: "Adult" as const,
   sex: "Female" as const,
   secureBedNeeded: false,
+  involuntaryBedNeeded: false,
   source: "community" as const,
   urgency: 2 as const,
   originSiteCode: "SCGH",

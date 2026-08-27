@@ -40,6 +40,7 @@ function receiveReferral(state: WardFlowState, now = NOW) {
     ageBand: "Adult",
     sex: "Female",
     secureBedNeeded: false,
+    involuntaryBedNeeded: false,
     source: "community",
     urgency: 2,
     originSiteCode: "SCGH",
@@ -58,6 +59,7 @@ describe("RECEIVE_REFERRAL", () => {
     expect(created.ageBand).toBe("Adult");
     expect(created.sex).toBe("Female");
     expect(created.secureBedNeeded).toBe(false);
+    expect(created.involuntaryBedNeeded).toBe(false);
     expect(created.source).toBe("community");
     expect(created.urgency).toBe(2);
     expect(created.originSiteCode).toBe("SCGH");
@@ -98,6 +100,7 @@ describe("RECEIVE_REFERRAL", () => {
       ageBand: "Adult",
       sex: "Female",
       secureBedNeeded: false,
+      involuntaryBedNeeded: false,
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",
