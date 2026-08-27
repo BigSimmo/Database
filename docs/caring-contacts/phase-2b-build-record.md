@@ -3740,3 +3740,77 @@ the new blocks use the wider `layoutOverflow`, and only the latter is proved fal
 stale `data/outstanding-issues-snapshot.json` (F5), which was **mine** — regenerated and committed at
 `c1cea69fb`, pending 47 → 36, exactly the eleven inbox requests `8d0b374b4` removed. Task 21 left it
 uncommitted deliberately and said so, which is the correct handling of a generated file another change owns.
+
+### Ruling [153] — the whole-branch review, and Phase 2B closed on the evidence it actually has
+
+**The final whole-branch review is at `2c7104982`.** It is the review the method has owed since the phase
+began and had never been run. **Verdict: safe to hand to the owner as complete, with three things attached.
+0 Critical, 3 Major, 7 Minor, 0 Nit.**
+
+**The four unreviewed rounds, seen at last (Ruling [136]'s whole purpose):** Task 10 round 3 has **zero
+behavioural change** — `git show -w` leaves only Prettier wrapping. Task 11a round 2 is real and sound, with
+one unmentioned narrowing (a defensive throw now fires only when its condition does), recorded as MINOR.
+Task 19 round 3 is good and is where MAJOR-3 came from. Task 16 fix round 1 the reviewer **agrees** with
+accepting under Ruling [141], having independently re-verified the deleted false approval claim. **So the
+skip was harmless three times out of four and the fourth was already correct — and none of that was knowable
+until somebody looked.**
+
+**MAJOR-3 was mine and is corrected in place** above, in Ruling [142]'s Decision 4. The threshold has had a
+governance home since 2026-08-26; I read the trunk before `cc-demo-seed` merged and wrote what I saw there
+as a fact about the system. Corrected rather than overwritten, because an owner reading the original would
+have built a **second** definition of a disclosure control.
+
+**MAJOR-1 goes to the owner, beside the one already with him.** `markRetentionCleared` clears the plan's five
+patient columns and the cultural-identity report, and nothing else. Two further stores of free text about a
+patient survive it: **`idempotency_records.result`**, which holds the verbatim result payload of every write
+with no expiry and no purge — so a reassignment's handover note sits there **as well as** in
+`plan_reassignments`, meaning the owner's approved Decision 1 fix would leave a byte-identical copy behind —
+and **`contact_dispatches.discrepancy_note`**, a clinician's free-text account of what happened to one named
+patient's message, unclassified and uncleared, three hundred lines from a `service_stops.note` that carries
+_"Treat it as patient data"_ and a recorded owner disposition. **The gap is retention alone**; the audit and
+fingerprint-hashing protections either side hold. **This is the third time asking "what does this mechanism
+store _incidentally_" has found this class in this phase.**
+
+**MAJOR-2 is owed and is recorded as owed rather than quietly dropped.** The caring-contacts database suite
+has never run on the merged tree, and Ruling [150]'s owed-gates list did not name it — my omission.
+`vitest.config.mts` collects those two suites only when `CARING_CONTACTS_DATABASE_URL` is set, so they are
+absent from `test:cc-guards` and from `npm run test` alike. It matters here specifically: **three migrations
+landed from three different worktrees** (`0005`, `0006`, `0007`), and commit `a2f74936a` on one of them reads
+_"0006 must not re-grant on every table — that restored write access to the audit trail"_ — a real privilege
+defect in a migration, found by this suite and by nothing else. Migration ordering, cumulative grants and RLS
+are exactly the properties that are right on each branch and can be wrong on the union.
+
+**I tried to run it and could not.** The suite refuses to skip, correctly, and prints the exact remedy. Docker
+Desktop is not running on this machine: `failed to connect to the docker API at
+npipe:////./pipe/dockerDesktopLinuxEngine`. **Note the shape — that failure was reported to the harness as
+`[exited with code 0]`**, the same masking trap this record has now caught four times in one phase. The
+command, when Docker is up:
+
+```
+docker run --rm -d --name caring-contacts-pg -e POSTGRES_PASSWORD=caring-contacts-local -p 54329:5432 postgres:17
+CARING_CONTACTS_DATABASE_URL=postgres://postgres:caring-contacts-local@127.0.0.1:54329/postgres npm run caring-contacts:db:test
+```
+
+### The final gates, on the finished tree
+
+- **`npm run format`, committed.** One file.
+- **Full `npm run test`: `Test Files 1 failed | 905 passed | 3 skipped (909)`, `Tests 1 failed | 11273 passed
+| 75 skipped (11349)`.** The single failure is `document-viewer-page-virtualization`, in a subsystem this
+  phase never touched (`git diff origin/main...HEAD` shows nothing there), which **passes in isolation**.
+  This is its **second** observation under a loaded full run and its second clean isolated run. **It is still
+  not called a flake**: this repository requires three reproductions on one SHA, and there have been none —
+  two failures under load and two passes alone is not the same thing.
+- **`npm run build` on a cold `.next`: compiled successfully.** No Server/Client boundary defect, on a tree
+  where the privacy fix split a route into a server wrapper plus a client island and four tasks added client
+  components.
+- **`check:bundle-budget`: production 1713.1 KiB gzip against a 1656.0 KiB baseline, within tolerance;
+  mockups within tolerance.**
+- **`tests/ui-caring-contacts-workspace.spec.ts`: `115 passed (3.7m)`**, up from the 84 that first ran
+  yesterday and from the **zero** that had ever run for four of its blocks.
+
+**What this phase is, stated at the scope it was checked at.** Every screen is built, merged, reviewed and
+proved against the states this tree can reach. **Nothing is pushed, no pull request exists, and nothing has
+been merged to `main`.** Six of the nine screens are proved on an empty or statement state, because no
+seeded browser server exists; the database half has no evidence on the merged tree; and three findings and
+several decisions sit with the owner. All of that is written down rather than implied by silence, which is
+the only honest form the word "complete" can take here.
