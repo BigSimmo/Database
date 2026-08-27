@@ -446,12 +446,15 @@ describe("design-system contract helpers", () => {
     expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
   });
 
-  it("pins the globals.css raw CSS z-index exception baseline at 8 (DS-P3-06)", async () => {
+  it("pins the globals.css raw CSS z-index exception baseline at 4 (DS-P3-06)", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
-    expect(countRawCssZIndicesInSource(globals)).toBe(8);
-    expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(9);
+    // Ratcheted 8 -> 4 by the motion/z tokenisation sweep: the four remaining
+    // raw declarations are the documented exceptions that cannot take a `--z-*`
+    // rung. Lower this pin when more are tokenised; never raise it.
+    expect(countRawCssZIndicesInSource(globals)).toBe(4);
+    expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(5);
   });
 
   it("counts a same-file text-sm + text-sm-minus mix as one warn/ratchet hit, not a hard zero", () => {
