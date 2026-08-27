@@ -11,7 +11,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 | Step                              | Command                          |
 | --------------------------------- | -------------------------------- |
-| Confirm Supabase target           | `npm run check:supabase-project` |
+| Confirm Supabase target           | `npm run check:supabase-project` (provider-backed — needs explicit confirmation) |
 | Start app (project-specific port) | `npm run ensure`                 |
 | Start ingestion worker            | `npm run worker`                 |
 | Cheap verification gate           | `npm run verify:cheap`           |
@@ -28,7 +28,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | `worker/`   | Local ingestion worker (parse, OCR, chunk, embed, DB writes)     |
 | `scripts/`  | CLI ops: reindex, eval, backfill, governance, dev-server helpers |
 | `tests/`    | Vitest unit (`*.test.ts`) + Playwright E2E (`ui-*.spec.ts`)      |
-| `docs/`     | Runbooks, governance, search/RAG plans, generated sitemap        |
+| `docs/`     | Runbooks, governance, search/RAG plans, generated sitemap; design-system system of record is [`docs/design-system/README.md`](design-system/README.md) |
 | `public/`   | Static assets (`public/llms.txt`)                                |
 | `.github/`  | CI workflows, PR template (clinical governance preflight)        |
 

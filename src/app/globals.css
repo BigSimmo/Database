@@ -4,8 +4,9 @@
    the shared render-blocking stylesheet without changing mockup rendering. */
 @source not "./mockups";
 @source not "../components/**/*mockup*";
-/* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
-   importing it cannot change any surface that does not carry the class. */
+/* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`.
+   Production mounts that class on `<html>` (`src/app/layout.tsx`), so the
+   layer is opted in at the document root rather than per subtree. */
 @import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -241,7 +242,7 @@
      --leading-tight/-snug/-normal/-relaxed; these do NOT redefine those (that
      would silently retune every existing leading-tight/leading-snug call site).
        leading-display  1.05  large display headings — hero/mode-home/detail h1
-       leading-prose    1.6   the max-w-[68ch] body measure */
+       leading-prose    1.65  the max-w-[68ch] body measure */
   --leading-display: 1.05;
   --leading-prose: 1.65;
 
@@ -2176,6 +2177,7 @@ summary::-webkit-details-marker {
   padding-inline: 0.35rem;
   font-size: 16px;
   font-weight: 560;
+  /* Hero companion on this 16px field is deliberate coupling (DS-P2-12). */
   line-height: var(--text-hero--line-height);
   letter-spacing: 0;
 }

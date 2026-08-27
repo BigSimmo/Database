@@ -329,7 +329,7 @@ function TherapyPicker() {
         onClick={() => setOpen((v) => !v)}
       >
         <span className="flex items-center gap-[9px] min-w-0">
-          <Scale aria-hidden="true" size={16} className="text-[color:var(--clinical-accent)] flex-none" />
+          <Scale aria-hidden="true" className="size-icon-md text-[color:var(--clinical-accent)] flex-none" />
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>

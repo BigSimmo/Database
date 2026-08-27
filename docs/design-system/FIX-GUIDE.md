@@ -20,7 +20,7 @@ mockup `min-h-11` or `--text-soft` body into production.
 
 ## Batch A — code this sweep
 
-Agents 1–3 land these. Parent verifies after merge; do not treat this table as a second
+Agents 1–3 landed these. Parent verifies after merge; do not treat this table as a second
 measurement of `globals.css` / `ckb-v2-tokens.css`.
 
 | ID       | Status | Rationale                                                                                                                                                      |
@@ -53,7 +53,7 @@ measurement of `globals.css` / `ckb-v2-tokens.css`.
 | DS-P3-02 | Documented | TOKENS already: `--tone-*` frozen, not deleted.                                                                                                                                             |
 | DS-P3-03 | Documented | TOKENS already: design-side `--quantity-unit-scale` never lands.                                                                                                                            |
 | DS-P3-04 | Documented | TOKENS already: ConfidenceMeter deferred; no token without a call site.                                                                                                                     |
-| DS-P3-05 | Documented | Registry has **55** registered visual exports. `DocumentFrame` is built shell-only and still unregistered. Register when print primitives ship (PR 11). Docs elsewhere may still say 53/54. |
+| DS-P3-05 | Documented | Registry has **55** registered visual exports. `DocumentFrame` is built shell-only and still unregistered. Register when print primitives ship (PR 11). |
 | DS-P3-07 | Documented | Full visual state matrix grows incrementally with new adoptions.                                                                                                                            |
 | DS-P3-08 | Documented | QA checklist: inspect the filter band at 414–430px. No code this sweep.                                                                                                                     |
 | DS-P3-09 | Documented | `#TYZK23` PWA install CLS already fixed (PR #2253). Regression-check note only; no speculative CSS.                                                                                         |
@@ -88,7 +88,7 @@ capture · `npm run ensure` unless a visual defect is proven.
 ## Residual risk (unchanged by docs)
 
 - Remaining production `border` + `inset` outside the specifier surfaces edited in DS-P2-13.
-- Lucide `size={15}` was ungated (`check:icon-scale` only bans `*-4.5`).
+- Lucide `size={N}` remains ungated except the DS-P1-16 `size={15}` sites already converted (`check:icon-scale` only bans `*-4.5`).
 - `--shadow-lift` still live (`mode-nav`, `document-search-results`).
 - Mockup `--text-soft` still blocks alias deletion.
 - Mockup `min-h-11` must stay mockup-only.

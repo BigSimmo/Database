@@ -1482,4 +1482,19 @@ describe("design-system adoption manifest", () => {
     expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
     expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
   });
+
+  it("quotes current design-system-contract-baseline totals in GATES.md", () => {
+    const { metrics } = JSON.parse(read("scripts/design-system-contract-baseline.json")) as {
+      metrics: Record<string, number>;
+    };
+    const gates = read("docs/design-system/GATES.md");
+    expect(gates).toContain(`edgeOwnershipConflicts\` (${metrics.edgeOwnershipConflicts})`);
+    expect(gates).toContain(`legacyShadowAliases\`, ratcheted at ${metrics.legacyShadowAliases}`);
+    expect(gates).toContain(`rawPaddingLiterals\` (${metrics.rawPaddingLiterals})`);
+    expect(gates).toContain(`rawGapLiterals\` (${metrics.rawGapLiterals})`);
+    expect(gates).toContain(`rawMarginLiterals\` (${metrics.rawMarginLiterals})`);
+    expect(gates).toContain(`interactiveTapFloorDeclarations\` (${metrics.interactiveTapFloorDeclarations})`);
+    expect(gates).toContain(`hardcodedCssMotionDurations\` (${metrics.hardcodedCssMotionDurations})`);
+    expect(gates).toMatch(new RegExp(`raw colours ${metrics.rawColorLiterals}\\b`));
+  });
 });

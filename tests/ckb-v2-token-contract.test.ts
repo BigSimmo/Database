@@ -319,10 +319,25 @@ describe("ckb-v2 structure", () => {
       expect(structural.has(`--text-${step}`), `--text-${step} missing`).toBe(true);
       expect(structural.has(`--text-${step}-lh`), `--text-${step}-lh must stay deleted`).toBe(false);
       expect(structural.has(`--text-${step}-tr`), `--text-${step}-tr must stay deleted`).toBe(false);
+      expect(structural.has(`--text-${step}--line-height`), `--text-${step}--line-height must stay deleted`).toBe(
+        false,
+      );
     }
-    expect(structural.get("--leading-prose")).toMatch(/^\d+(\.\d+)?$/);
-    expect(structural.get("--text-hero--line-height")).toMatch(/^\d+(\.\d+)?$/);
+    expect(structural.get("--leading-prose")).toBe("1.65");
+    expect(structural.get("--text-hero--line-height")).toBe("1.12");
     expect(structural.get("--text-hero-tr")).toMatch(/^-/);
+
+    // The `^ {2}(--…)` map misses a declaration that is not indented with two
+    // spaces. Orphans must stay gone on the comment-stripped raw sheets too —
+    // including the live hero spelling `--text-<step>--line-height`.
+    const rawSheets = [stylesheet.replace(/\/\*[\s\S]*?\*\//g, ""), globalsStylesheet.replace(/\/\*[\s\S]*?\*\//g, "")];
+    for (const raw of rawSheets) {
+      for (const step of ["xs", "sm", "body", "md", "lg", "xl"]) {
+        expect(raw).not.toMatch(new RegExp(`--text-${step}-lh\\s*:`));
+        expect(raw).not.toMatch(new RegExp(`--text-${step}-tr\\s*:`));
+        expect(raw).not.toMatch(new RegExp(`--text-${step}--line-height\\s*:`));
+      }
+    }
   });
 });
 
