@@ -3486,7 +3486,16 @@ function ClinicalDashboardContent({
                 // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
                 // container (overflow-y computes to auto), which clips the composer's
                 // command dropdown mid-panel and shows a phantom inner scrollbar.
-                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                //
+                // `sm:flex sm:min-h-full sm:flex-col` makes this the box the mode-home
+                // canvas grows into. `#main-content` is a bounded scrollport with a
+                // definite height at `sm`+, so `min-h-full` resolves against it exactly
+                // — border-box, so this wrapper's own padding is inside the 100% and
+                // cannot push the column past the scrollport. That is what lets the
+                // canvas drop its `calc(100dvh - <estimate>)` floor (see
+                // mode-home-canvas.ts) instead of guessing this padding, the desktop
+                // composer slot and the space-y gap in one hard-coded number.
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:flex sm:min-h-full sm:flex-col sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
                 // Idle phone homes fill the already-padded <main> and centre
                 // in that box. Extra py/space-y here double-counted overlay
                 // chrome and manufactured a scrollbar.
