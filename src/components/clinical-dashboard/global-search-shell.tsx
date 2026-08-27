@@ -195,7 +195,7 @@ function GlobalSearchShellRoute(props: GlobalSearchShellProps & { pathname: stri
           // fallback and resolved content briefly coexisted. A route-agnostic mode-home
           // skeleton (the same one `loading.tsx` shows during navigation) reserves the
           // layout so the first frame reads as "loading" instead of a blank background.
-          <div className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
+          <div className="flex min-h-0 flex-col bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
             <ModeHomeRouteLoading />
           </div>
         )
@@ -1111,7 +1111,12 @@ function GlobalStandaloneSearchShellBody({
                   <ClinicalAskWorkspace onDraftChange={stageClinicalAskDraft} />
                 ) : null}
                 {pendingModeNavigation ? (
-                  <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
+                  <div
+                    aria-busy="true"
+                    aria-live="polite"
+                    data-testid="mode-navigation-loading"
+                    className="sm:flex sm:min-h-0 sm:flex-1 sm:flex-col"
+                  >
                     <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
                     <ModeHomeRouteLoading />
                   </div>
