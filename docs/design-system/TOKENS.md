@@ -127,6 +127,24 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 
 ## 6 · Deprecations and deletions
 
+**Type-scale mapping (canonical role → live utility).** SPEC §4.5 is the 7-step
+map. `.ckb-v2` remaps those tokens onto the live Tailwind / `@theme` names below.
+The 705 legacy minus-steps stay until Hazard 12+ — **do not delete them**. Under
+`.ckb-v2`, `text-sm` and `text-sm-minus` currently render the same size (13px);
+they will diverge when the legacy notches retire. **Do not mix `text-sm` and
+`text-sm-minus` in one component without a named density reason.** Soft-gated by
+`sameFileTextSmMinusMix` (warn + per-path ratchet, not a hard zero).
+
+| Role (SPEC §4.5)               | Canonical token | Live utility to pick           | Compact / legacy live name                 |
+| ------------------------------ | --------------- | ------------------------------ | ------------------------------------------ |
+| Eyebrows / chips / captions    | `--text-xs`     | `text-xs`                      | `text-2xs` (Chip `compact` only)           |
+| Metadata / dense cells / hints | `--text-sm`     | `text-sm`                      | `text-sm-minus` (named density only)       |
+| UI body / row titles           | `--text-body`   | `text-base-minus`              | —                                          |
+| Answer prose                   | `--text-md`     | `text-[length:var(--text-md)]` | `text-lg-minus`                            |
+| Card and panel titles          | `--text-lg`     | `text-xl`                      | `text-lg` (Tailwind 18px, not the v2 role) |
+| Page titles                    | `--text-xl`     | `text-2xl`                     | —                                          |
+| Hero counts                    | `--text-hero`   | `text-hero`                    | —                                          |
+
 | Token                                                                                                               | Disposition                                                                                                                                                                                                                                                                                                | Gate                                                                                                                                   |
 | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `--text-soft`                                                                                                       | Deprecated alias of `--decoration-soft`; both resolve identically during the window. Delete when zero references remain outside the alias declaration.                                                                                                                                                     | Contract test pins the tier from both sides; a lint for `--text-soft`/`--decoration-soft` on text-bearing nodes is planned (GATES §1). |

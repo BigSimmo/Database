@@ -111,7 +111,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
               href={`/specifiers/${item.slug}`}
               className={cn(
                 specifierCard,
-                "group grid gap-2 p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "group grid gap-2 p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
               )}
             >
               <div className="flex items-start justify-between gap-3">

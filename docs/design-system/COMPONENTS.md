@@ -39,14 +39,21 @@ _Remaining from the original eight in this document:_ `DocumentFrame` is built l
 (`src/components/ui/document-frame.tsx`, shell-only in `DocumentViewer`) but is not yet among
 the 55 design-sync registered visual exports — registration and full controls remain follow-up.
 
+`AppliedFilters` (`src/components/ui/applied-filters.tsx`) and `CopyButton`
+(`src/components/ui/copy-button.tsx`) are built, proof-migrated (CatalogueToolbar chip row
+and answer-status copy control), and covered by DOM tests. They are **not** design-sync
+registered — do not count them toward the 55 visual exports, and do not treat them as
+specified-not-built. Registration remains follow-up (the Chip/Button add path is a 55-row
+cascade).
+
 `OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
 local publication contract. The generated snapshot records their current product-import counts;
 registration still proves only a source/API/preview/test reference and does not prove remote
 design-project publication or browser acceptance.
 
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
-`AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
-`ScrollAffordance` · `SourceLink` · `Banner` · `CopyButton`/`CopyField` ·
+`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
+`ScrollAffordance` · `SourceLink` · `Banner` · `CopyField` ·
 state family (`ErrorState`, `OfflineState`, `PermissionDeniedState`, `NotFoundState`,
 `UnavailableState`).
 
@@ -982,9 +989,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              19 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              21 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |

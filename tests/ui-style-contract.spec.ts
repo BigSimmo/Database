@@ -376,6 +376,98 @@ test.describe("ckb-v2 forced-colours computed tokens", () => {
 });
 
 /**
+ * DS-P3-06 — computed overlay z-index vs named `--z-*` tokens.
+ *
+ * HCM remapping is already proven above (`ckb-v2 forced-colours computed
+ * tokens`) and is not re-litigated here. Class-string assertions are forbidden:
+ * every overlay check reads `getComputedStyle` `zIndex` / `getPropertyValue`.
+ *
+ * Live rungs: OverlayRoot hosts that Sheet (`modal`), Tooltip (`popover`), and
+ * Toast (`toast`) portal into. Exception baseline: `rawCssZIndices` in
+ * `globals.css` stays at 8 — token `var(--z-*)` declarations do not count.
+ */
+const OVERLAY_Z_RUNGS = [
+  { host: "overlay", token: "--z-overlay", component: "overlay" },
+  { host: "popover", token: "--z-popover", component: "Tooltip" },
+  { host: "modal", token: "--z-modal", component: "Sheet" },
+  { host: "toast", token: "--z-toast", component: "Toast" },
+] as const;
+
+const RAW_CSS_Z_INDEX_EXCEPTION_BASELINE = 8;
+const OFF_LADDER_INLINE_Z_INDEX = "9999";
+
+function computedZMatchesToken(computedZ: string, tokenValue: string) {
+  return computedZ === tokenValue;
+}
+
+test.describe("overlay z-index computed tokens", () => {
+  test.skip(({ browserName }) => browserName !== "chromium", "computed z-index serialisation is asserted on Chromium");
+
+  test("OverlayRoot hosts resolve to named --z-* tokens (Sheet / Toast / Tooltip rungs)", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const measured = await page.evaluate((rungs) => {
+      const root = document.documentElement;
+      const rootStyle = getComputedStyle(root);
+      return rungs.map(({ host, token, component }) => {
+        const tokenValue = rootStyle.getPropertyValue(token).trim();
+        const node = document.querySelector(`[data-overlay-host="${host}"]`);
+        const computedZ = node ? getComputedStyle(node).zIndex : "";
+        return { host, token, component, tokenValue, computedZ, present: Boolean(node) };
+      });
+    }, OVERLAY_Z_RUNGS);
+
+    for (const rung of measured) {
+      expect(rung.present, `OverlayRoot host "${rung.host}" (${rung.component}) is mounted`).toBe(true);
+      expect(rung.tokenValue, `${rung.token} is a named numeric rung`).toMatch(/^-?\d+$/);
+      expect(
+        computedZMatchesToken(rung.computedZ, rung.tokenValue),
+        `${rung.component} host ${rung.host} computed z-index ${rung.computedZ} vs ${rung.token} ${rung.tokenValue}`,
+      ).toBe(true);
+    }
+
+    const values = measured.map((rung) => Number(rung.tokenValue));
+    expect(values[2], "Sheet / --z-modal sits above Tooltip / --z-popover").toBeGreaterThan(values[1]);
+    expect(values[3], "Toast / --z-toast sits above Sheet / --z-modal").toBeGreaterThan(values[2]);
+  });
+
+  test("off-ladder inline z-index on a probe fails the named-rung check", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const mutation = await page.evaluate((offLadder) => {
+      const tokenValue = getComputedStyle(document.documentElement).getPropertyValue("--z-toast").trim();
+      const probe = document.createElement("div");
+      probe.style.position = "fixed";
+      probe.style.zIndex = offLadder;
+      document.body.append(probe);
+      const computedZ = getComputedStyle(probe).zIndex;
+      probe.remove();
+      return { tokenValue, computedZ };
+    }, OFF_LADDER_INLINE_Z_INDEX);
+
+    expect(mutation.computedZ, "inline off-ladder z-index must compute").toBe(OFF_LADDER_INLINE_Z_INDEX);
+    expect(
+      computedZMatchesToken(mutation.computedZ, mutation.tokenValue),
+      "named-rung check must fail for one off-ladder inline z-index on a probe",
+    ).toBe(false);
+  });
+
+  test("rawCssZIndices exception baseline in globals.css stays at 8 and rejects expansion", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { countRawCssZIndicesInSource } = await import("../scripts/design-system-contract-utils.mjs");
+    const globals = fs.readFileSync(path.join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    expect(countRawCssZIndicesInSource(globals), "do not expand the raw CSS z-index exception baseline").toBe(
+      RAW_CSS_Z_INDEX_EXCEPTION_BASELINE,
+    );
+    expect(
+      countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:${OFF_LADDER_INLINE_Z_INDEX}}`),
+      "one extra raw z-index must fail the exception baseline",
+    ).toBe(RAW_CSS_Z_INDEX_EXCEPTION_BASELINE + 1);
+  });
+});
+
+/**
  * #2TAQDC static style contract: prevents unconstrained descendant `:has()` queries
  * on root hydration nodes (such as `body:has(#main-content...)`).
  *

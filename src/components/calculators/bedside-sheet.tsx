@@ -209,7 +209,7 @@ export function CalculatorsBedsideSheetMockup() {
 
       {/* Session summary dock — floats above the site composer */}
       <div className="pointer-events-none fixed inset-x-0 bottom-32 z-20 px-3 sm:bottom-36">
-        <div className="pointer-events-auto mx-auto grid max-w-4xl gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-md sm:px-5">
+        <div className="pointer-events-auto mx-auto grid max-w-4xl gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-4 py-3 shadow-[var(--e2)] backdrop-blur-md sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-sm-minus font-extrabold text-[color:var(--text-heading)]">
               <NotebookPen className="size-icon-md text-[color:var(--clinical-accent)]" aria-hidden="true" />
