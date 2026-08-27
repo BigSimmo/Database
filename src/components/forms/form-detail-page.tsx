@@ -501,7 +501,7 @@ function PathwayContextCard({
         href={form.source?.url ?? details?.officialRegisterUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs")}
+        className={cn(floatingControl, "mt-3 w-full rounded-lg px-3 text-xs")}
       >
         <Navigation className="h-4 w-4" aria-hidden />
         Open official source / pathway

@@ -364,8 +364,8 @@
       "source": "src/components/ui/choice.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -381,8 +381,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -920,7 +920,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": [],
+      "productImportFiles": ["src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -936,8 +936,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -948,7 +948,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": ["src/components/ui/choice.tsx"],
-      "productImportFiles": [],
+      "productImportFiles": ["src/components/ui/choice.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -964,8 +964,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -3904,7 +3904,7 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 36,
+    "productImportedComponentCount": 39,
     "rootCount": 76,
     "productionRouteCount": 68,
     "nextUiEntryCount": 128
