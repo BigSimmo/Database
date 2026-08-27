@@ -5,6 +5,7 @@ import {
   CircleAlert,
   ClipboardList,
   Inbox,
+  LayoutGrid,
   LayoutDashboard,
   ListFilter,
   LogOut,
@@ -41,6 +42,7 @@ export const WARD_VIEW_ICONS: Record<WardMode, LucideIcon> = {
 };
 
 export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
+  board: LayoutGrid,
   ward: Building2,
   officer: Ambulance,
   ed: Siren,

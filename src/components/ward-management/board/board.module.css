@@ -80,13 +80,28 @@
   --wb-hatch-line: var(--border-strong);
   --wb-hatch-gap: var(--surface-inset);
 
-  display: flex;
+  display: grid;
   min-height: 100dvh;
-  flex-direction: column;
-  gap: var(--wb-space-16);
+  /* The rail track stays reserved at every supported width, same as the ward, ed, officer and
+     coordinator screens — see ward-management.module.css's own note on this. Task A: the board
+     used to have no `<ClinicalRail />` at all, so `.screen` was a plain flex column carrying both
+     the page chrome and the content padding. It is now the two-column grid every other Ward Flow
+     screen uses, and `.main` below (not `.screen`) carries the content layout and padding, the
+     same split `ed.module.css` documents on its own `.screen`/`.main` pair. */
+  grid-template-columns: auto minmax(0, 1fr);
   background: var(--surface);
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--wb-space-16);
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--wb-space-16) var(--wb-space-16) var(--wb-space-24);
 }
 
@@ -195,6 +210,13 @@
   );
 }
 
+/* The same dot pattern as `.bedHeld`, at swatch size — see that rule for why a held bed carries
+   its own pattern rather than reusing empty's dashed edge or blocked's diagonal hatch. */
+.legendSwatchHeld {
+  background-image: radial-gradient(var(--wb-hatch-line) 0.0625rem, transparent 0.0625rem);
+  background-size: 0.375rem 0.375rem;
+}
+
 /* Capped rather than full-bleed: found by looking at the 1440px rendering, where an uncapped
    `auto-fill` laid all twenty beds out as a single sixteen-wide strip with four stragglers under
    it — a wall of boxes rather than a ward. A ward is a small, roughly square block of beds, so
@@ -266,6 +288,31 @@
   color: var(--text-muted);
 }
 
+/*
+ * HELD — the fourth bed state (Task B). Physically empty, per the ward's own `empty` figure, but
+ * not yet confirmed as one of the beds the ward will actually offer — see `unitCapacity`
+ * (`ward-derivations.ts`), the single place this project decides the held/available split:
+ * `available + held + blocked + occupied === unit.beds` there, and this board's tile counts now
+ * follow that same partition rather than a second one invented here.
+ *
+ * A held tile must read as a THIRD kind of thing, not a shade between empty and blocked — mistaken
+ * for `.bedEmpty` it is a bed a coordinator tries to fill and cannot; mistaken for `.bedBlocked` it
+ * reads as out of service, which overstates it (a held bed may be offered later today). It keeps
+ * `.bedEmpty`'s hollow, unfilled body — a held bed genuinely IS physically empty — but trades the
+ * dashed edge for a DOTTED one and adds a light dot pattern, so the distinction survives greyscale,
+ * a stripped-background print, and forced-colors mode exactly as the blocked hatch does: a
+ * pattern, not a colour, carries the fact. The word "Held" on the tile face is what makes it
+ * unambiguous, the same discipline every other tile kind on this board already holds to.
+ */
+.bedHeld {
+  border-style: dotted;
+  border-color: var(--border-strong);
+  background-color: transparent;
+  background-image: radial-gradient(var(--wb-hatch-line) 0.0625rem, transparent 0.0625rem);
+  background-size: 0.5rem 0.5rem;
+  color: var(--text-muted);
+}
+
 /* Rule 2. Taken, but nobody is in it yet — so it carries a fill (it is NOT free) while sitting
    outside the four stay bands, because there is no stay to band. */
 .bedWaiting {
@@ -327,7 +374,8 @@
 
 .waiting,
 .blockedLabel,
-.emptyLabel {
+.emptyLabel,
+.heldLabel {
   font-size: var(--text-2xs);
   font-weight: 600;
   line-height: var(--wb-leading-body);
@@ -341,6 +389,15 @@
  * a struck-through bed rather than as a fifth colour.
  */
 .blockedLabel {
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  padding: 0 var(--wb-space-4);
+  color: var(--text);
+}
+
+/* Same plate treatment as `.blockedLabel`, for the same reason: the word "Held" sits on top of
+   the dot pattern and needs a solid rest rather than dots running through the letterforms. */
+.heldLabel {
   border-radius: var(--radius-xs);
   background: var(--surface-raised);
   padding: 0 var(--wb-space-4);
@@ -366,6 +423,13 @@
   .screen {
     min-height: auto;
     background: transparent;
+  }
+
+  /* The rail is a `<nav>`, already stripped by the global print reset (`header, nav, button {
+     display: none !important }`), so its grid track collapses to zero width on its own — nothing
+     here has to hide it. The content padding that used to live on `.screen` now lives on `.main`
+     and is zeroed here in its place. */
+  .main {
     padding: 0;
   }
 
@@ -378,6 +442,13 @@
     border-style: dashed;
   }
 
+  /* Same reasoning as `.bedEmpty` just above: the dotted edge is a border style, not a
+     `background-image`, so it survives the print reset on its own — this line just makes that
+     explicit rather than leaving it implicit in the base rule. */
+  .bedHeld {
+    border-style: dotted;
+  }
+
   /*
    * The hatch is a `background-image` and the print reset may drop it, so on paper the words "Out
    * of service" are what distinguish this tile — which is the arrangement the rule demands anyway
@@ -385,6 +456,13 @@
    * here: on a white sheet it is an invisible rectangle at best and a grey box at worst.
    */
   .blockedLabel {
+    background: transparent;
+    padding: 0;
+  }
+
+  /* Same reason as `.blockedLabel` just above: on a white sheet the plate is a grey box at best,
+     and the word "Held" is what carries the fact once the dot pattern may be gone. */
+  .heldLabel {
     background: transparent;
     padding: 0;
   }

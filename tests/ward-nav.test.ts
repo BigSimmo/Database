@@ -40,6 +40,7 @@ import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -100,14 +101,21 @@ const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((ent
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
   it("finds every known page.tsx under src/app/mockups/ward-flow, both static and dynamic", () => {
-    // 20 page.tsx files measured on this branch at HEAD: 17 static + 3 dynamic
+    // 21 page.tsx files measured on this branch at HEAD: 17 static + 4 dynamic.
+    // The fourth dynamic route is board/[unitId], the ward board, added 2026-08-29.
+    //
+    // FOLD HAZARD — read before resolving this file. BOTH branches independently added one route
+    // and BOTH moved this number: Phase 8 is at 21 for its out-of-area ledger, this branch is at 21
+    // for the ward board, and they are different routes. After the fold there are 22, and taking
+    // either side's copy wholesale leaves a number that is wrong by one AND drops the other
+    // branch's nav entry. Merge both nav lists; do not pick a side.
     // (ed/[edId], patients/[patientId], ward/[unitId]) — Task 6 added the discharges board,
     // Phase 6 Task 2 added the morning bed state page, Phase 7 Task 4 added the referral intake
     // form's route (referrals/new), Phase 7 Task 5 added the referral board's route (referrals).
     // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
     // handful, and every assertion below would then vacuously pass — so this is checked before
     // trusting any of them.
-    expect(wardFlowRoutes.length).toBe(20);
+    expect(wardFlowRoutes.length).toBe(21);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -187,12 +195,26 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
     expect(new Set(WARD_NAV.map((item) => item.href)).size).toBe(WARD_NAV.length);
   });
 
-  it("marks exactly the two arbitrary hardcoded instances exampleOnly (D10), and nothing else", () => {
+  /**
+   * WIDENED DELIBERATELY on 2026-08-29, from two to three. The ward board
+   * (`board/[unitId]`) is a dynamic route of exactly the shape D10 describes: the rail can only
+   * ever link one concrete instance of it, so it must be presented as an example entry point and
+   * never as a section of the app in its own right.
+   *
+   * The list is written out in full rather than counted, so a third entry could not appear by
+   * accident — which is the whole point of "and nothing else". A route arriving here should cost
+   * somebody a decision, not a number.
+   */
+  it("marks exactly the three arbitrary hardcoded instances exampleOnly (D10), and nothing else", () => {
     const exampleOnlyHrefs = WARD_NAV.filter((item) => item.exampleOnly)
       .map((item) => item.href)
       .sort();
     expect(exampleOnlyHrefs).toEqual(
-      ["/mockups/ward-flow/ed/peel-ed", "/mockups/ward-flow/ward/rph-adult-secure"].sort(),
+      [
+        "/mockups/ward-flow/board/rph-adult-secure",
+        "/mockups/ward-flow/ed/peel-ed",
+        "/mockups/ward-flow/ward/rph-adult-secure",
+      ].sort(),
     );
   });
 
@@ -334,6 +356,10 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
   { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
   {
+    route: `${ROUTE_PREFIX}/board/[unitId]`,
+    render: () => createElement(WardBoard, { unitId: "rph-adult-secure" }),
+  },
+  {
     route: `${ROUTE_PREFIX}/patients/[patientId]`,
     render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),
   },
@@ -350,7 +376,7 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
-    expect(RENDERABLE_ROUTES.length).toBe(19);
+    expect(RENDERABLE_ROUTES.length).toBe(20);
   });
 });
 

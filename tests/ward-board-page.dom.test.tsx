@@ -9,6 +9,8 @@ import {
   type Admission,
 } from "@/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
+import { unitCapacity } from "@/components/ward-management/ward-derivations";
+import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import type { Unit } from "@/components/ward-management/ward-model";
 import { wardSites } from "@/components/ward-management/ward-sites";
 
@@ -25,7 +27,24 @@ import { wardSites } from "@/components/ward-management/ward-sites";
  * The expected values are derived from the same seed the component reads rather than hard-coded,
  * because a hand-typed "20" would go stale the day an occupant is added to the fixture and would
  * then be a test asserting last month's ward.
+ *
+ * **Task A note.** `WardBoard` now mounts `<ClinicalRail />`, which reaches `WardRoleSwitcher`
+ * (`ward-role-switcher.tsx`), which calls `useWardFlow()` — so every render below must sit inside
+ * a `WardFlowProvider`, exactly as `tests/ward-nav.test.ts` and `tests/ward-landmarks.test.ts`
+ * already wrap every Ward Flow route. `WardBoard` itself still reads the frozen
+ * `WARD_ADMISSIONS_ANCHOR` seed directly rather than the provider's own state (see its own doc
+ * comment) — the provider is here only because the rail it now mounts needs the context to exist,
+ * not because the board reads anything from it. `WARD_ADMISSIONS_ANCHOR` and `NOW_ANCHOR`
+ * (`ward-sites.ts`) are the same literal instant, so pinning the provider's clock to it keeps the
+ * whole rendered page on one consistent "now".
  */
+function renderWardBoard(unitId: string) {
+  return render(
+    <WardFlowProvider initialNow={WARD_ADMISSIONS_ANCHOR}>
+      <WardBoard unitId={unitId} />
+    </WardFlowProvider>,
+  );
+}
 const UNIT_ID = "rph-adult-secure";
 /** The ward the defect was FOUND on: it records blocked beds, so it is the one where drawing them
  *  as ordinary empty tiles put more fillable-looking tiles on screen than the header claimed. */
@@ -44,7 +63,7 @@ function occupantsFor(unitId: string): Admission[] {
 describe("ward board page", () => {
   it("draws one tile per recorded bed", () => {
     const unit = unitFor(UNIT_ID);
-    const { container } = render(<WardBoard unitId={UNIT_ID} />);
+    const { container } = renderWardBoard(UNIT_ID);
 
     const tiles = container.querySelectorAll("[data-bed-kind]");
     // Guards the assertion below against passing on an empty ward: a board with zero beds and
@@ -60,7 +79,7 @@ describe("ward board page", () => {
     const arrived = occupants.filter((admission) => daysInBed(admission, WARD_ADMISSIONS_ANCHOR) !== null);
     expect(arrived.length).toBeGreaterThan(0);
 
-    const { container } = render(<WardBoard unitId={UNIT_ID} />);
+    const { container } = renderWardBoard(UNIT_ID);
 
     const occupiedTiles = [...container.querySelectorAll('[data-bed-kind="occupied"]')];
     expect(occupiedTiles).toHaveLength(arrived.length);
@@ -102,7 +121,7 @@ describe("ward board page — out-of-service beds", () => {
     // exact way this test could go green while the defect was fully intact.
     expect(unit.blocked).toBeGreaterThan(0);
 
-    const { container } = render(<WardBoard unitId={BLOCKED_UNIT_ID} />);
+    const { container } = renderWardBoard(BLOCKED_UNIT_ID);
 
     expect(container.querySelectorAll('[data-bed-kind="blocked"]')).toHaveLength(unit.blocked);
     // Said in WORDS on every one of them, not by fill alone.
@@ -114,35 +133,95 @@ describe("ward board page — out-of-service beds", () => {
    * fillable and compare with the header. Asserted against the unit's OWN recorded empty figure
    * rather than against the number of tiles left over after the others are drawn, so a board that
    * simply relabelled some empties as blocked would not satisfy it.
+   *
+   * `fsh-adult-secure` is the fixture used here precisely because its `unitCapacity(...).held` is
+   * `0` — `allocatable.value` (3) equals `empty.value` (3), so nothing is held back and the raw
+   * `unit.empty.value` figure still equals the count of plain "Empty" tiles. That equality is a
+   * property of THIS unit's numbers, not a general one once Task B splits empty into held and
+   * available — see the `rph-adult-secure` describe block below for the unit where it does not
+   * hold and the split actually shows up on screen.
    */
   it("leaves exactly the unit's recorded empty beds looking fillable", () => {
     const unit = unitFor(BLOCKED_UNIT_ID);
-    const { container } = render(<WardBoard unitId={BLOCKED_UNIT_ID} />);
+    expect(unitCapacity(unit, []).held, `${BLOCKED_UNIT_ID} must have zero held beds for this equality to hold`).toBe(
+      0,
+    );
+    const { container } = renderWardBoard(BLOCKED_UNIT_ID);
 
     expect(container.querySelectorAll('[data-bed-kind="empty"]')).toHaveLength(unit.empty.value);
   });
 
   /**
-   * And the three kinds still add up to the ward's beds. A tile per bed was already asserted for
+   * And the four kinds still add up to the ward's beds. A tile per bed was already asserted for
    * `rph-adult-secure`; here it is the partition that matters, because a blocked tile added
    * WITHOUT taking one away from the empties would leave the ward drawing more beds than it has —
-   * the same defect in the opposite direction.
+   * the same defect in the opposite direction. Widened to include "held" (Task B) alongside
+   * "empty": `fsh-adult-secure` has none, so this also doubles as a non-vacuity check that the
+   * held branch does not silently swallow tiles that belong on the empty side.
    */
-  it("partitions every bed into occupied, out-of-service or empty, with none left over", () => {
+  it("partitions every bed into occupied, out-of-service, held or empty, with none left over", () => {
     const unit = unitFor(BLOCKED_UNIT_ID);
-    const { container } = render(<WardBoard unitId={BLOCKED_UNIT_ID} />);
+    const { container } = renderWardBoard(BLOCKED_UNIT_ID);
 
     const counts = {
       occupied: container.querySelectorAll('[data-bed-kind="occupied"]').length,
       waiting: container.querySelectorAll('[data-bed-kind="waiting"]').length,
       blocked: container.querySelectorAll('[data-bed-kind="blocked"]').length,
+      held: container.querySelectorAll('[data-bed-kind="held"]').length,
       empty: container.querySelectorAll('[data-bed-kind="empty"]').length,
     };
 
     // "Waiting" is an OCCUPIED bed — the ward gave it away and the person has not arrived. It is
     // counted on the occupied side of this sum, never with the empties.
     expect(counts.occupied + counts.waiting).toBe(occupantsFor(BLOCKED_UNIT_ID).length);
-    expect(counts.occupied + counts.waiting + counts.blocked + counts.empty).toBe(unit.beds);
+    expect(counts.occupied + counts.waiting + counts.blocked + counts.held + counts.empty).toBe(unit.beds);
     expect(container.querySelectorAll("[data-bed-kind]")).toHaveLength(unit.beds);
+  });
+});
+
+/**
+ * Task B: a bed nobody is in that a coordinator still cannot fill. On `rph-adult-secure` the
+ * header already said "1 bed you can fill today" (`min(allocatable, empty)` = `min(1, 2)`), but
+ * the first board pass drew BOTH of its physically-empty beds as plain "Empty" — the header and
+ * the grid disagreeing about how many beds are actually offered, the same class of defect the
+ * blocked-tile suite above already pins for out-of-service beds.
+ *
+ * `rph-adult-secure` is the fixture used here precisely because it is the unit named in the task:
+ * `beds: 20, empty: 2, allocatable: 1, blocked: 0`, so `unitCapacity` derives `held: 1` and
+ * `available: 1` — a non-zero held count on a unit with no blocked beds at all, so this suite
+ * cannot pass by accident via the blocked-tile logic.
+ */
+describe("ward board page — held beds", () => {
+  it("draws rph-adult-secure's held bed as its own tile kind, agreeing with the header", () => {
+    const unit = unitFor(UNIT_ID);
+    const capacity = unitCapacity(unit, []);
+    // Non-vacuity: if the fixture ever changes so this unit has no held bed, this suite would
+    // otherwise pass while proving nothing about the held tile at all.
+    expect(capacity.held, `${UNIT_ID} must have at least one held bed for this suite to prove anything`).toBeGreaterThan(
+      0,
+    );
+
+    const { container } = renderWardBoard(UNIT_ID);
+
+    const headline = screen.getByTestId("ward-board-headline");
+    expect(headline.textContent).toContain(`${capacity.available}`);
+
+    expect(container.querySelectorAll('[data-bed-kind="held"]')).toHaveLength(capacity.held);
+    // Said in WORDS on every one of them, not by the dot pattern alone.
+    expect(screen.getAllByText("Held")).toHaveLength(capacity.held);
+
+    // The plain "Empty" tiles are only the FILLABLE subset now — `available`, not the unit's raw
+    // `empty.value` (which also includes the held bed). Held and available must add back up to
+    // the unit's own physically-empty count, and every kind together must still equal the beds.
+    const counts = {
+      occupied: container.querySelectorAll('[data-bed-kind="occupied"]').length,
+      waiting: container.querySelectorAll('[data-bed-kind="waiting"]').length,
+      blocked: container.querySelectorAll('[data-bed-kind="blocked"]').length,
+      held: container.querySelectorAll('[data-bed-kind="held"]').length,
+      empty: container.querySelectorAll('[data-bed-kind="empty"]').length,
+    };
+    expect(counts.empty).toBe(capacity.available);
+    expect(counts.held + counts.empty).toBe(unit.empty.value);
+    expect(counts.occupied + counts.waiting + counts.blocked + counts.held + counts.empty).toBe(unit.beds);
   });
 });

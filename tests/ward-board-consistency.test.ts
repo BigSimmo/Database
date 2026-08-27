@@ -2,15 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { bedIsOccupied } from "@/components/ward-management/ward-admissions";
 import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
+import { unitCapacity } from "@/components/ward-management/ward-derivations";
 import { allUnits } from "@/components/ward-management/ward-sites";
 
 /**
  * The guard whose absence let a visible defect exist.
  *
- * A bed with nobody in it is not necessarily a bed you can fill. A unit's beds divide into three:
- * **occupied** (including PULLED — the ward gave the bed away and the person may still be in an
- * emergency department), **empty**, and **blocked** (out of service). So the invariant is
- * `beds − occupied === empty + blocked`, and the seed satisfies it on all 23 units.
+ * A bed with nobody in it is not necessarily a bed you can fill. A unit's beds divide into FOUR,
+ * not two: **occupied** (including PULLED — the ward gave the bed away and the person may still be
+ * in an emergency department), **blocked** (out of service), **held** (physically empty, but not
+ * yet confirmed as one the ward will actually offer), and **available** (fillable right now). So
+ * the invariant is `beds − occupied === available + held + blocked`, and the seed satisfies it on
+ * all 23 units.
  *
  * **This test was first written asserting `beds − occupied === empty`, and failed on four units.**
  * Rendering the board had shown `fsh-adult-secure` drawing four empty-looking tiles under a header
@@ -18,6 +21,17 @@ import { allUnits } from "@/components/ward-management/ward-sites";
  * four failures had exactly one blocked bed and was off by exactly one. **The fixture was right and
  * the assertion was wrong** — which is why the rule is to run a check before prescribing a fix from
  * it, and why a failing test is a question rather than a verdict.
+ *
+ * **Widened from three-way to four-way** when the board grew a fourth tile kind: `rph-adult-secure`
+ * heads with "1 bed you can fill today", but the first board pass still drew BOTH its
+ * physically-empty beds as plain "Empty" — the header and the grid disagreeing about how many beds
+ * a coordinator can actually take someone to. `available`/`held`/`blocked`/`occupied` below are read
+ * from `unitCapacity` (`ward-derivations.ts`) — the SAME function `ward-board.tsx`, `ward-screen.tsx`
+ * and `flow-diagram.tsx` all call for this exact split — rather than re-derived by hand here, so this
+ * test exercises the real partitioning code instead of a parallel copy of its arithmetic that could
+ * drift from it. `bedReleases` is passed as `[]`: `unitCapacity` only reads that parameter for its
+ * own dead `potential` field (see that function's own doc comment), never for
+ * `available`/`held`/`blocked`/`occupied`, so an empty array cannot change this assertion's answer.
  *
  * What the rendering DID find is real and belongs to the board, not the data: **blocked beds are
  * drawn as ordinary empty tiles**, so a coordinator sees four fillable beds where three exist. Spec
@@ -28,21 +42,27 @@ import { allUnits } from "@/components/ward-management/ward-sites";
  * often left unstated.
  */
 describe("the ward board's tiles agree with the unit's own figures", () => {
-  it("seats exactly (beds − empty − blocked) occupants in every unit", () => {
+  it("partitions every unit into occupied, held, blocked and available with none left over", () => {
     const mismatched = allUnits()
       .map((unit) => {
         const occupied = wardAdmissions.filter(
           (admission) => admission.unitId === unit.id && bedIsOccupied(admission),
         ).length;
+        const capacity = unitCapacity(unit, []);
         return {
           unitId: unit.id,
           beds: unit.beds,
           occupied,
           unseated: unit.beds - occupied,
-          emptyPlusBlocked: unit.empty.value + unit.blocked,
+          availableHeldBlocked: capacity.available + capacity.held + capacity.blocked,
+          // Kept alongside the totals above so a failure message names exactly which term is off,
+          // rather than only the two sums that disagree.
+          available: capacity.available,
+          held: capacity.held,
+          blocked: capacity.blocked,
         };
       })
-      .filter((row) => row.unseated !== row.emptyPlusBlocked);
+      .filter((row) => row.unseated !== row.availableHeldBlocked);
 
     expect(mismatched).toEqual([]);
   });
