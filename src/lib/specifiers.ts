@@ -558,14 +558,6 @@ export const specifierRecords: SpecifierRecord[] = [
   },
 ];
 
-export const specifierSearchPresets = [
-  { label: "Agitated depression", query: "depressed, racing thoughts and barely sleeping" },
-  { label: "Post-birth onset", query: "mood episode began after birth" },
-  { label: "Winter recurrence", query: "depression returns every winter and lifts in spring" },
-  { label: "Residual symptoms", query: "much better but not fully recovered" },
-  { label: "Psychomotor change", query: "stopped speaking and holds the same posture" },
-];
-
 export function findSpecifier(slug: string) {
   return specifierRecords.find((record) => record.slug === slug);
 }
