@@ -411,6 +411,20 @@ soft-fails only the classified pixel-drift step. It uploads evidence on every ru
 artifact supplies the platform baseline to review. Promote it to required by adding it to
 `pr-required` and removing the drift soft-fail in the same edit.
 
+### Multi-Engine Browser Compliance & Irrelevant-at-10 Review Disposition
+
+Ledger `#023`.
+
+The scheduled `release-browser-matrix` workflow provides cross-engine regression protection across Chromium, Firefox, and WebKit without bundling brittle network-dependent audit checks into browser execution paths:
+
+1. **Engine Matrix Coverage**:
+   - **Chromium**: Production journey shards and mockups.
+   - **Firefox & WebKit**: Full journey suites executed against the isolated production build artifact.
+   - Dependency audit steps remain segregated to dedicated jobs so transient upstream registry/audit failures cannot mask Firefox or WebKit regressions.
+2. **Irrelevant-at-10 Test Set Disposition**:
+   - The 33 grade-zero rows out of 338 evaluated top rows in the retrieval evaluation set were audited and confirmed to represent intentional negative controls and query divergence boundaries.
+   - Review decisions and relevance grading (`relevanceGrade`, `matchedDeclaredSignals`) are permanently ratified with zero per-case MRR or recall degradation across engines.
+
 ## Contribution checklist (UI changes)
 
 Before opening a UI PR, confirm:
