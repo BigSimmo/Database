@@ -3437,3 +3437,54 @@ name, which are precisely the direct behavioural suites for the modules this bra
 here is the gate-drift rule applied at the moment it matters rather than recorded as a concern.
 
 Remaining order: `cc-plan-detail` once round 2 lands, then `cc-schedule`, then `cc-demo-seed`.
+
+### Ruling [148] — Task 11b ACCEPTED at round 2, and the review under-claimed its own finding
+
+Round 2 is `b255d2ae1`, `e5c2afa35`, `42127f1ba`, `351bdc26b`, `45a884243`. Guard set `Tests 469 passed
+(469)` across 18 files on the final tree with `GATE_RECEIPTS=refresh`, first attempt; `tsc` exit 0 with zero
+output lines read from `tsc` itself rather than through a pipe; uncached `eslint` exit 0; `prettier --check`
+clean.
+
+**Accepted without a further re-review, and here is the judgement.** Two reviews have now run on this task
+and the round is a precisely-enumerated set of fixes arriving mutation-proven with observed messages — the
+carve-out the standing discipline allows. **I read the diff before invoking the rule**, and verified the
+load-bearing fix myself: the announcement is captured **before** the clear, so it still names the
+destination the move was for, and then `setDestination("")` / `setHandoverNote("")` close the window at
+source rather than waiting on a refresh. The covering case sets both fields, **asserts they hold those
+values** and only then asserts they are empty — a real positive control — and its sibling asserts the
+handover history equals exactly one row after a double confirmation, which is what the phantom row would
+break.
+
+**The correction that matters: MINOR-A was reproducible, and both the review and I said otherwise.** The
+review scoped it as "reasoned, not reproduced" because both existing cases call `rereadTheScreen` first; I
+repeated that to the owner as a defect that was theoretical. The implementer found the opposite, and the
+reason is exact: **jsdom's `router.refresh()` delivers no props, so the test environment sits permanently
+inside the window the defect needs.** A case that simply declines to re-read the screen is already in it.
+Written before the fix, it went **red with the phantom `["demo-coordinator","demo-coordinator"]` handover
+row** — the false record of a move that never happened, observed rather than predicted.
+
+**What is reproduced is the state, not the timing**, and the implementer said so rather than letting the
+stronger reading stand: in a browser the window is one RSC round trip. That distinction is the whole value
+of the report. **A cautious scope is still a wrong scope**, and this one ran in the direction that makes a
+real defect sound hypothetical — the less common direction here, and worth recording because the usual
+correction in this build record runs the other way.
+
+**The round found three of its own assertions reading themselves, and only mutations found them.** MINOR-D's
+heading assertion read the expected wording out of the same map the screen renders from, so S5 went green
+where red was predicted; MINOR-B's positive control passed on a **second** source of the phrase, because
+the `the-plan-is-held` refusal heading renders inside the hold block. Both are now pinned to literals.
+**This is the fourth time in this programme that a check written to satisfy the can-this-fail rule could not
+itself fail.**
+
+**Deferred deliberately, and handed to the final whole-branch review under Ruling [136]:** five pre-existing
+assertions in the same file (lines 1747, 1795, 1852, 1999, 2338) share that shape. Each is load-bearing for
+**which** condition refused, which is real coverage, but none can detect a rewording of the sentence a
+clinician actually reads. The implementer declined to widen a final round's scope to reach them and asked
+for the controller's call. **That was the right instinct and the answer is: not now.** Five assertion
+rewrites in the round that closes a task is how a "final" round acquires a round three.
+
+**One process failure worth keeping.** A mutation row printed `RAN` while the machine was out of process
+handles and wrote an **empty** output file. It was discarded and re-run, and the driver now refuses any run
+without a summary line, retries the restore, verifies it with git and aborts. **"No summary line means no
+run" caught this**; the clean-tree guard caught the unrestored mutation behind it. Both rules earned their
+place again on the same row.
