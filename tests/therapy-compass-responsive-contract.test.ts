@@ -23,6 +23,8 @@ const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
 const recommendFieldsSource = read(`${therapyPath}/recommend-scenario-fields.tsx`);
 const pathwaysSource = read(`${therapyPath}/screens/pathways-screen.tsx`);
+const pathwayStepStackSource = read(`${therapyPath}/pathway-step-stack.tsx`);
+const pathwayPickerSource = read(`${therapyPath}/pathway-picker-sheet.tsx`);
 const briefSource = read(`${therapyPath}/screens/brief-screen.tsx`);
 const sheetsSource = read(`${therapyPath}/screens/sheets-screen.tsx`);
 const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
@@ -185,7 +187,13 @@ describe("Therapy Compass responsive contract", () => {
       1,
     );
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
-    expect(pathwaysSource).toContain("therapy-pathway-list");
+    expect(pathwayPickerSource).toContain("therapy-pathway-list");
+    expect(pathwayPickerSource).toContain('data-testid="therapy-pathway-picker"');
+    expect(pathwayStepStackSource).toContain('data-testid="therapy-pathway-steps"');
+    expect(pathwaysSource).toContain('data-testid="therapy-pathway-caution"');
+    expect(pathwayPickerSource).toContain("sm:hidden");
+    expect(pathwayPickerSource).toContain("hidden border-r");
+    expect(pathwaysSource).not.toContain("overflow-hidden");
     expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(sheetsSource)).toBeGreaterThanOrEqual(1);
     expect(sheetsSource).toContain("max-sm:static");
