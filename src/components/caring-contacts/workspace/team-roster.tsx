@@ -2,6 +2,7 @@ import { Info, Users } from "lucide-react";
 import Link from "next/link";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { toAwstParts } from "@/lib/caring-contacts/clock";
 import type { PlanSendingHold } from "@/lib/caring-contacts/schedule-view";
 import type { CoordinatorWorkload, TeamWorkloadView, UnclaimedWork } from "@/lib/caring-contacts/team-workload";
 
@@ -128,10 +129,99 @@ function clearedByWording(clearedBy: UnclaimedWork["clearedBy"]): string | null 
   }
 }
 
-/** How long the oldest unclaimed plan has been waiting, named for what it actually measures. */
+/**
+ * What the oldest unclaimed plan's figure actually is.
+ *
+ * IT IS NOT HOW LONG THE PLAN HAS BEEN UNCLAIMED, and the sentence must not say that it is. The
+ * only anchor the domain has for an unclaimed plan is `PlanRecord.dischargeAt`, which is not an
+ * observed instant: the wizard writes it as `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the
+ * calendar day a coordinator typed, a display convention whose own author recorded that nothing in
+ * the domain used its time of day. So a plan activated at 08:00 on its discharge day and left
+ * unclaimed reports ZERO all morning, and a plan whose discharge was backdated reports days. The
+ * figure bounds the true wait in neither direction, and the sentence therefore names the anchor
+ * and claims nothing else. See `UNCLAIMED_ANCHOR_NOTE` for what the reader is told about it.
+ */
 function unclaimedAgeSentence(minutes: number | null): string | null {
   if (minutes === null) return null;
-  return `The oldest has been unclaimed for ${plural(minutes, "minute", "minutes")} since the patient was discharged.`;
+  return `The oldest is ${plural(minutes, "minute", "minutes")} past the discharge recorded on its plan.`;
+}
+
+/**
+ * What the unclaimed minutes are counted from, said wherever they are shown.
+ *
+ * THIS REPLACED A FALSE ASSURANCE. The screen used to tell a clinician that "the true wait is never
+ * longer than the figure shown", which is the one failure that actually occurs: the escalation
+ * cannot raise before the anchor is passed, however long a plan has really been unowned. Stating a
+ * bound the code does not hold is worse than stating no bound, so the claim is retracted and the
+ * measurement is described instead.
+ *
+ * It is shown in all three unclaimed states, for the reason the threshold is: a rule a reader can
+ * only discover by tripping it is a rule they cannot plan around.
+ *
+ * It does not name midday, because it cannot say that truthfully of every plan -- the demo seed
+ * records a discharge at the seeding instant rather than through the wizard's convention. What is
+ * true of every plan is that the anchor is a recorded discharge and not the moment the work became
+ * available, and that is what it says.
+ */
+const UNCLAIMED_ANCHOR_NOTE =
+  "These minutes are counted from the discharge recorded on the plan, because nothing records when a plan became free for a coordinator to take. A plan can therefore show fewer minutes than it has been unclaimed, and reach the threshold later than it should.";
+
+/**
+ * Where a covered plan's work stays filed, said only while somebody is covering.
+ *
+ * `buildTeamWorkload` pushes a plan's active count, its holds and its contacts needing review onto
+ * the tally of its NAMED OWNER and onto nobody else's -- coverage never moves ownership. That is a
+ * defensible choice and it keeps the named coordinator visible, but its consequence is not
+ * self-evident on a table: while a coordinator is away, their exception backlog sits in the row of
+ * the person who is not answering, and the person covering reads as carrying none of it.
+ *
+ * The second sentence is the same fact from the other side -- a coordinator who owns nothing and is
+ * only covering shows `Plans sending: 0`, which is true and understates what they are holding.
+ *
+ * It says nothing about WHICH plans or WHOSE backlog, because the read carries neither: a sentence
+ * naming a specific backlog would be a claim this screen has no data for.
+ */
+const COVERAGE_ATTRIBUTION_NOTE =
+  "While a plan is covered, the plan and its contacts needing review stay counted against the coordinator who owns it, not against whoever is covering. A coordinator who owns nothing and is only covering therefore shows no plans of their own.";
+
+const WEEKDAY_NAMES = Object.freeze(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
+
+const MONTH_NAMES = Object.freeze([
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]);
+
+/**
+ * The instant every figure was measured to, in words a clinician reads.
+ *
+ * This screen used to print `2026-08-30T11:00:00+08:00` as body text -- the only machine timestamp
+ * rendered to a reader anywhere in the workspace. The machine-readable value is still carried, on
+ * the `<time>` element's `dateTime` attribute, which is where a machine reads it.
+ *
+ * Weekday and month names are written out rather than formatted by `Intl`, which is the Schedule
+ * screen's convention and its reason: `Intl.DateTimeFormat`'s output depends on the ICU data the
+ * runtime was built with, down to whether a comma follows the weekday, so a screen's date wording
+ * would differ between a test, CI and the machine of whoever reads it. The two name arrays are a
+ * second copy of that screen's, deliberately: importing them from `schedule-screen.tsx` would pull
+ * that module's whole component graph into this Server Component's build for two lists of English
+ * words that cannot change meaning.
+ */
+function measuredAtWording(asAtIso: string): string {
+  const { year, month, day, hour, minute } = toAwstParts(new Date(asAtIso));
+  const weekday = WEEKDAY_NAMES[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  const suffix = hour < 12 ? "am" : "pm";
+  const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelveHour}:${String(minute).padStart(2, "0")} ${suffix} AWST on ${weekday} ${day} ${MONTH_NAMES[month - 1]} ${year}`;
 }
 
 /** Contacts somebody has to look at on plans nobody owns. Never omitted, so an exception cannot go
@@ -168,6 +258,7 @@ function UnclaimedStanding({ unclaimed, thresholdMinutes }: { unclaimed: Unclaim
             `Work with no coordinator escalates at ${thresholdMinutes} minutes.`,
             `${plural(unclaimed.escalated, "plan", "plans")} of the ${plural(unclaimed.plans, "plan", "plans")} nobody has claimed ${unclaimed.escalated === 1 ? "has" : "have"} reached that threshold.`,
             age,
+            UNCLAIMED_ANCHOR_NOTE,
           ]
             .filter((part): part is string => part !== null)
             .join(" ")}
@@ -202,6 +293,7 @@ function UnclaimedStanding({ unclaimed, thresholdMinutes }: { unclaimed: Unclaim
           has reached the {thresholdMinutes} minutes at which work with no coordinator escalates.
         </p>
       )}
+      <p className={`mt-2 ${noteClass}`}>{UNCLAIMED_ANCHOR_NOTE}</p>
       {remedy === null ? null : <p className={`mt-2 ${noteClass}`}>{remedy}</p>}
       <p className={`mt-2 ${noteClass}`}>{unclaimedBacklogSentence(unclaimed.exceptionBacklog)}</p>
     </section>
@@ -447,6 +539,9 @@ export function TeamRoster({ view, mayViewPlans, mayReassignPlan }: TeamRosterPr
             <>
               <OwnershipTable coordinators={view.coordinators} />
               <CompactRoster coordinators={view.coordinators} />
+              {view.coordinators.some((row) => row.coveredByAnother > 0 || row.coveringForAnother > 0) ? (
+                <p className={noteClass}>{COVERAGE_ATTRIBUTION_NOTE}</p>
+              ) : null}
             </>
           )}
         </>
@@ -460,12 +555,14 @@ export function TeamRoster({ view, mayViewPlans, mayReassignPlan }: TeamRosterPr
             as the identifier their work is filed under.
           </p>
           <p className={noteClass}>
-            Both ages above are measured from the earliest instant the work could have been waiting — a patient&apos;s
-            discharge, or a contact&apos;s scheduled send — so the true wait is never longer than the figure shown.
+            Each age above is counted from something this system does record — the discharge on the plan, or the
+            contact&apos;s scheduled send — because it records nothing about when the work started waiting. Neither
+            figure is the true wait, and neither puts a limit on it.
           </p>
           <p className={noteClass}>
             A row appears for someone who owns or is covering a plan that has not ended, so this is who is carrying work
-            rather than who is on the team. Measured at <time dateTime={view.asAtIso}>{view.asAtIso}</time>.
+            rather than who is on the team. Measured at{" "}
+            <time dateTime={view.asAtIso}>{measuredAtWording(view.asAtIso)}</time>.
           </p>
         </div>
       </div>

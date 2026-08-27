@@ -283,14 +283,20 @@ describe("the escalation states why it happened and what would change it (spec 4
       unclaimed: { ...noUnclaimed(), oldestMinutesSinceDischarge: 145 },
     });
 
-    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain(
-      "since the patient was discharged",
-    );
+    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain("145 minutes");
   });
 });
 
 describe("both ages are named for what they measure, and neither is called a queue age", () => {
-  it("names the unclaimed age as time since discharge, and says it is an upper bound", () => {
+  it("names the unclaimed age for the anchor it is counted from, and claims no bound on the true wait", () => {
+    // THIS ASSERTION USED TO PIN A FALSE SENTENCE, and the correction is the point of the case.
+    // The screen said the true wait "is never longer than the figure shown". It is not a bound in
+    // either direction: `dischargeAt` is not an observed instant but the display convention
+    // `DISCHARGE_WALL_CLOCK_HOUR` writes -- midday on the calendar day a coordinator typed -- so a
+    // plan activated at 08:00 and never claimed reports an age of zero all morning, and the
+    // escalation cannot raise before midday. The screen now names the anchor and states that the
+    // figure is neither the wait nor a limit on it; `tests/caring-contacts-team-workload.test.ts`
+    // pins the anchoring behaviour itself, through the wizard's own `dischargeInstantFor`.
     renderRoster({
       unclaimed: {
         plans: 2,
@@ -303,8 +309,29 @@ describe("both ages are named for what they measure, and neither is called a que
     });
 
     const unclaimed = screen.getByTestId("caring-contacts-team-unclaimed");
-    expect(unclaimed).toHaveTextContent("145 minutes since the patient was discharged");
-    expect(textOf(screen.getByTestId("caring-contacts-team"))).toContain("never longer than the figure shown");
+    expect(unclaimed).toHaveTextContent("145 minutes past the discharge recorded on its plan");
+    const text = textOf(screen.getByTestId("caring-contacts-team"));
+    // The positive control for the refusal below: the screen DOES say what the figure is, so the
+    // absence is about the retracted claim rather than about a footer that failed to render.
+    expect(text).toContain("neither figure is the true wait");
+    expect(text).not.toContain("never longer than the figure shown");
+  });
+
+  it("says inside the unclaimed block why the minutes can be fewer than the wait", () => {
+    renderRoster({
+      unclaimed: {
+        plans: 2,
+        escalated: 1,
+        oldestMinutesSinceDischarge: 145,
+        state: "escalated",
+        clearedBy: "aCoordinatorClaimsThePlan",
+        exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
+      },
+    });
+
+    const unclaimed = textOf(screen.getByTestId("caring-contacts-team-unclaimed"));
+    expect(unclaimed).toContain("nothing records when a plan became free for a coordinator to take");
+    expect(unclaimed).toContain("reach the threshold later than it should");
   });
 
   it("names the backlog age as time since the scheduled send", () => {
@@ -344,7 +371,7 @@ describe("both ages are named for what they measure, and neither is called a que
 
     // The positive control: both ages are on the screen, so these absences are about the WORDS.
     const text = textOf(screen.getByTestId("caring-contacts-team"));
-    expect(text).toContain("145 minutes since the patient was discharged");
+    expect(text).toContain("145 minutes past the discharge recorded on its plan");
     expect(text).toContain("45 minutes since its scheduled send");
     expect(text).not.toContain("queue age");
     expect(text).not.toContain("waiting time");
@@ -405,6 +432,73 @@ describe("the roster states what a plan's own state is doing to it, and who is c
     expect(
       within(within(table()).getByTestId("caring-contacts-team-row")).getByTestId("caring-contacts-team-coverage"),
     ).toHaveTextContent("None");
+  });
+});
+
+describe("a covered plan's backlog is filed under its owner, and the screen says so", () => {
+  /**
+   * THE FACT THIS PINS IS UNPLEASANT AND THAT IS WHY IT IS STATED. `buildTeamWorkload` pushes a
+   * plan's reviewable contacts onto its NAMED OWNER's tally and onto nobody else's, so while a
+   * coordinator is away the exception backlog sits against the person who is not answering and the
+   * person covering reads as carrying none. `tests/caring-contacts-team-workload.test.ts` pins the
+   * attribution itself; this pins that a reader is told how to read the column.
+   *
+   * It also carries the second half of the same fact: a coordinator who owns nothing and is only
+   * covering shows `Plans sending: 0`, which is true and understates what they are holding.
+   */
+  const covering = {
+    coordinators: [
+      coordinator("ACTOR-AVA", {
+        activePlans: 2,
+        coveredByAnother: 2,
+        exceptionBacklog: { contacts: 3, oldestMinutesSinceScheduledSend: 90 },
+      }),
+      coordinator("ACTOR-BLAKE", { coveringForAnother: 2 }),
+    ],
+  };
+
+  it("says where a covered plan's contacts needing review are counted, and how to read a covering row", () => {
+    renderRoster(covering);
+
+    // The positive control: the two figures the sentences are about are really on the screen, so
+    // neither sentence is an explanation of something the reader cannot see.
+    const rows = within(table()).getAllByTestId("caring-contacts-team-row");
+    expect(within(rows[0]).getByTestId("caring-contacts-team-backlog")).toHaveTextContent("3 contacts");
+    expect(within(rows[1]).getByTestId("caring-contacts-team-active")).toHaveTextContent("0");
+
+    const text = textOf(screen.getByTestId("caring-contacts-team"));
+    expect(text).toContain("stay counted against the coordinator who owns it");
+    expect(text).toContain("shows no plans of their own");
+  });
+
+  it("does not explain coverage on a roster where nobody is covering anything", () => {
+    // The positive control is the case above: with coverage present the sentence renders, so this
+    // absence is about the condition rather than about a sentence that was never written.
+    renderRoster({ coordinators: [coordinator("ACTOR-AVA", { activePlans: 2 })] });
+
+    expect(textOf(screen.getByTestId("caring-contacts-team"))).not.toContain(
+      "stay counted against the coordinator who owns it",
+    );
+  });
+});
+
+describe("the screen says when it was measured in words, not as a machine timestamp", () => {
+  /**
+   * The Schedule screen's convention, applied here: weekday and month names written out rather than
+   * formatted by `Intl`, whose output depends on the ICU data the runtime was built with. This
+   * screen was rendering `2026-08-30T11:00:00+08:00` as body text -- the only machine timestamp
+   * anywhere in the workspace.
+   */
+  it("renders the measurement time in plain words and keeps the machine value in the attribute", () => {
+    const { container } = renderRoster({});
+
+    const stamp = container.querySelector("time");
+    expect(stamp).not.toBeNull();
+    // The positive control: the machine-readable value is still held, on the attribute where a
+    // machine reads it, so the absence below is about what a CLINICIAN is shown.
+    expect(stamp).toHaveAttribute("dateTime", AS_AT);
+    expect(stamp).toHaveTextContent("11:00 am AWST on Sunday 30 August 2026");
+    expect(textOf(screen.getByTestId("caring-contacts-team"))).not.toContain(AS_AT.toLowerCase());
   });
 });
 

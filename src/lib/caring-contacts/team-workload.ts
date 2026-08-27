@@ -59,16 +59,43 @@
 //     id. No plan id, no patient id, no contact id, and nothing from `getEpisode`, which this read
 //     never calls -- a roster needs no patient and must not be a route to one.
 //
-// TWO AGES, ONE ANCHOR RULE, AND IT IS AN UPPER BOUND. Neither `PlanRecord` nor `StoredContact`
-// carries the instant the work entered the queue: there is no "became claimable" instant on a plan
-// (the plans table has a `created_at`, but the repository contract does not release it) and no
-// "entered this state" instant on a contact. So each age is measured from the earliest instant at
-// which the work could possibly have been waiting -- discharge for an unclaimed plan, the scheduled
+// TWO AGES, AND NEITHER OF THEM IS HOW LONG THE WORK HAS BEEN WAITING. Neither `PlanRecord` nor
+// `StoredContact` carries the instant the work entered the queue: there is no "became claimable"
+// instant on a plan (the plans table has a `created_at`, but the repository contract does not
+// release it) and no "entered this state" instant on a contact. So each age is measured from the
+// nearest anchor that IS recorded -- the plan's `dischargeAt` for an unclaimed plan, the scheduled
 // send time for a contact needing review -- and the field names say so rather than calling either
-// one a queue age. The true wait is therefore never LONGER than the number reported, which is the
-// conservative direction for a safety escalation: it can raise one early, never miss a late one.
-// Both field names are long for the reason `medianMinutesFromAttemptToResolution` is long, and this
-// is reported as a repository-contract gap rather than closed by inventing an instant.
+// one a queue age. Both field names are long for the reason
+// `medianMinutesFromAttemptToResolution` is long.
+//
+// IT IS NOT AN UPPER BOUND, AND AN EARLIER VERSION OF THIS COMMENT SAID IT WAS. That claim rested
+// on "a plan cannot have become claimable before its patient was discharged", so the reported age
+// could only ever be too large -- the conservative direction for a safety escalation. The premise
+// is false OF THE STORED FIELD. `dischargeAt` is not an observed instant: the only surface that
+// writes one is the plan wizard, and its `dischargeInstantFor` pins the value to
+// `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the AWST calendar day a coordinator typed. That is a
+// display convention, and its own author recorded why the hour was free to be arbitrary: "the time
+// of day changes nothing about the schedule". Nothing requires the typed day to be in the past
+// either, and `queueAgeMinutes` clamps a negative elapsed time to zero. So for a plan activated at
+// 08:00 on its own discharge day and never claimed:
+//
+//     09:00 AWST (unclaimed  60 min) -> reported age  0, withinThreshold
+//     11:00 AWST (unclaimed 180 min) -> reported age  0, withinThreshold
+//     13:00 AWST (unclaimed 300 min) -> reported age 60, escalated -- four hours late
+//
+// The escalation therefore CANNOT RAISE before the anchor is passed, and under-reports by the
+// morning offset afterwards; a backdated discharge over-reports by days. The failure the earlier
+// comment called impossible -- missing a late one -- is the one that actually occurs, so no reader
+// may take this number for a bound in either direction.
+//
+// It is pinned rather than only described: `tests/caring-contacts-team-workload.test.ts` builds a
+// discharge through the wizard's own `dischargeInstantFor` and asserts the age is anchored on that
+// convention, which is the seam no fixture in this branch crossed when the false claim was
+// written. `team-roster.tsx` states on the screen what the figure is counted from and that it is
+// neither the wait nor a limit on it.
+//
+// CLOSING IT PROPERLY IS A REPOSITORY-CONTRACT CHANGE and remains the owner's call: release the
+// plan's creation instant, or add a claimable-since column. Nothing here invents one.
 import { effectiveResponder, queueAgeMinutes, UNCLAIMED_ESCALATION_MINUTES, type PlanAssignment } from "./assignment";
 import { awstIsoTimestamp } from "./clock";
 import type { ActorId } from "./ids";
@@ -150,7 +177,11 @@ export type UnclaimedWork = {
   plans: number;
   /** Of `plans`, those that have reached the threshold. */
   escalated: number;
-  /** Whole minutes since the OLDEST unclaimed plan's discharge; null when there are none. */
+  /**
+   * Whole minutes from the OLDEST unclaimed plan's recorded `dischargeAt` to `asAt`; null when
+   * there are none. An anchor, NOT the time the plan has been unclaimed and not a bound on it --
+   * see the module note on what `dischargeAt` actually holds.
+   */
   oldestMinutesSinceDischarge: number | null;
   state: UnclaimedEscalationState;
   clearedBy: "aCoordinatorClaimsThePlan" | null;
@@ -262,8 +293,9 @@ export function buildTeamWorkload(ownership: readonly PlanOwnership[], asAt: Dat
     const hold = planSendingHold(record.plan.state);
     if (hold === "planEnded") continue;
 
-    const owner = assignment?.ownerId ?? null;
-    if (owner === null) {
+    // Narrowed here rather than through `assignment?.ownerId`, which left `assignment` typed as
+    // nullable below and forced a second null test on a branch that could not run.
+    if (assignment === null || assignment.ownerId === null) {
       unclaimedPlans += 1;
       const minutes = queueAgeMinutes(awstIsoTimestamp(record.dischargeAt), asAtIso);
       if (minutes >= UNCLAIMED_ESCALATION_MINUTES) unclaimedEscalated += 1;
@@ -272,14 +304,15 @@ export function buildTeamWorkload(ownership: readonly PlanOwnership[], asAt: Dat
       continue;
     }
 
+    const owner = assignment.ownerId;
     const tally = tallyFor(owner);
     if (hold === null) tally.activePlans += 1;
     else tally.held.set(hold, (tally.held.get(hold) ?? 0) + 1);
     tally.reviewableSendInstants.push(...reviewableSendInstants(record));
 
-    // Who is actually answering at this instant. `assignment` is non-null here -- `owner` came off
-    // it -- and `effectiveResponder` returns the coverer only while the window is open.
-    const responder = assignment === null ? owner : effectiveResponder(assignment, asAtIso);
+    // Who is actually answering at this instant. `effectiveResponder` returns the coverer only
+    // while the coverage window is open.
+    const responder = effectiveResponder(assignment, asAtIso);
     if (responder !== null && responder !== owner) {
       tally.coveredByAnother += 1;
       tallyFor(responder).coveringForAnother += 1;

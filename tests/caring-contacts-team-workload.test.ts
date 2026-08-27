@@ -17,6 +17,11 @@
 // id and not the amount of work, on a fixture built so the two orders disagree.
 import { beforeEach, describe, expect, it } from "vitest";
 
+// THE ONE IMPORT IN THIS FILE THAT REACHES OUT OF THE SEALED DOMAIN, and it is the point of the
+// anchoring cases below rather than a convenience. `dischargeInstantFor` is the only surface in the
+// tree that writes a `dischargeAt`, and the seam between the convention it writes and the instant
+// arithmetic this read performs is the seam no fixture in this branch crossed.
+import { dischargeInstantFor } from "@/components/caring-contacts/workspace/plan-wizard/plan-activation";
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { UNCLAIMED_ESCALATION_MINUTES } from "@/lib/caring-contacts/assignment";
 import { awstCalendarDay, fixedClock } from "@/lib/caring-contacts/clock";
@@ -355,6 +360,63 @@ describe("unclaimed work against the 60-minute escalation", () => {
   });
 });
 
+/**
+ * WHAT THE UNCLAIMED AGE IS ACTUALLY ANCHORED ON, pinned as behaviour rather than left in a note.
+ *
+ * These cases exist because the module and the screen both used to claim that the reported age was
+ * never SHORTER than the true wait -- a bound, offered as the conservative direction for a safety
+ * escalation. The premise was that a plan cannot have become claimable before its patient was
+ * discharged, and it is false of the stored field: `dischargeAt` is not an observed instant. The
+ * only surface that writes one is the plan wizard, and `dischargeInstantFor` pins it to
+ * `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the AWST calendar day a coordinator typed.
+ *
+ * Every other fixture in this file constructs `DISCHARGE_AT` by hand, which is exactly why no test
+ * could have found this: the seam is crossed by no fixture that does not go through the wizard's
+ * own function. These do, so the property is met as a test by the next reader rather than as a
+ * surprise.
+ *
+ * They pin the behaviour, not an endorsement of it. Re-anchoring the escalation is a
+ * repository-contract change and is the owner's call.
+ */
+describe("the unclaimed age is anchored on the recorded discharge, not on when a plan could be claimed", () => {
+  const DISCHARGE_DAY = "2026-08-30";
+
+  /** The instant the wizard would store for that day, refusing to guess if it would not store one. */
+  function wizardDischargeInstant(day: string): Date {
+    const instant = dischargeInstantFor(day);
+    if (instant === null) throw new Error(`the wizard writes no discharge instant for ${day}`);
+    return instant;
+  }
+
+  it("reports zero for a plan unclaimed all morning, because the anchor is midday on the discharge day", async () => {
+    const store = newStore();
+    const dischargeAt = wizardDischargeInstant(DISCHARGE_DAY);
+    // The positive control for the two assertions below, and the reason this case is not a model of
+    // the seam but the seam itself: the wizard's instant really is midday AWST, which is 04:00 UTC.
+    expect(dischargeAt.toISOString()).toBe("2026-08-30T04:00:00.000Z");
+
+    await seedPlan(store, { dischargeAt });
+
+    // 11:00 AWST -- three hours after a coordinator could first have claimed it that morning, and
+    // an hour before the anchor. `queueAgeMinutes` clamps the negative elapsed time to zero.
+    const morning = await viewOf(store, new Date("2026-08-30T03:00:00.000Z"));
+
+    expect(morning.unclaimed.oldestMinutesSinceDischarge).toBe(0);
+    expect(morning.unclaimed.state).toBe("withinThreshold");
+  });
+
+  it("starts counting from that anchor, so nothing escalates until an hour past midday", async () => {
+    const store = newStore();
+    await seedPlan(store, { dischargeAt: wizardDischargeInstant(DISCHARGE_DAY) });
+
+    // 13:00 AWST. An hour past the anchor, and five hours past the morning of the discharge day.
+    const afternoon = await viewOf(store, new Date("2026-08-30T05:00:00.000Z"));
+
+    expect(afternoon.unclaimed.oldestMinutesSinceDischarge).toBe(UNCLAIMED_ESCALATION_MINUTES);
+    expect(afternoon.unclaimed.state).toBe("escalated");
+  });
+});
+
 describe("a plan that is not running is held work, not active work", () => {
   it("names the hold rather than counting a paused plan as active", async () => {
     const store = newStore();
@@ -408,6 +470,36 @@ describe("coverage keeps the named coordinator visible behind whoever is answeri
     expect(rowFor(view, BLAKE).coveringForAnother).toBe(1);
     // The coverer is answering for someone else's plan, not carrying one of their own.
     expect(rowFor(view, BLAKE).activePlans).toBe(0);
+  });
+
+  /**
+   * THE ATTRIBUTION THIS PINS IS THE UNCOMFORTABLE ONE. The module states the rule -- "a covered
+   * plan's backlog stays with its named owner" -- and no case combined coverage with a backlog, so
+   * an edit that moved the backlog to whoever is answering would have passed the whole suite.
+   *
+   * The consequence is worth naming beside the assertion: while a coordinator is away, the
+   * contacts somebody has to look at are counted in the row of the person who is NOT answering.
+   * `team-roster.tsx` now says so on the screen; this is the proof that it is true.
+   */
+  it("leaves a covered plan's exception backlog with its named owner, and gives the coverer none of it", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { owner: AVA });
+    const records = await store.listPlans({ actor: COORDINATOR });
+    const record = records.find((candidate) => candidate.plan.id === id);
+    if (!record) throw new Error("seeded plan missing from the read");
+    const first = contactOn(record, FIRST_CONTACT_DAY);
+    await driveContactTo(store, id, first, "missed");
+    await cover(store, id, BLAKE, "2026-08-29", "2026-09-30");
+
+    const asAt = new Date(first.planned.sendAt.getTime() + 90 * 60_000);
+    const view = await viewOf(store, asAt);
+
+    // The positive control: the cover really is in force at this instant, so what follows is about
+    // ownership rather than about a window that had already closed.
+    expect(rowFor(view, BLAKE).coveringForAnother).toBe(1);
+
+    expect(rowFor(view, AVA).exceptionBacklog.contacts).toBe(1);
+    expect(rowFor(view, BLAKE).exceptionBacklog.contacts).toBe(0);
   });
 
   it("reports no cover once the window has passed", async () => {
