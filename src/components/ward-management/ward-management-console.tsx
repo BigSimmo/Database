@@ -30,10 +30,12 @@ import {
   stageSummaries,
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
+import { changeReasonLabels } from "@/components/ward-management/ward-change-reasons";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import {
   MOVEMENT_STAGES,
+  type DeclineReason,
   type LegalForm,
   type Movement,
   type MovementStage,
@@ -41,6 +43,22 @@ import {
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 
 import styles from "./ward-management.module.css";
+
+/**
+ * Task 10 (spec item 8). `changeReasonLabels` covers the four reason lists in
+ * `ward-change-reasons.ts` but not `DeclineReason` — declines are a fifth, older fixed list
+ * (`DECLINE_REASONS` in `ward-model.ts`) that predates that file. Same discipline: chosen, never
+ * typed, operational and content-free, never a raw snake_case code on screen.
+ */
+const declineReasonLabels: Record<DeclineReason, string> = {
+  no_bed: "No bed available",
+  sex_mix: "Sex mix",
+  specialling_unavailable: "Specialling unavailable",
+  acuity_mix: "Acuity mix",
+  capability_mismatch: "Capability mismatch",
+  bed_held_for_earlier_referral: "Bed held for earlier referral",
+  out_of_catchment: "Out of catchment",
+};
 
 /**
  * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
@@ -125,7 +143,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
         <ClinicalRail />
         <header className={styles.workspaceHeader}>
-          <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
+          <ContextualBackLink fallbackHref="/mockups/ward-flow" aria-label="Back to Ward Flow">
             <ArrowLeft aria-hidden="true" />
           </ContextualBackLink>
           <div>
@@ -153,12 +171,34 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
     (candidate) => candidate.unit.id !== destination?.id,
   );
   const timeline = movementTimeline(patient);
+  // Reads the provider's live units, same as `destination` above — a unit renamed underneath
+  // this movement must resolve here too, not to a name frozen at import time. Falls back to the
+  // raw id (never a substituted unit) when nothing in the live set matches.
+  const unitName = (unitId: string) => units.find((unit) => unit.id === unitId)?.name ?? unitId;
+  // Task 10 (spec item 8): status and urgency changes are the same kind of fact to a reader, so
+  // they render as one chronological record rather than two disconnected lists.
+  const changeEvents = [
+    ...patient.statusChanges.map((change) => ({
+      kind: "legal" as const,
+      at: change.at,
+      by: change.by,
+      reasonLabel: changeReasonLabels[change.reason],
+      detail: `${change.from} → ${change.to}`,
+    })),
+    ...patient.urgencyChanges.map((change) => ({
+      kind: "urgency" as const,
+      at: change.at,
+      by: change.by,
+      reasonLabel: changeReasonLabels[change.reason],
+      detail: `Tier ${change.from} → Tier ${change.to}`,
+    })),
+  ].sort((a, b) => a.at - b.at);
 
   return (
     <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
       <ClinicalRail />
       <header className={styles.workspaceHeader}>
-        <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
+        <ContextualBackLink fallbackHref="/mockups/ward-flow" aria-label="Back to Ward Flow">
           <ArrowLeft aria-hidden="true" />
         </ContextualBackLink>
         <div>
@@ -348,6 +388,69 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             </ol>
           </section>
         ) : null}
+
+        {/* Task 10 (spec item 8): always-rendered, never gated behind a tab — each section
+            carries its own explicit absence line when the movement has none of that record,
+            per the conservative-failure constraint. A hidden section that simply omits itself
+            when empty is exactly what that constraint forbids. */}
+        <section className={styles.contextPanel} data-testid="ward-patient-declines">
+          <h2>Declines</h2>
+          {patient.declines.length > 0 ? (
+            <ol className={styles.timeline}>
+              {patient.declines.map((decline, index) => (
+                <li key={`${decline.unitId}-${decline.at}-${index}`}>
+                  <time>{formatInstant(decline.at)}</time>
+                  <span>
+                    {unitName(decline.unitId)} · {declineReasonLabels[decline.reason]}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No declines recorded for this movement.</p>
+          )}
+        </section>
+
+        <section className={styles.contextPanel} data-testid="ward-patient-changes">
+          <h2>Status and urgency changes</h2>
+          {changeEvents.length > 0 ? (
+            <ol className={styles.timeline}>
+              {changeEvents.map((change, index) => (
+                <li key={`${change.kind}-${change.at}-${index}`}>
+                  <time>{formatInstant(change.at)}</time>
+                  <span>
+                    {change.kind === "legal" ? "Legal status" : "Urgency"} changed {change.detail} by {change.by} ·{" "}
+                    {change.reasonLabel}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No status or urgency changes recorded for this movement.</p>
+          )}
+        </section>
+
+        <section className={styles.contextPanel} data-testid="ward-patient-escalation">
+          <h2>Escalation</h2>
+          {patient.escalation ? (
+            <dl className={styles.factList}>
+              <div>
+                <dt>When</dt>
+                <dd>{formatInstant(patient.escalation.at)}</dd>
+              </div>
+              <div>
+                <dt>Units tried</dt>
+                <dd>{patient.escalation.triedUnitIds.map((unitId) => unitName(unitId)).join(", ")}</dd>
+              </div>
+              <div>
+                <dt>Contact</dt>
+                <dd>{patient.escalation.contact}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p>No escalation recorded for this movement.</p>
+          )}
+        </section>
 
         <p className={styles.governanceNote}>
           Synthetic prototype only. Eligibility is checked automatically; an authorised human confirms every

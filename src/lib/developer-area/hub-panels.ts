@@ -32,7 +32,18 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/review-state",
   },
-  { id: "decision-log", name: "Decision log", summary: "Why things are the way they are", group: "work", phase: 4 },
+  // `decision-log` (phase 4) was removed 2026-08-25, along with `errors`,
+  // `budgets` and `commands` below, and `database-drift` (phase 3) for the
+  // same reason: `.github/workflows/live-drift.yml` already creates and
+  // updates a GitHub issue on drift. Each restated a fact the repository
+  // already surfaces elsewhere — exactly what Ruling R1 forbids ("render only
+  // facts no green gate already guarantees"), and every placeholder card is a
+  // promise on screen: a card that never arrives quietly tells a reader work
+  // is coming which is not. `decision-log`'s specific case: `docs/decisions/`
+  // holds exactly one file, so the gap is that decisions are not being
+  // written down, not that they are not being rendered — a page over one
+  // document would make the gap look addressed. Do not re-add these five
+  // believing they were forgotten.
 
   {
     id: "clinical-trust",
@@ -42,6 +53,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/clinical-trust",
   },
+  // Kept, unlike the five removed above, and settled: the owner ruled on
+  // 2026-08-26 that the hazard register belongs in the developer hub rather
+  // than as a separate clinical-safety surface. It was never a removal
+  // candidate on the Ruling R1 ground the five removed entries failed on --
+  // it restates no fact an existing green gate already guarantees. Do not
+  // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
   {
     id: "hazard-register",
     name: "Hazard register",
@@ -52,16 +69,17 @@ export const HUB_PANELS: readonly HubPanel[] = [
 
   // No `environment` card: the environment strip renders as its own section on
   // the hub, so a card pointing at `#developer-hub-environment` would be a
-  // self-link, not a destination.
+  // self-link, not a destination. No `database-drift` card either — see the
+  // removal comment above; a phase-3 "coming soon" would promise a panel the
+  // plan records as never to be built.
   {
-    id: "database-drift",
-    name: "Database drift",
-    summary: "Schema and function differences against the repo",
+    id: "ingestion",
+    name: "Ingestion",
+    summary: "Stuck, failed, and queued document jobs",
     group: "system",
-    phase: 3,
+    phase: 1,
+    href: "/mockups/development/ingestion",
   },
-  { id: "ingestion", name: "Ingestion", summary: "Stuck, failed, and queued document jobs", group: "system", phase: 3 },
-  { id: "errors", name: "Errors and alerts", summary: "What is failing for real users", group: "system", phase: 4 },
   {
     id: "test-health",
     name: "Test health",
@@ -69,13 +87,6 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "system",
     phase: 1,
     href: "/mockups/development/test-health",
-  },
-  {
-    id: "budgets",
-    name: "Speed and weight",
-    summary: "Page weight and performance budgets",
-    group: "system",
-    phase: 4,
   },
 
   {
@@ -128,12 +139,11 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "ward-flow",
     name: "Ward flow",
-    summary: "Queue, capacity, transport, movements",
+    summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
     group: "reference",
     phase: 1,
-    href: "/ward-management",
+    href: "/mockups/ward-flow",
   },
-  { id: "commands", name: "Commands", summary: "What each repository command does", group: "reference", phase: 4 },
 ];
 
 export function panelsInGroup(group: HubPanelGroup): HubPanel[] {

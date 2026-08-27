@@ -73,7 +73,8 @@ export type AppModeDefinition = {
   search: AppModeSearchConfig;
 };
 
-/** Canonical clean category-browse route for the Factsheets mode. */
+/** Canonical destinations for the Factsheets local search and category browse surfaces. */
+export const factsheetsSearchHref = "/factsheets/search";
 export const factsheetsTopicsHref = "/factsheets/topics";
 
 export const appModeDefinitions = [

@@ -12,7 +12,7 @@ import { movementById, wardMovements } from "@/components/ward-management/ward-m
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
-  await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
+  await page.goto("/mockups/ward-flow", { waitUntil: "domcontentloaded" });
   // A second same-URL navigation can leave a hidden duplicate of the screen
   // in the tree. Strict getByTestId then fails even though one copy is visible
   // — match the command-view helper, which waits for a single visible screen.
@@ -90,7 +90,7 @@ async function expectNoRegionGridOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Ward Flow coordinator screen", () => {
+test.describe("@mockup Ward Flow coordinator screen", () => {
   test.describe.configure({ timeout: 45_000 });
 
   test("presents the five coordination regions", async ({ page }) => {
@@ -107,7 +107,7 @@ test.describe("Ward Flow coordinator screen", () => {
   });
 
   // The equivalent coverage for these two lived on WardManagementConsole, which Task 3 stopped
-  // rendering at /ward-management. Task 9 deletes that component; until then the behaviour has
+  // rendering at /mockups/ward-flow. Task 9 deletes that component; until then the behaviour has
   // no home on the coordinator screen and these stay fixme so the gap is visible in the runner
   // (not just in a ledger row) rather than silently dropped.
 
@@ -163,7 +163,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // Whole-branch review Minor 6: the drawer is scoped to OPEN movements, so the independent
     // count here must be too — computing it over all 48 records would agree with a screen that
     // wrongly listed a closed patient's breached deadline.
-    const expectedCount = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR).length;
+    const expectedCount = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR, allUnits()).length;
     expect(expectedCount).toBeGreaterThan(1);
     await expect(items).toHaveCount(expectedCount);
     await expect(toggle).toContainText(String(expectedCount));
@@ -1226,15 +1226,21 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(toggle).toHaveText("Update escalation");
 
     await toggle.click();
-    await shortlist
-      .getByTestId("ward-shortlist-escalation-contact")
-      .fill("State-wide bed coordination line — on-call psychiatry registrar");
+    // The escalation contact became a fixed picker (Phase 4 item 11): the coordinator chooses a
+    // role or service rather than typing one, so the synthetic-data promise holds by construction
+    // instead of by a label asking nicely. This step used to `.fill()` a free-text sentence — the
+    // exact class of value the picker exists to make impossible — so it selects instead. "Duty
+    // psychiatrist" is deliberately a DIFFERENT option from the fixture's authored "State bed
+    // coordination desk", which is what makes the change below observable.
+    const NEW_CONTACT = "Duty psychiatrist";
+    expect(NEW_CONTACT, "the test must change the contact, or it proves nothing").not.toBe(wf009.escalation!.contact);
+    await shortlist.getByTestId("ward-shortlist-escalation-contact").selectOption(NEW_CONTACT);
     await shortlist.getByTestId("ward-shortlist-escalation-submit").click();
 
-    // A real dispatch, not a local echo of the typed text: the record now reads the NEW contact,
+    // A real dispatch, not a local echo of the chosen option: the record now reads the NEW contact,
     // and `triedUnitIds` is `movement.declines` (never the panel's capped `shortlist`), so the
     // count matches the real five declines exactly.
-    await expect(record).toContainText("State-wide bed coordination line");
+    await expect(record).toContainText(NEW_CONTACT);
     await expect(record).not.toContainText(wf009.escalation!.contact);
     await expect(record).toContainText(`tried ${wf009.declines.length} unit`);
 
@@ -1242,9 +1248,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // (`movement.escalation`), not local component state that a re-render could lose.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
-    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(
-      "State-wide bed coordination line",
-    );
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(NEW_CONTACT);
     await expect(shortlist.getByTestId("ward-shortlist-escalation-toggle")).toHaveText("Update escalation");
   });
 });

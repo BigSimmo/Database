@@ -60,6 +60,48 @@ case, and it fails closed: no sections, no marks.
 
 That is why the rail and drawer ship first, and the marks second.
 
+### 1a. Corrected again, 2026-08-25, when the marks were built: sections are the wrong source
+
+Everything above is accurate about `answerSections` and still wrong about the marks, and
+the reason only shows up when you try to render one.
+
+`answerSections` is a **second layer**. The generation contract calls it "Second-layer
+structured support… distinct source-backed modules that improve scanability"
+(`src/lib/rag/rag.ts:340`), and the composition instruction tells the model to write the
+prose into `answer` and _then_ use `answerSections` for separate structured support
+(`:4313`). A section's body is therefore not text the clinician reads in the prose, so
+there is no sentence in the answer for a section's mark to attach to. A mark per section
+is only buildable by rendering the sections themselves — which is a different product
+decision (more content on the answer surface), not the design that was approved.
+
+**The field that does anchor to the prose is `RagAnswer.supportedClaims`**
+(`src/lib/types.ts:519`). `rag-claim-support.ts:1049` builds its top-level entries as
+`splitClaims(answer.answer)` — literally the sentences of the displayed prose — and each
+carries `supportingChunkIds` and a `supportStatus` of `direct | partial | unsupported`.
+`answer-render-policy.ts` already reads it client-side, so it is on the client today with
+no payload change.
+
+So the marks are built from `supportedClaims`, and §3's requirement is met by a stricter
+route than it asked for: attribution is per _sentence_ rather than per section, and it is
+the pipeline's own recorded attribution rather than one the render layer derived. The
+resolution rules live in `src/lib/answer-claim-marks.ts` and are exact — a sentence either
+**is** a recorded claim (or exactly a run of consecutive all-`direct` ones) or it carries
+no mark. Every ambiguity resolves to no mark:
+
+- the display sanitizer rewrote the sentence → no mark;
+- two recorded claims disagree about the same sentence → no mark;
+- the claim cites a chunk the rail does not list → that citation is dropped, never
+  renumbered onto a neighbouring card;
+- the word budget cut the sentence short → no mark;
+- `supportStatus: "unsupported"` → no mark, and no worded tag either (see §12.2 below,
+  superseded by the owner in design review on 2026-08-25).
+
+**Expect partial coverage, and do not tune it up.** A sentence the usefulness pass
+rewrote, or one holding several claims at different support levels, renders unmarked with
+the rail underneath still carrying every source. That is the designed degrade. Raising
+coverage means changing what the generation contract emits, which is PR 3 — protected RAG
+surface, owner flag, live eval canary.
+
 ---
 
 ## 2. What replaces what
@@ -566,5 +608,118 @@ silently.
 the answer keeps one reading column. The accepted cost is that a table can no longer be read
 side by side with the answer on a large screen. Still state it in the PR body — a reviewer
 seeing the aside disappear deserves the sentence.
+
+---
+
+### 12.6 The assistant avatar is removed, and the prose runs to the edge (2026-08-26)
+
+Every assistant turn opened with a shield tile in its own grid column, and the answer prose
+was indented to clear it. `/mockups/answer-chat-perfected-v2` now draws no avatar and no
+gutter: the answer is a single full-width stack.
+
+**Why.** On a 390px phone that column costs about 2.75rem of every line of a clinical answer
+— the exact measurement `--answer-message-gutter` was introduced to hold. It buys nothing a
+reader needs. There are only two speakers on this surface, the person's turn is already a
+right-aligned bubble, and the answer is the one element here that wants the full measure.
+Every mature chat product settled in the same place for the same reason.
+
+**What identifies the turn instead** is the provenance line beneath the question, which is
+information rather than decoration, and which now sets as two deliberate lines — what wrote
+the answer, then what the reader owes it — instead of one sentence left to wrap wherever the
+column ends. Its wording is unchanged.
+
+Three changes travel with it, all in the same mockup:
+
+- A hairline and a quiet `CITED DOCUMENTS` / `SOURCES READ` eyebrow above the card row. With
+  no gutter organising the column the answer needed a clean end before its evidence.
+- The card row fades at its right edge, so it reads as scrollable without a scrollbar. Same
+  mechanism `.answer-suggestion-chips-scroll` already ships (`globals.css`).
+- `Copy` became `Copy with sources`. On this product an answer copied without its citations
+  is the actual hazard, so the control names what it puts on the clipboard.
+
+**Not yet in production.** `answer-content.tsx` still renders the shield tile and
+`globals.css` still declares `--answer-message-gutter`. Removing both is the follow-up, and
+it is deliberately a separate change: the owner approves the look on the mockup first.
+
+---
+
+### 12.7 What sits under the answer: the safety rail, and two panels asking one question (2026-08-26)
+
+Photographed on a live phone by the owner. Both are drawn in
+`/mockups/answer-chat-perfected-v2` section Seven, as before-and-after and as two directions.
+
+**The safety card's coloured rail goes.** `AnswerSupportSummaryCard` draws
+`border-t-2 border-t-[color:var(--warning)]` across the top of the card — but that card also
+holds `Evidence gaps` and `Report a problem`, neither of which is a warning, so the rule
+colours two controls that carry no state. Colour moves into the icon tile plus a short
+`RED FLAG` severity chip: the direction `also-matches-accent-mockups.tsx` already records for
+the sibling surface ("no top rail; colour lives in the icon tile and the short code chip").
+Nothing about the signal is weakened — the design-system contract holds colour-only status
+indicators at zero either way, so the icon and the words were always carrying it.
+
+One thing the mockup deliberately does **not** copy from production: the evidence-gaps count
+is neutral, not amber. A count painted with a status colour is a status-coloured numeral, which
+the same contract holds at zero, and the icon beside it already says what state it is in.
+
+**The two "also…" panels become one list.** `CrossModeLinksSection` ("Also in your library")
+and `UniversalSearchAlsoMatches` ("Also matches") stack directly on top of each other under an
+answer and read as the same panel twice. They answer one question — where else does this
+appear — so they are one list, and each row names what it is (Medication, Factsheet, Mode)
+rather than leaving the reader to infer it from which panel it landed in. "4 related modes"
+goes: "mode" is internal vocabulary.
+
+**The follow-up questions were phone-invisible.** `answer-result-surface.tsx` wraps
+`AnswerFollowUpSuggestions` in `hidden sm:block`, so the most likely next tap on the surface
+was desktop-only. Both directions restore it and place it _above_ the matches.
+
+**Two directions, owner picks.** A keeps the horizontal card row the answer already uses, so
+the surface repeats one shape instead of three. B trades the row for full-width questions and
+folds every other match onto one expandable line — quieter, and it costs a tap.
+
+**Was not in production when this was written.** Direction B shipped shortly afterwards — see §12.8.
+
+---
+
+### 12.8 The production change: edge to edge, one number, one panel (2026-08-26)
+
+Everything §12.6 and §12.7 drew in the mockup, applied to the live answer surface after the
+owner approved the look and chose direction B.
+
+**Edge to edge.** The `answer-clinical-icon` tile and its grid column are gone from
+`plain-answer-response` (`answer-content.tsx`), the matching `ps-[var(--answer-message-gutter)]`
+is gone from the bare `AnswerCard` header, and `--answer-message-gutter` is deleted from
+`globals.css`. The token existed only to keep those two non-nested places in one column;
+with no column to clear, there is nothing left for it to hold.
+
+**One number per claim.** `maxMarksPerCluster` is `1`. Nothing is hidden: `resolveClaimMarks`
+already counted the remainder into `overflow`, the `+N` renders it, and every source it counts
+is on the rail immediately below at full tap size — which is also where a `Review due` or
+`Outdated` badge lives, per the 2026-08-24 decision that staleness is carried by the row and
+the drawer and never by the mark. The one signal that must not be lost was never on the mark.
+`tests/answer-claim-marks.test.ts` now derives its overflow expectation from the cap rather
+than hard-coding it, so the assertion keeps proving "every uncapped target is counted" if the
+cap moves again.
+
+**The safety card has no rail.** Colour lives in the icon tile plus a severity chip built from
+the finding's own label, which `answerSupportPriority` now returns as `severityLabel` instead
+of running it into the citation string. Both priority rows lost `border-t-2`.
+
+**Direction B under the answer.** `AnswerFollowUpSuggestions` gained `layout="rows"` — one
+question per full-width row — and the answer surface renders it above the library line on every
+width. Three things had to move together for that to be an improvement rather than a third
+panel:
+
+- The `hidden sm:block` wrapper is gone, so the questions exist on a phone at all.
+- `CrossModeLinksSection` gained `variant="line"`: a single collapsed row carrying a preview of
+  the matches, opening to exactly the rail it always was.
+- The composer dock no longer receives `composerFollowUpSuggestions` on the answer mode, and the
+  dashboard no longer renders `UniversalSearchAlsoMatches` there. Both were second copies —
+  the same three questions truncated onto one scrolling line, and a mode-level restatement of
+  the record-level matches directly above it. Pinned in
+  `tests/answer-follow-up-chips.dom.test.tsx` so neither returns by accident.
+
+**One citation fix travelling with it.** `cleanCitationTitle` now inserts the missing space in
+`Guideline(EMHS)`. Every citation label in the product runs through that function, so the safety
+card, the rail cards, the drawer and print are fixed together. Display only.
 
 ---

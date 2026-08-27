@@ -118,9 +118,12 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
   --spacing-phone-frame: 52.75rem;
+  /* Ward Flow's fixed phone navigation bar and the matching content reserve. */
+  --spacing-ward-phone-bar: 3.5rem;
 
-  /* Shared reading measure and the fixed geometry of the Factsheets phone study. */
+  /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
   --container-reading: 64rem;
+  --container-mockup-wide: 92rem;
   --container-phone-frame: 24.375rem;
 
   /* Specifier-map layout roles: jump target height, numbered step column, and
@@ -581,10 +584,20 @@
      clears roughly 3.5rem less than the Compare bar. */
   --phone-dock-patient-details-clearance: 9rem;
   --phone-dock-patient-details-compact-clearance: 8.75rem;
+  /* Therapy compare tray: one row + 0.5rem gap, same geometry as Patient
+     details. The tray is required to stay exactly one row tall (its expanded
+     state is a sheet), which is what lets a single static number stay correct. */
+  --phone-dock-therapy-compare-clearance: 9rem;
+  --phone-dock-therapy-compare-compact-clearance: 8.75rem;
   --patient-details-fab-gap: 0.5rem;
   --patient-details-fab-padding: 0.3125rem 0.5rem 0.3125rem 1rem;
   --patient-details-fab-count-size: 1.625rem;
   --patient-details-fab-count-padding: 0.375rem;
+  --therapy-compare-tray-gap: 0.5rem;
+  --therapy-compare-tray-pip-gap: 0.125rem;
+  --therapy-compare-tray-pip-size: 1.5rem;
+  --therapy-compare-tray-padding: 0.25rem 0.5rem;
+  --therapy-compare-tray-summary-inset: 0.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -1456,6 +1469,101 @@ summary::-webkit-details-marker {
   font-weight: 800;
 }
 
+/* Therapy Compass compare tray: the row above the search pill that says what is
+   in the comparison. Same in-flow trick as the two rows above, so scroll-hide
+   carries it with the composer.
+
+   It must stay ONE row tall at every state — the dock's content clearance is a
+   static token, so a dock that grows covers page content by exactly its growth.
+   The expanded state is a bottom sheet for that reason, not a taller bar.
+
+   Interaction states are NOT redeclared here: the summary row carries
+   `interactiveRowBase` and the actions are the shared `Button`, so hover, focus
+   and disabled behaviour come from the design system, per COMPONENTS.md 9.1. */
+.therapy-compare-tray {
+  position: relative;
+  z-index: var(--z-raised, 10);
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--therapy-compare-tray-gap);
+  margin-bottom: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  padding: var(--therapy-compare-tray-padding);
+  box-shadow: var(--e3);
+}
+
+.therapy-compare-tray__summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: var(--therapy-compare-tray-gap);
+  border-radius: var(--radius-md);
+  padding-inline: var(--therapy-compare-tray-summary-inset);
+}
+
+.therapy-compare-tray__pips {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--therapy-compare-tray-pip-gap);
+}
+
+.therapy-compare-tray__pip {
+  display: grid;
+  height: var(--therapy-compare-tray-pip-size);
+  width: var(--therapy-compare-tray-pip-size);
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill, 9999px);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  transition: transform var(--duration-moderate) var(--ease-out-soft);
+}
+
+.therapy-compare-tray__pip[data-filled="true"] {
+  border-color: transparent;
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+}
+
+/* The arriving slot pulses once. Derived from the set, so it fires whichever
+   control added the therapy. */
+.therapy-compare-tray__pip[data-landed="true"] {
+  transform: scale(1.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .therapy-compare-tray__pip {
+    transition: none;
+  }
+
+  .therapy-compare-tray__pip[data-landed="true"] {
+    transform: none;
+  }
+}
+
+.therapy-compare-tray__names {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-heading);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.therapy-compare-tray__count {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
 /* Bottom-docked composer: hint row + upward dropdown grow above the pill. */
 .answer-footer-search-edge {
   overflow: visible;
@@ -1834,6 +1942,79 @@ summary::-webkit-details-marker {
 /* Composer primitives are intentionally unlayered because inputs/buttons are
    governed by the global element resets. Their exported TypeScript recipes are
    class handles only, making this block the single owner of chrome and states. */
+/* The numbered source mark in the answer prose, and the `+N` after a capped
+   cluster.
+
+   These values are ONE interdependent set, which is why they live in a class
+   rather than as scattered utilities. At the answer's 16px/1.66 prose they draw
+   a 12x12px box lifted 5px: it spans 5->17px above the baseline, clearing the
+   line above by ~2px without growing the line box, and the margins leave ~2.7px
+   between two marks so "2" and "3" in a cluster cannot touch. Re-measure in a
+   browser before changing any one of them.
+
+   The size is `em`, not a named step, because the mark has to scale with the
+   prose it annotates — the scale's floor (`--text-3xs`, 10px) is absolute and
+   would also overrun the line at this rise. Keeping it here rather than as a
+   `text-[…]` utility is the sanctioned form: `check:type-scale` guards the
+   utility vocabulary, and unlayered component CSS is how this repo expresses a
+   geometry that the scale cannot.
+
+   Never set line-height to 0. An inline-block with zero line-height has a
+   zero-height padding box, which collapsed the mark to a sliver the first time. */
+/* The in-prose source mark's own metrics. Component metrics, not scale steps:
+   they are em-based and mutually dependent — the box has to clear the prose
+   without growing the line box — so they sit here rather than in @theme, where
+   they would generate a `leading-mark` utility with one consumer and a stepped
+   scale that reads as though the mark were a typographic role.
+
+   Declared on :root because the mark is drawn from three places that are not
+   nested: `.answer-source-mark` and `.answer-source-mark-overflow` below, and
+   the cluster spacing in answer-source-mark.tsx.
+     --answer-mark-leading    the mark box takes its own line and nothing more
+     --answer-mark-gap-lead   first mark of a cluster, closer to the word
+     --answer-mark-gap        every later mark, and the "+N" overflow count
+     --answer-mark-gap-star   the partial-support glyph against its digit */
+:root {
+  --answer-mark-leading: 1;
+  --answer-mark-gap-lead: 0.28em;
+  --answer-mark-gap: 0.34em;
+  --answer-mark-gap-star: 0.03em;
+}
+
+.answer-source-mark {
+  position: relative;
+  top: -0.625em;
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0.15em 0.2em;
+  border-radius: var(--radius-xs);
+  border-width: 1px;
+  border-style: solid;
+  font-size: 0.5em;
+  line-height: var(--answer-mark-leading);
+  text-align: center;
+  vertical-align: baseline;
+}
+
+/* The partial-support glyph. One glyph reads at this size; a dotted underline
+   and a 1px bottom border were both tried under it and neither draws. */
+.answer-source-mark-star {
+  margin-left: var(--answer-mark-gap-star);
+  font-size: 0.85em;
+  line-height: var(--answer-mark-leading);
+}
+
+/* A statement, not a control: the sources it counts all sit on the rail below
+   at full tap size. */
+.answer-source-mark-overflow {
+  position: relative;
+  top: -0.625em;
+  margin-left: var(--answer-mark-gap);
+  font-size: 0.5em;
+  line-height: var(--answer-mark-leading);
+  vertical-align: baseline;
+}
+
 .chat-composer-shell-base {
   display: flex;
   align-items: center;
@@ -2154,29 +2335,46 @@ summary::-webkit-details-marker {
     box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
-  /* The patient verdict owns the card edge, including on the selected row.
+  /* The patient verdict owns the card edge and surface, including on the selected row.
      These must sit AFTER the [data-selected] rule above: that rule is unlayered
-     and pins border-color, so a Tailwind border utility loses to it and the top
-     hit — the one most likely to be prescribed — would render its interaction
-     warning with a neutral edge. Equal specificity, later in source, wins. */
+     and pins the border, background, and blue selection rail. A Tailwind utility
+     loses to it and the top hit — the one most likely to be prescribed — would
+     otherwise render patient danger with an ambiguous blue highlight. Equal
+     specificity, later in source, wins. */
   .medication-mobile-result[data-verdict="danger"] {
     border-color: var(--danger-border);
+    background: color-mix(in srgb, var(--danger-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--danger-text);
   }
 
   .medication-mobile-result[data-verdict="warning"] {
     border-color: var(--warning-border);
+    background: color-mix(in srgb, var(--warning-bg) 72%, var(--surface-raised));
+    box-shadow: inset 4px 0 0 var(--warning-text);
   }
 
   .medication-mobile-result[data-verdict="success"] {
     border-color: var(--success-border);
+    background: color-mix(in srgb, var(--success-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--success-text);
+  }
+
+  .medication-mobile-result[data-verdict="neutral"] {
+    border-color: var(--border-strong);
+    background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--text-muted);
   }
 
   .medication-mobile-result[data-verdict="clinical"] {
     border-color: color-mix(in srgb, var(--clinical-accent) 40%, transparent);
+    background: color-mix(in srgb, var(--clinical-accent-soft) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--clinical-accent);
   }
 
   .medication-mobile-result[data-verdict="info"] {
     border-color: var(--info-border);
+    background: color-mix(in srgb, var(--info-bg) 48%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--info-text);
   }
 
   .medication-mobile-result:focus-visible {
@@ -2686,6 +2884,17 @@ summary::-webkit-details-marker {
     height: max(var(--phone-dock-patient-details-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
   }
 
+  /* Therapy Compass: the compare tray sits above the search pill in the dock.
+     Heights track --phone-dock-therapy-compare-* (same as content reserve). */
+  .answer-footer-search-dock[data-footer-addon="therapy-compare"] .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-clearance), calc(var(--safe-area-bottom) + 7.75rem));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="therapy-compare"]
+    .answer-footer-search-backdrop {
+    height: max(var(--phone-dock-therapy-compare-compact-clearance), calc(var(--safe-area-bottom) + 7.5rem));
+  }
+
   .document-mobile-search-pill {
     min-height: 3.6rem;
     border-color: var(--border-strong);
@@ -2773,6 +2982,13 @@ summary::-webkit-details-marker {
 
   /* Same extra clearance for the Patient details row, scaled to its shorter height. */
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-footer-addon="patient-details"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
+  }
+
+  /* Therapy compare tray: shell dock (.document-mobile-search-edge), one row,
+     so the same 0.5rem overshoot as Patient details. Without it the tray's top
+     border can leave a subpixel peep at the viewport edge while hidden. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="therapy-compare"][data-scroll-hidden="true"] {
     transform: translateY(calc(100% + 0.5rem + var(--safe-area-bottom)));
   }
 
@@ -2974,6 +3190,13 @@ summary::-webkit-details-marker {
   max-height: calc(100dvh - var(--pwa-notice-bottom-gap) - 4.25rem);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Recovery pages already devote the viewport to one clear next step. An
+   install promotion over that state obscures the recovery action on phones;
+   connectivity and update notices remain visible because they use other cards. */
+body:has([data-route-recovery="true"]) .pwa-install-sheet {
+  display: none;
 }
 
 .pwa-install-grip {
@@ -4423,6 +4646,13 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* The trust-brief heading keeps its deliberate compact wrap without exposing a
+ * page-specific length in component markup. Body copy uses the shared
+ * `--measure` prose ceiling below. */
+.privacy-page {
+  --measure-trust-heading: 18ch;
+}
+
 /* Data-handling page (/privacy) print export.
  * The page is written to be filed in a governance pack, so a printed copy has to
  * carry the title, the fact summary and every section heading. The transitional
@@ -4732,12 +4962,6 @@ html.theme-transitioning *:after {
 }
 
 @media (max-width: 640px) {
-  [data-therapy-scroll-sm] {
-    overflow-x: auto !important;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
   .therapy-pathway-list {
     border-right: 0 !important;
     border-bottom: 1px solid var(--border);

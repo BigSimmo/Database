@@ -34,13 +34,38 @@ const reviewedActionPins = new Map([
       // and setup-bun cache tuning — no change to permissions, secrets
       // handling, or the action's trust boundary.
       ["9d7150bc8a3dae8149739a88019d192b579ad90c", "v1.0.193"],
+      // Reviewed 2026-08-24 for PR #2325 (Dependabot github-actions group):
+      // annotated tag v1.0.199 peels to this commit. Release notes for
+      // v1.0.194-v1.0.199 cover GraphQL client URL handling, keeping a
+      // base-branch config revert out of the auto-commit, MCP GitHub
+      // aggregate-selector recognition, delete_files path hardening,
+      // shallow-checkout fetch-depth limiting, base-action PATH fix,
+      // --allowedTools signed-prompt handling, secret-redaction unification,
+      // ALL_INPUTS env stripping, and a shell-quote CVE bump — no change to
+      // permissions, secrets handling, or the action's trust boundary.
+      ["dcb57747bfceeaa1fa72638cae52295d1d853d4a", "v1.0.199"],
     ]),
   ],
   // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
   // tag v1 peels to this commit. The action keeps OPENAI_API_KEY behind its
   // local proxy and runs the repair as an unprivileged user; GitHub mutation
   // credentials remain confined to later clean jobs.
-  ["openai/codex-action", new Map([["52fe01ec70a42f454c9d2ebd47598f9fd6893d56", "v1"]])],
+  [
+    "openai/codex-action",
+    new Map([
+      ["52fe01ec70a42f454c9d2ebd47598f9fd6893d56", "v1"],
+      // Reviewed 2026-08-24 for PR #2325 (Dependabot github-actions group):
+      // annotated tag v1 now peels to this commit (v1.12). Changelog for
+      // v1.11-v1.12 covers Linux runner privilege isolation and Responses
+      // API proxy credential handling, rejecting Codex arguments/config
+      // overrides that conflict with protected execution settings,
+      // requiring unprivileged user namespaces for drop-sudo, and
+      // documentation of runner/permission-profile requirements — hardening
+      // in the same direction this repo already relies on, no relaxation of
+      // the credential-isolation contract.
+      ["86365089eb2b84e0a8fb0717b304f8bdcb13b20e", "v1"],
+    ]),
+  ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/cache/restore", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/cache/save", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
@@ -49,9 +74,33 @@ const reviewedActionPins = new Map([
   ["denoland/setup-deno", new Map([["22d081ff2d3a40755e97629de92e3bcbfa7cf2ed", "v2.0.5"]])],
   ["supabase/setup-cli", new Map([["46f7f98c7f948ad727d22c1e67fab04c223a0520", "v3"]])],
   ["gitleaks/gitleaks-action", new Map([["e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e", "v3"]])],
-  ["actions/ai-inference", new Map([["a7805884c80886efc241e94a5351df715968a0ad", "v2"]])],
+  [
+    "actions/ai-inference",
+    new Map([
+      ["a7805884c80886efc241e94a5351df715968a0ad", "v2"],
+      // Reviewed 2026-08-24 for PR #2325 (Dependabot github-actions group):
+      // annotated tag v3 peels to this commit. v3 removes github-models
+      // support and makes Copilot the only inference provider, plus routine
+      // dependency bumps (js-yaml, hono, vite, rollup plugin, tmp,
+      // actions/setup-node, actions/upload-artifact) — no change to the
+      // action's own permissions or secrets handling; this workflow already
+      // only used the Copilot-backed default provider.
+      ["2c43c91ae16266ca159d311430343c67a5ffa222", "v3"],
+    ]),
+  ],
   ["peter-evans/create-or-update-comment", new Map([["e8674b075228eee787fea43ef493e45ece1004c9", "v5"]])],
-  ["docker/setup-buildx-action", new Map([["bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"]])],
+  [
+    "docker/setup-buildx-action",
+    new Map([
+      ["bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"],
+      // Reviewed 2026-08-24 for PR #2325 (Dependabot github-actions group):
+      // annotated tag v4.3.0 peels to this commit. Release notes cover only
+      // internal dependency bumps (@docker/actions-toolkit, brace-expansion,
+      // js-yaml, postcss, undici) — no change to the action's own
+      // permissions or secrets handling.
+      ["37fe631027851001ddb9b187196cc803df7f5f0e", "v4"],
+    ]),
+  ],
   ["docker/build-push-action", new Map([["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"]])],
   // Reviewed 2026-07-31: official autofix.ci action; tag v1.3.4 / moving v1 both
   // resolve to this immutable commit (node24 runtime). Used only after local

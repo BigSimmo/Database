@@ -31,7 +31,7 @@ const LEG_BADGE_CLASS: Record<TrackerLeg, string> = {
 };
 
 /**
- * Task 10: the coordinator's live tracker (`/ward-management/transport`, rewritten — spec §7:
+ * Task 10: the coordinator's live tracker (`/mockups/ward-flow/transport`, rewritten — spec §7:
  * "the existing route... the coordinator's view of every vehicle: which patient, which leg, how
  * long since the last stamp").
  *
@@ -66,7 +66,9 @@ export function LiveTracker() {
   return (
     <div className={styles.screen} data-testid="ward-mode-transport">
       <ClinicalRail activeMode="transport" />
-      <main className={styles.main} data-testid="ward-live-tracker">
+      <main id="main-content" className={styles.main} data-testid="ward-live-tracker">
+        <h1 className="sr-only">Live tracker</h1>
+
         <div className={styles.governanceBanner} data-testid="ward-tracker-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -130,7 +132,7 @@ export function LiveTracker() {
                       <dd>{stampAgeText(stampAt, now)}</dd>
                     </div>
                   </dl>
-                  <Link className={styles.reviewLink} href={`/ward-management/patients/${movement.id}`}>
+                  <Link className={styles.reviewLink} href={`/mockups/ward-flow/patients/${movement.id}`}>
                     Review patient
                   </Link>
                 </li>

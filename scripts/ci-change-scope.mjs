@@ -104,6 +104,13 @@ const mockupPatterns = [
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
+  // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
+  // and the three ui-ward-*.spec.ts journeys carry no "mockup" in the path, so
+  // every rule above misses them. After those specs moved into chromium-mockups,
+  // a component-only or spec-only edit left advisory_ui_changed=false and the
+  // 46 journeys ran in neither lane.
+  "src/components/ward-management",
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -758,6 +765,23 @@ function selfTest() {
   });
   assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
     advisory_ui_changed: true,
+  });
+  // Ward Flow: gated prototype whose specs and implementation tree have no
+  // "mockup" in the path. Both a spec-only edit and a component edit without
+  // the route wrapper must start the advisory lane; a vitest file must not.
+  assertScope("advisory-on-for-ward-spec", ["tests/ui-ward-management.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  assertScope(
+    "advisory-on-for-ward-management-component",
+    ["src/components/ward-management/coordinator/coordinator-screen.tsx"],
+    {
+      ui_changed: true,
+      advisory_ui_changed: true,
+    },
+  );
+  assertScope("advisory-off-for-ward-unit-test", ["tests/ward-management.test.ts"], {
+    advisory_ui_changed: false,
   });
   // The directory rule must not swallow ordinary component paths.
   assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {

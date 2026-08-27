@@ -57,7 +57,7 @@ describe("document viewer phone layout", () => {
     const bodyClass = viewerSource.match(/"mx-auto grid max-w-\[1440px\][^"]*"/)?.[0];
     expect(bodyClass, "document body <section> class list not found — update this contract").toBeTruthy();
     expect(bodyClass).toMatch(/\bgrid-cols-1\b/);
-    expect(bodyClass).toMatch(/\blg:grid-cols-\[minmax\(0,1fr\)_480px\]/);
+    expect(bodyClass).toMatch(/\blg:grid-cols-\[minmax\(0,1fr\)_minmax\(18rem,22rem\)\]/);
   });
 
   it("never pairs a min-height with an explicit aspect ratio on a document image frame", () => {

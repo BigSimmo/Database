@@ -106,12 +106,8 @@ describe("DocumentFrame contract", () => {
   });
 });
 
-// The phone reading order puts the clinical priorities card ahead of the PDF:
-// title strip, then DocumentClinicalSummary, then the source column (PDF ->
-// evidence -> text), then the aside rail. `DocumentClinicalSummary` still
-// renders as its own grid child rather than inside `DocumentOverviewLanding`
-// (that separation is what lets it carry its own phone order independent of
-// the title card).
+// The phone reading order is source-first: compact identity, embedded PDF,
+// pinned evidence, clinical priorities, indexed text, then the context rail.
 describe("document viewer phone reading order", () => {
   const landingSource = readFileSync(
     fileURLToPath(new URL("../src/components/document-viewer/document-overview-landing.tsx", import.meta.url)),
@@ -123,19 +119,26 @@ describe("document viewer phone reading order", () => {
     expect(viewerSource).toContain("<DocumentClinicalSummary");
   });
 
-  it("orders every phone grid child explicitly so none defaults ahead of the title strip", () => {
+  it("orders every phone grid child explicitly and keeps summary/text after the PDF", () => {
     // An unordered grid item defaults to `order: 0` and would sort before
     // `order-1`, so the rail in particular must carry its own late slot.
     expect(viewerSource).toContain("max-sm:order-1");
     expect(viewerSource).toContain("max-sm:order-2");
     expect(viewerSource).toContain("max-sm:order-3");
-    expect(viewerSource).toContain('className="max-sm:order-4"');
+    expect(viewerSource).not.toContain("max-sm:order-4");
 
     const overview = viewerSource.indexOf("max-sm:order-1");
-    const summaryCard = viewerSource.indexOf("max-sm:order-2");
-    const sourceColumn = viewerSource.indexOf("max-sm:order-3");
+    const sourceColumn = viewerSource.indexOf("max-sm:order-2");
+    const rail = viewerSource.indexOf("max-sm:order-3");
     expect(overview).toBeGreaterThan(-1);
-    expect(summaryCard).toBeGreaterThan(-1);
     expect(sourceColumn).toBeGreaterThan(-1);
+    expect(rail).toBeGreaterThan(-1);
+
+    const preview = viewerSource.indexOf('id="pdf-preview-section"');
+    const summaryCard = viewerSource.indexOf('id="source-summary-card"');
+    const indexedText = viewerSource.indexOf("<IndexedTextPanel");
+    expect(preview).toBeGreaterThan(sourceColumn);
+    expect(summaryCard).toBeGreaterThan(preview);
+    expect(indexedText).toBeGreaterThan(summaryCard);
   });
 });

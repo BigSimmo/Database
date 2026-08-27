@@ -251,5 +251,8 @@ describe("caring-contacts interface vocabulary (B3)", () => {
     expect("sales lead generation").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
     expect("new leads").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
     expect("lead capture").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("sales team lead generation").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("clinical lead capture").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("Our team lead nurturing numbers are up").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
   });
 });

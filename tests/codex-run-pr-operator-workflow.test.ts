@@ -220,7 +220,7 @@ describe("Codex Run PR operator workflow", () => {
   });
 
   it("keeps GitHub credentials out of the unprivileged Codex repair job", () => {
-    expect(repair).toContain("openai/codex-action@52fe01ec70a42f454c9d2ebd47598f9fd6893d56 # v1");
+    expect(repair).toContain("openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1");
     expect(repair).toContain("safety-strategy: unprivileged-user");
     expect(repair).toContain("persist-credentials: false");
     expect(repair).toContain("npm ci --ignore-scripts");

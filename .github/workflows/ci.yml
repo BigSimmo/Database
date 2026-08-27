@@ -1107,6 +1107,43 @@ jobs:
             | sort -u \
             | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
 
+  caring-contacts-db:
+    name: Caring Contacts database
+    needs: changes
+    if: >
+      (needs.changes.outputs.db_changed == 'true' ||
+       needs.changes.outputs.static_heavy_changed == 'true') &&
+      github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
+        env:
+          # This database exists only for this isolated runner job. Trust auth
+          # avoids committing a credential-shaped test literal.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Run Caring Contacts Database & RLS Tests
+        env:
+          CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres
+        run: npm run caring-contacts:db:test
+
   pr-required:
     name: PR required
     needs:
@@ -1122,6 +1159,7 @@ jobs:
         ui-critical,
         lighthouse-budget,
         db-reset-verify,
+        caring-contacts-db,
       ]
     # #095: keep `if: always()` — a skipped required check counts as PASSING
     # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
@@ -1152,6 +1190,7 @@ jobs:
           UI_RESULT: ${{ needs.ui-critical.result }}
           LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
+          CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}
         run: |
           set -euo pipefail
 
@@ -1213,7 +1252,7 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
-          # safety/coverage/build/ui-critical*/db-reset-verify additionally skip on draft PRs
+          # safety/coverage/build/ui-critical*/db-reset-verify/caring-contacts-db additionally skip on draft PRs
           # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
           # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
           # *_CHANGED flags so a draft PR reports skipped-and-fine here instead of a false
@@ -1267,6 +1306,12 @@ jobs:
             require_success "db-reset-verify" "$DB_RESULT"
           else
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
+          fi
+
+          if { [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; } && [ "$PR_DRAFT" != "true" ]; then
+            require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
+          else
+            require_skipped_or_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
           fi
 
           # A real break is always the headline. Every failure is listed, not just the first, and a

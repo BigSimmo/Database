@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { clockState } from "../src/components/ward-management/ward-clock";
 import {
   buildActionInbox,
+  destinationNoLongerLawful,
   eligibleCandidatesAmong,
   restrictionNotice,
   transportLeg,
@@ -55,7 +56,7 @@ describe("buildActionInbox", () => {
       .map((movement) => `legal-${movement.id}`)
       .sort();
 
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR)
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())
       .filter((item) => item.id.startsWith("legal-"))
       .map((item) => item.id)
       .sort();
@@ -104,7 +105,7 @@ describe("buildActionInbox", () => {
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 500 },
     });
 
-    const items = buildActionInbox([first, second, notDue], NOW_ANCHOR)
+    const items = buildActionInbox([first, second, notDue], NOW_ANCHOR, allUnits())
       .filter((item) => item.id.startsWith("legal-"))
       .map((item) => item.id)
       .sort();
@@ -124,7 +125,7 @@ describe("buildActionInbox", () => {
     expect(movement?.legalForm?.code).toBe("1A");
     expect(movement?.legalForm?.dueAt).toBeUndefined();
 
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits());
     expect(items.find((item) => item.id === "legal-WF-303")).toBeUndefined();
   });
 
@@ -140,7 +141,7 @@ describe("buildActionInbox", () => {
       .map((movement) => `declines-${movement.id}`)
       .sort();
 
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR)
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())
       .filter((item) => item.id.startsWith("declines-"))
       .map((item) => item.id)
       .sort();
@@ -162,7 +163,11 @@ describe("buildActionInbox", () => {
       PARALLEL_REFERRAL_CAP,
     );
 
-    const items = buildActionInbox([capped("TEST-declines-one"), capped("TEST-declines-two"), underCap], NOW_ANCHOR)
+    const items = buildActionInbox(
+      [capped("TEST-declines-one"), capped("TEST-declines-two"), underCap],
+      NOW_ANCHOR,
+      allUnits(),
+    )
       .filter((item) => item.id.startsWith("declines-"))
       .map((item) => item.id)
       .sort();
@@ -187,7 +192,7 @@ describe("buildActionInbox", () => {
 
     expect(expectedIds.length, "the fixture no longer contains a stalled transport").toBeGreaterThan(1);
 
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR)
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())
       .filter((item) => item.id.startsWith("transport-"))
       .map((item) => item.id)
       .sort();
@@ -203,7 +208,7 @@ describe("buildActionInbox", () => {
     const expired = wardMovements.find((movement) => movement.id === "WF-004")!;
     expect(expired.bedHeldUntil).toBeLessThan(NOW_ANCHOR);
 
-    expect(buildActionInbox(wardMovements, NOW_ANCHOR)).toContainEqual(
+    expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toContainEqual(
       expect.objectContaining({
         id: "bed-hold-WF-004",
         title: "Bed hold expired",
@@ -229,13 +234,13 @@ describe("buildActionInbox", () => {
         movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < NOW_ANCHOR,
     ).length;
 
-    expect(buildActionInbox(wardMovements, NOW_ANCHOR)).toHaveLength(
+    expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toHaveLength(
       legalCount + declineCount + transportCount + expiredHoldCount,
     );
   });
 
   it("gives every item a unique id even with several movements in the same category", () => {
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits());
     const ids = items.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -249,7 +254,7 @@ describe("buildActionInbox", () => {
     expect(movement?.legalForm?.code).toBe("3B");
     expect(movement?.legalForm?.dueAt).toBeUndefined();
 
-    const items = buildActionInbox(wardMovements, NOW_ANCHOR);
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits());
     expect(items.find((item) => item.id === "legal-WF-003")).toBeUndefined();
   });
 });
@@ -396,5 +401,42 @@ describe("transportLeg", () => {
       cancelledAt: NOW_ANCHOR - 5,
     });
     expect(transportLeg(cancelledAfterProgress)).toBe("Cancelled");
+  });
+});
+
+describe("destinationNoLongerLawful", () => {
+  // "sjgs-adult-open" is a real fixture unit that is `authorised: false` — private, and never
+  // authorised to receive an involuntary admission under the Mental Health Act (see its own
+  // comment in ward-sites.ts).
+  const UNAUTHORISED_UNIT_ID = "sjgs-adult-open";
+
+  it("returns the accepted unit when the current legal status requires authorisation and the accepted unit does not have it", () => {
+    const movement = movementFrom({ legalStatus: "Involuntary inpatient", acceptedUnitId: UNAUTHORISED_UNIT_ID });
+    const flagged = destinationNoLongerLawful(movement, allUnits());
+    expect(flagged?.id).toBe(UNAUTHORISED_UNIT_ID);
+  });
+
+  it("returns undefined for the same movement when it is Voluntary — Voluntary needs no authorisation", () => {
+    const movement = movementFrom({ legalStatus: "Voluntary", acceptedUnitId: UNAUTHORISED_UNIT_ID });
+    expect(destinationNoLongerLawful(movement, allUnits())).toBeUndefined();
+  });
+
+  it("returns undefined for a closed movement, even with an unauthorised accepted unit and a status requiring authorisation", () => {
+    const movement = movementFrom({
+      legalStatus: "Involuntary inpatient",
+      acceptedUnitId: UNAUTHORISED_UNIT_ID,
+      closure: { at: NOW_ANCHOR, outcome: "arrived", reason: "arrived at unit" },
+    });
+    expect(destinationNoLongerLawful(movement, allUnits())).toBeUndefined();
+  });
+
+  it("returns undefined when the accepted unit IS authorised", () => {
+    const movement = movementFrom({ legalStatus: "Involuntary inpatient", acceptedUnitId: "rph-adult-secure" });
+    expect(destinationNoLongerLawful(movement, allUnits())).toBeUndefined();
+  });
+
+  it("returns undefined when there is no accepted unit at all", () => {
+    const movement = movementFrom({ legalStatus: "Involuntary inpatient", acceptedUnitId: undefined });
+    expect(destinationNoLongerLawful(movement, allUnits())).toBeUndefined();
   });
 });
