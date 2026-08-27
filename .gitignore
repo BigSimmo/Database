@@ -169,6 +169,15 @@ docs/archive/staging-tenancy-evidence-*
 # Subagent-driven-development coordination scratch (ledger, briefs, review packages)
 .superpowers/
 
-# Node v24 local disk code cache directory
+# Node compile cache written to a literal directory name.
+# NODE_COMPILE_CACHE takes a directory PATH, not a boolean. A machine with it
+# set to a bare value like `1` makes every Node tool - eslint, prettier, tsc,
+# jiti - write `<value>/v<node>-<arch>-<hash>/` into the current working
+# directory. Measured 2026-08-27: ~2,835 files / 20 MB per worktree, in a dozen
+# of them. Ignoring it matters beyond tidiness: untracked, it inflates
+# scripts/ci-change-scope.mjs with thousands of phantom changed files and forces
+# every scope classification to the heaviest route.
+# The real fix is to point the variable at a real path outside every repo. This
+# rule is defence in depth for machines where that has not been done.
 1/
 

@@ -71,10 +71,10 @@ export function SheetsScreen() {
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
             {/* BUILDER */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-3">Therapy</div>
                 <TherapyPicker />
-                <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">
+                <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-4.5 mx-0 mb-2.5">
                   Reading level &amp; tone
                 </div>
                 <SegmentedControl
@@ -94,7 +94,7 @@ export function SheetsScreen() {
                 />
               </div>
 
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-1.5">Sections</div>
                 <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-muted)]">
                   Toggle what appears on the sheet.
@@ -118,7 +118,7 @@ export function SheetsScreen() {
                 </div>
               </div>
 
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="flex items-center justify-between gap-3">
                   <span>
                     <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
@@ -146,10 +146,10 @@ export function SheetsScreen() {
               <PrintOutput
                 paperTone="therapy"
                 provenance={`Source: ${t.name} Therapy record · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
-                className="w-full max-w-[720px] bg-[color:var(--tc-paper-background)] border border-[color:var(--tc-paper-border)] rounded-sm shadow-[var(--tc-paper-shadow)] py-[52px] px-14 text-[color:var(--tc-paper-ink)]"
+                className="w-full max-w-[720px] bg-[color:var(--tc-paper-background)] border border-[color:var(--tc-paper-border)] rounded-sm shadow-[var(--tc-paper-shadow)] py-13 px-14 text-[color:var(--tc-paper-ink)]"
               >
                 <div className="max-sm:flex-wrap flex items-center justify-between border-b-2 border-b-[color:var(--tc-paper-accent-strong)] pb-4 mb-6">
-                  <div className="flex items-center gap-[11px]">
+                  <div className="flex items-center gap-3">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
                       <Scale aria-hidden="true" size={20} strokeWidth={1.6} />
                     </span>
@@ -170,7 +170,7 @@ export function SheetsScreen() {
                 <p
                   contentEditable
                   suppressContentEditableWarning
-                  className="mt-0 mx-0 mb-[26px] text-sm text-[color:var(--tc-paper-muted)]"
+                  className="mt-0 mx-0 mb-6.5 text-sm text-[color:var(--tc-paper-muted)]"
                 >
                   {t.bestUsedFor && t.bestUsedFor.length < 70 && !/^(most|the|a |an )/i.test(t.bestUsedFor)
                     ? `A step-by-step plan to help with ${t.bestUsedFor.toLowerCase()}.`
@@ -180,7 +180,7 @@ export function SheetsScreen() {
                 {b.secAbout && about ? <PaperSection title="About this therapy">{about}</PaperSection> : null}
 
                 {b.secSteps && steps.length ? (
-                  <div className="mb-[22px]">
+                  <div className="mb-5.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -208,7 +208,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.secPractice ? (
-                  <div className="mb-[22px] bg-[color:var(--tc-paper-accent-background)] border border-[color:var(--tc-paper-accent-border)] rounded-md py-4 px-[18px]">
+                  <div className="mb-5.5 bg-[color:var(--tc-paper-accent-background)] border border-[color:var(--tc-paper-accent-border)] rounded-md py-4 px-4.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -236,7 +236,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.secContacts ? (
-                  <div className="mb-2 bg-[color:var(--tc-paper-warning-background)] border border-[color:var(--tc-paper-warning-border)] rounded-md py-4 px-[18px]">
+                  <div className="mb-2 bg-[color:var(--tc-paper-warning-background)] border border-[color:var(--tc-paper-warning-border)] rounded-md py-4 px-4.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -257,7 +257,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.sheetClinician ? (
-                  <div className="flex justify-between gap-4 mt-[26px] pt-4 border-t border-[color:var(--tc-paper-border-subtle)] text-2xs text-[color:var(--tc-paper-muted)] flex-wrap">
+                  <div className="flex justify-between gap-4 mt-6.5 pt-4 border-t border-[color:var(--tc-paper-border-subtle)] text-2xs text-[color:var(--tc-paper-muted)] flex-wrap">
                     <span contentEditable suppressContentEditableWarning>
                       Clinician: ____________________
                     </span>
@@ -285,7 +285,7 @@ export function SheetsScreen() {
 
 function PaperSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mb-[22px]">
+    <div className="mb-5.5">
       <h2
         contentEditable
         suppressContentEditableWarning
@@ -328,8 +328,8 @@ function TherapyPicker() {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="flex items-center gap-[9px] min-w-0">
-          <Scale aria-hidden="true" className="size-icon-md text-[color:var(--clinical-accent)] flex-none" />
+        <span className="flex items-center gap-2.5 min-w-0">
+          <Scale aria-hidden="true" size={16} className="text-[color:var(--clinical-accent)] flex-none" />
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>
@@ -354,7 +354,7 @@ function TherapyPicker() {
               placeholder="Search therapies..."
               aria-label="Search therapies for the patient sheet"
               autoFocus
-              className="w-full h-tap pt-0 pr-3 pb-0 pl-[34px] border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
+              className="w-full h-tap pt-0 pr-3 pb-0 pl-8.5 border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
             />
           </label>
           <div className="max-h-[260px] overflow-auto">

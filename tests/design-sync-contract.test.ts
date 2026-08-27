@@ -36,6 +36,8 @@ describe("design-sync public contract", () => {
     expect(config.dtsPropsFor.EmptyState).toContain("headingLevel?: 2 | 3 | 4 | 5 | 6");
     expect(config.dtsPropsFor.EmptyState).toContain("testId?: string");
     expect(config.dtsPropsFor.EmptyState).toContain('live?: "off" | "assertive" | "polite"');
+    expect(config.componentSrcMap.AsyncButton).toBe("src/components/ui-primitives.tsx");
+    expect(config.componentSrcMap.EmptyState).toBe("src/components/ui-primitives.tsx");
   });
 
   it("commits the preview compiler alias used by the publication tool", () => {

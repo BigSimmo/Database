@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { appModeHomeHref } from "@/lib/app-modes";
+import { dsmSearchHref } from "@/lib/app-modes";
 
 /**
  * Ids and labels carried over from `dsmDiagnosisSections` in the pill rail this
@@ -33,7 +33,7 @@ export function DsmDiagnosisNavHeader({ title, actions }: { title: string; actio
 
   return (
     <InPageNavHeader
-      back={{ href: appModeHomeHref("dsm"), label: "DSM-5" }}
+      back={{ href: dsmSearchHref, label: "DSM-5" }}
       title={title}
       sections={sections}
       activeId={activeId}
