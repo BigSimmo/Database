@@ -472,7 +472,7 @@ function PhoneFrame({ variant, state }: { variant: VariantId; state: FrameState 
       <div
         data-variant={variant}
         data-state={state}
-        className="relative flex h-[30rem] w-[340px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="relative flex h-[30rem] w-[340px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         {variant === "refined" ? <RefinedVariant state={state} /> : null}
         {variant === "stepper" ? <StepperVariant state={state} /> : null}

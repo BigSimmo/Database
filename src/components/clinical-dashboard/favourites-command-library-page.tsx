@@ -486,7 +486,7 @@ export function RowActionsMenu({
           id={menuId}
           role="dialog"
           aria-label={`Actions for ${item.title}`}
-          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--shadow-soft)]"
+          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--e2)]"
         >
           <Link
             href={item.href}
@@ -830,7 +830,7 @@ function FavouritesTable({
   const evidenceCellClass = cn("hidden px-3 align-middle", compact ? "" : "2xl:table-cell");
 
   return (
-    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <section className="min-w-0 max-w-full overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3.5 py-2.5">
         <p className="inline-flex min-w-0 items-center gap-1.5 text-2xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
           {searchTerm.trim() ? (

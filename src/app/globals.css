@@ -2036,7 +2036,7 @@ summary::-webkit-details-marker {
   border-color: var(--border-strong);
   background: var(--surface);
   padding-inline: 0.5rem;
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--e2);
 }
 
 /* One focus owner. The retired `--shadow-focus` token painted a 3px accent

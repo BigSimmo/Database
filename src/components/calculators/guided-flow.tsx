@@ -36,7 +36,7 @@ function PickerScreen({ onPick }: { onPick: (id: string) => void }) {
               type="button"
               onClick={() => onPick(calc.id)}
               className={cn(
-                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
                 focusRing,
               )}
             >
@@ -135,7 +135,7 @@ function QuestionScreen({
         />
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e2)] sm:p-5">
         {calc.stem ? (
           <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
             {calc.stem}
@@ -250,7 +250,7 @@ function ResultScreen({
 
   return (
     <div className="mx-auto grid w-full max-w-lg content-start gap-4">
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--shadow-soft)]">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--e2)]">
         <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
           {calc.abbrev} result
         </p>

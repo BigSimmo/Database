@@ -18,12 +18,16 @@ import {
   findLayoutTransitionClassesInSource,
   findRawScaleLiteralClassesInSource,
   findRawScaleLiteralDeclarationsInSource,
+  findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
   findTypeStepUsagesInSource,
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
+  listPrimitiveRecipeSourcePaths,
   rawColorContractSource,
+  readPrimitiveRecipeSources,
+  UI_PRIMITIVES_BARREL,
 } from "../scripts/design-system-contract-utils.mjs";
 
 describe("design-system contract helpers", () => {
@@ -440,6 +444,38 @@ describe("design-system contract helpers", () => {
     expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
   });
 
+  it("pins the globals.css raw CSS z-index exception baseline at 8 (DS-P3-06)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    expect(countRawCssZIndicesInSource(globals)).toBe(8);
+    expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(9);
+  });
+
+  it("counts a same-file text-sm + text-sm-minus mix as one warn/ratchet hit, not a hard zero", () => {
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const probe = <p className="text-sm text-sm-minus text-[color:var(--text)]" />;',
+      ),
+    ).toEqual(["src/probe.tsx"]);
+    expect(
+      findSameFileTextSmMinusMix("src/probe.tsx", 'export const onlySm = <p className="text-sm leading-5" />;'),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.tsx",
+        'export const onlyMinus = <p className="text-sm-minus leading-5" />;',
+      ),
+    ).toEqual([]);
+    expect(
+      findSameFileTextSmMinusMix(
+        "src/probe.ts",
+        'const copy = "Prefer text-sm over text-sm-minus without a className";',
+      ),
+    ).toEqual([]);
+  });
+
   it("counts bare padding, radius and line-height literals in classes but not computed values", () => {
     const found = findRawScaleLiteralClassesInSource(
       "src/probe.tsx",
@@ -725,5 +761,28 @@ describe("design-system contract helpers", () => {
 
     expect(rawColorContractSource("src/lib/medication-records.ts", source, reportFailure)).toBe(source);
     expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+});
+
+describe("primitive recipe source walkers", () => {
+  it("lists the barrel plus every primitive-recipes module", () => {
+    const paths = listPrimitiveRecipeSourcePaths();
+    expect(paths[0]).toBe(UI_PRIMITIVES_BARREL);
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "src/components/primitive-recipes/recipes.ts",
+        "src/components/primitive-recipes/composer.ts",
+        "src/components/primitive-recipes/clinical.tsx",
+        "src/components/primitive-recipes/feedback.tsx",
+      ]),
+    );
+  });
+
+  it("still sees recipes that moved out of the barrel", () => {
+    const sources = readPrimitiveRecipeSources();
+    expect(sources).toContain("export const controlDisabled");
+    expect(sources).toContain('export const chatComposerInput = "chat-composer-input"');
+    expect(sources).toContain("export function AsyncButton");
+    expect(sources).toContain("statusDotReady");
   });
 });
