@@ -191,6 +191,27 @@ describe("psychiatry form records", () => {
     expect(formCatalogDetails(form12a!)?.officialPdfPasswordProtected).toBe(false);
   });
 
+  it("populates Form 12A statutory Authority and Criteria priority facts from readable approved PDF", () => {
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    const details = formCatalogDetails(form12a!);
+    expect(details?.priorityFacts?.clock?.title).toBe("Valid until revoked or resigned");
+    expect(details?.priorityFacts?.clock?.detail).toContain("Revocable at any time");
+    expect(details?.priorityFacts?.authority?.title).toBe("Person understanding effect (any age, incl. child)");
+    expect(details?.priorityFacts?.authority?.detail).toContain("nominee adult 18+");
+    expect(details?.priorityFacts?.authority?.body).toMatch(/s273.*s274.*s275/);
+    expect(details?.priorityFacts?.criteria?.title).toBe("Person understands effect of nomination (s273)");
+    expect(details?.priorityFacts?.criteria?.detail).toMatch(/Max 1 nominee/);
+    expect(details?.priorityFacts?.criteria?.body).toMatch(/s273.*s276.*s263.*s266/);
+    expect(details?.maker).toContain("s273");
+    expect(details?.maker).toContain("s275");
+    expect(details?.threshold).toContain("s273");
+    expect(details?.threshold).toContain("s276");
+    expect(details?.authorises).toMatch(/s266.*s263/);
+    expect(details?.doesNotAuthorise).toContain("consent to or refuse treatment");
+    expect(form12a?.summaryCards?.map((card) => card.id)).toEqual(["clock", "authority", "criteria", "act-sections"]);
+  });
+
   it("retains the enriched form payload in database seed rows", () => {
     const rows = buildDefaultFormRows("00000000-0000-4000-8000-000000000001");
     expect(rows).toHaveLength(54);

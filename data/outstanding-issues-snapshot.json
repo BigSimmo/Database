@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 11,
+    "pending": 23,
     "resolved": 431
   },
   "queue": [
@@ -825,6 +825,18 @@
   ],
   "pending": [
     {
+      "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
+      "action": "done",
+      "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
+      "action": "done",
+      "summary": "#76GGRG: Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
       "action": "done",
       "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
@@ -837,15 +849,45 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
+      "action": "done",
+      "summary": "#4AM8Z0: Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
+      "action": "done",
+      "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
+      "action": "done",
+      "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
       "action": "done",
       "summary": "#PDM6NG: Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
+      "action": "add",
+      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
       "action": "add",
       "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "74818f95-4e71-4808-bec2-ff7ffb233ac1",
+      "action": "done",
+      "summary": "#Y0BDBJ: Implemented ReviewStateTable with 50-item responsive pagination reducing HTML payload from 1.73 MB to <100 KB.",
       "created_at": "2026-08-27"
     },
     {
@@ -879,15 +921,45 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
+      "action": "done",
+      "summary": "#FDST2Q: Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "af496d9a-fd58-4984-b216-efcf2495fd67",
+      "action": "done",
+      "summary": "#WG24JB: Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
       "action": "add",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
+      "action": "done",
+      "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
+      "action": "done",
+      "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
       "action": "done",
       "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
+      "action": "done",
+      "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
       "created_at": "2026-08-27"
     }
   ]

@@ -125,7 +125,7 @@ describe("MasterSearchHeader DOM", () => {
     render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="factsheets" />);
 
     await user.click(screen.getByRole("button", { name: "Open factsheets options" }));
-    await user.click(screen.getByRole("menuitem", { name: "Browse all sheets" }));
+    await user.click(screen.getByRole("button", { name: "Browse all sheets" }));
 
     expect(router.push).toHaveBeenCalledWith(factsheetsTopicsHref);
   });
