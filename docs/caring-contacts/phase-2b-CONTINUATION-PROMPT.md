@@ -82,8 +82,11 @@ by a `tsc` error naming the client rather than by a test alone.
 
 - **Task 11b** (`cc-plan-detail`) — code committed at `ec4f6b1cb`, `f3ee88113`, `541345e8c`, `fe721ce70`
   (2,248 lines across `plan-action-rules.ts`, `plan-actions.tsx`, `patient-overview.tsx`, the patients page,
-  and two test files). **Its report was never written and its gates were never run.** Resume it: ask for the
-  report and the gate evidence, then review it normally.
+  and two test files). **CORRECTED 2026-08-27 (Ruling [137]): its report WAS written and its gates WERE
+  run.** The report was sitting untracked in the worktree, complete, with pasted summary lines for the guard
+  set, typecheck, uncached lint and Prettier, plus a mutation ledger. It is now committed unchanged as
+  `9a64f7b6f`. The previous controller inferred its absence from the subagent's death rather than from the
+  tree. **Task 11b needs a review and nothing else.**
 - **Task 16** (`cc-templates`, at `79ce79dc4`) — **reviewed, and the review FAILED it on spec.** The fix round
   was dispatched and killed before it read anything. **Re-dispatch fix round 1** from
   `docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md` on that branch, which lists every finding with
