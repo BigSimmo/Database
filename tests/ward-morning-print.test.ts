@@ -164,3 +164,89 @@ describe("Ward morning bed state — the honest fixed-view caveat survives into 
     ).toMatch(/display:\s*\S+\s*!important/);
   });
 });
+
+/**
+ * Task 9 (product owner, 2026-08-28), print half. The people-waiting figure is required to appear
+ * on the PRINTED sheet, not only on screen — and this page's print rendering has already produced
+ * three defects no test caught: every hospital name vanished to a global `header { display: none }`,
+ * a sheet that promised one page rendered five, and dark-mode ink came out white-on-white because
+ * `CanvasText` resolved against the inherited `color-scheme`. The demand card is exposed to two of
+ * those three, so both are pinned here in the same source-text style as the rules above.
+ *
+ * jsdom cannot evaluate `@media print`, so `tests/ward-morning-page.dom.test.tsx` can only prove
+ * the card's CONTENT is right. This is the other half: that the card is not hidden for print, and
+ * that its title, its number and its note are all named in a `color: CanvasText` rule so a sheet
+ * printed while the app is in dark mode shows them in paper ink rather than white on white.
+ *
+ * The page-count half of the third defect is not a source-text property and is not pinned here —
+ * it was measured with `page.pdf({ format: "A4" })` and reported in the task's own report.
+ */
+describe("Ward morning bed state — the people-waiting figure reaches the printed sheet, in ink", () => {
+  /** The print block with CSS comments removed. Several comments in this file quote whole rules
+   *  verbatim (`header, nav, button { display: none !important }`), so a brace-matching scan over
+   *  the raw text reads a quotation as a rule. */
+  function printBlockWithoutComments(): string {
+    const css = source("src/components/ward-management/morning/morning.module.css");
+    const printStart = css.indexOf("@media print {");
+    expect(printStart, "morning.module.css: could not find the @media print block").toBeGreaterThanOrEqual(0);
+    return css.slice(printStart).replace(/\/\*[\s\S]*?\*\//g, "");
+  }
+
+  /**
+   * Every INDIVIDUAL selector, across all rules in the print block whose declarations contain
+   * `color: CanvasText` — split on the comma and trimmed, never returned as one joined string.
+   *
+   * Written this way because the joined-string version was hollow, and a mutation caught it: an
+   * assertion of the form `expect(joined).toContain(".peopleWaitingValue")` matches a SUBSTRING,
+   * so renaming the selector to `.peopleWaitingValueRenamed` — which no longer matches anything
+   * the page renders — left the guard green. Exact membership in this array cannot pass that way.
+   */
+  function canvasTextSelectors(printBlock: string): string[] {
+    const selectors: string[] = [];
+    for (const match of printBlock.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!/color:\s*CanvasText/.test(match[2])) continue;
+      for (const selector of match[1].split(",")) {
+        const trimmed = selector.trim();
+        if (trimmed) selectors.push(trimmed);
+      }
+    }
+    return selectors;
+  }
+
+  it("never hides the headline row or the people-waiting card for print", () => {
+    const printBlock = printBlockWithoutComments();
+
+    for (const selector of [".headlineRow", ".peopleWaiting"]) {
+      // `.` is a regex metacharacter and every selector here starts with one, so it is escaped
+      // rather than passed through — an unescaped `.` would match any character and could find a
+      // different rule entirely.
+      const escaped = selector.replace(/\./g, "\\.");
+      const ruleMatch = new RegExp(`^[ \\t]*${escaped}[ \\t]*\\{`, "m").exec(printBlock);
+      if (ruleMatch === null) continue; // No print-scoped rule at all is fine — nothing hides it.
+      const rule = printBlock.slice(ruleMatch.index, printBlock.indexOf("}", ruleMatch.index));
+      expect(rule, `${selector} must not be hidden for print — it carries task 9's demand figure`).not.toMatch(
+        /display:\s*none/,
+      );
+    }
+  });
+
+  it("gives the people-waiting title, number and note CanvasText ink, so dark mode never prints them white-on-white", () => {
+    const printBlock = printBlockWithoutComments();
+    const selectors = canvasTextSelectors(printBlock);
+
+    // Non-vacuity: the scan really found CanvasText rules, or every assertion below would pass by
+    // finding nothing to contradict it. `.headlineValue` is the long-standing one it must see.
+    expect(selectors.length, "no `color: CanvasText` rule was read from the print block").toBeGreaterThan(0);
+    expect(selectors, "the CanvasText scan did not see the long-standing .headlineValue rule").toContain(
+      ".headlineValue",
+    );
+
+    for (const selector of [".peopleWaitingTitle", ".peopleWaitingValue", ".peopleWaitingNote"]) {
+      expect(
+        selectors,
+        `${selector} is not covered by any \`color: CanvasText\` rule — printed from the dark theme it would ` +
+          `resolve to white ink on the white sheet the global print reset forces`,
+      ).toContain(selector);
+    }
+  });
+});

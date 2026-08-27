@@ -1,7 +1,8 @@
 import { capacityBreakdown, type CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import { unitSiteCode } from "@/components/ward-management/ward-derivations";
-import type { BedRelease, LeaveBed, Site, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
+import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
 
 /**
  * Phase 6: rolls Phase 5's per-unit capacity figures (`ward-bed-availability.ts`) up to hospital
@@ -27,6 +28,41 @@ export const CAPACITY_FIGURE_LABELS = {
   held: "Held",
   leaveUsable: "Leave (usable)",
 } as const;
+
+/**
+ * Task 9's one label, defined once beside the derivation for the same reason the five capacity
+ * labels are (spec D14): a hardcoded copy in the page would pass every test while quietly costing
+ * the cheap rename. Deliberately NOT a member of `CAPACITY_FIGURE_LABELS` — that constant is the
+ * five-figure capacity vocabulary spec D3 requires to be identical at service, hospital and ward
+ * level, and this is a demand figure, not a sixth capacity figure. Adding it there would put it
+ * into `ALL_FIGURE_KEYS` and therefore into every `FigureList` on the page, which is exactly the
+ * "one vocabulary, never combined" rule D3 exists to hold.
+ */
+export const PEOPLE_WAITING_LABEL = "People waiting for a bed";
+
+/**
+ * Task 9: how many people are waiting for a bed right now — the count of referrals still in state
+ * `"queued"`, and nothing else. Not a forecast, not a shortfall, not a gap between demand and
+ * supply.
+ *
+ * **Counted by `referralQueueOrder` itself (`ward-referrals.ts`), never by a second filter of our
+ * own.** The referral board renders `referralQueueOrder(referrals)`; this figure is the length of
+ * that same list, so the board and the morning page cannot disagree about how many people are
+ * waiting. Two screens giving two answers from one state is this project's most expensive defect
+ * class, and it has shipped here more than once — a duplicated `.filter(r => r.state ===
+ * "queued")` here would look identical today and drift the first time the queue's own definition
+ * of "waiting" changes.
+ *
+ * **It is not part of `CapacityRollup` and must never become one.** Spec D2's headline is the sum
+ * of `availableNow` and nothing else; keeping this figure outside the `CapacityBreakdown` shape
+ * means no `sumBreakdowns` reduce, no `ALL_FIGURE_KEYS` iteration and no future field-wise sum can
+ * reach the headline through it. The page prints the two numbers side by side and never subtracts
+ * one from the other — a subtraction performed by the page would be a claim about a shortfall, and
+ * this prototype does not make one.
+ */
+export function peopleWaitingCount(referrals: Referral[]): number {
+  return referralQueueOrder(referrals).length;
+}
 
 /**
  * How stale the figures rolled up under one heading are. `"never"` when no unit below has ever

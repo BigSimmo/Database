@@ -8,11 +8,13 @@ import { formatInstant, type Instant } from "@/components/ward-management/ward-c
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import type { BedRelease, LeaveBed, Site, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
 import {
   CAPACITY_FIGURE_LABELS,
   MORNING_HANDOVER_MINUTES,
   morningHandoverInstant,
+  peopleWaitingCount,
+  PEOPLE_WAITING_LABEL,
   serviceRollup,
   type CapacityRollup,
   type RollupFreshness,
@@ -39,7 +41,17 @@ export type MorningView = "fixed" | "live";
  *  together. Exported so a test can hand-author a `null`-instant value directly (see
  *  `MorningBody`'s own doc comment) without depending on the live provider clock ever actually
  *  falling before 08:00. */
-export type FrozenMorning = { instant: Instant | null; rollup: ServiceRollup | null };
+export type FrozenMorning = {
+  instant: Instant | null;
+  rollup: ServiceRollup | null;
+  /** Task 9's demand figure, frozen with the rollup rather than beside it. Deliberately follows
+   *  the SAME null propagation: when handover has not happened yet the fixed view shows no figure
+   *  at all, and a people-waiting count left standing alone under a null rollup would be the one
+   *  number on a page that is otherwise refusing to state any. Never merged into `rollup` — see
+   *  `peopleWaitingCount`'s own doc comment in `ward-morning-rollup.ts` for why it is kept outside
+   *  the `CapacityRollup` shape entirely. */
+  peopleWaiting: number | null;
+};
 
 /**
  * The freeze computation itself, pulled out as a pure function so it can be unit-tested directly
@@ -57,11 +69,13 @@ export function buildFrozenMorning(
   units: Unit[],
   releases: BedRelease[],
   leave: LeaveBed[],
+  referrals: Referral[],
 ): FrozenMorning {
   const instant = morningHandoverInstant(now);
   return {
     instant,
     rollup: instant === null ? null : serviceRollup(sites, units, releases, leave, instant),
+    peopleWaiting: instant === null ? null : peopleWaitingCount(referrals),
   };
 }
 
@@ -94,14 +108,20 @@ export function buildFrozenMorning(
  * arithmetic, it belongs there, not here.
  */
 export function MorningPage() {
-  const { units, bedReleases, leaveBeds, now } = useWardFlow();
+  const { units, bedReleases, leaveBeds, referrals, now } = useWardFlow();
 
-  const [frozen] = useState<FrozenMorning>(() => buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds));
+  const [frozen] = useState<FrozenMorning>(() =>
+    buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds, referrals),
+  );
 
   const [view, setView] = useState<MorningView>("fixed");
 
   // Live view: recomputed from the live `now` on every render, never frozen.
   const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
+  // Task 9's demand figure on the live view, recomputed every render for the same reason the
+  // rollup above is: the tour accepts and declines real referrals through the real reducer, and a
+  // frozen live count would keep claiming people are waiting after they have been placed.
+  const livePeopleWaiting = peopleWaitingCount(referrals);
 
   return (
     <div className={styles.screen} data-testid="ward-morning-page">
@@ -111,7 +131,14 @@ export function MorningPage() {
             switch the page to the live view at Start without reaching back into this component's
             own state — the seam this file's own `MorningBody` doc comment describes. */}
         <MorningTour onChangeView={setView} />
-        <MorningBody frozen={frozen} view={view} onChangeView={setView} liveRollup={liveRollup} liveNow={now} />
+        <MorningBody
+          frozen={frozen}
+          view={view}
+          onChangeView={setView}
+          liveRollup={liveRollup}
+          liveNow={now}
+          livePeopleWaiting={livePeopleWaiting}
+        />
       </main>
     </div>
   );
@@ -132,12 +159,14 @@ export function MorningBody({
   onChangeView,
   liveRollup,
   liveNow,
+  livePeopleWaiting,
 }: {
   frozen: FrozenMorning;
   view: MorningView;
   onChangeView: (view: MorningView) => void;
   liveRollup: ServiceRollup;
   liveNow: Instant;
+  livePeopleWaiting: number;
 }) {
   const noHandoverYet = view === "fixed" && frozen.instant === null;
   const activeRollup = view === "fixed" ? frozen.rollup : liveRollup;
@@ -147,6 +176,12 @@ export function MorningBody({
   // above, so `frozen.instant` is never null here (the branches below that use it are gated the
   // same way `activeRollup` already is).
   const activeNow: Instant = view === "fixed" ? (frozen.instant as Instant) : liveNow;
+  // Task 9's demand figure for the active view, gated exactly as `activeNow` above is: it is only
+  // ever read inside the `!noHandoverYet && activeRollup` branch, where `frozen.peopleWaiting` is
+  // non-null by the same construction that makes `frozen.rollup` non-null (`buildFrozenMorning`
+  // sets both from the one `instant === null` test). Never `?? 0` — a zero would read as "nobody
+  // is waiting", which is a claim, not the absence of one.
+  const activePeopleWaiting: number = view === "fixed" ? (frozen.peopleWaiting as number) : livePeopleWaiting;
 
   return (
     <>
@@ -163,7 +198,13 @@ export function MorningBody({
       ) : (
         activeRollup && (
           <>
-            <HeadlineFigure rollup={activeRollup.service} now={activeNow} />
+            {/* Task 9: the demand figure sits BESIDE the headline, never inside it (spec D2).
+                `.headlineRow` is a layout wrapper only — it places two independent sections side
+                by side and performs no arithmetic across them. */}
+            <div className={styles.headlineRow}>
+              <HeadlineFigure rollup={activeRollup.service} now={activeNow} />
+              <PeopleWaitingFigure count={activePeopleWaiting} />
+            </div>
             <RemainingFigures rollup={activeRollup.service} />
             <ExcludedBeyondTonight count={activeRollup.service.excludedBeyondToday} />
           </>
@@ -297,6 +338,41 @@ export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: I
         <span className={styles.headlineLabel}>{CAPACITY_FIGURE_LABELS.availableNow}</span>
       </p>
       <FreshnessLine freshness={rollup.freshness} now={now} />
+    </section>
+  );
+}
+
+/**
+ * Task 9 (product owner, 2026-08-28). How many people are currently waiting for a bed, beside the
+ * headline that says how many beds there are.
+ *
+ * **It is beside the headline, never in it.** Spec D2 is that "beds available right now" is the
+ * sum of `availableNow` and nothing else, and that rule is not weakened by a demand figure sharing
+ * a row with it. This component receives a plain `count` and renders it; it never sees the
+ * headline's number, so it cannot add to it or subtract from it.
+ *
+ * **The page prints no shortfall.** Two numbers a reader can subtract for themselves is honest.
+ * A subtraction this page performed would be a claim that the gap between them means something —
+ * a claim nobody has validated, on a prototype built on an unvalidated bed model. So the note
+ * below states the two figures sit side by side and stops there.
+ *
+ * The count itself comes from `peopleWaitingCount` (`ward-morning-rollup.ts`), which is the length
+ * of `referralQueueOrder`'s own list — the very list the referral board renders. This page
+ * computes no figure of its own (spec D1).
+ */
+function PeopleWaitingFigure({ count }: { count: number }) {
+  return (
+    <section className={styles.peopleWaiting} data-testid="ward-morning-people-waiting">
+      <h2 className={styles.peopleWaitingTitle}>{PEOPLE_WAITING_LABEL}</h2>
+      <p className={styles.peopleWaitingNumber}>
+        <span className={styles.peopleWaitingValue} data-testid="ward-morning-people-waiting-count">
+          {count}
+        </span>
+      </p>
+      <p className={styles.peopleWaitingNote} data-testid="ward-morning-people-waiting-note">
+        Referrals still queued, counted exactly as the referral board counts them. It is shown beside the beds figure,
+        never taken away from it — this page states demand and supply and leaves the comparison to the reader.
+      </p>
     </section>
   );
 }

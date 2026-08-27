@@ -6,10 +6,13 @@ import {
   CAPACITY_FIGURE_LABELS,
   MORNING_HANDOVER_MINUTES,
   morningHandoverInstant,
+  peopleWaitingCount,
+  PEOPLE_WAITING_LABEL,
   serviceRollup,
 } from "@/components/ward-management/ward-morning-rollup";
-import type { BedRelease, LeaveBed, Site, Unit } from "@/components/ward-management/ward-model";
-import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
+import { bedReleases, leaveBeds, referrals } from "@/components/ward-management/ward-movements";
+import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -385,5 +388,97 @@ describe("ward-morning-rollup", () => {
 
   it("fixes the morning handover at 08:00, expressed once as a named constant", () => {
     expect(MORNING_HANDOVER_MINUTES).toBe(8 * 60);
+  });
+
+  /**
+   * Task 9's demand figure. The three things that can go wrong with it, each asserted rather than
+   * assumed:
+   *
+   *   1. It counts the wrong people. `peopleWaitingCount` must count referrals still `"queued"`
+   *      and nothing else — an `"accepted"` or `"declined"` referral has left the queue a
+   *      coordinator is working, exactly as `referralQueueOrder` (`ward-referrals.ts`) already
+   *      scopes the board. The hand-built set below is deliberately asymmetric (2 queued against
+   *      3 decided) so folding the decided ones in changes the number rather than happening to
+   *      agree with it.
+   *   2. It diverges from the referral board. The board renders `referralQueueOrder(referrals)`;
+   *      this figure must be the length of that same list on the real shipped fixture, or the two
+   *      screens can give two answers from one state.
+   *   3. It leaks into the capacity vocabulary. `PEOPLE_WAITING_LABEL` is a demand label and must
+   *      never join `CAPACITY_FIGURE_LABELS`, whose five members are rendered by every
+   *      `FigureList` at service, hospital AND ward level (spec D3) and summed field-wise by
+   *      `sumBreakdowns` (spec D2).
+   */
+  describe("task 9: the people-waiting figure", () => {
+    function referral(overrides: Partial<Referral> = {}): Referral {
+      return {
+        id: "RF-TEST",
+        ageBand: "Adult",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+        homeRegion: "Perth Metropolitan",
+        source: "community",
+        raisedAt: NOW - 30,
+        urgency: 2,
+        originSiteCode: "RPH",
+        transportNeeded: false,
+        state: "queued",
+        ...overrides,
+      };
+    }
+
+    it("counts referrals still queued, and never one that has been accepted or declined", () => {
+      const mixed: Referral[] = [
+        referral({ id: "q-1", state: "queued" }),
+        referral({ id: "q-2", state: "queued" }),
+        referral({ id: "a-1", state: "accepted", acceptedUnitId: "rph-adult-open", decidedAt: NOW - 5 }),
+        referral({ id: "a-2", state: "accepted", acceptedUnitId: "rph-adult-open", decidedAt: NOW - 4 }),
+        referral({ id: "d-1", state: "declined", declineReason: "out_of_catchment", decidedAt: NOW - 3 }),
+      ];
+
+      // Guard the guard: the set really does hold decided referrals, so "2" cannot be right for
+      // the wrong reason (nothing to exclude in the first place).
+      expect(mixed.filter((entry) => entry.state !== "queued")).toHaveLength(3);
+      expect(peopleWaitingCount(mixed)).toBe(2);
+    });
+
+    it("counts nobody as waiting when every referral has been decided", () => {
+      const allDecided: Referral[] = [
+        referral({ id: "a-1", state: "accepted", acceptedUnitId: "rph-adult-open", decidedAt: NOW - 5 }),
+        referral({ id: "d-1", state: "declined", declineReason: "no_suitable_bed", decidedAt: NOW - 3 }),
+      ];
+      expect(peopleWaitingCount(allDecided)).toBe(0);
+    });
+
+    it("counts waiting exactly as the referral board counts it, on the real shipped fixture", () => {
+      // Non-vacuity, both directions: the fixture has someone waiting (so the equality is not
+      // 0 === 0) and someone already decided (so a second, drifting filter that forgot to exclude
+      // them would produce a different number here).
+      expect(referralQueueOrder(referrals).length).toBeGreaterThan(0);
+      expect(referrals.length).toBeGreaterThan(referralQueueOrder(referrals).length);
+      expect(peopleWaitingCount(referrals)).toBe(referralQueueOrder(referrals).length);
+    });
+
+    it("keeps the demand label out of the five-figure capacity vocabulary", () => {
+      expect(PEOPLE_WAITING_LABEL).toBe("People waiting for a bed");
+      expect(Object.values(CAPACITY_FIGURE_LABELS)).not.toContain(PEOPLE_WAITING_LABEL);
+      expect(Object.keys(CAPACITY_FIGURE_LABELS)).toEqual([
+        "availableNow",
+        "confirmedToday",
+        "predictedToday",
+        "held",
+        "leaveUsable",
+      ]);
+    });
+
+    it("adds no figure to the rollup itself — serviceRollup never sees a referral", () => {
+      const result = serviceRollup(wardSites, allUnits(), bedReleases, leaveBeds, NOW_ANCHOR);
+      // Structural, not arithmetic: the demand figure lives outside the `CapacityRollup` shape
+      // entirely, so no field-wise sum in `sumBreakdowns` and no `ALL_FIGURE_KEYS` iteration can
+      // reach the headline through it (spec D2, this task's rule 3).
+      expect(Object.keys(result.service)).not.toContain("peopleWaiting");
+      expect(Object.keys(result)).not.toContain("peopleWaiting");
+      expect(serviceRollup.length).toBe(5);
+    });
   });
 });

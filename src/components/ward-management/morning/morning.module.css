@@ -104,6 +104,22 @@
   font-weight: 700;
 }
 
+/*
+ * Task 9. Layout only: it places the headline (beds available) and the demand figure (people
+ * waiting) side by side and does nothing else — no arithmetic crosses between them (spec D2, and
+ * `PeopleWaitingFigure`'s own doc comment in morning-page.tsx).
+ *
+ * `auto-fit` with a 15rem floor rather than a fixed two-column track: below roughly 31rem of
+ * content width the two cards stack, which is what a 390px phone gets after `.main`'s padding.
+ * Print forces two columns explicitly — see the `@media print` block.
+ */
+.headlineRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  align-items: start;
+  gap: var(--mp-space-12);
+}
+
 .headline {
   display: grid;
   gap: var(--mp-space-6);
@@ -138,6 +154,50 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
   font-weight: 600;
+}
+
+/*
+ * Task 9's demand card. Same box as `.headline` so the pair reads as one row, but its number is
+ * deliberately NOT `--clinical-accent-strong` and is a step smaller than `.headlineValue`'s
+ * 2.5rem: the headline is the one figure a coordinator acts on (spec D2), and a demand figure
+ * given equal visual weight beside it would read as half of a sum the page does not compute.
+ */
+.peopleWaiting {
+  display: grid;
+  gap: var(--mp-space-6);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  padding: var(--mp-space-16);
+}
+
+.peopleWaitingTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+.peopleWaitingNumber {
+  display: flex;
+  align-items: baseline;
+  margin: 0;
+  gap: var(--mp-space-8);
+}
+
+.peopleWaitingValue {
+  color: var(--text-heading);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: var(--mp-leading-headline);
+}
+
+.peopleWaitingNote {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--mp-leading-body);
 }
 
 .figureGrid {
@@ -505,6 +565,7 @@
   }
 
   .headline,
+  .peopleWaiting,
   .siteBlock,
   .figureItem,
   .unitRow {
@@ -513,8 +574,30 @@
     break-inside: avoid;
   }
 
+  /*
+   * Task 9. Two fixed columns rather than `auto-fit`'s 15rem floor: the printed sheet is measured
+   * at one A4 page (`capture.mjs`'s `page.pdf({format:"A4"})` count), and letting the demand card
+   * wrap BELOW the headline instead of beside it would add a whole card's height to a sheet the
+   * C3 fix pass already squeezed from five pages to one. Side by side, it costs no extra rows.
+   */
+  .headlineRow {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--mp-space-8);
+  }
+
+  .peopleWaiting {
+    padding: var(--mp-space-8) var(--mp-space-10);
+  }
+
+  .headline {
+    padding: var(--mp-space-8) var(--mp-space-10);
+  }
+
   .headlineValue,
   .headlineTitle,
+  .peopleWaitingValue,
+  .peopleWaitingTitle,
+  .peopleWaitingNote,
   .siteName,
   .unitName,
   .figureValue,

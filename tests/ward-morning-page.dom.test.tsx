@@ -27,6 +27,8 @@ import {
 import {
   CAPACITY_FIGURE_LABELS,
   MORNING_HANDOVER_MINUTES,
+  peopleWaitingCount,
+  PEOPLE_WAITING_LABEL,
   serviceRollup,
   type CapacityRollup,
   type ServiceRollup,
@@ -84,16 +86,17 @@ function renderMorningPage({ withClockAdvancer = false }: { withClockAdvancer?: 
  * comment in `morning-page.tsx`. (Flagged separately; not this task's file to fix.)
  */
 function NullHandoverHarness() {
-  const { units, bedReleases, leaveBeds, now } = useWardFlow();
+  const { units, bedReleases, leaveBeds, referrals, now } = useWardFlow();
   const [view, setView] = useState<MorningView>("fixed");
   const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
   return (
     <MorningBody
-      frozen={{ instant: null, rollup: null }}
+      frozen={{ instant: null, rollup: null, peopleWaiting: null }}
       view={view}
       onChangeView={setView}
       liveRollup={liveRollup}
       liveNow={now}
+      livePeopleWaiting={peopleWaitingCount(referrals)}
     />
   );
 }
@@ -110,11 +113,20 @@ function NullHandoverHarness() {
  * `buildFrozenMorning`'s null-propagation for real, not a bypass of it.
  */
 function DirectFrozenHarness({ now }: { now: Instant }) {
-  const { units, bedReleases, leaveBeds } = useWardFlow();
-  const frozen = buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds);
+  const { units, bedReleases, leaveBeds, referrals } = useWardFlow();
+  const frozen = buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds, referrals);
   const [view, setView] = useState<MorningView>("fixed");
   const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
-  return <MorningBody frozen={frozen} view={view} onChangeView={setView} liveRollup={liveRollup} liveNow={now} />;
+  return (
+    <MorningBody
+      frozen={frozen}
+      view={view}
+      onChangeView={setView}
+      liveRollup={liveRollup}
+      liveNow={now}
+      livePeopleWaiting={peopleWaitingCount(referrals)}
+    />
+  );
 }
 
 describe("MorningPage", () => {
@@ -195,6 +207,92 @@ describe("MorningPage", () => {
     expect(within(headline).getByTestId("ward-morning-figure-service-availableNow")).toHaveTextContent(
       String(expected.availableNow),
     );
+  });
+
+  /**
+   * Task 9 (product owner, 2026-08-28). The demand figure: how many people are waiting for a bed,
+   * beside the headline that says how many beds there are.
+   *
+   * Three separate claims, asserted rather than assumed:
+   *   1. The number rendered is `peopleWaitingCount` of the very referrals the provider holds —
+   *      the same count `referralQueueOrder` gives the referral board, so the two screens cannot
+   *      disagree about how many people are waiting.
+   *   2. It is BESIDE the headline, not inside it (spec D2): the people-waiting node is not a
+   *      descendant of `ward-morning-headline`, and the headline's own number is untouched.
+   *   3. The page prints no derived shortfall. Nothing rendered anywhere on the page states the
+   *      difference between the two figures — a subtraction the page performed would be a claim
+   *      about a gap, and this prototype does not make one.
+   */
+  it("renders the people-waiting figure beside the headline, from the same count the referral board uses", () => {
+    let captured: ReturnType<typeof useWardFlow> | undefined;
+
+    function Capture({ children }: { children: ReactNode }) {
+      const flow = useWardFlow();
+      useEffect(() => {
+        captured = flow;
+      });
+      return <>{children}</>;
+    }
+
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <Capture>
+          <MorningPage />
+        </Capture>
+      </WardFlowProvider>,
+    );
+
+    const { units, bedReleases, leaveBeds, referrals } = captured!;
+    const expectedWaiting = peopleWaitingCount(referrals);
+    const expectedService = serviceRollup(wardSites, units, bedReleases, leaveBeds, MORNING_HANDOVER_MINUTES).service;
+
+    // Guard the guard: someone really is waiting on the shipped fixture, and someone has really
+    // already been decided — otherwise claim 1 could pass with the wrong filter, and claim 3
+    // could pass because the two numbers happened to be equal.
+    expect(expectedWaiting).toBeGreaterThan(0);
+    expect(referrals.length).toBeGreaterThan(expectedWaiting);
+    expect(expectedService.availableNow).not.toBe(expectedWaiting);
+
+    const waiting = screen.getByTestId("ward-morning-people-waiting");
+    expect(within(waiting).getByTestId("ward-morning-people-waiting-count")).toHaveTextContent(String(expectedWaiting));
+    expect(waiting).toHaveTextContent(PEOPLE_WAITING_LABEL);
+
+    // Claim 2: beside, never inside. `getByTestId` is document-scoped, so the negative has to be
+    // asserted as a containment fact about the two nodes, not as an absence of a query result.
+    const headline = screen.getByTestId("ward-morning-headline");
+    expect(headline.contains(waiting)).toBe(false);
+    expect(within(headline).getByTestId("ward-morning-figure-service-availableNow")).toHaveTextContent(
+      String(expectedService.availableNow),
+    );
+
+    // Claim 3: the demand card prints ONE number and it is the waiting count. Asserted as the
+    // complete list of digits in that section rather than as "the shortfall is absent": a
+    // difference-is-absent check would pass or fail by coincidence whenever some unrelated bed
+    // count happened to equal the difference, and would still miss a shortfall printed in any
+    // other form. Exactly-one-number is the property that actually holds — the card's title and
+    // its note carry no digits at all — so any second, derived figure appearing here fails.
+    const waitingNumbers = (waiting.textContent ?? "").match(/\d+/g) ?? [];
+    expect(
+      waitingNumbers,
+      "the people-waiting card must render the queued count and no other, derived, number",
+    ).toEqual([String(expectedWaiting)]);
+  });
+
+  /**
+   * The same single-source rule spec D14 holds the five capacity labels to, applied to task 9's
+   * one demand label: `PEOPLE_WAITING_LABEL` is defined next to `peopleWaitingCount` in
+   * `ward-morning-rollup.ts`, and a hardcoded copy in the page would render identically while
+   * quietly costing the cheap rename. Same AST literal scan as the capacity-label guard above —
+   * see that test's own comment for why a raw substring check was not enough.
+   */
+  it("never hardcodes the people-waiting label in the page source — it is read from PEOPLE_WAITING_LABEL", () => {
+    const literals = literalsIn("src/components/ward-management/morning/morning-page.tsx");
+    expect(literals.length, "no string literal was read from morning-page.tsx").toBeGreaterThan(0);
+    expect(
+      literals.filter((literal) => literal.includes(PEOPLE_WAITING_LABEL)),
+      `"${PEOPLE_WAITING_LABEL}" appears as a literal in morning-page.tsx — it must be read from ` +
+        `PEOPLE_WAITING_LABEL instead`,
+    ).toEqual([]);
   });
 
   it("renders every figure label from the one definition, so a model change is three strings", () => {
@@ -489,11 +587,12 @@ describe("MorningPage", () => {
     const nonZero = syntheticServiceRollup(3);
     render(
       <MorningBody
-        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: nonZero }}
+        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: nonZero, peopleWaiting: 0 }}
         view="fixed"
         onChangeView={() => {}}
         liveRollup={nonZero}
         liveNow={MORNING_HANDOVER_MINUTES}
+        livePeopleWaiting={0}
       />,
     );
     expect(screen.getByTestId("ward-morning-excluded")).toHaveTextContent(
@@ -503,11 +602,12 @@ describe("MorningPage", () => {
     const zero = syntheticServiceRollup(0);
     const { container } = render(
       <MorningBody
-        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: zero }}
+        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: zero, peopleWaiting: 0 }}
         view="fixed"
         onChangeView={() => {}}
         liveRollup={zero}
         liveNow={MORNING_HANDOVER_MINUTES}
+        livePeopleWaiting={0}
       />,
     );
     expect(within(container).getByTestId("ward-morning-excluded")).toHaveTextContent(
