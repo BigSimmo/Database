@@ -900,7 +900,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onOpenTables}
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
+            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
           >
             <Table2 aria-hidden="true" className="h-3.5 w-3.5" />
             Tables
@@ -1075,7 +1075,10 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
   return (
     <div
       data-testid="safety-findings-panel"
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+      // shrink-0: this card clips its own overflow, so if a flex parent ever
+      // compresses it the findings past the fold vanish with no way to reach
+      // them. Inert outside a flex container.
+      className="shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
       {sortedFindings.map((finding, index) => (
         <article
@@ -1102,7 +1105,7 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
               <Link
                 href={finding.href}
                 onClick={() => query && logCitationOpen(query, finding.citation)}
-                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
+                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
@@ -1288,7 +1291,7 @@ export function AnswerFeedbackPanel({
               disabled={Boolean(pending)}
               onClick={() => onSubmit(item.type)}
               className={cn(
-                "inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border px-2.5 text-center text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10",
+                "inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border px-2.5 text-center text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-compact-meta",
                 feedbackToneClass(item.tone),
               )}
             >

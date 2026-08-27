@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "364177bad72f7c2dae7a266b5cf8f61837dbd0e5",
-    "committed_at": "2026-08-27T04:33:41Z"
+    "sha": "362cc5dd50698e44481cfff76f578e075fa6a2bf",
+    "committed_at": "2026-08-27T20:30:32+08:00"
   },
   "counts": {
-    "open": 98,
+    "open": 81,
     "p1": 1,
-    "p2": 60,
-    "p3": 37,
-    "queued": 9,
-    "pending": 41,
-    "resolved": 414
+    "p2": 49,
+    "p3": 31,
+    "queued": 7,
+    "pending": 5,
+    "resolved": 431
   },
   "queue": [
     {
@@ -28,17 +28,6 @@
     {
       "order": 2,
       "ids": [
-        "#023"
-      ],
-      "acuity": "A2",
-      "capability": "Specialist — RAG/browser diagnostics",
-      "timing": "After next weekly/manual matrix green (audit no longer blocks it)",
-      "estimate": "1–2 hours",
-      "detail": "**Partial 2026-07-30:** `release-browser-matrix` no longer depends on `pr-required`, so a blocking scheduled dependency audit cannot skip Firefox/WebKit. Still need one green matrix datapoint + human irrelevant-at-10 disposition. The 2026-07-26 retrieval and answer artifacts are read and compared under resolved #051. Scheduled CI run `30216361999` failed its existing production dependency audit before Firefox/WebKit, while production Chromium passed. After that audit is green, capture one scheduled/manual browser-matrix datapoint; separately record the human decision for the stable irrelevant-at-10 set. #084 now makes each top-10 grade and matched signal reproducible, but it does not substitute for the human disposition. Do not rerun or spend on RAG for this item."
-    },
-    {
-      "order": 3,
-      "ids": [
         "#018"
       ],
       "acuity": "A2",
@@ -48,7 +37,7 @@
       "detail": "Current evidence keeps the mechanisms separate. **Lithium — closed within this item:** the row/atom-aware subject guard, foreign-parameter rejection and query-specific range promotion returned `0.5–1.0 mmol/L` with correct targeting/citation; the full retrieval canary remained 36/36 with recall 1.0 and zero per-case RR regressions, and the full answer canary passed every blocking gate. **ADHD — open corpus debt:** `CG.MHSP.ADHD.pdf` is absent from the hosted corpus and the retrieved chart exposes `accessible_table_count=0`; repair corpus/fixture or ingestion evidence rather than weakening extractive budgets. **Metabolic — open structured-evidence debt:** the standalone plural classifier worsened the live answer and was reverted; obtain auditable schedule text/table evidence before another candidate."
     },
     {
-      "order": 4,
+      "order": 3,
       "ids": [
         "#001"
       ],
@@ -59,7 +48,7 @@
       "detail": "`RAG_SEMANTIC_RERANK_ENABLED=false` from PR #901. Do not enable until the provider-backed 36/36 retrieval-quality gate **and** an ambiguity-focused canary are explicitly approved and recorded."
     },
     {
-      "order": 5,
+      "order": 4,
       "ids": [
         "#055"
       ],
@@ -70,7 +59,7 @@
       "detail": "Before the next full-confidence release/handoff, record the candidate/PR SHA and run the local/provider release gates, Firefox/WebKit, required hosted CI, and actionable GitHub review-thread closure once. Stop at the first actionable failure and rerun only the repaired smallest gate."
     },
     {
-      "order": 6,
+      "order": 5,
       "ids": [
         "#057"
       ],
@@ -81,18 +70,7 @@
       "detail": "Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision."
     },
     {
-      "order": 7,
-      "ids": [
-        "#102"
-      ],
-      "acuity": "A3",
-      "capability": "Operator — Supabase + Specialist",
-      "timing": "Next approved index window, after the ordering question is settled",
-      "estimate": "1–2 hours plus apply",
-      "detail": "UPDATE 2026-08-21 (read-only Supabase MCP get_advisors performance lint against production ref sjrfecxgysukkwxsowpy): documents_title_trgm_idx exists on public.documents and is reported by the unused_index lint as never used. TREAT THAT AS WEAK EVIDENCE, NOT CONFIRMATION: 20260819100200_restore_search_health_trigram_indexes was applied two days earlier and recreating an index resets its usage statistics, so a zero-use reading is expected regardless of whether the bare-column ILIKE predicates can reach it. The same lint currently reports 31 unused indexes, several of them freshly restored in the 20260819100000-100300 batch, which is consistent with a stats reset rather than dead indexing. The row's actual claim - that the index covers a CONCATENATED expression and so cannot serve the bare-column predicates in the documents API route and rag-candidate-sources - was NOT tested, because that needs EXPLAIN or a pg_indexes read and SQL execution was blocked in this session. Re-measure with EXPLAIN in the operator window before applying the prepared runbook."
-    },
-    {
-      "order": 8,
+      "order": 6,
       "ids": [
         "#100"
       ],
@@ -103,7 +81,7 @@
       "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987, no provider access): the client-side half has landed. NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER is present in .env.example (commented, default false) and is consumed by src/lib/client-env.ts, so the Phase 1 client parsing/rendering flag exists alongside the server-side RAG_INCREMENTAL_EVIDENCE_PREVIEW=false. Remaining scope is therefore narrower than recorded: verify:ui proof of the client render path, then the design's provider-backed acceptance gates before production enablement. Phase 2 stays provider-gated. Not verified: whether the render path is actually exercised by a UI journey."
     },
     {
-      "order": 9,
+      "order": 7,
       "ids": [
         "#191"
       ],
@@ -152,15 +130,6 @@
       "added": "2026-07-21"
     },
     {
-      "id": "#023",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Complete scheduled browser and labeling disposition",
-      "detail": "**Partial 2026-07-30:** `release-browser-matrix` no longer depends on `pr-required`, so a blocking scheduled dependency audit cannot skip Firefox/WebKit. Still need one green matrix datapoint + human irrelevant-at-10 disposition. The 2026-07-26 retrieval and answer artifacts are read and compared under resolved #051. Scheduled CI run `30216361999` failed its existing production dependency audit before Firefox/WebKit, while production Chromium passed. After that audit is green, capture one scheduled/manual browser-matrix datapoint; separately record the human decision for the stable irrelevant-at-10 set. #084 now makes each top-10 grade and matched signal reproducible, but it does not substitute for the human disposition. Do not rerun or spend on RAG for this item.",
-      "source": "runs `30216191889`/`30216361999`; per-rank diagnostics #084; session 2026-07-27",
-      "added": "2026-07-21"
-    },
-    {
       "id": "#100",
       "priority": "P2",
       "type": "rec",
@@ -168,15 +137,6 @@
       "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987, no provider access): the client-side half has landed. NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER is present in .env.example (commented, default false) and is consumed by src/lib/client-env.ts, so the Phase 1 client parsing/rendering flag exists alongside the server-side RAG_INCREMENTAL_EVIDENCE_PREVIEW=false. Remaining scope is therefore narrower than recorded: verify:ui proof of the client render path, then the design's provider-backed acceptance gates before production enablement. Phase 2 stays provider-gated. Not verified: whether the render path is actually exercised by a UI journey.",
       "source": "`docs/verified-answer-incremental-delivery-design.md`; `docs/audit/latency-audit-2026-07-28.md` L0-1; `src/lib/answer-stream-contract.ts:18-21`",
       "added": "2026-07-30"
-    },
-    {
-      "id": "#102",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Apply the additive `documents` index debt (operator)",
-      "detail": "UPDATE 2026-08-21 (read-only Supabase MCP get_advisors performance lint against production ref sjrfecxgysukkwxsowpy): documents_title_trgm_idx exists on public.documents and is reported by the unused_index lint as never used. TREAT THAT AS WEAK EVIDENCE, NOT CONFIRMATION: 20260819100200_restore_search_health_trigram_indexes was applied two days earlier and recreating an index resets its usage statistics, so a zero-use reading is expected regardless of whether the bare-column ILIKE predicates can reach it. The same lint currently reports 31 unused indexes, several of them freshly restored in the 20260819100000-100300 batch, which is consistent with a stats reset rather than dead indexing. The row's actual claim - that the index covers a CONCATENATED expression and so cannot serve the bare-column predicates in the documents API route and rag-candidate-sources - was NOT tested, because that needs EXPLAIN or a pg_indexes read and SQL execution was blocked in this session. Re-measure with EXPLAIN in the operator window before applying the prepared runbook.",
-      "source": "`docs/audit/latency-audit-2026-07-28.md` L2-3/L2-5; `docs/operator-apply-performance-latency-remediation.md`",
-      "added": "2026-07-29"
     },
     {
       "id": "#191",
@@ -233,15 +193,6 @@
       "added": "2026-08-17"
     },
     {
-      "id": "#S4K1GA",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Physical iPhone acceptance owed for the answer-progress motion fix (Safari + installed PWA, Motion=Full)",
-      "detail": "PR #2046 fixed the reported defect (OS Reduce Motion froze every animation and set the ECG trace to opacity:0) and added a Motion preference whose \"full\" value opts back in over the OS setting. All executed browser evidence ran on Chromium 1194 in a Cloud container — the repo's own verify:ui gate could not run because check:playwright-browser-revision reports the known #255 drift (expects 1234). Playwright WebKit is not the iOS engine either. Acceptance: on the physical iPhone, in Safari and as the installed PWA, with Settings > Motion set to Full, confirm the ECG strip visibly travels and the current-step spinner rotates; with Motion left on System, confirm the trace stays visible and static rather than blank. Failure to confirm means the defect class is unclosed, which is exactly how #1974/#1989/#1995 were each declared fixed. Relates to #255, #280.",
-      "source": "PR #2046 phone/PWA answer-progress animation defect, 2026-08-17",
-      "added": "2026-08-17"
-    },
-    {
       "id": "#QSHHGK",
       "priority": "P2",
       "type": "rec",
@@ -269,15 +220,6 @@
       "added": "2026-08-18"
     },
     {
-      "id": "#TF6TPJ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Repeated main-merges on open PR branches cancel required CI, so 'PR required' reads red with zero failing jobs",
-      "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the guard that closes the shared root cause has landed. scripts/guard-push.mjs now carries an explicit Guard 2 in-flight CI push guard block naming #HSSHRG, with inFlightCiVerdict() and findInFlightCiRuns(), covering merge-main syncs made outside sync:pr-branches. #HSSHRG was closed on that evidence. This row should be re-checked against that guard and closed too if the false-red symptom is gone; it was NOT verified against a live PR from here, which needs GitHub access.",
-      "source": "PR #2143, runs 32170524256 and 32178668323, 2026-08-18",
-      "added": "2026-08-18"
-    },
-    {
       "id": "#SBKXZ7",
       "priority": "P2",
       "type": "task",
@@ -287,102 +229,12 @@
       "added": "2026-08-18"
     },
     {
-      "id": "#HVTYAT",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "OpenAI zero-data-retention status contradicts itself: cross-border doc says no, ledger #053 says verified",
-      "detail": "docs/openai-cross-border-basis.md §8 (dated 2026-07-14) records ZDR 'no', DPA executed 'no', Australia data residency 'not enabled'. Completed ledger row #053 (2026-08-18) states the cross-border package was executed and 'verified OpenAI data controls with input/output data sharing disabled and API zero data retention'. One of the two is wrong. This blocks the /privacy page from telling clinicians what actually happens to question text at the provider: the page currently states only code-verifiable request controls (store:false, no raw owner identifier, requested prompt-cache lifetime) and deliberately makes no ZDR or no-training claim, which is correct under either reading but weaker than it could be. Next step: an operator confirms the live OpenAI project's data controls, then either §8's status table is filled in and the page's External provider processing section is strengthened, or #053 is corrected.",
-      "source": "src/lib/privacy-page-content.tsx, docs/openai-cross-border-basis.md §8, docs/privacy-impact-assessment.md PIA-1/PIA-6",
-      "added": "2026-08-19"
-    },
-    {
-      "id": "#1VFSYF",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Close the four operator unknowns the B4 shadow-extraction runbook could not answer from the repository: Railway variable-change behaviour, the shadow-record read path, the timeout rollback threshold, and the worker memory limit/peak",
-      "detail": "TWO OF FOUR ANSWERED 2026-08-21 and folded into docs/worker-deploy-runbook.md section 3. (1) RAILWAY VARIABLE-CHANGE BEHAVIOUR - ANSWERED, and it was a latent safety trap: Railway's docs state that containers read environment variables only at startup, so a variable change never restarts a running container by itself and the new value exists only inside the new deployment. The worker parses WORKER_DOCUMENT_EXTRACTOR_MODE once at process start, so setting the variable is NOT by itself the rollback. Sections 3.5 and 3.7 now state the rollback as two steps (set the variable, then deploy) and warn that stopping after the first leaves docling running. (2) MEMORY LIMIT AND PEAK - ANSWERED by a read-only Railway metrics query on the production worker service over a 7-day window, 10081 samples: memory limit 24 GB, peak 0.566 GB, average 0.139 GB, so roughly 23.4 GB of headroom against the ~1.5 GiB docling needs. The precondition is met with about a fifteenfold margin; section 3.2 now records the numbers as a baseline and requires a busy-window memory-headroom re-check immediately before every shadow enablement and again after any worker image, workload, WORKER_CONCURRENCY, service-plan, or resource-limit change. It also flags that the service reports a 24 vCPU limit while Gate B measured 9-19 s/doc on 2 CPUs, and that the section 3.4 cost model should NOT be assumed to scale down, because docling runs eager and single-process. STILL OPEN, both needing an owner decision rather than investigation: (3) the proposed rollback trigger of more than 10 percent of cohort runs timing out is an unratified operating rule, not a measurement, and nothing in the repository fixes the number; it needs ratifying or replacing, ideally once real wall_ms values exist. (4) there is still no script that reads or aggregates documents.metadata.shadow_extraction, so the first-24-hours watch remains the hand-run SQL query in section 3.6. Recommendation recorded against (4): build the reader when shadow mode is first enabled rather than now, because shadow mode has never run so the table holds zero rows and the tooling cannot be exercised end to end against real data.",
-      "source": "docs/worker-deploy-runbook.md sections 3.2, 3.5 and 3.7; read-only Railway metrics on service worker (project Database 5deaad0b) 2026-08-21",
-      "added": "2026-08-20"
-    },
-    {
-      "id": "#S19JRT",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Add the DB-side structural constraint backing the source_metadata pin, or document why the data-backed pin is sufficient",
-      "detail": "Re-files #343, closed 2026-08-18 with outcome 'Made retrieval row contract source_metadata schema structural and nullish' -- that outcome is false. Verified 2026-08-21: PR #2107 loosened the source_metadata pin in src/lib/rag/rag-row-contracts.ts to .nullish(); PR #2121 restored the strict .nullable()-required-key pin (git log: ce702ba68 then 4575cf57a). The comment at rag-row-contracts.ts:44-49 explicitly reads 'PR #2107 loosened it to .nullish() and this PR restores it. See docs/outstanding-issues.md #343 for the constraint-backing follow-up.' The DB-side structural constraint (check (jsonb_typeof(metadata) = 'object')) was never added: grep of supabase/schema.sql and supabase/migrations/ finds only 'metadata jsonb not null default {}::jsonb' with no jsonb_typeof check anywhere. The cancelled duplicate #ND10QT record itself states '#343, which is still open', confirming the two closures landed inconsistently. Actionable follow-up: add the check (jsonb_typeof(metadata) = 'object') constraint on documents.metadata with a fail-fast validation guard migration per AGENTS.md's guard-migration contract, or record in this row why the Zod-level pin in rag-row-contracts.ts is sufficient without a DB constraint.",
-      "source": "session 2026-08-21 ledger reconciliation and docs-truth pass",
-      "added": "2026-08-20"
-    },
-    {
-      "id": "#50QRCF",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Lighthouse budget mobile-root CLS is intermittent: 0.223 vs 0.016 baseline on one run, ~0.000 on the next, same code",
-      "detail": "CAUSE FOUND AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd, fix commit 0cf0493). Full evidence is recorded on #TYZK23; this row is the gate-reliability half of the same defect. Summary: the shifting element is the PWA install card (div.pwa-notice-stack), which can mount during a window in which #main-content is briefly absent from the DOM while Next 16 streams and hydrates the route. Its phone geometry is selected by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting in that gap paints tall (h=401) and is restyled compact (h=161) when the shell returns — one discrete 0.2230 shift. That also explains observation (1) on this row, the part that looked impossible: the gate flips pass/fail on diffs that cannot influence layout because what varies between runs is TIMING (network speed, and whether beforeinstallprompt fires early enough to land inside the gap), not the diff. Deleting one JSON file changes nothing about the page and everything about which side of that race the run lands on — so head c8b7bcdd passing and head 09ff450c failing was never a contradiction. FIXED in src/components/pwa-lifecycle.tsx: the notice stack is held unmounted until the app shell is present. Reproduced locally at exactly 0.2230 before the fix and 0.000 after, using a synthetic beforeinstallprompt at ~120ms plus network throttling. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS. ALSO LANDED, and worth keeping even after this row closes: scripts/run-lighthouse-budget.mjs now prints layout-shift attribution (selector, snippet, score, raw worst item) when grading fails, before the report directory is deleted. This row previously required downloading a CI artifact that this environment cannot reach; that is no longer necessary, and the next occurrence of any layout-shift breach will name its own element. Stop rules honoured: tolerance not widened, baseline not refreshed. NOT CLOSED HERE — close with #TYZK23 and #KFRC3H once further Lighthouse budget runs confirm.",
-      "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; full trace on #TYZK23",
-      "added": "2026-08-21"
-    },
-    {
-      "id": "#TYZK23",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "mobile-/ Lighthouse CLS is bistable at 0.016 or 0.223 and reproduces only in CI, so the budget gate randomly reddens UI PRs and each looks like its own regression",
-      "detail": "ROOT CAUSE FOUND, REPRODUCED LOCALLY, AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd), commits bc23075 (diagnostic) and 0cf0493 (fix). This row asked for the shifting node from a run where the shift actually fired; that evidence now exists. (1) ATTRIBUTION. The Lighthouse artifact could not be downloaded (Azure Blob egress blocked by this network policy), so the attribution was moved into the runner instead: scripts/run-lighthouse-budget.mjs now parses layout-shifts / layout-shift-elements / cumulative-layout-shift out of each per-cell report and prints selector, snippet, score and the raw worst item BEFORE the report directory is deleted, but only when grading already failed. CI then printed: \"mobile-root cls=0.2230 / 0.2230 body.min-h-full > div.pwa-notice-stack\", boundingRect {top:654, bottom:815, width:396, height:161}, nodeLabel \"Install Clinical KB … Install app / Not now\" — the COMPACT install card. (2) MECHANISM. #main-content briefly stops existing while Next 16 streams the route in and React hydrates it. The phone install-card geometry is chosen by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting inside that gap is styled by a selector that is false: it paints tall (h=401, bottom gap 92px), then is restyled compact (h=161, bottom gap 8px) when the shell returns. One discrete restyle, which is why the value recurs to three decimals instead of drifting. (3) LOCAL REPRODUCTION — the first one anyone has achieved, and the answer to this row note that it \"reproduces only in CI\". Four earlier attempts failed because beforeinstallprompt never fires in this container. Dispatching it synthetically from an init script at ~120ms WITH network throttling reproduced 0.2230 exactly, with the trace: t=4726ms #main-content present (owner=hero) -> t=7855ms #main-content GONE -> t=9083ms pwa-notice-stack mounts top=330 bottom=731 h=401 -> t=9930ms #main-content returns, stack top=654 bottom=815 h=161 -> t=9963ms SHIFT value=0.2230 div.pwa-notice-stack. So it was never CI-specific runner contention or Chromium 151 behaviour; it needed a slow network plus an early install prompt, which CI has and a fast local container does not. (4) FIX. src/components/pwa-lifecycle.tsx holds the notice stack unmounted until the app shell is present, via useSyncExternalStore over a MutationObserver on documentElement. The readyState===\"complete\" escape hatch releases the gate ONLY while the shell has never been seen (appShellHasEverMounted===false); an earlier version without that qualifier was refuted by CI returning the identical 0.2230, because load fires ~4s and the gap is at ~9s. That refuted commit was reverted rather than left in place with a message claiming a fix. Same local reproduction after the fix: CLS 0.000. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS, pr-required SUCCESS. (5) STOP RULES HONOURED: the cls tolerance was not widened, the baseline was not refreshed, and nothing was attributed without a run where the shift fired. NOT CLOSED HERE: one green CI run on a bistable metric is weak on its own — the deterministic local before/after is the stronger half. Close this row together with #50QRCF and #KFRC3H after the next Lighthouse budget runs on main-scoped PRs come back green.",
-      "source": "CI run 32531103787 (Lighthouse budget success) on head 0cf0493; CI attribution output on the failing head; local reproduction 2026-08-22 in the Claude web container; merged in PR #2253",
-      "added": "2026-08-21"
-    },
-    {
-      "id": "#8A00R7",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "AGENTS.md loads ~6k tokens/turn of Codex/Cursor-only sections, but three gates pin them in place",
-      "detail": "AGENTS.md is 1213 lines (~19.6k tokens) loaded every turn, plus CLAUDE.md (~2.4k). 372 of those lines (30 percent, ~6k tokens/turn) are Codex-only or Cursor-only and can never fire in a Claude Code session: Dependency shortcut, Codex review throttling, Codex Desktop worktree setup, Codex productivity defaults, Codex GitHub review behavior, Codex Cloud environment, Cursor Cloud instructions. The obvious fix (move them to docs/ and leave pointers) is BLOCKED: scripts/check-codex-cloud-setup.mjs line 1122 requires exactly one '## Codex Cloud environment' heading in AGENTS.md; scripts/check-codex-autofix-workflow.mjs requires the scoped resolve command, the 'one automatic repair pass per pull request lifetime' phrase and the disposition marker in AGENTS.md; tests/setup-codex-worktree.test.ts line 106 requires 'Never configure Windows Desktop worktrees' and the dry-run command in AGENTS.md. Any restructure must move the gate assertions to the new file paths in the same change. Measured 2026-08-21 on main a341832af.",
-      "source": "Session applying the writing-for-agents skill to AGENTS.md, 2026-08-21",
-      "added": "2026-08-20"
-    },
-    {
-      "id": "#2DQXD8",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two contract tests pin unreachable components: VerificationWorkspace and TherapyListItem",
-      "detail": "The 2026-08-20 cleanup sweep found VerificationWorkspace (with its only caller RenderModelSourceList) in src/components/clinical-dashboard/evidence-panels.tsx and TherapyListItem in src/components/therapy-compass/therapy-card.tsx are exported, imported by nothing, and rendered by no route. Removing them was reverted because two committed contract tests assert on the source text of those files: tests/rendered-text-formatting.test.ts requires the literal compactSourceSnippet(source.snippet ?? \"\", { dropTitle: source.title }) to appear in the dashboard surfaces, and that string exists only inside RenderModelSourceList; tests/therapy-review-regressions.test.ts requires therapy-card.tsx to surface reviewStatus, which only TherapyListItem does. Both guards are therefore currently satisfied by code no user can reach, so they are not protecting the live render path they name. Next step: identify the live source-card and therapy-record render paths, repoint both assertions at them, then delete the unreachable components. Do not simply delete the assertions -- they guard clinical output formatting and the per-record review badge.",
-      "source": "tests/rendered-text-formatting.test.ts, tests/therapy-review-regressions.test.ts, src/components/clinical-dashboard/evidence-panels.tsx, src/components/therapy-compass/therapy-card.tsx",
-      "added": "2026-08-20"
-    },
-    {
-      "id": "#61TZJA",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Re-adopt the document-viewer Linux visual baseline after PR #2199 lands",
-      "detail": "PR #2199 makes document search on demand, which moves the document-viewer golden two ways: the overview action reads 'Search document' instead of 'Add to scope', and the closed composer releases the desktop sm:pb-40 clearance that was previously always reserved. The committed tests/__screenshots__/linux/document-viewer.png therefore drifts the moment that PR merges. This is ordinary pixel drift, which scripts/classify-visual-baseline-outcome.mjs scores advisory rather than red, and the visual-baseline job runs only on pushes to main — so the refresh point is post-land, from that run's artifact, via npm run design-system:baselines:adopt. Blocked until #2199 merges: adopting earlier would commit a golden for a state main does not have. Related: the same PR removed .document-viewer-composer from that target's mask (it is no longer rendered in the default state, and assertMaskSelectors fails loudly on a mask matching zero nodes), so the closed composer's resting layout is now inside the compared region rather than painted over. Stop rule: adopt from the CI artifact only, never from a developer machine or this container — font hinting alone would make every later run red, which is what the suite's own header warns about.",
-      "source": "PR #2199 (tests/ui-visual-baseline.spec.ts, commit e6d52b8); ci.yml visual-baseline job",
-      "added": "2026-08-21"
-    },
-    {
-      "id": "#KFRC3H",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "mobile-/ Lighthouse CLS bistable flake: PR #2234 fixes 8 more racy double-:has() install-card selectors PR #2219 missed; unconfirmed pending CI",
-      "detail": "THE MECHANISM IS NOT THE SELECTOR SHAPE — resolved 2026-08-22, landed on main in PR #2253 (merge 66594dd, fix commit 0cf0493). This row predicted \"if PR #2234 lands and CI is STILL bistable afterward, a fourth mechanism remains\". A fourth mechanism did remain; it has now been traced, reproduced locally and fixed, and it is orthogonal to the double-:has() cleanup. WHAT ACTUALLY FIRES: #main-content briefly stops existing while Next 16 streams the route in and React hydrates it (measured gap roughly t=7.9s to t=9.9s under network throttling). Every phone install-card rule — the one PR #2219 fixed and the eight PR #2234 rewrites alike — is keyed on body:has(#main-content[data-phone-footer-owner=\"hero\"]), so during that gap the OWNERSHIP :has() is false whether or not a second redundant :has() is chained onto it. A card mounting inside the gap paints tall (h=401, bottom gap 92px) and is restyled compact (h=161, bottom gap 8px) when the shell returns: one discrete shift, 0.2230. Removing the redundant second :has() therefore cannot close this, which is exactly consistent with 0.223 surviving BOTH of PR #2219 fixes on run 32477570217 — the observation this row correctly refused to explain away. THE FIX: hold the notice stack unmounted until the app shell is present (src/components/pwa-lifecycle.tsx, useSyncExternalStore over a MutationObserver, with the readyState escape hatch qualified to fire only when the shell has NEVER been seen; an unqualified version was refuted by CI returning the identical 0.2230 and was reverted). CONFIRMED BOTH WAYS: the first successful local reproduction (synthetic beforeinstallprompt at ~120ms plus network throttling) gave exactly 0.2230 before and 0.000 after; CI run 32531103787 on head 0cf0493 reports Lighthouse budget SUCCESS. PR #2234 IS STILL WORTH LANDING — the redundant :has() chains are genuinely racy and its static-contract test guards all nine selectors — but it should be recorded as hardening, not as the cause, and its confirmation criterion of \"N consecutive green CI Lighthouse runs\" can no longer distinguish it from this fix now that both would be on main. Also landed: scripts/run-lighthouse-budget.mjs prints layout-shift attribution on a failing grade, which removes this row blocker of being unable to download the CI artifact. Close with #TYZK23 and #50QRCF once further Lighthouse budget runs confirm.",
-      "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; contrast with run 32477570217",
-      "added": "2026-08-21"
-    },
-    {
       "id": "#8VAY97",
       "priority": "P2",
       "type": "task",
       "summary": "The document_index_units retrieval path has no EXPLAIN baseline, and Phase 5 has no query-specific plan-flip evidence",
       "detail": "Two Phase 5.1 deliverables are explicitly OPEN, not discharged. Re-graded P3 -> P2 versus the withdrawn request 2040d1fb, because that request understated the gap by claiming substitute coverage that does not exist. (A) NO EXPLAIN BASELINE FOR THE INDEX-UNITS PATH. public.explain_retrieval_rpc accepts exactly four names -- match_documents_for_query, match_document_chunks_text, match_document_lookup_chunks_text, match_document_table_facts_text -- and raises 22023 Unsupported retrieval RPC for anything else, proven against production for both match_document_chunks_text_v2 and match_document_index_units_hybrid_v2. For the first of those the v1 sibling match_document_chunks_text shares the owning table document_chunks and is a usable stand-in. For the second there is none: match_document_index_units_hybrid_v2 delegates to match_document_index_units_hybrid_scoped over document_index_units (supabase/schema.sql:8033-8054), and no supported RPC touches that table. document_index_units is one of the two section 1.2 outliers, so the outlier that most needed a baseline is the one that has none. (B) NO QUERY-SPECIFIC PLAN-FLIP EVIDENCE. explain_retrieval_rpc EXPLAINs `select * from public.<rpc>(...)`, so a PL/pgSQL body's inner plan is never exposed and every sample reports a single Function Scan with no index names. Plan section 5.1's 'record plan flips (seq scan -> index scan)' is therefore unanswerable through this instrument. The pg_stat_user_indexes read captured in Phase 5.1(c) is a WEAKER and DIFFERENT signal, not a substitute: idx_scan is cumulative across every workload touching the table and no before/after delta was captured around the samples, so it can prove an index is never chosen by anything but cannot prove that a given query changed plan. NEXT: one migration extending the explain_retrieval_rpc p_rpc branch list to the _v2 family (at minimum match_document_index_units_hybrid_v2 and match_document_chunks_text_v2), shipped in an approved window -- with D4 ON, merging it to main deploys it, so it needs the window and a green post-merge live-drift run. Then re-run npm run profile:retrieval --analyze to capture the missing baseline. For (B), consider whether an auto_explain-style capture is a better fit than widening the RPC. STOP: do not record the cumulative index-usage read as plan-flip evidence; that conflation is exactly what this row exists to prevent.",
       "source": "Codex review of PR #2250 (P2, comment 3833062803 and 3833062807); docs/audit/live-drift-forensics-2026-08.md Phase 5 close-out 5.1(b); supabase/schema.sql:8033-8054",
-      "added": "2026-08-21"
-    },
-    {
-      "id": "#9X40BT",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "Supabase preview-branch compute is an uncapped cost sitting outside the organisation Spend Cap",
-      "detail": "MEASURED 2026-08-22 (read-only list_branches on sjrfecxgysukkwxsowpy): there are currently ZERO preview branches. The only entry returned is the default 'main' branch, which is the production project itself and is not billable preview compute. So the uncapped exposure this row describes is POTENTIAL, not active — nothing is running to clean up, and no agent-side cleanup step exists to take. The one remaining action is the dashboard setting itself, which no agent can change: Supabase dashboard -> Project Settings -> Integrations -> GitHub -> lower 'Automatic branching' limit from 3 to 1, or disable branching. Prior context stands and is the reason lowering is safe: CI's Migration replay job (db-reset-verify, supabase migration up --local) independently replays the whole chain on every database-touching PR, so preview branches are a second net rather than the only one. STOP unchanged: do not change Supabase project settings without explicit owner approval. PRIOR RECORD: Dashboard read 2026-08-21 (the same read that settled D4) shows Automatic branching ON with limit 3 and 'Supabase changes only' enabled, and the same screen warns that Branching Compute is NOT covered by the organisation's Spend Cap. Preview branches did earn their keep once (the 20260819100200 guard failure on PR #2151 was caught by a preview branch building from the chain alone), so this is a cost/benefit decision, not a cleanup.",
-      "source": "Supabase dashboard read 2026-08-21; docs/audit/live-drift-forensics-2026-08.md D4 section; AGENTS.md Supabase project safety",
       "added": "2026-08-21"
     },
     {
@@ -419,15 +271,6 @@
       "summary": "Antipsychotic metabolic monitoring returns a source-backed stub instead of a written answer, and the eval case must not be relaxed to hide it",
       "detail": "FOUND BY THE PACKET 2 CANARY, run 32589154243 (2026-08-22). \"What metabolic monitoring is required for antipsychotics?\" now returns the source-backed review stub — \"The uploaded documents contain relevant guidance on metabolic monitoring for antipsychotics, but a full written answer could not be completed just now. Relevant document passages are cited below\" — because the extractive candidate behind it was one of the two incoherent guidance-wrapper answers that #NPQJKP shipped a predicate to reject. The degradation is correct behaviour; the underlying defect it exposes is that the answer path cannot produce a usable written answer for this query at all. THIS IS NOT AN EVAL-CASE BUG AND MUST NOT BE FIXED BY ADDING acceptSourceOnly. All four cases carrying that flag document the same rationale: the corpus has no single authoritative source, so a source pointer is a legitimate answer, and quality-discharge-documentation deliberately drops mustContainAny for exactly that reason. quality-antipsychotic-metabolic-monitoring is the opposite case — it names expectedFiles [\"MHSP.MetabolicScreening.pdf\"], an authoritative source exists, and antipsychotic metabolic monitoring is a routine question a psychiatrist should get answered in prose. Adding the flag would silence a true signal. The targeting eval already grades it correctly at score 0 with reason \"source-backed review stub\", even though its mustContainAny [\"metabolic\", \"monitor\"] is satisfied by the stub text, so the instrument is working and only the answer is missing. FIRST DIAGNOSTIC STEP, because it splits the problem in two: determine whether generation was attempted for this case at all. The same run recorded provider_attempted:false for 11 of 30 targeting cases. If OpenAI was never called for this one, the cause is upstream of answer quality entirely (routing, admission control, or the retry ladder — note Packet 1 covers deadline admission control and should be checked for overlap before starting). If it was called and returned nothing usable, the cause is in extraction or generation for the medication_dose_risk class against this document. Do not begin work without checking Packet 1 and Packet 3 (#S4R2W3) for overlap: all three touch rag.ts, and overlapping changes ruin canary attribution.",
       "source": "canary run 32589154243; src/lib/rag/rag-eval-cases.ts quality-antipsychotic-metabolic-monitoring; ledger #NPQJKP",
-      "added": "2026-08-22"
-    },
-    {
-      "id": "#RVK6BJ",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Seven Claude Code sessions point at .claude/worktrees directories that are empty and not registered git worktrees, so those chats have no working copy",
-      "detail": "Measured 2026-08-22 while taking the fleet worktree inventory for #6GW95D. Seven directories under .claude/worktrees contain zero regular files AND are NOT registered git worktrees - none appears in git worktree list, and none has a .git entry: caring-contacts-phase-2a-a4f69a, database-test-queue-contention-6baedb, developer-button-settings-fb9b51, ed-care-plans-impl-7f44cd, phase-4-index-restoration-b0f4ea, vibrant-diffie-c93450 and wave-1-canary-s2-unlock-17d673. They are bare empty directories, neither worktree debris nor live checkouts. Each is the recorded cwd of an existing session in the session registry, titled respectively Suicide, Dev Drive, Developer, Care Plan, Database, Ward Flow and RAG; the Database one was still marked running. They were already empty before this session touched anything: the inventory counted files first and only then attempted removal, and all seven then refused with EPERM because a live process holds the directory handle open, so nothing was deleted from them here. No git history is at risk - every branch still exists at its recorded head. Impact is that resuming any of those chats operates on an empty directory. REPAIR, VERIFIED BY EXECUTION 2026-08-22 rather than assumed, because an earlier review comment and an automated fix both asserted the opposite: since the path is unregistered and the branch is checked out nowhere, git -C D:/Repos/Database worktree add <path> <branch> succeeds directly into the existing empty directory - probed on a scratch copy with branch claude/ward-flow-phase-3-7eda97, exit 0, 3812 files checked out. Do NOT add -f: it is unnecessary here and it disables the branch-already-checked-out guard. Then run node scripts/setup-codex-worktree.mjs inside the directory to restore dependencies by byte-identical copy, about 90 seconds rather than an hour-long npm ci. Two conditions would change that command and should be re-checked first: if git worktree list ever DOES name the path, run git worktree prune before adding (the stale-registration path, still not -f); if the branch is checked out in another worktree, add under a different branch rather than using -f. Permit -f only with explicit owner approval after proving the existing worktree is stale and inactive. Worth understanding the cause before repairing them - something is emptying directories that sessions still treat as their cwd.",
-      "source": "session 2026-08-22, GitHub issue #2270 Part A",
       "added": "2026-08-22"
     },
     {
@@ -926,24 +769,6 @@
       "added": "2026-08-26"
     },
     {
-      "id": "#BR2217",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
-      "detail": "data/outstanding-issues-snapshot.json carries a ledger_revision pointer. Commit ca376969b moved it BACKWARDS: sha 707b965965a9b843c13deb6b5c9ddd158fe2631d (2026-08-25T17:45:01+00:00) reverted to 6085a0a59aca4c1bb9e19fb4d490fd34dec950cd (2026-08-22T20:52:39Z), and the +00:00 normalisation reverted to Z. Pending entries are intact so nothing is lost, but a regenerator run from a stale base overwrote a newer pointer with an older one, and nothing detected it. Found 2026-08-27 while verifying that PR 2390 squash-merged completely. Not caused by that PR. Next step: decide whether generate-outstanding-issues-snapshot.mjs should refuse to move ledger_revision backwards, which would make this class of regression self-detecting.",
-      "source": "PR 2390 merge verification, 2026-08-27",
-      "added": "2026-08-27"
-    },
-    {
-      "id": "#TBW7BR",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
-      "detail": "AGENTS.md (Evidence and calibration section) and the Phase 5 handover both said scripts/run-playwright.mjs exits 0 when tests fail and when it refuses to run. Reading the script on 2026-08-27 shows otherwise: it exits 75 with a DATABASE_HEAVY_RUN_ADMISSION_BUSY marker on admission contention, propagates Playwright's own exit status on test failure, and exits 1 on a wrapper error. The stale wording tells callers to discard a reliable signal and parse logs instead, which loses the distinction between blocked and red. Raised by automated review on PR 2405; the handover and the new docs/development-speed-playbook.md were corrected there. AGENTS.md was deliberately left alone because editing it is a policy change and would widen that PR's risk classification. Next step: correct the AGENTS.md wording to say that both the non-zero status and the decisive output line must be checked, and consider a contract test pinning the script's exit codes so the guidance cannot drift from the code again.",
-      "source": "Codex review on PR 2405, 2026-08-27",
-      "added": "2026-08-27"
-    },
-    {
       "id": "#76GGRG",
       "priority": "P3",
       "type": "rec",
@@ -1000,249 +825,33 @@
   ],
   "pending": [
     {
-      "request_id": "02739a08-8671-457a-b422-a4bcb0485ae5",
-      "action": "cancel",
-      "summary": "Cancel request 2f51fee1-5eae-4230-9b26-69cc53c8865e: Duplicate of main's more detailed #HVTYAT close request (1836d32f) landed via PR #2406; keep the more thorough record.",
+      "request_id": "73e80866-df3e-414b-8362-b438d282ca8c",
+      "action": "add",
+      "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "13ea8c93-7134-4e18-9f7c-6c0f9a624726",
-      "action": "done",
-      "summary": "#TF6TPJ: Resolved and verified. scripts/guard-push.mjs enforces Guard 2 (inFlightCiGuard) across all PR push workflows, and scripts/sync-pr-branches.mjs checks hasRequiredCiInFlight() to prevent main-merges while CI is in-flight. Verified via unit and contract tests in tests/ci-cache-safety.test.ts and tests/guard-push.test.ts. Merging main into open PR branches no longer triggers cancel-in-progress on active required CI or produces false-red PR required states with zero failing jobs.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
-      "action": "done",
-      "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "1836d32f-6db8-45f2-bc71-f429b22f5a1c",
-      "action": "done",
-      "summary": "#HVTYAT: Reconciled docs/openai-cross-border-basis.md §8 status table with ledger #053 and updated src/lib/privacy-page-content.tsx. External provider processing disclosures now accurately reflect verified zero data retention (ZDR), no training on API submissions, executed DPA (v.010126), ephemeral prompt caching controls, and store:false / pseudonymous user controls. Updated tests/privacy-ui.test.ts.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "24d74362-023b-41a9-a287-76d13e580247",
-      "action": "done",
-      "summary": "#S4K1GA: Documented physical iPhone motion preference acceptance matrix in accessibility docs.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "2ea5ba7b-fc5b-4765-bc01-7691f64f8afd",
-      "action": "done",
-      "summary": "#S19JRT: Ratified JSONB object structural constraints and Zod runtime validation for documents.metadata.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
-      "action": "done",
-      "summary": "#76GGRG: Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
-      "action": "done",
-      "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "2f98413d-ebc4-4d3e-913d-b1bc95545c89",
-      "action": "done",
-      "summary": "#50QRCF: Verified stable consecutive mobile Lighthouse CLS runs following root app-shell fix.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
-      "action": "done",
-      "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
-      "action": "done",
-      "summary": "#9X40BT: Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "59d16d75-adcd-4bce-8ffd-3066f249fce9",
-      "action": "cancel",
-      "summary": "Cancel request a193dfb0-236c-44bd-bfc1-f955eb20f273: Superseded by PR 2406's own closure of 023, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
-      "action": "done",
-      "summary": "#S4K1GA: Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "6399ff26-1ea9-47ec-b23f-328c2bf10d6f",
-      "action": "done",
-      "summary": "#KFRC3H: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Proved the CLS bistable flake mechanism was shell-absence during hydration rather than redundant double-:has() selectors alone. Fixed by holding pwa-notice-stack unmounted until app shell mounts in src/components/pwa-lifecycle.tsx. Verified locally (0.2230 -> 0.000) and in hosted CI Lighthouse budget run 32531103787. Closed together with #50QRCF and #TYZK23.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "6a9212fa-bd26-42d1-b412-6ddda9c66f88",
-      "action": "done",
-      "summary": "#1VFSYF: Created shadow extraction inspection utility script and documented >10% timeout rollback rule.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "6d3d4a50-f7be-400a-969e-5dbb4dfd75e5",
-      "action": "cancel",
-      "summary": "Cancel request ea5915df-befe-4c8d-81d3-3686fa9459e1: Duplicate of main's more detailed #TF6TPJ close request (13ea8c93) landed via PR #2406; keep the more thorough record.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "71150e70-36e9-4291-8145-03de193dd94c",
-      "action": "cancel",
-      "summary": "Cancel request c6533595-1f18-4be2-ba89-7a793a122779: Superseded by PR 2406's own closure of 50QRCF, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "7280b503-2618-446f-b542-406e8044671d",
-      "action": "cancel",
-      "summary": "Cancel request 96276ae2-e83f-4c2e-8ad2-8e541471e094: Superseded by PR 2406's own update record on 102, already merged to main. This branch (2407) queued a duplicate independent update for the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "72e73379-be06-413a-b137-3e1f06e9a6b9",
-      "action": "done",
-      "summary": "#2DQXD8: Repointed contract tests to active components and safely deleted dead VerificationWorkspace and TherapyListItem.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "74818f95-4e71-4808-bec2-ff7ffb233ac1",
-      "action": "done",
-      "summary": "#Y0BDBJ: Implemented ReviewStateTable with 50-item responsive pagination reducing HTML payload from 1.73 MB to <100 KB.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "8024644a-f093-42f4-97c0-eabfaa981267",
-      "action": "done",
-      "summary": "#102: Documented EXPLAIN query measurement runbook for documents_title_trgm_idx.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
+      "request_id": "8324c7e4-18fb-4073-ba6b-ae46920f768d",
       "action": "update",
-      "summary": "#102: summary → Operator EXPLAIN diagnostic script authored; migration and health registration still required; detail → Authored operator EXPLAIN diagnostic script (scripts/operator-explain-documents-indexes.sql) comparing documents_title_trgm_idx concatenated expression vs bare-column ILIKE predicates on title and file_name. Documented diagnostic plan comparison and execution runbook in docs/operator-apply-performance-latency-remediation.md for execution during the approved operator window. Remaining work per that runbook: author one idempotent migration with the three indexes plus search_schema_health required_indexes registration, apply during the operator window, mirror supabase/schema.sql, and regenerate the drift manifest. Task stays open until that full sequence completes and is verified.; source → docs/operator-apply-performance-latency-remediation.md; scripts/operator-explain-documents-indexes.sql",
+      "summary": "#EFETZT: detail → UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "a114318c-949e-46df-9b72-c9df997a72cd",
-      "action": "done",
-      "summary": "#8A00R7: Modularized AGENTS.md reducing per-turn token payload while updating pinning tests.",
+      "request_id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
+      "action": "add",
+      "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
-      "action": "done",
-      "summary": "#023: Completed scheduled browser matrix verification and human labeling disposition. release-browser-matrix is verified unblocked from dependency audits and green across Firefox and WebKit. Human review disposition of the stable 0.0917 irrelevant-at-10 fixture set completed using #084 per-rank diagnostic grades (338 graded top rows, 33 grade-0 tail rows): all 12 non-zero cases audited and confirmed genuine off-topic tail rows rather than ranking defects. Labels and ranking thresholds retained unchanged as evaluation audit baseline. Documented in docs/evidence/rag-irrelevant-at-10-disposition.md.",
+      "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
+      "action": "add",
+      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
       "created_at": "2026-08-27"
     },
     {
-      "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
-      "action": "done",
-      "summary": "#FDST2Q: Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "a7275b7e-ce79-4050-959b-f045a24e6f53",
-      "action": "done",
-      "summary": "#RVK6BJ: Repaired empty Claude Code worktrees and verified worktree dependency setup.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "ad3b78e0-72a8-4b05-9d30-2cc805ef363a",
-      "action": "cancel",
-      "summary": "Cancel request f5a27b65-309d-465c-9f5f-b87082206325: Superseded by PR 2406's own closure of TYZK23, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "ad794482-fb8a-45e3-921e-c8f210bc1b5e",
-      "action": "done",
-      "summary": "#61TZJA: Documented visual baseline adoption workflow following document-viewer updates.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "af496d9a-fd58-4984-b216-efcf2495fd67",
-      "action": "done",
-      "summary": "#WG24JB: Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "b557ad9e-3663-4b7c-8296-9426b44d6d7e",
-      "action": "cancel",
-      "summary": "Cancel request c9689169-5616-4282-bf8c-25bd5f089575: Duplicate of main's more detailed #9X40BT close request (46d9aaa1) landed via PR #2406; keep the more thorough record.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "b762756a-db30-4ab5-9e0b-80050de94d24",
-      "action": "done",
-      "summary": "#KFRC3H: Closed linked hydration shift issue after verification of static shell classes.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "bd64c286-20bd-4a41-9e18-1359fd5a772a",
-      "action": "done",
-      "summary": "#TYZK23: Closed linked mobile root CLS issue after verification of container reserves.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "c6533595-1f18-4be2-ba89-7a793a122779",
-      "action": "done",
-      "summary": "#50QRCF: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Root cause was PWA notice stack (div.pwa-notice-stack) mounting during Next.js 16 streaming hydration window before #main-content mounted, causing phone-footer owner :has() selector flip (0.2230 shift). Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #TYZK23 and #KFRC3H.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "c9689169-5616-4282-bf8c-25bd5f089575",
-      "action": "done",
-      "summary": "#9X40BT: Documented Supabase preview branching compute cap limit and governance protocol.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "cf37b0db-a67f-4d7e-b90b-9e8ed36a5166",
-      "action": "cancel",
-      "summary": "Cancel request 6399ff26-1ea9-47ec-b23f-328c2bf10d6f: Superseded by PR 2406's own closure of KFRC3H, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "d24fe2f4-0a3d-4fc7-8181-f897f0cba415",
-      "action": "done",
-      "summary": "#023: Recorded scheduled Firefox/WebKit browser matrix verification and labeling disposition.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "d837a152-2bf2-4fee-b02e-46cc68faf70f",
-      "action": "cancel",
-      "summary": "Cancel request 5ccb7318-5b8c-4caf-ab95-eb9f4dae8883: Superseded by PR 2406's own closure of S4K1GA, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
-      "action": "done",
-      "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
-      "action": "done",
-      "summary": "#TF6TPJ: Validated Guard 2 in guard-push.mjs to ensure merge-base resolution on main merges.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "f5a27b65-309d-465c-9f5f-b87082206325",
-      "action": "done",
-      "summary": "#TYZK23: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\"hero\"]) as false so the card paints tall then compacts when the shell returns. Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #50QRCF and #KFRC3H.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
-      "action": "done",
-      "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
+      "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
+      "action": "add",
+      "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
       "created_at": "2026-08-27"
     }
   ]

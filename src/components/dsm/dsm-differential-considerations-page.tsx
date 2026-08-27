@@ -19,7 +19,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { appModeHomeHref } from "@/lib/app-modes";
+import { dsmSearchHref } from "@/lib/app-modes";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 
 export type DsmDifferentialConsideration = {
@@ -93,7 +93,7 @@ export function DsmDifferentialConsiderationsPage({
   return (
     <>
       <InPageNavHeader
-        back={{ href: appModeHomeHref("dsm"), label: "DSM-5" }}
+        back={{ href: dsmSearchHref, label: "DSM-5" }}
         title={diagnosis.title}
         sections={sections}
         activeId={activeId}
@@ -187,7 +187,7 @@ export function DsmDifferentialConsiderationsPage({
                 aria-label="Differential consideration list"
                 className={cn(
                   inPageAnchor,
-                  "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+                  "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]",
                 )}
               >
                 <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -240,7 +240,7 @@ export function DsmDifferentialConsiderationsPage({
                 </div>
               </section>
 
-              <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:sticky lg:top-20">
+              <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)] lg:sticky lg:top-20">
                 <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-4">
                   <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                     Differential consideration

@@ -15,7 +15,7 @@ import { TherapyCompareTray } from "./therapy-compare-tray";
 
 function TherapyCompassFooter() {
   return (
-    <div data-therapy-no-print className={cn(pageContainer, "mt-[30px] border-t border-[color:var(--border)] pt-5")}>
+    <div data-therapy-no-print className={cn(pageContainer, "mt-7.5 border-t border-[color:var(--border)] pt-5")}>
       <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );
@@ -94,10 +94,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div
-        data-therapy-root
-        className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
-      >
+      <div data-therapy-root className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:grow">
         {informationPage ? (
           <TherapyCompassInformationRoute>{children}</TherapyCompassInformationRoute>
         ) : (

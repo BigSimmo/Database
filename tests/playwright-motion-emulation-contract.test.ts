@@ -52,15 +52,17 @@ describe("playwright motion emulation contract (#75JA0P)", () => {
     expect(globalsCss).toContain('html:not([data-motion="full"])');
     expect(globalsCss).toContain('html[data-motion="reduced"]');
 
-    // ECG trace sweep suppression must not delete the ink
-    const sweepRules = [...globalsCss.matchAll(/\.answer-activity-trace__sweep\s*\{([^}]*)\}/g)].map(
-      (match) => match[1] ?? "",
-    );
-    const stoppedRules = sweepRules.filter((body) => /animation:\s*none/.test(body));
+    // Answer-progress indicator suppression must not delete the ink. The
+    // indicator used to be a scrolling ECG strip that reduced motion faded to
+    // 0.55; it is now a breathing dot that simply stops at full opacity. Either
+    // way the rule this asserts is the same one: stopping the animation must
+    // leave something painted.
+    const dotRules = [...globalsCss.matchAll(/\.answer-progress-dot\s*\{([^}]*)\}/g)].map((match) => match[1] ?? "");
+    const stoppedRules = dotRules.filter((body) => /animation:\s*none/.test(body));
     expect(stoppedRules.length).toBeGreaterThanOrEqual(2);
     for (const rule of stoppedRules) {
       expect(rule).not.toMatch(/opacity:\s*0\s*;/);
-      expect(rule).toMatch(/opacity:\s*0\.\d+;/);
+      expect(rule).toMatch(/opacity:\s*(?:1|0\.\d+)\s*;/);
     }
   });
 });

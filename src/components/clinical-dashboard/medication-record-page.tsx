@@ -325,7 +325,7 @@ function MedicationRecordDetail({
     <div className="space-y-3 py-1 sm:py-2" style={medicationAccentStyle(record.accent)}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="space-y-3.5">
-          <section className="scroll-mt-16 overflow-hidden rounded-xl border border-[color:var(--border)] border-l-4 border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-soft)] sm:p-5">
+          <section className="scroll-mt-16 overflow-hidden rounded-xl border border-[color:var(--border)] border-l-4 border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--e2)] sm:p-5">
             <div className="flex items-start gap-3 sm:items-center sm:gap-4">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--med-accent-border)] bg-[color:var(--surface)] text-[color:var(--med-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
                 <Pill className="h-[52%] w-[52%]" aria-hidden="true" />
@@ -380,7 +380,7 @@ function MedicationRecordDetail({
           <section
             id={`medication-panel-${activeTab}`}
             aria-label={`${activeTabLabel} sections`}
-            className="overflow-hidden rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]"
+            className="overflow-hidden rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] shadow-[var(--e2)]"
           >
             {activeSections.length ? (
               activeSections.map((section) => (

@@ -1,4 +1,5 @@
 .modeShell {
+  composes: descendantKillWithScroll from "./ward-reduced-motion.module.css";
   --ward-blue: var(--clinical-accent);
   --ward-blue-soft: var(--clinical-accent-soft);
   --ward-blue-border: var(--clinical-accent-border);
@@ -228,6 +229,10 @@
  * of squeezing or clipping the pinned ones. Individual links reuse `shellStyles.railLink` /
  * `railLinkActive` directly (same 3rem icon-only tap targets as the app switcher) rather than the
  * former `.modeLink`/`.modeLinkActive`/`.modeLabel`/`.modeShortLabel` rules, which this replaces.
+ *
+ * Dead: `WardModeNavigation` now uses `shellStyles.railLink` inside `.clinicalRail`.
+ * No TSX imports `styles.modeNavigation`. Keep the rule only as a documented unused
+ * leftover; do not wire it back without a layout owner.
  */
 .modeNavigation {
   display: flex;
@@ -1014,13 +1019,6 @@
 
   .patientFacts {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .modeShell * {
-    scroll-behavior: auto !important;
-    transition: none !important;
   }
 }
 

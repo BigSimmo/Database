@@ -128,34 +128,40 @@ export function CompareScreen() {
         // which is not something `PageHeader` offers — and should not, since a
         // count that grows cannot share a line with a title that wraps.
         meta={
-          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
+          <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-0.5 px-2.5 rounded-md">
             {items.length} of {THERAPY_MAX_COMPARE} selected
           </span>
         }
         actions={
-          <>
-            <SegmentedControl
-              label="Comparison density"
-              value={b.density}
-              onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
-              options={[
-                { value: "comfortable", label: "Comfortable" },
-                { value: "dense", label: "Dense" },
-              ]}
-              className="w-auto"
-            />
-            <Button
-              variant="secondary"
-              icon={copied === "set" ? Check : Copy}
-              onClick={copySet}
-              disabled={items.length < 2}
-            >
-              {copied === "set" ? "Copied" : "Copy set"}
-            </Button>
+          items.length >= 2 ? (
+            <>
+              <SegmentedControl
+                label="Comparison density"
+                value={b.density}
+                onChange={(value) => (value === "dense" ? b.setDense() : b.setComfortable())}
+                options={[
+                  { value: "comfortable", label: "Comfortable" },
+                  { value: "dense", label: "Dense" },
+                ]}
+                className="w-auto"
+              />
+              <Button
+                variant="secondary"
+                icon={copied === "set" ? Check : Copy}
+                onClick={copySet}
+                disabled={items.length < 2}
+              >
+                {copied === "set" ? "Copied" : "Copy set"}
+              </Button>
+              <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
+                Clear
+              </Button>
+            </>
+          ) : (
             <Button variant="secondary" onClick={b.clearCompare} disabled={items.length === 0}>
               Clear
             </Button>
-          </>
+          )
         }
       />
 
@@ -175,6 +181,8 @@ export function CompareScreen() {
         changeLabel="Change therapies"
         slotPlaceholder="Choose therapy"
         icon={Scale}
+        phoneLayout="hybrid"
+        slotSummaryLabel={`Up to ${THERAPY_MAX_COMPARE} therapies`}
         onCommit={(ids) => b.replaceCompareSlugs(ids.filter((id): id is string => Boolean(id)))}
       />
 
@@ -182,7 +190,7 @@ export function CompareScreen() {
         <>
           {/* decision summary */}
           <div className={cn(cardSurface, "grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] overflow-hidden mb-5")}>
-            <div className="py-5 px-[22px]">
+            <div className="py-5 px-5.5">
               <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
             <SummaryCell label="SHORTEST DELIVERY" value={shortestDelivery(items)?.name ?? "—"} accent />
@@ -214,7 +222,7 @@ export function CompareScreen() {
               role="region"
               aria-label="Therapy comparison table"
               tabIndex={0}
-              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)] md:block"
+              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--e2)] md:block"
             >
               <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
                 <caption className="sr-only">Therapy comparison by clinical field</caption>
@@ -232,15 +240,15 @@ export function CompareScreen() {
                         scope="col"
                         className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
                       >
-                        <div className="flex items-center gap-[7px]">
+                        <div className="flex items-center gap-2">
                           <Scale aria-hidden="true" className="size-icon-sm text-[color:var(--decoration-soft)]" />
                           <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                         </div>
                         <div
                           className={
                             t.reviewStatus === "reviewed"
-                              ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
-                              : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
+                              ? "mt-0.5 text-2xs font-semibold text-[color:var(--success-text)]"
+                              : "mt-0.5 text-2xs font-semibold text-[color:var(--warning-text)]"
                           }
                         >
                           {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
@@ -265,7 +273,7 @@ export function CompareScreen() {
                           className={`border-t border-[color:var(--border)] font-semibold ${dense ? "px-4 py-3" : "px-5 py-4"}`}
                         >
                           <span className="flex items-center gap-2.5">
-                            <r.icon strokeWidth={1.7} className="size-icon-md" />
+                            <r.icon size={16} strokeWidth={1.7} />
                             {r.label}
                           </span>
                         </th>
@@ -381,7 +389,7 @@ function SummaryCell({
 }) {
   return (
     <div
-      className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
+      className={`border-l border-[color:var(--border)] px-5.5 py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
     >
       <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>

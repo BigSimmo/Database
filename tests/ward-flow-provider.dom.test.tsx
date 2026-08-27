@@ -51,6 +51,64 @@ describe("WardFlowProvider", () => {
     expect(screen.getByTestId("rejections")).toHaveTextContent("0");
   });
 
+  describe("a pinned clock other than the fixture's own anchor", () => {
+    // Every other `initialNow` call site in the suite passes `NOW_ANCHOR`, which is exactly why
+    // the prop's value being discarded was invisible: `NOW_ANCHOR + 0` and `initialNow` agree
+    // when — and only when — the pinned instant IS `NOW_ANCHOR`. Nothing below may use
+    // `NOW_ANCHOR` as the pinned value, or it stops testing anything.
+    const PINNED_BEFORE_ANCHOR = 7 * 60 + 30; // 07:30 — before the 08:00 morning handover.
+    const PINNED_AFTER_ANCHOR = 21 * 60 + 5; // 21:05 — a late-evening clock.
+
+    it("reports the pinned instant as `now`, not the fixture anchor", () => {
+      render(
+        <WardFlowProvider initialNow={PINNED_BEFORE_ANCHOR}>
+          <Probe />
+        </WardFlowProvider>,
+      );
+      expect(screen.getByTestId("now")).toHaveTextContent(String(PINNED_BEFORE_ANCHOR));
+      // Named explicitly so a regression that silently reverts to the anchor cannot pass by
+      // coincidence, and so the failure message says which clock was actually served.
+      expect(screen.getByTestId("now")).not.toHaveTextContent(String(NOW_ANCHOR));
+    });
+
+    it("reports a pinned instant later than the anchor too, so the fix is not a one-sided offset", () => {
+      render(
+        <WardFlowProvider initialNow={PINNED_AFTER_ANCHOR}>
+          <Probe />
+        </WardFlowProvider>,
+      );
+      expect(screen.getByTestId("now")).toHaveTextContent(String(PINNED_AFTER_ANCHOR));
+    });
+
+    it("still applies the in-app clock offset on top of the pinned instant", () => {
+      // The offset must layer onto the pinned clock, not replace it — otherwise pinning would
+      // work only until the first `ADVANCE_CLOCK`, which is how the demo controls move time.
+      render(
+        <WardFlowProvider initialNow={PINNED_BEFORE_ANCHOR}>
+          <DispatchProbe />
+        </WardFlowProvider>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "advance" }));
+      expect(screen.getByTestId("now")).toHaveTextContent(String(PINNED_BEFORE_ANCHOR + 15));
+    });
+
+    it("still refuses to tick when pinned away from the anchor", () => {
+      // The value being honoured must not have cost the prop its other job: a pinned provider
+      // never starts the interval, whatever instant it was pinned to.
+      const setIntervalSpy = vi.spyOn(window, "setInterval");
+      try {
+        render(
+          <WardFlowProvider initialNow={PINNED_BEFORE_ANCHOR}>
+            <Probe />
+          </WardFlowProvider>,
+        );
+        expect(setIntervalSpy).not.toHaveBeenCalled();
+      } finally {
+        setIntervalSpy.mockRestore();
+      }
+    });
+  });
+
   it("refuses to be used outside the provider rather than returning an empty world", () => {
     // Conservative failure: a component rendered outside the provider must fail loudly, not
     // silently render zero patients, which would read as a quiet night.

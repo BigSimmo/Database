@@ -23,6 +23,7 @@ import {
   documentOrganizationProfile,
 } from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { Checkbox } from "@/components/ui/choice";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import type {
@@ -182,7 +183,7 @@ function DocumentLabelReviewPanel({
 
   return (
     <details className={cn(sourceCard, "group p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
+      <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
@@ -272,7 +273,7 @@ function DocumentLabelReviewPanel({
                                     `restore:${label.id}`,
                                   )
                                 }
-                                className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
+                                className={cn(floatingControl, "px-2 text-2xs")}
                               >
                                 Restore
                               </button>
@@ -289,7 +290,7 @@ function DocumentLabelReviewPanel({
                                       `approve:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
+                                  className={cn(floatingControl, "px-2 text-2xs")}
                                 >
                                   Approve
                                 </button>
@@ -304,7 +305,7 @@ function DocumentLabelReviewPanel({
                                       `hide:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs text-[color:var(--danger)]")}
+                                  className={cn(floatingControl, "px-2 text-2xs text-[color:var(--danger)]")}
                                 >
                                   Hide
                                 </button>
@@ -387,7 +388,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
 
   return (
     <details className={cn(panelSubtle, "group p-3")}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+      <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <Tag aria-hidden="true" className="h-4 w-4" />
@@ -482,7 +483,7 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
 
   return (
     <details className={cn(sourceCard, "p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
+      <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
             <ShieldAlert aria-hidden="true" className="h-4 w-4" />
@@ -848,21 +849,13 @@ export function DocumentDrawer({
 
       {/* Admin Queue Toggle */}
       {isAdminMode ? (
-        <div className="flex items-center gap-2 py-1">
-          <input
-            type="checkbox"
-            id="needs-review-filter"
-            checked={showNeedsReviewOnly}
-            onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
-            className="rounded border-[color:var(--border)] text-[color:var(--primary)] focus:ring-[color:var(--primary)] h-4 w-4"
-          />
-          <label
-            htmlFor="needs-review-filter"
-            className="text-xs font-semibold text-[color:var(--text-muted)] cursor-pointer select-none"
-          >
-            Show &quot;Needs review&quot; queue only
-          </label>
-        </div>
+        // DS-P1-15: Choice Checkbox owns the controlBase focus idiom (no native focus:ring).
+        <Checkbox
+          id="needs-review-filter"
+          checked={showNeedsReviewOnly}
+          onChange={(event) => setShowNeedsReviewOnly(event.target.checked)}
+          label={'Show "Needs review" queue only'}
+        />
       ) : null}
       {pagination && pagination.total > documents.length ? (
         <p className={cn("text-xs", textMuted)}>
@@ -935,7 +928,7 @@ export function DocumentDrawer({
             </button>
           </div>
           <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+            <summary className="flex min-h-tap cursor-pointer items-center text-sm font-semibold text-[color:var(--text)]">
               Bulk metadata editor
             </summary>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

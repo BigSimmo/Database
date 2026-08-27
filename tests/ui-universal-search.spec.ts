@@ -552,9 +552,9 @@ test.describe("universal search smart affordances", () => {
     await input.fill("acamprosat");
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    const progress = page.getByTestId("answer-progress-stepper");
+    const progress = page.getByTestId("answer-progress");
     await expect(progress).toBeVisible();
-    await expect(progress).toContainText("Drafting a cited answer from the selected passages.");
+    await expect(progress).toContainText("Writing the answer");
     // The contract under test is unchanged — no cross-mode matches while the
     // answer is still drafting, and matches once it is final. On answer mode the
     // element carrying it is now the surface's own library line; the mode-level
