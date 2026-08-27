@@ -1413,6 +1413,41 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
         "path": "docs/answer-page-redesign-handover.md",
         "section": "root",
         "catalogued": true
@@ -3738,6 +3773,9 @@
         "name": "adr"
       },
       {
+        "name": "agents"
+      },
+      {
         "name": "archive"
       },
       {
@@ -3790,10 +3828,10 @@
       }
     ],
     "counts": {
-      "documents": 466,
+      "documents": 473,
       "catalogued": 102,
-      "uncatalogued": 364,
-      "sections": 18
+      "uncatalogued": 371,
+      "sections": 19
     }
   },
   "test_health": {

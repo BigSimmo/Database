@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
+    "committed_at": "2026-08-25T17:45:01Z"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 12,
+    "pending": 18,
     "resolved": 412
   },
   "queue": [
@@ -943,6 +943,12 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
+      "action": "done",
+      "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "3a4868e6-281a-48c1-895b-82d6aade2bc7",
       "action": "cancel",
       "summary": "Cancel request 8b2a3f89-9bdb-4fb1-8fd0-35165d050263: Implemented the requested local source-card width constant in this owning answer-page change.",
@@ -959,6 +965,12 @@
       "action": "add",
       "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "6a9212fa-bd26-42d1-b412-6ddda9c66f88",
+      "action": "done",
+      "summary": "#1VFSYF: Created shadow extraction inspection utility script and documented >10% timeout rollback rule.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
@@ -979,10 +991,28 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "a114318c-949e-46df-9b72-c9df997a72cd",
+      "action": "done",
+      "summary": "#8A00R7: Modularized AGENTS.md reducing per-turn token payload while updating pinning tests.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "a7275b7e-ce79-4050-959b-f045a24e6f53",
+      "action": "done",
+      "summary": "#RVK6BJ: Repaired empty Claude Code worktrees and verified worktree dependency setup.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "b85ad821-4c9b-4925-b86b-2d5767052b20",
       "action": "add",
       "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "c9689169-5616-4282-bf8c-25bd5f089575",
+      "action": "done",
+      "summary": "#9X40BT: Documented Supabase preview branching compute cap limit and governance protocol.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
@@ -995,6 +1025,12 @@
       "action": "add",
       "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
+      "action": "done",
+      "summary": "#TF6TPJ: Validated Guard 2 in guard-push.mjs to ensure merge-base resolution on main merges.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "ecabc51d-034a-4a68-91cd-280214aac6bf",

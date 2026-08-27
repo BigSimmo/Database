@@ -149,19 +149,19 @@ in writing.
 
 ### Status record — fill in as steps complete
 
-| Field                               | Value                     | Date | Evidence |
-| ----------------------------------- | ------------------------- | ---- | -------- |
-| OpenAI org / production project id  | _tbd_                     |      |          |
-| DPA executed (version)              | _no (v.010126 available)_ |      |          |
-| Railway DPA executed (version)      | _no_                      |      |          |
-| Railway Singapore processor basis   | _pending_                 |      |          |
-| ZDR approved (project)              | _no_                      |      |          |
-| ZDR covers /responses + /embeddings | _tbd_                     |      |          |
-| ZDR zeroes prompt cache? (§6)       | _tbd_                     |      |          |
-| Australia data residency            | _not enabled_             |      |          |
-| No-training confirmed in contract   | _API default_             |      |          |
-| APP 5/1 notice governance approval  | _pending (PIA-5)_         |      |          |
-| Counsel sign-off (APP 8)            | _pending_                 |      |          |
+| Field                               | Value                     | Date       | Evidence                                              |
+| ----------------------------------- | ------------------------- | ---------- | ----------------------------------------------------- |
+| OpenAI org / production project id  | _production project_      | 2026-08-18 | Verified in production project settings (ledger #053) |
+| DPA executed (version)              | Yes (v.010126)            | 2026-08-18 | Executed OpenAI DPA v.010126 (ledger #053)            |
+| Railway DPA executed (version)      | _no_                      |            |                                                       |
+| Railway Singapore processor basis   | _pending_                 |            |                                                       |
+| ZDR approved (project)              | Yes (project-level)       | 2026-08-18 | Verified OpenAI data controls / ZDR (ledger #053)     |
+| ZDR covers /responses + /embeddings | Yes                       | 2026-08-18 | API Zero Data Retention active (ledger #053)          |
+| ZDR zeroes prompt cache? (§6)       | _tbd_                     |            |                                                       |
+| Australia data residency            | _not enabled_             | 2026-08-18 | US region project endpoint retained                   |
+| No-training confirmed in contract   | Yes (contractual default) | 2026-08-18 | OpenAI API terms & DPA v.010126 (ledger #053)         |
+| APP 5/1 notice governance approval  | _pending (PIA-5)_         |            |                                                       |
+| Counsel sign-off (APP 8)            | _pending_                 |            |                                                       |
 
 Railway's companion contract step is also pending: complete Railway's DPA with the legal entity and
 authorised signer, retain the executed copy, and record the Singapore processor/sub-processor basis
