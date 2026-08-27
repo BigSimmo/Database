@@ -210,7 +210,7 @@ function imageAspectRatio(image: ImageRow) {
   return image.width / image.height;
 }
 
-function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
+function tableQualityWarnings(image: ImageRow) {
   const warnings: string[] = [];
   if (image.rowsTruncated) {
     warnings.push(
@@ -227,9 +227,6 @@ function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
   }
   if (typeof image.ocrTextDensity === "number" && image.ocrTextDensity < 0.18) {
     warnings.push("OCR/text density is low; verify wording against the source image.");
-  }
-  if (!hasStructuredTable && image.source_kind === "table_crop") {
-    warnings.push("No reliable generated table was available; use the source image.");
   }
   return warnings;
 }
@@ -265,9 +262,10 @@ export function DocumentImage({
     rows: image.tableRows,
     columns: image.tableColumns,
   });
+  const sourceImageOnly = !hasStructuredTable && image.source_kind === "table_crop";
   const tableCaption = tableHeading || cleanCaption || "Document table";
   const hasSourceTableTitle = Boolean(tableHeading || cleanCaption);
-  const warnings = tableQualityWarnings(image, hasStructuredTable);
+  const warnings = tableQualityWarnings(image);
   const sourceImageFirst =
     !hasStructuredTable ||
     image.rowsTruncated === true ||
@@ -393,6 +391,15 @@ export function DocumentImage({
             .filter(Boolean)
             .join(" · ")}
         </p>
+        {sourceImageOnly ? (
+          <span
+            data-testid="source-image-only-status"
+            className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-2xs font-semibold text-[color:var(--text-muted)]"
+          >
+            Source image only
+            <span className="sr-only">; no reliable generated table is available.</span>
+          </span>
+        ) : null}
       </div>
       {warnings.length ? (
         <div className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-2 text-xs leading-5 text-[color:var(--warning)]">
