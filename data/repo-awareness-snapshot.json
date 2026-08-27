@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "ca9a7990a043e371529001c3e1df978b137374d4",
-    "committed_at": "2026-08-27T10:05:24+08:00"
+    "sha": "201ae79898d8cf35daf188541818240cfac9ce38",
+    "committed_at": "2026-08-27T10:32:09+08:00"
   },
   "routes": {
     "modes": [
@@ -3809,6 +3809,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -24835,8 +24843,8 @@
       }
     ],
     "counts": {
-      "records": 2628,
-      "refs": 1605
+      "records": 2629,
+      "refs": 1606
     }
   }
 }

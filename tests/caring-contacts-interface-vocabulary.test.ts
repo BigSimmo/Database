@@ -240,4 +240,19 @@ describe("caring-contacts interface vocabulary (B3)", () => {
     expect(filesScanned).toBeGreaterThan(0);
     expect(offences).toEqual([]);
   });
+
+  it("distinguishes clinical job titles from commercial lead generation", () => {
+    expect("clinical programme lead").not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("incident lead").not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("team lead").not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("service lead").not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("clinical lead").not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+
+    expect("sales lead generation").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("new leads").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("lead capture").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("sales team lead generation").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("clinical lead capture").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    expect("Our team lead nurturing numbers are up").toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+  });
 });
