@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -13,9 +15,10 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import {
+  buildFrozenMorning,
   FreshnessStamp,
   MorningBody,
   MorningPage,
@@ -81,6 +84,25 @@ function NullHandoverHarness() {
   );
 }
 
+/**
+ * Unlike `NullHandoverHarness` above, this drives the REAL `buildFrozenMorning` — the actual
+ * null-producing path (spec D5) — instead of hand-authoring `frozen = { instant: null, rollup:
+ * null }`. `WardFlowProvider`'s `initialNow` prop cannot be used to make the live `now` genuinely
+ * fall before 08:00 (its numeric value is discarded on the path that matters — see
+ * `NullHandoverHarness`'s comment and the mutation report's Gap 1), so this harness takes the real
+ * `units`/`bedReleases`/`leaveBeds` from the provider and calls `buildFrozenMorning` directly with
+ * a synthetic pre-08:00 `now` argument — exactly the value `MorningPage`'s own `useState`
+ * initialiser would close over if the clock genuinely read that time. This exercises
+ * `buildFrozenMorning`'s null-propagation for real, not a bypass of it.
+ */
+function DirectFrozenHarness({ now }: { now: Instant }) {
+  const { units, bedReleases, leaveBeds } = useWardFlow();
+  const frozen = buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds);
+  const [view, setView] = useState<MorningView>("fixed");
+  const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
+  return <MorningBody frozen={frozen} view={view} onChangeView={setView} liveRollup={liveRollup} liveNow={now} />;
+}
+
 describe("MorningPage", () => {
   it("renders the governance banner, the headline and the remaining four figures for the real fixture after 08:00", () => {
     renderMorningPage();
@@ -102,10 +124,77 @@ describe("MorningPage", () => {
     expect(within(remaining).getByTestId("ward-morning-figure-leaveUsable")).toBeInTheDocument();
   });
 
+  /**
+   * The single most important rule in this project (stated in `GovernanceBanner`'s own copy):
+   * nothing predicted, confirmed-but-unreleased, or on leave may ever reach "beds available right
+   * now". No existing test asserted the headline's actual NUMBER, only its presence — so a
+   * mutation making the headline `availableNow + confirmedToday` (mutation-report Gap 3, the most
+   * serious of the three) passed every assertion in this file. This test computes the expected
+   * figure independently via `serviceRollup(...)` from the same real fixture data the page itself
+   * renders, over `bedReleases`/`leaveBeds` fixtures (`ward-movements.ts`) that are seeded with
+   * non-zero `confirmedToday`, `predictedToday` and `leaveUsable` at the frozen 08:00 handover
+   * instant — asserted below rather than assumed, so this guard cannot pass merely because those
+   * fields happened to be zero. Adding any of them into the headline changes the expected number
+   * and fails this test.
+   */
+  it("renders the headline as availableNow alone, never mixing in confirmedToday, predictedToday or leaveUsable", () => {
+    let captured: ReturnType<typeof useWardFlow> | undefined;
+
+    function Capture({ children }: { children: ReactNode }) {
+      captured = useWardFlow();
+      return <>{children}</>;
+    }
+
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <Capture>
+          <MorningPage />
+        </Capture>
+      </WardFlowProvider>,
+    );
+
+    // The fixed view is frozen at the 08:00 handover instant, not at `NOW_ANCHOR` itself — so the
+    // independent expectation must be computed at that same instant, over the exact
+    // units/bedReleases/leaveBeds the rendered page used (captured from the same provider tree).
+    const { units, bedReleases, leaveBeds } = captured!;
+    const expected = serviceRollup(wardSites, units, bedReleases, leaveBeds, MORNING_HANDOVER_MINUTES).service;
+
+    // Guard the guard: this must genuinely exercise all three excluded fields, or the assertion
+    // below could pass for the wrong reason (headline === availableNow trivially because the
+    // excluded fields were already zero).
+    expect(expected.confirmedToday).toBeGreaterThan(0);
+    expect(expected.predictedToday).toBeGreaterThan(0);
+    expect(expected.leaveUsable).toBeGreaterThan(0);
+
+    const headline = screen.getByTestId("ward-morning-headline");
+    expect(within(headline).getByTestId("ward-morning-figure-availableNow")).toHaveTextContent(
+      String(expected.availableNow),
+    );
+  });
+
   it("renders every figure label from the one definition, so a model change is three strings", () => {
     renderMorningPage();
     for (const label of Object.values(CAPACITY_FIGURE_LABELS)) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * The test above asserts rendered text equals `CAPACITY_FIGURE_LABELS`'s own values, which is
+   * self-referential: a hardcoded literal identical to the constant (e.g. `"Predicted today"`
+   * typed directly into JSX instead of `{CAPACITY_FIGURE_LABELS.predictedToday}`) produces the
+   * same DOM and passes it (mutation-report Gap 2). What spec D14 actually protects is that the
+   * page has no such literal at all — every label site reads the constant, so a future rename of
+   * one value is three strings, never a JSX hunt. This asserts that directly against the page's
+   * own source text: none of the current label values may appear anywhere in `morning-page.tsx`
+   * as a quoted string literal, because the only legitimate way to render one is
+   * `CAPACITY_FIGURE_LABELS[key]`. (Precedent for a source-text assertion in this style:
+   * `tests/ward-management.test.ts`, `tests/ward-legal-figure-guard.test.ts`.)
+   */
+  it("never hardcodes a figure-label literal in the page source — every label is read from CAPACITY_FIGURE_LABELS", () => {
+    const source = readFileSync("src/components/ward-management/morning/morning-page.tsx", "utf8");
+    for (const label of Object.values(CAPACITY_FIGURE_LABELS)) {
+      expect(source.includes(JSON.stringify(label))).toBe(false);
     }
   });
 
@@ -167,6 +256,28 @@ describe("MorningPage", () => {
     expect(screen.queryByTestId("ward-morning-no-handover")).not.toBeInTheDocument();
     expect(screen.getByTestId("ward-morning-headline")).toBeInTheDocument();
     expect(screen.getByTestId("ward-morning-view-live")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  /**
+   * Same failure branch as the test above, but through the REAL `buildFrozenMorning` (see
+   * `DirectFrozenHarness`'s doc comment for why `WardFlowProvider` cannot supply this directly).
+   * A `buildFrozenMorning` that silently fell back to `now` instead of propagating `null` —
+   * mutation-report Gap 1 — would render figures here instead of the not-taken state, and this
+   * test would fail.
+   */
+  it("propagates buildFrozenMorning()'s real null-instant result to no figures at all, never a fallback to now", () => {
+    const beforeHandover = 100; // 01:40 on the same operating day as NOW_ANCHOR (642) — before 08:00
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <DirectFrozenHarness now={beforeHandover} />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.getByTestId("ward-morning-no-handover")).toHaveTextContent(
+      "The 08:00 handover has not been taken for this day.",
+    );
+    expect(screen.queryByTestId("ward-morning-headline")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("ward-morning-sites")).not.toBeInTheDocument();
   });
 
   it("reads 'Never confirmed' for a rollup with nothing confirmed, never a bare 0", () => {
