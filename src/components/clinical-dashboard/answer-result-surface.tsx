@@ -379,7 +379,14 @@ function StagedAnswerResultSurfaceImpl({
             titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            // No `flex flex-col` here. The Sheet body is the scrollport, and as a flex
+            // column its single child (the findings card) became a shrinkable flex
+            // item: it was compressed from its natural height to whatever was left,
+            // and because that card is `overflow-hidden` the findings below the fold
+            // were clipped rather than scrolled. The body then had nothing to scroll,
+            // so the gesture went to the page behind the sheet. A plain block
+            // scrollport keeps the list at its natural height and scrolls it.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />
