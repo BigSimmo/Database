@@ -555,9 +555,18 @@
      nav subtracts it from its gutter and adds it back to its max-width so the
      ink — not the box — lands on the header's content edge at every width. */
   --mode-nav-ink-offset: 1rem;
-  /* Borderless app-shell/header height (the min-h-14 bar). Page shells fill the
-     viewport below it via calc(100dvh - var(--shell-header-h)); one token so the
-     header height and those page-fill floors cannot silently drift apart. */
+  /* Borderless app-shell/header height: the `min-h-14` bar plus its `pb-2`, and
+     NOT the bar's own `pt-[max(0.5rem, var(--safe-area-top))]`. The header's
+     in-flow box is therefore taller than this token by that top pad.
+
+     Page shells no longer fill with `calc(100dvh - var(--shell-header-h))` for
+     exactly that reason: the estimate was 8px short on every route, a further
+     49px short wherever the `header-collapse-addon` nav row mounts, and blind to
+     `#main-content`'s own `sm:pb-8` — so pages whose content had ended still
+     carried scroll range. They grow into their box instead (invariant 24 in
+     docs/search-chrome-behaviour.md). Keep this token for chrome offsets and for
+     `--phone-overlay-chrome-h` below, which adds the top pad back explicitly;
+     do not resurrect it as a page-fill floor. */
   --shell-header-h: 4rem;
   /* Server-stable default for the phone overlay header's content clearance.
      `usePhoneOverlayChromeReserve` refines this to the measured stack height in
