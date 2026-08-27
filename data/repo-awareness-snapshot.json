@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "bbd9b3e1ca32476536be255ee22705f328ea3966",
-    "committed_at": "2026-08-27T12:51:42+00:00"
+    "sha": "072aba85fedc9a237d9a18ac2b256fb6cc92cd38",
+    "committed_at": "2026-08-27T13:11:23+00:00"
   },
   "routes": {
     "modes": [
@@ -679,38 +679,8 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/favourites-command-console",
-        "file": "src/app/mockups/favourites-command-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-command-desk",
-        "file": "src/app/mockups/favourites-command-desk/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-library-view",
-        "file": "src/app/mockups/favourites-library-view/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/favourites-phone-perfected",
         "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-review-console",
-        "file": "src/app/mockups/favourites-review-console/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-board",
-        "file": "src/app/mockups/favourites-set-board/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/favourites-set-navigator",
-        "file": "src/app/mockups/favourites-set-navigator/page.tsx",
         "area": "mockup"
       },
       {
@@ -1397,9 +1367,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 195,
+      "pages": 189,
       "product_pages": 55,
-      "mockup_pages": 140,
+      "mockup_pages": 134,
       "redirects": 17,
       "api": 58
     }
