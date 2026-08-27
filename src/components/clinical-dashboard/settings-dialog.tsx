@@ -500,10 +500,14 @@ export function SettingsDialog({
       const offset = Math.min(Math.max(0, top), maxOffset);
       const distance = Math.abs(container.scrollTop - offset);
       pinnedSectionRef.current = { id, offset, distance, settled: distance <= scrollSettleTolerance };
-      // Avoid `behavior: "instant"` / `"auto"`: `"auto"` defers to the container's
-      // `scroll-smooth`, and engines that do not recognise `"instant"` can fall
-      // back to that CSS smooth path — the exact reduced-motion failure. Write
-      // `scrollTop` under an inline `scroll-behavior: auto` instead.
+      // CSSOM-View: an explicit ScrollToOptions.behavior overrides CSS
+      // `scroll-behavior`, so `scrollTo({ behavior: "smooth" })` would still
+      // animate under prefers-reduced-motion / html[data-motion="reduced"].
+      // Do not route this through resolveScrollBehavior() -- that helper does
+      // not honor the in-app data-motion="full" opt-in that this local
+      // prefersReducedMotion() does. Reduced-motion writes scrollTop under an
+      // inline `scroll-behavior: auto` so engines cannot fall back to a CSS
+      // smooth path (the port no longer carries Tailwind `scroll-smooth`).
       if (reduceMotion) {
         const previousBehavior = container.style.scrollBehavior;
         container.style.scrollBehavior = "auto";
@@ -736,7 +740,7 @@ export function SettingsDialog({
                     disabled={!reachable}
                     aria-current={active && reachable ? "true" : undefined}
                     className={cn(
-                      "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium leading-5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-default disabled:opacity-40",
+                      "flex min-h-tap items-center gap-3 rounded-lg px-3 text-sm font-medium leading-5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-default disabled:opacity-40",
                       active && reachable
                         ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ring-1 ring-[color:var(--clinical-accent)]/12"
                         : "text-[color:var(--text-muted)] enabled:hover:bg-[color:var(--surface-lux)]/80 enabled:hover:text-[color:var(--text-heading)]",
@@ -758,7 +762,7 @@ export function SettingsDialog({
             ref={scrollRef}
             onScroll={handleScroll}
             data-testid="settings-scroll-port"
-            className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll md:px-6 lg:bg-transparent lg:px-7"
+            className="relative min-h-0 w-full overflow-y-auto bg-[color:var(--background)] polished-scroll md:px-6 lg:bg-transparent lg:px-7"
           >
             {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
               band, and it slides away on scroll-down (mobile only) so the top runs
@@ -978,13 +982,13 @@ export function SettingsDialog({
                             mode="create"
                             active={accountEntryMode === "create"}
                             onSelect={openSettingsEmailEntry}
-                            className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                            className="whitespace-nowrap px-3 text-sm leading-none"
                           />
                           <AccountEntryModeButton
                             mode="sign-in"
                             active={accountEntryMode === "sign-in"}
                             onSelect={openSettingsEmailEntry}
-                            className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                            className="whitespace-nowrap px-3 text-sm leading-none"
                           />
                         </div>
                       ) : (
@@ -1002,13 +1006,13 @@ export function SettingsDialog({
                             mode="create"
                             active={accountEntryMode === "create"}
                             onSelect={openSettingsEmailEntry}
-                            className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                            className="whitespace-nowrap px-2.5 text-sm leading-none"
                           />
                           <AccountEntryModeButton
                             mode="sign-in"
                             active={accountEntryMode === "sign-in"}
                             onSelect={openSettingsEmailEntry}
-                            className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                            className="whitespace-nowrap px-2.5 text-sm leading-none"
                           />
                         </div>
 
@@ -1106,7 +1110,7 @@ export function SettingsDialog({
                         }}
                         className={cn(
                           floatingControl,
-                          "mt-3 min-h-10 w-full justify-center gap-2 rounded-lg text-sm md:w-auto md:px-4",
+                          "mt-3 w-full justify-center gap-2 rounded-lg text-sm md:w-auto md:px-4",
                         )}
                       >
                         <LogOut aria-hidden="true" className="h-4 w-4" />
@@ -1393,7 +1397,7 @@ export function SettingsDialog({
                     }}
                     onPointerEnter={onPrefetchGuide}
                     onFocus={onPrefetchGuide}
-                    className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                    className={cn(floatingControl, "mt-3 w-full gap-2 text-sm")}
                     data-testid="settings-row-guide-help"
                   >
                     <BookOpen aria-hidden="true" className="h-4 w-4" />
@@ -1416,7 +1420,7 @@ export function SettingsDialog({
                   <Link
                     href="/mockups/development"
                     onClick={onClose}
-                    className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                    className={cn(floatingControl, "mt-3 w-full gap-2 text-sm")}
                     data-testid="settings-row-development-page"
                   >
                     <FlaskConical aria-hidden="true" className="h-4 w-4" />

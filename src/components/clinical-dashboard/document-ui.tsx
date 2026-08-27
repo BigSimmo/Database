@@ -113,7 +113,7 @@ export function DocumentMetaRow({
 }
 
 export const documentActionClass =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 text-xs font-semibold transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center gap-1.5 text-xs font-semibold transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 export function DocumentActionLink({
   href,
