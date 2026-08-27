@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f7527ac82d8e5945ed6a43a9c82adbcbac896467",
-    "committed_at": "2026-08-27T10:20:25+00:00"
+    "sha": "f122f0e3a247cd751cd0806cd77c473dbdcbed6c",
+    "committed_at": "2026-08-27T10:49:10+00:00"
   },
   "routes": {
     "modes": [
@@ -3910,6 +3910,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state=behind (19 commits behind main), pre-merge head CI already fully green (PR required success), 0 unresolved review threads. Action: merged origin/main (clean, no conflicts — git merge-tree confirmed clean beforehand); ran npm ci, lint, typecheck, full unit test suite, and a full production build + bundle-budget check offline, all green; pushed merge commit 493c018d. No CI failures to fix, no review threads to address. After: new head 493c018d re-triggered CI (in progress at push time), no local guardrailed action taken.",
         "checks": "lint: PASS (0 warnings); typecheck: PASS; test: PASS (892 files, 10817 passed, 4 skipped); build: PASS (next build --webpack, compiled successfully); check:bundle-budget: PASS (production 1665.9 KiB gzip within tolerance, mockups within tolerance, routes / and /documents/search within tolerance); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "dependabot/npm_and_yarn/npm-production-9d7c78ff3c (PR #2296)",
+        "head": "4b82338a3a29c650ec2d757265142821dddd28d4",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: head f7527ac (prior sweep's own ledger-append commit) failing required Static PR checks — check:repo-awareness-snapshot stale because that prior ledger append changed the review-ledger record count without regenerating the committed snapshot; 0 unresolved review threads; mergeable_state behind by 1 commit on main (603da96, clean per git merge-tree). Action: regenerated data/repo-awareness-snapshot.json (commit bd6afd1), merged origin/main cleanly with zero conflicts (commit 4b82338, only files touched came from main's own already-CI-validated diff), pushed. No review threads existed to address. After: new head 4b82338, check:repo-awareness-snapshot passes locally; full CI re-triggered by the push and left to settle there.",
+        "checks": "check:repo-awareness-snapshot: PASS locally (both before-fix repro and after-fix confirmation); git merge-tree origin/main <tip>: clean (no conflict markers); npm run lint: started locally but did not finish within this session's window on the large first-run eslint cache build (~4+ min, no result to report) — not relied on, CI's static-pr job is authoritative for lint/typecheck on the pushed head; no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -24945,7 +24953,7 @@
       }
     ],
     "counts": {
-      "records": 2632,
+      "records": 2633,
       "refs": 1608
     }
   }
