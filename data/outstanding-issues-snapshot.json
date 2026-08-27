@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 18,
+    "pending": 24,
     "resolved": 414
   },
   "queue": [
@@ -1036,6 +1036,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "59d16d75-adcd-4bce-8ffd-3066f249fce9",
+      "action": "cancel",
+      "summary": "Cancel request a193dfb0-236c-44bd-bfc1-f955eb20f273: Superseded by PR 2406's own closure of 023, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
       "action": "done",
       "summary": "#S4K1GA: Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
@@ -1045,6 +1051,18 @@
       "request_id": "6399ff26-1ea9-47ec-b23f-328c2bf10d6f",
       "action": "done",
       "summary": "#KFRC3H: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Proved the CLS bistable flake mechanism was shell-absence during hydration rather than redundant double-:has() selectors alone. Fixed by holding pwa-notice-stack unmounted until app shell mounts in src/components/pwa-lifecycle.tsx. Verified locally (0.2230 -> 0.000) and in hosted CI Lighthouse budget run 32531103787. Closed together with #50QRCF and #TYZK23.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "71150e70-36e9-4291-8145-03de193dd94c",
+      "action": "cancel",
+      "summary": "Cancel request c6533595-1f18-4be2-ba89-7a793a122779: Superseded by PR 2406's own closure of 50QRCF, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "7280b503-2618-446f-b542-406e8044671d",
+      "action": "cancel",
+      "summary": "Cancel request 96276ae2-e83f-4c2e-8ad2-8e541471e094: Superseded by PR 2406's own update record on 102, already merged to main. This branch (2407) queued a duplicate independent update for the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
       "created_at": "2026-08-27"
     },
     {
@@ -1072,6 +1090,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "ad3b78e0-72a8-4b05-9d30-2cc805ef363a",
+      "action": "cancel",
+      "summary": "Cancel request f5a27b65-309d-465c-9f5f-b87082206325: Superseded by PR 2406's own closure of TYZK23, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "ad794482-fb8a-45e3-921e-c8f210bc1b5e",
       "action": "done",
       "summary": "#61TZJA: Documented visual baseline adoption workflow following document-viewer updates.",
@@ -1096,9 +1120,21 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "cf37b0db-a67f-4d7e-b90b-9e8ed36a5166",
+      "action": "cancel",
+      "summary": "Cancel request 6399ff26-1ea9-47ec-b23f-328c2bf10d6f: Superseded by PR 2406's own closure of KFRC3H, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "d24fe2f4-0a3d-4fc7-8181-f897f0cba415",
       "action": "done",
       "summary": "#023: Recorded scheduled Firefox/WebKit browser matrix verification and labeling disposition.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "d837a152-2bf2-4fee-b02e-46cc68faf70f",
+      "action": "cancel",
+      "summary": "Cancel request 5ccb7318-5b8c-4caf-ab95-eb9f4dae8883: Superseded by PR 2406's own closure of S4K1GA, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
       "created_at": "2026-08-27"
     },
     {
