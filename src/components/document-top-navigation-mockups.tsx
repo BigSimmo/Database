@@ -400,7 +400,7 @@ function ResponsivePreview({ concept, device }: { concept: ConceptId; device: Pr
         id={`${concept}-${device}-preview`}
         data-concept={concept}
         data-device={device}
-        className="relative flex min-w-0 flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="relative flex min-w-0 flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <MiniGlobalHeader device={device} />
         <header className="relative z-10 bg-[color:var(--surface)] shadow-[var(--e1)]">

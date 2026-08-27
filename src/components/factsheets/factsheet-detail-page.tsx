@@ -28,7 +28,7 @@ import {
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { FactsheetNavHeader, factsheetBodySectionId } from "@/components/factsheets/factsheet-nav-header";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 import {
   readSavedRegistrySlugs,
@@ -133,7 +133,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                 onClick={toggleSaved}
                 aria-pressed={saved}
                 className={cn(
-                  "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-3 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                   saved
                     ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--border-strong)]",
@@ -153,35 +153,20 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           <article className="min-w-0">
             {/* hero band */}
             <div className="rounded-2xl border border-[color:var(--border)] p-6" style={{ background: theme.hero }}>
-              <div className="flex items-center gap-3">
-                <span
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl shadow-[var(--shadow-inset)]"
-                  style={{ backgroundColor: theme.soft, color: theme.accent }}
-                >
-                  {factsheetGlyph(factsheet.icon, "h-6 w-6")}
-                </span>
-                <div className="flex flex-col gap-1">
-                  <span className="text-2xs font-bold uppercase tracking-label" style={{ color: theme.accent }}>
-                    {factsheet.category}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--text-muted)]">
+              <InformationPageHeader
+                eyebrow={factsheet.category}
+                title={factsheet.brand ? `${factsheet.title} ${factsheet.brand}` : factsheet.title}
+                subtitle={factsheet.summary}
+                badges={
+                  <>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
                       <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       Updated {factsheet.reviewedOn}
                     </span>
-                    <span className="text-xs text-[color:var(--text-muted)]">· {factsheet.readTime}</span>
-                  </div>
-                </div>
-              </div>
-              <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight text-[color:var(--text-heading)]">
-                {factsheet.title}
-                {factsheet.brand ? (
-                  <span className="font-medium text-[color:var(--text-muted)]"> {factsheet.brand}</span>
-                ) : null}
-              </h1>
-              <p className="mt-3 max-w-2xl text-pretty text-base leading-7 text-[color:var(--text-muted)]">
-                {factsheet.summary}
-              </p>
+                    <span className="text-xs font-semibold text-[color:var(--text-muted)]">{factsheet.readTime}</span>
+                  </>
+                }
+              />
             </div>
 
             {/* kind-specific body */}
@@ -251,7 +236,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                   <Heading>More in {factsheet.category}</Heading>
                   <Link
                     href={`/factsheets/search?category=${encodeURIComponent(factsheet.category)}`}
-                    className="text-sm font-bold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
+                    className="text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)]"
                   >
                     See all
                   </Link>
@@ -362,7 +347,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 {copied ? (
                   <Check className="h-4 w-4" aria-hidden="true" />
@@ -374,7 +359,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <button
                 type="button"
                 onClick={downloadPdf}
-                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 <Printer className="h-4 w-4" aria-hidden="true" />
                 Print

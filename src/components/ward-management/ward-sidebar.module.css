@@ -156,6 +156,14 @@
   text-transform: uppercase;
 }
 
+.link {
+  composes: namedKill from "./ward-reduced-motion.module.css";
+}
+
+.linkActive {
+  composes: namedKill from "./ward-reduced-motion.module.css";
+}
+
 .link,
 .linkActive {
   display: flex;
@@ -340,13 +348,6 @@
 @media (min-width: 40.0625rem) {
   .drawerHidden {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .link,
-  .linkActive {
-    transition: none;
   }
 }
 
