@@ -8,6 +8,13 @@ vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   SignedImage: ({ caption }: { caption?: string }) => <p>{caption}</p>,
 }));
 
+vi.mock("@/lib/supabase/client", () => ({
+  useAuthSession: () => ({
+    authorizationHeader: { Authorization: "Bearer cover-test" },
+    session: { user: { id: "cover-test-user" } },
+  }),
+}));
+
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { NaturalLanguageAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
 import { type AnswerSourceRow } from "@/components/clinical-dashboard/answer-source-rows";

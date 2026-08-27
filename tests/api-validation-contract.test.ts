@@ -6,6 +6,31 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
 
+function documentDetailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: documentId,
+    owner_id: userId,
+    title: "Clinical guideline",
+    description: null,
+    file_name: "guideline.pdf",
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `${userId}/documents/guideline.pdf`,
+    content_hash: null,
+    source_path: null,
+    import_batch_id: null,
+    status: "indexed",
+    page_count: 5,
+    chunk_count: 20,
+    image_count: 0,
+    error_message: null,
+    metadata: {},
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function apiRouteFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -434,7 +459,7 @@ describe("API validation contracts", () => {
   it("treats empty document-detail chunk as absent and clamps page/chunk windows", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.maybeSingle) {
-        return ok({ id: documentId, owner_id: userId, page_count: 5, chunk_count: 20, metadata: {} });
+        return ok(documentDetailRow());
       }
       if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       return ok([]);

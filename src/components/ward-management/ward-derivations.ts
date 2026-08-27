@@ -30,6 +30,7 @@ import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
   type BedRelease,
+  type BedReleaseState,
   type HealthService,
   type Movement,
   type MovementStage,
@@ -50,6 +51,16 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
   handover_ready: { label: "Handover ready", shortLabel: "Ready" },
   moving: { label: "Moving", shortLabel: "Moving" },
   arrived: { label: "Arrived", shortLabel: "Arrived" },
+};
+
+/** Same reason `stageCopy` exists: `BedReleaseState`'s own values (`BED_RELEASE_STATES` in
+ *  ward-model.ts) are raw lowercase lifecycle identifiers, never sentence-case display text.
+ *  A screen renders this label, never `release.state` directly (defect fix, visual pass). */
+export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
+  predicted: "Predicted",
+  confirmed: "Confirmed",
+  blocked: "Blocked",
+  released: "Released",
 };
 
 /** Counts are derived from whatever `movements` list the caller passes — every screen now
@@ -234,6 +245,18 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
   return {
     available,
     held,
+    /**
+     * Task 7 (Phase 5, spec D6); review Finding 4: this is a raw count of every bed release for
+     * the unit regardless of state or timing — it does not distinguish confirmed from predicted
+     * from blocked, and it does not exclude a release that falls beyond tonight. Nothing renders
+     * this field any more: `ward-management-modes.tsx`, `ward/ward-screen.tsx`,
+     * `ward-management-network.tsx` and `coordinator/flow-diagram.tsx` all render
+     * `capacityBreakdown()`'s Confirmed/Predicted figures instead. This field's arithmetic is
+     * deliberately left unchanged — it is protected — but it is dead beyond its remaining
+     * offline test callers (`tests/ward-capacity-reconciliation.test.ts`,
+     * `tests/ward-flow-reducer.test.ts`, `tests/ward-model.test.ts`); do not repurpose it as a
+     * live figure.
+     */
     potential: bedReleases.filter((release) => release.unitId === unit.id).length,
     blocked,
     occupied,

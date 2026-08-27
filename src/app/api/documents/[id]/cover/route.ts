@@ -5,7 +5,6 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoImages } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError, publicErrorResponse } from "@/lib/http";
-import { fetchDocumentCoverImageIds } from "@/lib/document-enrichment";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { parseRouteParams } from "@/lib/validation/params";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
@@ -16,6 +15,7 @@ export const runtime = "nodejs";
 
 const coverRouteParamsSchema = z.object({ id: z.string().uuid() });
 const coverImageIdSchema = z.string().uuid();
+const maxLegacyCoverCandidates = 64;
 
 /**
  * The document's first-page cover thumbnail id, for surfaces that show what a
@@ -105,12 +105,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ coverImageId: cover.id });
     }
 
-    // Documents indexed before the pointer existed carry no such key. Fall back
-    // to the scan rather than drop their thumbnail: it is the same resolution
-    // the document search cards already use, and the signed-url route still
-    // re-checks ownership and committed generation before it hands anything out.
-    const covers = await fetchDocumentCoverImageIds(supabase, [id], request.signal);
-    return NextResponse.json({ coverImageId: covers.get(id) ?? null });
+    // Documents indexed before the selected pointer existed carry no such key.
+    // Resolve their cover locally so the route never hands a staged/stale row
+    // to the signed-url route. The database predicates enforce document + kind;
+    // the defensive checks below preserve that invariant even if query data is
+    // malformed. A bounded ambiguous legacy result fails closed.
+    const committedGeneration = committedIndexGeneration(metadata);
+    const { data: candidates, error: candidatesError } = await supabase
+      .from("document_images")
+      .select("id,document_id,source_kind,metadata")
+      .eq("document_id", id)
+      .eq("source_kind", "cover_page")
+      .abortSignal(request.signal)
+      .limit(maxLegacyCoverCandidates + 1);
+    if (candidatesError) throw new Error(candidatesError.message);
+
+    const boundedCandidates = candidates ?? [];
+    if (boundedCandidates.length > maxLegacyCoverCandidates) {
+      return NextResponse.json({ coverImageId: null });
+    }
+    const committedCandidates = boundedCandidates.filter((candidate) => {
+      if (candidate.document_id !== id || candidate.source_kind !== "cover_page") return false;
+      if (!coverImageIdSchema.safeParse(candidate.id).success) return false;
+      const candidateGeneration = committedIndexGeneration(candidate.metadata);
+      return committedGeneration ? candidateGeneration === committedGeneration : candidateGeneration === null;
+    });
+    return NextResponse.json({ coverImageId: committedCandidates.length === 1 ? committedCandidates[0].id : null });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     if (error instanceof PublicApiError) return jsonError(error);
