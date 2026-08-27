@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -15,6 +13,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import {
@@ -33,6 +32,13 @@ import {
   type ServiceRollup,
 } from "@/components/ward-management/ward-morning-rollup";
 import { NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
+
+import { literalsIn } from "./helpers/ast-string-literals";
+
+/** Every figure key, in the one order `CAPACITY_FIGURE_LABELS` declares them — the same array
+ *  `morning-page.tsx`'s own (unexported) `ALL_FIGURE_KEYS` builds, kept in sync by construction
+ *  rather than by a second hand-typed list, since both read the one exported constant. */
+const ALL_FIGURE_KEYS = Object.keys(CAPACITY_FIGURE_LABELS) as (keyof typeof CAPACITY_FIGURE_LABELS)[];
 
 /** Raises the same `ADVANCE_CLOCK` demo event `ward-handover.dom.test.tsx`'s `ClockAdvancer`
  * raises, so this suite can move the shared clock without reaching into the reducer directly. */
@@ -204,16 +210,36 @@ describe("MorningPage", () => {
    * typed directly into JSX instead of `{CAPACITY_FIGURE_LABELS.predictedToday}`) produces the
    * same DOM and passes it (mutation-report Gap 2). What spec D14 actually protects is that the
    * page has no such literal at all — every label site reads the constant, so a future rename of
-   * one value is three strings, never a JSX hunt. This asserts that directly against the page's
-   * own source text: none of the current label values may appear anywhere in `morning-page.tsx`
-   * as a quoted string literal, because the only legitimate way to render one is
-   * `CAPACITY_FIGURE_LABELS[key]`. (Precedent for a source-text assertion in this style:
-   * `tests/ward-management.test.ts`, `tests/ward-legal-figure-guard.test.ts`.)
+   * one value is three strings, never a JSX hunt.
+   *
+   * Gap 3 (final review). This used to be `source.includes(JSON.stringify(label))` — a raw
+   * substring check for the DOUBLE-QUOTED form only. `JSON.stringify("Predicted today")` is
+   * `"Predicted today"` with double quotes, so the guard was blind to a single-quoted literal
+   * (`'Predicted today'`) and, more seriously, to a TEMPLATE literal (`` {`Predicted today`} ``):
+   * Prettier does not rewrite a template literal to quotes, so that form survives lint and format
+   * as well as the old test. Replaced with an AST-based scan (`literalsIn`, lifted out of
+   * `tests/ward-legal-figure-guard.test.ts` rather than re-implemented here — see that helper's
+   * own doc comment), which reads every string literal, no-substitution template literal, and
+   * template head/middle/tail the TypeScript parser sees, independent of quote style. Matching is
+   * by substring (`literal.includes(label)`, not equality) so a label hardcoded with a dynamic
+   * suffix concatenated on — `` `Predicted today ${x}` ``, whose static head text already carries
+   * the whole label before the parser ever reaches the interpolation — is caught too, not only an
+   * exact one-literal-equals-one-label match.
    */
   it("never hardcodes a figure-label literal in the page source — every label is read from CAPACITY_FIGURE_LABELS", () => {
-    const source = readFileSync("src/components/ward-management/morning/morning-page.tsx", "utf8");
+    const literals = literalsIn("src/components/ward-management/morning/morning-page.tsx");
+
+    // Non-vacuity: the parse really produced literals for this file, or every assertion below
+    // would pass by finding nothing to contradict it.
+    expect(literals.length, "no string literal was read from morning-page.tsx").toBeGreaterThan(0);
+
     for (const label of Object.values(CAPACITY_FIGURE_LABELS)) {
-      expect(source.includes(JSON.stringify(label))).toBe(false);
+      const offenders = literals.filter((literal) => literal.includes(label));
+      expect(
+        offenders,
+        `"${label}" appears as a literal in morning-page.tsx (single-quoted, template-literal, or ` +
+          `concatenated) — it must be read from CAPACITY_FIGURE_LABELS instead`,
+      ).toEqual([]);
     }
   });
 
@@ -555,5 +581,162 @@ describe("MorningPage", () => {
     // empty/trivial fixture could pass this test for the wrong reason (nothing to collide).
     expect(container.querySelectorAll('[data-testid^="ward-morning-site-"]').length).toBeGreaterThan(1);
     expect(container.querySelectorAll('[data-testid^="ward-morning-unit-"]').length).toBeGreaterThan(1);
+  });
+
+  /**
+   * Gap 1 (final review, the largest hole on the branch). Nothing previously asserted that a
+   * hospital's rendered figures are its own wards' figures summed, or that a ward row shows its
+   * own numbers rather than someone else's. Three surviving mutations left every existing test —
+   * including the Chromium journey — green while every hospital block on screen showed a number
+   * that contradicted its neighbours:
+   *
+   *   1. `serviceRollup` (`ward-morning-rollup.ts`) rolling every site up from the WHOLE
+   *      SERVICE's units/breakdowns instead of that site's own — every one of the seventeen
+   *      hospitals displays the network total.
+   *   2. `SiteBlock` rendering its `FigureList` from its first ward's breakdown instead of the
+   *      site rollup — every hospital shows its first ward's figures.
+   *   3. `UnitRow` rendering from the site rollup instead of the unit's own breakdown — every
+   *      ward under a hospital shows the same (wrong) number. The Chromium journey does not
+   *      catch this one: it only reads a delta on one ward, and the site total moves by the same
+   *      amount.
+   *
+   * This test is deliberately DOM-only and self-consistent — it never trusts the page's own
+   * numbers against an independently-computed expectation, only checks that what the page
+   * renders for a hospital agrees with what it renders for that hospital's own wards. A mutation
+   * that makes those two disagree — any of the three above — fails it: mutation 1 makes the site
+   * figure the network total (which cannot equal the sum of one hospital's own wards, on a
+   * seventeen-hospital network); mutation 2 makes the site figure one ward's number (which
+   * cannot equal the sum of two or more wards); mutation 3 makes every ward figure the site
+   * total, so summing two or more of them over-counts the true site total. All three need a
+   * hospital with 2+ wards to be distinguishable from the correct behaviour, which the
+   * non-vacuity check below requires was actually exercised.
+   */
+  it("renders every hospital's figures as the sum of its own wards' figures — never a network total or one ward's alone", () => {
+    const { container } = renderMorningPage();
+
+    function figureValue(scope: ParentNode, testId: string): number {
+      const el = scope.querySelector(`[data-testid="${testId}"] dd`);
+      expect(el, `no rendered figure for data-testid="${testId}"`).not.toBeNull();
+      return Number(el!.textContent);
+    }
+
+    const siteSections = [...container.querySelectorAll('section[data-testid^="ward-morning-site-"]')];
+    expect(siteSections.length, "no hospital section rendered").toBeGreaterThan(0);
+
+    let sitesChecked = 0;
+    let sitesWithMultipleWardsChecked = 0;
+
+    for (const siteEl of siteSections) {
+      const code = siteEl.getAttribute("data-testid")!.replace("ward-morning-site-", "");
+      const unitRowEls = [...siteEl.querySelectorAll('li[data-testid^="ward-morning-unit-"]')];
+      if (unitRowEls.length === 0) continue; // no-unit hospitals (JHC, PEEL) render no figure grid at all
+      sitesChecked += 1;
+      if (unitRowEls.length > 1) sitesWithMultipleWardsChecked += 1;
+
+      for (const key of ALL_FIGURE_KEYS) {
+        const siteValue = figureValue(siteEl, `ward-morning-figure-site-${code}-${key}`);
+        const unitSum = unitRowEls.reduce((sum, unitEl) => {
+          const unitId = unitEl.getAttribute("data-testid")!.replace("ward-morning-unit-", "");
+          return sum + figureValue(unitEl, `ward-morning-figure-unit-${unitId}-${key}`);
+        }, 0);
+        expect(
+          siteValue,
+          `${code} ${key}: hospital total (${siteValue}) is not the sum of its own wards' ${key} (${unitSum})`,
+        ).toBe(unitSum);
+      }
+    }
+
+    // Guard the guard: a hospital with 2+ wards must have been exercised, or a mutation that
+    // shows every hospital its first ward's figures, or shows every ward its hospital's total,
+    // could pass this check by coincidence on a single-ward hospital (where "the site" and "the
+    // one ward" are numerically identical either way).
+    expect(sitesChecked, "no hospital with any wards was exercised").toBeGreaterThan(1);
+    expect(
+      sitesWithMultipleWardsChecked,
+      "no hospital with 2+ wards was exercised — a first-ward-only or every-ward-shows-the-total bug could pass unnoticed",
+    ).toBeGreaterThan(0);
+  });
+
+  /**
+   * Gap 1, second half: a ward row shows its OWN numbers, checked against an independently
+   * computed expectation rather than the page's internal self-consistency the test above checks.
+   * Royal Perth Hospital (RPH) carries two real fixture wards, so `UnitRow` silently rendering the
+   * hospital's rollup instead of the ward's own breakdown (mutation 3 above) is distinguishable
+   * from correct behaviour here too — proven directly by asserting each ward's rendered figures
+   * equal `capacityBreakdown()` computed for that ward alone, not `serviceRollup()`'s site-level
+   * sum for RPH.
+   */
+  it("renders each ward row from its own breakdown, computed for that ward alone, not its hospital's rolled-up total", () => {
+    let captured: ReturnType<typeof useWardFlow> | undefined;
+    function Capture({ children }: { children: ReactNode }) {
+      const flow = useWardFlow();
+      useEffect(() => {
+        captured = flow;
+      });
+      return <>{children}</>;
+    }
+
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <Capture>
+          <MorningPage />
+        </Capture>
+      </WardFlowProvider>,
+    );
+
+    const { units, bedReleases, leaveBeds } = captured!;
+    const rphUnits = units.filter((candidate) => candidate.siteCode === "RPH");
+    // Guard the guard: RPH must genuinely carry 2+ wards in the live fixture, or a hospital with
+    // only one ward could pass this test even if UnitRow silently rendered the hospital's rollup
+    // instead of the ward's own breakdown — the two are numerically identical for a one-ward
+    // hospital by construction, so the mutation would be invisible here.
+    expect(rphUnits.length, "RPH must have 2+ wards for this guard to be meaningful").toBeGreaterThanOrEqual(2);
+
+    const rphSiteRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, MORNING_HANDOVER_MINUTES).sites.find(
+      (candidate) => candidate.site.code === "RPH",
+    )!;
+
+    let differsFromSiteRollup = false;
+    for (const rphUnit of rphUnits) {
+      // The fixed view is frozen at the 08:00 handover instant (renderMorningPage()'s default
+      // view) — the independent expectation must be computed at that same instant.
+      const expected = capacityBreakdown(rphUnit, bedReleases, leaveBeds, MORNING_HANDOVER_MINUTES);
+      const unitEl = screen.getByTestId(`ward-morning-unit-${rphUnit.id}`);
+      for (const key of ALL_FIGURE_KEYS) {
+        expect(
+          within(unitEl).getByTestId(`ward-morning-figure-unit-${rphUnit.id}-${key}`),
+          `${rphUnit.id} ${key}`,
+        ).toHaveTextContent(String(expected[key]));
+        if (expected[key] !== rphSiteRollup.rollup[key]) differsFromSiteRollup = true;
+      }
+    }
+
+    // Non-vacuity: at least one figure on at least one RPH ward must genuinely differ from RPH's
+    // own site rollup, or "shows its own numbers" and "shows the hospital's total" would render
+    // identically here and this test could pass for the wrong reason.
+    expect(
+      differsFromSiteRollup,
+      "every RPH ward's breakdown is identical to RPH's site rollup — cannot distinguish 'own numbers' from 'hospital total' with this fixture",
+    ).toBe(true);
+  });
+
+  /**
+   * Gap 4 (final review), on-screen half. `ViewControl`'s explainer paragraph is the page's ONLY
+   * statement that the fixed view is a snapshot taken at page open, read against the 08:00 clock
+   * — NOT a reconstruction of what the ward state actually was at 08:00, because this prototype
+   * keeps no event history. That honesty requirement is binding (spec D5/D6): a coordinator who
+   * mistakes the fixed view for a true 08:00 reconstruction is trusting a number the prototype
+   * cannot actually stand behind. Nothing previously asserted this paragraph's substance — a
+   * mutation deleting it outright would have gone unnoticed by every existing test.
+   */
+  it("states the fixed view's binding honesty caveat in the on-screen explainer — a snapshot at open against the 08:00 clock, not a reconstruction of 08:00 itself", () => {
+    renderMorningPage();
+
+    const explainer = screen.getByTestId("ward-morning-view-explainer");
+    expect(explainer).toHaveTextContent(
+      "The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock",
+    );
+    expect(explainer).toHaveTextContent("not a reconstruction of what the ward state actually was at 08:00");
+    expect(explainer).toHaveTextContent("this prototype keeps no event history");
   });
 });

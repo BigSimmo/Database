@@ -48,6 +48,7 @@ import {
   WARD_NAV_INTENTIONALLY_UNLISTED,
   WARD_VIEWS,
 } from "../src/components/ward-management/ward-nav";
+import { WARD_NAV_ICONS } from "../src/components/ward-management/ward-nav-icons";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const WARD_FLOW_ROOT = path.join(REPO_ROOT, "src", "app", "mockups", "ward-flow");
@@ -193,6 +194,20 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
     for (const item of WARD_NAV) {
       expect(["role", "board"]).toContain(item.group);
     }
+  });
+
+  /**
+   * Gap 5 (final review). `ward-management-navigation.tsx` and `ward-sidebar-content.tsx` both do
+   * `const Icon = WARD_NAV_ICONS[item.id]` then `<Icon />`, with `WARD_NAV_ICONS` typed
+   * `Record<string, LucideIcon>` — no compile-time link to `WARD_NAV`'s ids at all, so a missing
+   * entry throws `Element type is invalid` at render, on EVERY Ward Flow screen (the rail mounts
+   * on all of them), not just the one whose id lost its icon. This has already happened once in
+   * this phase. Phase 7 is adding routes to `WARD_NAV` right now, which is exactly when a new id
+   * is most likely to be added without its icon.
+   */
+  it("gives every WARD_NAV id an icon in WARD_NAV_ICONS, so no Ward Flow screen throws 'Element type is invalid'", () => {
+    const missing = WARD_NAV.filter((item) => !(item.id in WARD_NAV_ICONS)).map((item) => item.id);
+    expect(missing, `WARD_NAV id(s) with no icon in WARD_NAV_ICONS: ${missing.join(", ")}`).toEqual([]);
   });
 });
 

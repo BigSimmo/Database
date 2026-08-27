@@ -114,3 +114,53 @@ describe("Ward morning bed state — the hospital header survives print, in ink,
     ).toContain("color-scheme: light");
   });
 });
+
+/**
+ * Gap 4 (final review), print half. `ViewControl`'s on-screen explainer paragraph — the page's
+ * only statement that the fixed view is a snapshot at open against the 08:00 clock, not a
+ * reconstruction of 08:00 itself — is inside `.viewControl`, which `@media print` hides entirely
+ * (see that block's own doc comment: neither the interactive fixed/live buttons nor the
+ * explainer belong on a printed sheet). `PrintViewMeta`'s condensed `.printViewNote` paragraph is
+ * the ONLY place left that carries this caveat once `.viewControl` is hidden, and it only reaches
+ * a printed sheet at all because `.printViewMeta { display: none }` (its screen-hidden default,
+ * declared before the `@media print` block) is explicitly restored to visible inside it.
+ *
+ * `tests/ward-morning-page.dom.test.tsx` proves the CONTENT is correct (the label names the
+ * right view/instant, the note carries the honesty caveat) — jsdom cannot evaluate `@media
+ * print`, so it cannot see whether that content actually survives onto the printed sheet. This
+ * is the other half: a source-text check, in the same style as `.screen`/`.governanceBanner`/
+ * `.siteHeader` above, that the CSS rule restoring `.printViewMeta` to visible still exists.
+ * Without it, deleting that one rule leaves the caveat correctly worded and present in the DOM —
+ * so the DOM test above stays green — while a real printed sheet shows nothing at all, exactly
+ * the "the blocker round just made it survive into print, and nothing guards that" gap this
+ * closes.
+ */
+describe("Ward morning bed state — the honest fixed-view caveat survives into the printed sheet", () => {
+  it("restores .printViewMeta to visible inside @media print, so the caveat is not silently lost with the interactive control", () => {
+    const css = source("src/components/ward-management/morning/morning.module.css");
+
+    const printStart = css.indexOf("@media print {");
+    expect(printStart, "morning.module.css: could not find the @media print block").toBeGreaterThanOrEqual(0);
+    const printBlock = css.slice(printStart);
+
+    // A line-anchored regex, not a plain `indexOf`: the doc comment immediately above the real
+    // rule (C2 fix pass) quotes `` `.printViewMeta { display: none }` `` verbatim to explain what
+    // is being overridden, so a plain substring search finds that comment's text first and reads
+    // its quoted "display: none" as the rule itself. Anchoring to the start of a line (only
+    // whitespace before the selector) skips the mid-comment quotation and finds the real rule.
+    const metaRuleMatch = /^[ \t]*\.printViewMeta[ \t]*\{/m.exec(printBlock);
+    expect(
+      metaRuleMatch,
+      "no .printViewMeta rule inside @media print — the screen-hidden default (`.printViewMeta { display: none }`) " +
+        "would take the fixed view's only honesty caveat with it onto a printed sheet",
+    ).not.toBeNull();
+    const metaRuleStart = metaRuleMatch!.index;
+    const metaRuleEnd = printBlock.indexOf("}", metaRuleStart);
+    const metaRule = printBlock.slice(metaRuleStart, metaRuleEnd);
+    expect(metaRule, ".printViewMeta must not stay hidden for print").not.toMatch(/display:\s*none/);
+    expect(
+      metaRule,
+      ".printViewMeta must force its display back on to beat the screen-hidden default declared earlier in this file",
+    ).toMatch(/display:\s*\S+\s*!important/);
+  });
+});

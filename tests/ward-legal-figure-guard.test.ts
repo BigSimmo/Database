@@ -26,6 +26,7 @@ import {
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { literalsIn } from "./helpers/ast-string-literals";
 
 /**
  * Guard against a fourth fabrication of a Mental Health Act duration in this prototype.
@@ -1332,31 +1333,6 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
    */
   it("renders absence as 'no deadline recorded', never as a claim about the Act", () => {
     const renderers = [`${WARD_DIR}/ward-management-console.tsx`, `${WARD_DIR}/coordinator/shortlist-panel.tsx`];
-
-    const literalsIn = (path: string): string[] => {
-      const source = ts.createSourceFile(
-        path,
-        readFileSync(path, "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TSX,
-      );
-      const literals: string[] = [];
-      const visit = (node: ts.Node): void => {
-        if (
-          ts.isStringLiteral(node) ||
-          ts.isNoSubstitutionTemplateLiteral(node) ||
-          ts.isTemplateHead(node) ||
-          ts.isTemplateMiddle(node) ||
-          ts.isTemplateTail(node)
-        ) {
-          literals.push(node.text);
-        }
-        ts.forEachChild(node, visit);
-      };
-      visit(source);
-      return literals;
-    };
 
     for (const path of renderers) {
       const literals = literalsIn(path);

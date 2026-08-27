@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import {
   CAPACITY_FIGURE_LABELS,
@@ -117,6 +118,70 @@ describe("ward-morning-rollup", () => {
       expect(result.service.confirmedToday).toBe(2);
       expect(result.service.predictedToday).toBe(1);
       expect(result.service.leaveUsable).toBe(1);
+    });
+  });
+
+  /**
+   * Gap 2 (final review). `sumBreakdowns` sums six fields, but only five of them — the ones
+   * `CAPACITY_FIGURE_LABELS` names — had ever been asserted at rollup level. `excludedBeyondToday`
+   * was not, and the seeded real fixture happens to total zero for it at the frozen handover
+   * instant, so even reading the rendered page could not have caught a mutation that hardcoded it
+   * to `0` in `sumBreakdowns` — the page would have shown "0 beds excluded" whether or not that
+   * were true, exactly the silent-truncation-reads-as-completeness failure the spec calls out
+   * ("a bed coordinator who discovers a hidden bucket stops trusting the visible ones"). This
+   * fixture is built to be genuinely non-zero — a release expected beyond tonight — so a hardcoded
+   * `0` cannot pass by coincidence.
+   */
+  describe("rule 1 (continued): excludedBeyondToday is a real per-unit sum, not a hardcoded zero", () => {
+    it("sums excludedBeyondToday at both site and service level for a release expected beyond tonight", () => {
+      const unitA = unit({ id: "unit-a", siteCode: "RPH" });
+      const unitB = unit({ id: "unit-b", siteCode: "RPH" });
+      const releases: BedRelease[] = [
+        {
+          id: "r-beyond-a",
+          unitId: "unit-a",
+          state: "predicted",
+          // Beyond the 22:00 evening-shift-end boundary `releaseBand()` uses — genuinely
+          // "beyond tonight", not merely late today.
+          expectedAt: EVENING_SHIFT_END_MINUTES + 60,
+          confidence: "likely",
+          blocker: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+        {
+          id: "r-beyond-b",
+          unitId: "unit-b",
+          state: "confirmed",
+          expectedAt: EVENING_SHIFT_END_MINUTES + 120,
+          confidence: null,
+          blocker: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+        // A same-day release, included so the fixture is not vacuously "everything is beyond
+        // tonight" — only the two releases above should count.
+        {
+          id: "r-today",
+          unitId: "unit-a",
+          state: "confirmed",
+          expectedAt: NOW,
+          confidence: null,
+          blocker: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+      ];
+      const testSite = site({ code: "RPH" });
+
+      const result = serviceRollup([testSite], [unitA, unitB], releases, [], NOW);
+
+      // Non-vacuity: the fixture must genuinely produce a non-zero figure, or a hardcoded `0`
+      // in `sumBreakdowns` would pass this test by coincidence exactly as it passed every other
+      // guard on the real fixture.
+      expect(result.service.excludedBeyondToday).toBeGreaterThan(0);
+      expect(result.service.excludedBeyondToday).toBe(2);
+      expect(result.sites[0]?.rollup.excludedBeyondToday).toBe(2);
     });
   });
 
