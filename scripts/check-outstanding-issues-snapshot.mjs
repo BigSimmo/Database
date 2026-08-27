@@ -16,12 +16,16 @@ const FIX = "node scripts/generate-outstanding-issues-snapshot.mjs";
  * gate would then fail with nothing stale, on every single ledger change, and
  * `main` would go red after each squash merge that touches the ledger.
  *
- * A gate that fires when nothing is wrong is worse than no gate: people learn
- * to ignore it, and it is then no longer watching. Excluding the field fails
- * safe — a stale revision can only make the page report itself as OLDER than it
- * is, never fresher, and every content difference is still caught below.
+ * `pending` (and `counts.pending`) is also deliberately NOT compared in check gates.
+ * Feature branches add immutable request files to `docs/outstanding-issues-inbox/`
+ * without modifying `data/outstanding-issues-snapshot.json`, isolating feature PRs
+ * from snapshot merge conflicts. Pending inbox requests are reconciled and the
+ * authoritative snapshot updated during serialized `issues:reconcile`.
+ *
+ * Excluding them fails safe: every canonical ledger content difference (open,
+ * queue, counts.open, counts.p1..p3, counts.queued, counts.resolved) is still caught.
  */
-const COMPARED_CONTENT_KEYS = ["queue", "open", "pending"];
+const COMPARED_CONTENT_KEYS = ["queue", "open"];
 
 export function compareSnapshots(committed, regenerated) {
   const differences = [];
@@ -29,10 +33,12 @@ export function compareSnapshots(committed, regenerated) {
     differences.push(`version: committed ${committed?.version} vs regenerated ${regenerated.version}`);
   }
 
+  // Compare canonical ledger count keys only (`pending` is excluded to isolate feature PRs).
   // Compare the union of both key sets, so a committed snapshot carrying a key
   // the generator no longer emits is caught rather than silently ignored.
   const countKeys = new Set([...Object.keys(regenerated.counts ?? {}), ...Object.keys(committed?.counts ?? {})]);
   for (const key of countKeys) {
+    if (key === "pending") continue;
     if (committed?.counts?.[key] !== regenerated.counts?.[key]) {
       differences.push(
         `counts.${key}: committed ${committed?.counts?.[key]} vs regenerated ${regenerated.counts?.[key]}`,
