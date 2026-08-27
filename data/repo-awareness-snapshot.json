@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "de2b9b35bb84c96ced4a6eb09e6d6c99bc2de0bc",
-    "committed_at": "2026-08-27T10:18:22+08:00"
+    "sha": "f5680e9c100f4f073a9260857d582d932bbea643",
+    "committed_at": "2026-08-27T11:23:10+08:00"
   },
   "routes": {
     "modes": [
@@ -2373,6 +2373,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
@@ -3790,8 +3795,8 @@
       }
     ],
     "counts": {
-      "documents": 466,
-      "catalogued": 102,
+      "documents": 467,
+      "catalogued": 103,
       "uncatalogued": 364,
       "sections": 18
     }
