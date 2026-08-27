@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "a028e3d41b975b660734f29a821f3136a033fa57",
-    "committed_at": "2026-08-27T10:41:17+00:00"
+    "sha": "dffb287545ac375d43eab21ea3a44e273c2a1cdf",
+    "committed_at": "2026-08-27T11:08:26+00:00"
   },
   "routes": {
     "modes": [
@@ -3897,11 +3897,35 @@
       },
       {
         "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "6e5531ce7724c63b8c29bd880141ea87c7cd5fd8",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (main advanced 5 commits past merge base to a DSM comparison-page redesign #2409 that conflicted with this PR's DSM search/compare changes); 0 unresolved review threads (5 PR comments were all bot rate-limit/housekeeping noise, no actionable findings); CI had not yet run on a clean merge. After: merged origin/main resolving real content conflicts in 5 files (dsm-compare-chrome.tsx, dsm-comparison-page.tsx, dsm-page-header.tsx, mode-secondary-navigation.ts, tests/ui-route-coverage.spec.ts) by combining both sides' intent (kept main's compact-header redesign and null-id-filter fix, kept this PR's dsmSearchHref routing, compact compare starters, and showEmptyState/slotLayout opt-ins) rather than blanket ours/theirs; pushed merge commit 6e5531ce. No review threads needed action. CI re-triggered on the new head (run 33051601015) and was still in progress (Lint/Unit coverage/Build/4x Production UI shards/Lighthouse running) after ~34 minutes of observation with no new job-log progress in the final two snapshots; left for a human or a later session to confirm green.",
+        "checks": "npm run typecheck (clean, gate-receipts recorded pass), npm run lint (clean, gate-receipts recorded pass), npx vitest run tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-comparison-page.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/information-page-shell.dom.test.tsx (75 passed), npm run format (no changes needed). No provider-backed checks run; hosted CI run 33051601015 still in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "958a6b4f7c969f07cb118ccc0c581939fd81bcab",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
+        "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
         "ref": "codex/therapy-compare-phone-ux (PR #2410)",
         "head": "4042bdd7af523746d4c9b7a9c6a732e36c886b7d",
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty (real conflict in src/components/dsm/dsm-compare-chrome.tsx vs main's #2409 DSM redesign), CI red (Build/Static PR checks/Production UI x4/Lighthouse all failing on one root-cause TS2783 duplicate-prop typecheck error in the PR's own new test), 0 unresolved review threads (all 5 PR comments were bot noise: Codex/CodeRabbit/Bugbot usage-limit notices and a CI-triage bot comment). After: merged origin/main cleanly (dsm-compare-chrome.tsx conflict resolved by combining HEAD's phoneLayout/slotSummaryLabel props with main's onCommit, verified equivalent since idsCompareHref already null-filters internally), fixed the duplicate actionLabel JSX prop in tests/compare-ids-chrome.dom.test.tsx (removed the redundant explicit prop since chromeProps spread already supplies it and the test asserts nothing about its value), pushed 2 commits (13efa061 merge, 4042bdd7 fix). No review threads needed action. New CI run (33051244071) at 4042bdd7 still in_progress after 30+ min observation window (PR mergeability + PR policy + Safety and config checks + Caring Contacts database already green); Build/Static PR checks/Unit coverage/Production UI x3/Production UI critical/Lighthouse budget not yet settled — deferred to the user per babysit budget, run: https://github.com/BigSimmo/Database/actions/runs/33051244071",
         "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts tests/dsm-comparison-page.dom.test.tsx -- 6 files / 53 passed; npm run typecheck -- passed after fix (5604 input files); npx eslint on touched files -- clean; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "4af5895f48cca785333272ece41e25bcaccb7441",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Static PR checks failing (check:repo-awareness-snapshot: committed snapshot behind — review_state differs) -> merged origin/main@603da96 (clean, no conflicts) then regenerated snapshot via npm run snapshot:repo-awareness and committed; 0 unresolved review threads found (none to fix/reply/resolve). Local full gate now green. Note: main advanced again mid-sweep to be65b8a1b (PR #2415, same DSM/compare files) producing a real post-push content conflict — left unresolved for the user, not auto-resolved.",
+        "checks": "npm run verify:cheap equivalent set run piecewise: check:repo-awareness-snapshot (fail -> pass after regenerate), full static-pr check chain (34 gates, all pass), npm run lint (pass), npm run typecheck (pass), npm run test (893 files / 10824 tests passed, 4 skipped — two initially-failing tests (clinical-hazard-controls.test.ts, privacy-readiness-contract.test.ts) were a local shallow-clone ancestry artifact, confirmed pre-existing on plain origin/main and resolved by git fetch --deepen, not a code fix). No provider-backed checks run."
       },
       {
         "date": "2026-08-27",
@@ -24961,8 +24985,8 @@
       }
     ],
     "counts": {
-      "records": 2634,
-      "refs": 1609
+      "records": 2637,
+      "refs": 1610
     }
   }
 }

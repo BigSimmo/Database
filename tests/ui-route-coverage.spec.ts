@@ -439,7 +439,7 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("link", { name: "Compare", exact: true });
         await expect(compare).toBeVisible();
         await compare.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
+        await expect(currentPage).toHaveURL(/\/dsm\/compare/);
         await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
     );
@@ -472,15 +472,10 @@ test.describe("previously uncovered production routes", () => {
           }),
           remove.click(),
         ]);
-        // `proveRenderedRoute` leaves the page at the last `routeViewports` entry
-        // (phone, 390px). At phone width the DSM hybrid compare layout replaces
-        // the dashed `CompareEmptyState` with the compact grid's own "add one
-        // more" hint once a single diagnosis remains selected — see
-        // `compare-slot-strip.tsx`'s `showOneMoreHint`, exercised for this same
-        // 1-of-2-filled state in `tests/compare-slot-strip.dom.test.tsx`.
-        await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toHaveCount(0);
-        await expect(currentPage.getByTestId("compare-slot-strip-one-more-hint")).toBeVisible();
-        await expect(currentPage.getByTestId("compare-slot-strip-one-more-hint")).toHaveText(/one more/i);
+        // Empty dashed panel is suppressed in favour of the compact slot rail
+        // and inline starter chips when fewer than two diagnoses remain.
+        await expect(currentPage.getByTestId("compare-slot-tile-compact").first()).toBeVisible();
+        await expect(currentPage.getByTestId("dsm-compare-starters").getByRole("link").first()).toBeVisible();
       },
     );
   });
