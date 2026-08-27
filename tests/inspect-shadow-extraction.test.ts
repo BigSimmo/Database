@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -10,6 +10,7 @@ import {
   runCli,
 } from "../scripts/inspect-shadow-extraction";
 import type { ShadowExtractionRecord } from "../worker/shadow-extraction";
+import { removePathSync } from "../scripts/retryable-fs.mjs";
 
 function mockRecord(partial: Partial<ShadowExtractionRecord> = {}): ShadowExtractionRecord {
   return {
@@ -62,7 +63,7 @@ describe("inspect-shadow-extraction", () => {
 
   afterAll(() => {
     try {
-      rmSync(tempDir, { recursive: true, force: true });
+      removePathSync(tempDir, { recursive: true, force: true });
     } catch {
       // Ignore cleanup error
     }
