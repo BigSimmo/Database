@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { AnswerProgress } from "@/components/clinical-dashboard/answer-status";
@@ -35,7 +35,18 @@ describe("incremental answer evidence preview", () => {
   // useful content and every unit reaching the browser has already passed the stream
   // contract's structural validation, so an unset variable renders it. Only the literal
   // string "false" — the documented second rollback step — withholds it.
+  // The unset case reads the ambient variable through the default parameter, so it has to
+  // be stubbed away or the assertion only reports what the runner's environment happens to
+  // hold — it would pass for the wrong reason locally and fail on a shell that exports the
+  // rollback value.
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("renders unless the client gate is explicitly disabled", () => {
+    vi.stubEnv("NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER", undefined);
+    expect(process.env.NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER).toBeUndefined();
+    expect(incrementalEvidencePreviewRenderingEnabled()).toBe(true);
     expect(incrementalEvidencePreviewRenderingEnabled(undefined)).toBe(true);
     expect(incrementalEvidencePreviewRenderingEnabled("true")).toBe(true);
     expect(incrementalEvidencePreviewRenderingEnabled("false")).toBe(false);
