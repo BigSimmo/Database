@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { CARD_CLASS, META_CLASS, MONO_CLASS, ROW_CLASS } from "@/components/developer-area/hub/panel-primitives";
-import type { ReviewStateRecord } from "@/lib/developer-area/repo-awareness-types";
+import type { ReviewRecord } from "@/lib/developer-area/repo-awareness-types";
 
 const DISCLOSURE_CLASS =
   "min-h-12 cursor-pointer text-xs font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -16,7 +16,7 @@ export function ReviewStateTable({
   records,
   defaultPageSize = 50,
 }: {
-  records: readonly ReviewStateRecord[];
+  records: readonly ReviewRecord[];
   defaultPageSize?: number;
 }) {
   const [page, setPage] = useState(1);
