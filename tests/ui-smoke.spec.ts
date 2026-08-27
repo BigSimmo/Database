@@ -2741,6 +2741,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const header = page.locator("header.universal-header");
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
+    // Measure the edge-to-edge contract from the revealed state. Expanding the
+    // disclosure above scrolls this short page to its end, which is a genuine
+    // downward gesture, so the dock may legitimately be scroll-hidden by the
+    // time the panel collapses again — hide-on-scroll working, not a defect
+    // (one upward drag brings it straight back). Whether that hide engages
+    // depends on the exact answer height, so asserting the resting transform
+    // here would pin content height rather than the geometry this test names.
+    // Return to the top first: the assertions below are about where a *visible*
+    // dock sits (flush bottom, full-bleed), and that is what must hold.
+    await scrollPrimarySurface(page, 0);
+    await expect
+      .poll(async () => await dock.evaluate((node) => window.getComputedStyle(node).transform))
+      .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
     const edgeGeometry = await dock.evaluate((node) => {
       const rect = node.getBoundingClientRect();
       const style = window.getComputedStyle(node);
@@ -2963,8 +2976,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
     await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
     // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
-    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
-    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
+    // hidden S: clone (search-chrome invariant 17), which makes getByTestId strict-mode fail.
+    // AnswerProgress owns the in-flight state; AnswerSkeleton no longer renders its own
+    // "Loading answer" status line beside it, so the wait is asserted on the progress
+    // element's active state rather than the retired label.
+    await expect(page.locator('[data-testid="answer-progress"][data-progress-state="active"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
     const questionEcho = page.getByTestId("user-question-bubble");
@@ -5578,8 +5594,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
-    await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
-    await expect(page.getByText(/Answer ready in 1s/)).toBeVisible();
+    await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
+    // The completed wait prints no visible chrome: the summary card arriving is
+    // the completion signal, and an elapsed time is a timing boast rather than
+    // anything a reader acts on. The announcement survives for screen readers.
+    await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+    await expect(page.getByTestId("answer-progress").getByRole("status")).toContainText("Answer ready.");
     await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
     await expect(generatedSummary).not.toContainText("Key practical points:");
     await expect(generatedSummary).not.toContainText("**");

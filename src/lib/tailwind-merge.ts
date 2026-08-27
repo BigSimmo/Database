@@ -126,8 +126,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "dialog-rise",
     "action-tray-in",
     "shimmer",
-    "answer-ecg",
-    "answer-ecg-compact",
+    "answer-progress-breath",
   ],
 } as const;
 

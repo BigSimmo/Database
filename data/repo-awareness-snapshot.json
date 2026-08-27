@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "2717fc58379236dbc41f6755cf77d55c9f6d4b12",
-    "committed_at": "2026-08-27T22:51:37+08:00"
+    "sha": "15dcd00c16cfa8328a0a578f392e221459034aed",
+    "committed_at": "2026-08-27T16:04:44+00:00"
   },
   "routes": {
     "modes": [
@@ -311,6 +311,11 @@
       {
         "path": "/mockups/answer-home-proposal",
         "file": "src/app/mockups/answer-home-proposal/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/answer-loading-redesign",
+        "file": "src/app/mockups/answer-loading-redesign/page.tsx",
         "area": "mockup"
       },
       {
@@ -1367,9 +1372,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 189,
+      "pages": 190,
       "product_pages": 55,
-      "mockup_pages": 134,
+      "mockup_pages": 135,
       "redirects": 17,
       "api": 58
     }
