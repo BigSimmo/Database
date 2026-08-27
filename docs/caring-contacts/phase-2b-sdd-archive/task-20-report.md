@@ -335,10 +335,20 @@ separately.
 
 All run on the final tree. Evidence is the summary line, not an exit code.
 
-- `npm run test:cc-guards` with `GATE_RECEIPTS=refresh` — see the line pasted in the handoff message.
-- `npx tsc -p tsconfig.json --noEmit` — read from `tsc` itself, not through a pipe.
-- `npx eslint` over the changed files with `node_modules/.cache/eslint` removed first.
-- `npx prettier --check` over the changed files.
+- `test:cc-guards`, the whole set, with `GATE_RECEIPTS=refresh`: `Test Files 37 passed (37)`,
+  `Tests 819 passed (819)`. The receipt line names the new suite among the paths, so the gate ran it
+  rather than merely listing it. One case writes a deliberate rejection to stderr — the trigger
+  suite's "raises a rejection where an error boundary can state that nothing was written" — which is
+  the behaviour under test, not a failure.
+- `npx tsc -p tsconfig.json --noEmit`: exit 0, and no output at all. Read from `tsc` directly, never
+  through a pipe. `tsconfig.json` includes `**/*.ts`, so the new suite is inside it.
+- `npx eslint tests/caring-contacts-overlay-trigger-inventory.test.ts --no-cache`, after removing
+  `node_modules/.cache/eslint`: `errorCount: 0 warningCount: 0`. Its first run was **not** clean —
+  `@next/next/no-assign-module-variable` rejected two loops declaring a variable named `module`, and
+  the per-file cache would have hidden that on any later run.
+- `npx prettier --check` over every changed file: `All matched files use Prettier code style!` The
+  report needed a `--write` pass first and the re-check is the evidence.
+- No lock refusal in either shape on the final gate.
 
 `tests/source-control-bytes.test.ts` is inside `test:cc-guards` and covers the literal-backspace trap;
 no `\b` was written into this task's sources, in a regex or anywhere else.
