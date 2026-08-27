@@ -3334,3 +3334,52 @@ the merge-point list.
 thing permitted to edit the canonical ledger, it runs from a deliberately serialised fresh-base branch, and
 pointing it at a trunk carrying four unmerged branches is how a reconciliation transaction stops matching
 its own recorded diff.
+
+### Ruling [146] — the ledger gate was right, its wrapper said exit 0, and the docs-link failures are mostly not failures
+
+**Resolved: `check:ledger-write-discipline` now passes.** `Ledger write discipline passed for
+a301c02572c4..HEAD.`, exit **1 → 0**, after `8d0b374b4` removed eleven inbox requests that existed in
+**both** the pending and the applied location. Ruling [145] deferred this pending the gate's verdict; the
+gate gave one and it named the condition itself — `exists in both pending and applied locations` — so the
+deletion was the gate's reading of its own rule rather than mine of it. Nothing was lost: each removed file
+was byte-identical to its own `applied/` record and its content is already in the canonical ledger.
+
+**The trap that nearly buried it, and it is the one this repository has already written down.** The npm
+wrapper printed the complete failure — the header line and all eleven paths — and the harness reported
+**`[exited with code 0]`**. Reading the exit code would have recorded this gate as green while it was
+listing its own reasons for being red. Running the script directly and capturing `$?` on its own line gives
+**exit 1**: the script is correct, the wrapper is what lied. **Paste the verdict line, never the exit code**
+— and note that "the gate printed a failure" and "the gate exited non-zero" are two separate observations
+that had to be made separately here.
+
+**A second, better behaviour worth recording because it is the opposite failure avoided.** With the
+deletions staged but uncommitted, the gate **refused to give a verdict at all**: _"This gate compares two
+committed refs, so an uncommitted ledger edit is invisible to it and a pass would mean nothing."_ That is a
+gate that knows the difference between passing and being unable to tell — the property most of this
+programme's gate findings are about it lacking.
+
+**`check-docs-links` no longer crashes**, because the duplicate ULID is gone. It now completes and reports
+missing references instead of throwing partway. **Of those, ten were checked against the four branches
+individually and every one exists on a branch** — the task reports, the review, `exit-only-overlay-trigger.tsx`,
+`caring-contacts-contact-move-request.ts`, and two test files. They resolve at the merge. **Do not "repair"
+them by deleting the references.**
+
+**Three are not defects, and two of those must be left exactly as they are:**
+
+- `src/lib/caring-contacts/assurances.ts(88,14)` is inside a **pasted `tsc` error** in Task 9b's mutation
+  ledger. The checker is reading a compiler diagnostic's line-and-column suffix as a path. **Editing gate
+  evidence to satisfy a documentation linter is the wrong instinct in this repository**, and it is the
+  instinct the standing discipline exists to refuse.
+- `src/app/ward-management/**` appears in a sentence describing the rename of that path to
+  `src/app/mockups/ward-flow/**`. The old path is correctly named **as the old path**. Deleting it destroys
+  the sentence's meaning.
+- The ellipsis in `docs/…/phase-2b-build-record.md` was a genuine abbreviation of mine and is now the real
+  path.
+
+**One remains and is owed at the merge:** the Task 11b review references its own reproduction probe, which
+the reviewer correctly deleted after using it. That file will never exist, so the reference must change
+rather than resolve. It lives on `cc-plan-detail`, which had a live agent, so it was left alone.
+
+**The generalisable half. A link checker's "missing" is a claim about one tree**, and this phase's documents
+deliberately span five. Fourteen failures reduced to one real one purely by asking, per reference, *which
+tree was it checked against* — the same question that has now been the answer three times today.
