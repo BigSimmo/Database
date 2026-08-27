@@ -88,7 +88,16 @@ export type PlanActionCondition =
   | "the-plan-has-started-and-has-not-ended"
   /** `applyAssignmentAction` refuses `reassign` with `plan-not-claimed` when there is no owner. */
   | "somebody-is-carrying-this-plan"
-  /** A reassignment needs a destination, and it may not be whoever already holds the plan. */
+  /**
+   * A reassignment needs a destination, and it may not be whoever already holds the plan.
+   *
+   * BOTH HALVES ARE CHECKED HERE, AND THE SECOND HALF IS WHY THIS NOTE EXISTS. The server builds
+   * the list of destinations without the account carrying the plan -- but the CHOICE is client
+   * state and survives this screen being read again, while the list does not.
+   * `applyAssignmentAction` does not refuse a move from an account to itself, so a choice left
+   * standing after a move would append a handover row saying the plan changed hands when it did
+   * not, indistinguishable afterwards from a real one.
+   */
   | "a-different-coordinator-is-chosen"
   /** `applyAssignmentAction` refuses `reassign` with `reassignment-reason-required` on blank text. */
   | "a-handover-note-is-written"
@@ -123,8 +132,14 @@ export type PlanActionState = {
   readonly planState: PlanState;
   /** Whether a write from this screen is already on its way to the service. */
   readonly changeOnItsWay: boolean;
-  /** Whether anybody is carrying this plan at all. */
-  readonly planIsCarried: boolean;
+  /**
+   * The account carrying this plan, or the empty string for none.
+   *
+   * AN IDENTIFIER RATHER THAN A BOOLEAN, because two conditions read it and only one of them is
+   * answered by "is anybody carrying it": the other has to know WHO, so that a move to the account
+   * already holding the plan can be refused rather than recorded. Compared and never rendered.
+   */
+  readonly planCarriedBy: string;
   /** The destination chosen for a reassignment, or the empty string for none. */
   readonly chosenDestination: string;
   /** The handover note as typed, untrimmed -- this module decides what blank means. */
@@ -163,15 +178,16 @@ export type PlanActionsContext = {
   /** Plain words for that role. */
   readonly actingAccountWording: string;
   /**
-   * Whether anybody is carrying this plan, and what to call them.
+   * Who is carrying this plan: the account, and what to call them.
    *
-   * TWO FIELDS RATHER THAN ONE NULLABLE STRING, because "nobody has taken this plan on" and "somebody
-   * has, and this demonstration cannot name them" are different facts and only the first is a reason
-   * to refuse a move. Collapsing them would refuse a legitimate reassignment with a sentence that is
-   * false. `wording` is null only for an owner no demo role accounts for, which no write in this
-   * workspace produces today -- and a branch that cannot run today is still read and still copied.
+   * TWO FIELDS, AND THE SPLIT IS THE SAME ONE `actingAccount` MAKES. `actorId` is compared and
+   * never rendered; `wording` is the half that reaches a reader. They are not interchangeable:
+   * "nobody has taken this plan on" and "somebody has, and this demonstration cannot name them"
+   * are different facts and only the first is a reason to refuse a move, so `wording` is null for
+   * an owner no demo role accounts for while `actorId` still names it. No write in this workspace
+   * produces such an owner today -- and a branch that cannot run today is still read and copied.
    */
-  readonly carriedBy: { readonly held: boolean; readonly wording: string | null };
+  readonly carriedBy: { readonly actorId: string | null; readonly wording: string | null };
   /** Who this plan could move to: every role granted the action of taking a plan on, minus its holder. */
   readonly destinations: readonly PlanActionCoordinator[];
   /** Whether the acting role is granted each action, decided by the page from the actor. */
@@ -348,9 +364,11 @@ function conditionIsMet(condition: PlanActionCondition, opened: PlanActionState,
     case "the-plan-has-started-and-has-not-ended":
       return now.planState === "active" || now.planState === "paused";
     case "somebody-is-carrying-this-plan":
-      return now.planIsCarried;
+      return now.planCarriedBy !== "";
     case "a-different-coordinator-is-chosen":
-      return now.chosenDestination !== "";
+      // BOTH halves, as the condition's own note and its refusal both say: somewhere to move to,
+      // and somewhere that is not where the plan already is.
+      return now.chosenDestination !== "" && now.chosenDestination !== now.planCarriedBy;
     case "a-handover-note-is-written":
       return now.handoverNote.trim() !== "";
     case "the-acting-account-has-not-changed":
@@ -401,6 +419,37 @@ export function planActionLabel(action: PlanActionId): string {
     );
   }
   return definition.label;
+}
+
+/**
+ * What THIS CARD calls each action, in the words a coordinator pressed.
+ *
+ * Written by hand and rendered verbatim, like every other string in this module.
+ */
+const PLAN_ACTION_CARD_NAMES: Readonly<Record<PlanActionId, string>> = Object.freeze({
+  pause: "Hold this plan",
+  resume: "Let this plan run again",
+  withdrawal: "Record a withdrawal",
+  reassignment: "Move this plan",
+});
+
+/**
+ * The card's own word for one action, for the sentence a coordinator reads AFTER it.
+ *
+ * NOT the frozen row's label, and the difference is the whole point. The frozen label for `pause`
+ * is "Pause", while every other sentence on this card says HOLD -- deliberately, because holding is
+ * what `pausePlan` does and "pause" invites the reading the frozen summary already makes wrongly
+ * ("contacts that fall inside the pause are skipped for good"). The one sentence a coordinator
+ * reads after a mutating action must not be the single place the card reverts to the vocabulary the
+ * rest of it was written to replace. The frozen row is not edited; it is simply not quoted here.
+ *
+ * The frozen table is still read, and read FIRST, so an action naming no row of it throws here
+ * exactly as it does anywhere else -- this is the card's word for a row that exists, never a way
+ * around the table.
+ */
+export function planActionCardName(action: PlanActionId): string {
+  planActionLabel(action);
+  return PLAN_ACTION_CARD_NAMES[action];
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +530,53 @@ export function reassignmentRequestBody(input: {
     action: { type: "reassign", toActorId: input.toActorId, reason: input.handoverNote.trim() },
     idempotencyKey: input.idempotencyKey,
   };
+}
+
+/**
+ * The version a LIFECYCLE write carries, or a loud failure.
+ *
+ * THIS IS AN INTERNAL CONTRADICTION, NOT A STATE A COORDINATOR CAN REACH, and it throws for that
+ * reason. Every lifecycle action declares `this-screen-still-knows-the-plan`, which is evaluated
+ * against the same live values this reads and immediately before it, so a null plan is refused BY
+ * NAME long before a body is built. Reaching here would mean the guard and the body disagreed about
+ * what the screen holds.
+ *
+ * A REASSIGNMENT MUST NOT GO THROUGH THIS. Its row deliberately omits that condition, because the
+ * assignment route carries no `expectedVersion` at all -- so a plan whose version this screen has
+ * lost is no reason to refuse a move, and a shared null check that quietly returned would abandon a
+ * confirmed move in silence. That defect is what this function's existence separates out.
+ */
+export function planLifecycleExpectedVersion(
+  action: "pause" | "resume" | "withdrawal",
+  held: { version: number } | null,
+): number {
+  if (held === null) {
+    throw new Error(
+      `The plan action "${action}" reached its write with no plan held on this screen. Every ` +
+        `lifecycle action declares "this-screen-still-knows-the-plan", which refuses that case by ` +
+        `name first, so this is a contradiction between the guard and the write rather than ` +
+        `anything a coordinator did.`,
+    );
+  }
+  return held.version;
+}
+
+/**
+ * What identifies one SUBMISSION, for deciding whether a key may be reused.
+ *
+ * A key names a submission, and a submission is the action AND its body -- `runWrite` fingerprints
+ * the request under the key and refuses a key that answered a different one as
+ * `idempotency-key-reused-for-a-different-write`. So a retry of the SAME submission must share a
+ * key, and a CORRECTED one must not: a coordinator whose move was refused, who then chooses a
+ * different destination or rewrites the handover note, is making a new submission, and reusing the
+ * key would refuse it for a second and worse reason with no remedy this screen can perform.
+ *
+ * The whole body is read rather than the fields being listed, so a field added to either request
+ * shape is part of the submission's identity without this function being touched. The key itself is
+ * blanked rather than omitted, so the shape is identical whichever key is held.
+ */
+export function planActionSubmissionFingerprint(body: PlanLifecycleRequestBody | ReassignmentRequestBody): string {
+  return JSON.stringify({ ...body, idempotencyKey: "" });
 }
 
 /**

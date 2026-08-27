@@ -12,14 +12,16 @@ import {
   ACTING_ACCOUNT_ENDPOINT,
   ACTING_ACCOUNT_UNREADABLE,
   actingAccountFrom,
-  planActionLabel,
+  planActionCardName,
   planActionRefusal,
   planActionRefusalNameFrom,
   planActionRefusalSentence,
   planActionRefusalWording,
+  planActionSubmissionFingerprint,
   planAssignmentEndpoint,
   planFromWriteAnswer,
   planLifecycleEndpoint,
+  planLifecycleExpectedVersion,
   planLifecycleRequestBody,
   PLAN_ACTION_TRANSPORT_REFUSALS,
   mintPlanActionIdempotencyKey,
@@ -113,17 +115,49 @@ export function PlanActions({ context }: PlanActionsProps) {
   const [outcome, setOutcome] = useState<PlanActionOutcome | null>(null);
 
   /**
-   * One key per action, minted at the FIRST confirmation and reused for every retry of it.
+   * The plan as this screen holds it, re-derived when the SERVER answers with something newer.
    *
-   * Cleared only when that action's write succeeds, so the whole retry chain of one submission
-   * shares a key and the service answers a second press with the first press's own answer instead of
-   * withdrawing a patient twice. A key names one write: `runWrite` fingerprints the method and input
-   * under it and refuses a key that answered a different request, so the four actions never share.
+   * WHY THIS EXISTS. `useState`'s initialiser runs once, so a screen that only initialised from
+   * props would hold the version it was first rendered with for as long as it stayed mounted — and
+   * several refusals tell a coordinator to "read this screen again so it holds the plan as it now
+   * stands", which would then be advice this screen never performs. Pressing again would send the
+   * identical body and earn the identical refusal. `router.refresh()` after every change AND after
+   * every commit-time refusal asks for the screen again; this is the half that lets what comes back
+   * land in what the next decision acts on.
+   *
+   * MONOTONE, DELIBERATELY. A successful write answers with a version this screen adopts at once,
+   * and the server render that follows may still be the one taken BEFORE that write. Adopting a
+   * lower version would send a stale one and earn a collision refusal about a change this screen
+   * had just made — the exact false collision `no-other-change-to-this-plan-is-on-its-way` exists
+   * to prevent, arriving by another route. So props are adopted only when they are AHEAD of what is
+   * held, or when nothing is held at all, which is the unreadable-answer case this recovers from.
+   */
+  useEffect(() => {
+    setPlan((current) =>
+      current !== null && current.version >= context.planVersion
+        ? current
+        : { state: context.planState, version: context.planVersion },
+    );
+  }, [context.planState, context.planVersion]);
+
+  /**
+   * One key per SUBMISSION in flight, minted at its first confirmation and reused for every retry.
+   *
+   * A SUBMISSION IS THE ACTION AND ITS BODY, which is what the fingerprint is for. Held per action
+   * alone, a key outlives the submission it was minted for: a coordinator whose write the service
+   * refused, who then chooses a different destination or rewrites the handover note, is making a
+   * genuinely NEW submission — and `runWrite` refuses a key it recorded against different answers
+   * as `idempotency-key-reused-for-a-different-write`, whose stated remedy clears no ref. The
+   * action could then not be completed from this screen at all.
+   *
+   * Cleared when that action's write succeeds, so the whole retry chain of one submission shares a
+   * key and the service answers a second press with the first press's own answer instead of
+   * withdrawing a patient twice.
    *
    * A ref rather than state: nothing renders from it, and a re-render between minting and sending
    * would be an opportunity for the value to be lost.
    */
-  const keys = useRef<Partial<Record<PlanActionId, string>>>({});
+  const keys = useRef<Partial<Record<PlanActionId, { fingerprint: string; key: string }>>>({});
 
   /**
    * What is true NOW, for the commit to read.
@@ -146,12 +180,12 @@ export function PlanActions({ context }: PlanActionsProps) {
       // lost track of is refused by `this-screen-still-knows-the-plan` before any state is read.
       planState: from.plan?.state ?? context.planState,
       changeOnItsWay: from.changeOnItsWay,
-      planIsCarried: context.carriedBy.held,
+      planCarriedBy: context.carriedBy.actorId ?? "",
       chosenDestination: from.destination,
       handoverNote: from.handoverNote,
       actingAccount,
     }),
-    [context.carriedBy.held, context.granted, context.planState],
+    [context.carriedBy.actorId, context.granted, context.planState],
   );
 
   /** The render-time answer: one moment, passed as both, because nothing has changed yet. */
@@ -172,12 +206,30 @@ export function PlanActions({ context }: PlanActionsProps) {
   /**
    * Carries out one action: recheck, send, then say what happened.
    *
-   * It never rejects. The overlay host re-raises a rejected commit during render, which lands on
-   * `error.tsx` — a whole-screen error for something this surface can state in place.
+   * NO PATH OUT OF THIS FUNCTION IS SILENT, and that is a rule rather than an observation. Every
+   * exit either sends a write and states the outcome, or states a NAMED refusal — because a confirm
+   * control that appears to work and writes nothing is the defect this whole surface exists to
+   * remove, and on a reassignment it would leave responsibility for a discharged patient with the
+   * wrong person while the screen signalled that it had moved. The one remaining exit that says
+   * nothing to the coordinator is `planLifecycleExpectedVersion`'s throw, which is a contradiction
+   * between a guard and a write rather than a state anybody can reach: it goes to `error.tsx` and is
+   * therefore loud, which is the minimum this workspace accepts. See that function's own note.
+   *
+   * Apart from that throw it never rejects. The overlay host re-raises a rejected commit during
+   * render, which lands on `error.tsx` — a whole-screen error for something this surface can
+   * otherwise state in place.
    */
   const carryOut = useCallback(
     async (action: PlanActionId, opened: PlanActionState) => {
-      const refuse = (refusal: PlanActionRefusal) => setOutcome({ kind: "refused", action, refusal });
+      const refuse = (refusal: PlanActionRefusal) => {
+        setOutcome({ kind: "refused", action, refusal });
+        // THE REMEDY THIS SCREEN STATES IS ONE IT PERFORMS. Several of these refusals say to read
+        // this screen again so it holds the plan as it now stands; nothing else on the card does
+        // that, so pressing again would send the identical body and earn the identical refusal.
+        // Asked for on every refusal rather than on a chosen few: a refused write means this
+        // screen's view of the plan may be behind whatever refused it, whichever refusal it was.
+        router.refresh();
+      };
 
       // FIRST RECHECK: everything knowable without asking anybody, read live rather than from the
       // render this closure was built in.
@@ -207,28 +259,43 @@ export function PlanActions({ context }: PlanActionsProps) {
       const destinationWording = (): string =>
         context.destinations.find((entry) => entry.actorId === live.current.destination)?.wording ?? "";
 
-      const held = live.current.plan;
-      if (held === null) return;
+      /**
+       * The request as it stands, with whichever key is passed.
+       *
+       * The version is read HERE, inside the lifecycle half, rather than once for both: a
+       * reassignment carries no version at all, so a null plan is not its business, and a shared
+       * check would have to decide what to do about a case that only one branch has. It decided to
+       * return, which abandoned a confirmed move in silence.
+       */
+      const bodyWith = (idempotencyKey: string) =>
+        action === "reassignment"
+          ? reassignmentRequestBody({
+              toActorId: live.current.destination,
+              handoverNote: live.current.handoverNote,
+              idempotencyKey,
+            })
+          : planLifecycleRequestBody({
+              action,
+              expectedVersion: planLifecycleExpectedVersion(action, live.current.plan),
+              idempotencyKey,
+            });
 
-      const key = keys.current[action] ?? mintPlanActionIdempotencyKey(action);
-      keys.current[action] = key;
+      // ONE KEY PER SUBMISSION: the same one while the request is the same, a fresh one as soon as
+      // the coordinator changes what they are asking for. See the ref's own note.
+      const fingerprint = planActionSubmissionFingerprint(bodyWith(""));
+      const remembered = keys.current[action];
+      const key =
+        remembered !== undefined && remembered.fingerprint === fingerprint
+          ? remembered.key
+          : mintPlanActionIdempotencyKey(action);
+      keys.current[action] = { fingerprint, key };
 
       setChangeOnItsWay(true);
       try {
-        const sent =
-          action === "reassignment"
-            ? await post(
-                planAssignmentEndpoint(context.planId),
-                reassignmentRequestBody({
-                  toActorId: live.current.destination,
-                  handoverNote: live.current.handoverNote,
-                  idempotencyKey: key,
-                }),
-              )
-            : await post(
-                planLifecycleEndpoint(context.planId),
-                planLifecycleRequestBody({ action, expectedVersion: held.version, idempotencyKey: key }),
-              );
+        const sent = await post(
+          action === "reassignment" ? planAssignmentEndpoint(context.planId) : planLifecycleEndpoint(context.planId),
+          bodyWith(key),
+        );
 
         if (!sent.ok) {
           refuse(planActionRefusalWording(sent.refusal));
@@ -295,31 +362,36 @@ export function PlanActions({ context }: PlanActionsProps) {
       </p>
       <p className={mutedTextClass}>
         <span className="font-medium text-[color:var(--text)]">Carried by: </span>
-        {!context.carriedBy.held
+        {context.carriedBy.actorId === null
           ? "nobody has taken this plan on, so it has no named coordinator."
           : context.carriedBy.wording === null
             ? "an account this demonstration cannot put a role to. It identifies accounts by an identifier rather than by a person."
             : `a ${context.carriedBy.wording} account.`}
       </p>
 
-      {outcome === null ? null : (
-        <div role="status" data-testid="caring-contacts-plan-action-outcome" className="mt-3 min-w-0">
-          {outcome.kind === "recorded" ? (
-            <StatedReason
-              heading={`${planActionLabel(outcome.action)} — recorded on the plan`}
-              because={outcome.announcement}
-              changedBy="Nothing further on this screen. The rest of this screen was read before this change and is being read again."
-            />
-          ) : (
-            <StatedReason
-              heading={`${planActionLabel(outcome.action)} — ${outcome.refusal.heading}`}
-              because={outcome.refusal.because}
-              changedBy={outcome.refusal.changedBy}
-              icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
-            />
-          )}
-        </div>
-      )}
+      {/*
+       * MOUNTED WHETHER OR NOT THERE IS ANYTHING IN IT. A live region created together with its
+       * first content is the pattern assistive technology is least reliable about: the region has
+       * to exist before the text arrives for the change to be announced rather than merely
+       * rendered. jsdom cannot prove that an announcement reaches assistive technology at all, so
+       * this is correctness by construction and is recorded as such rather than as evidence.
+       */}
+      <div role="status" data-testid="caring-contacts-plan-action-outcome" className="mt-3 min-w-0">
+        {outcome === null ? null : outcome.kind === "recorded" ? (
+          <StatedReason
+            heading={`${planActionCardName(outcome.action)} — recorded on the plan`}
+            because={outcome.announcement}
+            changedBy="Nothing further on this screen. The rest of this screen was read before this change and is being read again."
+          />
+        ) : (
+          <StatedReason
+            heading={`${planActionCardName(outcome.action)} — ${outcome.refusal.heading}`}
+            because={outcome.refusal.because}
+            changedBy={outcome.refusal.changedBy}
+            icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+          />
+        )}
+      </div>
 
       <div className="mt-4 flex min-w-0 flex-col gap-3">
         <div className={blockClass}>

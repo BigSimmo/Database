@@ -918,7 +918,7 @@ function planActionsFixture(overrides: Partial<PlanActionsContext> = {}): PlanAc
     planVersion: 1,
     actingAccount: "coordinator",
     actingAccountWording: CARING_CONTACT_ROLE_WORDING.coordinator,
-    carriedBy: { held: true, wording: CARING_CONTACT_ROLE_WORDING.coordinator },
+    carriedBy: { actorId: "demo-coordinator", wording: CARING_CONTACT_ROLE_WORDING.coordinator },
     destinations: [{ actorId: "demo-teamLead", wording: CARING_CONTACT_ROLE_WORDING.teamLead }],
     granted: { pause: true, resume: true, withdrawal: true, reassignment: true },
     ...overrides,
@@ -1390,9 +1390,20 @@ type SentRequest = { url: string; body: Record<string, unknown> };
  *
  * `swallow` models the failure the idempotency key exists for: the service acted, and the answer
  * never arrived. The handler still runs -- that is the point -- and the rejection happens after it.
+ *
+ * `garble` models the OTHER degraded transport, and it is the only way this screen's `plan` becomes
+ * null: the write LANDS and its answer comes back in a shape `planFromWriteAnswer` cannot read. The
+ * handler still runs against the real store; only what the screen is handed back is replaced.
  */
-function routeFetch(options: { swallow?: (sent: SentRequest, index: number) => boolean; gate?: Promise<void> } = {}) {
+function routeFetch(
+  options: {
+    swallow?: (sent: SentRequest, index: number) => boolean;
+    garble?: (sent: SentRequest, index: number) => boolean;
+    gate?: Promise<void>;
+  } = {},
+) {
   const swallow = options.swallow ?? (() => false);
+  const garble = options.garble ?? (() => false);
   const sent: SentRequest[] = [];
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
@@ -1431,24 +1442,47 @@ function routeFetch(options: { swallow?: (sent: SentRequest, index: number) => b
     // The handler has already run against the real store by the time this fires, which is exactly
     // the state a lost answer leaves behind.
     if (swallow(record, index)) throw new TypeError("Failed to fetch");
+    // Likewise: the write has happened, and only the shape of the answer is spoiled. `200 {}` is
+    // valid JSON the screen can parse and cannot read a plan out of, which is the case
+    // `planFromWriteAnswer` returns null for.
+    if (garble(record, index)) {
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    }
     return answer;
   });
   return { sent, spy, writes: () => sent.filter((entry) => !entry.url.includes("/session")) };
 }
 
-/** Renders the real page plus the overlay host the shell mounts in production, as ONE tree. */
-async function renderPageWithOverlays(patient = PATIENT): Promise<void> {
+/** The real page plus the overlay host the shell mounts in production, as ONE tree. */
+async function pageWithOverlays(patient = PATIENT): Promise<ReactElement> {
   const { default: PatientOverviewPage } = await import("@/app/caring-contacts/patients/[patientId]/page");
   const element = await PatientOverviewPage({
     params: Promise.resolve({ patientId: patient }),
     searchParams: Promise.resolve({}),
   });
-  render(
+  return (
     <>
       {(element as ReactElement<{ children: ReactElement }>).props.children}
       <WorkspaceOverlays />
-    </>,
+    </>
   );
+}
+
+/** Renders that tree. */
+async function renderPageWithOverlays(patient = PATIENT): Promise<ReturnType<typeof render>> {
+  return render(await pageWithOverlays(patient));
+}
+
+/**
+ * Asks the server for this screen again and hands the answer to the SAME mounted tree.
+ *
+ * This is what `router.refresh()` does in production: the server renders the screen again and React
+ * reconciles it into the components already mounted, so a Client Component keeps its state and
+ * receives new props. A fresh `render` would prove nothing about that -- it builds new components,
+ * which hold whatever their initialisers give them.
+ */
+async function rereadTheScreen(view: ReturnType<typeof render>, patient = PATIENT): Promise<void> {
+  view.rerender(await pageWithOverlays(patient));
 }
 
 /** The trigger for ONE row, refusing anything but exactly one -- never "the trigger on screen". */
@@ -1971,6 +2005,197 @@ describe("the plan actions - a repeated submission does not act twice", () => {
     expect(keys).toHaveLength(2);
     expect(keys[0]).toBe(keys[1]);
     expect(typeof keys[0]).toBe("string");
+  });
+});
+
+describe("the plan actions - no way out of the commit that says nothing", () => {
+  beforeEach(() => {
+    clearStagedWorkspaceOverlayCommit();
+    mocks.router.refresh.mockClear();
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    window.history.pushState(null, "", `/caring-contacts/patients/${PATIENT}`);
+  });
+
+  /** Claims one plan for a role, so `somebody-is-carrying-this-plan` is met and a move is live. */
+  async function claimedBy(store: CaringContactRepository, plan: PlanId, role: "coordinator" | "teamLead", tag: string) {
+    const claimed = await store.applyAssignment(
+      { planId: plan, action: { type: "claim", actorId: actorId(`demo-${role}`) } },
+      { actor: demoActorForRole(role), idempotencyKey: idempotencyKey(tag) },
+    );
+    if (!claimed.ok) throw new Error(`claim refused: ${claimed.reason}`);
+  }
+
+  /**
+   * THE SILENT NO-OP THIS CASE EXISTS FOR. A reassignment deliberately does not depend on this
+   * screen knowing the plan's version, because the assignment route carries none -- so a plan this
+   * screen has lost track of is not a reason to refuse a move. A guard belonging to the LIFECYCLE
+   * writes must not defeat that: a coordinator who presses through both stages of a two-stage
+   * surface and is told nothing would leave responsibility for a discharged patient with the wrong
+   * person while the screen signalled that it had moved.
+   */
+  it("moves a plan whose last answer could not be read, rather than closing and saying nothing", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-unreadable-answer");
+    // The hold LANDS, and its answer comes back in a shape this screen cannot read. That is the
+    // only way `plan` becomes null, and the card says so in words.
+    const { writes } = routeFetch({ garble: (_sent, index) => index === 0 });
+
+    await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "pause", 1);
+    await waitFor(() =>
+      expect(screen.getByTestId("caring-contacts-plan-actions")).toHaveTextContent(/not known here any more/i),
+    );
+
+    await confirmPlanAction(user, "reassignment", 2);
+
+    // THE CLAIM: a write leaves this screen, and the screen says what happened. Never silence.
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+    expect(writes().map((entry) => entry.url)).toEqual([
+      `/api/caring-contacts/plans/${plan}`,
+      `/api/caring-contacts/assignments/${plan}`,
+    ]);
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.ownerId).toBe("demo-coordinator");
+  });
+
+  /**
+   * THE REMEDY A SCREEN STATES MUST BE ONE THE SCREEN PERFORMS. `stale-version` tells a coordinator
+   * to read this screen again so it holds the plan as it now stands. Nothing here re-read it: the
+   * refusal path asked for no server render, and a `useState` initialiser is ignored on re-render
+   * anyway -- so pressing again sent the identical body and earned the identical refusal.
+   */
+  it("asks for this screen again after a refusal, and holds what comes back", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // Somebody else holds the plan while the confirmation sits open.
+    const elsewhere = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-remedy") },
+    );
+    if (!elsewhere.ok) throw new Error(`the other write refused: ${elsewhere.reason}`);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+
+    // HALF ONE: the screen asks the server for itself again, which is the remedy it just stated.
+    expect(mocks.router.refresh).toHaveBeenCalled();
+
+    // HALF TWO: what comes back LANDS. The plan is now held, so the control that lifts a hold is
+    // live and the version it sends is the one the other write left behind.
+    await rereadTheScreen(view);
+    await user.click(screen.getByTestId("caring-contacts-plan-action-resume"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/running again/i));
+    expect(writes().map((entry) => [entry.body.action, entry.body.expectedVersion])).toEqual([
+      ["pause", 2],
+      ["resume", 3],
+    ]);
+  });
+
+  /**
+   * A KEY NAMES A SUBMISSION, AND A SUBMISSION IS THE ACTION AND ITS BODY. Held per action until one
+   * succeeds, a key outlives the submission it was minted for: a coordinator whose write was refused
+   * and who then corrects it is making a genuinely NEW submission, and the service refuses a key it
+   * recorded against different answers as `idempotency-key-reused-for-a-different-write`. The remedy
+   * that refusal states clears nothing, so the action could not be completed from this screen at all.
+   */
+  it("mints a new key for a corrected submission, so a refusal is not the end of the action", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore();
+    const plan = await runningPlan(store);
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.click(planActionTrigger("pause"));
+    // Somebody else holds the plan and lets it run again while the confirmation sits open, so this
+    // screen's version is stale AND the plan is still running when it confirms.
+    const held = await store.pausePlan(
+      { planId: plan, expectedVersion: 2 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-hold") },
+    );
+    if (!held.ok) throw new Error(`the other hold refused: ${held.reason}`);
+    const lifted = await store.resumePlan(
+      { planId: plan, expectedVersion: 3 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("elsewhere-lift") },
+    );
+    if (!lifted.ok) throw new Error(`the other lift refused: ${lifted.reason}`);
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent("This plan changed after this screen read it"));
+
+    // The coordinator reads the screen again, exactly as the refusal said to, and holds the plan.
+    await rereadTheScreen(view);
+    await confirmPlanAction(user, "pause", 1);
+
+    // THE CLAIM: the corrected submission is carried out. A key held past its submission would be
+    // refused here for a second, worse reason and the hold could never be recorded from this screen.
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/recorded on the plan/i));
+    expect(writes().map((entry) => entry.body.expectedVersion)).toEqual([2, 4]);
+    const keys = writes().map((entry) => entry.body.idempotencyKey);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect((await planShape(store, plan)).state).toBe("paused");
+  });
+
+  /**
+   * A CONDITION MUST PERFORM THE CHECK ITS NAME AND ITS REFUSAL CLAIM. `a-different-coordinator-is-
+   * chosen` says the choice may not be the coordinator already carrying the plan, and the server's
+   * list of destinations excludes that account -- but the choice is CLIENT state and survives the
+   * screen being read again, while the list does not. `applyAssignmentAction` does not refuse a move
+   * from an account to itself, so a second press appends a handover row saying the plan changed
+   * hands when it did not, indistinguishable afterwards from a real one.
+   */
+  it("refuses a move to the coordinator now carrying the plan, saying which fact that is", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-same-destination");
+    routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    // The screen is read again and the plan has moved -- but the choice made a moment ago is still
+    // held here, and it now names the coordinator carrying the plan.
+    await rereadTheScreen(view);
+    await user.click(planActionTrigger("reassignment"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(document.getElementById(action.getAttribute("aria-describedby") ?? "")).toHaveTextContent(
+      PLAN_ACTION_CONDITION_REFUSALS["a-different-coordinator-is-chosen"].heading,
+    );
+  });
+
+  /** THE CLAUSE NOBODY WRITES, on its own and first, so a mutation reddens it rather than a sibling. */
+  it("and that refused move appends no second handover to the record", async () => {
+    const user = userEvent.setup();
+    const { store } = spiedStore("teamLead");
+    const plan = await runningPlan(store);
+    await claimedBy(store, plan, "teamLead", "claim-same-destination-record");
+    const { writes } = routeFetch();
+
+    const view = await renderPageWithOverlays();
+    await user.type(screen.getByLabelText("Why this plan is changing hands"), "Going on leave from Friday.");
+    await user.selectOptions(screen.getByLabelText("Who this plan moves to"), "demo-coordinator");
+    await confirmPlanAction(user, "reassignment", 2);
+    await waitFor(() => expect(outcomeRegion()).toHaveTextContent(/now moves to/i));
+
+    await rereadTheScreen(view);
+    await confirmPlanAction(user, "reassignment", 2);
+
+    const assignment = await store.getAssignment(plan, { actor: demoActorForRole("teamLead") });
+    expect(assignment?.reassignmentHistory.map((entry) => [entry.fromActorId, entry.toActorId])).toEqual([
+      ["demo-teamLead", "demo-coordinator"],
+    ]);
+    expect(writes()).toHaveLength(1);
   });
 });
 

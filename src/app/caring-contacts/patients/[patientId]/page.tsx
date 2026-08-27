@@ -333,7 +333,10 @@ export default async function CaringContactsPatientOverviewPage({
       actingAccount: actingRole,
       actingAccountWording: CARING_CONTACT_ROLE_WORDING[actingRole],
       carriedBy: {
-        held: assignment.ownerId !== null,
+        // The identifier crosses because it is COMPARED and never rendered: a move to the account
+        // already carrying the plan is refused by the rules module, which has to know which one
+        // that is. The wording beside it is the half a clinician reads.
+        actorId: assignment.ownerId,
         wording: ownerRole === null ? null : CARING_CONTACT_ROLE_WORDING[ownerRole],
       },
       destinations: DEMO_ROLES.filter((role) => grants(role, "claimPlan") && role !== ownerRole).map((role) => ({
