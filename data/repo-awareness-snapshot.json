@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "60224e56b622bcb3d53c812e55d44daf03877233",
-    "committed_at": "2026-08-27T08:55:20+00:00"
+    "sha": "a028e3d41b975b660734f29a821f3136a033fa57",
+    "committed_at": "2026-08-27T10:41:17+00:00"
   },
   "routes": {
     "modes": [
@@ -3902,6 +3902,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty (real conflict in src/components/dsm/dsm-compare-chrome.tsx vs main's #2409 DSM redesign), CI red (Build/Static PR checks/Production UI x4/Lighthouse all failing on one root-cause TS2783 duplicate-prop typecheck error in the PR's own new test), 0 unresolved review threads (all 5 PR comments were bot noise: Codex/CodeRabbit/Bugbot usage-limit notices and a CI-triage bot comment). After: merged origin/main cleanly (dsm-compare-chrome.tsx conflict resolved by combining HEAD's phoneLayout/slotSummaryLabel props with main's onCommit, verified equivalent since idsCompareHref already null-filters internally), fixed the duplicate actionLabel JSX prop in tests/compare-ids-chrome.dom.test.tsx (removed the redundant explicit prop since chromeProps spread already supplies it and the test asserts nothing about its value), pushed 2 commits (13efa061 merge, 4042bdd7 fix). No review threads needed action. New CI run (33051244071) at 4042bdd7 still in_progress after 30+ min observation window (PR mergeability + PR policy + Safety and config checks + Caring Contacts database already green); Build/Static PR checks/Unit coverage/Production UI x3/Production UI critical/Lighthouse budget not yet settled — deferred to the user per babysit budget, run: https://github.com/BigSimmo/Database/actions/runs/33051244071",
         "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts tests/dsm-comparison-page.dom.test.tsx -- 6 files / 53 passed; npm run typecheck -- passed after fix (5604 input files); npx eslint on touched files -- clean; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "c718360809aa7bd0d3b681329e34bbb2be633bcb",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: Static PR checks failing (check:repo-awareness-snapshot drifted review_state), Production UI (1) failing (tests/ui-route-coverage.spec.ts DSM compare removal test expected the pre-hybrid-layout Choose-at-least-two-diagnoses heading, which this PR's own new hybrid-phone suppressEmptyState/showOneMoreHint logic intentionally replaces with an Add-one-more-to-compare hint at phone width), PR required aggregate failing as a result. No unresolved review threads existed (0 review threads; all 7 PR comments were bot usage-limit/CI-triage noise). Branch was not behind main (base 3265231 == origin/main tip). After: regenerated data/repo-awareness-snapshot.json via npm run snapshot:repo-awareness and updated the Playwright assertion to expect compare-slot-strip-one-more-hint instead of the old heading, matching the new intended UX already covered by tests/compare-slot-strip.dom.test.tsx. No drift merge needed (branch was current with main). No review threads to address.",
+        "checks": "npm run check:repo-awareness-snapshot (pass after regen), npm run test -- tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts (5 files, 52 passed), npm run typecheck (pass), npx eslint tests/ui-route-coverage.spec.ts --max-warnings 0 (pass, 0 findings), npx prettier --check tests/ui-route-coverage.spec.ts data/repo-awareness-snapshot.json (pass). No provider-backed checks run (no verify:ui/verify:release/eval:* executed)."
       },
       {
         "date": "2026-08-27",
@@ -24953,7 +24961,7 @@
       }
     ],
     "counts": {
-      "records": 2633,
+      "records": 2634,
       "refs": 1609
     }
   }
