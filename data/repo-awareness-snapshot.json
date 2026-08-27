@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "de2b9b35bb84c96ced4a6eb09e6d6c99bc2de0bc",
-    "committed_at": "2026-08-27T10:18:22+08:00"
+    "sha": "5d848e0d24e4669a0fc41ef37aaab1f77ae5c323",
+    "committed_at": "2026-08-27T13:18:04+08:00"
   },
   "routes": {
     "modes": [
@@ -1295,6 +1295,10 @@
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
       {
+        "path": "/api/documents/images/batch",
+        "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
         "path": "/api/documents/signed-urls",
         "file": "src/app/api/documents/signed-urls/route.ts"
       },
@@ -1397,7 +1401,7 @@
       "product_pages": 55,
       "mockup_pages": 140,
       "redirects": 17,
-      "api": 57
+      "api": 58
     }
   },
   "documentation": {
@@ -1411,6 +1415,41 @@
         "path": "docs/agents-guide.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/agents/codex-cloud-environment.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-dependency-shortcut.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-desktop-worktree-setup.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-github-review.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-productivity-defaults.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/codex-review-throttling.md",
+        "section": "agents",
+        "catalogued": false
+      },
+      {
+        "path": "docs/agents/cursor-cloud.md",
+        "section": "agents",
+        "catalogued": false
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -2373,6 +2412,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
@@ -2394,6 +2438,11 @@
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
         "catalogued": false
       },
@@ -2506,6 +2555,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3403,6 +3457,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-clinician-check.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
         "catalogued": false
@@ -3693,6 +3752,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-6-7-decisions.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3736,6 +3805,9 @@
     "sections": [
       {
         "name": "adr"
+      },
+      {
+        "name": "agents"
       },
       {
         "name": "archive"
@@ -3790,10 +3862,10 @@
       }
     ],
     "counts": {
-      "documents": 466,
-      "catalogued": 102,
-      "uncatalogued": 364,
-      "sections": 18
+      "documents": 479,
+      "catalogued": 106,
+      "uncatalogued": 373,
+      "sections": 19
     }
   },
   "test_health": {

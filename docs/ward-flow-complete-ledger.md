@@ -399,15 +399,25 @@ the failure line quoted, then restored.
    defeats the whole point of spec D7. All three now restate `confirmedAt`. `confirmedBy` is
    deliberately left alone: each case already refuses any acting unit other than the release's own
    ward, so it can only ever be rewritten to the identical string.
-4. **P2 — REJECTED, with reasons, rather than applied.** The reviewer wanted a released bed to stop
-   banding `now` once the clock passes the day boundary. That value feeds the discharge board's
+4. **P2 — rejected in its original form, then implemented narrowly, and SHIPPED.** The reviewer
+   originally wanted a released bed to stop banding `now` once the clock passes the day boundary. That value feeds the discharge board's
    excluded count, whose footer reads "expected beyond tonight" — and a bed that has already been
    released is not _expected_ at any future time. The fix would have traded a cosmetic ordering nit
    for a board making a false statement about a real record, reachable in three clicks of the demo
-   clock. The premise is also weak: there is no next operating day in this prototype, so "Released
-   today" never needs to empty, and `now` is the honest band for the one category of bed that
-   genuinely is available this minute (spec D1). Recorded here because a later session will meet
-   the same finding and should not silently re-apply it.
+   clock.
+
+   **Corrected 2026-08-27 — the premise recorded here was wrong, and the finding was ultimately
+   implemented.** The claim was that "there is no next operating day in this prototype, so
+   'Released today' never needs to empty". The demo clock does roll across operating days, and
+   advancing it by one was still listing yesterday's released beds under "Released today". Before
+   merge the finding was re-implemented in a narrower form and shipped: a released record bands
+   `beyond-today` only when its `confirmedAt` falls on an earlier operating day than `now`. Same-day
+   released beds still band `now`. The board's footer objection is answered because the carried-over
+   row joins the exclusion count that is already stated aloud, rather than being silently dropped.
+   Spec D1 is not weakened either way: `capacityBreakdown()` skips released records before it
+   derives any figure, so `availableNow` never saw them. Scope is the discharge board's display
+   only. Recorded here because a later session will meet this code and **should not revert it**
+   back to an unconditional `now`.
 
 **The role-screen browser flake is pre-existing and is not Phase 5's.** `tests/ui-ward-roles.spec.ts`
 intermittently fails with a Playwright strict-mode violation — a role screen's own test identifier

@@ -108,6 +108,8 @@ worker-*.log
 /error.log
 tmp-*.py
 test-output.txt
+# node compile cache directory when NODE_COMPILE_CACHE=1 is set
+/1/
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -166,3 +168,7 @@ docs/archive/staging-tenancy-evidence-*
 
 # Subagent-driven-development coordination scratch (ledger, briefs, review packages)
 .superpowers/
+
+# Node v24 local disk code cache directory
+1/
+
