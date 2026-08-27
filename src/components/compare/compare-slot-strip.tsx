@@ -8,6 +8,7 @@ import { cn } from "@/components/ui-primitives";
 
 export function CompareSlotStrip({
   slots,
+  layout = "default",
   activeIndex,
   onSelectSlot,
   onClearSlot,
@@ -18,6 +19,7 @@ export function CompareSlotStrip({
   onChange,
 }: {
   slots: readonly CompareSlot[];
+  layout?: "default" | "compact";
   activeIndex?: number | null;
   onSelectSlot: (index: number) => void;
   onClearSlot?: (index: number) => void;
@@ -29,24 +31,35 @@ export function CompareSlotStrip({
 }) {
   const pair = slots.length === 2;
   const bothFilled = pair && Boolean(slots[0]?.id && slots[1]?.id);
+  const compactRail = layout === "compact" && !pair;
 
   return (
-    <div className="mt-4 grid gap-3">
+    <div className={cn("grid gap-3", compactRail ? "mt-2" : "mt-4")}>
       <div
         className={cn(
-          "grid items-stretch gap-2",
-          pair ? "grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+          compactRail
+            ? "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "grid items-stretch gap-2",
+          !compactRail &&
+            (pair ? "grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"),
         )}
       >
         {slots.map((slot, index) => (
-          <div key={`${slot.label}-${index}`} className={pair ? "contents" : undefined}>
+          <div
+            key={`${slot.label}-${index}`}
+            className={
+              pair ? "contents" : compactRail ? "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start" : undefined
+            }
+          >
             <div className="relative min-w-0">
               <button
                 type="button"
                 onClick={() => onSelectSlot(index)}
                 aria-pressed={activeIndex === index}
+                data-testid={compactRail ? "compare-slot-tile-compact" : "compare-slot-tile"}
                 className={cn(
-                  "grid min-h-22 min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface-raised)] text-left shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  compactRail ? "min-h-16 p-2.5" : "min-h-22 p-3",
                   onClearSlot && slot.id ? "pr-12" : null,
                   activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
                   index === 0
@@ -58,7 +71,8 @@ export function CompareSlotStrip({
               >
                 <span
                   className={cn(
-                    "grid h-8 w-8 place-items-center rounded-md text-sm font-extrabold text-[color:var(--command-contrast)]",
+                    "grid place-items-center rounded-md text-sm font-extrabold text-[color:var(--command-contrast)]",
+                    compactRail ? "h-7 w-7" : "h-8 w-8",
                     index === 0
                       ? "bg-[color:var(--clinical-accent)]"
                       : index === 1
@@ -69,9 +83,18 @@ export function CompareSlotStrip({
                   {slot.label}
                 </span>
                 <span className="min-w-0">
-                  <strong className="block truncate text-base text-[color:var(--text-heading)]">{slot.title}</strong>
+                  <strong
+                    className={cn(
+                      "block truncate text-[color:var(--text-heading)]",
+                      compactRail ? "text-sm" : "text-base",
+                    )}
+                  >
+                    {slot.title}
+                  </strong>
                   {slot.subtitle ? (
-                    <span className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">{slot.subtitle}</span>
+                    <span className="mt-0.5 block truncate text-2xs leading-4 text-[color:var(--text-muted)]">
+                      {slot.subtitle}
+                    </span>
                   ) : null}
                 </span>
               </button>

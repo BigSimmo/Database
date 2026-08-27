@@ -3521,9 +3521,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
-    // one route out to the mode home, and a breadcrumb under it is a second.
-    // The one route out of a record is the mode home, which is the shared home now.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
+    // one route out to the DSM search catalogue, not the shared home composer.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
 
