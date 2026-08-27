@@ -36,7 +36,7 @@ import {
 } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, fieldControlPlain } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
@@ -859,7 +859,10 @@ function FavouritesTable({
               disabled={viewMode === "recent"}
               title={viewMode === "recent" ? "Recently used view is always sorted by last used" : undefined}
               onChange={(event) => onSortModeChange(event.target.value as SortMode)}
-              className="min-h-tap w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-9"
+              className={cn(
+                fieldControlPlain,
+                "appearance-none pr-9 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              )}
             >
               <option value="manual">Sort: Manual order</option>
               <option value="last-used">Sort: Last used</option>
