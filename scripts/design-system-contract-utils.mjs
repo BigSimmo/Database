@@ -1472,10 +1472,20 @@ function elevationExcepted(classText, tag) {
   return /overlay|Sheet|glassOverlaySurface|\bpanel\b|shadow-lux|ring-highlight|lux/i.test(hay);
 }
 
+function isOutOfFlowClassText(classText) {
+  if (!classText) return false;
+  for (const token of classText.split(/\s+/)) {
+    if (/(^|:)(absolute|fixed)$/.test(token)) return true;
+  }
+  return false;
+}
+
 /**
  * Advisory AST: a child in-flow surface whose resting elevation token is heavier
  * than the nearest ancestor that also declares one. Overlays, Sheet, lux recipes,
- * and hover/focus-visible/forced-colors shadows are excluded.
+ * hover/focus-visible/forced-colors shadows, and out-of-flow (absolute/fixed
+ * positioned) surfaces such as popovers are excluded — an absolutely positioned
+ * child isn't really "nested inside" its DOM ancestor's stacking/elevation.
  */
 export function findElevationInversionsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx") && !relativePath.endsWith(".ts")) return [];
@@ -1489,7 +1499,7 @@ export function findElevationInversionsInSource(relativePath, sourceText) {
       const tag = jsxTagName(opening);
       const classText = jsxClassNameText(opening, source);
       const self = elevationFromClassText(classText);
-      if (self && !self.lux && !elevationExcepted(classText, tag)) {
+      if (self && !self.lux && !elevationExcepted(classText, tag) && !isOutOfFlowClassText(classText)) {
         let ancestor = node.parent;
         while (ancestor) {
           const parentOpening = jsxOpening(ancestor);
@@ -1518,7 +1528,9 @@ export function findElevationInversionsInSource(relativePath, sourceText) {
 
 /**
  * Intrinsic `<button>` nodes whose className paints `--command` without going
- * through `Button` or `primaryControl`. The `Button` primitive itself is exempt.
+ * through `primaryControl`. The `Button` primitive's own source file is exempt
+ * by path, not by matching the literal text "Button" in a className — an
+ * intrinsic `<button className="... Button">` is still hand-rolled.
  */
 export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx")) return [];
@@ -1538,7 +1550,7 @@ export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
       const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
       const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
       const hay = `${classText} ${classSource}`;
-      if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay) && !/\bButton\b/.test(hay)) {
+      if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         findings.push(`${relativePath}:${line}`);
       }

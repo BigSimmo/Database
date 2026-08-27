@@ -724,6 +724,17 @@ describe("design-system contract helpers", () => {
     ).toEqual([]);
   });
 
+  it("still flags an intrinsic command-fill button whose className literally contains the word Button", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] Button">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
   it("flags a child with a heavier resting elevation than its in-flow parent", () => {
     const source = [
       "export function Card() {",
@@ -743,6 +754,32 @@ describe("design-system contract helpers", () => {
       "  return (",
       '    <section className="shadow-[var(--e1)]">',
       '      <div className="shadow-[var(--shadow-lux)]">sheet</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag an absolutely positioned popover with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="absolute shadow-[var(--e2)]">popover</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag a fixed-positioned child (e.g. a toast) with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="fixed shadow-[var(--e2)]">toast</div>',
       "    </section>",
       "  );",
       "}",

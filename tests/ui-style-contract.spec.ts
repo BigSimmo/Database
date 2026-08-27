@@ -401,7 +401,15 @@ test.describe("visible focus outline (Gate 3)", () => {
           (tag === "a" && el.getAttribute("href")),
         );
         const style = getComputedStyle(el);
-        const focusToken = getComputedStyle(document.documentElement).getPropertyValue("--focus").trim();
+        // Resolve --focus to the same computed color format the browser reports
+        // for outlineColor (e.g. "rgb(...)"), so the two are directly comparable
+        // rather than comparing a raw custom-property string against a resolved one.
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.color = "var(--focus)";
+        document.body.appendChild(probe);
+        const focusColor = getComputedStyle(probe).color;
+        probe.remove();
         return {
           kind: composer ? ("composer" as const) : field ? ("field" as const) : ("control" as const),
           tag,
@@ -410,7 +418,7 @@ test.describe("visible focus outline (Gate 3)", () => {
           outlineStyle: style.outlineStyle,
           outlineColor: style.outlineColor,
           boxShadow: style.boxShadow,
-          focusToken,
+          focusColor,
         };
       });
 
@@ -428,6 +436,7 @@ test.describe("visible focus outline (Gate 3)", () => {
     }
     expect(control.outlineWidth).toBe("2px");
     expect(control.outlineStyle).toBe("solid");
+    expect(control.outlineColor).toBe(control.focusColor);
     expect(control.boxShadow.toLowerCase()).not.toMatch(/0px 0px 0px [1-8]px/);
     expect(control.boxShadow).not.toMatch(/--tw-ring/);
 
