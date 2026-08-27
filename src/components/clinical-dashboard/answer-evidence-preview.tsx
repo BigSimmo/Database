@@ -10,8 +10,12 @@ import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
 /** The render policy caps primary sources at six, so the rail is built for six
- *  rather than for the three a specimen usually draws. */
-const visiblePreviewSourceLimit = 6;
+ *  rather than for the three a specimen usually draws.
+ *
+ *  Exported because the progress line prints this count as a number, and a unit may
+ *  legitimately carry up to twelve sources. The line and the rail must read the same cap
+ *  from one place or the line claims sources the reader cannot count. */
+export const visiblePreviewSourceLimit = 6;
 
 /**
  * The sources, arriving.

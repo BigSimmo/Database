@@ -4364,6 +4364,24 @@ html[data-motion="reduced"] .answer-progress-dot {
   animation-delay: calc(var(--stagger-index, 0) * 35ms);
 }
 
+/* The answer wait's source rail arrives one card at a time rather than as a single movement.
+   35ms is right for a results grid the reader is about to scan, but six cards in 175ms reads
+   as one block appearing. At 90ms the last card lands around 450ms, so each is separately
+   noticeable, and the whole rail is still standing long before generation ends.
+
+   Scoped to this rail deliberately — the shared class also drives the prose skeleton bars
+   immediately above it and the search result grids, which keep the 35ms rung. Declared here,
+   unlayered and adjacent to the rule it overrides, because `.answer-sources-arriving` itself
+   lives in @layer components and a layered rule would lose to this unlayered one whatever its
+   specificity.
+
+   It cannot reintroduce motion when motion is suppressed: both reduced-motion paths below set
+   `animation: none !important` on `.stagger-item`, and that shorthand resets animation-delay
+   to 0s with it, so the cards stay immediately and fully visible. */
+.answer-sources-arriving .stagger-item {
+  animation-delay: calc(var(--stagger-index, 0) * 90ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="full"]) .animate-skeleton-shimmer::after,
   html:not([data-motion="full"]) .stagger-item {

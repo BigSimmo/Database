@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "9668486e-33f2-4f0a-93e4-d12cc4b85b1b",
+  "createdOn": "2026-08-27",
+  "action": "update",
+  "payload": {
+    "id": "#100",
+    "detail": "UPDATE 2026-08-27: Phase 1 is now ON by default and proven in the browser. RAG_INCREMENTAL_EVIDENCE_PREVIEW defaults true (src/lib/env.ts) and the client gate incrementalEvidencePreviewRenderingEnabled renders unless the value is the literal string 'false' (src/lib/client-env.ts), so the arriving source rail is the default answer wait. The verify:ui gap this row recorded is closed: tests/answer-progress-ui-smoke.spec.ts now carries two Chromium journeys exercising the render path end to end — sources visible during generation, capped at six, the status line counting only visible cards, line/prose/rail order held, handover to the answer's own numbered rail, plus stagger pacing and the reduced-motion resting state. Two defects fixed on the way: the status line counted the unit's full source list (up to 12) rather than the six cards drawn, and the rail shared the 35ms cascade rung so six cards read as one movement (now 90ms, scoped and unlayered). Rollback is unchanged and unused: server emission flag first, then the client render flag (build-time inline, needs a rebuild). Remaining: Phase 2 answer-section units stay unbuilt and provider-gated; no live canary was run because Phase 1 changes neither generation nor post-processing.",
+    "source": "docs/verified-answer-incremental-delivery-design.md; src/lib/env.ts; src/lib/client-env.ts; tests/answer-progress-ui-smoke.spec.ts",
+    "baseRowFingerprint": "ee2487840b41118fcb117e9799ac847a17319de6746af867806ff1f6556c96dd"
+  }
+}

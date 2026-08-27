@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import { AnswerProgress } from "@/components/clinical-dashboard/answer-status";
 import { incrementalEvidencePreviewRenderingEnabled } from "@/lib/client-env";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -30,10 +31,14 @@ function evidencePreview(sourceCount = 4): VerifiedEvidencePreviewUnit {
 }
 
 describe("incremental answer evidence preview", () => {
-  it("keeps its client render flag off unless explicitly enabled", () => {
-    expect(incrementalEvidencePreviewRenderingEnabled(undefined)).toBe(false);
-    expect(incrementalEvidencePreviewRenderingEnabled("false")).toBe(false);
+  // Inverted 2026-08-27 when Phase 1 was enabled by default. The rail is the wait's most
+  // useful content and every unit reaching the browser has already passed the stream
+  // contract's structural validation, so an unset variable renders it. Only the literal
+  // string "false" — the documented second rollback step — withholds it.
+  it("renders unless the client gate is explicitly disabled", () => {
+    expect(incrementalEvidencePreviewRenderingEnabled(undefined)).toBe(true);
     expect(incrementalEvidencePreviewRenderingEnabled("true")).toBe(true);
+    expect(incrementalEvidencePreviewRenderingEnabled("false")).toBe(false);
   });
 
   it("renders a bounded, non-live rail without presenting a completed answer", () => {
@@ -94,5 +99,25 @@ describe("incremental answer evidence preview", () => {
   it("renders nothing rather than an empty frame when the preview carries no sources", () => {
     const { container } = render(<AnswerEvidencePreview preview={evidencePreview(0)} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // The wait prints exactly one number, and the contract for it is that the reader can
+  // count it on screen. A unit may legitimately carry up to twelve sources while the rail
+  // draws six, so the line has to read the rail's cap and not the unit's length — "8
+  // sources found" above six cards is the one thing this surface promises never to do.
+  it("counts only the sources the reader can see, not every source in the unit", () => {
+    render(
+      <AnswerProgress
+        events={[{ stage: "generating", message: "Drafting.", receivedAt: 0 }]}
+        startedAt={0}
+        active
+        onStop={() => {}}
+        evidencePreview={evidencePreview(8)}
+      />,
+    );
+
+    const cards = screen.getAllByTestId("answer-evidence-preview-source");
+    expect(cards).toHaveLength(6);
+    expect(screen.getByTestId("answer-progress-line")).toHaveTextContent("6 sources found · writing the answer…");
   });
 });
