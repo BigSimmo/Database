@@ -1,17 +1,19 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
-import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP, REFERRAL_DECLINE_REASONS } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
   LeaveBed,
   Movement,
   MovementStage,
+  Referral,
   Rejection,
   Unit,
 } from "@/components/ward-management/ward-model";
-import { bedReleases, leaveBeds, wardMovements } from "@/components/ward-management/ward-movements";
+import { bedReleases, leaveBeds, referrals, wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -74,6 +76,37 @@ export type WardFlowState = {
    * the requesting role, nothing more. `REQUEST_CAPACITY_REFRESH` appends here.
    */
   refreshRequests: { unitId: string; at: Instant; byRole: string }[];
+  /**
+   * Phase 7 Task 3 (spec "The front door", controller ruling P1): Task 1 added the `Referral`
+   * type and a hand-authored fixture for it, but nothing wired either into live state — this is
+   * that wiring. `RECEIVE_REFERRAL` appends here; `ACCEPT_REFERRAL`/`DECLINE_REFERRAL` transition
+   * an entry in place via `replaceReferral`, exactly the discipline `bedReleases` already holds to
+   * (nothing here ever REMOVES a referral, the same reason `nextReferralId` above is safe to
+   * derive from an ever-growing array — see `frontDoorReferralSequence`'s own comment for why the
+   * id source itself still does not lean on that). Seeded from `ward-movements.ts`'s `referrals`.
+   */
+  referrals: Referral[];
+  /**
+   * Monotonic id source for `RECEIVE_REFERRAL`, mirroring `leaveBedSequence`'s own discipline:
+   * only ever increases, never derived from `state.referrals.length` — see `leaveBedSequence`'s
+   * doc comment above for the Phase 5 collision that discipline exists to prevent.
+   *
+   * Named `frontDoorReferralSequence` rather than the field the brief for this task literally
+   * names ("referralSequence") for a reason worth recording rather than silently working around:
+   * `referralSequence` already exists on this type, and already means something — it is the id
+   * source `RAISE_REFERRAL` (an ED clinician referring a patient already in the department) uses
+   * to mint `Movement` ids ("WF-9NN"). That field predates this phase by several commits and is a
+   * completely different concept from Task 1's front-door `Referral` (a request for a bed from
+   * anywhere in the network, before it is ever a `Movement`) — the two are both colloquially
+   * "referrals" but neither the record they identify nor the id namespace they mint from is the
+   * same thing. Reusing `referralSequence` for both would not corrupt any single record (the two
+   * id formats — "WF-9NN" vs "RF-9NN" — never collide even sharing one counter), but it would
+   * silently couple two independent concepts' id supplies for no reason, which is exactly the
+   * kind of muddling this model's naming discipline (`leaveBedSequence` isolated from
+   * `referralSequence` itself, `bedReleases` isolated from `leaveBeds`) exists to prevent. A
+   * distinct name costs nothing and keeps the two things as separate as they actually are.
+   */
+  frontDoorReferralSequence: number;
 };
 
 /**
@@ -94,6 +127,8 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     bedReleases: structuredClone(bedReleases),
     leaveBeds: structuredClone(leaveBeds),
     refreshRequests: [],
+    referrals: structuredClone(referrals),
+    frontDoorReferralSequence: 0,
   };
 }
 
@@ -113,9 +148,16 @@ function subjectId(event: WardFlowEvent): string {
       return event.releaseId;
     case "END_LEAVE_BED":
       return event.leaveBedId;
+    case "ACCEPT_REFERRAL":
+    case "DECLINE_REFERRAL":
+      return event.referralId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
     case "SET_SCENARIO":
+    // No referral yet exists to name a rejection against — the event that is rejected here is
+    // the intake itself, exactly the same reasoning ADVANCE_CLOCK/RESET_SCENARIO/SET_SCENARIO
+    // above already use.
+    case "RECEIVE_REFERRAL":
       return "none";
     default:
       return event.movementId;
@@ -166,6 +208,19 @@ function findLeaveBed(state: WardFlowState, leaveBedId: string): LeaveBed | unde
   return state.leaveBeds.find((candidate) => candidate.id === leaveBedId);
 }
 
+function findReferral(state: WardFlowState, referralId: string): Referral | undefined {
+  return state.referrals.find((candidate) => candidate.id === referralId);
+}
+
+/** Replaces one referral in the array by id, leaving every other element untouched — the same
+ *  shape as `replaceBedRelease`/`replaceMovement` below. */
+function replaceReferral(state: WardFlowState, referralId: string, next: Referral): WardFlowState {
+  return {
+    ...state,
+    referrals: state.referrals.map((candidate) => (candidate.id === referralId ? next : candidate)),
+  };
+}
+
 /** Replaces one movement in the array by id, leaving every other element untouched. */
 function replaceMovement(state: WardFlowState, movementId: string, next: Movement): WardFlowState {
   return {
@@ -194,6 +249,16 @@ function nextLeaveBedId(sequence: number): string {
   // "WL-9NN" mirrors FLAG_BED_RELEASE's own "WR-9NN" — visibly distinct from the hand-authored
   // "WL-00N" fixture ids.
   return `WL-9${String(sequence).padStart(2, "0")}`;
+}
+
+/**
+ * Mirrors `nextReferralId`/`nextLeaveBedId` above — derived from `frontDoorReferralSequence`,
+ * never from `state.referrals.length` (see that field's own doc comment on `WardFlowState`).
+ * "RF-9NN" mirrors the fixture's own "RF-00N" ids (`ward-movements.ts`) and the "9" prefix every
+ * other runtime-created id in this reducer uses, visibly distinct from the hand-authored fixture.
+ */
+function nextFrontDoorReferralId(sequence: number): string {
+  return `RF-9${String(sequence).padStart(2, "0")}`;
 }
 
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
@@ -879,6 +944,88 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         ...state,
         refreshRequests: [...state.refreshRequests, { unitId: unit.id, at: event.now, byRole: event.role }],
       };
+    }
+
+    case "RECEIVE_REFERRAL": {
+      // The only guard is the role check above (community-only) — a referral arriving from
+      // anywhere in the network is queued as-is; the coordinator decides its fate next, not this
+      // event.
+      const sequence = state.frontDoorReferralSequence + 1;
+      const created: Referral = {
+        id: nextFrontDoorReferralId(sequence),
+        ageBand: event.ageBand,
+        sex: event.sex,
+        secureBedNeeded: event.secureBedNeeded,
+        source: event.source,
+        raisedAt: event.now,
+        urgency: event.urgency,
+        originSiteCode: event.originSiteCode,
+        transportNeeded: event.transportNeeded,
+        state: "queued",
+      };
+      return { ...state, referrals: [...state.referrals, created], frontDoorReferralSequence: sequence };
+    }
+
+    case "ACCEPT_REFERRAL": {
+      const referral = findReferral(state, event.referralId);
+      if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      // A decision on an already-decided referral is refused — same discipline as every other
+      // one-shot transition in this reducer (CONFIRM_BED_RELEASE's `predicted -> confirmed`
+      // guard, HOLD_BED's stage check). "queued" is the only state ACCEPT_REFERRAL may act on;
+      // "accepted" and "declined" are both already-decided and refused identically.
+      if (referral.state !== "queued") {
+        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
+      }
+      const unit = findUnit(state, event.unitId);
+      if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      // The failing gate is named in the rejection, not just "ineligible" — `referralEligibility`
+      // (ward-eligibility.ts) already produces a human-readable detail per gate; reusing it here
+      // is what keeps this refusal and the match view's own "why not here?" reading identically.
+      const verdict = referralEligibility(referral, unit, event.now);
+      if (!verdict.eligible) {
+        const failedGate = verdict.gates.find((gate) => !gate.pass);
+        return reject(
+          state,
+          event,
+          `${unit.name} does not accept referral ${referral.id} — failed gate ${failedGate?.gate}: ${failedGate?.detail}`,
+        );
+      }
+      const updated: Referral = {
+        ...referral,
+        state: "accepted",
+        acceptedUnitId: unit.id,
+        decidedAt: event.now,
+        decidedBy: "Flow coordinator",
+      };
+      // Spec D14: acceptance decides only that the network takes this referral — it creates NO
+      // `Movement`. Wiring an accepted referral into one needs an `originEdId`, a legal status
+      // and a stage machine, every one of which is entangled with Phase 8's geography work; that
+      // seam is deliberate, not an oversight, and `tests/ward-referral-reducer.test.ts` asserts
+      // it explicitly so a future change has to argue with a test rather than slip past.
+      return replaceReferral(state, referral.id, updated);
+    }
+
+    case "DECLINE_REFERRAL": {
+      const referral = findReferral(state, event.referralId);
+      if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      if (referral.state !== "queued") {
+        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
+      }
+      // Membership check, not truthiness — same discipline as FLAG_BED_RELEASE's own comment on
+      // this exact shape of check above. Phase 5 shipped a truthiness test in this position
+      // (`!event.blocker`, which refuses a missing/empty value but accepts any other non-empty
+      // string) and review caught it; "chosen from a fixed list, never typed" is a runtime rule.
+      if (!REFERRAL_DECLINE_REASONS.includes(event.reason)) {
+        return reject(state, event, `DECLINE_REFERRAL reason must be chosen from REFERRAL_DECLINE_REASONS`);
+      }
+      const updated: Referral = {
+        ...referral,
+        state: "declined",
+        declineReason: event.reason,
+        decidedAt: event.now,
+        decidedBy: "Flow coordinator",
+      };
+      return replaceReferral(state, referral.id, updated);
     }
 
     case "RECORD_ESCALATION": {

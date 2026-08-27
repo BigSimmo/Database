@@ -11,6 +11,8 @@ import type {
   Cohort,
   DeclineReason,
   LegalStatus,
+  ReferralDeclineReason,
+  ReferralSource,
   Security,
   Sex,
 } from "@/components/ward-management/ward-model";
@@ -19,9 +21,12 @@ import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 /**
  * Who may raise an event. `demo` is the jump-forward / reset control on the coordinator screen —
  * it belongs to nobody's clinical role, which is exactly why it needs its own gate rather than
- * being nodded through as "coordinator".
+ * being nodded through as "coordinator". `community` is Task 3 (Phase 7, "The front door"): one
+ * role covering all five `ReferralSource`s (community, crisis_service, police, ambulance,
+ * inter_hospital) — the source itself is recorded on the `Referral`, so five separate roles would
+ * be five things to maintain before anything is known to actually need them apart.
  */
-export type WardFlowRole = "coordinator" | "ed" | "ward" | "officer" | "demo";
+export type WardFlowRole = "coordinator" | "ed" | "ward" | "officer" | "demo" | "community";
 
 /** The short form an ED fills in to raise a brand-new referral. */
 export type ReferralDraft = {
@@ -244,6 +249,43 @@ export type WardFlowEvent =
       now: Instant;
       /** The unit a coordinator is asking to restate its numbers. */
       unitId: string;
+    }
+  | {
+      type: "RECEIVE_REFERRAL";
+      role: WardFlowRole;
+      now: Instant;
+      /** The three permitted facts about the person referred, unchanged from `Referral`'s own
+       *  field set (`ward-model.ts`) — see that type's own doc comment for why nothing else may
+       *  ever be added here. */
+      ageBand: Cohort;
+      sex: Sex;
+      secureBedNeeded: boolean;
+      /** Where the referral arrived from — one of `REFERRAL_SOURCES`. */
+      source: ReferralSource;
+      urgency: 1 | 2 | 3;
+      /** A synthetic site code (see `wardSites`), never an address. */
+      originSiteCode: string;
+      transportNeeded: boolean;
+    }
+  | {
+      type: "ACCEPT_REFERRAL";
+      role: WardFlowRole;
+      now: Instant;
+      /** The queued referral the coordinator is deciding on. */
+      referralId: string;
+      /** The unit the coordinator is placing this referral with. Refused unless
+       *  `referralEligibility` (ward-eligibility.ts) says this unit accepts this referral. */
+      unitId: string;
+    }
+  | {
+      type: "DECLINE_REFERRAL";
+      role: WardFlowRole;
+      now: Instant;
+      /** The queued referral the coordinator is deciding on. */
+      referralId: string;
+      /** Chosen from `REFERRAL_DECLINE_REASONS`, never free text — refused by a membership check,
+       *  not a truthiness test (Phase 5 shipped a truthiness test in this exact position). */
+      reason: ReferralDeclineReason;
     };
 
 /**
@@ -285,4 +327,11 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   // The one thing a coordinator may do to a ward's bed data. It changes no number: it marks that
   // somebody asked. Spec D12.
   REQUEST_CAPACITY_REFRESH: ["coordinator"],
+  // Task 3 (Phase 7, "The front door"): the community role raises a referral; only the
+  // coordinator decides whether the service takes it. Two different decisions, kept apart from
+  // `DECLINE` (a ward declining a specific movement, downstream) — see this file's own top-level
+  // comment on `WardFlowRole`.
+  RECEIVE_REFERRAL: ["community"],
+  ACCEPT_REFERRAL: ["coordinator"],
+  DECLINE_REFERRAL: ["coordinator"],
 };

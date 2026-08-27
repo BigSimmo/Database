@@ -20,6 +20,7 @@ import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-l
 import {
   BED_RELEASE_CONFIDENCE_LEVELS,
   DECLINE_REASONS,
+  REFERRAL_DECLINE_REASONS,
   type LegalForm,
   type LegalStatus,
 } from "../src/components/ward-management/ward-model";
@@ -382,6 +383,22 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
 ];
 
 /**
+ * Task 3 (Phase 7, "The front door"): `RECEIVE_REFERRAL`'s only guard is the role check, so one
+ * always-valid candidate is enough to prove the branch is reached — one candidate list, named so
+ * it can be emptied by a single mutation for Step 4's own "traversal assertion names the event
+ * that stopped being reached" proof.
+ */
+const RECEIVE_REFERRAL_CANDIDATE = {
+  ageBand: "Adult" as const,
+  sex: "Female" as const,
+  secureBedNeeded: false,
+  source: "community" as const,
+  urgency: 2 as const,
+  originSiteCode: "SCGH",
+  transportNeeded: false,
+};
+
+/**
  * Candidate events of one type, generated against the CURRENT state rather than hard-coded, so a
  * fixture change cannot silently make the traversal untestable. Every candidate carries the role
  * the role table requires — a wrong role is refused before the reducer body runs, and a refused
@@ -596,6 +613,24 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // Coordinator-scoped (spec D12): one candidate per unit, no `actingUnitId` field exists on
       // this event at all.
       return unitIds.map((unitId) => ({ type, role, now, unitId }));
+    case "RECEIVE_REFERRAL":
+      return [{ type, role, now, ...RECEIVE_REFERRAL_CANDIDATE }];
+    case "ACCEPT_REFERRAL":
+      // Every QUEUED referral crossed with every unit — the reducer's own `referralEligibility`
+      // gate decides which pairing is actually accepted, so this offers every legitimate
+      // candidate rather than guessing which one currently matches (allocatable counts and sex
+      // mix shift as the sweep runs other event types).
+      return state.referrals
+        .filter((referral) => referral.state === "queued")
+        .flatMap((referral) => unitIds.map((unitId) => ({ type, role, now, referralId: referral.id, unitId })));
+    case "DECLINE_REFERRAL":
+      // Every queued referral crossed with every real decline reason, same "offer every
+      // legitimate candidate" reasoning as ACCEPT_REFERRAL above.
+      return state.referrals
+        .filter((referral) => referral.state === "queued")
+        .flatMap((referral) =>
+          REFERRAL_DECLINE_REASONS.map((reason) => ({ type, role, now, referralId: referral.id, reason })),
+        );
   }
 }
 
