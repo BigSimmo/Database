@@ -67,6 +67,19 @@ Every task's requirements implicitly include this section.
 
 ### Patient-visible copy is FROZEN until the owner answers
 
+**SUPERSEDED 2026-08-27 — the freeze was lifted on 2026-08-24 and this section was never updated.**
+The owner approved all thirteen decisions that day, and `875c8b604` removed the contradicting freeze
+line from the decision record itself. Patient-visible strings are **no longer frozen**; each change
+must cite the decision-item number it implements. Two items remain unexecutable: **A9** (adding
+Lifeline) is approved in principle and blocked on a real crisis number and on there being no
+unallocated room in the message, and **A4** (the closing message) is approved as a **deferral**, its
+wording to be written later with a lived-experience representative.
+
+**What still binds, unchanged and absolutely:** no implementer, reviewer or controller may AUTHOR
+patient-visible message wording, and every such string lives only in the sealed domain's
+`message-copy` module. A screen that hardcodes one is still a defect. Read the paragraph below with
+that substitution — **a lifted freeze is not permission to write the words.**
+
 `docs/caring-contacts/copy-decisions-recommended.md` carries thirteen open decisions — nine clinical
 or policy, four engineering. **No task in this plan may change a patient-visible string.** Screens
 render patient-visible copy by reading the sealed domain's `message-copy` module; a screen that
