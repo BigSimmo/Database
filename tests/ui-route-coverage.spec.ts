@@ -440,7 +440,7 @@ test.describe("previously uncovered production routes", () => {
         await expect(compare).toBeVisible();
         await compare.click();
         await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
-        await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
     );
   });
@@ -451,7 +451,7 @@ test.describe("previously uncovered production routes", () => {
       "/dsm/compare?ids=major-depressive-disorder,bipolar-ii-disorder",
       async (currentPage) => {
         await expect(visibleByTestId(currentPage, "dsm-comparison-page")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         // Scope to the visible comparison owner (#093): under Production UI load,
