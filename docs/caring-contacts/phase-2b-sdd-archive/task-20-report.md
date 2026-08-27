@@ -1,8 +1,9 @@
 # Task 20 — every overlay trigger, reconciled against all twenty-four frozen rows
 
-Run on the merged tree, per Ruling [133]. Branch `claude/browser-test-gate-handoff-d5c1db`; the
-reconciliation below was established at `c8ceb68e7`, which is the commit every mutation ran against.
-Nothing was pushed and no pull request was opened.
+Run on the merged tree, per Ruling [133]. Branch `claude/browser-test-gate-handoff-d5c1db`, from
+`b4af12247`. The reconciliation below was established at `c8ceb68e7`; the mutation round was then
+re-run in full at `30a6c33e1`, the final tree, after a lint-driven rename of two loop variables, and
+returned identical verdicts. Nothing was pushed and no pull request was opened.
 
 **The result in one line:** every row is now either raised by a control whose `file:line` is
 recorded below, or recorded as unwired with the reason it is unwired. No row is silent.
@@ -42,7 +43,8 @@ checking one thing rather than by re-deriving the argument.
 
 ## The table
 
-Routes are under `/caring-contacts`. Line numbers are as at `c8ceb68e7`.
+Routes are under `/caring-contacts`. Line numbers are as at `30a6c33e1`; no production source was
+changed by this task, so they are the same lines the reconciliation was read from.
 
 | #   | ID                         | Matrix product context               | Route the trigger is on                | Trigger                                                                       | Reachability                                                                                                                                     | Verdict                                      |
 | --- | -------------------------- | ------------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
@@ -276,8 +278,10 @@ into this task's work.
 
 ## Mutation ledger
 
-Every row ran against `c8ceb68e7`, the same tree, with the baseline re-established on it first:
-`Tests 9 passed (9)`. Each row was applied by a driver that validates its whole table against an
+Every row ran against `30a6c33e1`, the final tree, with the baseline re-established on it first:
+`Tests 9 passed (9)`. The round had already been run once at `c8ceb68e7` and every verdict below is
+unchanged between the two; it was repeated because the suite was edited afterwards, and a gate
+verdict covers only the tree it saw. Each row was applied by a driver that validates its whole table against an
 allowlist of the four files this task may mutate **before any file I/O**, checks its anchor occurs
 exactly once, asserts the computed post-image differs from the original, writes it, re-reads from disk
 and asserts byte equality, restores, and asserts `git diff --quiet` over the allowlisted paths on both
