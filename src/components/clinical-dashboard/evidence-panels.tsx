@@ -12,8 +12,8 @@ import {
   ExternalLink,
   FileText,
   Filter,
-  Layers,
   Loader2,
+  MessageSquareWarning,
   Plus,
   Quote,
   RefreshCw,
@@ -106,6 +106,12 @@ export {
 type AnswerSupportPriority = {
   title: string;
   detail: string;
+  /**
+   * The finding's own severity word ("Red flag", "Contraindication"), split out
+   * of `detail` so the row can set it as a chip instead of running it into the
+   * citation. Only the safety-findings priority has one.
+   */
+  severityLabel?: string;
   sourceLabel?: string;
   tone: "priority" | "caution";
 };
@@ -138,7 +144,8 @@ export function answerSupportPriority(
   if (firstSafetyFinding) {
     return {
       title: "Safety findings",
-      detail: formatSafetyFindingLabel(firstSafetyFinding),
+      severityLabel: firstSafetyFinding.label,
+      detail: formatCitationLabel(firstSafetyFinding.citation),
       tone: "caution",
     };
   }
@@ -168,37 +175,75 @@ export function answerSupportPriority(
   };
 }
 
+/**
+ * The answer-level strip under the prose.
+ *
+ * Since the source rail and drawer took over every per-source surface, this card
+ * carries only what belongs to the answer rather than to any one document: the
+ * safety/priority row, the evidence gaps, and the feedback control.
+ *
+ * The safety row is not optional chrome. `answerSupportPriority` returns a
+ * safety-findings priority ahead of everything else, and the trigger below is
+ * the only route to the safety-critical findings sheet — so this card renders
+ * whenever `priority` is set, and removing it would remove that route.
+ */
 export function AnswerSupportSummaryCard({
   priority,
-  clinicalCount,
-  evidenceSummary,
-  clinicalAvailable,
-  evidenceAvailable,
-  clinicalTriggerRef,
-  evidenceTriggerRef,
+  warnings = [],
   safetyTriggerRef,
   safetyFindingsCount = 0,
-  onOpenClinicalNotes,
-  onOpenEvidence,
   onOpenSafetyFindings,
+  pendingFeedback = null,
+  onSubmitFeedback,
+  density = "comfortable",
 }: {
   priority: AnswerSupportPriority | null;
-  clinicalCount: number;
-  evidenceSummary: string;
-  clinicalAvailable: boolean;
-  evidenceAvailable: boolean;
-  clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
-  evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Answer-level evidence gaps (`renderModel.warnings`); they belong to no single source. */
+  warnings?: string[];
   safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
   safetyFindingsCount?: number;
-  onOpenClinicalNotes: () => void;
-  onOpenEvidence: () => void;
   onOpenSafetyFindings?: () => void;
+  pendingFeedback?: AnswerFeedbackType | null;
+  onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
+  /**
+   * `"compact"` is the chat-framed answer's density. Safety keeps its full row —
+   * it is the one thing here that must not be tucked into a chip — while the
+   * evidence-gaps and report rows collapse from two 56px two-line rows into one
+   * line of small buttons. Same controls, same ids, same routes; roughly 90px of
+   * phone scroll returned under a four-line answer.
+   */
+  density?: "comfortable" | "compact";
 }) {
-  const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
+  const [gapsOpen, setGapsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const compact = density === "compact";
+  const supportRowCount = Number(warnings.length > 0) + Number(Boolean(onSubmitFeedback));
   const supportButtonClass =
     "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+  // min-h-12 (48px), not min-h-11: 44px reintroduced a known sub-pixel rounding
+  // flake in `ui-smoke`. See AGENTS.md "External skill precedence".
+  const compactChipClass =
+    "inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
+  const gapsDetail =
+    warnings.length > 0 && gapsOpen ? (
+      <div id="answer-evidence-gaps-detail" className={cn("grid gap-2 pb-3", compact ? "px-2" : "px-3")}>
+        {warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
+    ) : null;
+  const feedbackDetail =
+    onSubmitFeedback && feedbackOpen ? (
+      <div id="answer-feedback-detail" className={compact ? "px-2 pb-3" : "px-3 pb-3"}>
+        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+      </div>
+    ) : null;
 
   return (
     <section
@@ -214,18 +259,25 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
-            className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
+            className={cn(supportButtonClass, "w-full")}
             aria-label="Open safety-critical source findings"
           >
             <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
               aria-hidden="true"
             >
               <CircleAlert aria-hidden="true" className="h-5 w-5" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
-              <span className={cn("mt-1 block line-clamp-2 text-xs leading-5", textMuted)}>{priority.detail}</span>
+              <span className={cn("mt-1 flex min-w-0 items-center gap-1.5 text-xs leading-5", textMuted)}>
+                {priority.severityLabel ? (
+                  <span className="shrink-0 rounded border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-1.5 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--warning)]">
+                    {priority.severityLabel}
+                  </span>
+                ) : null}
+                <span className="line-clamp-2">{priority.detail}</span>
+              </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
               <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{safetyFindingsCount}</span>
@@ -233,18 +285,13 @@ export function AnswerSupportSummaryCard({
             </span>
           </button>
         ) : (
-          <div
-            className={cn(
-              "grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-t-2 px-3 py-2",
-              priority.tone === "caution"
-                ? "border-t-[color:var(--warning)]"
-                : "border-t-[color:var(--clinical-accent)]",
-            )}
-          >
+          <div className="grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2">
             <span
               className={cn(
-                "grid h-7 w-7 shrink-0 place-items-center rounded-md",
-                priority.tone === "caution" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
+                "grid h-7 w-7 shrink-0 place-items-center rounded-md border",
+                priority.tone === "caution"
+                  ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                  : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
               )}
               aria-hidden="true"
             >
@@ -268,51 +315,123 @@ export function AnswerSupportSummaryCard({
       ) : null}
 
       {supportRowCount > 0 ? (
-        <div
-          className={cn(
-            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
-            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
-          )}
-        >
-          {clinicalAvailable ? (
-            <button
-              ref={clinicalTriggerRef}
-              id="answer-clinical-notes-drawer-mobile-trigger"
-              data-testid="answer-clinical-notes-trigger"
-              type="button"
-              onClick={onOpenClinicalNotes}
-              className={supportButtonClass}
-              aria-label="Open clinical notes"
-            >
-              <ClipboardCheck aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
-                </span>
-              </span>
-              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
-          {evidenceAvailable ? (
-            <button
-              ref={evidenceTriggerRef}
-              id="answer-evidence-drawer-mobile-trigger"
-              data-testid="answer-evidence-trigger"
-              type="button"
-              onClick={onOpenEvidence}
-              className={supportButtonClass}
-              aria-label="Open evidence"
-            >
-              <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
-              </span>
-              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
-        </div>
+        compact ? (
+          // One line of small buttons instead of two stacked 56px rows. The
+          // detail each one opens is unchanged and still carries the same id, so
+          // `aria-controls`, the feedback route and the gap wording all survive
+          // the density change.
+          <div className="border-t border-[color:var(--border)]">
+            <div className="flex flex-wrap items-center gap-1 px-2">
+              {warnings.length > 0 ? (
+                <button
+                  id="answer-evidence-gaps-trigger"
+                  data-testid="answer-evidence-gaps-trigger"
+                  type="button"
+                  onClick={() => setGapsOpen((current) => !current)}
+                  className={compactChipClass}
+                  aria-expanded={gapsOpen}
+                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
+                >
+                  <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--warning)]" />
+                  Evidence gaps
+                  <span className="nums rounded-full bg-[color:var(--warning-soft)] px-1.5 text-2xs text-[color:var(--text-heading)]">
+                    {warnings.length}
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn("size-icon-sm transition-transform", gapsOpen ? "rotate-0" : "-rotate-90")}
+                  />
+                </button>
+              ) : null}
+              {onSubmitFeedback ? (
+                <button
+                  id="answer-feedback-trigger"
+                  data-testid="answer-feedback-trigger"
+                  type="button"
+                  onClick={() => setFeedbackOpen((current) => !current)}
+                  className={compactChipClass}
+                  aria-expanded={feedbackOpen}
+                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+                >
+                  <MessageSquareWarning aria-hidden="true" className="size-icon-sm shrink-0" />
+                  Report a problem
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn("size-icon-sm transition-transform", feedbackOpen ? "rotate-0" : "-rotate-90")}
+                  />
+                </button>
+              ) : null}
+            </div>
+            {gapsDetail}
+            {feedbackDetail}
+          </div>
+        ) : (
+          <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+            {warnings.length > 0 ? (
+              <div>
+                <button
+                  id="answer-evidence-gaps-trigger"
+                  data-testid="answer-evidence-gaps-trigger"
+                  type="button"
+                  onClick={() => setGapsOpen((current) => !current)}
+                  className={cn(supportButtonClass, "w-full")}
+                  aria-expanded={gapsOpen}
+                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
+                >
+                  <CircleAlert aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence gaps</span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                      {warnings.length} note{warnings.length === 1 ? "" : "s"} about this answer
+                    </span>
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                      gapsOpen ? "rotate-0" : "-rotate-90",
+                    )}
+                  />
+                </button>
+                {gapsDetail}
+              </div>
+            ) : null}
+            {onSubmitFeedback ? (
+              <div>
+                <button
+                  id="answer-feedback-trigger"
+                  data-testid="answer-feedback-trigger"
+                  type="button"
+                  onClick={() => setFeedbackOpen((current) => !current)}
+                  className={cn(supportButtonClass, "w-full")}
+                  aria-expanded={feedbackOpen}
+                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+                >
+                  <MessageSquareWarning
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">
+                      Report a problem
+                    </span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                      Record whether the evidence supports this answer
+                    </span>
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                      feedbackOpen ? "rotate-0" : "-rotate-90",
+                    )}
+                  />
+                </button>
+                {feedbackDetail}
+              </div>
+            ) : null}
+          </div>
+        )
       ) : null}
     </section>
   );

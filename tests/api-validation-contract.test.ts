@@ -6,6 +6,31 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
 
+function documentDetailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: documentId,
+    owner_id: userId,
+    title: "Clinical guideline",
+    description: null,
+    file_name: "guideline.pdf",
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `${userId}/documents/guideline.pdf`,
+    content_hash: null,
+    source_path: null,
+    import_batch_id: null,
+    status: "indexed",
+    page_count: 5,
+    chunk_count: 20,
+    image_count: 0,
+    error_message: null,
+    metadata: {},
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function apiRouteFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -434,7 +459,7 @@ describe("API validation contracts", () => {
   it("treats empty document-detail chunk as absent and clamps page/chunk windows", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.maybeSingle) {
-        return ok({ id: documentId, owner_id: userId, page_count: 5, chunk_count: 20, metadata: {} });
+        return ok(documentDetailRow());
       }
       if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       return ok([]);
@@ -625,7 +650,7 @@ describe("API validation contracts", () => {
 
   it("accepts valid ingestion jobs batchId values and applies the batch filter", async () => {
     const batchId = "44444444-4444-4444-8444-444444444444";
-    const client = createSupabaseMock(() => ok([]));
+    const client = createSupabaseMock(() => ok([], 0));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/ingestion/jobs/route");
 
@@ -633,10 +658,11 @@ describe("API validation contracts", () => {
 
     expect(response.status).toBe(200);
     expect(client.calls[0].filters).toContainEqual({ column: "batch_id", value: batchId });
+    expect(client.calls[1].filters).toContainEqual({ column: "batch_id", value: batchId });
   });
 
   it("treats empty ingestion jobs batchId as absent", async () => {
-    const client = createSupabaseMock(() => ok([]));
+    const client = createSupabaseMock(() => ok([], 0));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/ingestion/jobs/route");
 
@@ -644,6 +670,7 @@ describe("API validation contracts", () => {
 
     expect(response.status).toBe(200);
     expect(client.calls[0].filters).not.toContainEqual({ column: "batch_id", value: "" });
+    expect(client.calls[1].filters).not.toContainEqual({ column: "batch_id", value: "" });
   });
 
   it("returns pagination metadata for jobs feeds", async () => {
@@ -673,12 +700,47 @@ describe("API validation contracts", () => {
       pagination: { limit: 2, offset: 1, total: 5, nextOffset: 2, hasMore: true },
     });
     expect(client.calls[1]).toMatchObject({ table: "ingestion_jobs", range: { from: 1, to: 2 } });
+    expect(client.calls[2]).toMatchObject({
+      table: "ingestion_jobs",
+      inFilters: [{ column: "status", values: ["pending", "processing"] }],
+    });
+    expect(client.calls[2].range).toBeUndefined();
 
     expect(batchesResponse.status).toBe(200);
     expect(await payload(batchesResponse)).toMatchObject({
       pagination: { limit: 2, offset: 1, total: 0, nextOffset: 1, hasMore: false },
     });
-    expect(client.calls[2]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+    expect(client.calls[3]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+  });
+
+  it("keeps ingestion polling active when an active job is beyond the requested page", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.inFilters.some((filter) => filter.column === "status")) return ok(null, 1);
+      return ok([{ id: "newer-completed-job", status: "completed" }], 101);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/ingestion/jobs/route");
+
+    const response = await GET(authenticatedRequest("/api/ingestion/jobs?limit=1&offset=0"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      jobs: [{ id: "newer-completed-job", status: "completed" }],
+      activeJobCount: 1,
+      hasActiveJobs: true,
+      pollAfterMs: 5_000,
+      pagination: { limit: 1, offset: 0, total: 101, nextOffset: 1, hasMore: true },
+    });
+    expect(response.headers.get("x-indexing-active")).toBe("true");
+
+    const activeCountCall = client.calls.find((call) => call.inFilters.some((filter) => filter.column === "status"));
+    expect(activeCountCall).toMatchObject({
+      table: "ingestion_jobs",
+      filters: [{ column: "documents.owner_id", value: userId }],
+      inFilters: [{ column: "status", values: ["pending", "processing"] }],
+    });
+    expect(activeCountCall?.range).toBeUndefined();
   });
 
   it.each([

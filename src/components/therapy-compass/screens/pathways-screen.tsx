@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Check, ChevronRight, Copy, FileText, ListChecks, Scale, TriangleAlert, Waypoints } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { Chip } from "@/components/ui/chip";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,9 @@ export function PathwaysScreen() {
   const b = useTcBindings();
   const bySlug = useMemo(() => new Map(b.therapies.map((t) => [t.slug, t])), [b.therapies]);
   const pathway = b.selectedPathway;
+  // Header counts. Summed here rather than in the header markup so the chips
+  // stay declarative and the totals survive a data shape that grows a step.
+  const linkedStepCount = useMemo(() => b.pathways.reduce((total, p) => total + p.steps.length, 0), [b.pathways]);
   // Called before the early return below, because it is a hook.
   const { copied, copy } = useClipboard();
 
@@ -41,14 +45,33 @@ export function PathwaysScreen() {
 
   return (
     <section data-screen-label="Pathways" className={pageContainer}>
+      {/* The Review queue lived here as the page's one action. It is a curation
+          surface — which records still need source review — not something a
+          clinician reads a pathway to reach, so the header no longer carries it;
+          `/therapy-compass/review` still serves it directly. What replaces it is
+          scale, not another control: the two counts say how much of the
+          catalogue this page covers, and the accent chip is the only colour a
+          phone gets here, since `PageHeader` hides its icon tile below `sm`.
+
+          The description loses "generated from imported therapy records"
+          because that provenance is already stated twice further down the same
+          screen — the note under the pathway list and the caution banner — and
+          on a 390px viewport it was the line that wrapped into the drawer
+          handle. */}
       <PageHeader
         className="mb-[22px]"
+        icon={Waypoints}
         title="Clinical Pathways"
-        description="Problem-based workflows generated from imported therapy records."
-        actions={
-          <Button variant="secondary" icon={ListChecks} onClick={b.goReview}>
-            Review queue
-          </Button>
+        description="Step-by-step workflows for common clinical problems."
+        meta={
+          <>
+            <Chip appearance={{ kind: "information", tone: "accent" }} icon={Waypoints}>
+              {b.pathways.length} {b.pathways.length === 1 ? "pathway" : "pathways"}
+            </Chip>
+            <Chip appearance={{ kind: "information", tone: "inset" }} icon={ListChecks}>
+              {linkedStepCount} {linkedStepCount === 1 ? "linked step" : "linked steps"}
+            </Chip>
+          </>
         }
       />
 

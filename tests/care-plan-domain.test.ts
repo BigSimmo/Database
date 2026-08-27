@@ -362,6 +362,47 @@ describe("Care Plan contact actions", () => {
     }
   });
 
+  /**
+   * The patient-field sweep above covers identity. This covers content: a
+   * contact URI must carry no sentence from any plan, any episode note, or any
+   * person's own safety-plan words either. Every patient is paired with every
+   * contact, so a signature that started taking a patient — the only way this
+   * could ever leak — is caught across the whole cross-product rather than for
+   * the one pairing somebody happened to write a case for.
+   */
+  it("carries no plan, episode, or safety-plan content in any contact URI, for any patient and contact pair", () => {
+    const sentences = [
+      ...syntheticManagementPlanVersions.flatMap((version) => Object.values(version.content).flat()),
+      ...syntheticEdPresentations.map((presentation) => presentation.note),
+      ...syntheticPersonalSafetyPlanVersions.flatMap((version) =>
+        Object.values(version.content)
+          .flat()
+          .map((entry) => (typeof entry === "string" ? entry : entry.name)),
+      ),
+    ]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      // Whole sentences would never collide by accident; the opening words are
+      // what a careless template interpolation would actually carry through.
+      .map((value) => value.split(/\s+/).slice(0, 6).join(" ").toLowerCase())
+      .filter((value) => value.length > 12);
+
+    expect(sentences.length, "no synthetic content was collected, so this would assert nothing").toBeGreaterThan(50);
+
+    for (const patient of syntheticPatients) {
+      for (const contact of syntheticCmhtContacts) {
+        // The builder takes a contact and nothing else, so the URI a patient's
+        // workspace can produce is exactly the contact-only output.
+        const built = buildCmhtMailto(contact);
+        expect(built).toBe(`mailto:${contact.sharedMailbox}?subject=Care+Plan+%E2%80%94+team+contact+request`);
+        for (const uri of [built, buildCmhtTel(contact), buildCmhtTel(contact, "after_hours")]) {
+          for (const sentence of sentences) {
+            expect(uri.toLowerCase(), `${patient.id} content reached ${uri}`).not.toContain(sentence);
+          }
+        }
+      }
+    }
+  });
+
   it("builds telephone intents from the displayed duty and after-hours numbers", () => {
     const contact = syntheticCmhtContacts[0]!;
     expect(buildCmhtTel(contact)).toBe(`tel:${contact.dutyTelephoneUri}`);
@@ -801,33 +842,110 @@ describe("Care Plan fixture safety", () => {
    * each later correction replaces the one before it — an unbroken chain from
    * the stored value to whatever the field reads now.
    */
-  it("keeps every corrected fixture field on an unbroken chain from the value first recorded", () => {
-    const chains = new Map<string, typeof syntheticPresentationAmendments>();
-    for (const amendment of syntheticPresentationAmendments) {
+  /**
+   * The invariant, stated once as a function so it can be run over data other
+   * than the fixtures.
+   *
+   * It collects violations rather than asserting, for one reason: no fixture
+   * corrects a field twice, so every fixture chain has length one and the second
+   * rule below — that each correction replaces the value the one before it left
+   * behind — has never executed. Shipping a rule nothing has ever run is how
+   * this project acquired guards that could not fail, and the correct close is
+   * to exercise it against a constructed chain rather than to bend a fixture
+   * into a shape the clinical record does not have.
+   */
+  type Amendment = (typeof syntheticPresentationAmendments)[number];
+
+  function amendmentChainViolations(
+    presentations: readonly { readonly id: string }[],
+    amendments: readonly Amendment[],
+  ): string[] {
+    const chains = new Map<string, Amendment[]>();
+    for (const amendment of amendments) {
       const key = `${amendment.presentationId}|${amendment.field}`;
       chains.set(key, [...(chains.get(key) ?? []), amendment]);
     }
-    // Fails closed: a fixture set with no corrections at all would make every
-    // assertion below vacuous.
-    expect(chains.size, "no fixture ED Presentation carries a correction").toBeGreaterThan(1);
 
+    const violations: string[] = [];
     for (const [key, chain] of chains) {
-      const [presentationId, field] = key.split("|") as [string, keyof (typeof syntheticEdPresentations)[number]];
-      const presentation = syntheticEdPresentations.find(({ id }) => id === presentationId);
-      expect(presentation, `${presentationId} does not exist`).toBeDefined();
-
-      expect(
-        String(presentation?.[field]),
-        `${presentationId}.${String(field)} must still hold the value it was first recorded as`,
-      ).toBe(chain[0]?.originalValue);
-
+      const [presentationId, field] = key.split("|") as [string, string];
+      const presentation = presentations.find(({ id }) => id === presentationId) as Record<string, unknown> | undefined;
+      if (presentation === undefined) {
+        violations.push(`${presentationId} does not exist`);
+        continue;
+      }
+      if (String(presentation[field]) !== chain[0]?.originalValue) {
+        violations.push(`${presentationId}.${field} must still hold the value it was first recorded as`);
+      }
       for (let index = 1; index < chain.length; index += 1) {
-        expect(
-          chain[index]?.originalValue,
-          `${chain[index]?.id} must replace the value ${chain[index - 1]?.id} left behind`,
-        ).toBe(chain[index - 1]?.replacementValue);
+        if (chain[index]?.originalValue !== chain[index - 1]?.replacementValue) {
+          violations.push(`${chain[index]?.id} must replace the value ${chain[index - 1]?.id} left behind`);
+        }
       }
     }
+    return violations;
+  }
+
+  it("keeps every corrected fixture field on an unbroken chain from the value first recorded", () => {
+    const distinctChains = new Set(
+      syntheticPresentationAmendments.map((amendment) => `${amendment.presentationId}|${amendment.field}`),
+    );
+    // Fails closed: a fixture set with no corrections at all would make the
+    // check below vacuous.
+    expect(distinctChains.size, "no fixture ED Presentation carries a correction").toBeGreaterThan(1);
+    expect(amendmentChainViolations(syntheticEdPresentations, syntheticPresentationAmendments)).toEqual([]);
+  });
+
+  /**
+   * The second rule, run at last.
+   *
+   * A field corrected twice is an ordinary thing for a clinical record to hold
+   * and an extraordinary thing for these fixtures to hold — nobody has written
+   * one, and nobody should write one merely to feed a test. So the chain is
+   * constructed here instead: an episode still holding what was first recorded,
+   * and two corrections handing the value from one to the next.
+   */
+  const TWO_LINK_EPISODE = { id: "SYN-PRESENTATION-CHAIN-SPECIMEN", disposition: "admitted_mental_health" };
+
+  const TWO_LINK_CHAIN = [
+    {
+      id: "SYN-PRESENTATION-AMENDMENT-CHAIN-001",
+      presentationId: "SYN-PRESENTATION-CHAIN-SPECIMEN",
+      field: "disposition",
+      originalValue: "admitted_mental_health",
+      replacementValue: "discharged_home",
+      reason: "Recorded against the wrong episode at handover.",
+      authorId: "SYN-USER-ED-001",
+      amendedAt: "2026-08-18T09:00:00+08:00",
+    },
+    {
+      id: "SYN-PRESENTATION-AMENDMENT-CHAIN-002",
+      presentationId: "SYN-PRESENTATION-CHAIN-SPECIMEN",
+      field: "disposition",
+      originalValue: "discharged_home",
+      replacementValue: "admitted_medical",
+      reason: "The medical team admitted her later the same night.",
+      authorId: "SYN-USER-SENIOR-001",
+      amendedAt: "2026-08-19T21:40:00+08:00",
+    },
+  ] as unknown as readonly Amendment[];
+
+  it("accepts a field corrected twice when each correction replaces the one before it", () => {
+    expect(amendmentChainViolations([TWO_LINK_EPISODE], TWO_LINK_CHAIN)).toEqual([]);
+  });
+
+  it("rejects a second correction that does not replace what the first one left behind", () => {
+    const broken = [
+      TWO_LINK_CHAIN[0],
+      { ...TWO_LINK_CHAIN[1], originalValue: "admitted_mental_health" },
+    ] as readonly Amendment[];
+
+    // The episode is still correct and the first link is still correct, so a
+    // check comparing only the episode against the earliest correction would
+    // find nothing wrong here. This is precisely the break it cannot see.
+    expect(amendmentChainViolations([TWO_LINK_EPISODE], broken)).toEqual([
+      "SYN-PRESENTATION-AMENDMENT-CHAIN-002 must replace the value SYN-PRESENTATION-AMENDMENT-CHAIN-001 left behind",
+    ]);
   });
 
   it("never claims in a reason that something had happened before it had", () => {

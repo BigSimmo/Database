@@ -10,8 +10,6 @@ import {
   mobileComposerHiddenReserve,
   mobileComposerHiddenReserveRem,
   mobileComposerIdleReserve,
-  mobileComposerClinicalAskReserve,
-  mobileComposerDifferentialsCompareClinicalAskReserve,
   mobileComposerVisibleReserve,
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
@@ -23,24 +21,6 @@ function source(relativePath: string): string {
 }
 
 describe("mobile composer reserve contract", () => {
-  it("gives Clinical Ask and combined Differentials chrome precedence", () => {
-    expect(
-      resolveDashboardVisibleMobileComposerReserve({
-        searchMode: "services",
-        hasAnswerFollowUps: false,
-        differentialsCompareAddonActive: false,
-        clinicalAskActionsVisible: true,
-      }),
-    ).toBe(mobileComposerClinicalAskReserve);
-    expect(
-      resolveDashboardVisibleMobileComposerReserve({
-        searchMode: "differentials",
-        hasAnswerFollowUps: false,
-        differentialsCompareAddonActive: true,
-        clinicalAskActionsVisible: true,
-      }),
-    ).toBe(mobileComposerDifferentialsCompareClinicalAskReserve);
-  });
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0rem");
     expect(mobileComposerHiddenReserveRem).toBe(0);
@@ -156,6 +136,14 @@ describe("mobile composer reserve contract", () => {
     // dock on `/` and lost the hero composer, ticker and privacy notice.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+    const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
+    expect(shell).toContain("isDictionaryCataloguePath(pathname)");
+    expect(shell).toMatch(
+      /const heroOwnsPhoneComposer =\s*isStandaloneModeHome && mobileHomeComposerPlacement === "hero";/,
+    );
+    expect(shell).toMatch(
+      /heroComposerBreakpoint=\{\s*mobileHomeComposerPlacement === "footer" \|\| isDictionaryCatalogue \? "sm-up" : "all"\s*\}/,
+    );
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(
       /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,

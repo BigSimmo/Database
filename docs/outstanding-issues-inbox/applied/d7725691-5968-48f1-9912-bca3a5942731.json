@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d7725691-5968-48f1-9912-bca3a5942731",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts: the interface prohibited-language helper has the same 'lead' job-title collision B2 just fixed for messages",
+    "detail": "tests/helpers/caring-contacts-prohibited-language.ts matches /\\bleads?\\b/, so it flags the ordinary English job titles 'the incident lead' and 'the clinical programme lead' exactly as the message validator used to before item B2 narrowed it on 2026-08-24. Out of B2's scope, which was explicitly limited to the message rules. Apply the same commercial-sense narrowing, or record why interface copy should be stricter than message copy.",
+    "source": "Task C implementer concern 3, 2026-08-24",
+    "issueUlid": "01M0SH22F6AGRAKQ1H2B8P89A8"
+  }
+}

@@ -101,6 +101,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "icon-xl",
     "mode-home-composer-phone",
     "mode-home-composer-wide",
+    "phone-frame",
     "safe",
     "safe-2",
     "search-band-badge",
@@ -108,6 +109,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "specifier-map-jump",
     "specifier-map-step-number",
     "tap",
+    "ward-phone-bar",
   ],
 
   // globals.css @theme --ease-*.

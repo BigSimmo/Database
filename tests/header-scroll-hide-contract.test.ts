@@ -551,8 +551,10 @@ describe("shared header hide/reveal wiring", () => {
   it("rebases the reporter when a host swaps its scroll geometry", () => {
     // ClinicalDashboard toggling answer mode adds/removes <main>'s header
     // reserve; a carried-over offset spends the first post-switch scroll on a
-    // spurious hide or reveal.
-    expect(hookSource).toContain("}, [allowAllBreakpoints, resetKey]);");
+    // spurious hide or reveal. Visibility is also bound to the key that
+    // produced it so stale hidden chrome cannot paint before the effect runs.
+    expect(hookSource).toContain("Object.is(visibility.resetKey, resetKey) ? visibility.hidden : false");
+    expect(hookSource).toContain("}, [allowAllBreakpoints, commitHidden, resetKey]);");
   });
 
   it("holds transition anchoring through the final CSS frame", () => {

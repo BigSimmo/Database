@@ -89,6 +89,8 @@ export const SignedImage = memo(function SignedImage({
   aspectRatio,
   priority = false,
   expandLabel,
+  failurePresentation = "message",
+  onSettledFailure,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -128,6 +130,10 @@ export const SignedImage = memo(function SignedImage({
    * unchanged.
    */
   expandLabel?: string;
+  /** Settled failures remain visible by default; optional decoration may hide them. */
+  failurePresentation?: "message" | "hidden";
+  /** Called once when a failure remains after the bounded automatic retry cycle. */
+  onSettledFailure?: (failure: SignedImageFailure) => void;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => priority || Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -136,15 +142,18 @@ export const SignedImage = memo(function SignedImage({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [automaticRetryCount, setAutomaticRetryCount] = useState(0);
+  const notifiedSettledFailureRef = useRef<SignedImageFailure | null>(null);
   const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
   if (endpoint !== seenEndpoint) {
     setSeenEndpoint(endpoint);
     setAutomaticRetryCount(0);
     setLoaded(false);
+    notifiedSettledFailureRef.current = null;
   }
   const { url, failed, failure, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
   const nextAutomaticRetryDelay = automaticRetryDelay(failure, automaticRetryCount);
   const automaticRetryPending = nextAutomaticRetryDelay !== null;
+  const settledFailure = failed && !automaticRetryPending ? failure : null;
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -185,10 +194,17 @@ export const SignedImage = memo(function SignedImage({
     });
   }, [endpoint, nextAutomaticRetryDelay, retry]);
 
+  useEffect(() => {
+    if (!settledFailure || notifiedSettledFailureRef.current === settledFailure) return;
+    notifiedSettledFailureRef.current = settledFailure;
+    onSettledFailure?.(settledFailure);
+  }, [onSettledFailure, settledFailure]);
+
   function retryImage() {
     if (retryDisabled) return;
     setRetryDisabled(true);
     setAutomaticRetryCount(0);
+    notifiedSettledFailureRef.current = null;
     setLoaded(false);
     setShouldLoad(true);
     retry();
@@ -200,7 +216,8 @@ export const SignedImage = memo(function SignedImage({
     markFailed();
   }
 
-  if (failed && !automaticRetryPending) {
+  if (settledFailure) {
+    if (failurePresentation === "hidden") return null;
     return (
       <div
         ref={frameRef}
@@ -270,6 +287,7 @@ export const SignedImage = memo(function SignedImage({
           onLoad={() => {
             setLoaded(true);
             setAutomaticRetryCount(0);
+            notifiedSettledFailureRef.current = null;
           }}
           onError={handleImageError}
           className={cn(

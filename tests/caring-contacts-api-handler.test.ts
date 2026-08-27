@@ -215,6 +215,32 @@ describe("caring-contacts API boundary", () => {
     expect(recorded()).toContainEqual(expect.objectContaining({ outcome: "denied" }));
   });
 
+  // Ruling 84's HTTP half. `auditedRead` maps a null/undefined release to "denied", and this
+  // handler turns "denied" into 404 -- see the denied-read test above. AN EMPTY ARRAY IS NEITHER,
+  // and a list read that comes back empty must reach the caller as a 200 carrying `[]`. Nothing
+  // pinned it: the render half is pinned in tests/caring-contacts-patients-page.dom.test.tsx, and
+  // an edit that "simplified" the outcome check to a falsy test would have turned every empty
+  // caseload in the workspace into a missing resource with no test to notice.
+  it("releases an EMPTY LIST as a 200, never as the 404 a denied read produces", async () => {
+    // The auditor holds no `viewReferral`, so `listPlans` filters the seeded plan out and returns
+    // `[]` -- the exact case this module's own note calls out as the one the trail cannot tell
+    // apart from "there are none". Both must leave here as 200, because both released a list.
+    const { recorded } = await inMemoryStoreWithSpy({ actorRole: "auditor" });
+    const handler = readHandler({
+      access: { kind: "search", objectType: "plan", objectId: () => "all" },
+      read: async (repository, actor) => repository.listPlans({ actor }),
+    });
+
+    const response = await handler(get("/api/caring-contacts/plans"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual([]);
+    // And it is recorded as ALLOWED: an empty list IS what was released.
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({ kind: "search", objectType: "plan", objectId: "all", outcome: "allowed" }),
+    );
+  });
+
   it("names the acting actor and team on the access event, so the trail can be read back", async () => {
     const { recorded } = await inMemoryStoreWithSpy({ actorRole: "teamLead" });
     const handler = readHandler({

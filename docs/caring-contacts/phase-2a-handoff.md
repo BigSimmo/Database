@@ -4,8 +4,15 @@
 new session, a new machine, or a new account. Everything below is either in this repository or named with
 an exact path on the workstation.
 
-Written at head `6322017ce` on branch `claude/suicide-contact-mockup-b5aaa0`. Nothing has been pushed; there
-is no pull request; the branch exists only locally.
+> **SUPERSEDED IN ONE RESPECT, 2026-08-24: Phase 2A HAS MERGED and the branch named below is RETIRED.**
+> It went in as `e4cbe8d3a` — "Claude/suicide contact mockup b5aaa0 (#2279)" — on 2026-08-23, and `main`
+> is now the source of truth. Everything else in this document still stands. Work from a fresh worktree
+> off `origin/main`; do not resurrect `claude/suicide-contact-mockup-b5aaa0`.
+>
+> Note also that this file used to contradict itself: the line here said the branch had never been pushed
+> while §4 said it was pushed to origin. Both were written truthfully at different moments and neither was
+> updated when the other changed. **A record that disagrees with itself is telling you its update
+> discipline failed, not which half to believe** — check git.
 
 ---
 
@@ -97,16 +104,22 @@ contains `*`), so it remains disposable by design.
 
 ## 4. Exactly where the work stopped
 
-**Branch:** `claude/suicide-contact-mockup-b5aaa0` — **PUSHED to origin.** GitHub holds it; that is the
-source of truth, not any directory on this workstation.
+**Branch:** MERGED AND RETIRED as of 2026-08-23. `claude/suicide-contact-mockup-b5aaa0` was squash-merged
+into `main` as `e4cbe8d3a` (#2279); every caring-contacts path on `main` matches the old branch tip, and no
+local remote-tracking ref for the branch survives. **`main` is the source of truth**, not that branch and
+not any directory on this workstation.
 
-**Working copy:** make your own. Do not assume one exists:
+**Working copy:** make your own, off `main`. Do not assume one exists:
 
 ```
 cd D:\Repos\Database
 git fetch origin
-git worktree add D:\Worktrees\Database\<a-fresh-name> claude/suicide-contact-mockup-b5aaa0
+git worktree add D:\Worktrees\Database\<a-fresh-name> -b claude/<your-task> origin/main
+node scripts/setup-codex-worktree.mjs
 ```
+
+That last line matters: `npm ci` costs 15-58 minutes here, but on 2026-08-24 every `package-lock.json` on
+this machine was byte-identical, so the setup script reused an existing `node_modules` in seconds.
 
 **Working directories on this machine do not survive.** On 2026-08-21 four were destroyed by another
 process — under `.claude\worktrees\` **and** under `D:\Worktrees\`, one of them holding this exact work,
@@ -116,7 +129,7 @@ No warning, and the cause is not identified. Commit often, **push after every ta
 needed to resume in a **tracked** file — git-ignored scratch dies with the directory. This branch survived
 a destruction today only because it had been pushed.
 
-**Head at last push:** `32bfbdae5`. Nothing merged, no pull request.
+**Head at last push:** `32bfbdae5` — historical. The phase has since merged; see the banner at the top.
 
 ### Done and reviewed clean
 

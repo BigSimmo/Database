@@ -80,7 +80,7 @@ describe("Therapy Compass responsive contract", () => {
     // bar, which folds its overflow into a sheet rather than off the screen
     // edge. Its own density and centring contract lives in mode-nav-contract.
     expect(registryModeNavSource).toContain("ModeNav");
-    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
+    expect(registryModeNavSource).toContain('"therapy-compass": "extended"');
     expect(registryModeNavSource).not.toContain("overflow-x-auto");
     expect(registryModeNavSource).not.toContain("w-fit");
     expect(globalsSource).toContain("position: relative;");
@@ -132,10 +132,14 @@ describe("Therapy Compass responsive contract", () => {
     expect(workspaceSource).not.toContain("sm:px-10");
   });
 
-  it("keeps phone reflow and comparison scroll residuals in globals.css", () => {
+  it("keeps phone reflow residuals in globals.css", () => {
     expect(globalsSource).toMatch(/@media \(max-width: 640px\)/);
-    expect(globalsSource).toContain("overflow-x: auto !important;");
-    expect(globalsSource).toContain("[data-therapy-scroll-sm]");
+    expect(globalsSource).toContain(".therapy-pathway-list");
+    // `[data-therapy-scroll-sm]` was the phone horizontal-scroll enabler for the
+    // comparison table. Phones no longer render that table at all — they get the
+    // stacked per-field layout below `md` — so the rule and the attribute were
+    // removed together rather than left as a rule nothing can match.
+    expect(globalsSource).not.toContain("[data-therapy-scroll-sm]");
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
@@ -167,7 +171,15 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
     expect(compareSource).toContain("<Tabs");
     expect(compareSource).toContain("<SegmentedControl");
-    expect(compareSource).toContain("data-therapy-scroll-sm");
+    // The comparison forks at `md`, not `sm`: the table is `min-w-[720px]`, so
+    // at 640–767px it would still scroll sideways — the exact defect this fixes.
+    // Asserting the fork (not the old scroll attribute) keeps this from passing
+    // vacuously once the phone stopped using the table.
+    expect(compareSource).not.toContain("data-therapy-scroll-sm");
+    expect(compareSource).toContain("hidden overflow-x-auto");
+    expect(compareSource).toContain("md:block");
+    expect(compareSource).toContain('data-testid="therapy-compare-stack"');
+    expect(compareSource).toContain("md:hidden");
     expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
     expect(pathwaysSource).toContain("therapy-pathway-list");

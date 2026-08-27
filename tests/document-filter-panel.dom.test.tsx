@@ -476,9 +476,9 @@ describe("filter sheet — density, exclusivity and reach", () => {
     const facet = within(panel).getByRole("button", { name: /Clozapine/ });
     expect(facet.className).toContain("min-h-tap");
     expect(facet.className).not.toContain("min-h-7");
-    // Pointer layouts remain compact without dropping below the filter
-    // system's 40px desktop target floor.
-    expect(facet.className).toContain("sm:min-h-10");
+    // ChoiceChip keeps the documented 48px carrier at every breakpoint rather
+    // than reintroducing the former 40px desktop exception.
+    expect(facet.className).not.toContain("sm:min-h-10");
     expect(facet.className).not.toContain("lg:min-h-8");
   });
 

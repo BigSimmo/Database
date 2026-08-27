@@ -75,6 +75,8 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/formulation/builder")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/factsheets/search")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/factsheets/topics")).toBe(false);
   });
 
   it("is covered, route for route, by the locally-owned early return", () => {
@@ -281,8 +283,8 @@ describe("header addon slot ownership", () => {
     // in-flow strip.
     //
     // `factsheets` left this list when it gained a real second destination:
-    // `/factsheets` (browse) and `/factsheets/search` are separate components,
-    // so it was a port rather than a deletion.
+    // `/factsheets/topics` (browse) and `/factsheets/search` are separate
+    // components, so it was a port rather than a deletion.
     for (const modeId of ["documents", "answer", "prescribing", "tools"] as const) {
       expect(modeSecondaryNavigationEntries(modeId)).toEqual([]);
       expect([...MODE_NAV_ADOPTED_MODES]).not.toContain(modeId);

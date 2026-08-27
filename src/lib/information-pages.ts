@@ -67,7 +67,7 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/medications")) return true;
   if (isSlugDetail(pathname, "/specifiers")) return true;
   if (isSlugDetail(pathname, "/formulation")) return true;
-  if (isSlugDetail(pathname, "/factsheets", ["search"])) return true;
+  if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;

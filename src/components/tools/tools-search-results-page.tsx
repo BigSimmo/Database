@@ -44,10 +44,10 @@ import {
 
 // A partial second copy of the launcher's icon map used to live here: 8 of the
 // 14 tools, with a `?? Grid2X2` fallback that silently gave `guidelines`,
-// `care-plans`, `safety-plan`, `calculators`, `monitoring`, and `ward-management`
-// a generic grid glyph on this page while the launcher showed them a real one.
-// Identity now comes from `src/lib/category-identity.ts`, where the record is
-// exhaustive by type, so the partial copy cannot come back.
+// `care-plans`, `safety-plan`, `calculators`, and `monitoring` a generic grid
+// glyph on this page while the launcher showed them a real one. Identity now
+// comes from `src/lib/category-identity.ts`, where the record is exhaustive by
+// type, so the partial copy cannot come back.
 
 const filterOptions = [
   { id: "all", label: "All tools" },

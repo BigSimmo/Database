@@ -81,6 +81,102 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the default settled fallback visible and reports it once", async () => {
+    const onSettledFailure = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: "not found" }) }),
+    );
+
+    const { rerender } = render(
+      <SignedImage
+        endpoint={ENDPOINT}
+        alt="Missing diagram"
+        failureLabel="Image preview failed."
+        onSettledFailure={onSettledFailure}
+      />,
+    );
+
+    expect(await screen.findByText("Image preview failed.")).toBeInTheDocument();
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(1));
+    expect(onSettledFailure).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "response", status: 404, retryable: false }),
+    );
+
+    const replacementCallback = vi.fn();
+    rerender(
+      <SignedImage
+        endpoint={ENDPOINT}
+        alt="Missing diagram"
+        failureLabel="Image preview failed."
+        onSettledFailure={replacementCallback}
+      />,
+    );
+    expect(onSettledFailure).toHaveBeenCalledTimes(1);
+    expect(replacementCallback).not.toHaveBeenCalled();
+  });
+
+  it("hides the fallback and reports only after automatic retries are exhausted", async () => {
+    const onSettledFailure = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "boom" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SignedImage
+        endpoint={ENDPOINT}
+        alt="Optional cover"
+        failureLabel="Cover failed."
+        failurePresentation="hidden"
+        onSettledFailure={onSettledFailure}
+      />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(onSettledFailure).not.toHaveBeenCalled();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 3_000 });
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Cover failed.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("starts a new settled-failure callback cycle after manual retry", async () => {
+    const user = userEvent.setup();
+    const onSettledFailure = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: "not found" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SignedImage
+        endpoint={ENDPOINT}
+        alt="Missing diagram"
+        failureLabel="Image preview failed."
+        retryLabel="Retry"
+        onSettledFailure={onSettledFailure}
+      />,
+    );
+
+    await screen.findByText("Image preview failed.");
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(2));
+  });
+
+  it("starts a new settled-failure callback cycle when the endpoint changes", async () => {
+    const onSettledFailure = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ error: "not found" }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(
+      <SignedImage endpoint="/api/images/first/signed-url" alt="First" onSettledFailure={onSettledFailure} />,
+    );
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(1));
+
+    rerender(<SignedImage endpoint="/api/images/second/signed-url" alt="Second" onSettledFailure={onSettledFailure} />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onSettledFailure).toHaveBeenCalledTimes(2));
+  });
+
   it("honours Retry-After before automatically retrying a rate limit", async () => {
     const fetchMock = vi
       .fn()
