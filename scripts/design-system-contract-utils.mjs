@@ -50,6 +50,15 @@ export const RAW_COLOR_EXEMPTIONS = [
     pattern: /^src\/components\/factsheets\/factsheet-detail-page\.tsx$/,
     scope: "factsheet-print-sheet",
   },
+  {
+    // Medication record accent fallback `#0f766e` is a stored-record default,
+    // not `--clinical-accent` (`#1d6fb8` / `--primary-500`). Mapping it would
+    // recolour live medication tiles. Scoped to the `accent:` default only —
+    // any other raw colour in these files stays countable.
+    category: "medication accent default",
+    pattern: /^src\/lib\/(?:medication-records|medications)\.ts$/,
+    scope: "medication-accent-default",
+  },
 ];
 
 export function hasLegacyTapClass(classText) {
@@ -1965,6 +1974,19 @@ function namedFunctionRange(relativePath, source, functionName) {
   return declaration ? { start: declaration.getFullStart(), end: declaration.end } : null;
 }
 
+function medicationAccentDefaultRanges(source) {
+  // Only the `accent:` property default (`??` / `||` / direct) of `#0f766e`.
+  // `accentColor`, comments, and any other teal literal stay visible.
+  const pattern = /(?<![A-Za-z0-9_$])accent(?![A-Za-z0-9_$])\s*:\s*(?:[^,;{}\n]*?(?:\?\?|\|\|)\s*)?(["'`])#0f766e\1/g;
+  const ranges = [];
+  for (const match of source.matchAll(pattern)) {
+    if (isInsideCommentOrString(source, match.index)) continue;
+    const hexStart = match.index + match[0].lastIndexOf("#0f766e");
+    ranges.push({ start: hexStart, end: hexStart + "#0f766e".length });
+  }
+  return ranges;
+}
+
 export function rawColorContractSource(relativePath, source, reportFailure = () => {}) {
   const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
   if (!exemption) return source;
@@ -1988,6 +2010,15 @@ export function rawColorContractSource(relativePath, source, reportFailure = () 
       return source;
     }
     return maskRanges(source, [range]);
+  }
+
+  if (exemption.scope === "medication-accent-default") {
+    const ranges = medicationAccentDefaultRanges(source);
+    if (ranges.length === 0) {
+      reportFailure("medication accent default boundary is missing");
+      return source;
+    }
+    return maskRanges(source, ranges);
   }
 
   reportFailure(`unknown raw-color exemption scope for ${relativePath}`);

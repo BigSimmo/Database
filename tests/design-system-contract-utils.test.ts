@@ -713,4 +713,50 @@ describe("design-system contract helpers", () => {
     ].join("\n");
     expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
   });
+
+  it("masks only the medication accent default, not other hex in the same file", () => {
+    const reportFailure = vi.fn();
+    const source = [
+      "export function rowToMedicationRecord(row) {",
+      '  return { accent: row.accent ?? "#0f766e", tag: row.tag };',
+      "}",
+      'export const UNRELATED = "#123456";',
+      'export const ALSO_TEAL = "#0f766e";',
+    ].join("\n");
+
+    const records = rawColorContractSource("src/lib/medication-records.ts", source, reportFailure);
+    expect(records).not.toMatch(/accent: row\.accent \?\? "#0f766e"/);
+    expect(records).toContain('export const ALSO_TEAL = "#0f766e"');
+    expect(records).toContain("#123456");
+    expect(reportFailure).not.toHaveBeenCalled();
+
+    const medications = rawColorContractSource(
+      "src/lib/medications.ts",
+      'export function normalizeRecord(record) { return { accent: record.accent?.trim() || "#0f766e" }; }\nexport const OTHER = "#abcdef";',
+      reportFailure,
+    );
+    expect(medications).not.toContain("#0f766e");
+    expect(medications).toContain("#abcdef");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("does not treat accentColor or a comment mention as the medication accent default", () => {
+    const reportFailure = vi.fn();
+    const source = [
+      'export const accentColor = "#0f766e";',
+      '// fallback accent: row.accent ?? "#0f766e"',
+      'export const UNRELATED = "#123456";',
+    ].join("\n");
+
+    expect(rawColorContractSource("src/lib/medications.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
+
+  it("fails closed when the medication accent default boundary disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const FALLBACK = "#0f766e";';
+
+    expect(rawColorContractSource("src/lib/medication-records.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("medication accent default boundary is missing");
+  });
 });

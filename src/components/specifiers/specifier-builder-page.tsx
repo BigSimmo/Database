@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, ChevronLeft, ClipboardCopy, FileCheck2, ListChecks, RotateCcw, Tags } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ClipboardCopy,
+  FileCheck2,
+  GitCompareArrows,
+  ListChecks,
+  RotateCcw,
+  Tags,
+  Waypoints,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SpecifierPageShell, SpecifierSafetyNote, specifierCard } from "@/components/specifiers/specifier-ui";
+import { pairCompareHref } from "@/components/compare";
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
@@ -85,7 +97,7 @@ function StepProgress({
   return (
     <ol
       aria-label="Specifier builder steps"
-      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]"
+      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5"
     >
       {builderSteps.map((step, index) => {
         const isActive = active === step.id;
@@ -524,12 +536,33 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                       ? errorCopy.clipboardCopyFailed
                       : ""}
                 </p>
+
+                <div className="flex flex-wrap justify-end gap-2 border-t border-[color:var(--border)] pt-4">
+                  <Link
+                    href="/specifiers/map"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <Waypoints className="h-4 w-4" aria-hidden />
+                    Browse the map
+                  </Link>
+                  <Link
+                    href={
+                      selectedRecords.length >= 2
+                        ? pairCompareHref("/specifiers/compare", selectedRecords[0].slug, selectedRecords[1].slug)
+                        : "/specifiers/compare"
+                    }
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <GitCompareArrows className="h-4 w-4" aria-hidden />
+                    Compare specifiers
+                  </Link>
+                </div>
               </div>
             </section>
           ) : null}
 
           {activeView !== "review" ? (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
               <button
                 type="button"
                 onClick={() => move(-1)}

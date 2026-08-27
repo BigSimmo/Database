@@ -92,9 +92,12 @@ function adoptBaselines(
   const args = [scriptPath, "--from", artifactDir, "--run-id", "424242", "--head", head, "--reviewed-by", reviewedBy];
   if (reviewedByLogin) args.push("--reviewed-by-login", reviewedByLogin);
   if (write) args.push("--write");
+  const env = { ...process.env };
+  delete env.NODE_COMPILE_CACHE;
   return execFileSync("node", args, {
     cwd: fixtureRoot,
     encoding: "utf8",
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 }

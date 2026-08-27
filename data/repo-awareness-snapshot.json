@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "5d848e0d24e4669a0fc41ef37aaab1f77ae5c323",
-    "committed_at": "2026-08-27T13:18:04+08:00"
+    "sha": "69212e2fb3e902de6e7d1336ac14bc9bc60d7b4a",
+    "committed_at": "2026-08-27T10:41:00+00:00"
   },
   "routes": {
     "modes": [
@@ -2387,6 +2387,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/FIX-GUIDE.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
@@ -2545,6 +2550,11 @@
         "path": "docs/openai-rag-operations.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operations-runbook.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/operator-apply-performance-latency-remediation.md",
@@ -3862,9 +3872,9 @@
       }
     ],
     "counts": {
-      "documents": 479,
+      "documents": 481,
       "catalogued": 106,
-      "uncatalogued": 373,
+      "uncatalogued": 375,
       "sections": 19
     }
   },
@@ -3887,11 +3897,35 @@
       },
       {
         "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "6e5531ce7724c63b8c29bd880141ea87c7cd5fd8",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (main advanced 5 commits past merge base to a DSM comparison-page redesign #2409 that conflicted with this PR's DSM search/compare changes); 0 unresolved review threads (5 PR comments were all bot rate-limit/housekeeping noise, no actionable findings); CI had not yet run on a clean merge. After: merged origin/main resolving real content conflicts in 5 files (dsm-compare-chrome.tsx, dsm-comparison-page.tsx, dsm-page-header.tsx, mode-secondary-navigation.ts, tests/ui-route-coverage.spec.ts) by combining both sides' intent (kept main's compact-header redesign and null-id-filter fix, kept this PR's dsmSearchHref routing, compact compare starters, and showEmptyState/slotLayout opt-ins) rather than blanket ours/theirs; pushed merge commit 6e5531ce. No review threads needed action. CI re-triggered on the new head (run 33051601015) and was still in progress (Lint/Unit coverage/Build/4x Production UI shards/Lighthouse running) after ~34 minutes of observation with no new job-log progress in the final two snapshots; left for a human or a later session to confirm green.",
+        "checks": "npm run typecheck (clean, gate-receipts recorded pass), npm run lint (clean, gate-receipts recorded pass), npx vitest run tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-comparison-page.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/information-page-shell.dom.test.tsx (75 passed), npm run format (no changes needed). No provider-backed checks run; hosted CI run 33051601015 still in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/dsm-search-ux-elevation (PR #2415)",
+        "head": "958a6b4f7c969f07cb118ccc0c581939fd81bcab",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty again (main advanced one more commit, #2416, past the prior sweep's merge, re-conflicting the generated repo-awareness snapshot); required CI red on the prior head (5b22edb2) with Production UI (1) failing tests/ui-route-coverage.spec.ts 'DSM home renders responsively and opens comparison' (expected /dsm/compare$ but got /dsm/compare?q=major+depressive, because the prior sweep's merge silently dropped a same-PR fix commit's dropped $ anchor while keeping its other hunks) and PR mergeability failing on the dirty state; 0 unresolved review threads (6 PR comments were all bot rate-limit/housekeeping noise: Codex usage limit, CodeRabbit review limit, Cursor Bugbot limit x2, Supabase preview skip, CI-triage bot). After: merged origin/main resolving the sole conflict (data/repo-awareness-snapshot.json, a generated file) by regenerating via npm run snapshot:repo-awareness rather than hand-editing; separately fixed the real route-coverage regression by dropping the stale $ anchor on the /dsm/compare URL assertion (restoring intended behaviour: Compare now carries q/ids from DSM search, matching this PR's own preserve-filters design) — both included in merge commit 958a6b4f. No review threads needed action (still zero unresolved). Pushed 958a6b4f; new CI run 33062342217 kicked off on the synced head and was still in progress at time of recording; left for a human or later session to confirm green.",
+        "checks": "npm run lint (clean, gate-receipts recorded pass), npm run typecheck (clean, gate-receipts recorded pass), npm run test -- tests/mode-secondary-navigation.test.ts tests/dsm-compare-chrome.dom.test.tsx tests/dsm-search-empty-state.dom.test.tsx tests/app-modes.test.ts tests/dsm-comparison-page.dom.test.tsx (68 passed, gate-receipts recorded pass). git merge-tree confirmed the only conflict was the generated snapshot file before merging. No provider-backed checks run; hosted CI run 33062342217 in progress as of last observation."
+      },
+      {
+        "date": "2026-08-27",
         "ref": "codex/tooling-hooks-ci-invariants",
         "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep (PR #2416)",
+        "head": "0ed48477cf427f95d6d1dc0999ea58be64153a4c",
+        "scope": "Run PR sweep: CI fix + review threads + drift resolution",
+        "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
+        "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
       },
       {
         "date": "2026-08-26",
@@ -24919,8 +24953,8 @@
       }
     ],
     "counts": {
-      "records": 2630,
-      "refs": 1607
+      "records": 2633,
+      "refs": 1609
     }
   }
 }

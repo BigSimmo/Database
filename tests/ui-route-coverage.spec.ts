@@ -439,7 +439,7 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("link", { name: "Compare", exact: true });
         await expect(compare).toBeVisible();
         await compare.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
+        await expect(currentPage).toHaveURL(/\/dsm\/compare/);
         await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
     );
@@ -472,7 +472,10 @@ test.describe("previously uncovered production routes", () => {
           }),
           remove.click(),
         ]);
-        await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toBeVisible();
+        // Empty dashed panel is suppressed in favour of the compact slot rail
+        // and inline starter chips when fewer than two diagnoses remain.
+        await expect(currentPage.getByTestId("compare-slot-tile-compact").first()).toBeVisible();
+        await expect(currentPage.getByTestId("dsm-compare-starters").getByRole("link").first()).toBeVisible();
       },
     );
   });
@@ -502,7 +505,7 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Compare two specifiers", level: 1 })).toBeVisible();
-        await expect(currentPage.getByText("Find the deciding clinical difference.", { exact: true })).toBeVisible();
+        await expect(currentPage.getByText("Side-by-side review", { exact: true })).toBeVisible();
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
