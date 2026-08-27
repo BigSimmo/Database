@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "31c3f568df68ce951fb9fe9e4e458bc868ea6606",
-    "committed_at": "2026-08-27T07:50:11+00:00"
+    "sha": "60224e56b622bcb3d53c812e55d44daf03877233",
+    "committed_at": "2026-08-27T08:55:20+00:00"
   },
   "routes": {
     "modes": [
@@ -3902,6 +3902,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: mergeable_state dirty (real conflict in src/components/dsm/dsm-compare-chrome.tsx vs main's #2409 DSM redesign), CI red (Build/Static PR checks/Production UI x4/Lighthouse all failing on one root-cause TS2783 duplicate-prop typecheck error in the PR's own new test), 0 unresolved review threads (all 5 PR comments were bot noise: Codex/CodeRabbit/Bugbot usage-limit notices and a CI-triage bot comment). After: merged origin/main cleanly (dsm-compare-chrome.tsx conflict resolved by combining HEAD's phoneLayout/slotSummaryLabel props with main's onCommit, verified equivalent since idsCompareHref already null-filters internally), fixed the duplicate actionLabel JSX prop in tests/compare-ids-chrome.dom.test.tsx (removed the redundant explicit prop since chromeProps spread already supplies it and the test asserts nothing about its value), pushed 2 commits (13efa061 merge, 4042bdd7 fix). No review threads needed action. New CI run (33051244071) at 4042bdd7 still in_progress after 30+ min observation window (PR mergeability + PR policy + Safety and config checks + Caring Contacts database already green); Build/Static PR checks/Unit coverage/Production UI x3/Production UI critical/Lighthouse budget not yet settled — deferred to the user per babysit budget, run: https://github.com/BigSimmo/Database/actions/runs/33051244071",
         "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts tests/dsm-comparison-page.dom.test.tsx -- 6 files / 53 passed; npm run typecheck -- passed after fix (5604 input files); npx eslint on touched files -- clean; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "fcfaa11a07bea6c04c4c4c1b046fb0ccaca469ba",
+        "scope": "Run PR follow-up: second merge-drift + real bug fix + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated). Also found and fixed a real regression from the earlier sweep's conflict resolution: DsmCompareChrome's onCommit had dropped ids.filter(Boolean) that origin/main carries, producing ids=,bipolar-ii-disorder after removing the first of two selections instead of ids=bipolar-ii-disorder -- exactly the failure tests/ui-route-coverage.spec.ts caught in CI. Restored the filter to match main. Added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/. No review threads outstanding.",
+        "checks": "npx vitest run tests/compare-catalog.test.ts tests/compare-ids-chrome.dom.test.tsx tests/compare-slot-strip.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 57 passed; no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -24945,7 +24953,7 @@
       }
     ],
     "counts": {
-      "records": 2632,
+      "records": 2633,
       "refs": 1609
     }
   }

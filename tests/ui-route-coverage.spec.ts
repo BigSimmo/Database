@@ -472,7 +472,15 @@ test.describe("previously uncovered production routes", () => {
           }),
           remove.click(),
         ]);
-        await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toBeVisible();
+        // `proveRenderedRoute` leaves the page at the last `routeViewports` entry
+        // (phone, 390px). At phone width the DSM hybrid compare layout replaces
+        // the dashed `CompareEmptyState` with the compact grid's own "add one
+        // more" hint once a single diagnosis remains selected — see
+        // `compare-slot-strip.tsx`'s `showOneMoreHint`, exercised for this same
+        // 1-of-2-filled state in `tests/compare-slot-strip.dom.test.tsx`.
+        await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toHaveCount(0);
+        await expect(currentPage.getByTestId("compare-slot-strip-one-more-hint")).toBeVisible();
+        await expect(currentPage.getByTestId("compare-slot-strip-one-more-hint")).toHaveText(/one more/i);
       },
     );
   });
