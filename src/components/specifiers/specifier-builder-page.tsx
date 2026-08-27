@@ -84,7 +84,7 @@ function StepProgress({
   return (
     <ol
       aria-label="Specifier builder steps"
-      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]"
+      className="grid grid-cols-4 gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5"
     >
       {builderSteps.map((step, index) => {
         const isActive = active === step.id;
@@ -283,7 +283,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <select
                     value={diagnosisId}
                     onChange={(event) => changeDiagnosis(event.target.value as SpecifierBuilderDiagnosis)}
-                    className="min-h-12 w-full max-w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                    className="min-h-12 w-full max-w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                   >
                     {diagnosisPresets.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -532,7 +532,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
           ) : null}
 
           {activeView !== "review" ? (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
               <button
                 type="button"
                 onClick={() => move(-1)}

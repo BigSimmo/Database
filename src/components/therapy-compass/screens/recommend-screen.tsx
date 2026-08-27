@@ -153,7 +153,7 @@ export function RecommendScreen() {
           </div>
 
           <div className="mt-5 flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-            <Shield aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
+            <Shield aria-hidden="true" className="size-icon-sm text-[color:var(--decoration-soft)]" />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
         </>

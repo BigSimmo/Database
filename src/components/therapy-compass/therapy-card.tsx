@@ -287,15 +287,14 @@ export function TherapyListItem({
       {trailing ?? (
         <span className="flex-none text-[color:var(--decoration-soft)]">
           {therapy.reviewStatus === "reviewed" ? null : (
-            <TriangleAlert aria-hidden="true" size={15} strokeWidth={1.8} />
+            <TriangleAlert aria-hidden="true" strokeWidth={1.8} className="size-icon-sm" />
           )}
         </span>
       )}
       <ChevronRight
         aria-hidden="true"
-        size={15}
         strokeWidth={1.8}
-        className="flex-none text-[color:var(--decoration-soft)]"
+        className="size-icon-sm flex-none text-[color:var(--decoration-soft)]"
       />
     </InteractiveRow>
   );
