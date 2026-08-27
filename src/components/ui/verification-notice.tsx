@@ -17,6 +17,8 @@ import { DateDisplay } from "@/components/ui/date-display";
 
 export type VerificationState = "ready" | "stale_evidence" | "partial_retrieval" | "ungrounded" | "source_only";
 
+export type VerificationAttribution = "model" | "extractive";
+
 export type VerificationNoticeProps = {
   /** Drives the approved wording variant. Never free text. */
   state: VerificationState;
@@ -29,7 +31,7 @@ export type VerificationNoticeProps = {
    * otherwise be announced as "AI-generated" over passages no model wrote.
    * Callers pass the quality tier, not the state kind. Ledger `#228`.
    */
-  attribution?: "model" | "extractive";
+  attribution?: VerificationAttribution;
   /**
    * Keeps the complete governed wording by default. Production answer surfaces
    * may opt into a shorter, still-complete clinical instruction on phones;
@@ -153,6 +155,16 @@ const UNKNOWN_RESPONSIVE_COMPACT_WORDING =
   "Answer provenance is unknown. Treat it as unverified and check every clinical claim against the cited sources before acting.";
 
 /**
+ * Returns the governed compact instruction for surfaces that already own their
+ * warning chrome, such as the Source-only disclosure. Keeping this lookup here
+ * prevents the disclosure from drifting away from the verification notice it
+ * replaces on screen.
+ */
+export function compactVerificationWordingFor(state: VerificationState, attribution: VerificationAttribution): string {
+  return RESPONSIVE_COMPACT_WORDING[attribution]?.[state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
+}
+
+/**
  * Wording for a state this build does not recognise — a newer producer, a bad
  * cast, a partially-deployed rollout. A verification notice is the one surface
  * where the neutral variant is the *weakest* thing to say, so an unknown state
@@ -254,7 +266,7 @@ export function VerificationNotice({
   // only below `sm`. Print is excluded deliberately: the complete wording is what
   // the printed record has to carry.
   const showInline = presentation === "inline" && audience === "clinician" && medium === "screen";
-  const compactWording = RESPONSIVE_COMPACT_WORDING[attribution]?.[state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
+  const compactWording = compactVerificationWordingFor(state, attribution);
   // An unrecognised state is treated as caution: it wears the warning mark for
   // the same reason it gets the strongest wording.
   const caution = CAUTION_STATES.has(state) || !WORDING[audience][state];

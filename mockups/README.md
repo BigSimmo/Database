@@ -97,6 +97,73 @@ no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-let
 `gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
 to one column.
 
+## Favourites, phone-first (2026-08-26, arrangement chosen 2026-08-27)
+
+Runnable study at [`/mockups/favourites-phone-perfected`](../src/app/mockups/favourites-phone-perfected/page.tsx).
+One perfected direction rather than a set of alternatives — the six earlier favourites studies
+(`favourites-command-desk`, `-command-console`, `-library-view`, `-review-console`, `-set-board`,
+`-set-navigator`) already covered the option space.
+
+**The measurement it answers.** Chromium at 390 × 844 against the dev server, reading
+`getBoundingClientRect()` on the live `/favourites` route: the first row of the saved list begins at
+**y = 1141**, roughly 300px below the fold, behind a hint strip, an in-flow composer, a privacy
+notice, a results band, a Continue card and a Recent card. Each item card is **228px**. Nothing of
+the library itself is on the first screen. The three derived cards above the list measure Continue
+113px, Recent 277px and Your sets 255px — 645px of that 1141px.
+
+**The arrangement, chosen by the owner 2026-08-27.** Both derived cards are kept and drawn in full —
+Continue with its own action, Recent with View all, type pills and per-row Open — rather than the
+72px compressed resume strip the first pass proposed. What pays for them is a single rule:
+
+> Continue and Recent are the **landing** surface, and nothing else. Tap a set or type in the
+> composer and they hand the screen back to the list.
+
+Narrowing means the user is hunting for something specific, and a resume affordance is not what they
+asked for. Measured: **one** saved row above the fold on arrival, **seven** the moment you narrow. A
+degraded load also falls back to the strip — with the failure notice plus both full cards, **zero**
+saved rows fitted, which is the wrong screen to show nothing on.
+
+The library groups by the user's own sets rather than by recency, because a recency-sorted list under
+a Recent card is a second copy of that card. Continue, Recent and the library then answer three
+different questions: what was I mid-way through, what did I just touch, what have I filed. `View all`
+switches the list to recency, which is what makes that control do something.
+
+| Decision                                        | Trade-off                                                              |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Continue and Recent as the landing surface only | One saved row above the fold on arrival                                |
+| Library groups by set, not recency              | Finding the newest thing means Recent or View all                      |
+| One header, not six bands                       | Sort, sets and clear-all cost a tap behind the ellipsis sheet          |
+| One-line rows with a type pill                  | No description, so near-identical forms are told apart by code and set |
+| Pinned rows lead, with a real toggle            | One 28px group label, which disappears when nothing is pinned          |
+| The shared composer stays the only input        | The input is at the far end of the phone from the count it changes     |
+
+A **weighted segment track** (the `DocumentSectionTrack` shape the in-page navigation template
+prescribes) was tried first and dropped: eight sets across 390px leaves each segment about 48px,
+under the width a set name needs, so the track degrades to unlabelled slivers.
+
+Twelve phone frames: landing, one set selected, filtering, no matches, first run, item actions, set
+management, partial load, signed out, and two kept alternatives — the compact resume strip (the
+rejected first pass, kept as the record of the choice) and the type drawn as a coloured word rather
+than a pill. One 1280px frame shows the desktop translation.
+
+**Content honesty.** Only `service | form | differential | therapy` are drawn, because
+`favouriteContentTypeSchema` permits nothing else. The six earlier favourites mockups draw saved
+medications, documents, quotes and searches, none of which has a content type and none of which can
+be persisted. `tests/favourites-phone-perfected-mockups.test.ts` pins that, the controlled set
+vocabulary, and the 48px tap knob. Differentials and therapies borrow `--tone-purple` / `--tone-indigo`
+because the identity group has no `--type-differential` or `--type-therapy`; promotion would add them.
+The shipped Continue card tints its rule with `--success`; TOKENS.md scopes the clinical-state layer
+to source state and sanctioned urgency, so the accent carries that job here instead.
+
+Shared chrome is suppressed because every frame draws its own top bar, page header and composer.
+
+**Class-generation trap, again.** The phone frame's geometry (`max-w-phone-frame`, `h-phone-frame`,
+`rounded-phone-frame`) and both desktop `grid-cols-[...]` tracks are pinned inline. Measured on this
+route while building it, `--spacing-phone-frame` resolved to the empty string and the frame rendered
+2661px tall with square corners; the desktop grid collapsed to a single stacked column. Same cause as
+the `grid-cols-6` note above — Tailwind only emits a theme key some scanned source uses, and whether
+that holds depends on what else lands in the sheet. Pin unusual geometry inline.
+
 ## Dictionary — condensing the phone control row (2026-08-21)
 
 Runnable study at [`/mockups/dictionary-control-row`](../src/app/mockups/dictionary-control-row/page.tsx).
