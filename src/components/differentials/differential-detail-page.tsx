@@ -676,7 +676,7 @@ function ComparePanel({
       <Link
         data-testid="differential-compare-open"
         href={compareHref}
-        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)]"
+        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Open comparison workspace
@@ -805,7 +805,7 @@ function MobilePrimaryActions({
   onCompare: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] lg:hidden">
       <button
         type="button"
         onClick={onCompare}

@@ -123,7 +123,7 @@ export function DsmComparisonPage({
 
             <section
               data-testid="dsm-comparison-unified"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
               aria-label={comparisonLabel}
             >
               <div className={diagnosisHeaderGridClass(diagnoses.length)}>
