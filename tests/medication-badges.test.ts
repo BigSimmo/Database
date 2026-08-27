@@ -124,6 +124,57 @@ describe("medications catalogue regression", () => {
     const badges = medicationIdentityBadges(record!);
     expect(badges.some((badge) => badge.label === "PBS streamlined")).toBe(true);
   });
+
+  it("verifies Ramipril cardiovascular profile, pregnancy contraindication, and triple whammy interaction", () => {
+    const record = getMedicationRecord("ramipril");
+    expect(record).toBeTruthy();
+    expect(record?.class).toBe("Antihypertensive");
+    expect(record?.subclass).toBe("ACE Inhibitor");
+    expect(record?.schedule).toBe("S4");
+    expect(record?.tag).toBe("ACEi");
+
+    const badges = medicationIdentityBadges(record!);
+    expect(badges.some((b) => b.label === "ACEi")).toBe(true);
+    expect(badges.some((b) => b.label === "S4")).toBe(true);
+
+    const contraSection = record?.sections.find((s) => s.type === "contra");
+    expect(contraSection).toBeTruthy();
+    const pregRow = contraSection?.rows.find((r) => r.key === "Pregnancy");
+    expect(pregRow?.patient?.factors).toContain("pregnancy");
+    expect(pregRow?.patient?.severity).toBe("danger");
+    expect(pregRow?.patient?.action).toBe("contraindication");
+
+    const interSection = record?.sections.find((s) => s.type === "inter");
+    expect(interSection).toBeTruthy();
+    const tripleWhammy = interSection?.rows.find((r) => r.key === "Triple Whammy");
+    expect(tripleWhammy?.val).toMatch(/^CRITICAL/);
+    expect(tripleWhammy?.val).toContain("NSAID");
+  });
+
+  it("verifies Simvastatin lipid-lowering profile, evening administration, and CYP3A4 interaction", () => {
+    const record = getMedicationRecord("simvastatin");
+    expect(record).toBeTruthy();
+    expect(record?.class).toBe("Lipid-Lowering");
+    expect(record?.subclass).toBe("HMG-CoA Reductase Inhibitor");
+    expect(record?.schedule).toBe("S4");
+    expect(record?.tag).toBe("STATIN");
+
+    const badges = medicationIdentityBadges(record!);
+    expect(badges.some((b) => b.label === "STATIN")).toBe(true);
+    expect(badges.some((b) => b.label === "S4")).toBe(true);
+
+    const contraSection = record?.sections.find((s) => s.type === "contra");
+    expect(contraSection).toBeTruthy();
+    const hepaticRow = contraSection?.rows.find((r) => r.key === "Absolute");
+    expect(hepaticRow?.patient?.factors).toContain("hepatic");
+    expect(hepaticRow?.patient?.severity).toBe("danger");
+
+    const interSection = record?.sections.find((s) => s.type === "inter");
+    expect(interSection).toBeTruthy();
+    const cyp3a4Row = interSection?.rows.find((r) => r.val.includes("CYP3A4"));
+    expect(cyp3a4Row?.val).toMatch(/^CRITICAL/);
+    expect(cyp3a4Row?.val).toContain("Clarithromycin");
+  });
 });
 
 describe("controlled-drug (S8) schedule badge", () => {

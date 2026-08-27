@@ -97845,5 +97845,631 @@
         "value": "Zinc and Iron compete for the exact same transporter in the gut. If you give a patient Zincaps and Ferro-gradumet at the same time, neither will absorb properly. Take them at different times of the day."
       }
     ]
+  },
+  {
+    "slug": "ramipril",
+    "name": "Ramipril",
+    "class": "Antihypertensive",
+    "subclass": "ACE Inhibitor",
+    "category": "Cardiovascular - Antihypertensives",
+    "accent": "#0284c7",
+    "tag": "ACEi",
+    "schedule": "S4",
+    "stats": [
+      {
+        "label": "Max Dose",
+        "value": "10 mg/day",
+        "cls": "hi",
+        "flag": "hi"
+      },
+      {
+        "label": "Half-life",
+        "value": "13-17 h (Active)",
+        "cls": "",
+        "flag": ""
+      },
+      {
+        "label": "Dry Cough",
+        "value": "COMMON",
+        "cls": "warn",
+        "flag": ""
+      },
+      {
+        "label": "Teratogenic",
+        "value": "CRITICAL RISK",
+        "cls": "hi",
+        "flag": "warn"
+      }
+    ],
+    "sections": [
+      {
+        "title": "Rapid Summary",
+        "type": "summary",
+        "rows": [
+          {
+            "key": "Overview",
+            "val": "Potent, long-acting Angiotensin-Converting Enzyme (ACE) inhibitor. Cornerstone foundational therapy for hypertension, heart failure post-MI, diabetic nephropathy, and secondary cardiovascular prevention (HOPE trial).",
+            "tags": []
+          },
+          {
+            "key": "Maximum Dose",
+            "val": "Max **10 mg/day**. Reduce in Renal impairment — initial 1.25 mg **OD**, max 5 mg/day if **eGFR** < 30.",
+            "tags": []
+          },
+          {
+            "key": "Clinical Focus",
+            "val": "Absolutely contraindicated in Pregnancy (Category D). Causes severe fetal renal dysgenesis, oligohydramnios, and neonatal hypoplasia. Cease immediately on confirmed pregnancy.",
+            "tags": []
+          },
+          {
+            "key": "Bottom Line",
+            "val": "Ramipril is a high-yield first-line ACE inhibitor with extensive clinical trial evidence for stroke and MI risk reduction, but must never be used in Pregnancy and mandates baseline and ongoing **U&E** monitoring.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Risk Profile",
+        "type": "risk",
+        "rows": [
+          {
+            "key": "Renal",
+            "val": "HIGH — Hyperkalemia, Acute Kidney Injury (AKI) especially in bilateral renal artery stenosis, severe hypovolemia, or concomitant NSAID/diuretic use.",
+            "tags": []
+          },
+          {
+            "key": "Respiratory",
+            "val": "HIGH — Persistent dry cough (in ~10-15% of patients due to bradykinin accumulation).",
+            "tags": []
+          },
+          {
+            "key": "Immunological",
+            "val": "CRITICAL — Angioedema (swelling of lips, tongue, pharynx, or airway). Can occur anytime during therapy and warrants permanent cessation of all ACE inhibitors.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Dosing & Administration",
+        "type": "dose",
+        "rows": [
+          {
+            "key": "Hypertension",
+            "val": "Start **PO** 2.5 mg **OD**. Titrate at 2-4 week intervals to 5-10 mg **OD** (max 10 mg/day).",
+            "tags": []
+          },
+          {
+            "key": "Heart Failure / Post-MI",
+            "val": "Start **PO** 1.25-2.5 mg **BD**. Titrate to target 5 mg **BD** (or 10 mg **OD**).",
+            "tags": []
+          },
+          {
+            "key": "Cardiovascular Risk Reduction (HOPE)",
+            "val": "Start **PO** 2.5 mg **OD** for 1-2 weeks, then 5 mg **OD** for 2-3 weeks, titrating to target **10 mg OD**.",
+            "tags": []
+          },
+          {
+            "key": "Renal Impairment",
+            "val": "MANDATORY — If **eGFR** < 30 mL/min, start at **1.25 mg OD**; max dose **5 mg/day**. Monitor serum creatinine and potassium strictly.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Formulation & Access",
+        "type": "form",
+        "rows": [
+          {
+            "key": "Brand Names",
+            "val": "Tritace, Ramace, Prilace",
+            "tags": []
+          },
+          {
+            "key": "Oral Routes",
+            "val": "Tablets / Capsules (1.25 mg, 2.5 mg, 5 mg, 10 mg).",
+            "tags": []
+          },
+          {
+            "key": "Prescribing & PBS",
+            "val": "Unrestricted General Benefit (S4).",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Indications & Use",
+        "type": "ind",
+        "rows": [
+          {
+            "key": "Primary",
+            "val": "Hypertension, Heart Failure (HFrEF, post-MI), secondary prevention of MI and stroke in high-risk CV patients, diabetic nephropathy.",
+            "tags": ["PBS", "TGA"]
+          },
+          {
+            "key": "Clinical Place",
+            "val": "First-line ACE inhibitor supported by landmark trial evidence (HOPE study) demonstrating mortality and CV event reduction.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Contraindications & Populations",
+        "type": "contra",
+        "rows": [
+          {
+            "key": "Absolute",
+            "val": "CRITICAL — History of ACE inhibitor-induced angioedema or hereditary/idiopathic angioedema. Bilateral renal artery stenosis or unilateral stenosis in a solitary kidney.",
+            "tags": []
+          },
+          {
+            "key": "Pregnancy",
+            "val": "ABSOLUTE — **Pregnancy** Category D. Must be ceased immediately upon confirmed or planned pregnancy due to severe fetal toxicity.",
+            "tags": [],
+            "patient": {
+              "factors": ["pregnancy"],
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "ACE inhibitors are teratogenic (Pregnancy Category D); cease immediately upon conception."
+            }
+          },
+          {
+            "key": "Renal Impairment",
+            "val": "Dose adjustment required in severe renal impairment (eGFR < 30). Pre-existing hyperkalemia (> 5.5 mmol/L) is a relative contraindication.",
+            "tags": [],
+            "patient": {
+              "factors": ["renal"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "note": "Reduce starting dose to 1.25 mg OD if eGFR < 30 mL/min; monitor U&E closely."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Key Interactions",
+        "type": "inter",
+        "rows": [
+          {
+            "key": "Triple Whammy",
+            "val": "CRITICAL — ACEi + Diuretic + NSAID (Ibuprofen/Naproxen). This combination guarantees acute renal failure by destroying both afferent and efferent glomerular blood flow.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacodynamic",
+            "val": "HIGH — Potassium-sparing diuretics (Spironolactone, Eplerenone), K+ supplements (Severe hyperkalemia).",
+            "tags": []
+          },
+          {
+            "key": "Pharmacokinetic",
+            "val": "HIGH — Lithium (ACE inhibitors reduce renal clearance of lithium, leading to lithium toxicity).",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Monitoring & Cautions",
+        "type": "mon",
+        "rows": [
+          {
+            "key": "Laboratory",
+            "val": "MANDATORY — Check **U&E** (Creatinine, Potassium) at baseline, 1-2 weeks post-initiation and after each dose escalation. Serum creatinine rise ≤ 30% is acceptable.",
+            "tags": []
+          },
+          {
+            "key": "Bedside",
+            "val": "Monitor lying and standing **BP** to detect first-dose hypotension, particularly in patients on diuretics or volume-depleted states.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Clinical Pearls",
+        "type": "pearl",
+        "rows": [
+          {
+            "key": "The Cough Switch",
+            "val": "If the patient develops a persistent dry ACEi cough, switch to an ARB (such as Candesartan or Telmisartan); do not prescribe cough suppressants.",
+            "tags": []
+          },
+          {
+            "key": "The 30% Creatinine Rule",
+            "val": "A mild creatinine increase (< 30%) reflects reduced intraglomerular pressure and long-term nephroprotection; do not stop therapy unless creatinine rises > 30% or potassium exceeds 5.5 mmol/L.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Mechanism & Pharmacokinetics",
+        "type": "evid",
+        "rows": [
+          {
+            "key": "Mechanism",
+            "val": "Prodrug converted by hepatic esterases to active ramiprilat, a potent competitive inhibitor of ACE. Reduces Angiotensin II and aldosterone while increasing bradykinin.",
+            "tags": []
+          },
+          {
+            "key": "Onset",
+            "val": "**PO** 1-2 hours; peak hemodynamic effect at 3-6 hours.",
+            "tags": []
+          },
+          {
+            "key": "Half-life",
+            "val": "Ramiprilat elimination half-life is triphasic, effective terminal half-life 13-17 hours.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Sources",
+        "type": "src",
+        "rows": [
+          {
+            "key": "Source Review",
+            "val": "Source-backed review 2026-05-11: TRITACE/ramipril Australian PI and AMH monographs. Entry checked for dosing, access, contraindications/populations, interactions, monitoring, patient-context metadata, and app structure."
+          }
+        ]
+      }
+    ],
+    "quick": [
+      {
+        "label": "Class & Role",
+        "value": "ACE Inhibitor — First-line antihypertensive, heart failure, post-MI, renal protection."
+      },
+      {
+        "label": "Route / Formulation",
+        "value": "**PO** capsules/tablets: 1.25 mg, 2.5 mg, 5 mg, 10 mg (Tritace, Ramace, Prilace)"
+      },
+      {
+        "label": "Usual Dose & Max",
+        "value": "Start 2.5 mg **OD**, titrate to 5-10 mg **OD**. Max **10 mg/day**."
+      },
+      {
+        "label": "Key Indication Doses",
+        "value": "HTN: 2.5-10 mg **OD**. HF/Post-MI: 1.25-2.5 mg **BD**, target 5 mg **BD**. Renal: start 1.25 mg **OD** if **eGFR** < 30."
+      },
+      {
+        "label": "Best Uses",
+        "value": "Ramipril is a high-yield first-line ACE inhibitor with extensive clinical trial evidence for stroke and MI risk reduction, but must never be used in Pregnancy and mandates baseline and ongoing **U&E** monitoring."
+      },
+      {
+        "label": "Avoid / Cautions",
+        "value": "History of ACEi angioedema. Bilateral renal artery stenosis. **Pregnancy** Category D (Absolute contraindication)."
+      },
+      {
+        "label": "Key Risks",
+        "value": "Renal: Hyperkalemia, AKI. Respiratory: Dry cough (10-15%). Immunological: Angioedema (CRITICAL)."
+      },
+      {
+        "label": "Key Interactions",
+        "value": "Triple Whammy: ACEi + Diuretic + NSAID (Severe AKI). Potassium-sparing diuretics (Spironolactone) cause hyperkalemia. Lithium toxicity."
+      },
+      {
+        "label": "Monitoring",
+        "value": "Check **U&E** at baseline, 1-2 weeks after starting/titrating, then 6-12 monthly. Check BP."
+      },
+      {
+        "label": "Clinical Pearl",
+        "value": "Switch to an ARB (Candesartan) if dry cough occurs. A creatinine increase up to 30% is expected and protective."
+      }
+    ]
+  },
+  {
+    "slug": "simvastatin",
+    "name": "Simvastatin",
+    "class": "Lipid-Lowering",
+    "subclass": "HMG-CoA Reductase Inhibitor",
+    "category": "Cardiovascular - Lipid Lowering",
+    "accent": "#0284c7",
+    "tag": "STATIN",
+    "schedule": "S4",
+    "stats": [
+      {
+        "label": "Max Dose",
+        "value": "40 mg/day (ON)",
+        "cls": "hi",
+        "flag": "hi"
+      },
+      {
+        "label": "Half-life",
+        "value": "2-3 h",
+        "cls": "",
+        "flag": ""
+      },
+      {
+        "label": "Myopathy",
+        "value": "HIGH CYP3A4",
+        "cls": "warn",
+        "flag": "warn"
+      },
+      {
+        "label": "Hepatic",
+        "value": "LFTs REQ",
+        "cls": "warn",
+        "flag": ""
+      }
+    ],
+    "sections": [
+      {
+        "title": "Rapid Summary",
+        "type": "summary",
+        "rows": [
+          {
+            "key": "Overview",
+            "val": "Foundational HMG-CoA reductase inhibitor (statin). Landmark trial proof in secondary prevention (4S trial). Short half-life requiring evening administration and highest CYP3A4 drug-interaction liability among statins.",
+            "tags": []
+          },
+          {
+            "key": "Maximum Dose",
+            "val": "Max **40 mg/day** taken at night. The 80 mg dose is restricted due to heightened rhabdomyolysis risk.",
+            "tags": []
+          },
+          {
+            "key": "Clinical Focus",
+            "val": "Must be taken in the evening/night. Avoid strong CYP3A4 inhibitors (Clarithromycin, Itraconazole, Grapefruit juice) which precipitate life-threatening rhabdomyolysis.",
+            "tags": []
+          },
+          {
+            "key": "Bottom Line",
+            "val": "Simvastatin is an effective lipid-lowering agent with robust cardiovascular trial evidence, but its high CYP3A4 interaction sensitivity and evening-dosing requirement make it more interaction-prone than atorvastatin or rosuvastatin.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Risk Profile",
+        "type": "risk",
+        "rows": [
+          {
+            "key": "Musculoskeletal",
+            "val": "HIGH — Myalgia, myopathy. CRITICAL — Rhabdomyolysis with acute kidney injury, especially when combined with CYP3A4 inhibitors or gemfibrozil.",
+            "tags": []
+          },
+          {
+            "key": "Hepatic",
+            "val": "MODERATE — Transaminitis (ALT/AST elevation); rare severe hepatotoxicity.",
+            "tags": [],
+            "patient": {
+              "factors": ["hepatic"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "note": "Active liver disease is an absolute contraindication; monitor transaminases if symptomatic."
+            }
+          },
+          {
+            "key": "Metabolic",
+            "val": "LOW — Small, dose-related increase in HbA1c and fasting blood glucose levels.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Dosing & Administration",
+        "type": "dose",
+        "rows": [
+          {
+            "key": "Hypercholesterolaemia / Primary Prevention",
+            "val": "**PO** 10-20 mg **ON** (in the evening). Titrate every 4 weeks to target lipid levels.",
+            "tags": []
+          },
+          {
+            "key": "Secondary Prevention (High Risk / CHD)",
+            "val": "**PO** 20-40 mg **ON** (in the evening). Max **40 mg/day**.",
+            "tags": []
+          },
+          {
+            "key": "Renal Impairment",
+            "val": "In severe renal impairment (**eGFR** < 30 mL/min), start at **5-10 mg ON** and monitor closely for myopathy.",
+            "tags": []
+          },
+          {
+            "key": "Co-administration Caps",
+            "val": "Diltiazem, Verapamil, Amlodipine, Amiodarone: limit simvastatin to max **10-20 mg/day**.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Formulation & Access",
+        "type": "form",
+        "rows": [
+          {
+            "key": "Brand Names",
+            "val": "Zocor, Lipex, Simvar",
+            "tags": []
+          },
+          {
+            "key": "Oral Routes",
+            "val": "Tablets (5 mg, 10 mg, 20 mg, 40 mg, 80 mg).",
+            "tags": []
+          },
+          {
+            "key": "Prescribing & PBS",
+            "val": "Unrestricted General Benefit (S4).",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Indications & Use",
+        "type": "ind",
+        "rows": [
+          {
+            "key": "Primary",
+            "val": "Hypercholesterolaemia, mixed dyslipidemia, coronary heart disease secondary prevention (4S trial), diabetes with cardiovascular risk.",
+            "tags": ["PBS", "TGA"]
+          },
+          {
+            "key": "Clinical Place",
+            "val": "Established statin for primary and secondary cardiovascular risk reduction. Often switched to Atorvastatin or Rosuvastatin for greater potency or fewer CYP3A4 interactions.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Contraindications & Populations",
+        "type": "contra",
+        "rows": [
+          {
+            "key": "Absolute",
+            "val": "CRITICAL — Active liver disease, unexplained persistent transaminitis. Concomitant strong CYP3A4 inhibitors (Clarithromycin, Erythromycin, Itraconazole, Ketoconazole, HIV protease inhibitors, Gemfibrozil, Cyclosporin).",
+            "tags": [],
+            "patient": {
+              "factors": ["hepatic"],
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "Active liver disease and unexplained persistent transaminitis are absolute contraindications."
+            }
+          },
+          {
+            "key": "Pregnancy",
+            "val": "ABSOLUTE — **Pregnancy** Category D. Contraindicated throughout pregnancy and breastfeeding (cholesterol synthesis essential for fetal organogenesis).",
+            "tags": [],
+            "patient": {
+              "factors": ["pregnancy"],
+              "action": "contraindication",
+              "severity": "danger",
+              "note": "Statins are contraindicated in pregnancy (Category D); cholesterol is essential for fetal development."
+            }
+          },
+          {
+            "key": "Renal Impairment",
+            "val": "Use with caution in severe renal impairment (eGFR < 30); start 5-10 mg ON.",
+            "tags": [],
+            "patient": {
+              "factors": ["renal"],
+              "action": "dose-adjust",
+              "severity": "caution",
+              "note": "Start with 5-10 mg ON in severe renal impairment (eGFR < 30 mL/min); monitor for myopathy."
+            }
+          }
+        ]
+      },
+      {
+        "title": "Key Interactions",
+        "type": "inter",
+        "rows": [
+          {
+            "key": "Pharmacokinetic",
+            "val": "CRITICAL — Metabolised extensively by **CYP3A4**. Strong inhibitors (Clarithromycin, Erythromycin, Itraconazole, Ketoconazole, Grapefruit juice) massively increase Simvastatin levels, precipitating rhabdomyolysis and acute renal failure. Concurrent use is contraindicated.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacokinetic",
+            "val": "HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.",
+            "tags": []
+          },
+          {
+            "key": "Pharmacodynamic",
+            "val": "HIGH — Moderate CYP3A4 inhibitors (Amiodarone, Diltiazem, Verapamil, Amlodipine). Limit Simvastatin dose to max 20 mg/day (or 10 mg/day with Amiodarone/Verapamil/Diltiazem) to prevent myopathy.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Monitoring & Cautions",
+        "type": "mon",
+        "rows": [
+          {
+            "key": "Laboratory",
+            "val": "MANDATORY — Baseline **Lipids** and **LFTs**. Check CK (Creatine Kinase) promptly if patient experiences unexplained muscle pain, tenderness, or weakness.",
+            "tags": []
+          },
+          {
+            "key": "Bedside",
+            "val": "Inquire about muscle aches, cramps, weakness, or brown/dark urine at each review. Reinforce evening administration.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Clinical Pearls",
+        "type": "pearl",
+        "rows": [
+          {
+            "key": "The Evening Rule",
+            "val": "Simvastatin has a short half-life (~2-3 hours) and must be taken at bedtime when hepatic cholesterol synthesis is maximal. In contrast, Atorvastatin and Rosuvastatin can be taken at any time of day.",
+            "tags": []
+          },
+          {
+            "key": "The Macrolide Hazard",
+            "val": "Never co-prescribe Clarithromycin or Erythromycin with Simvastatin. If a macrolide is necessary, suspend Simvastatin for the antibiotic course.",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Mechanism & Pharmacokinetics",
+        "type": "evid",
+        "rows": [
+          {
+            "key": "Mechanism",
+            "val": "Inactive lactone prodrug hydrolysed to active beta-hydroxyacid, which competitively inhibits HMG-CoA reductase. Up-regulates hepatic LDL receptors.",
+            "tags": []
+          },
+          {
+            "key": "Onset",
+            "val": "Lipid reduction starts within 2 weeks; peak therapeutic response at 4-6 weeks.",
+            "tags": []
+          },
+          {
+            "key": "Half-life",
+            "val": "2-3 hours for active metabolites. Extensive CYP3A4 first-pass metabolism (~5% oral bioavailability).",
+            "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Sources",
+        "type": "src",
+        "rows": [
+          {
+            "key": "Source Review",
+            "val": "Source-backed review 2026-05-11: ZOCOR/simvastatin Australian PI and TGA/FDA safety advisories. Entry checked for dosing, access, contraindications/populations, interactions, monitoring, patient-context metadata, and app structure."
+          }
+        ]
+      }
+    ],
+    "quick": [
+      {
+        "label": "Class & Role",
+        "value": "HMG-CoA Reductase Inhibitor — Lipid-lowering statin for primary and secondary CV prevention."
+      },
+      {
+        "label": "Route / Formulation",
+        "value": "**PO** tablets: 5 mg, 10 mg, 20 mg, 40 mg, 80 mg (Zocor, Lipex, Simvar)"
+      },
+      {
+        "label": "Usual Dose & Max",
+        "value": "**PO** 10-20 mg **ON** (evening). Max **40 mg/day** (80 mg dose restricted due to myopathy risk)."
+      },
+      {
+        "label": "Key Indication Doses",
+        "value": "Primary: 10-20 mg **ON**. High risk/CAD: 20-40 mg **ON**. Renal: 5-10 mg **ON** if **eGFR** < 30."
+      },
+      {
+        "label": "Best Uses",
+        "value": "Simvastatin is an effective lipid-lowering agent with robust cardiovascular trial evidence, but its high CYP3A4 interaction sensitivity and evening-dosing requirement make it more interaction-prone than atorvastatin or rosuvastatin."
+      },
+      {
+        "label": "Avoid / Cautions",
+        "value": "Active liver disease. **Pregnancy** Category D (Absolute contraindication). Strong CYP3A4 inhibitors (Contraindicated)."
+      },
+      {
+        "label": "Key Risks",
+        "value": "Musculoskeletal: Myalgia, myopathy, rhabdomyolysis (CRITICAL with CYP3A4 inhibitors). Hepatic: Transaminitis."
+      },
+      {
+        "label": "Key Interactions",
+        "value": "Strong CYP3A4 inhibitors (Clarithromycin, Itraconazole, Grapefruit juice) cause rhabdomyolysis. Gemfibrozil contraindicated. Cap at 20 mg with Amlodipine/Diltiazem."
+      },
+      {
+        "label": "Monitoring",
+        "value": "Baseline lipids and **LFTs**. Prompt CK if muscle pain or dark urine occurs."
+      },
+      {
+        "label": "Clinical Pearl",
+        "value": "Must be taken in the evening due to short 2-3h half-life. Never combine with Clarithromycin (suspend statin during course)."
+      }
+    ]
   }
 ]
