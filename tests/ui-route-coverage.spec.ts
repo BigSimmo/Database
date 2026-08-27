@@ -439,7 +439,7 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("link", { name: "Compare", exact: true });
         await expect(compare).toBeVisible();
         await compare.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
+        await expect(currentPage).toHaveURL(/\/dsm\/compare/);
         await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
     );

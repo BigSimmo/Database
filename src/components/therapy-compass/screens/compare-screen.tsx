@@ -233,7 +233,7 @@ export function CompareScreen() {
                         className="min-w-[160px] border-l border-[color:var(--border)] px-5 py-3.5 align-top"
                       >
                         <div className="flex items-center gap-[7px]">
-                          <Scale aria-hidden="true" size={15} className="text-[color:var(--decoration-soft)]" />
+                          <Scale aria-hidden="true" className="size-icon-sm text-[color:var(--decoration-soft)]" />
                           <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                         </div>
                         <div
@@ -285,7 +285,7 @@ export function CompareScreen() {
             </div>
             <TherapyCompareStack items={items} rows={rows} dense={dense} />
             <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-muted)]">
-              <Info aria-hidden="true" size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+              <Info aria-hidden="true" strokeWidth={1.8} className="size-icon-sm text-[color:var(--decoration-soft)]" />
               Comparisons are source-grounded. Review status reflects the latest source checks.
             </div>
           </Tabs>
@@ -343,7 +343,7 @@ function TherapyCompareStack({
                 warn ? "text-[color:var(--warning-text)]" : "text-[color:var(--text-muted)]",
               )}
             >
-              <r.icon aria-hidden="true" size={15} strokeWidth={1.8} />
+              <r.icon aria-hidden="true" strokeWidth={1.8} className="size-icon-sm" />
               {r.label}
             </h3>
             <dl className={cn("m-0 grid gap-x-3", dense ? "mt-2 gap-y-1.5" : "mt-2.5 gap-y-2")}>
