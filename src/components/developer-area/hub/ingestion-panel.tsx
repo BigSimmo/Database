@@ -11,7 +11,7 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-import { resolveFreshnessFrom } from "@/lib/developer-area/freshness";
+import { formatRelativeAge } from "@/lib/developer-area/freshness";
 
 /**
  * `ingestion_jobs.status` is a plain `string` column
@@ -186,17 +186,16 @@ function JobSection({
  * unknown" for this page and stays that way. This is the honest, live number.
  */
 function CheckedAt({ fetchedAt }: { fetchedAt: string }) {
-  const freshness = resolveFreshnessFrom(fetchedAt, new Date());
-  if (freshness.contentAt === null) return null;
-  const time = new Date(freshness.contentAt).toLocaleTimeString("en-AU", {
+  const parsed = new Date(fetchedAt);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const time = parsed.toLocaleTimeString("en-AU", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
-  const ageHours = freshness.ageHours ?? 0;
   return (
     <p data-testid="developer-ingestion-checked-at" className={META_CLASS}>
-      Job data last checked at {time} ({ageHours} {ageHours === 1 ? "hour" : "hours"} ago).
+      Job data last checked at {time} ({formatRelativeAge(0)}).
     </p>
   );
 }

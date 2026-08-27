@@ -169,6 +169,18 @@ export function SearchPinsMenu({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [editor]);
 
+  useEffect(() => {
+    if (!showModePicker) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setShowModePicker(false);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [showModePicker]);
+
   function persistPins(next: SearchPin[]) {
     const normalized = writeSearchPins(next);
     setPins(normalized);
@@ -618,14 +630,13 @@ export function SearchPinsMenu({
         <SectionHeading variant="menu-kicker" headingLevel={3}>
           Useful actions
         </SectionHeading>
-        <div className="grid grid-cols-2 gap-1.5" role="menu" aria-label="Useful actions">
+        <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Useful actions">
           {actions.map((action) => {
             const Icon: LucideIcon = action.icon;
             return (
               <button
                 key={action.id}
                 type="button"
-                role="menuitem"
                 aria-label={action.label}
                 onClick={() => onAction(action.id)}
                 className={cn(
