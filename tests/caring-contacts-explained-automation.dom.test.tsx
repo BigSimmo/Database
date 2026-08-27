@@ -272,6 +272,12 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // state crosses the boundary. The companion graph check below proves this module and everything
   // it imports never name the service-state module or type.
   "patients-directory-client.tsx",
+  // Offline and network-drop fallback view. Takes only an optional `retry` callback function;
+  // passes zero patient or service-state props across the boundary.
+  "connection-unavailable.tsx",
+  // Permission and role denial fallback view. Takes only an optional `retry` callback function;
+  // passes zero patient or service-state props across the boundary.
+  "permission-unavailable.tsx",
 ];
 
 /**

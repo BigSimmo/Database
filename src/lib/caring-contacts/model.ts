@@ -32,7 +32,18 @@ export type SendingPreference = "morning" | "afternoon" | "earlyEvening";
  */
 export const TERMINAL_PLAN_STATES: readonly PlanState[] = Object.freeze(["withdrawn", "cancelled", "completed"]);
 
-const TERMINAL_CONTACT_STATES: readonly ContactState[] = ["delivered", "suppressed", "cancelled"];
+export const TERMINAL_CONTACT_STATES: readonly ContactState[] = Object.freeze(["delivered", "suppressed", "cancelled"]);
+
+export const TERMINAL_DISPATCH_REFUSED_CONTACT_STATES: readonly ContactState[] = Object.freeze([
+  "delivered",
+  "suppressed",
+  "cancelled",
+  "notDelivered",
+  "numberInvalid",
+  "contactChanged",
+  "statusUnavailable",
+  "missed",
+]);
 
 /**
  * Contact states that mean the message already left. Reporting only -- nothing keys a send off it.
