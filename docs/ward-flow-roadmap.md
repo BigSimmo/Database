@@ -125,13 +125,21 @@ no headline screen and still had to come first.
    already three-quarters determined by Phase 5's numbers. Each phase still gets its own written
    specification — only the conversation is shared.
 
-**Phase 6 — The morning page.** Promoted from Phase 8 on 2026-08-26. Built entirely from Phase 5's
-numbers, small, and the artefact that can be put in front of colleagues. Finding out whether any of
-this is right is worth more than the next feature.
+**Phase 6 — The morning page. DESIGNED 2026-08-27, not yet built.** Promoted from Phase 8 on
+2026-08-26. Built entirely from Phase 5's numbers, small, and the artefact that can be put in front
+of colleagues. Finding out whether any of this is right is worth more than the next feature.
+Binding spec: `docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md`.
 
-**Phase 7 — The front door.** Community referral tracking, intake from crisis services, police,
-ambulance and inter-hospital transfers, cohort and bed-type matching, and the role data-entry
-screens each contributor needs.
+**Phase 7 — The front door. DESIGNED 2026-08-27, not yet built.** Community referral tracking,
+intake from crisis services, police, ambulance and inter-hospital transfers, cohort and bed-type
+matching, and the role data-entry screens each contributor needs.
+Binding spec: `docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md`.
+
+Both were designed in one conversation, as instructed above. The owner's answers that preceded and
+shaped them — including four given during the conversation itself — are in
+`docs/ward-flow-phase-6-7-decisions.md`. **The clinician check is still owed and is still the single
+most valuable validation available**; Phase 6 spec D1/D14 and Phase 7 spec D15 are the decisions that
+keep the reversal cheap if the four-stage model turns out to be wrong.
 
 **Phase 8 — Distance and the state.** Geography as a cost, the country and remote pathway, air
 transport, closest-suitable-bed, the network diagram rework, and the out-of-area ledger.

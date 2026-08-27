@@ -113,9 +113,41 @@ reflect how any of this works, and a fixed reason list keeps free text out.
 
 ---
 
+## Four further answers, given during the design conversation (2026-08-27)
+
+These were put to the owner while Phases 6 and 7 were being specified, because each one changed the
+work materially and three of them would have produced a matching bug that looks like a subtle defect
+rather than a modelling error. All four were answered; each is now recorded at the decision it
+settles, in the specification named beside it.
+
+| Question                                                                                                                      | Answer                                                                                                                                                            | Recorded at             |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Does an **Involuntary** bed accept a voluntary patient?                                                                       | **Yes.** An Involuntary bed accepts both; a Voluntary bed accepts voluntary only. It is a capability, not a value to match on — the same shape as the sex rule.   | Phase 7 spec, D3 rule 2 |
+| Nothing on a referral says a person needs a **forensic** bed. How should Phase 7 handle it?                                   | **Forensic beds are described but never matched.** They are shown honestly and are never offered to any Phase 7 referral. Nothing is added to a referral.         | Phase 7 spec, D7        |
+| A referral carries three person-facts. How wide does **"nothing else"** go?                                                   | **The three-field rule governs facts about the person.** The referral may also carry its own operational facts: source, urgency, origin site, transport, outcome. | Phase 7 spec, D5        |
+| The morning page's point is handing a colleague a link, but the prototype is administrator-gated. What should Phase 6 assume? | **It stays in the sandbox.** The shareable artefact is the printed page and the guided tour shown live, not a public URL.                                         | Phase 6 spec, D9        |
+
 ## Still open
 
 - Everything the clinician check comes back with.
+- **Two questions raised by the design conversation and left with the owner**, neither of which
+  blocks implementation. Both are written up in full at the foot of each specification.
+  1. The site table uses **real WA hospital names** beside invented units and bed numbers. Phase 6 is
+     the first page built to be printed and shown around, and Phase 7 adds invented youth units to
+     that table. Should the sites become clearly synthetic first, or is the banner enough?
+  2. Should the morning page and the existing shift-handover page eventually be one page? They answer
+     different questions today.
+
+---
+
+## Where the two specifications are
+
+- **Phase 6** — `docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md`
+- **Phase 7** — `docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md`
+
+Both were written on 2026-08-27 in one conversation, as the roadmap instructs, and each carries its
+own numbered decisions, an explicit statement of what is deliberately excluded, and a table naming
+which decisions are unvalidated assumptions and what each would cost to reverse.
 
 Both bed-category readings were confirmed by the owner on 2026-08-27 and are no longer open. One of
 them — sex designation — corrected an assumption recorded here wrongly, which is precisely the

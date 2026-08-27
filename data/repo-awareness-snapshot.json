@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
-    "committed_at": "2026-08-27T05:20:05+00:00"
+    "sha": "7031c4293d999cf70e6718b97c28b42cb0a3b7a1",
+    "committed_at": "2026-08-27T06:38:58Z"
   },
   "routes": {
     "modes": [
@@ -3447,6 +3447,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/testing.md",
         "section": "root",
         "catalogued": true
@@ -3867,9 +3877,9 @@
       }
     ],
     "counts": {
-      "documents": 480,
+      "documents": 482,
       "catalogued": 106,
-      "uncatalogued": 374,
+      "uncatalogued": 376,
       "sections": 19
     }
   },
