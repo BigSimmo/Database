@@ -139,7 +139,7 @@ type TourPhase = "idle" | "running" | "refused";
  * shared state, exactly like every other screen's; the fact that a tour is driving them is not.
  */
 export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView) => void }) {
-  const { dispatch, rejections, now } = useWardFlow();
+  const { dispatch, rejections, movements, now } = useWardFlow();
 
   const [phase, setPhase] = useState<TourPhase>("idle");
   const [beat, setBeat] = useState(0);
@@ -157,6 +157,15 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
   phaseRef.current = phase;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSeenRejectionCountRef = useRef(rejections.length);
+  /** Beat 3 dispatches two events (`ACCEPT_IN_PRINCIPLE` then `CONFIRM_BED_RELEASE`). Firing both
+   *  unconditionally would let a refused first event still leave the second's effect live — a
+   *  confirmed bed release attributed to an acceptance that was actually refused (real failure
+   *  mode: `ConcurrentAccepter` in the test suite dispatches a legitimate, correctly-permissioned
+   *  `ACCEPT_IN_PRINCIPLE` ahead of the tour's own). `runBeat` fires only the first event of a
+   *  multi-event beat and records the second here; the render-driven effect below fires it only
+   *  once the reducer's outcome for the first event is known, and only when that outcome was NOT
+   *  a refusal. */
+  const pendingSecondEventRef = useRef<{ beat: number; event: WardFlowEvent } | null>(null);
 
   // Detect `window.matchMedia`, guarded for absence (spec). Mirrors the addEventListener/
   // addListener fallback every other ward-flow CSS-adjacent media-query consumer in this codebase
@@ -184,10 +193,23 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
     };
   }, []);
 
-  // Never leave a pending advance running after this component unmounts.
+  // Never leave a pending advance running after this component unmounts, and never leave
+  // fabricated tour data live for whoever navigates to another screen next (Finding 1): the
+  // provider is mounted at the route-group layout and outlives this component, so `ClinicalRail`
+  // navigation away from the tour is a real, easy way to unmount mid-run. `phaseRef` (not `phase`)
+  // is deliberately what this reads — a `useEffect` with `[]` deps closes over the FIRST render's
+  // values, so reading `phase` directly here would always see "idle" no matter how far the tour
+  // had actually progressed by the time of unmount; the ref stays current because it is written on
+  // every render, not only inside an effect. Resetting is gated on the tour actually being
+  // mid-run ("running" or "refused") so a component that unmounts having never been started, or
+  // after it already finished and returned to "idle", cannot reset a scenario out from under
+  // someone who never ran the tour.
   useEffect(
     () => () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (phaseRef.current !== "idle") {
+        dispatch({ type: "RESET_SCENARIO", role: "demo", now: nowRef.current });
+      }
     },
     [],
   );
@@ -200,24 +222,47 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
    * any growth observed here is the beat that was just attempted. Hard requirement: stop AT that
    * beat, never advance past it — this effect cancels the pending auto-advance the instant it
    * fires, which is what makes that true even under the timed (non-reduced-motion) path.
+   *
+   * `movements` is in the dependency list too, purely to drive `pendingSecondEventRef` (Finding
+   * 3): the reducer never reports success/failure back to the caller directly, so this is the
+   * only signal available for "did the first half of beat 3 actually succeed" — a refusal changes
+   * `rejections`' array reference and leaves `movements` untouched (`reject()` only ever spreads
+   * `rejections`), while an accepted `ACCEPT_IN_PRINCIPLE` changes `movements`' array reference
+   * and leaves `rejections` untouched (`replaceMovement()` only ever spreads `movements`) — so
+   * the two are never both new on the same render, and checking `rejections` first below is
+   * exactly how a refusal always wins the race against a stale pending second event.
    */
   useEffect(() => {
-    if (rejections.length > lastSeenRejectionCountRef.current && phaseRef.current === "running") {
+    const refused = rejections.length > lastSeenRejectionCountRef.current;
+    lastSeenRejectionCountRef.current = rejections.length;
+
+    if (refused && phaseRef.current === "running") {
+      // Whatever beat left a second event pending, a refusal observed here is that beat's FIRST
+      // event coming back refused — the second half of a refused beat must never fire.
+      pendingSecondEventRef.current = null;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
       setRejection(rejections[rejections.length - 1]);
       setPhase("refused");
+      return;
     }
-    lastSeenRejectionCountRef.current = rejections.length;
-  }, [rejections]);
 
-  function runBeat(n: number) {
-    for (const event of tourBeatEvents(n, nowRef.current)) dispatch(event);
-    setBeat(n);
-    // Reduced motion: no timed transitions at all (spec D12) — the Next control drives every
-    // step instead, including the final one into `finish()`.
+    if (!refused && pendingSecondEventRef.current && phaseRef.current === "running") {
+      const pending = pendingSecondEventRef.current;
+      pendingSecondEventRef.current = null;
+      dispatch(pending.event);
+      scheduleAdvance(pending.beat);
+    }
+  }, [rejections, movements]);
+
+  /** Schedules the timed auto-advance out of beat `n` (spec: five transitions at
+   *  `TOUR_BEAT_INTERVAL_MS` each), or does nothing under reduced motion (spec D12) — the Next
+   *  control drives every step instead, including the final one into `finish()`. Shared between
+   *  `runBeat`'s normal single-event beats and the effect above, which calls this once a
+   *  multi-event beat's deferred second dispatch has actually fired. */
+  function scheduleAdvance(n: number) {
     if (reducedMotionRef.current) return;
     timerRef.current = setTimeout(
       () => {
@@ -228,11 +273,31 @@ export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView
     );
   }
 
+  function runBeat(n: number) {
+    const events = tourBeatEvents(n, nowRef.current);
+    if (events.length > 1) {
+      // Multi-event beat (beat 3 today): fire only the first event here. The effect above fires
+      // the second once the first event's outcome is known, and only when it was not refused —
+      // see Finding 3 / `pendingSecondEventRef`'s own doc comment.
+      dispatch(events[0]);
+      pendingSecondEventRef.current = { beat: n, event: events[1] };
+      setBeat(n);
+      return;
+    }
+    for (const event of events) dispatch(event);
+    setBeat(n);
+    scheduleAdvance(n);
+  }
+
   function finish() {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    // A second event left pending by a multi-event beat (Finding 3) must never fire once the
+    // tour is ending — Stop clicked in the narrow window before the effect above resolves it is
+    // a real path, not just a defensive guard.
+    pendingSecondEventRef.current = null;
     // Hard requirement: the tour ends by resetting, so it never leaves the demo half-finished for
     // whoever opens the app next.
     dispatch({ type: "RESET_SCENARIO", role: "demo", now: nowRef.current });

@@ -50,11 +50,61 @@ function ConcurrentAccepter() {
   );
 }
 
+/**
+ * Read-only window into shared reducer state, for assertions the tour's own `phase` cannot prove
+ * (Finding 2): whether the tour's own referral (`WF-901`) is still live, and what state the bed
+ * release it confirms (`WR-002`) currently carries. `phase` flipping to `"idle"` is true whether
+ * or not `finish()`'s `RESET_SCENARIO` dispatch actually runs — this reads the shared state the
+ * dispatch is supposed to affect, directly.
+ */
+function StateProbe() {
+  const { movements, bedReleases } = useWardFlow();
+  return (
+    <div
+      data-testid="state-probe"
+      data-tour-movement-exists={movements.some((movement) => movement.id === "WF-901")}
+      data-release-state={bedReleases.find((release) => release.id === "WR-002")?.state ?? "missing"}
+    />
+  );
+}
+
+/** A real, non-tour `RAISE_REFERRAL` — same shape a real ED screen would dispatch — used by the
+ *  Finding 1 guard test to prove an idle/never-started tour's unmount must not wipe real data. */
+function ExternalRaiser() {
+  const { dispatch, now } = useWardFlow();
+  return (
+    <button
+      type="button"
+      data-testid="external-raise"
+      onClick={() =>
+        dispatch({
+          type: "RAISE_REFERRAL",
+          role: "ed",
+          now,
+          edId: "scgh-ed",
+          draft: {
+            cohort: "Adult",
+            security: "Open",
+            sex: "Female",
+            specialling: false,
+            legalStatus: "Voluntary",
+            urgency: 2,
+            legalFormCode: null,
+          },
+        })
+      }
+    >
+      raise
+    </button>
+  );
+}
+
 function renderMorningPage({ withAccepter = false }: { withAccepter?: boolean } = {}) {
   return render(
     <WardFlowProvider initialNow={NOW_ANCHOR}>
       <MorningPage />
       {withAccepter && <ConcurrentAccepter />}
+      <StateProbe />
     </WardFlowProvider>,
   );
 }
@@ -117,6 +167,15 @@ describe("MorningTour", () => {
     advance();
     expect(screen.getByTestId("ward-morning-tour-start")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-morning-tour-beat")).not.toBeInTheDocument();
+
+    // Finding 2: the two checks above are hollow — both depend solely on this component's own
+    // `phase` state flipping to "idle", which happens whether or not the `RESET_SCENARIO`
+    // dispatch inside `finish()` actually runs. Prove the SHARED reducer state really returned to
+    // its seeded values: the referral the tour raised at beat 1 is gone, and the bed release it
+    // confirmed at beat 3 is back to its seeded "predicted" state.
+    const resetProbe = screen.getByTestId("state-probe");
+    expect(resetProbe).toHaveAttribute("data-tour-movement-exists", "false");
+    expect(resetProbe).toHaveAttribute("data-release-state", "predicted");
   });
 
   it("Stop halts at the current beat and does not advance further", () => {
@@ -133,6 +192,11 @@ describe("MorningTour", () => {
     // Takes effect at the current beat, synchronously — zero further time advanced.
     expect(screen.getByTestId("ward-morning-tour-start")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-morning-tour-beat")).not.toBeInTheDocument();
+
+    // Finding 2: Stop's "ends by resetting" runs through the SAME `finish()` as natural
+    // completion — prove the shared state actually reset here too, not just this component's
+    // phase. Beat 1's `RAISE_REFERRAL` (WF-901) must be gone from shared state.
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-tour-movement-exists", "false");
 
     // Stays that way: the pending auto-advance was genuinely cancelled, not merely outrun by
     // this assertion — advancing well past every remaining beat's interval must never revive it.
@@ -187,6 +251,13 @@ describe("MorningTour", () => {
 
     expect(screen.getByTestId("ward-morning-tour-beat")).toHaveTextContent("Beat 3 of 4");
     expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/already accepted/i);
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
+
+    // Finding 3: a refused ACCEPT_IN_PRINCIPLE must never let the beat's second event
+    // (CONFIRM_BED_RELEASE) still fire — the release stays exactly where the concurrent
+    // acceptance left it (seeded "predicted"), never flipped to "confirmed" under an acceptance
+    // that was actually refused.
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-release-state", "predicted");
 
     // Stopped, not skipped ahead: further time must never reach beat 4.
     advance(TOUR_BEAT_INTERVAL_MS * 3);
@@ -195,5 +266,87 @@ describe("MorningTour", () => {
     // Stop remains a real, working control from the refused state.
     fireEvent.click(screen.getByTestId("ward-morning-tour-stop"));
     expect(screen.getByTestId("ward-morning-tour-start")).toBeInTheDocument();
+  });
+
+  it("resets the shared scenario on unmount while mid-run, but not when unmounted from idle (Finding 1)", () => {
+    installMatchMediaStub(false);
+    const { rerender } = render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <MorningPage />
+        <ExternalRaiser />
+        <StateProbe />
+      </WardFlowProvider>,
+    );
+
+    // Case 1 — never started: a real, non-tour referral already exists in shared state (the same
+    // way a real ED screen would raise one) before the tour is ever touched.
+    fireEvent.click(screen.getByTestId("external-raise"));
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-tour-movement-exists", "true");
+
+    // Unmount the whole page (and therefore the idle MorningTour) while the WardFlowProvider —
+    // mounted at the route-group layout in the real app — stays alive, exactly like a next/link
+    // navigation away from a screen that never touched the tour.
+    rerender(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <ExternalRaiser />
+        <StateProbe />
+      </WardFlowProvider>,
+    );
+
+    // An idle tour's unmount must not wipe real, non-tour data out from under whoever raised it.
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-tour-movement-exists", "true");
+
+    // Case 2 — mid-run: remount the page, start the tour, let it pass beat 1 (a fabricated
+    // referral now exists in shared state), then navigate away exactly as `ClinicalRail`'s real
+    // next/link controls would let a visitor do — nothing disables them while the tour runs.
+    rerender(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <MorningPage />
+        <ExternalRaiser />
+        <StateProbe />
+      </WardFlowProvider>,
+    );
+    // The provider instance persisted across both rerenders above (same component type/position),
+    // so the Case 1 referral is still there; start the tour on top of it.
+    fireEvent.click(screen.getByTestId("ward-morning-tour-start"));
+    advance(); // beat 1 — RAISE_REFERRAL creates WF-901, now live in shared state
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-tour-movement-exists", "true");
+
+    rerender(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <ExternalRaiser />
+        <StateProbe />
+      </WardFlowProvider>,
+    );
+
+    // Mid-run unmount must reset: the fabricated referral must not be left live for whoever looks
+    // at this shared state next.
+    expect(screen.getByTestId("state-probe")).toHaveAttribute("data-tour-movement-exists", "false");
+  });
+
+  it("every beat's caption states plainly that its figures are invented, and beats 1-3 describe what actually happened (Finding 4)", () => {
+    installMatchMediaStub(false);
+    renderMorningPage();
+
+    fireEvent.click(screen.getByTestId("ward-morning-tour-start"));
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
+
+    advance(); // beat 1 — RAISE_REFERRAL
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(
+      /referred from the emergency department/i,
+    );
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
+
+    advance(); // beat 2 — REFER_TO_UNITS
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/refers the invented patient to a ward/i);
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
+
+    advance(); // beat 3 — ACCEPT_IN_PRINCIPLE, then CONFIRM_BED_RELEASE
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/accepts the referral in principle/i);
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
+
+    advance(); // beat 4 — the live board re-renders
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/board updates/i);
+    expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/invented/i);
   });
 });
