@@ -396,7 +396,7 @@ function SpecifierResults({ query }: { query: string }) {
               count: current.count + CATALOGUE_RESULT_INCREMENT,
             }))
           }
-          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] sm:min-h-10"
+          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           Show more ({catalogueMatches.length - visibleCatalogueMatches.length} remaining)
         </button>
