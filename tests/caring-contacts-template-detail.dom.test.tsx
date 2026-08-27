@@ -34,7 +34,11 @@ import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overla
 import { WORKSPACE_OVERLAY_DEFINITIONS } from "@/components/caring-contacts/workspace/overlays/definitions";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { actorId, pathwayVersionId, teamId } from "@/lib/caring-contacts/ids";
-import { AUTOMATED_REPLY_RESPONSE, PATIENT_VISIBLE_NO_REPLY_NOTICE } from "@/lib/caring-contacts/message-copy";
+import {
+  AUTOMATED_REPLY_RESPONSE,
+  CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+  PATIENT_VISIBLE_NO_REPLY_NOTICE,
+} from "@/lib/caring-contacts/message-copy";
 import type { MessageType, PathwayVersionState } from "@/lib/caring-contacts/model";
 import {
   PATHWAY_APPROVAL_ROLE_WORDING,
@@ -326,6 +330,79 @@ describe("the wording this record holds reaches the screen, framed as what it is
     expect(screen.queryByTestId("caring-contacts-template-detail-wording-standard")).toBeNull();
     expect(screen.queryByTestId("caring-contacts-template-detail-wording-first")).toBeNull();
     expect(screen.queryByTestId("caring-contacts-template-detail-wording-closing")).toBeNull();
+  });
+});
+
+/**
+ * RULING [131]. Round 1 rendered, directly beneath the two approval seats, a sentence saying the
+ * one patient-visible message HAD been approved. `message-copy.ts` opens by saying the opposite,
+ * and names as the owner of that decision the very two seats the card above was displaying. The
+ * sentence was deleted; the wording's real status is now READ from beside the words it is about.
+ *
+ * Three assertions, because the defect had three halves. That the status reaches the screen at
+ * all; that the card makes no OTHER claim about approval, which is the half that goes red if the
+ * deleted sentence is ever restored in any wording; and that a seat is never named without the
+ * status, which is the adjacency that made the original sentence dangerous rather than merely
+ * wrong.
+ */
+describe("the wording's approval status is stated where the wording is (Ruling [131])", () => {
+  it("reads the status from the sealed domain rather than retyping it", () => {
+    renderVersion();
+
+    // Positive control: the wording this status is ABOUT really is on screen, so the status is not
+    // being asserted over a card that rendered nothing.
+    expect(screen.getByTestId("caring-contacts-template-detail-wording-standard")).toHaveTextContent(
+      HELD_STANDARD_WORDING,
+    );
+    expect(screen.getByTestId("caring-contacts-template-detail-wording-status")).toHaveTextContent(
+      CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+    );
+  });
+
+  it("makes no claim of its own about approval anywhere in that card", () => {
+    renderVersion();
+
+    const cardText = screen.getByTestId("caring-contacts-template-detail-wording").textContent ?? "";
+    // Positive control for the removal below: the status IS in this card, so removing it really
+    // shortens the string rather than leaving it untouched and the absence trivially true.
+    expect(cardText).toContain(CLINICIAN_FACING_WORDING_APPROVAL_STATUS);
+    const withoutTheSealedStatus = cardText.replace(CLINICIAN_FACING_WORDING_APPROVAL_STATUS, "");
+    expect(withoutTheSealedStatus.length).toBeLessThan(cardText.length);
+
+    // Anything else this card says about approval is the SCREEN claiming something about wording
+    // nobody has approved. A word-stem match rather than the deleted sentence's own words: a guard
+    // written around one phrasing would pass the next phrasing of the same false claim.
+    expect(withoutTheSealedStatus, "the wording card makes its own claim about approval").not.toMatch(/approv/i);
+  });
+
+  it("never names an approval seat without stating the wording's status too", () => {
+    const scenarios: readonly { name: string; open: () => ReturnType<typeof renderDetail> }[] = [
+      { name: "a current version holding wording", open: () => renderVersion() },
+      {
+        name: "a version holding no wording at all",
+        open: () =>
+          renderVersion({
+            snapshot: snapshot({
+              messageTextByType: Object.freeze({ standard: "", first: "", closing: "" }) as Readonly<
+                Record<MessageType, string>
+              >,
+            }),
+          }),
+      },
+      { name: "a retired version", open: () => renderVersion({ state: "retired" }) },
+    ];
+
+    for (const { name, open } of scenarios) {
+      const { unmount } = open();
+      // The positive control, per scenario: a seat really IS named here, so the status requirement
+      // below is being asserted over a render that carries the adjacency it is about.
+      const seats = screen.getAllByText(/^Approved by /);
+      expect(seats.length, `${name} names no approval seat — the check would be vacuous`).toBeGreaterThan(0);
+      expect(bodyText(), `${name} names an approval seat with no status for the wording`).toContain(
+        CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
+      );
+      unmount();
+    }
   });
 });
 

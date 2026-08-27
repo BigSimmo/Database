@@ -4,6 +4,7 @@ import { calculateGsm7 } from "@/lib/caring-contacts/message-policy";
 import {
   AUTOMATED_REPLY_GSM7,
   AUTOMATED_REPLY_RESPONSE,
+  CLINICIAN_FACING_WORDING_APPROVAL_STATUS,
   EXACT_MESSAGE_GSM7,
   EXACT_PATIENT_VISIBLE_MESSAGE,
   PATIENT_VISIBLE_NO_REPLY_NOTICE,
@@ -50,6 +51,29 @@ describe("caring-contacts patient-visible copy", () => {
       for (const prohibited of ["high risk", "safe", "engagement score", "campaign", "lead", "conversion", "inbox"]) {
         expect(text.toLowerCase()).not.toContain(prohibited);
       }
+    }
+  });
+
+  // Ruling [131]. The module's own marker is a comment, which no screen can read and no gate can
+  // check. This is the same fact as a value, so a screen states the status by reading it rather
+  // than by retyping a sentence that would go on saying "provisional" after the gate had decided.
+  it("states, as a value, that the patient-visible wording is not clinically approved", () => {
+    expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS).toContain("has not been clinically approved");
+    expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS).toContain("provisional");
+    // Two approvals of a VERSION are not an approval of the words -- the distinction the sentence
+    // this replaced collapsed, and the whole reason the status has to be said at all.
+    expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS).toContain(
+      "A pathway version's recorded approvals approve the version, not these words.",
+    );
+  });
+
+  it("keeps the clinician-facing status out of both patient-visible strings", () => {
+    // The positive control is the pair of assertions above: the status really is a non-empty
+    // sentence, so these absences are asserted over a value that could have leaked into a message.
+    expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS.length).toBeGreaterThan(0);
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      expect(text).not.toContain(CLINICIAN_FACING_WORDING_APPROVAL_STATUS);
+      expect(text).not.toContain("not clinically approved");
     }
   });
 

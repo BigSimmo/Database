@@ -242,7 +242,12 @@ async function openWorkspace(
   // before measuring anything — and assert it, because a shell that genuinely
   // mounted twice would double every landmark on the page.
   await expect(page.getByTestId("caring-contacts-rail")).toHaveCount(1);
-  await expect(page.getByRole("heading", { level: 1, name: screen.heading })).toBeVisible();
+  // `exact: true`, because Playwright's `name` is a case-insensitive SUBSTRING match by default,
+  // and two of these headings are prefixes of each other: "Template" would be satisfied by the
+  // templates library's "Templates" h1, so a regression serving the library at a detail URL would
+  // pass the identity assertion. Every screen's h1 is its `title` prop verbatim
+  // (`shell.tsx` renders `{title}`), so exact matching is what these headings already mean.
+  await expect(page.getByRole("heading", { level: 1, name: screen.heading, exact: true })).toBeVisible();
 }
 
 /** Horizontal overflow of the document against the viewport, in CSS pixels. */
@@ -1016,7 +1021,11 @@ test.describe("caring-contacts template detail", () => {
     // failing to resolve -- and deliberately NOT the load-bearing assertion, for the reason the
     // patients block records in full.
     expect(response?.status(), "the template detail route did not serve a page").toBe(200);
-    await expect(page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading })).toBeVisible();
+    // `exact: true`: "Template" is a substring of the library's "Templates" h1, and Playwright
+    // matches `name` as a substring unless told otherwise -- see the note in `openWorkspace`.
+    await expect(
+      page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading, exact: true }),
+    ).toBeVisible();
 
     // It states WHICH fact it is, and states that it cannot tell the two indistinguishable causes
     // apart -- which is the store contract's own rule, not this screen's evasion.
@@ -1121,7 +1130,9 @@ test.describe("caring-contacts template detail", () => {
     await page.emulateMedia({ media: "print" });
 
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: TEMPLATE_DETAIL_SCREEN.heading, exact: true }),
+    ).toBeVisible();
     // A printed governance record that has lost the statement of WHY it is showing nothing reads as
     // a team holding no governed pathway, with no reason given.
     await expect(page.getByRole("group", { name: NOTHING_HELD })).toBeVisible();
