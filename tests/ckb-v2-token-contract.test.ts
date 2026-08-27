@@ -324,6 +324,23 @@ describe("ckb-v2 structure", () => {
     expect(structural.get("--text-hero--line-height")).toMatch(/^\d+(\.\d+)?$/);
     expect(structural.get("--text-hero-tr")).toMatch(/^-/);
   });
+
+  it("pins v2 --text-sm to @theme --text-sm-minus at 0.8125rem (PR 3c)", () => {
+    // Production `text-sm` is 13px because `.ckb-v2` is mounted on <html>.
+    // The overlap with `--text-sm-minus` is the catalog. Do not "fix" it by
+    // restoring Tailwind's 14px, and do not alias the two files at each other:
+    // both layers keep the same literal so the documented source-of-truth
+    // order (v2 above the compat `@theme` block) stays intact.
+    const themeStart = globalsStylesheet.indexOf("\n@theme {");
+    expect(themeStart, "@theme block is missing from globals.css").toBeGreaterThan(-1);
+    const theme = declarations(globalsStylesheet.slice(themeStart, globalsStylesheet.indexOf("\n}", themeStart)));
+    const v2Sm = structural.get("--text-sm");
+    const themeSmMinus = theme.get("--text-sm-minus");
+
+    expect(v2Sm).toBe("0.8125rem");
+    expect(themeSmMinus).toBe("0.8125rem");
+    expect(v2Sm).toBe(themeSmMinus);
+  });
 });
 
 describe("ckb-v2 category chip tones", () => {
