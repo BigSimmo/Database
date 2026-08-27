@@ -251,6 +251,20 @@ describe("precompact observability hook", () => {
       );
     }
   });
+
+  it("survives malformed payloads and missing git directory without error", () => {
+    const emptyDir = mkdtempSync(join(tmpdir(), "precompact-empty-"));
+    scratchRoots.push(emptyDir);
+
+    const result = spawnSync(bashCommand, [sourcePrecompactHook.replace(/\\/g, "/")], {
+      cwd: emptyDir,
+      encoding: "utf8",
+      input: "not json at all { malformed [",
+    });
+    expect(result.status, `hook exited ${result.status}: ${result.stderr}`).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
 });
 
 /**

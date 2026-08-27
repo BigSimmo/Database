@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#TYZK23",
-    "outcome": "Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\\",
+    "outcome": "Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\"hero\"]) as false so the card paints tall then compacts when the shell returns. Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #50QRCF and #KFRC3H.",
     "baseRowFingerprint": "3883c388851904a73be8f75f9d56365a5f4a8569819bfb6d8a87e3a9f93eba7f"
   }
 }

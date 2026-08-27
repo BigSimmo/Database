@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#S4K1GA",
-    "outcome": "Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\\",
+    "outcome": "Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
     "baseRowFingerprint": "5676f5d83976cd86d804f66feba4e70edcd2a356c4d43a215f3aa642b1e5c7a0"
   }
 }

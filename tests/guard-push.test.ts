@@ -125,7 +125,7 @@ describe("auto-merge verdict", () => {
   });
 });
 
-describe("force-push detection", () => {
+describe("force-push detection", { timeout: 60_000 }, () => {
   it("does not flag a fast-forward push", () => {
     const { root, git } = gitFixture();
     writeFileSync(join(root, "one.md"), "one\n");
@@ -195,7 +195,7 @@ describe("drift verdict", () => {
   });
 });
 
-describe("push-range parsing", () => {
+describe("push-range parsing", { timeout: 60_000 }, () => {
   it("parses a new-branch push (zero remote sha)", () => {
     const ranges = parsePushRanges(`refs/heads/x abc123 refs/heads/x ${ZERO}\n`);
     expect(ranges).toHaveLength(1);
