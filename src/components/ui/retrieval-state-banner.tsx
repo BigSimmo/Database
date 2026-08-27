@@ -129,7 +129,7 @@ function StaleEvidenceBody({
               data-status={source.status}
               className="flex flex-wrap items-center gap-x-2 gap-y-1"
             >
-              <StatusMark status={source.status} className="mt-[0.4em] self-start" />
+              <StatusMark status={source.status} className="mt-1.5 self-start" />
               <span className="min-w-0 font-medium">{source.title}</span>
               {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
               <span className="text-[color:var(--text-muted)]">

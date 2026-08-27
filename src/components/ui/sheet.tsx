@@ -554,7 +554,13 @@ export function Sheet({
           ref={bodyRef}
           onScroll={onBodyScroll}
           tabIndex={bodyTabIndex}
-          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
+          // overscroll-contain: without it a gesture that reaches the end of this
+          // body continues into the page behind the sheet. `.polished-scroll` is
+          // scrollbar styling only and never carried this.
+          className={cn(
+            "min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-4 polished-scroll sm:p-5",
+            bodyClassName,
+          )}
         >
           {children}
         </div>

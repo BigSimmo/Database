@@ -36,7 +36,7 @@ function PickerScreen({ onPick }: { onPick: (id: string) => void }) {
               type="button"
               onClick={() => onPick(calc.id)}
               className={cn(
-                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
                 focusRing,
               )}
             >
@@ -130,12 +130,12 @@ function QuestionScreen({
         className="h-1.5 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
       >
         <div
-          className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-[var(--duration-deliberate)]"
-          style={{ width: `${(stepIndex / total) * 100}%` }}
+          className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-deliberate)]"
+          style={{ transform: `scaleX(${total > 0 ? stepIndex / total : 0})` }}
         />
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e2)] sm:p-5">
         {calc.stem ? (
           <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
             {calc.stem}
@@ -250,7 +250,7 @@ function ResultScreen({
 
   return (
     <div className="mx-auto grid w-full max-w-lg content-start gap-4">
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--shadow-soft)]">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--e2)]">
         <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
           {calc.abbrev} result
         </p>
