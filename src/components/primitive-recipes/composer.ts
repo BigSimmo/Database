@@ -25,14 +25,13 @@ export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--
 // Phone bottom-dock clearance lives on #main-content / dashboard <main> via
 // --mobile-composer-reserve so it can collapse when the dock hides. Do not bake
 // a second dock-sized safe-area pad into page shells.
-export const searchPageShell =
-  "min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+export const searchPageShell = "min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:grow sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 // Standalone pages outside the search shell own the OS top inset themselves
 // (apple-mobile-web-app-status-bar-style=black-translucent). Bake max(safe-area)
 // into the top pad and omit py-* so cn() call sites never rely on Tailwind's
 // side-vs-axis utility sort order to win over searchPageShell's py-3/sm:py-5.
 export const searchPageShellStandalone =
-  "min-h-0 overflow-x-clip px-3 pt-[max(0.75rem,var(--safe-area-top))] pb-4 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:pt-[max(1.25rem,var(--safe-area-top))] sm:pb-8 lg:px-6";
+  "min-h-0 overflow-x-clip px-3 pt-[max(0.75rem,var(--safe-area-top))] pb-4 sm:grow sm:px-5 sm:pt-[max(1.25rem,var(--safe-area-top))] sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
 export const searchResultsBodyGrid = "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]";
 export const searchResultsMainColumn = "search-results-main min-w-0";
