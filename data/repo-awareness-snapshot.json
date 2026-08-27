@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "15dcd00c16cfa8328a0a578f392e221459034aed",
-    "committed_at": "2026-08-27T16:04:44+00:00"
+    "sha": "d29f5429dbdba18bf56c883282fd3f26590231f2",
+    "committed_at": "2026-08-28T01:51:36+08:00"
   },
   "routes": {
     "modes": [
@@ -2379,7 +2379,7 @@
       {
         "path": "docs/design-system/README.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/SPEC.md",
@@ -3853,8 +3853,8 @@
     ],
     "counts": {
       "documents": 482,
-      "catalogued": 107,
-      "uncatalogued": 375,
+      "catalogued": 108,
+      "uncatalogued": 374,
       "sections": 19
     }
   },
