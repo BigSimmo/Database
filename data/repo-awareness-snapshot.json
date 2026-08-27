@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "29c4191a4e1f916af53af1ebbc0db51ffeb8d8c8",
-    "committed_at": "2026-08-27T11:58:16+00:00"
+    "sha": "9b26a3d69b447c5fa3d45b4e011b26ba46c32b69",
+    "committed_at": "2026-08-27T12:01:45+00:00"
   },
   "routes": {
     "modes": [
@@ -3958,6 +3958,38 @@
         "scope": "Run PR follow-up: second merge-drift + real bug fix + PR-policy fix",
         "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated). Also found and fixed a real regression from the earlier sweep's conflict resolution: DsmCompareChrome's onCommit had dropped ids.filter(Boolean) that origin/main carries, producing ids=,bipolar-ii-disorder after removing the first of two selections instead of ids=bipolar-ii-disorder -- exactly the failure tests/ui-route-coverage.spec.ts caught in CI. Restored the filter to match main. Added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/. No review threads outstanding.",
         "checks": "npx vitest run tests/compare-catalog.test.ts tests/compare-ids-chrome.dom.test.tsx tests/compare-slot-strip.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 57 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "05e00976ab04796d7f44593b692f46cb8919943e",
+        "scope": "Run PR follow-up: second merge-drift + PR-policy fix",
+        "outcome": "Re-synced with origin/main after PR #2416 landed (mechanical conflict only in data/repo-awareness-snapshot.json, regenerated); added the required Clinical Governance Preflight section to the PR body since the regenerated snapshot touches data/, a path scripts/pr-policy.mjs treats as clinical-risk. No review threads outstanding.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "be2d9b0291965258e5933006dc9b914961bb0dc3",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "CI was already green pre-sweep (PR required: success on d3f39c4); branch was already current with main (0 behind), so no drift merge needed. Fixed 3 unresolved CodeRabbit review threads: (1) pathway/step 'linked steps' counts used total steps.length instead of counting only steps with a matched therapySlug — added pathwayLinkedStepCount() and wired it into pathway-review-label.ts, pathway-picker-sheet.tsx (x2), pathway-step-stack.tsx; (2) ui-therapy-pathways.spec.ts readCautionGeometry substituted +/-Infinity for a missing caution/dock element, masking a broken overlap assertion — now throws if either is absent; (3) the 'Change pathway' Playwright test only re-clicked the already-active Anxiety pathway row, which could pass with a broken selectPathway — now selects Mood pathway, asserts the URL/heading changed, then switches back to Anxiety before the anxiety-scoped scroll assertions. All 3 threads replied with commit SHA and resolved.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts tests/therapy-compass-pathways.test.ts -- 34 passed; npm run lint -- exit 0 (gate-receipts pass); npm run typecheck -- exit 0, run foreground twice, gate-receipts recorded pass for typecheck:internal (5613 input files); npm run format -- applied (1 file reformatted, amended into commit); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "d2bbc44f084707d8844485c67c8cd76d57e04b39",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (conflict vs main), all real CI green on prior head (19fca0d), 0 unresolved review threads (4 PR comments were all automated bot usage-limit/status noise, no actionable findings). After: merged origin/main (b183dc65) into branch; only conflicts were generated files docs/design-system/COMPONENTS.md and docs/design-system/adoption-manifest.json, resolved by regenerating via 'node scripts/generate-design-system-adoption.mjs --write' (no manual edits); PR mergeability check now succeeds. No review threads needed action (none existed). No CI fix needed beyond the merge itself.",
+        "checks": "npx vitest run tests/therapy-pathways-mobile.dom.test.tsx tests/therapy-compass-responsive-contract.test.ts tests/playwright-pr-shards.test.ts -- 25 passed; npm run check:design-system-adoption -- design system adoption checked: 55 components, 76 roots; npm run check:playwright-pr-shards -- PR UI shard parity OK: 31 production specs across 3 groups; pre-commit hook ran docs:check-inventory and docs:check-index -- both current. No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-pathways-redesign (PR #2413)",
+        "head": "f8537abbef36b5e9f72eb1c745f565253a276153",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Static PR checks red on check:repo-awareness-snapshot — committed data/repo-awareness-snapshot.json review_state was stale after prior sweep's ledger/docs commits); 0 unresolved review threads; branch already contained origin/main (no drift). After: ran npm run snapshot:repo-awareness to regenerate the snapshot, verified npm run check:repo-awareness-snapshot and npm run format:changed pass, committed and pushed f8537ab. All other required jobs (Build, Unit coverage, Production UI critical, Safety and config checks, Production UI shards 1-3, Lighthouse budget) were already green before this fix and untouched by it. No review threads existed to address. No main-sync needed (branch already up to date).",
+        "checks": "npm run check:repo-awareness-snapshot (PASS, reproduces prior CI failure then passes after regen); npm run format:changed (PASS); npm run snapshot:repo-awareness (regenerated data/repo-awareness-snapshot.json); no provider-backed checks run"
       },
       {
         "date": "2026-08-27",
@@ -25009,8 +25041,8 @@
       }
     ],
     "counts": {
-      "records": 2640,
-      "refs": 1611
+      "records": 2644,
+      "refs": 1612
     }
   }
 }
