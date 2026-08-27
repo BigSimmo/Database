@@ -547,7 +547,9 @@ describe("`ExitOnlyOverlayTrigger` is one component, exported once", () => {
 
   const MODULES = sourceModules();
   const SOURCE_BY_MODULE = new Map(
-    MODULES.map((module) => [module, readFileSync(path.join(process.cwd(), module), "utf8")] as const),
+    MODULES.map(
+      (sourceModule) => [sourceModule, readFileSync(path.join(process.cwd(), sourceModule), "utf8")] as const,
+    ),
   );
 
   /** A relative or `@/`-aliased specifier, as a repository-relative path with its extension. */
@@ -558,7 +560,13 @@ describe("`ExitOnlyOverlayTrigger` is one component, exported once", () => {
         ? path.resolve(process.cwd(), path.dirname(fromModule), specifier)
         : null;
     if (base === null) return null;
-    for (const candidate of [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]) {
+    for (const candidate of [
+      base,
+      `${base}.ts`,
+      `${base}.tsx`,
+      path.join(base, "index.ts"),
+      path.join(base, "index.tsx"),
+    ]) {
       const relative = path.relative(process.cwd(), candidate).split(path.sep).join("/");
       if (SOURCE_BY_MODULE.has(relative)) return relative;
     }
@@ -574,8 +582,8 @@ describe("`ExitOnlyOverlayTrigger` is one component, exported once", () => {
   });
 
   it("is exported by exactly one module", () => {
-    const exporters = MODULES.filter((module) => {
-      const source = SOURCE_BY_MODULE.get(module) ?? "";
+    const exporters = MODULES.filter((sourceModule) => {
+      const source = SOURCE_BY_MODULE.get(sourceModule) ?? "";
       return DECLARES_THE_NAME.test(source) || RE_EXPORTS_THE_NAME.test(source);
     });
     expect(exporters).toEqual([SURVIVING_MODULE]);
@@ -584,13 +592,13 @@ describe("`ExitOnlyOverlayTrigger` is one component, exported once", () => {
   it("is imported from that module by every consumer, and from nowhere else", () => {
     const wrong: string[] = [];
     const consumers: string[] = [];
-    for (const module of MODULES) {
-      const source = SOURCE_BY_MODULE.get(module) ?? "";
+    for (const sourceModule of MODULES) {
+      const source = SOURCE_BY_MODULE.get(sourceModule) ?? "";
       for (const [, clause, specifier] of source.matchAll(IMPORTS_A_CLAUSE)) {
         if (!new RegExp(String.raw`ExitOnlyOverlayTrigger(?=${NAME_END}|$)`).test(clause)) continue;
-        consumers.push(module);
-        const resolved = resolveSpecifier(module, specifier);
-        if (resolved !== SURVIVING_MODULE) wrong.push(`${module}: imports it from ${specifier} (${resolved})`);
+        consumers.push(sourceModule);
+        const resolved = resolveSpecifier(sourceModule, specifier);
+        if (resolved !== SURVIVING_MODULE) wrong.push(`${sourceModule}: imports it from ${specifier} (${resolved})`);
       }
     }
     // Positive control for the absence above: there ARE consumers, so "none imports it from
