@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "9cc091d5b3034def48bbf5f41d27a0d5e3db652f",
-    "committed_at": "2026-08-27T04:53:21+00:00"
+    "sha": "5d848e0d24e4669a0fc41ef37aaab1f77ae5c323",
+    "committed_at": "2026-08-27T13:18:04+08:00"
   },
   "routes": {
     "modes": [
@@ -3457,6 +3457,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow-clinician-check.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
         "catalogued": false
@@ -3747,6 +3752,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-6-7-decisions.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow-phase-6-7-kickoff-prompt.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3847,8 +3862,8 @@
       }
     ],
     "counts": {
-      "documents": 476,
-      "catalogued": 103,
+      "documents": 479,
+      "catalogued": 106,
       "uncatalogued": 373,
       "sections": 19
     }
