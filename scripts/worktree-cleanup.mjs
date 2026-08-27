@@ -15,15 +15,13 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { lstatSync, readdirSync, rmSync, rmdirSync } from "node:fs";
+import { lstatSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   classifyLiveness,
   inspectReparsePoint,
-  inspectReparsePoints,
-  inspectWindowsReparsePaths,
   normalizeWorktreePath,
   parseWorktreePorcelain,
 } from "./clean-worktree.mjs";
@@ -490,7 +488,6 @@ export function auditAndCleanWorktrees(options = {}, adapters = {}) {
   const lstatFn = adapters.lstatFn ?? lstatSync;
   const readdirFn = adapters.readdirFn ?? readdirSync;
   const rmFn = adapters.rmFn ?? rmSync;
-  const rmdirFn = adapters.rmdirFn ?? rmdirSync;
   const livenessResolver = adapters.livenessResolver ?? (() => undefined);
   const reparseProbeFn = adapters.reparseProbeFn ?? inspectReparsePoint;
   const inspectPathSegmentsFn = adapters.inspectPathSegmentsFn ?? inspectPathSegmentsForReparse;
@@ -547,15 +544,12 @@ export function auditAndCleanWorktrees(options = {}, adapters = {}) {
   // Classify registered worktrees
   for (const { desc, index, resolvedPath } of registeredPathMap.values()) {
     let existsOnDisk = false;
-    let isDir = false;
-    let statError = null;
 
     try {
-      const stat = lstatFn(resolvedPath);
+      lstatFn(resolvedPath);
       existsOnDisk = true;
-      isDir = stat.isDirectory();
-    } catch (error) {
-      statError = error;
+    } catch {
+      // Missing from disk
     }
 
     const isPrunable =

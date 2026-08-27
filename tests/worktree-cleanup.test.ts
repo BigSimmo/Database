@@ -21,20 +21,19 @@ type SyntheticStat = {
 
 type SyntheticDirent = { name: string };
 
+type WorktreeItem = {
+  path: string;
+  classification: string;
+  eligibleForCleanup: boolean;
+  action?: string;
+  disposition?: string;
+};
+
 function directoryStat(options: { reparse?: boolean; link?: boolean } = {}): SyntheticStat {
   return {
     reparsePoint: options.reparse ?? false,
     isDirectory: () => true,
     isFile: () => false,
-    isSymbolicLink: () => options.link ?? false,
-  };
-}
-
-function fileStat(options: { reparse?: boolean; link?: boolean } = {}): SyntheticStat {
-  return {
-    reparsePoint: options.reparse ?? false,
-    isDirectory: () => false,
-    isFile: () => true,
     isSymbolicLink: () => options.link ?? false,
   };
 }
@@ -422,21 +421,21 @@ describe("auditAndCleanWorktrees integration and classification", () => {
     expect(rmFn).not.toHaveBeenCalled();
 
     // Verify classification of categories
-    const active = report.registeredActive.find((w: any) => w.path === activeWorktreePath);
+    const active = report.registeredActive.find((w: WorktreeItem) => w.path === activeWorktreePath);
     expect(active?.classification).toBe("registered-active");
     expect(active?.eligibleForCleanup).toBe(false);
 
-    const stale = report.staleRegistered.find((w: any) => w.path === staleWorktreePath);
+    const stale = report.staleRegistered.find((w: WorktreeItem) => w.path === staleWorktreePath);
     expect(stale?.classification).toBe("stale-registered");
     expect(stale?.eligibleForCleanup).toBe(true);
     expect(stale?.action).toBe("dry-run-prune");
 
-    const safeOrphan = report.untrackedOrphans.find((w: any) => w.path === safeOrphanPath);
+    const safeOrphan = report.untrackedOrphans.find((w: WorktreeItem) => w.path === safeOrphanPath);
     expect(safeOrphan?.classification).toBe("untracked-orphan");
     expect(safeOrphan?.eligibleForCleanup).toBe(true);
     expect(safeOrphan?.action).toBe("dry-run-remove");
 
-    const dirtyOrphan = report.untrackedOrphans.find((w: any) => w.path === dirtyOrphanPath);
+    const dirtyOrphan = report.untrackedOrphans.find((w: WorktreeItem) => w.path === dirtyOrphanPath);
     expect(dirtyOrphan?.classification).toBe("untracked-orphan");
     expect(dirtyOrphan?.eligibleForCleanup).toBe(false);
     expect(dirtyOrphan?.action).toBe("refuse-cleanup");
@@ -604,7 +603,7 @@ describe("auditAndCleanWorktrees integration and classification", () => {
       inspectionErrors: [],
     };
 
-    renderCleanupReport(report, { stdout: fakeStdout as any });
+    renderCleanupReport(report, { stdout: fakeStdout as unknown as typeof process.stdout });
     expect(captured).toContain("[worktree-cleanup] MODE: DRY-RUN");
     expect(captured).toContain("Registered Active Worktrees");
     expect(captured).toContain("Stale Registered Worktrees");
