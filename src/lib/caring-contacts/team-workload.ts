@@ -69,12 +69,7 @@
 // conservative direction for a safety escalation: it can raise one early, never miss a late one.
 // Both field names are long for the reason `medianMinutesFromAttemptToResolution` is long, and this
 // is reported as a repository-contract gap rather than closed by inventing an instant.
-import {
-  effectiveResponder,
-  queueAgeMinutes,
-  UNCLAIMED_ESCALATION_MINUTES,
-  type PlanAssignment,
-} from "./assignment";
+import { effectiveResponder, queueAgeMinutes, UNCLAIMED_ESCALATION_MINUTES, type PlanAssignment } from "./assignment";
 import { awstIsoTimestamp } from "./clock";
 import type { ActorId } from "./ids";
 import type { PlanRecord } from "./repository";

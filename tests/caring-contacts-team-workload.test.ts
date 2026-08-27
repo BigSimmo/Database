@@ -465,7 +465,9 @@ describe("exception backlog age", () => {
     const records = await store.listPlans({ actor: COORDINATOR });
     const record = records.find((candidate) => candidate.plan.id === id);
     if (!record) throw new Error("seeded plan missing from the read");
-    const ordered = [...record.contacts].sort((left, right) => left.planned.sendAt.getTime() - right.planned.sendAt.getTime());
+    const ordered = [...record.contacts].sort(
+      (left, right) => left.planned.sendAt.getTime() - right.planned.sendAt.getTime(),
+    );
     await driveContactTo(store, id, ordered[0], "missed");
     await driveContactTo(store, id, ordered[1], "statusUnavailable");
 
