@@ -101,6 +101,18 @@ const SCOPED_ALLOWLIST = new Map([
     // does not resolve as a path.
     new Set(["tests/caring-contacts-overlay-trigger.dom.test.tsx(107"]),
   ],
+  [
+    "docs/ward-flow-pinned-clock-handover.md",
+    // Both files exist on `claude/ward-flow-phases-6-7-design` and not on this branch —
+    // naming them is the entire point of the handover, which exists to send a later session
+    // to that branch to finish the work. The document says so where it names them, and gives
+    // the `git show` command to read the spec from there. Remove this entry once Phase 6
+    // lands on `main` and both paths resolve normally.
+    new Set([
+      "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
+      "tests/ward-morning-page.dom.test.tsx",
+    ]),
+  ],
 ]);
 
 /** True when `repoRelative` is allowed outright, or allowed for the document being scanned. */
