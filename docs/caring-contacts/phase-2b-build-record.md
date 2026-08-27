@@ -3066,3 +3066,64 @@ guard for one action silently stopping another; this finds a ruling whose "canno
 wrong number in [138]. All three were load-bearing, all three survived because the sentence carrying them
 read as settled, and all three took minutes to check. **Recompute the number under any sentence that ends a
 question.**
+
+### Ruling [141] — Task 16 is ACCEPTED at fix round 1, with no separate re-review, and here is the judgement rather than the assertion
+
+Round 1 is `4b97b29f3`, `6adbf8902`, `42ebc801a`, `31bdf2142` on `claude/caring-contacts-demo-seed`.
+Its own gate line: `Test Files 27 passed (27)` / `Tests 569 passed (569)`, re-run on the committed tree
+after the final edit, plus the three off-gate suites covering the modules it touched at `Tests 77 passed
+(77)`.
+
+**The round changed code behaviour, so a scoped re-review is the default.** Ruling [136] exists because
+that default was waived three times on the wrong premise. I am waiving it here, and the discipline requires
+the judgement be recorded, so: the carve-out is for **a small, precisely-enumerated set of fixes arriving
+mutation-proven with observed messages**, and this round is that — eight enumerated findings, ten itemised
+mutation rows with predicted-versus-observed messages, two labelled green controls, and two driver guard
+controls each thrown on its own line. **I also read the diff before invoking the rule**, which is the step
+[136] says was skipped.
+
+**What I verified myself rather than accepting from the report**, because MAJOR 1 was a false clinical claim
+on the screen where clinicians approve:
+
+- The sentence is **gone from `src/` entirely**, not reworded. Ruling [131] said no wording of it is true.
+- The replacement status is **sourced from `message-copy.ts`**, not retyped — one export, referenced by the
+  screen and by four suites, so the owner's eventual answer lands in one place.
+- The absence assertion carries a **positive control**: the status is asserted present in the card, then
+  removed, then the remainder asserted shorter — so the absence is checked over a string that really changed.
+- The absence matches the **word stem `/approv/i`**, not the deleted sentence's own words. A guard written
+  around one phrasing would pass the next phrasing of the same false claim; this one does not.
+- Each approval seat is asserted **non-empty before** the status is required beside it, so the
+  seat-implies-status check cannot pass vacuously.
+
+That is Ruling [131]'s two required assertions, both able to redden, both proven able to.
+
+**The implementer's own wrong prediction is the most valuable row in its ledger, and it is why this is
+accepted.** M9 leaked the status into a patient-visible string and the guard written to catch exactly that
+stayed **green**: it looked for `"not clinically approved"` while the status says `"has not been clinically
+approved"` — one word between the halves. The correction asserts each guarded phrase **is** a substring of
+the status before asserting it is absent from the messages, so the guard can no longer be inert. **A fix
+that is not incomplete in the same way as the thing it fixed**, which this programme has three times failed
+to achieve.
+
+**Three residuals, none blocking, all recorded rather than closed:**
+
+1. **The status is a value; the module's `PROVISIONAL` markers are still comments, and nothing holds the two
+   together.** If the wording is ever clinically approved, one can be updated without the other and the
+   screen will state the wrong status confidently. Closing it needs a decision about how the approval gate's
+   answer is recorded — boolean, dated record, per message — which is the **owner's**, and the implementer
+   correctly declined to invent a shape.
+2. **MAJOR 2 stands untouched, as ruled.** Both divergent frozen `message-preview` texts are recorded with
+   file and line, and the implementer independently confirmed `overlay-definitions.test.ts` pins
+   `summary`/`decision` only for emptiness and prohibited language. **The matrix names as source of truth the
+   copy the product does not render.** No gate was added; one would be red on arrival.
+3. **MINOR 3's class has no gate.** The codebase-index coverage check cannot see a nested dynamic route, so
+   it passed identically before and after the route entry was added. Worth an `/issues` capture: the check
+   proves an index entry exists for routes it can see, which is not the property anyone reads it as proving.
+
+**Handed to the final whole-branch review, per Ruling [136]'s mechanism**, alongside Task 10 round 3, Task
+11a round 2 and Task 19 round 3: treat this round's diff as unreviewed rather than as already-covered
+ground. The waiver above is a judgement about proportionality, not a claim that a reviewer looked at it.
+
+**Playwright remains owed and untouched by this.** The round's `exact: true` correction reaches seven
+blocks that have never run, and the implementer verified the eight headings by reading `title` props —
+source inspection, not a browser, and it said so.
