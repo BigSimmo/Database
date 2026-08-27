@@ -2955,3 +2955,70 @@ trusting a comment" closes the question for every later reader, and closed it fo
 rule already says a reviewer's factual claim is a claim rather than a finding already checked — this
 extends it: **a claim is not made safer by the reporter describing how they checked it.** Recompute the
 number, or repeat it as theirs.
+
+### Ruling [139] — Task 11b fails on spec and passes on quality; fix round 1 dispatched, and one finding goes to the owner
+
+The review is at `72c4477b3` on `claude/caring-contacts-plan-detail`. **Spec compliance FAIL, task quality
+PASS** — an unusual pairing and an informative one: the verification method was found genuinely strong (the
+cases dispatch into the real route handlers against the real store and read the store back, so "a hold does
+not cancel" is proved from the record rather than from the copy), and the task still fails because a clause
+of the feedback contract is unmet and there are defects underneath it. **A strong method does not make a
+correct screen**, and the two verdicts existing separately is what let the review say both things at once.
+
+Thirteen findings: one Critical, four Major, five Minor, three Nit.
+
+**CRITICAL-1, verified by me in the source rather than relayed**, because it is the finding driving the fix.
+`plan-actions.tsx:210-211` is a bare `if (held === null) return;` — no refusal, no outcome, no trace. `held`
+is read only in the lifecycle branch; `planFromWriteAnswer` returns `null` for any answer shape the screen
+cannot read; and `reassignment` deliberately omits `this-screen-still-knows-the-plan`, correctly, because
+the assignment route carries no `expectedVersion`. So the one action designed to survive an unknown plan
+version is the only action that guard actually stops, and it stops it in silence. A coordinator presses
+through **both stages** of a two-stage confirmation, the overlay closes, nothing is sent and nothing is
+said. **Responsibility for a discharged suicide-risk patient stays with the wrong person while the screen
+signals that it moved.** The reviewer reproduced it with a probe; I confirmed it by reading the four
+mechanisms and their interaction.
+
+**The rule it establishes, applied wider than the line that produced it: no path may leave a commit handler
+silently.** Every exit either sends a write or states a named refusal. The fix round is required to audit
+every `return` in that handler against the rule and report the ones that were already fine as well as the
+one that was not — a fix scoped to the reported line would leave the class alive, which is the failure this
+programme has already recorded under "three fixes have been incomplete in the same way as the thing they
+fixed".
+
+**MAJOR-1: an idempotency key identifies a submission, and a submission is the action AND its body.** The
+key was held per action until a success, so a coordinator whose move is refused by the service, and who
+then edits the destination or rewrites the handover note and confirms again, is refused a second time as a
+key reuse — and the remedy that refusal states does not clear a ref, so the move cannot be completed from
+that screen at all. The implementer's own open question 7 had argued "the retry guarantee is identical
+either way". It is not, and the direction it differs in is the one that strands the user.
+
+**MINOR-2 generalises into a rule worth keeping: the remedy a screen states must be something the screen
+performs, or the remedy must change to something the person can actually do.** The stale-version refusal
+tells a coordinator to read the screen again so it holds the plan as it now stands; nothing on the screen
+re-reads, and `useState`'s initialiser is ignored on re-render, so pressing again sends an identical body
+and earns an identical refusal. Advice that cannot be followed is worse than no advice, because it spends
+the reader's trust before it fails.
+
+**MAJOR-2 is the gate-drift rule failing exactly as predicted.** The report pasted the guard set's line
+without listing what the gate names, listing what exists, and diffing the two. The reviewer did it, named
+six uncovered suites bearing on modules this diff touched — including the access-audit contract for the very
+page this diff added an audited read to — and ran them: `Test Files 6 passed (6)` / `Tests 182 passed
+(182)`. Green, so nothing was hidden this time, and the point stands: **"green" and "not run" read
+identically in a report, and the report presented one as the other.** The fix round records the diff and
+does **not** edit `test:cc-guards`; four branches already edit that line at different positions without
+conflicting, and the union is computed at the merge point.
+
+**MAJOR-4 is the owner's, not an implementer's.** The handover note a coordinator writes when moving a plan
+is stored permanently in `reassignmentHistory[].reason`, and `admitRetentionClearance` does not touch
+assignments. So after the patient's name, mobile, identifiers and cultural identity are erased from the
+plan, a clinician's free-text note about that handover — written into a field whose own prompt invites
+clinical detail — **survives indefinitely, in a store nothing classifies as holding patient data.** The
+field pre-existed; this diff is the first thing in the product that writes it, which is what turns a dormant
+shape into a live one. The pre-existing protections do hold either side of it: no request body reaches the
+audit event, and the idempotency fingerprint is hashed precisely because request inputs carry patient text.
+**The gap is retention alone.** Either the prompt asks for less or the field comes under clearance, and both
+are product decisions. Added to the owner's list; the fix round records it and changes nothing.
+
+This is the whole-branch review's CRITICAL in a new costume — patient-adjacent text reaching a store nobody
+had classified as holding it — found by asking the brief's own question: **what does this mechanism store
+incidentally, not what is it for.** Asking it twice has now found it twice.
