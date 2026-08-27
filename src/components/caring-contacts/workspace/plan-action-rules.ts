@@ -408,6 +408,13 @@ export function planActionRefusal(
  * `resume` has no row, so its word is this screen's own and is written here rather than invented at
  * each call site. The other three read `overlayDefinition`, so a label here and a label in the
  * matrix cannot come apart.
+ *
+ * READ FOR ITS THROW RATHER THAN FOR ITS STRING, which is not what the paragraph above describes
+ * and is worth saying plainly. Since the card's own names replaced the label on screen, the one
+ * caller left is `planActionCardName` below, which calls this and DISCARDS the result -- keeping it
+ * so that an action naming no row of the frozen table still throws there. So a reader finding no
+ * consumer of the returned string has found the truth and the wrong conclusion: this is a guard,
+ * not dead code.
  */
 export function planActionLabel(action: PlanActionId): string {
   if (action === "resume") return "Let this plan run again";
@@ -574,6 +581,25 @@ export function planLifecycleExpectedVersion(
  * The whole body is read rather than the fields being listed, so a field added to either request
  * shape is part of the submission's identity without this function being touched. The key itself is
  * blanked rather than omitted, so the shape is identical whichever key is held.
+ *
+ * WHAT THAT MEANS THIS STRING HOLDS, AND WHY IT IS NOT `src/lib/caring-contacts/fingerprint.ts`
+ * ---------------------------------------------------------------------------------------------
+ * Reading the whole body means that for a reassignment this string contains `reason` VERBATIM --
+ * the free-text handover note a coordinator typed about a patient -- unhashed, and in
+ * `JSON.stringify` order rather than a canonicalising sort, so it is key-order dependent as well.
+ *
+ * BOTH ARE FINE WHERE THIS IS, AND NEITHER WOULD BE ANYWHERE ELSE. The value is compared against
+ * one held in a ref in the tab that computed it, is deleted from that ref when the write succeeds,
+ * and never leaves: it is not a request field -- both bodies are built by the two builders above,
+ * not from this -- and it is never rendered, never persisted, and never crosses a boundary. Key
+ * order cannot vary either, because each builder constructs its object literal in one place.
+ *
+ * The precedent a reader meets first is the other function with "fingerprint" in its name, and it
+ * hashes: `src/lib/caring-contacts/fingerprint.ts` says at length that it does so because the
+ * requests it is computed over carry patient data. That reasoning applies to the CONTENT of this
+ * string too. So if this is ever persisted, logged, sent, or moved server-side, it must be hashed
+ * and canonicalised first, exactly as that module does -- this note is here so that decision is
+ * made deliberately rather than by assuming the two functions are the same kind of thing.
  */
 export function planActionSubmissionFingerprint(body: PlanLifecycleRequestBody | ReassignmentRequestBody): string {
   return JSON.stringify({ ...body, idempotencyKey: "" });

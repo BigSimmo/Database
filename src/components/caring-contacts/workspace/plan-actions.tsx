@@ -161,9 +161,25 @@ export function PlanActions({ context }: PlanActionsProps) {
    * as `idempotency-key-reused-for-a-different-write`, whose stated remedy clears no ref. The
    * action could then not be completed from this screen at all.
    *
-   * Cleared when that action's write succeeds, so the whole retry chain of one submission shares a
-   * key and the service answers a second press with the first press's own answer instead of
+   * Cleared when that action's write succeeds, so a later action of the same kind is a new
+   * submission rather than a replay of this one.
+   *
+   * WHICH PRESS THE KEY ACTUALLY PROTECTS, AND WHAT PROTECTS THE REST. The key makes a second press
+   * a replay only while the body is UNCHANGED, and the window where that holds is the one where
+   * nothing has come back yet: two commits racing before either answer arrives fingerprint the same
+   * body, share one key, and `runWrite` answers the second with the first's own answer instead of
    * withdrawing a patient twice.
+   *
+   * It does NOT hold across a refusal. `refuse()` asks for this screen again on every refusal, and
+   * the props that come back can carry the version that the lost write itself produced; the sync
+   * above adopts it, so a lifecycle body carrying a different `expectedVersion` fingerprints
+   * differently and mints a NEW key. That retry reaches the service as a new submission. What stops
+   * it double-writing is the condition the row declares, read against the state the same re-read
+   * brought back: `the-plan-is-running` for a hold, `the-plan-is-held` for letting it run again,
+   * `the-plan-has-started-and-has-not-ended` for a withdrawal, and
+   * `a-different-coordinator-is-chosen` for a move -- which a recorded move also clears its choice
+   * for, so it refuses even before the re-read lands. **Relaxing one of those four on the belief
+   * that the key stands behind it would remove the only guard there is in that case.**
    *
    * A ref rather than state: nothing renders from it, and a re-render between minting and sending
    * would be an opportunity for the value to be lost.

@@ -1450,7 +1450,11 @@ function routeFetch(
     }
     return answer;
   });
-  return { sent, spy, writes: () => sent.filter((entry) => !entry.url.includes("/session")) };
+  // `sent` HOLDS WRITES ONLY, and by construction rather than by filtering: the session read
+  // returns above before anything is captured, so there has never been anything here to exclude.
+  // The accessor keeps its name because that is what every "how many writes?" assertion is asking,
+  // and it is stated here rather than implied by a filter that removes nothing.
+  return { sent, spy, writes: () => sent };
 }
 
 /** The real page plus the overlay host the shell mounts in production, as ONE tree. */
@@ -2497,9 +2501,11 @@ describe("the plan actions - what a clinician is shown, and what never reaches t
         "min-h-tap",
       );
       expect(control.className).not.toContain("min-h-11");
-      // EVERY control, the way the tap-target assertion beside it already does. `controlBase`,
-      // `fieldClass` and `blockClass` each carry their own variant, so one control standing in for
-      // the card would go on passing after any one of them lost it.
+      // EVERY control THIS LOOP REACHES, the way the tap-target assertion beside it already does:
+      // `controlBase` on the buttons and `fieldClass` on the select and the textarea each carry
+      // their own variant, so one control standing in for the card would go on passing after either
+      // of those lost it. `blockClass` carries a variant too, and it is on the block `<div>`s --
+      // which this loop does not reach, so its loss is not covered here.
       expect(control.className, `${control.textContent ?? control.id} disappears in forced colours`).toContain(
         "forced-colors:",
       );

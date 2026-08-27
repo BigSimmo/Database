@@ -421,7 +421,13 @@ every one of these mutations targets. The whole guard set was run once at the en
 which is what catches collateral damage a narrowed run cannot see.
 
 **Every row in the table below ran against `487cb2ed7`, and the baseline was re-established on that
-same tree**, unmutated:
+same tree**, unmutated — **with one exception, and it is the row this ledger turns on.** R15's FIRST
+pass ran against `a43bc7728`, before the case it exists to falsify had been written; that is why its
+cell reads `74 passed (74)` where every other cell counts 75, and it is the wrong prediction recorded
+below rather than an attribution slip. R15's second pass ran against `487cb2ed7` like the rest.
+_(Corrected in fix round 2, answering NIT-3 of the round-1 re-review.)_
+
+The baseline on `487cb2ed7`:
 
 ```
  Test Files  1 passed (1)
