@@ -2384,6 +2384,25 @@ describe("the plan actions - what a clinician is shown, and what never reaches t
   });
 
   /**
+   * A live region created together with its first content is the pattern assistive technology is
+   * least reliable about: the region has to exist BEFORE the text arrives for the change to be
+   * announced rather than merely rendered. What jsdom can prove is that it is mounted and empty
+   * before any action; that the announcement REACHES assistive technology it cannot prove at all,
+   * and this case does not claim to.
+   */
+  it("mounts the region that announces an outcome before there is an outcome to announce", async () => {
+    const { store } = spiedStore();
+    await runningPlan(store);
+    routeFetch();
+
+    await renderPageWithOverlays();
+
+    const region = screen.getByTestId("caring-contacts-plan-action-outcome");
+    expect(region).toHaveAttribute("role", "status");
+    expect(region).toBeEmptyDOMElement();
+  });
+
+  /**
    * THE BARGAIN THIS SYSTEM STATES: a read that cannot be recorded does not happen. Who is carrying
    * the plan is read on the server so this card can be built, and `PlanAssignment` carries free
    * clinician text about every handover -- so replacing that audited read with a bare
