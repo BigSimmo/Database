@@ -392,7 +392,7 @@ function ContinueStrip({ item, onOpen }: { item: FavouriteItem; onOpen: (item: F
             onClick={() => onOpen(item)}
             aria-label={`Continue ${item.title}`}
             className={cn(
-              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
+              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
               focusRing,
             )}
           >
@@ -1715,7 +1715,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60 sm:min-h-10",
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
                     focusRing,
                   )}
                 >
