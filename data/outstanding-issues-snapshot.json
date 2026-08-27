@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "364177bad72f7c2dae7a266b5cf8f61837dbd0e5",
-    "committed_at": "2026-08-27T04:33:41+00:00"
+    "committed_at": "2026-08-27T04:33:41Z"
   },
   "counts": {
     "open": 98,
@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 33,
+    "pending": 36,
     "resolved": 414
   },
   "queue": [
@@ -1042,6 +1042,18 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
+      "action": "done",
+      "summary": "#4AM8Z0: Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
+      "action": "done",
+      "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
       "action": "done",
       "summary": "#9X40BT: Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
@@ -1159,6 +1171,12 @@
       "request_id": "c6533595-1f18-4be2-ba89-7a793a122779",
       "action": "done",
       "summary": "#50QRCF: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Root cause was PWA notice stack (div.pwa-notice-stack) mounting during Next.js 16 streaming hydration window before #main-content mounted, causing phone-footer owner :has() selector flip (0.2230 shift). Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #TYZK23 and #KFRC3H.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
+      "action": "done",
+      "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
       "created_at": "2026-08-27"
     },
     {

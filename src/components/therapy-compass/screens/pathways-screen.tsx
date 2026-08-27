@@ -202,7 +202,7 @@ export function PathwaysScreen() {
         />
         <div className="flex-1 min-w-[200px]">
           <div className="text-sm-minus font-semibold text-[color:var(--warning-text)]">
-            Clinical caution — decision support generated from imported records.
+            Clinical caution — source-grounded therapy reference generated from imported records.
           </div>
           <div className="text-xs text-[color:var(--warning-text)] mt-0.5">
             {pathway.cautions ??

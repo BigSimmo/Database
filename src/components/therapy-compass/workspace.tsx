@@ -16,7 +16,10 @@ import { TherapyCompareTray } from "./therapy-compare-tray";
 function TherapyCompassFooter() {
   return (
     <div data-therapy-no-print className={cn(pageContainer, "mt-[30px] border-t border-[color:var(--border)] pt-5")}>
-      <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
+      <ModeHomeVerificationFooter
+        label="Source-grounded therapy reference"
+        body="Source-grounded — review status before clinical use"
+      />
     </div>
   );
 }
