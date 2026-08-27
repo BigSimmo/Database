@@ -8,6 +8,7 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { Referral } from "@/components/ward-management/ward-model";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
   recentlyDecidedReferrals,
   referralQueueOrder,
@@ -17,16 +18,13 @@ import {
 import { ReferralMatchView } from "./referral-match";
 import styles from "./referrals.module.css";
 
-/**
- * Urgency tier text carries its own direction, mirroring `priority-queue.tsx`'s
- * `TIER_QUALIFIER` exactly — a bare "Tier 1" badge on a board where every tier appears tells a
- * coordinator nothing about which end of the scale that is.
+/*
+ * Urgency tier text carries its own direction — a bare "Tier 1" badge on a board where every
+ * tier appears tells a coordinator nothing about which end of the scale that is. This file used
+ * to hold its own copy of the wording, described in its comment as mirroring
+ * `priority-queue.tsx` "exactly"; both copies are now `urgencyTierLabel` (`ward-priority.ts`),
+ * so the claim is enforced by there being one spelling rather than by two files agreeing.
  */
-const TIER_QUALIFIER: Record<Referral["urgency"], string> = {
-  1: "most urgent",
-  2: "urgent",
-  3: "least urgent",
-};
 
 function decidedWaitLabel(referral: Referral): string {
   if (referral.decidedAt === undefined) return "No decision time recorded";
@@ -169,9 +167,7 @@ function QueuedSection({
                         {referral.id}
                       </button>
                     </td>
-                    <td>
-                      Tier {referral.urgency} · {TIER_QUALIFIER[referral.urgency]}
-                    </td>
+                    <td>{urgencyTierLabel(referral.urgency)}</td>
                     <td className={styles.waitBadge} data-testid={`ward-referral-board-wait-${referral.id}`}>
                       {referralWaitLabel(referral, now)}
                     </td>
@@ -201,9 +197,7 @@ function QueuedSection({
                       is identical. */}
                   <span className={styles.cardTop}>
                     <span className={styles.cardUnit}>{referral.id}</span>
-                    <span data-tier={referral.urgency}>
-                      Tier {referral.urgency} · {TIER_QUALIFIER[referral.urgency]}
-                    </span>
+                    <span data-tier={referral.urgency}>{urgencyTierLabel(referral.urgency)}</span>
                   </span>
                   <span className={styles.waitBadge} data-testid={`ward-referral-board-card-wait-${referral.id}`}>
                     {referralWaitLabel(referral, now)}

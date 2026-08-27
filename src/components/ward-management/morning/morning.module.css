@@ -593,8 +593,22 @@
     padding: var(--mp-space-8) var(--mp-space-10);
   }
 
+  /*
+   * `.headlineLabel` ("Available now") is the headline number's UNIT, and it was the one member
+   * of this row missing from this group — Phase 7 Task 8 found it printing
+   * `rgb(85, 98, 122)` in light and `rgb(168, 178, 189)` in dark, on white paper, while every
+   * sibling including the whole of `.peopleWaitingNote` printed `rgb(0, 0, 0)`. Task 9's demand
+   * card put a solid-black paragraph directly beside it, which is what made the mismatch
+   * visible: two cards in one row, printed in two different inks.
+   *
+   * This is the same failure Phase 6 shipped when `header { display: none }` took every hospital
+   * name off the printed sheet, and the same one `.freshness` and `.freshnessLine span` below are
+   * already here to prevent: a screen colour that is merely muted on a lit display becomes
+   * unreadable as ink. A figure whose label does not print is a bare number on paper.
+   */
   .headlineValue,
   .headlineTitle,
+  .headlineLabel,
   .peopleWaitingValue,
   .peopleWaitingTitle,
   .peopleWaitingNote,

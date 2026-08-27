@@ -1,9 +1,43 @@
 // src/components/ward-management/ward-priority.ts
 import { clockState, minutesUntil, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { isOpen } from "@/components/ward-management/ward-derivations";
-import type { Movement } from "@/components/ward-management/ward-model";
+import type { Movement, UrgencyLevel } from "@/components/ward-management/ward-model";
 
 export type ScoreFactor = { label: string; points: number; detail: string };
+
+/**
+ * Urgency tier text carries its own direction wherever a tier is shown OR CHOSEN (Task 5
+ * ruling 2). A bare "1", "2" or "3" tells a reader nothing about which end of the scale it is:
+ * tier 1 is the clinician's most urgent judgement, tier 3 the least, and neither the digit nor
+ * its ordering is self-evident to someone meeting the scale for the first time.
+ *
+ * This lives here, beside `queueOrder`, because `ward-priority.ts` already owns tier semantics
+ * and carries the product owner's 2026-08-24 provenance for the three tiers (see
+ * `operationalScore` below). It is deliberately NOT in `ward-model.ts`: an exported declaration
+ * writing a number down there must be entered on `MODEL_CONSTANT_PROVENANCE`
+ * (`tests/ward-legal-figure-guard.test.ts` Part 2), and these are display words for tiers that
+ * already have their provenance recorded, not a new figure.
+ *
+ * Phase 7 Task 8 found the third consumer disagreeing with the other two: `priority-queue.tsx`
+ * and `referral-board.tsx` each held their own identical copy and rendered "Tier 2 · urgent",
+ * while `referral-intake.tsx` — the ONE screen where a human picks the value, on a phone, from a
+ * source that may be a police car — rendered a bare "2". Two screens describing one field with
+ * different words is this project's most expensive defect class, so the copies were replaced by
+ * this single export rather than a third being added.
+ *
+ * These are TIER LABELS: three ordered categories, never a duration, quantity or statutory
+ * figure of any kind.
+ */
+const TIER_QUALIFIER: Record<UrgencyLevel, string> = {
+  1: "most urgent",
+  2: "urgent",
+  3: "least urgent",
+};
+
+/** The one spelling of a tier, for every screen that shows or offers one. */
+export function urgencyTierLabel(urgency: UrgencyLevel): string {
+  return `Tier ${urgency} · ${TIER_QUALIFIER[urgency]}`;
+}
 
 /**
  * The fixture carries exactly two "nothing to see here" shapes for `movement.blocker`: the

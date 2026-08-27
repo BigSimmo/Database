@@ -3,7 +3,7 @@
 import { clockState, type Instant } from "@/components/ward-management/ward-clock";
 import { elapsedLabel } from "@/components/ward-management/ward-derivations";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { operationalScore } from "@/components/ward-management/ward-priority";
+import { operationalScore, urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 
 import styles from "./coordinator.module.css";
@@ -17,19 +17,18 @@ type PriorityQueueProps = {
   onClearFilter: () => void;
 };
 
-/**
+/*
  * Urgency tier text carries its own direction on every row (Task 5 ruling 2). With 16 tier-1,
  * 13 tier-2 and 12 tier-3 open movements, long runs of the same bare "Tier 1" badge are the
  * normal case and tell a coordinator nothing about which end of the scale that is. Tier 1 is
  * the clinician's most urgent judgement; tier 3 the least. `queueOrder` never lets the
  * operational score below reorder across a tier boundary — the score only breaks ties inside
  * one tier.
+ *
+ * The wording itself now comes from `urgencyTierLabel` (`ward-priority.ts`), which is shared with
+ * the referral board and the referral intake form — see that function's own comment for why the
+ * local copy this file used to hold was removed.
  */
-const TIER_QUALIFIER: Record<Movement["urgency"], string> = {
-  1: "most urgent",
-  2: "urgent",
-  3: "least urgent",
-};
 
 /**
  * The seven fields this column must carry at a fixed 14rem width (Task 5 ruling 1): movement
@@ -104,7 +103,7 @@ export function PriorityQueue({ movements, now, selectedId, onSelect, filterEdId
               >
                 <strong>{movement.id}</strong>
                 <span className={styles.queueTier} data-tier={movement.urgency}>
-                  Tier {movement.urgency} · {TIER_QUALIFIER[movement.urgency]}
+                  {urgencyTierLabel(movement.urgency)}
                 </span>
                 <span>{elapsedLabel(movement, now)}</span>
                 <span>

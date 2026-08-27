@@ -17,6 +17,7 @@ import {
   type Sex,
   type UrgencyLevel,
 } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { wardSites } from "@/components/ward-management/ward-sites";
 
 import styles from "./referrals.module.css";
@@ -252,9 +253,15 @@ export function ReferralIntakeForm() {
                 setDraft((current) => ({ ...current, urgency: Number(event.target.value) as UrgencyLevel }))
               }
             >
+              {/* The option TEXT carries the tier's direction; the option VALUE stays the bare
+                  tier, so `Referral["urgency"]` and every test reading option values are
+                  unchanged. Phase 7 Task 8: this select used to render "1", "2", "3" while the
+                  referral board rendered "Tier 2 · urgent" for the very same field — and this is
+                  the one screen where a human, possibly a police officer on a phone, CHOOSES the
+                  value rather than reading it back. */}
               {URGENCY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {option}
+                  {urgencyTierLabel(option)}
                 </option>
               ))}
             </select>

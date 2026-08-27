@@ -19,6 +19,7 @@ import { ReferralBoard } from "@/components/ward-management/referrals/referral-b
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
   COHORTS,
   HOME_REGIONS,
@@ -134,6 +135,39 @@ describe("ReferralIntakeForm", () => {
 
     const select = screen.getByTestId("ward-referral-intake-urgency");
     expect(optionValues(select)).toEqual(URGENCY_LEVELS.map(String));
+  });
+
+  /**
+   * Phase 7 Task 8, found by looking at the screen rather than by any test. The picker rendered a
+   * bare "1", "2", "3" while the referral board rendered "Tier 2 · urgent" for the very same
+   * field — two screens describing one field in two different words, which is this project's most
+   * expensive defect class. It matters most here: this is the one screen where a human CHOOSES
+   * the value rather than reading it back, on a phone, possibly from a police car, and neither
+   * the digit nor the direction of the scale is self-evident to someone meeting it for the first
+   * time.
+   *
+   * The existing test above could not catch it: it reads each option's `value` attribute, which
+   * was correct throughout and is deliberately still the bare tier. This one reads the TEXT.
+   *
+   * Asserted against `urgencyTierLabel` itself rather than against three hard-coded strings, so
+   * the guard is "the picker and the boards use one spelling", not "the picker uses the spelling
+   * this test happens to remember". Two copies agreeing is what failed here; one export is why it
+   * cannot fail the same way again.
+   */
+  it("labels every urgency option with its direction, in the same words the boards use", () => {
+    renderForm();
+
+    const select = screen.getByTestId("ward-referral-intake-urgency");
+    const optionText = within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+
+    expect(optionText).toEqual(URGENCY_LEVELS.map((level) => urgencyTierLabel(level)));
+
+    // Non-vacuity: the labels really do carry a direction, so a future `urgencyTierLabel`
+    // returning the bare tier again would fail here even though the line above still matched.
+    expect(optionText).toContain("Tier 1 · most urgent");
+    expect(optionText).toContain("Tier 3 · least urgent");
   });
 
   it("describes the request, never the person, for the two need toggles", () => {
