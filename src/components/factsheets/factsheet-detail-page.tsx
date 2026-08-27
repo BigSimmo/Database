@@ -377,7 +377,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           rules) — otherwise the hidden shell chrome paginates into blank pages. */}
       {mounted
         ? createPortal(
-            <div className="factsheet-print-portal" aria-hidden="true">
+            <div className="factsheet-print-portal">
               <FactsheetPrintSheet factsheet={factsheet} blocks={blocks} />
             </div>,
             document.body,

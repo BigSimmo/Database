@@ -75,6 +75,7 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
     <SpecifierPageShell>
       <PageHeader
         className="border-b border-[color:var(--border)] pb-4 sm:pb-5"
+        eyebrow="Side-by-side review"
         title="Compare two specifiers"
         description="Find the deciding clinical difference."
       />
