@@ -401,7 +401,7 @@ function PhoneFrame({ direction, state }: { direction: DirectionId; state: Frame
       <div
         data-direction={direction}
         data-state={state}
-        className="relative flex h-[28rem] w-[350px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="relative flex h-[28rem] w-[350px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         {direction === "chips" ? <ChipsDirection open={open} /> : null}
         {direction === "track" ? <TrackDirection open={open} /> : null}

@@ -25,7 +25,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn } from "@/components/ui-primitives";
+import { cn, primaryControl } from "@/components/ui-primitives";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
@@ -69,10 +69,7 @@ function EmptySearchResults({ query }: { query: string }) {
           racing thoughts&rdquo; or &ldquo;returns every winter&rdquo;.
         </p>
       </div>
-      <Link
-        href={consolidatedModeSearchPath("specifiers")}
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
-      >
+      <Link href={consolidatedModeSearchPath("specifiers")} className={cn(primaryControl)}>
         Clear search
       </Link>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pt-1">
@@ -111,7 +108,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
               href={`/specifiers/${item.slug}`}
               className={cn(
                 specifierCard,
-                "group grid gap-2 p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "group grid gap-2 p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -399,7 +396,7 @@ function SpecifierResults({ query }: { query: string }) {
               count: current.count + CATALOGUE_RESULT_INCREMENT,
             }))
           }
-          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] sm:min-h-10"
+          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           Show more ({catalogueMatches.length - visibleCatalogueMatches.length} remaining)
         </button>

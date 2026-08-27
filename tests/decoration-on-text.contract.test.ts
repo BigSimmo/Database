@@ -1,13 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
+
 /**
  * Gate 1 / PR 3 — design-system recipes must not put the decoration tier on
  * text nodes (eyebrows, placeholders). Decorative glyphs use
  * `--decoration-soft`; `--text-soft` remains declaration-only compatibility.
  */
 
-const primitives = readFileSync(new URL("../src/components/ui-primitives.tsx", import.meta.url), "utf8");
+const primitives = readPrimitiveRecipeSources();
 
 /**
  * The same rule, applied to the search surfaces that carry counts, labels
