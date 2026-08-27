@@ -1504,5 +1504,15 @@ describe("design-system adoption manifest", () => {
     expect(conventions).not.toMatch(/per-step\s+line-height\s+and\s+tracking/);
     expect(evidenceSection).toMatch(/raw colours 0\b/);
     expect(evidenceSection).not.toMatch(/not re-run for this document set/);
+
+    for (const doc of [typeSection, conventions]) {
+      for (const step of ["xs", "sm", "body", "md", "lg", "xl"] as const) {
+        expect(doc, `${step} -lh companion`).not.toContain(`--text-${step}-lh`);
+        expect(doc, `${step} -tr companion`).not.toContain(`--text-${step}-tr`);
+        expect(doc, `${step} --line-height companion`).not.toContain(`--text-${step}--line-height`);
+      }
+      expect(doc).toContain("--text-hero--line-height");
+      expect(doc).toContain("--text-hero-tr");
+    }
   });
 });
