@@ -47,8 +47,10 @@ figures are correct.
 **First, the fact that frames all of it: nothing is sent to anyone.** There is no send path in this
 tree. `resolvePatientVisibleMessage` has exactly two production callers, both of them validation
 inside the plan wizard (`personalisationIssues` and `createPlanPatientDetail`). No screen renders a
-personalised message. The three screens that render the specimen are design-scratch mockups that 404
-in production.
+personalised message. The screens that render the specimen — `personalisation-screen.tsx`,
+`product-ui.tsx`, `review-activation-screen.tsx` — sit under `src/components/caring-contacts/mockups/`
+and are reached only from `src/app/mockups/caring-contacts/`, which 404s in production. I checked
+that reachability rather than assuming it.
 
 So the following is what this code _would_ produce if a sender existed, which is the honest form of
 the answer:
@@ -217,6 +219,26 @@ That commit changes only `tests/caring-contacts-postgres-repository.test.ts`, wh
 in `test:cc-guards`. The report claims `Tests  204 passed (204)`; I did not re-run it, and this
 review does not corroborate that line.
 
+### Minor 5 — the gate table's attribution moved a commit forward while every number stayed identical
+
+At `1232cbcd7` the report read _"Every gate below ran on `5c78c0dcf`, the last commit that changes
+code; the only commit after it touches this report and nothing else."_ `05487cdd7` then landed and
+falsified that sentence. `e0285a737` updated the attribution to `05487cdd7` — and left **every result
+byte-identical**: `18 passed / 432 passed`, `12 passed / 328 passed`, `2 passed / 204 passed`.
+
+Identical numbers are entirely consistent with a genuine re-run, because `05487cdd7` adds assertions
+to an existing `it` and renames it, neither of which moves a test count. They are equally consistent
+with the attribution having been edited without the gates being re-run. **Nothing in the report
+distinguishes the two**, which is precisely the gap the round-2 ledger repair closed for the mutation
+rows by recording `head` per row, and did not close for the gate table.
+
+The discipline is explicit that an edit after a gate voids that gate's verdict, and the fix is
+re-running rather than re-attributing. What the ledger does establish independently is that the
+machine ran _something_ at `05487cdd7`: `M22`, `M6b`, `M19b` and `M20d` all record that head, and
+`M22` targets `plan-patient-detail` — the suite carrying the only executable change. That is the
+suite this review re-ran itself (§9), which settles the practical risk for the one file that matters
+and leaves the wider table on the implementer's word.
+
 ### Nit 1 — a refusal can name an invisible character (pre-existing, from round 1)
 
 `` `A text message here cannot carry ${issue.unsupportedCharacters.join(" ")}, …` `` renders whatever
@@ -225,6 +247,25 @@ review does not corroborate that line.
 nothing at all. Pasting a name out of a hospital record system is exactly how such a character
 arrives. Round 2 did not introduce this and it is not a merge blocker; it belongs to whichever task
 next touches that message.
+
+### Nit 2 — the retracted claim survives in a test's own name, and the report says it does not
+
+Round 2 retracted "the message would arrive damaged" as stronger than anything known, and the report
+states the correction was applied _"wherever I wrote it — `message-copy.ts`, the two covering tests,
+and this report."_ That sentence is falsifiable, and it is false in one place:
+
+```
+tests/caring-contacts-message-copy.test.ts:145
+it("refuses a name this channel cannot carry, rather than emitting a message it would mangle", …)
+```
+
+Round 2 rewrote the comment **inside** that `it` and left its title carrying the retracted
+proposition. A test name is what a reader sees in a failure and in a reporter's output, so it is the
+sentence most likely to be read and least likely to be re-derived. The corresponding quotation in
+`message-copy.ts` is fine — it is explicitly framed as the claim being withdrawn.
+
+Cosmetic, and it does not hold the merge. It is recorded because the over-claim in the report is of
+the same family as the over-claim the round was correcting.
 
 ---
 
@@ -284,11 +325,57 @@ Reported honestly rather than by exit code.
 | control-byte and CR scan of every round-2 changed file, read in-process                               | zero control bytes, zero CR, in each file                                       |
 | GSM-7 arithmetic recomputed independently from the alphabet tables                                    | 252 / 2 segments; base 247; cap 59; 59-septet name = 306 = 2 segments; 60th = 3 |
 | `git cat-file -e <sha>^{commit}` on every SHA this review states                                      | all exist                                                                       |
-| `node scripts/run-vitest.mjs run --reporter=dot` on message-copy, message-policy, plan-patient-detail | see below                                                                       |
+| the new refusal string against the repo's own interface-vocabulary regex                              | no match — the gate cannot redden on it                                         |
+| `npx eslint` on every round-2 changed file, cache directory removed first                             | no diagnostics printed, exit 0                                                  |
+| `node scripts/run-vitest.mjs run --reporter=dot` on message-copy, message-policy, plan-patient-detail | **UNRUN — lock refusal, see below**                                             |
+| `npm run typecheck`                                                                                   | **UNRUN — lock refusal, see below**                                             |
+
+**ESLint's silence is its pass form**, unlike Vitest's. There is no `N passed` line to paste for it,
+so the honest statement is that it printed no diagnostics and exited 0 — and that is only meaningful
+because `node_modules/.cache/eslint` was removed first. A cached run would have reported the same
+thing having examined nothing.
+
+The vocabulary check was run by **reading both the regex and the string out of the repository** —
+`tests/helpers/caring-contacts-prohibited-language.ts` and `patient-detail.ts` — rather than
+retyping either. Retyping the regex is not a hypothetical risk: my first attempt at it turned the
+`\b` word boundaries into literal `0x08` bytes, which is the failure this programme has already
+recorded and which leaves every gate green.
+
+It also bounds what a missed re-run in Minor 5 could cost. Only two suites read the changed string:
+`caring-contacts-plan-patient-detail` (updated in the same commit) and
+`caring-contacts-interface-vocabulary`, whose regex demonstrably does not match it. No other test in
+the tree asserts on the old wording — `closest spelling` and `arrive damaged` appear nowhere else.
 
 The prettier check matters beyond formatting: the implementer's own gate table ran at `05487cdd7`,
 and `e0285a737` edited the report afterwards. Under the discipline that edit voids the earlier
 verdict for the report file. Re-running it on the final tree closes that gap; it is clean.
+
+### The two suite runs are UNRUN, and that is a refusal rather than a result
+
+`D:\Worktrees\Database\pr-2390-fix` held the exclusive heavy lease continuously across this review,
+running `playwright tests/ui-ward-roles.spec.ts --project=chromium-mockups` — and running it
+**repeatedly**, not once: the lease record's owner PID and start time both moved between refusals
+(PID `5556` from `02:08`, then PID `45704` from `02:32`). A retry loop attempting the narrowed
+selection every forty-five seconds was refused on every attempt across roughly twenty minutes. **No
+lease was ever forced, and no `N passed` line exists to paste.** Per the discipline this is neither a
+pass nor a failure; it is recorded as UNRUN.
+
+**Both refusal shapes appeared, and one of them arrived with exit 0.** Worth writing down because it
+is the trap this programme has already recorded and it reproduced exactly:
+
+- `node scripts/run-vitest.mjs` **threw**, ending in a Node stack with no marker:
+  `Error: Database focused-test capacity is full (current owner PID …)`.
+- `npm run typecheck` printed the marker `DATABASE_HEAVY_RUN_ADMISSION_BUSY` — and because it came
+  through a pipe, the shell reported `chain exit=0` for a gate that never ran. A detector reading
+  the exit code would have recorded that as a pass.
+
+**What this does and does not leave open.** It leaves the branch's suite verdict resting on the
+implementer's own numbers, which is the substance of Minor 5. It does **not** leave the round-2 code
+change unexamined: §9's static work establishes that only two suites read the changed string, that
+the vocabulary regex cannot match it, that no other test in the tree reads the retracted wording, and
+that ESLint is clean on every changed file. Whoever runs the wide `test:cc-guards` at the merge point
+should treat that run as closing this line, and should note that `tests/caring-contacts-postgres-repository.test.ts`
+still needs Docker to be covered at all.
 
 <!-- REVIEW GATE EVIDENCE -->
 
