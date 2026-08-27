@@ -3177,3 +3177,56 @@ was left alone because its fix round was live and removing a compile cache under
 a risk taken for nothing.** The value of deleting them was never the disk: it is that an untracked
 directory in a worktree is one `git add -A` from being committed, and this programme has captured live
 mutations into commits three times already.
+
+### Ruling [143] — the catch-up merge brought a second definition of the "lead" rule, and the patient-facing side is the weaker one
+
+The second catch-up merge is `985743e67`, trunk back to **0 behind `origin/main`**. Both conflicts were the
+generated snapshots and were resolved by regenerating, never hand-merged:
+`[snapshot] in step with data/outstanding-issues-snapshot.json (91 open, 47 pending)` and
+`[repo-awareness] in step with data/repo-awareness-snapshot.json (197 pages, 490 documents, 2630 reviews)`.
+
+**Unlike the first catch-up, this one touched Caring Contacts files** — three, all tests, from `#2398` and
+`#2403`. The first catch-up's audit found zero, and that fact was carried forward as though it were a
+property of catch-up merges rather than of that one merge. **Audit each merge; do not inherit the previous
+audit's verdict.**
+
+**The finding.** `#2403` narrowed the interface vocabulary scan's "lead" prohibition to the commercial
+sense — the repo's own copy decision B2, applied to `tests/helpers/caring-contacts-prohibited-language.ts`.
+Task C had already applied B2 to the **message** side, as `COMMERCIAL_LEAD_PATTERN` in
+`src/lib/caring-contacts/message-rules.ts`. So one rule now has **two independent definitions**, written by
+two different sessions, with nothing holding them in step.
+
+Two definitions of one rule across two surfaces is defensible — a message and a screen are different
+things. **What is not defensible is which one is weaker.** Measured by running both patterns over the same
+phrases rather than by reading them:
+
+| Phrase                        | Message rule | Interface rule |
+| ----------------------------- | ------------ | -------------- |
+| `clinical programme lead`     | permits      | permits        |
+| `team leads` (plural)         | **permits**  | refuses        |
+| `clinical leads`              | **permits**  | refuses        |
+| `clinical lead capture`       | **permits**  | refuses        |
+| `team lead nurturing numbers` | **permits**  | refuses        |
+| `lead capture`, `new leads`   | refuses      | refuses        |
+
+**Seven of seventeen phrases disagree, and every disagreement runs the same way: the interface refuses and
+the message permits.** The message side exempts the plural entirely (`\bleads?\b` sits behind the job-title
+lookbehind, so `team leads` is read as a job title) and has no commercial-phrase list, so an exempting word
+anywhere immediately before `lead` licenses whatever follows it. **The surface a discharged patient reads
+has the weaker guard, and the surface a clinician reads has the stronger one.** That is the wrong way round.
+
+**Scope this precisely, because it is a guard weakness and not a live defect.** The patient-visible message
+is one provisional constant containing none of these phrases, and nothing in this tree sends anything. The
+risk is entirely prospective: the check that would catch commercial language entering the message is the
+one that would let these through.
+
+**Ruling: fix the message side to be at least as strict as the interface side, as its own task, after the
+merge and before Tasks 20 and 21.** Not inline here — it changes the module governing patient-visible
+message validation and owes test-first work with mutation proof, and folding it into a merge already
+carrying four branches is how an unreviewed change to that module would happen twice in one phase. The
+direction is conservative, which is the direction this system is required to fail in.
+
+**Also recorded: a byte-order mark arrived on `tests/helpers/caring-contacts-prohibited-language.ts`** from
+the same merge — the only Caring Contacts file carrying one. Harmless to TypeScript and invisible in every
+diff view, which is exactly the family this repository has already been bitten by. It belongs to `main`,
+not to this phase; capture it rather than fixing it here.
