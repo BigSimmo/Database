@@ -427,7 +427,7 @@ function WideToolTile({
   onSelect?: () => void;
 }) {
   const className = cn(
-    "group grid min-h-[9rem] min-w-0 max-w-full content-between rounded-md border bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+    "group grid min-h-[9rem] min-w-0 max-w-full content-between rounded-md border bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--e2)]",
     selected || suggested
       ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
       : "border-[color:var(--border)]",
@@ -596,7 +596,7 @@ function PhoneBrowserPreview({
   const SelectedIcon = selectedTool?.icon;
 
   return (
-    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
+    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">

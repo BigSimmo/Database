@@ -187,7 +187,7 @@ export function DsmDifferentialConsiderationsPage({
                 aria-label="Differential consideration list"
                 className={cn(
                   inPageAnchor,
-                  "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+                  "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]",
                 )}
               >
                 <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -240,7 +240,7 @@ export function DsmDifferentialConsiderationsPage({
                 </div>
               </section>
 
-              <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:sticky lg:top-20">
+              <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)] lg:sticky lg:top-20">
                 <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-4">
                   <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                     Differential consideration

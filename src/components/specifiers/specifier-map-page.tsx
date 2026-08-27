@@ -156,7 +156,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
         </section>
 
         <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
             <div className="border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3">
               <p className={cn(eyebrowText, "!text-[color:var(--clinical-accent)]")}>Selected specifier</p>
               <h2 className="mt-1 text-xl font-extrabold text-[color:var(--text-heading)]">{selected.shortName}</h2>

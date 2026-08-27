@@ -1,5 +1,37 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import ts from "@typescript/typescript6";
 import postcss from "postcss";
+
+/** Public barrel after the DS-P2-21 split. Recipe bodies live under `primitive-recipes/`. */
+export const UI_PRIMITIVES_BARREL = "src/components/ui-primitives.tsx";
+export const PRIMITIVE_RECIPES_DIR = "src/components/primitive-recipes";
+
+/**
+ * Source-grep contracts must scan the barrel *and* every recipe module. The
+ * barrel is four `export *` lines; `controlDisabled`, composer recipes, and
+ * AsyncButton live in the sibling modules. Directory listing, not a hardcoded
+ * file list, so a new `primitive-recipes/*.ts(x)` is still visible.
+ */
+export function listPrimitiveRecipeSourcePaths(root = process.cwd()) {
+  const dir = path.join(root, PRIMITIVE_RECIPES_DIR);
+  const modules = fs
+    .readdirSync(dir)
+    .filter((name) => /\.(ts|tsx)$/.test(name))
+    .sort()
+    .map((name) => `${PRIMITIVE_RECIPES_DIR}/${name}`);
+  if (modules.length === 0) {
+    throw new Error(`${PRIMITIVE_RECIPES_DIR} has no .ts/.tsx modules to scan`);
+  }
+  return [UI_PRIMITIVES_BARREL, ...modules];
+}
+
+export function readPrimitiveRecipeSources(root = process.cwd()) {
+  return listPrimitiveRecipeSourcePaths(root)
+    .map((relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8"))
+    .join("\n");
+}
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
 const CSS_WHITESPACE = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
@@ -1678,6 +1710,21 @@ export function findRawScaleLiteralClassesInSource(relativePath, sourceText) {
 
 export function findTypeStepUsagesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages;
+}
+
+/**
+ * Same-file mix of the live `text-sm` utility and the compact `text-sm-minus`
+ * notch (DS-P2-02). Canonical metadata is SPEC §4.5 `--text-sm`; the two
+ * utility names currently render the same size under `.ckb-v2` and will
+ * diverge when the 705 legacy steps retire. Mixing them in one component
+ * needs a named density reason — this finder does not judge that reason, it
+ * only counts the mix so the contract can warn and ratchet rather than
+ * hard-zero the existing debt.
+ */
+export function findSameFileTextSmMinusMix(relativePath, sourceText) {
+  const usages = new Set(analyzeClassContractsInSource(relativePath, sourceText).typeStepUsages);
+  if (usages.has("sm") && usages.has("sm-minus")) return [relativePath];
+  return [];
 }
 
 /**
