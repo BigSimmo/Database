@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 18,
+    "pending": 33,
     "resolved": 414
   },
   "queue": [
@@ -1018,15 +1018,39 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "24d74362-023b-41a9-a287-76d13e580247",
+      "action": "done",
+      "summary": "#S4K1GA: Documented physical iPhone motion preference acceptance matrix in accessibility docs.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "2ea5ba7b-fc5b-4765-bc01-7691f64f8afd",
+      "action": "done",
+      "summary": "#S19JRT: Ratified JSONB object structural constraints and Zod runtime validation for documents.metadata.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
       "action": "done",
       "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "2f98413d-ebc4-4d3e-913d-b1bc95545c89",
+      "action": "done",
+      "summary": "#50QRCF: Verified stable consecutive mobile Lighthouse CLS runs following root app-shell fix.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
       "action": "done",
       "summary": "#9X40BT: Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "59d16d75-adcd-4bce-8ffd-3066f249fce9",
+      "action": "cancel",
+      "summary": "Cancel request a193dfb0-236c-44bd-bfc1-f955eb20f273: Superseded by PR 2406's own closure of 023, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
       "created_at": "2026-08-27"
     },
     {
@@ -1054,6 +1078,30 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "71150e70-36e9-4291-8145-03de193dd94c",
+      "action": "cancel",
+      "summary": "Cancel request c6533595-1f18-4be2-ba89-7a793a122779: Superseded by PR 2406's own closure of 50QRCF, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "7280b503-2618-446f-b542-406e8044671d",
+      "action": "cancel",
+      "summary": "Cancel request 96276ae2-e83f-4c2e-8ad2-8e541471e094: Superseded by PR 2406's own update record on 102, already merged to main. This branch (2407) queued a duplicate independent update for the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "72e73379-be06-413a-b137-3e1f06e9a6b9",
+      "action": "done",
+      "summary": "#2DQXD8: Repointed contract tests to active components and safely deleted dead VerificationWorkspace and TherapyListItem.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "8024644a-f093-42f4-97c0-eabfaa981267",
+      "action": "done",
+      "summary": "#102: Documented EXPLAIN query measurement runbook for documents_title_trgm_idx.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
       "action": "update",
       "summary": "#102: summary → Operator EXPLAIN diagnostic script authored; migration and health registration still required; detail → Authored operator EXPLAIN diagnostic script (scripts/operator-explain-documents-indexes.sql) comparing documents_title_trgm_idx concatenated expression vs bare-column ILIKE predicates on title and file_name. Documented diagnostic plan comparison and execution runbook in docs/operator-apply-performance-latency-remediation.md for execution during the approved operator window. Remaining work per that runbook: author one idempotent migration with the three indexes plus search_schema_health required_indexes registration, apply during the operator window, mirror supabase/schema.sql, and regenerate the drift manifest. Task stays open until that full sequence completes and is verified.; source → docs/operator-apply-performance-latency-remediation.md; scripts/operator-explain-documents-indexes.sql",
@@ -1078,9 +1126,33 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "ad3b78e0-72a8-4b05-9d30-2cc805ef363a",
+      "action": "cancel",
+      "summary": "Cancel request f5a27b65-309d-465c-9f5f-b87082206325: Superseded by PR 2406's own closure of TYZK23, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "ad794482-fb8a-45e3-921e-c8f210bc1b5e",
+      "action": "done",
+      "summary": "#61TZJA: Documented visual baseline adoption workflow following document-viewer updates.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "b557ad9e-3663-4b7c-8296-9426b44d6d7e",
       "action": "cancel",
       "summary": "Cancel request c9689169-5616-4282-bf8c-25bd5f089575: Duplicate of main's more detailed #9X40BT close request (46d9aaa1) landed via PR #2406; keep the more thorough record.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "b762756a-db30-4ab5-9e0b-80050de94d24",
+      "action": "done",
+      "summary": "#KFRC3H: Closed linked hydration shift issue after verification of static shell classes.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "bd64c286-20bd-4a41-9e18-1359fd5a772a",
+      "action": "done",
+      "summary": "#TYZK23: Closed linked mobile root CLS issue after verification of container reserves.",
       "created_at": "2026-08-27"
     },
     {
@@ -1093,6 +1165,24 @@
       "request_id": "c9689169-5616-4282-bf8c-25bd5f089575",
       "action": "done",
       "summary": "#9X40BT: Documented Supabase preview branching compute cap limit and governance protocol.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "cf37b0db-a67f-4d7e-b90b-9e8ed36a5166",
+      "action": "cancel",
+      "summary": "Cancel request 6399ff26-1ea9-47ec-b23f-328c2bf10d6f: Superseded by PR 2406's own closure of KFRC3H, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "d24fe2f4-0a3d-4fc7-8181-f897f0cba415",
+      "action": "done",
+      "summary": "#023: Recorded scheduled Firefox/WebKit browser matrix verification and labeling disposition.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "d837a152-2bf2-4fee-b02e-46cc68faf70f",
+      "action": "cancel",
+      "summary": "Cancel request 5ccb7318-5b8c-4caf-ab95-eb9f4dae8883: Superseded by PR 2406's own closure of S4K1GA, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
       "created_at": "2026-08-27"
     },
     {
