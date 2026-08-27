@@ -10,7 +10,9 @@ import {
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findHardcodedMotionClassesInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
@@ -693,6 +695,96 @@ describe("design-system contract helpers", () => {
       source,
     );
     expect(reportFailure).toHaveBeenCalledWith("printable factsheet paper boundary is missing");
+  });
+
+  it("flags an intrinsic command-fill button that bypasses Button/primaryControl", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] text-[color:var(--command-contrast)]">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("does not flag Link + primaryControl or the Button primitive file", () => {
+    const link = [
+      'import { primaryControl } from "@/components/ui-primitives";',
+      "export function Demo() {",
+      '  return <a className={primaryControl} href="/x">Go</a>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", link)).toEqual([]);
+    expect(
+      findHandRolledCommandButtonsInSource(
+        "src/components/ui/button.tsx",
+        '<button className="bg-[color:var(--command)]">X</button>',
+      ),
+    ).toEqual([]);
+  });
+
+  it("still flags an intrinsic command-fill button whose className literally contains the word Button", () => {
+    const source = [
+      "export function Demo() {",
+      '  return <button type="button" className="bg-[color:var(--command)] Button">Go</button>;',
+      "}",
+    ].join("\n");
+    expect(findHandRolledCommandButtonsInSource("src/components/demo.tsx", source)).toEqual([
+      "src/components/demo.tsx:2",
+    ]);
+  });
+
+  it("flags a child with a heavier resting elevation than its in-flow parent", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="shadow-[var(--e2)]">heavy</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual(["src/components/demo.tsx:4"]);
+  });
+
+  it("does not flag lux overlay elevation against a parent surface", () => {
+    const source = [
+      "export function Overlay() {",
+      "  return (",
+      '    <section className="shadow-[var(--e1)]">',
+      '      <div className="shadow-[var(--shadow-lux)]">sheet</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag an absolutely positioned popover with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="absolute shadow-[var(--e2)]">popover</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
+  });
+
+  it("does not flag a fixed-positioned child (e.g. a toast) with heavier elevation than its in-flow ancestor", () => {
+    const source = [
+      "export function Card() {",
+      "  return (",
+      '    <section className="shadow-[var(--e0)]">',
+      '      <div className="fixed shadow-[var(--e2)]">toast</div>',
+      "    </section>",
+      "  );",
+      "}",
+    ].join("\n");
+    expect(findElevationInversionsInSource("src/components/demo.tsx", source)).toEqual([]);
   });
 
   it("masks only the medication accent default, not other hex in the same file", () => {

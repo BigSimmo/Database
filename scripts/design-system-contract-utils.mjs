@@ -1420,6 +1420,148 @@ export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) 
   return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
 }
 
+const COMMAND_FILL = "bg-[color:var(--command)]";
+const ELEVATION_TOKENS = [
+  { match: /--shadow-lux\b/, rank: 4, lux: true },
+  { match: /--e4\b/, rank: 4, lux: true },
+  { match: /--e3\b/, rank: 3, lux: false },
+  { match: /--e2\b/, rank: 2, lux: false },
+  { match: /--shadow-soft\b/, rank: 2, lux: false },
+  { match: /--e1\b/, rank: 1, lux: false },
+  { match: /--e0\b/, rank: 0, lux: false },
+  { match: /--shadow-inset\b/, rank: 0, lux: false },
+];
+
+function jsxOpening(node) {
+  if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) return node;
+  if (ts.isJsxElement(node)) return node.openingElement;
+  return null;
+}
+
+function jsxTagName(opening) {
+  return opening?.tagName?.getText?.() ?? "";
+}
+
+function jsxClassNameText(opening, source) {
+  if (!opening) return "";
+  const classAttribute = opening.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+  if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return "";
+  return `${jsxClassText(classAttribute)} ${classAttribute.getText(source)}`;
+}
+
+function elevationFromClassText(classText) {
+  if (!classText) return null;
+  let rank = null;
+  let lux = false;
+  for (const token of classText.split(/\s+/)) {
+    if (/^(hover|focus-visible|forced-colors):/.test(token)) continue;
+    for (const entry of ELEVATION_TOKENS) {
+      if (entry.match.test(token)) {
+        if (rank === null || entry.rank > rank) rank = entry.rank;
+        if (entry.lux) lux = true;
+      }
+    }
+  }
+  return rank === null ? null : { rank, lux };
+}
+
+function elevationExcepted(classText, tag) {
+  const hay = `${tag} ${classText}`;
+  return /overlay|Sheet|glassOverlaySurface|\bpanel\b|shadow-lux|ring-highlight|lux/i.test(hay);
+}
+
+function isOutOfFlowClassText(classText) {
+  if (!classText) return false;
+  for (const token of classText.split(/\s+/)) {
+    if (/(^|:)(absolute|fixed)$/.test(token)) return true;
+  }
+  return false;
+}
+
+/**
+ * Advisory AST: a child in-flow surface whose resting elevation token is heavier
+ * than the nearest ancestor that also declares one. Overlays, Sheet, lux recipes,
+ * hover/focus-visible/forced-colors shadows, and out-of-flow (absolute/fixed
+ * positioned) surfaces such as popovers are excluded — an absolutely positioned
+ * child isn't really "nested inside" its DOM ancestor's stacking/elevation.
+ */
+export function findElevationInversionsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx") && !relativePath.endsWith(".ts")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    const opening = jsxOpening(node);
+    if (opening && opening === node) {
+      const tag = jsxTagName(opening);
+      const classText = jsxClassNameText(opening, source);
+      const self = elevationFromClassText(classText);
+      if (self && !self.lux && !elevationExcepted(classText, tag) && !isOutOfFlowClassText(classText)) {
+        let ancestor = node.parent;
+        while (ancestor) {
+          const parentOpening = jsxOpening(ancestor);
+          if (parentOpening && parentOpening !== opening) {
+            const parentTag = jsxTagName(parentOpening);
+            const parentClass = jsxClassNameText(parentOpening, source);
+            const parent = elevationFromClassText(parentClass);
+            if (parent) {
+              if (!parent.lux && !elevationExcepted(parentClass, parentTag) && self.rank > parent.rank) {
+                const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+                findings.push(`${relativePath}:${line}`);
+              }
+              break;
+            }
+          }
+          ancestor = ancestor.parent;
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return [...new Set(findings)];
+}
+
+/**
+ * Intrinsic `<button>` nodes whose className paints `--command` without going
+ * through `primaryControl`. The `Button` primitive's own source file is exempt
+ * by path, not by matching the literal text "Button" in a className — an
+ * intrinsic `<button className="... Button">` is still hand-rolled.
+ */
+export function findHandRolledCommandButtonsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  if (relativePath.includes("/mockups/")) return [];
+  if (relativePath === "src/components/ui/button.tsx") return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(source) === "button"
+    ) {
+      const classAttribute = node.attributes.properties.find(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+      );
+      const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
+      const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
+      const hay = `${classText} ${classSource}`;
+      if (hay.includes(COMMAND_FILL) && !/\bprimaryControl\b/.test(hay)) {
+        const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        findings.push(`${relativePath}:${line}`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
 export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
   return analyzeClassContractsInSource(relativePath, sourceText).densityOverrides;
 }
