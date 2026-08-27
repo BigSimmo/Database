@@ -1965,11 +1965,6 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   };
 }
 
-/** Clinical rank score. */
-export function clinicalRankScore(query: string, result: SearchResult) {
-  return clinicalRankExplanation(query, result).finalScore;
-}
-
 /** Ranking tie break score. */
 function rankingTieBreakScore(query: string, result: SearchResult, explanation: SearchScoreExplanation) {
   const analysis = analyzeClinicalQuery(query);
