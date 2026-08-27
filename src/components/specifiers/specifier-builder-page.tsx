@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, ChevronLeft, ClipboardCopy, FileCheck2, ListChecks, RotateCcw, Tags } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronLeft,
+  ClipboardCopy,
+  FileCheck2,
+  GitCompareArrows,
+  ListChecks,
+  RotateCcw,
+  Tags,
+  Waypoints,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SpecifierPageShell, SpecifierSafetyNote, specifierCard } from "@/components/specifiers/specifier-ui";
+import { pairCompareHref } from "@/components/compare";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
@@ -527,6 +539,27 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                       ? errorCopy.clipboardCopyFailed
                       : ""}
                 </p>
+
+                <div className="flex flex-wrap justify-end gap-2 border-t border-[color:var(--border)] pt-4">
+                  <Link
+                    href="/specifiers/map"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <Waypoints className="h-4 w-4" aria-hidden />
+                    Browse the map
+                  </Link>
+                  <Link
+                    href={
+                      selectedRecords.length >= 2
+                        ? pairCompareHref("/specifiers/compare", selectedRecords[0].slug, selectedRecords[1].slug)
+                        : "/specifiers/compare"
+                    }
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+                  >
+                    <GitCompareArrows className="h-4 w-4" aria-hidden />
+                    Compare specifiers
+                  </Link>
+                </div>
               </div>
             </section>
           ) : null}
