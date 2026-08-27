@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#HVTYAT",
+    "outcome": "Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
+    "baseRowFingerprint": "96e4a759e8bb3f665206911ccb8ba93ba5b32cba0bcb763aa3e2a1e0768d078c"
+  }
+}

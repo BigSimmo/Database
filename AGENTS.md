@@ -12,82 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Dependency shortcut
 
-When the user types exactly `dependency` as the entire task message, after trimming surrounding whitespace, treat it as a shortcut for safe dependency maintenance. This is a Codex chat shortcut, not an app feature, script, automation, or CI workflow.
-
-Goal:
-Update direct project dependencies to the newest stable compatible versions, regenerate the existing lockfile, identify source/config/test code that relies on old dependency behavior, make the smallest safe compatibility changes, and verify the result. Do not rewrite the project, switch package managers, discard user work, commit, push, deploy, or run destructive cleanup without explicit confirmation.
-
-Start with read-only inspection:
-
-- Check branch, upstream, worktrees, recent relevant history, and `git status`.
-- If on `main`, `master`, `develop`, `release/*`, or another protected/base branch, create/switch to `codex/dependency-maintenance` before editing, if safe.
-- Inspect manifests, lockfiles, package-manager config, runtime/toolchain files, workspace layout, CI config, scripts, and documented checks.
-- Detect repo-local install/dev/test/build/watch/server processes that could race dependency updates.
-- Preserve all existing staged, unstaged, and untracked user work.
-
-Package-manager rules:
-
-- Use the package manager already used by the repo: npm, pnpm, yarn, bun, pip, poetry, uv, cargo, go, bundler, gradle, maven, dotnet, or equivalent.
-- Do not switch package managers or create a new lockfile type.
-- Respect engines, runtime versions, lockfiles, workspaces, wrappers, and repo conventions.
-- In monorepos or polyglot repos, update each ecosystem through its native workspace-aware workflow.
-
-Dependency update rules:
-
-- Identify outdated direct production and development dependencies.
-- Compare both manifest ranges and locked/installed versions against latest stable compatible releases.
-- Treat “outdated packages found” exit codes as normal where applicable.
-- Avoid prerelease, alpha, beta, canary, rc, next, nightly, and experimental versions unless the stable channel points there and explain why.
-- Do not use force or legacy flags that bypass peer, engine, resolver, or lockfile integrity checks unless explicitly approved.
-- Do not run forced audit fixes or broad destructive codemods.
-- If latest is incompatible, use the newest compatible version and document why.
-- Group risky updates coherently, such as framework plus plugins, test runner plus coverage, lint core plus plugins, or runtime plus adapter packages.
-
-Compatibility audit:
-
-- For every major update and every core framework/runtime/build/test/lint/UI/database update, inspect release notes, migration guides, peer ranges, engines, and changelogs when available.
-- Search source, tests, scripts, config, and CI for imports, APIs, CLI flags, config keys, environment variables, plugin names, generated types, or file paths tied to changed dependencies.
-- If old dependency behavior is used, make the smallest safe migration that preserves behavior.
-- If migration is large, risky, architectural, or product-affecting, stop after discovery and provide a concrete fix plan with affected files, package versions, sequence, and verification commands.
-- Add or adjust focused tests only when needed to prove migrated behavior.
-
-Generated and sensitive files:
-
-- Do not intentionally keep dependency directories, build outputs, caches, logs, local state, test artifacts, browser artifacts, `.env*`, secrets, keys, tokens, credentials, or machine-local config.
-- Manifest and existing lockfile changes are allowed.
-
-Verification:
-
-- Run a cheap baseline first when useful to distinguish pre-existing failures.
-- After updates, run install/dependency validation, then relevant lint, type check, tests, build, smoke/UI/a11y, codegen, integration checks, or equivalent.
-- For frontend/browser-facing changes, run browser/UI verification when framework, bundler, router, styling, test runner, or browser automation changed.
-- If a check fails, fix dependency-related breakage and rerun the smallest failing check before broader checks.
-- Run non-mutating audit/vulnerability checks when available.
-- Confirm no repo-owned dev server, watcher, or temporary process was left running unless requested.
-
-Final response for `dependency` must include:
-
-- Branch and worktree state.
-- Package manager, runtime, manifests, and lockfiles detected.
-- Outdated dependencies found.
-- Dependencies updated, old version -> new version.
-- Dependencies not updated and why.
-- Files changed.
-- Compatibility migrations and old APIs found/fixed.
-- Checks run and results.
-- Checks not run and why.
-- Audit/vulnerability summary.
-- Generated/untracked files left behind.
-- Branch movement, external repo changes, or process cleanup observed.
-- Risks or follow-up work.
-- Confirmation that no commit or push was made unless explicitly requested.
-
-After setup:
-
-- Verify root `AGENTS.md` contains exactly one `## Dependency shortcut` section.
-- Show the final diff for `AGENTS.md`.
-- Summarize what changed.
-- Confirm no dependency update, install, test, build, audit, commit, or push was performed.
+For the full Codex dependency shortcut workflow, see [`docs/agents/codex-dependency-shortcut.md`](docs/agents/codex-dependency-shortcut.md).
 
 <!-- END:dependency-shortcut -->
 
@@ -117,70 +42,9 @@ Scope and safety:
 
 ## Codex review throttling and routing
 
-Do not review branches opportunistically. Review the current changed diff, PR, or branch only when the user explicitly asks for review/audit/hunter/cleanup/upload work, when CI/check failures are the task, or when the current change touches high-risk areas that require a targeted review before handoff.
-
-Use `docs/codex-review-protocol.md` as the shared review protocol for every repo-local review skill, branch/PR review, audit, bug hunt, release-readiness check, and PR/CI review.
-
-Before reviewing a branch or PR:
-
-- Run `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"`. It resolves the HEAD, matches the abbreviated SHAs older records used, and prints an explicit verdict. Do not read `docs/branch-review-ledger.md` by eye — live + archive rows are many, and eyeballing is how repeat reviews slipped through. `ledger:lookup` reads archives under `docs/archive/branch-review-ledger-*.md` too.
-- On `ALREADY REVIEWED`, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
-- On `NOT REVIEWED at this HEAD`, review only the changed scope and append a record after the review.
-
-Before reviewing multiple branches:
-
-- Build a short branch inventory first: branch, upstream, ahead/behind, last commit, and merged status.
-- Skip branches already merged into `main`.
-- Skip unchanged branches already recorded in `docs/branch-review-ledger.md`.
-- Do not re-review every branch after ordinary coding tasks.
-- If a repeated request targets unchanged reviewed branches, summarize the prior result and ask before doing another full pass.
-
-Review routing:
-
-- `diff-review`: Use for explicit review of the current diff, PR, or named branch. Findings first, ordered by severity, with file/line evidence.
-- `bug-hunter`: Use only for the exact `bug-hunter` shortcut or an explicit defect-hunt request. Prioritize reproducible bugs and smallest proof.
-- `repo-auditor`: Use for explicit repo-wide audit/refactor/dead-code/import/dependency-structure requests. Treat outputs as triage, not automatic delete lists.
-- `release-readiness`: Use for explicit release, merge, PR readiness, or handoff confidence requests. Do not run provider-backed gates without confirmation.
-- `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
-- `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
-
-When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. It creates one content-addressed immutable record file, so concurrent reviews never edit a shared Markdown hunk. Never hand-write a record: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make the throttle unreliable. The legacy Markdown table is frozen for normal PRs; append a correction or superseding record (`--supersede`) instead. `npm run check:branch-review-ledger` validates all sources, while `check:ledger-write-discipline` rejects a legacy-table row change before it becomes a GitHub conflict.
-
-Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit review record (that marks every other open PR behind). One Run PR record per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" record.
+For Codex review throttling, branch routing, review ledger append rules, and review thread resolution guidance, see [`docs/agents/codex-review-throttling.md`](docs/agents/codex-review-throttling.md) and [`docs/codex-review-protocol.md`](docs/codex-review-protocol.md).
 
 <!-- END:codex-review-throttling -->
-
-<!-- BEGIN:resolve-review-threads-after-fixing -->
-
-## Resolve review threads after fixing them
-
-Pushing a fix is not the end of the task when that fix was made in response to a GitHub PR
-review comment. Resolving the corresponding review thread is part of the same unit of work,
-not a follow-up to remember later — an addressed comment left unresolved still blocks merge
-and still reads to reviewers, merge-queue tooling, and `pr-policy.mjs`-style gates as
-unaddressed.
-
-- After pushing a fix for a review comment, reply on that thread with a short summary of what
-  changed (naming the fixing commit where useful), then resolve the thread once the fix is
-  pushed — reply first, resolve second, both before moving to the next item.
-- Only resolve a thread you actually fixed or fully dispositioned. Never resolve a thread you
-  did not act on, never resolve one to tidy away feedback you disagree with, and never resolve
-  a thread on a PR you are only watching on someone else's behalf — leave those for the PR's
-  owner or reviewer.
-- If the comment needs more than a direct fix (a design decision, missing context, reviewer
-  input), reply explaining why instead of resolving, and leave the thread open.
-- This does not grant new GitHub write access or user authorisation for separate provider
-  writes. Reply and resolve only when the user explicitly authorised those actions for that PR
-  (for example, an explicit PR-fixing/babysitting sweep that names replies or thread resolution,
-  or the `Run PR` shortcut where that authority is stated) and the available tooling permits
-  them. If the user's ask was scoped to only committing and pushing the fix, stop there and tell
-  them the reply/resolve step is still open rather than performing it unasked.
-- This applies to every PR you push review-responsive fixes to in this repo, not only the
-  automated Codex resolve workflow — see "Review comment lifecycle" below for that workflow's
-  specific marker convention, and your runtime PR-babysitting instructions for the fuller
-  human-reviewer posture this section summarizes.
-
-<!-- END:resolve-review-threads-after-fixing -->
 
 <!-- BEGIN:local-server-safety -->
 
@@ -232,16 +96,7 @@ bytes. Do not weaken it.
 
 # Codex Desktop worktree setup
 
-- The Windows Codex Desktop environment setup command is `node scripts/setup-codex-worktree.mjs`.
-  It must work before `node_modules` exists, validate Node 24/npm 11, reuse only a complete
-  byte-identical local installation, and otherwise run the locked npm install.
-- Never configure Windows Desktop worktrees to run `bash scripts/setup-codex-cloud.sh`. That script
-  is Linux/Cloud-only; Windows launches it through WSL outside the worktree and cannot provision the
-  repository.
-- `.codex/environments/environment.toml` is autogenerated and ignored. Change the Database
-  environment through Codex settings, then verify the effective command with the generated file and
-  `node scripts/setup-codex-worktree.mjs --dry-run`.
-- **Web container runtime requirements:** Package manifests enforce strict Node 24 (`>=24.15.0 <25`) and npm 11 engines. If a web container environment boots with Node 22 on `PATH`, do not drop engine-strict; export `/opt/node24/bin` at the front of `PATH` or install Node 24 to satisfy repository engine contracts before running `npm ci`.
+For Windows Codex Desktop worktree bootstrap and dry-run instructions, see [`docs/agents/codex-desktop-worktree-setup.md`](docs/agents/codex-desktop-worktree-setup.md).
 
 <!-- END:codex-desktop-worktree-setup -->
 
@@ -995,17 +850,7 @@ Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — wi
 
 ## Codex productivity defaults
 
-- Treat terse prompts as workflow shortcuts when the intent is clear. If the user says `run`, execute `npm run ensure`, verify the project identity through that helper, and return the printed local URL without a long log dump.
-- For non-trivial changes, start from concrete repo state: branch, `git status`, relevant package scripts, recent failures, and local logs such as `dev-server.log` when runtime behavior is involved. For architecture and module orientation, read `docs/codebase-index.md` (routes: `docs/site-map.md`).
-- For UI, browser, styling, routing, accessibility, or screenshot work, run `npm run ensure` before opening the app, then use browser QA and the smallest relevant UI proof before broader gates.
-- Prefer the smallest failing check first. For this repo, use focused Vitest or Playwright targets before widening to `npm run verify:cheap`, `npm run verify:ui`, or `npm run verify:release`.
-- Use `npm run test:focused -- --files <paths>` only for safe source-only iteration. It fails closed for deleted files and test/configuration infrastructure; follow its instruction to run `npm run test` in those cases.
-- When the user says `safely`, preserve unrelated staged, unstaged, and untracked work; stop only clearly repo-owned transient processes; and verify the result instead of doing broad cleanup.
-- After auth, Supabase, ingestion, answer generation, search/ranking, clinical output, or source-governance changes, run the smallest domain check plus `npm run check:production-readiness`. Run `npm run check:supabase-project` after Supabase env/config changes.
-- For handoff, archive-safety, or upload-style requests, inspect branch/upstream/status first, run the appropriate verification gate, and only commit or push when the request explicitly asks for that workflow.
-- For broad chat/worktree reconciliation or cleanup, run `node scripts/reconciliation-preflight.mjs`, use the cheap ownership/PR/ledger/ancestry funnel before patch comparison, and never print raw process command lines.
-- For codebase appraisal exports, stage outside the repo, include `EXPORT_MANIFEST.md`, exclude secrets/dependencies/build outputs/local state, and verify the archive can be opened before handoff.
-- When a repeated repo-specific workflow is discovered, update this file or ask the user whether it should be remembered.
+For Codex-specific productivity shortcuts and operating rules, see [`docs/agents/codex-productivity-defaults.md`](docs/agents/codex-productivity-defaults.md).
 
 <!-- END:codex-productivity-defaults -->
 

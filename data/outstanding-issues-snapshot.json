@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 24,
+    "pending": 33,
     "resolved": 414
   },
   "queue": [
@@ -1000,6 +1000,12 @@
   ],
   "pending": [
     {
+      "request_id": "02739a08-8671-457a-b422-a4bcb0485ae5",
+      "action": "cancel",
+      "summary": "Cancel request 2f51fee1-5eae-4230-9b26-69cc53c8865e: Duplicate of main's more detailed #HVTYAT close request (1836d32f) landed via PR #2406; keep the more thorough record.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "13ea8c93-7134-4e18-9f7c-6c0f9a624726",
       "action": "done",
       "summary": "#TF6TPJ: Resolved and verified. scripts/guard-push.mjs enforces Guard 2 (inFlightCiGuard) across all PR push workflows, and scripts/sync-pr-branches.mjs checks hasRequiredCiInFlight() to prevent main-merges while CI is in-flight. Verified via unit and contract tests in tests/ci-cache-safety.test.ts and tests/guard-push.test.ts. Merging main into open PR branches no longer triggers cancel-in-progress on active required CI or produces false-red PR required states with zero failing jobs.",
@@ -1021,6 +1027,12 @@
       "request_id": "2ea5ba7b-fc5b-4765-bc01-7691f64f8afd",
       "action": "done",
       "summary": "#S19JRT: Ratified JSONB object structural constraints and Zod runtime validation for documents.metadata.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
+      "action": "done",
+      "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
       "created_at": "2026-08-27"
     },
     {
@@ -1054,6 +1066,18 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "6a9212fa-bd26-42d1-b412-6ddda9c66f88",
+      "action": "done",
+      "summary": "#1VFSYF: Created shadow extraction inspection utility script and documented >10% timeout rollback rule.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "6d3d4a50-f7be-400a-969e-5dbb4dfd75e5",
+      "action": "cancel",
+      "summary": "Cancel request ea5915df-befe-4c8d-81d3-3686fa9459e1: Duplicate of main's more detailed #TF6TPJ close request (13ea8c93) landed via PR #2406; keep the more thorough record.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "71150e70-36e9-4291-8145-03de193dd94c",
       "action": "cancel",
       "summary": "Cancel request c6533595-1f18-4be2-ba89-7a793a122779: Superseded by PR 2406's own closure of 50QRCF, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
@@ -1084,9 +1108,21 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "a114318c-949e-46df-9b72-c9df997a72cd",
+      "action": "done",
+      "summary": "#8A00R7: Modularized AGENTS.md reducing per-turn token payload while updating pinning tests.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
       "action": "done",
       "summary": "#023: Completed scheduled browser matrix verification and human labeling disposition. release-browser-matrix is verified unblocked from dependency audits and green across Firefox and WebKit. Human review disposition of the stable 0.0917 irrelevant-at-10 fixture set completed using #084 per-rank diagnostic grades (338 graded top rows, 33 grade-0 tail rows): all 12 non-zero cases audited and confirmed genuine off-topic tail rows rather than ranking defects. Labels and ranking thresholds retained unchanged as evaluation audit baseline. Documented in docs/evidence/rag-irrelevant-at-10-disposition.md.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "a7275b7e-ce79-4050-959b-f045a24e6f53",
+      "action": "done",
+      "summary": "#RVK6BJ: Repaired empty Claude Code worktrees and verified worktree dependency setup.",
       "created_at": "2026-08-27"
     },
     {
@@ -1099,6 +1135,12 @@
       "request_id": "ad794482-fb8a-45e3-921e-c8f210bc1b5e",
       "action": "done",
       "summary": "#61TZJA: Documented visual baseline adoption workflow following document-viewer updates.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "b557ad9e-3663-4b7c-8296-9426b44d6d7e",
+      "action": "cancel",
+      "summary": "Cancel request c9689169-5616-4282-bf8c-25bd5f089575: Duplicate of main's more detailed #9X40BT close request (46d9aaa1) landed via PR #2406; keep the more thorough record.",
       "created_at": "2026-08-27"
     },
     {
@@ -1120,6 +1162,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "c9689169-5616-4282-bf8c-25bd5f089575",
+      "action": "done",
+      "summary": "#9X40BT: Documented Supabase preview branching compute cap limit and governance protocol.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "cf37b0db-a67f-4d7e-b90b-9e8ed36a5166",
       "action": "cancel",
       "summary": "Cancel request 6399ff26-1ea9-47ec-b23f-328c2bf10d6f: Superseded by PR 2406's own closure of KFRC3H, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
@@ -1135,6 +1183,12 @@
       "request_id": "d837a152-2bf2-4fee-b02e-46cc68faf70f",
       "action": "cancel",
       "summary": "Cancel request 5ccb7318-5b8c-4caf-ab95-eb9f4dae8883: Superseded by PR 2406's own closure of S4K1GA, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
+      "action": "done",
+      "summary": "#TF6TPJ: Validated Guard 2 in guard-push.mjs to ensure merge-base resolution on main merges.",
       "created_at": "2026-08-27"
     },
     {
