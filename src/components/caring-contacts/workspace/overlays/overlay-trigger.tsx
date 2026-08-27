@@ -6,7 +6,7 @@ import { cn } from "@/components/ui-primitives";
 
 import { overlayDefinition, type WorkspaceOverlayId } from "./definitions";
 import type { WorkspaceOverlayCommit } from "./overlay-commits";
-import { openWorkspaceOverlay, openWorkspaceOverlayWithCommit } from "./workspace-overlays";
+import { openWorkspaceOverlayWithCommit } from "./workspace-overlays";
 
 /**
  * The control a screen renders to raise one of the twenty-four overlays.
@@ -45,7 +45,7 @@ import { openWorkspaceOverlay, openWorkspaceOverlayWithCommit } from "./workspac
  * `UnavailableDestination`, not this.
  */
 /**
- * The default surface both triggers below wear, in ONE place.
+ * The default surface both of the workspace's triggers wear, in ONE place.
  *
  * `min-h-tap` is the design system's ONE tap knob (`--spacing-tap`, 3rem = 48px). Never a copy of
  * the number, and never the 44px step: production tap targets are 48px here, and reducing them to
@@ -59,11 +59,14 @@ import { openWorkspaceOverlay, openWorkspaceOverlayWithCommit } from "./workspac
  * so a caller can add to this; a caller wanting a different surface should say so with its own
  * utilities.
  *
- * Shared rather than copied: the exit-only trigger below is the same control with a different
- * opening route, and two copies of this string would drift into two visibly different controls
- * doing visibly similar things.
+ * Shared rather than copied, and EXPORTED for that reason. `ExitOnlyOverlayTrigger` in
+ * `exit-only-overlay-trigger.tsx` is the same control with a different opening route, and two
+ * copies of this string would drift into two visibly different controls doing visibly similar
+ * things. A second copy of it did exist, in a second implementation of that component that lived
+ * below this one until the two were collapsed into one module; the surface is the only part of
+ * this file that component still needs.
  */
-const OVERLAY_TRIGGER_CLASS =
+export const OVERLAY_TRIGGER_CLASS =
   "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] transition-colors hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none forced-colors:border";
 
 export type WorkspaceOverlayTriggerProps = {
@@ -119,87 +122,6 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
       data-testid="workspace-overlay-trigger"
       data-overlay-trigger={overlayId}
       onClick={() => openWorkspaceOverlayWithCommit(overlayId, commit)}
-      className={cn(OVERLAY_TRIGGER_CLASS, className)}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * The control a screen renders to raise an overlay whose frozen row records nothing.
- *
- * ## Why this exists rather than a no-op commit
- *
- * {@link WorkspaceOverlayTrigger} above requires a commit because the rows that confirm something
- * must be wired, and Ruling 87 makes the compiler enforce that a screen has wired what it opens.
- * The rest carry `mutatesState: false`, and Ruling 90 established what that means:
- * their controls are EXITS, not confirmations -- "Back to personalisation", "Close this detail",
- * "Sign in again" -- so there is no decision for a screen to wire.
- *
- * That leaves a screen raising one of them with no honest value for `commit`, and both spellings
- * available through the other trigger are wrong:
- *
- *  - `{ kind: "record", record: () => {} }` is a no-op. It reports to the host that this decision
- *    IS wired and records nothing, which is the precise defect Ruling 87 exists to make
- *    impossible, expressed in the one shape the type system cannot see through.
- *  - `{ kind: "unavailable", reason }` carries `scope: "every-row"` -- a screen's own statement,
- *    which by design reaches read-only rows too. It would render the exit `aria-disabled` with a
- *    reason beside it, leaving a person inside a preview with no way out but Escape or the
- *    backdrop, and on a `recovery-only` row with nothing to do at all.
- *
- * Staging NOTHING is the shape that is already correct. `commitRefusalFor(null)` answers
- * `NO_STAGED_COMMIT_REASON` with `scope: "recording-rows-only"`, and the host withholds a
- * recording-only refusal from a row that records nothing -- so an exit opened this way stays live,
- * which is exactly what `overlay-trigger.dom.test.tsx`'s "a row that records nothing keeps its way
- * out" loop already proves for every row that records nothing. `openWorkspaceOverlay` is documented in
- * `workspace-overlays.ts` as "deliberately NOT the trigger's route", and that sentence is about
- * the trigger above, whose whole contract is that a commit travels with the opening. Here there is
- * no commit to travel, and the absence is the correct value rather than a missing one.
- *
- * ## The guard, and why it throws rather than narrowing a type
- *
- * A mutating row raised through this component would open a confirm control with nothing staged
- * and get `NO_STAGED_COMMIT_REASON` -- a refusal that reads as though the screen were opened by
- * address when a control on it was pressed. That is a false statement to a clinician, so it throws
- * at render, in every environment, the same policy `WorkspaceOverlayTrigger` and
- * `blockReasonWording` already follow for an unknown id. A union narrowed to the non-recording ids
- * was rejected: Task 14 is narrowing the overlay id union on another branch, and a second, differently
- * derived list of ids here would be a copy of the frozen table free to stop agreeing with it. The
- * check reads `mutatesState` off that table at render instead, so it can never disagree.
- */
-export type ExitOnlyOverlayTriggerProps = {
-  /** An id from the frozen 24-row table whose row carries `mutatesState: false`. */
-  overlayId: string;
-  /** The control's visible label, and therefore its accessible name. */
-  children: ReactNode;
-  className?: string;
-};
-
-export function ExitOnlyOverlayTrigger({ overlayId, children, className }: ExitOnlyOverlayTriggerProps) {
-  const definition = overlayDefinition(overlayId);
-  if (definition === null) {
-    throw new Error(
-      `No overlay is defined for the id "${overlayId}". The 24 rows are frozen in ` +
-        `overlays/definitions.ts, transcribed from docs/caring-contacts/interaction-matrix.md. ` +
-        `A trigger for an id no row carries would open nothing.`,
-    );
-  }
-  if (definition.mutatesState) {
-    throw new Error(
-      `The overlay "${overlayId}" records state, so it cannot be opened as an exit. Its confirm ` +
-        `control would refuse with the reason given to an overlay reached by address, which is ` +
-        `false about a control that was pressed. Use WorkspaceOverlayTrigger and state the commit.`,
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      data-testid="workspace-overlay-trigger"
-      data-overlay-trigger={overlayId}
-      data-overlay-trigger-kind="exit-only"
-      onClick={() => openWorkspaceOverlay(overlayId)}
       className={cn(OVERLAY_TRIGGER_CLASS, className)}
     >
       {children}

@@ -19,7 +19,8 @@ import {
 } from "@/lib/caring-contacts/pathway-versions";
 
 import { ListEmptyState } from "./list-empty-state";
-import { ExitOnlyOverlayTrigger, WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
+import { ExitOnlyOverlayTrigger } from "./overlays/exit-only-overlay-trigger";
+import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
 import {
   MESSAGE_TYPE_ORDER,
   MESSAGE_TYPE_WORDING,

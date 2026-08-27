@@ -60,12 +60,9 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
   caringContactsStore: async () => mocks.store.current,
 }));
 
-import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
+import { assertExitOnlyOverlayRow } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
 import { overlayDefinition } from "@/components/caring-contacts/workspace/overlays/definitions";
-import {
-  clearStagedWorkspaceOverlayCommit,
-  commitRefusalFor,
-} from "@/components/caring-contacts/workspace/overlays/overlay-commits";
+import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import {
   planActionCardName,
@@ -1345,23 +1342,46 @@ describe("the patient overview - the delivery detail overlay is wired only where
   it("refuses to be the workspace's escape hatch from Ruling 87 on a row that records something", () => {
     // The guard is what separates this from the silent no-op Ruling 87 forbids: it is legitimate
     // ONLY because the row's decision is an exit and the host performs the close itself.
-    expect(() => exitOnlyOverlayCommit("delivery-detail")).not.toThrow();
-    // REVIEW ROUND 2, and this is the assertion the first version was missing. "Does not throw" says
-    // nothing about WHICH commit comes back, and the whole decision this module exists to take is
-    // `record` rather than `unavailable`. `commitRefusalFor` is exported, pure and TOTAL over the
-    // three states of the slot, so the difference is decidable right here: an `unavailable` commit
-    // answers with an `every-row` refusal, which the host would render as an aria-disabled EXIT --
-    // the defect Ruling [90] fixed. Only a `record` commit answers null.
+    expect(() => assertExitOnlyOverlayRow("delivery-detail")).not.toThrow();
+    expect(() => assertExitOnlyOverlayRow("withdrawal")).toThrow(/records a decision/i);
+    expect(() => assertExitOnlyOverlayRow("not-an-overlay")).toThrow(/No overlay is defined/i);
+  });
+
+  it("raises the receipt drawer through the exit route rather than a commit that records nothing", () => {
+    // WHAT THIS ASSERTION USED TO BE, and why it changed. It read
+    // `expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull()` -- proving the
+    // staged commit was a `record` rather than an `unavailable`, because an `unavailable` carries an
+    // `every-row` refusal the host would render as an aria-disabled EXIT (the defect Ruling [90]
+    // fixed). That distinction was real and the assertion was sound about the code beneath it.
     //
-    // I first reported this as unprovable offline and deferred it to Playwright. That was wrong, and
-    // the reason is worth more than the fix: `tests/caring-contacts-overlay-trigger.dom.test.tsx`
-    // already draws exactly this distinction, and it is NOT in `test:cc-guards`. Reasoning from
-    // "what does my gate run?" I concluded no offline test could tell two behaviours apart that an
-    // unrun suite tells apart today. A gate that omits a suite does not merely skip coverage -- it
-    // hides the precedent.
-    expect(commitRefusalFor(exitOnlyOverlayCommit("delivery-detail"))).toBeNull();
-    expect(() => exitOnlyOverlayCommit("withdrawal")).toThrow(/records a decision/i);
-    expect(() => exitOnlyOverlayCommit("not-an-overlay")).toThrow(/No overlay is defined/i);
+    // The adjudication in the build record ("The duplicate `ExitOnlyOverlayTrigger`, adjudicated")
+    // deliberately removed the thing it was asserting: this control now stages NOTHING at all, so
+    // there is no commit to ask `commitRefusalFor` about. A no-op `record` commit is
+    // indistinguishable at the host from a screen that merely satisfied the compiler, which is the
+    // shape Ruling [87] exists to make impossible; staging nothing goes through the
+    // `NO_STAGED_COMMIT_REASON` / `recording-rows-only` path Ruling [90] already built, and the host
+    // withholds that refusal from a row recording nothing. `tests/caring-contacts-overlay-trigger`'s
+    // "a row that records nothing keeps its way out" loop proves that for every non-recording row.
+    //
+    // So the property moved rather than weakened, and this is where it is load-bearing: the control
+    // THIS SCREEN renders takes the exit route. `data-overlay-trigger-kind` is the DOM's own record
+    // of which of the two routes opened it, and only the exit-only trigger writes it.
+    const record = planRecordFixture({
+      contacts: [
+        scheduleEntryFixture(1, "delivered", { cadenceLabel: "Day 1", messageType: "first" }),
+        scheduleEntryFixture(2, "scheduled", { cadenceLabel: "Month 1" }),
+      ],
+    });
+
+    render(<PatientOverview patientId={PATIENT} view={episodeView({ record, episode: null, otherPlanCount: 0 })} />);
+
+    const triggers = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "delivery-detail");
+    // The positive control for the attribute assertion below: there IS a control for this row, so a
+    // green is about the route it takes rather than about an empty list.
+    expect(triggers, "the receipt drawer has no inbound control on this screen").toHaveLength(1);
+    expect(triggers[0]).toHaveAttribute("data-overlay-trigger-kind", "exit-only");
   });
 });
 
@@ -1415,17 +1435,34 @@ describe("the patient overview - the activation outcome is offered only while th
     });
   }
 
-  it("takes the exit commit, which refuses any row that records something", () => {
-    // The same guard `delivery-detail` leans on, asked of this row: `exitOnlyOverlayCommit` is
+  it("takes the exit route, which refuses any row that records something", () => {
+    // The same guard `delivery-detail` leans on, asked of this row: raising it as an exit is
     // legitimate ONLY because the row's decision is an exit and the host performs the close itself.
-    // "Does not throw" says nothing about WHICH commit comes back, so the second line decides it:
-    // an `unavailable` commit answers with an `every-row` refusal the host would render as an
-    // aria-disabled EXIT, which is the defect Ruling [90] fixed. Only a `record` commit answers null.
-    expect(() => exitOnlyOverlayCommit("activation-success")).not.toThrow();
-    expect(commitRefusalFor(exitOnlyOverlayCommit("activation-success"))).toBeNull();
+    expect(() => assertExitOnlyOverlayRow("activation-success")).not.toThrow();
     // And the guard still bites for the plan actions on this same screen's roadmap, so this is not
     // a universal escape hatch from Ruling 87.
-    expect(() => exitOnlyOverlayCommit("pause")).toThrow(/records a decision/i);
+    expect(() => assertExitOnlyOverlayRow("pause")).toThrow(/records a decision/i);
+
+    // The route the control actually takes, asserted on the control rather than on the module.
+    // This line replaces `commitRefusalFor(exitOnlyOverlayCommit("activation-success"))` being null,
+    // which proved the staged commit was a `record` rather than an `unavailable`. The adjudication
+    // recorded in the build record removed the staged commit entirely -- a no-op `record` is
+    // indistinguishable at the host from a screen that merely satisfied the compiler -- so there is
+    // no commit left to interrogate, and `data-overlay-trigger-kind` is the DOM's own record of
+    // which of the two opening routes was used. Only the exit-only trigger writes it.
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={episodeView({ record: planRecordFixture(), episode: null, otherPlanCount: 0 })}
+      />,
+    );
+    const triggers = screen
+      .getAllByTestId("workspace-overlay-trigger")
+      .filter((element) => element.getAttribute("data-overlay-trigger") === "activation-success");
+    // Positive control for the attribute assertion: the control exists on a running plan, so a green
+    // below is about its route rather than about an empty list.
+    expect(triggers, "the activation outcome has no inbound control on a running plan").toHaveLength(1);
+    expect(triggers[0]).toHaveAttribute("data-overlay-trigger-kind", "exit-only");
   });
 });
 
