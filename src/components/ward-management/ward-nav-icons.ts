@@ -11,6 +11,7 @@ import {
   Search,
   ShieldCheck,
   Siren,
+  Sunrise,
   TriangleAlert,
   Truck,
   Waypoints,
@@ -46,4 +47,5 @@ export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
   escalation: TriangleAlert,
   search: Search,
   discharges: LogOut,
+  morning: Sunrise,
 };
