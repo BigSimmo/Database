@@ -6,9 +6,31 @@ import type {
 } from "@/components/ward-management/ward-change-reasons";
 
 export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACHS" | "Private";
-export type Cohort = "Adult" | "Older adult";
+/**
+ * Widened for Phase 7 (spec "The front door"): a referral can arrive for a young person, and
+ * without a `"Youth"` cohort every youth referral would fail the cohort gate in
+ * `ward-eligibility.ts` against every unit in the network for a structural reason, not an
+ * operational one. `ward-sites.ts` seeds exactly one Youth unit — see its own comment for why
+ * that unit is a real, product-owner-supplied fact and not an invention.
+ */
+export type Cohort = "Adult" | "Older adult" | "Youth";
 export type Security = "Open" | "Secure";
 export type Sex = "Female" | "Male";
+
+/**
+ * Phase 7 (spec "The front door"): the bed-facing counterpart of `Sex`, and a CONSTRAINT on who
+ * may occupy a bed, never a value to compare a referral's `sex` against for equality.
+ * `"Undesignated"` is the default and — by construction of the seed fixture in `ward-sites.ts` —
+ * the clear majority: an undesignated bed accepts a referral of either sex. `"Female only"` and
+ * `"Male only"` each narrow that acceptance to one sex. A matching rule of the shape
+ * `bed.sexDesignation === referral.sex` is wrong for the same reason `unit.security === "Secure"`
+ * would be wrong for `unit.authorised` — it reads as a plausible equality check while actually
+ * excluding every undesignated bed, which is most of the network. The seed fixture deliberately
+ * keeps most units undesignated (never all of them, and never uniform) so that exact mistake
+ * cannot pass every test.
+ */
+export const SEX_DESIGNATIONS = ["Undesignated", "Female only", "Male only"] as const;
+export type SexDesignation = (typeof SEX_DESIGNATIONS)[number];
 
 export const MOVEMENT_STAGES = [
   "placement_requested",
@@ -124,8 +146,17 @@ export type Unit = {
   siteCode: string;
   name: string;
   cohort: Cohort;
+  /** Physical/procedural security, not one of the four bed-matching dimensions below — do not
+   *  fold this into `forensic`; they are independent facts (a locked ward need not be forensic,
+   *  and a forensic bed is not automatically a locked ward in this model). */
   security: Security;
-  /** Authorised under the Mental Health Act 2014 to receive involuntary admissions. */
+  /**
+   * Authorised under the Mental Health Act 2014 to receive involuntary admissions. This IS the
+   * bed's legal-status dimension — an authorised bed accepts BOTH voluntary and involuntary
+   * admissions (it is a capability, not a value to equality-match), a non-authorised bed accepts
+   * voluntary only. There is deliberately no separate `legalStatus` field on `Unit` for this same
+   * fact: two fields for one fact is how a screen ends up giving two answers.
+   */
   authorised: boolean;
   beds: number;
   /** Physically empty beds, per the feed. */
@@ -138,6 +169,11 @@ export type Unit = {
   sexMix: Record<Sex, number>;
   /** How many 1:1 observation patients this unit can staff beyond its current load. */
   speciallingCapacity: number;
+  /** Who this bed may hold, as a CONSTRAINT — see `SexDesignation`'s own doc comment. Never
+   *  compared to a referral's `sex` by equality; `"Undesignated"` accepts either sex. */
+  sexDesignation: SexDesignation;
+  /** A forensic bed, independent of `security` — see the note on `security` above. */
+  forensic: boolean;
 };
 
 export type Site = {
@@ -324,4 +360,72 @@ export type LeaveBed = {
   confirmedAt: Instant;
   /** A role. Never a personal name. */
   confirmedBy: string;
+};
+
+/**
+ * Phase 7 (spec "The front door"): where a referral entered the network. A referral itself
+ * carries no patient location — only where the request came FROM, and only as one of a fixed,
+ * synthetic set of channels, never a service name that could identify a specific team.
+ */
+export const REFERRAL_SOURCES = ["community", "crisis_service", "police", "ambulance", "inter_hospital"] as const;
+export type ReferralSource = (typeof REFERRAL_SOURCES)[number];
+
+/** A referral's own lifecycle — deliberately separate from `MovementStage`, which belongs to a
+ *  movement already inside the department. A referral is a request for a bed, not yet a person
+ *  in a department bed. */
+export const REFERRAL_STATES = ["queued", "accepted", "declined"] as const;
+export type ReferralState = (typeof REFERRAL_STATES)[number];
+
+/**
+ * Task 1's privacy discipline, carried into decline reasons the same way `BED_RELEASE_BLOCKERS`
+ * (`ward-change-reasons.ts`) carries it for a bed release: every entry describes the SERVICE's
+ * answer or the NETWORK's state, never the person referred. `"no_suitable_bed"` and
+ * `"secure_bed_unavailable"` are the network having nothing that fits; `"age_band_not_provided_here"`
+ * and `"sex_designation_unavailable"` are the network's own capability gaps (this site does not run
+ * that cohort, or has no bed of a workable designation left), not a judgement on the referral;
+ * `"out_of_catchment"` and `"referred_elsewhere"` are administrative facts about where the request
+ * belongs. None of these is a figure, timeframe or threshold from the Mental Health Act, and none
+ * reads as being about the person's presentation or behaviour — the same bar that kept
+ * "Pending case review outcome" out of `BED_RELEASE_BLOCKERS` ("case review" reads as about the
+ * patient's own case, not the bed/service).
+ */
+export const REFERRAL_DECLINE_REASONS = [
+  "no_suitable_bed",
+  "age_band_not_provided_here",
+  "sex_designation_unavailable",
+  "secure_bed_unavailable",
+  "out_of_catchment",
+  "referred_elsewhere",
+] as const;
+export type ReferralDeclineReason = (typeof REFERRAL_DECLINE_REASONS)[number];
+
+/**
+ * The front door: a referral arriving from anywhere in the network, before it is ever a
+ * `Movement` inside a department. Carries EXACTLY three facts about the person referred —
+ * `ageBand`, `sex`, `secureBedNeeded` — and nothing else: no name, date of birth, record number,
+ * address, diagnosis, or narrative history or treatment. No free-text field of any kind, unlike
+ * `Decline` (which has an optional `note`) — a referral has no field a person's own words, or an
+ * author's summary of them, could ever land in. `tests/ward-referral-model.test.ts` asserts this
+ * structurally, against this type's own field set, so a future field named `patientId`, `notes`,
+ * `diagnosis` or `dob` is caught rather than merely discouraged by convention.
+ */
+export type Referral = {
+  id: string;
+  // The only three facts about a person. Nothing else may ever be added here.
+  ageBand: Cohort;
+  sex: Sex;
+  secureBedNeeded: boolean;
+  // Facts about the referral itself.
+  source: ReferralSource;
+  raisedAt: Instant;
+  urgency: 1 | 2 | 3;
+  /** A synthetic site code (see `wardSites`), never an address. */
+  originSiteCode: string;
+  transportNeeded: boolean;
+  state: ReferralState;
+  acceptedUnitId?: string;
+  declineReason?: ReferralDeclineReason;
+  decidedAt?: Instant;
+  /** A role, never a person. */
+  decidedBy?: string;
 };

@@ -32,6 +32,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 9, Male: 9 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "rph-older-adult",
@@ -47,6 +49,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 6, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -76,6 +80,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 10, Male: 9 },
         speciallingCapacity: 3,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "scgh-older-adult",
@@ -91,6 +97,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 8, Male: 7 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -114,6 +122,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 7, Male: 7 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         // Second unit sitting at zero allocatable — older-adult scarcity is the norm, not
@@ -131,6 +141,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 6, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -154,6 +166,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 8, Male: 8 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -181,6 +195,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 7 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -208,6 +224,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -248,6 +266,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 9, Male: 9 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "fre-older-adult",
@@ -263,6 +283,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 6, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -285,6 +307,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 7, Male: 7 },
         speciallingCapacity: 2,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "bty-older-adult",
@@ -300,6 +324,38 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 5, Male: 5 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
+      },
+      /**
+       * The East Metropolitan Youth Unit (EMyU) at Bentley Health Service — a real unit, supplied
+       * by the product owner on 2026-08-27, not an invention: use this name verbatim, capitalisation
+       * included, at this site (`BTY`), same as every other unit here. Without a Youth unit anywhere
+       * in the network, every youth referral (Phase 7's front door) would fail the cohort gate in
+       * `ward-eligibility.ts` against all 22 previously-seeded units for a structural reason, not an
+       * operational one — this unit is what makes a youth referral matchable at all.
+       *
+       * Its BED NUMBERS below (`beds`, `empty`, `allocatable`, `held`, `blocked`, `sexMix`,
+       * `speciallingCapacity`) are invented, exactly like every other numeric figure in this
+       * fixture — only the unit's name and placement at Bentley Health Service are the real,
+       * product-owner-supplied fact.
+       */
+      {
+        id: "bty-youth",
+        siteCode: "BTY",
+        name: "East Metropolitan Youth Unit (EMyU)",
+        cohort: "Youth",
+        security: "Open",
+        authorised: true,
+        beds: 8,
+        empty: { value: 1, source: "feed", confirmedAt: NOW_ANCHOR - 5, staleAfterMinutes: 15 },
+        allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 18, staleAfterMinutes: 90 },
+        held: 0,
+        blocked: 0,
+        sexMix: { Female: 3, Male: 4 },
+        speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -322,6 +378,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 7, Male: 6 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         // Zero allocatable AND its ward confirmation is well past staleAfterMinutes — the
@@ -339,6 +397,8 @@ export const wardSites: Site[] = [
         blocked: 1,
         sexMix: { Female: 5, Male: 4 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -361,6 +421,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -383,6 +445,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -403,8 +467,14 @@ export const wardSites: Site[] = [
         allocatable: { value: 0, source: "ward", confirmedAt: NOW_ANCHOR - 45, staleAfterMinutes: 150 },
         held: 0,
         blocked: 0,
-        sexMix: { Female: 3, Male: 2 },
+        // Male only AND forensic — the network's one example of an Adult, Secure, Male-only,
+        // authorised (so involuntary-capable) forensic bed, an entirely expressible combination
+        // of the four independent bed dimensions. sexMix kept internally consistent (no Female
+        // occupant on a Male-only bed).
+        sexMix: { Female: 0, Male: 5 },
         speciallingCapacity: 0,
+        sexDesignation: "Male only",
+        forensic: true,
       },
     ],
   },
@@ -425,8 +495,12 @@ export const wardSites: Site[] = [
         allocatable: { value: 1, source: "ward", confirmedAt: NOW_ANCHOR - 38, staleAfterMinutes: 120 },
         held: 0,
         blocked: 0,
-        sexMix: { Female: 3, Male: 3 },
+        // Female only, so every current occupant is Female — the one designated bed the seed
+        // deliberately keeps internally consistent with its own sexMix.
+        sexMix: { Female: 6, Male: 0 },
         speciallingCapacity: 0,
+        sexDesignation: "Female only",
+        forensic: false,
       },
     ],
   },
@@ -450,6 +524,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 3, Male: 2 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },
@@ -474,6 +550,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 4 },
         speciallingCapacity: 1,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
       {
         id: "sjgs-adult-secure",
@@ -489,6 +567,8 @@ export const wardSites: Site[] = [
         blocked: 0,
         sexMix: { Female: 4, Male: 3 },
         speciallingCapacity: 0,
+        sexDesignation: "Undesignated",
+        forensic: false,
       },
     ],
   },

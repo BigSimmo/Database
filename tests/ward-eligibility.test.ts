@@ -20,6 +20,8 @@ function unit(overrides: Partial<Unit> = {}): Unit {
     blocked: 0,
     sexMix: { Female: 10, Male: 8 },
     speciallingCapacity: 1,
+    sexDesignation: "Undesignated",
+    forensic: false,
     ...overrides,
   };
 }

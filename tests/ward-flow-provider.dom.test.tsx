@@ -46,7 +46,9 @@ describe("WardFlowProvider", () => {
       </WardFlowProvider>,
     );
     expect(screen.getByTestId("movements")).toHaveTextContent("48");
-    expect(screen.getByTestId("units")).toHaveTextContent("22");
+    // Was 22 before Phase 7 (spec "The front door") added `bty-youth` (East Metropolitan Youth
+    // Unit) to the fixture in `ward-sites.ts`.
+    expect(screen.getByTestId("units")).toHaveTextContent("23");
     expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR));
     expect(screen.getByTestId("rejections")).toHaveTextContent("0");
   });

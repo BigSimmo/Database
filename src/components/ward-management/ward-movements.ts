@@ -5,6 +5,7 @@ import type {
   LeaveBed,
   Movement,
   MovementStage,
+  Referral,
   Security,
 } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -834,5 +835,116 @@ export const leaveBeds: LeaveBed[] = [
     expectedReturn: NOW_ANCHOR + 180,
     confirmedAt: NOW_ANCHOR - 25,
     confirmedBy: "NUM SCGH Older Adult",
+  },
+];
+
+/**
+ * Phase 7 (spec "The front door"): referrals arriving from anywhere in the network, before any
+ * of them is ever a `Movement` inside a department. Hand-authored, and deliberately opens on the
+ * awkward cases rather than the easy ones — see `tests/ward-referral-model.test.ts` for exactly
+ * what each one proves:
+ *   - RF-001: queued, `ageBand: "Youth"` + `secureBedNeeded: true` — structurally unmatchable
+ *     everywhere in this network, because the one Youth unit (`bty-youth`, EMyU) is `"Open"`, and
+ *     no other unit anywhere carries `cohort: "Youth"`.
+ *   - RF-002: accepted at `ger-adult-open`, the network's one `"Female only"` designated bed —
+ *     a designated bed correctly accepting the sex it names.
+ *   - RF-003: `sex: "Male"`, accepted at `scgh-adult-open`, an `"Undesignated"` bed — while
+ *     `ger-adult-open` ("Female only") would correctly exclude this same referral. This is the
+ *     seed rule-4(d) case: an equality-shaped matching bug (`bed.sexDesignation === referral.sex`)
+ *     would wrongly refuse this referral everywhere, because `"Undesignated" !== "Male"` reads as
+ *     a mismatch even though an undesignated bed accepts every sex.
+ *   - RF-004: declined, `declineReason: "out_of_catchment"` — an administrative fact about the
+ *     referral's origin, not a judgement on the person.
+ *   - RF-006: `secureBedNeeded: true`, `sex: "Male"`, accepted at `brm-adult-secure` — the
+ *     network's one Adult/Secure/Male-only/forensic/authorised bed, exercising all four
+ *     independent bed dimensions from one referral.
+ * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded` about the person, no free
+ * text anywhere, and `originSiteCode` is always one of `wardSites`' own synthetic codes, never an
+ * address.
+ */
+export const referrals: Referral[] = [
+  {
+    id: "RF-001",
+    ageBand: "Youth",
+    sex: "Female",
+    secureBedNeeded: true,
+    source: "community",
+    raisedAt: NOW_ANCHOR - 40,
+    urgency: 2,
+    originSiteCode: "ARM",
+    transportNeeded: true,
+    state: "queued",
+  },
+  {
+    id: "RF-002",
+    ageBand: "Adult",
+    sex: "Female",
+    secureBedNeeded: false,
+    source: "inter_hospital",
+    raisedAt: NOW_ANCHOR - 90,
+    urgency: 2,
+    originSiteCode: "KUN",
+    transportNeeded: true,
+    state: "accepted",
+    acceptedUnitId: "ger-adult-open",
+    decidedAt: NOW_ANCHOR - 10,
+    decidedBy: "Bed management",
+  },
+  {
+    id: "RF-003",
+    ageBand: "Adult",
+    sex: "Male",
+    secureBedNeeded: false,
+    source: "crisis_service",
+    raisedAt: NOW_ANCHOR - 55,
+    urgency: 1,
+    originSiteCode: "SCGH",
+    transportNeeded: false,
+    state: "accepted",
+    acceptedUnitId: "scgh-adult-open",
+    decidedAt: NOW_ANCHOR - 15,
+    decidedBy: "Flow coordinator",
+  },
+  {
+    id: "RF-004",
+    ageBand: "Older adult",
+    sex: "Female",
+    secureBedNeeded: false,
+    source: "police",
+    raisedAt: NOW_ANCHOR - 70,
+    urgency: 3,
+    originSiteCode: "PEEL",
+    transportNeeded: true,
+    state: "declined",
+    declineReason: "out_of_catchment",
+    decidedAt: NOW_ANCHOR - 25,
+    decidedBy: "Duty psychiatrist",
+  },
+  {
+    id: "RF-005",
+    ageBand: "Older adult",
+    sex: "Male",
+    secureBedNeeded: false,
+    source: "ambulance",
+    raisedAt: NOW_ANCHOR - 20,
+    urgency: 2,
+    originSiteCode: "FSH",
+    transportNeeded: true,
+    state: "queued",
+  },
+  {
+    id: "RF-006",
+    ageBand: "Adult",
+    sex: "Male",
+    secureBedNeeded: true,
+    source: "police",
+    raisedAt: NOW_ANCHOR - 65,
+    urgency: 1,
+    originSiteCode: "BRM",
+    transportNeeded: false,
+    state: "accepted",
+    acceptedUnitId: "brm-adult-secure",
+    decidedAt: NOW_ANCHOR - 5,
+    decidedBy: "Bed management",
   },
 ];
