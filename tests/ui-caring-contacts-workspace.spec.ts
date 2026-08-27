@@ -1934,7 +1934,19 @@ test.describe("caring-contacts every screen, at every reviewed width", () => {
         const label = `${screen.name} at ${width}px`;
 
         // Nothing spills sideways — the failure that makes a screen unusable.
-        expect(await documentOverflow(page), `horizontal document overflow on ${label}`).toBeLessThanOrEqual(2);
+        //
+        // `layoutOverflow`, NOT `documentOverflow`, and the difference was
+        // measured rather than reasoned about. `globals.css` gives both `html`
+        // and `body` `overflow-x: clip`, and mutation M1 — a 1600px minimum width
+        // forced onto Guidance's own grid at and above 768px — left
+        // `documentOverflow` reporting no overflow at all, because
+        // `documentElement.scrollWidth` is clamped by that rule. The identical
+        // mutation reddens the assertion below once it reads `layoutOverflow`,
+        // which also consults `body.scrollWidth`. The older helper is still used
+        // by the per-screen blocks above; that it cannot see a spill is recorded
+        // in the Task 21 report as a finding about them rather than repaired
+        // here, because those assertions belong to other tasks.
+        expect(await layoutOverflow(page), `horizontal overflow on ${label}`).toBeLessThanOrEqual(2);
 
         // Exactly one width state is displayed, and it is the one the frozen
         // module names. Two displayed markers means overlapping media classes.
@@ -1993,7 +2005,18 @@ test.describe("caring-contacts every screen, at the 400% zoom equivalent", () =>
   }
 });
 
-/** The rail is displayed from 768 up, and the shell's one transition lives on it. */
+/**
+ * A width where the rail is displayed, so the probe below sees the whole shell.
+ *
+ * An earlier draft of this line said the rail carried "the shell's one
+ * transition". Mutation M7 disproved it: stripping `transition-colors` from
+ * `railItemClass` left the positive control below satisfied on every screen,
+ * because `globals.css` gives EVERY `button, a, summary` a
+ * `transition-duration: var(--duration-fast)` on colour, background, border,
+ * opacity, shadow and transform. Motion in this workspace is app-wide and
+ * element-typed, not a handful of component classes — which is why the probe
+ * walks the document rather than sampling a control.
+ */
 const REDUCED_MOTION_PROBE_WIDTH = 1024;
 
 /**
@@ -2059,9 +2082,15 @@ function movingElements(page: Page) {
         style.animationName !== "none" && style.animationPlayState !== "paused" && perceptible(style.animationDuration);
       if (!transitioning && !animating) continue;
 
+      // WHICH of the two fired is named, because without it a red here says an
+      // element moves and not what is moving it. Mutation M17 removed the
+      // universal animation clamp and returned a list of buttons and links that
+      // read as transitions, and the row's evidence stayed uninterpretable until
+      // this said `transition` or `animation` against each entry.
+      const cause = transitioning ? (animating ? "transition+animation" : "transition") : "animation";
       const identity =
-        node.getAttribute("data-testid") ?? node.getAttribute("id") ?? (node.getAttribute("class") ?? "").slice(0, 60);
-      moving.push(`${node.tagName.toLowerCase()}${identity ? ` (${identity})` : ""}`);
+        node.getAttribute("data-testid") ?? node.getAttribute("id") ?? (node.getAttribute("class") ?? "").slice(0, 48);
+      moving.push(`${node.tagName.toLowerCase()} ${cause}${identity ? ` (${identity})` : ""}`);
     }
     return moving;
   }, PERCEPTIBLE_MOTION_SECONDS);
@@ -2101,7 +2130,7 @@ test.describe("caring-contacts every screen, under a reduced-motion preference",
         `${screen.name}: the synthetic marker went with the motion`,
       ).toBeVisible();
       expect(
-        await documentOverflow(page),
+        await layoutOverflow(page),
         `${screen.name}: horizontal overflow under a reduced-motion preference`,
       ).toBeLessThanOrEqual(2);
     });
@@ -2246,7 +2275,7 @@ test.describe("caring-contacts guidance, in the modes its own block proved on re
     expect(Number.parseFloat(border.width), "the boundary panel has no border under forced colours").toBeGreaterThan(0);
     expect(border.colour, "the boundary panel border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
 
-    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+    expect(await layoutOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
     await page.emulateMedia({ forcedColors: "none" });
   });
 });
