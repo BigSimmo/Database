@@ -338,8 +338,19 @@
  * would otherwise survive as a wide blank strip down every printed page.
  */
 @media print {
+  /*
+   * `.screen` and `.governanceBanner` carry their own explicit `background: var(--surface)` /
+   * `var(--surface-chrome)` for the on-screen dark theme (`ckb-v2-tokens.css`'s `.dark .ckb-v2`
+   * ramp resolves those to near-black — `#12161a` / `#0e1216`). The global print reset in
+   * globals.css only resets `html`/`body`'s own background, which does not cascade into an
+   * element's own explicit `background` declaration — so without this reset, printing the page
+   * while the app is in dark mode would paint the whole screen container and the governance
+   * banner as a dark band, not the white sheet the print reset promises everywhere else on this
+   * page. Found by actually looking at the print rendering (Phase 6 Task 6), not by a test.
+   */
   .screen {
     grid-template-columns: 1fr;
+    background: none;
   }
 
   .screen > aside {
@@ -366,6 +377,7 @@
    */
   .governanceBanner {
     border-bottom: 0.0625rem solid CanvasText;
+    background: none;
   }
 
   .headline,
