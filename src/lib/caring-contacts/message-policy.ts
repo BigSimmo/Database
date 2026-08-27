@@ -4,7 +4,13 @@
 // programme/hours/emergency/crisis-support fragments, the closing statement, and the maximum
 // segment count — all live in message-rules.ts and change there, wholesale, without editing
 // this file. See message-rules.ts for why.
-import type { MessageType } from "./model";
+import {
+  TERMINAL_DISPATCH_REFUSED_CONTACT_STATES,
+  TERMINAL_PLAN_STATES,
+  type ContactState,
+  type MessageType,
+  type PlanState,
+} from "./model";
 import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
 
 // The GSM-7 default alphabet (basic set) and its extension table, per the SMS standard. These
@@ -60,6 +66,17 @@ export type GovernedMessageInput = {
    * other than passing this flag at the call site.
    */
   syntheticFictionalContactsAcknowledged?: boolean;
+  /**
+   * Contact state, if evaluated in the context of an existing contact record.
+   * Attempts to dispatch or evaluate messages for a contact that is already in a terminal state
+   * trigger deterministic refusal.
+   */
+  contactState?: ContactState;
+  /**
+   * Plan state, if evaluated in the context of an existing plan.
+   * Messages cannot be dispatched to plans that have ended (withdrawn, cancelled, completed).
+   */
+  planState?: PlanState;
 };
 
 export type MessageValidationIssue =
@@ -70,7 +87,8 @@ export type MessageValidationIssue =
   | { code: "closing-message-missing-ending-statement" }
   | { code: "closing-message-missing-support-information" }
   | { code: "contains-patient-mobile" }
-  | { code: "solicits-reply" };
+  | { code: "solicits-reply" }
+  | { code: "terminated-contact-dispatch-refused"; state: ContactState | PlanState };
 
 export type ValidationResult = { valid: true } | { valid: false; issues: MessageValidationIssue[] };
 
@@ -133,6 +151,14 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
 
   if (text.includes("?")) {
     issues.push({ code: "solicits-reply" });
+  }
+
+  if (input.contactState && TERMINAL_DISPATCH_REFUSED_CONTACT_STATES.includes(input.contactState)) {
+    issues.push({ code: "terminated-contact-dispatch-refused", state: input.contactState });
+  }
+
+  if (input.planState && TERMINAL_PLAN_STATES.includes(input.planState)) {
+    issues.push({ code: "terminated-contact-dispatch-refused", state: input.planState });
   }
 
   return issues.length === 0 ? { valid: true } : { valid: false, issues };

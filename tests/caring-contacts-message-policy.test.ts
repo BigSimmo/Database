@@ -587,3 +587,60 @@ describe("rule 8: validateGovernedMessage is a pure, provider-free function", ()
     expect(JSON.stringify(input)).toBe(snapshotBefore);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Rule 9 — terminated contacts or closed plans trigger deterministic refusal
+// ---------------------------------------------------------------------------
+
+describe("rule 9: terminated-contact-dispatch-refused", () => {
+  it("refuses message dispatch when evaluating a contact in terminal state", () => {
+    const terminalStates = [
+      "delivered",
+      "suppressed",
+      "cancelled",
+      "notDelivered",
+      "numberInvalid",
+      "contactChanged",
+      "statusUnavailable",
+      "missed",
+    ] as const;
+    for (const contactState of terminalStates) {
+      const input: GovernedMessageInput = {
+        text: "Thinking of you today.",
+        messageType: "standard",
+        contactState,
+      };
+      const result = validateGovernedMessage(input);
+      expect(result).toEqual({
+        valid: false,
+        issues: [{ code: "terminated-contact-dispatch-refused", state: contactState }],
+      });
+    }
+  });
+
+  it("refuses message dispatch when evaluating a plan in terminal state", () => {
+    const terminalPlanStates = ["withdrawn", "cancelled", "completed"] as const;
+    for (const planState of terminalPlanStates) {
+      const input: GovernedMessageInput = {
+        text: "Thinking of you today.",
+        messageType: "standard",
+        planState,
+      };
+      const result = validateGovernedMessage(input);
+      expect(result).toEqual({
+        valid: false,
+        issues: [{ code: "terminated-contact-dispatch-refused", state: planState }],
+      });
+    }
+  });
+
+  it("permits message evaluation for active, non-terminal contact and plan states", () => {
+    const input: GovernedMessageInput = {
+      text: "Thinking of you today.",
+      messageType: "standard",
+      contactState: "scheduled",
+      planState: "active",
+    };
+    expect(validateGovernedMessage(input)).toEqual({ valid: true });
+  });
+});
