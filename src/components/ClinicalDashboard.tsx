@@ -3007,8 +3007,19 @@ function ClinicalDashboardContent({
   useEffect(() => {
     if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
   }, [searchMode, showSharedHome]);
+  // A stopped generation reports on the last action rather than describing the
+  // page, so the notice renders at the top of the content column while this same
+  // condition still short-circuits the mode-home empty-state chain below.
+  const showAnswerCancelledNotice = answerLifecycle.status === "cancelled" && activeModeResultKind === "answer";
+  // `submittedAnswerSearchActive` stays true after the reader presses Stop, and a
+  // cancel is not an `error`, so without the cancelled guard the pending branch
+  // held its skeleton on screen indefinitely — a shimmering placeholder promising
+  // an answer that was already abandoned, directly beneath the notice saying so.
   const showAnswerPending =
-    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+    activeModeResultKind === "answer" &&
+    !answer &&
+    !showAnswerCancelledNotice &&
+    (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
   const showAnswerProgress =
     activeModeResultKind === "answer" &&
@@ -3511,9 +3522,13 @@ function ClinicalDashboardContent({
                     : // The <main> reserve already clears the fixed composer dock on
                       // phones, so the old large mobile bottom padding only floated a
                       // long answer's last line high above the dock (and padded a short
-                      // answer's empty space further). Keep it small here; sm+/desktop
+                      // answer's empty space further). This stays far below that, but
+                      // `pb-4` was the smallest tail in the app and left the last card
+                      // sitting almost on the bottom edge once the dock scroll-hides
+                      // and its reserve releases to zero. `pb-10` matches the
+                      // `sm:pb-10` every other mode wrapper already uses. sm+/desktop
                       // keep the original generous padding.
-                      "pb-4 sm:pb-36 lg:pb-40"
+                      "pb-10 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "sm:pb-10 lg:pb-12"
@@ -3522,6 +3537,30 @@ function ClinicalDashboardContent({
               )}
             >
               <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
+              {/* "Generation stopped" is a status notice about the last action, not a
+                  page state, so it belongs with the other top-of-content notices rather
+                  than inside the mode-home canvas. In the canvas it was centred as one
+                  group with the `SharedHomeEmptyState` hero, which on a phone left it
+                  floating in the middle of the screen under a tall empty gap. */}
+              {showAnswerCancelledNotice ? (
+                <EmptyState
+                  icon={Square}
+                  title="Generation stopped"
+                  body="No partial clinical answer was kept. You can safely run the same question again."
+                  live="polite"
+                  testId="answer-cancelled"
+                  actions={
+                    <button
+                      type="button"
+                      className={cn(primaryControl, "text-xs")}
+                      onClick={() => void ask(answerLifecycle.query ?? query)}
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      Run again
+                    </button>
+                  }
+                />
+              ) : null}
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}
@@ -3547,25 +3586,14 @@ function ClinicalDashboardContent({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {answerLifecycle.status === "cancelled" && activeModeResultKind === "answer" ? (
-                  <EmptyState
-                    icon={Square}
-                    title="Generation stopped"
-                    body="No partial clinical answer was kept. You can safely run the same question again."
-                    live="polite"
-                    testId="answer-cancelled"
-                    actions={
-                      <button
-                        type="button"
-                        className={cn(primaryControl, "text-xs")}
-                        onClick={() => void ask(answerLifecycle.query ?? query)}
-                      >
-                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                        Run again
-                      </button>
-                    }
-                  />
-                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                {/* Rendered above, at the top of the content column — see
+                    `showAnswerCancelledNotice`. The condition stays here so the
+                    chain below still short-circuits exactly as it did: a stopped
+                    generation must not fall through into the no-results or error
+                    empty states. */}
+                {showAnswerCancelledNotice ? null : error &&
+                  errorKind === "no-results" &&
+                  activeModeResultKind === "answer" ? (
                   <EmptyState
                     icon={Search}
                     title={answerRecovery.noResults.heading}
