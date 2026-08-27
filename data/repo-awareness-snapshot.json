@@ -2389,7 +2389,7 @@
       {
         "path": "docs/design-system/FIX-GUIDE.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/GATES.md",
@@ -3873,8 +3873,8 @@
     ],
     "counts": {
       "documents": 481,
-      "catalogued": 106,
-      "uncatalogued": 375,
+      "catalogued": 107,
+      "uncatalogued": 374,
       "sections": 19
     }
   },

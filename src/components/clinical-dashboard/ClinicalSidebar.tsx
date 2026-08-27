@@ -884,7 +884,7 @@ function ClinicalCollapsedRail({
     <aside
       aria-label="Clinical Guide collapsed sidebar"
       className={cn(
-        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] md:flex",
+        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--e2)] md:flex",
         hiddenOnDesktop && "lg:hidden",
       )}
     >
@@ -1076,7 +1076,7 @@ export function ClinicalDesktopSidebar({
         <aside
           id="clinical-tools-sidebar"
           aria-label="Clinical Guide sidebar"
-          className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+          className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] lg:flex lg:flex-col"
         >
           <ClinicalSidebarContent
             recentQueries={recentQueries}
