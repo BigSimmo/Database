@@ -117,7 +117,7 @@ const mockupPatterns = [
   // alternation and that one in step; a spec in one and not the other either
   // never runs or trips this gate.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning)\.spec\.ts$/,
+  /^tests\/ui-ward-(?:management|coordinator|discharges|roles|morning|referrals)\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {

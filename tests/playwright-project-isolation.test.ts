@@ -170,6 +170,43 @@ describe("Playwright production-project isolation", () => {
     ).toBe(true);
   });
 
+  /**
+   * Ward Flow's browser journeys are the prototype's only rendered evidence, and their
+   * collection depends on TWO hand-maintained alternations in playwright.config.ts that both
+   * spell each spec out by name. A ward spec missing from either one does not fail — it silently
+   * never runs, which is indistinguishable from passing on a green pull request. That exact
+   * defect has already shipped here in five different forms (a spec regex, a nav icon map, a
+   * route-coverage map, a cohort picker, and the CI scope list `assertMockupSpecParity` now
+   * guards). Assert against the ward specs actually on disk rather than against a third copy of
+   * the list, the same way the phone-scroll siblings above are checked.
+   */
+  it("collects every ui-ward-*.spec.ts on disk into the advisory mockup project, and none into the required ones", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+
+    const wardSpecs = readdirSync(resolve(process.cwd(), "tests")).filter(
+      (file) => file.startsWith("ui-ward-") && file.endsWith(".spec.ts"),
+    );
+    expect(wardSpecs.length, "expected Ward Flow to carry browser journeys").toBeGreaterThan(0);
+
+    for (const file of wardSpecs) {
+      const spec = `tests/${file}`;
+      expect(testMatchPattern.test(spec), `${file} is not collected by testMatch, so it never runs at all`).toBe(true);
+      expect(
+        mockupSpecPattern.test(spec),
+        `${file} is not collected by chromium-mockups, so the journey silently never runs`,
+      ).toBe(true);
+      expect(
+        productionSpecPattern.test(spec),
+        `${file} leaked into the required production projects, where a red prototype would block a release`,
+      ).toBe(false);
+    }
+  });
+
   it("blocks service workers for mocked journeys but allows the dedicated PWA suite", () => {
     const config = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
     const pwaSpec = readFileSync(resolve(process.cwd(), "tests/ui-pwa.spec.ts"), "utf8");
