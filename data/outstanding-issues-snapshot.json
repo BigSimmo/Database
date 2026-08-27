@@ -1,8 +1,8 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
+    "committed_at": "2026-08-25T17:45:01Z"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 12,
+    "pending": 13,
     "resolved": 412
   },
   "queue": [
@@ -976,6 +976,12 @@
       "request_id": "970bbb8b-4dbe-4e27-97a4-80142db94d7d",
       "action": "add",
       "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "979e82f8-1129-4ab5-87e2-cbce7fdd5ae6",
+      "action": "done",
+      "summary": "#778Q0H: Confirmed static RSC boundary violation scanner covers all server components.",
       "created_at": "2026-08-26"
     },
     {
