@@ -4,10 +4,10 @@ This runbook owns the source-only Task 3 control plane for public registry site 
 
 ## Public lifecycle
 
-1. An administrator POSTs a bounded command to `/api/site-content/publications`. The server derives the actor and performs a P03 preflight, while the granted mutation RPC locks the selected legacy row and independently derives its canonical record and projection-specific allowlisted render bytes. Caller-supplied record/render JSON is never accepted.
+1. An administrator POSTs a bounded command to `/api/site-content/publications`. The service client performs only the P03 source/digest preflight; the mutation uses that request's validated Bearer or SSR-cookie user-context client. SQL requires `auth.uid()`, locks that exact `auth.users` row, derives administrator authority from immutable app metadata, and writes the actor plus database-time authorization attestation. Service-role mutation and caller-supplied actor, record, or render JSON are rejected.
 2. The RPC inserts an immutable ownerless publication, advances the singleton change epoch once, marks the exact logical head pending, and inserts one ordered outbox event atomically.
 3. The deterministic offline planner combines the exact P03 static manifest and records with the exact current public dynamic population. A reviewed plan is content-addressed and handed to its event through `record_site_content_sync_event_plan`.
-4. The JWT-protected `site-content-sync` Edge Function claims one plan-ready event at a time, reclaims expired processing leases with a fresh token/generation, and heartbeats during provider work. Every heartbeat, stage, or failure is fenced by event id, worker id, lease token, lease generation, and database-clock expiry. It calls the embedding provider only for added or changed rows that cannot reuse a compatible vector.
+4. The JWT-protected `site-content-sync` Edge Function first records one database-clock, five-minute admitted invocation, then claims one plan-ready event at a time, reclaims expired processing leases with a fresh token/generation, and heartbeats during provider work. Every heartbeat, stage, failure, and invocation terminal is fenced. It calls the embedding provider only for added or changed rows that cannot reuse a compatible vector. Missing, expired, unterminated, stale, or latest-failed invocation evidence makes readiness stop.
 5. Staging writes every planned row, including unchanged carry-forward and retirement tombstones bound to their immutable retirement publications, into immutable release-scoped artifacts. The only accepted physical/provider dimension is 1536. SQL recomputes semantic fields, vector dimensions/identity, counts, provider-free checks, and dynamic/release digests; activation separately binds the complete current head population to the same immutable plan and exact content-addressed P05 recovery receipt.
 6. All seven public registry GET routes read only `read_site_content_public_records`. The migration freezes the exact P03 dynamic seed population into the content-addressed epoch-zero release. Bundled TypeScript seeds are used only if the database has no retained active release identity; an epoch-zero rollback serves the frozen database rows even though the RAG lane remains uninitialized. After initialization, a missing, pending, or inconsistent record is omitted; no owner row or seed fallback is allowed.
 
@@ -34,6 +34,18 @@ The guarded source write path additionally requires `--write`, matching `--proje
 - Failures use fixed codes only: `provider_failure`, `poison_payload`, or `staging_failure`. Content, actor/owner identity, vectors, and provider responses must never enter logs.
 - Backoff uses database time and is bounded. The fifth failed claim is quarantined. The prior immutable release remains retained for rollback, but the affected stale bytes are not presented as current while the newer head is unrepresented.
 - There is no scheduler in Task 3. Deploying/invoking the worker and configuring scheduler credentials/cadence are hosted follow-up gates.
+
+## Offline freshness and readiness
+
+CI and local source verification use only the committed, content-free evidence fixture:
+
+```sh
+node scripts/run-tsx.mjs scripts/check-site-content-freshness.ts --evidence tests/fixtures/site-content/release-evidence-current.json
+```
+
+The CLI validates exact population identity sets, immutable administrator attestation aggregates, supersession closure, governance, digests, queue ages, leases, and fresh successful invocation evidence. Its deployment SHA is provenance only; live currentness is bound solely by the server-only `SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST`. It emits only fixed reasons and the capped public health projection. It reads no environment, Git, provider, network, or Supabase state in offline mode.
+
+Authorized deep health and unauthenticated readiness run the service-only aggregate health RPC only after the ordinary Supabase probe succeeds. Shallow health remains database-free. A healthy exact retained bootstrap without an expected digest reports `disabled`; initialized `current` and valid `updating` are ready. Integrity, static mismatch, retry/quarantine, over-age work, lease, or worker failures return 503 without raw RPC evidence, actor/worker identities, epochs, full digests, routes, content, or provider errors.
 
 ## Activation and rollback
 

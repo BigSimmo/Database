@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-24T06:40:02.711Z",
+  "generated_at": "2026-08-27T20:16:10.958Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "5a71324a3741a66c8b292d97877c7f06e214694f763b8bc06a53a3d9773ac2c3",
-  "replay_seconds": 16,
+  "schema_sha256": "474b6486d51b711eb928435a918c471d57e84ad1cee924a643fdbd114dd42724",
+  "replay_seconds": 28,
   "snapshot": {
     "views": [
       {
@@ -4402,6 +4402,22 @@
         "name": "site_content_publications",
         "columns": [
           {
+            "name": "administrator_authorization_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "administrator_authorized_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "created_at",
             "type": "timestamp with time zone",
             "default": "clock_timestamp()",
@@ -5282,6 +5298,73 @@
             "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "clock_timestamp()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": true,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres"
+        ],
+        "name": "site_content_sync_worker_invocations",
+        "columns": [
+          {
+            "name": "admission_expires_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "invocation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "outcome_code",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "started_at",
+            "type": "timestamp with time zone",
+            "default": "clock_timestamp()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "terminal_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "terminal_phase",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "worker_id",
+            "type": "uuid",
+            "default": null,
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -6990,6 +7073,12 @@
         "def_hash": "46f1cc95d6cf78b71731fcf192b3da31"
       },
       {
+        "def": "CREATE UNIQUE INDEX site_content_sync_worker_invocations_pkey ON public.site_content_sync_worker_invocations USING btree (invocation_id)",
+        "name": "site_content_sync_worker_invocations_pkey",
+        "table": "site_content_sync_worker_invocations",
+        "def_hash": "68dff91ec867f47c2590f4f74dd41846"
+      },
+      {
         "def": "CREATE UNIQUE INDEX source_review_events_pkey ON public.source_review_events USING btree (id)",
         "name": "source_review_events_pkey",
         "table": "source_review_events",
@@ -7757,6 +7846,16 @@
         "table": "site_content_sync_event_plans"
       },
       {
+        "def": "CREATE TRIGGER site_content_sync_worker_invocations_delete_immutable BEFORE DELETE ON public.site_content_sync_worker_invocations FOR EACH ROW EXECUTE FUNCTION public.guard_site_content_immutable_row()",
+        "name": "site_content_sync_worker_invocations_delete_immutable",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
+        "def": "CREATE TRIGGER site_content_sync_worker_invocations_identity_immutable BEFORE UPDATE OF invocation_id, worker_id, started_at, admission_expires_at ON public.site_content_sync_worker_invocations FOR EACH ROW EXECUTE FUNCTION public.guard_site_content_immutable_row()",
+        "name": "site_content_sync_worker_invocations_identity_immutable",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
         "def": "CREATE TRIGGER source_review_events_immutable BEFORE DELETE OR UPDATE ON public.source_review_events FOR EACH ROW EXECUTE FUNCTION public.prevent_source_review_event_mutation()",
         "name": "source_review_events_immutable",
         "table": "source_review_events"
@@ -8349,11 +8448,11 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
-        "def_hash": "6a256d86d012879004e6a243078d51ac",
-        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,text,text,uuid)"
+        "def_hash": "d10c30a9e8699d81c38f2904688b1407",
+        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,text,text)"
       },
       {
         "acl": [
@@ -8389,6 +8488,14 @@
       },
       {
         "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "2a2bb3e2009e4482be54e9397baa62ba",
+        "signature": "public.read_site_content_health()"
+      },
+      {
+        "acl": [
           "anon=X/postgres",
           "authenticated=X/postgres",
           "postgres=X/postgres",
@@ -8420,6 +8527,14 @@
         ],
         "def_hash": "c92f375a6f5ff78e1ea52e72ec562522",
         "signature": "public.record_site_content_sync_event_plan(bigint,bigint,text,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "94c0bc753b4e777322f1f4a6749c631f",
+        "signature": "public.record_site_content_sync_worker_invocation(uuid,uuid,text,text)"
       },
       {
         "acl": [
@@ -8495,11 +8610,11 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
-        "def_hash": "780833317e7ab6f17044e41dc94023c7",
-        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,text,text,uuid)"
+        "def_hash": "bd5435877df15c36cfd99d719e257931",
+        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,text,text)"
       },
       {
         "acl": [
@@ -9630,6 +9745,11 @@
         "table": "site_content_public_records"
       },
       {
+        "def": "CHECK ((administrator_authorization_version = 'site-content-admin-authorization-v1'::text))",
+        "name": "site_content_publications_administrator_authorization_ver_check",
+        "table": "site_content_publications"
+      },
+      {
         "def": "UNIQUE (id, logical_id)",
         "name": "site_content_publications_id_logical_id_key",
         "table": "site_content_publications"
@@ -9988,6 +10108,31 @@
         "def": "CHECK (singleton)",
         "name": "site_content_sync_state_singleton_check",
         "table": "site_content_sync_state"
+      },
+      {
+        "def": "CHECK ((admission_expires_at = (started_at + '00:05:00'::interval)))",
+        "name": "site_content_sync_worker_invocations_check",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
+        "def": "CHECK ((((terminal_phase IS NULL) AND (terminal_at IS NULL) AND (outcome_code IS NULL)) OR ((terminal_phase IS NOT NULL) AND (terminal_at IS NOT NULL) AND (outcome_code IS NOT NULL))))",
+        "name": "site_content_sync_worker_invocations_check1",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
+        "def": "CHECK ((outcome_code = ANY (ARRAY['idle'::text, 'ready'::text, 'claim_failed'::text, 'event_failed'::text, 'lease_lost'::text, 'worker_failed'::text, 'invocation_expired'::text])))",
+        "name": "site_content_sync_worker_invocations_outcome_code_check",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
+        "def": "PRIMARY KEY (invocation_id)",
+        "name": "site_content_sync_worker_invocations_pkey",
+        "table": "site_content_sync_worker_invocations"
+      },
+      {
+        "def": "CHECK ((terminal_phase = ANY (ARRAY['succeeded'::text, 'failed'::text])))",
+        "name": "site_content_sync_worker_invocations_terminal_phase_check",
+        "table": "site_content_sync_worker_invocations"
       },
       {
         "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'third_party_reference_attested'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",

@@ -35,6 +35,26 @@ const DEFINER = (name: string) =>
   ].join("\n");
 
 describe("check:function-grants", () => {
+  it("keeps Task 4 health and invocation RPCs service-role-only and publication RPCs authenticated-only", () => {
+    const migration = readFileSync("supabase/migrations/20260824123000_add_site_content_health_probe.sql", "utf8");
+    for (const signature of [
+      "record_site_content_sync_worker_invocation(uuid, uuid, text, text)",
+      "read_site_content_health()",
+    ]) {
+      expect(migration).toContain(
+        `revoke all on function public.${signature} from public, anon, authenticated, service_role`,
+      );
+      expect(migration).toContain(`grant execute on function public.${signature} to service_role`);
+    }
+    for (const signature of [
+      "publish_site_content_record(text, uuid, text, bigint, text, text, text)",
+      "retire_site_content_record(text, uuid, text, bigint, text, text, text)",
+    ]) {
+      expect(migration).toContain(`revoke all on function public.${signature} from public, anon, service_role`);
+      expect(migration).toContain(`grant execute on function public.${signature} to authenticated`);
+    }
+  });
+
   it("passes against the committed schema.sql", () => {
     const result = run("supabase/schema.sql");
     expect(result.out).toContain("OK");

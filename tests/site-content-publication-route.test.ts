@@ -52,7 +52,7 @@ const sourceRow = {
   created_at: "2026-08-24T00:00:00.000Z",
   updated_at: "2026-08-24T00:00:00.000Z",
 };
-const requireAuthenticatedUser = vi.fn();
+const requireAuthenticatedUserContext = vi.fn();
 
 const ownerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const rowAudit = {
@@ -88,17 +88,36 @@ function mockRuntime() {
   }));
   vi.doMock("@/lib/supabase/auth", async (original) => {
     const actual = await original<typeof import("@/lib/supabase/auth")>();
-    return { ...actual, requireAuthenticatedUser };
+    return { ...actual, requireAuthenticatedUserContext };
   });
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
   rpc.mockReset();
-  requireAuthenticatedUser.mockReset();
+  requireAuthenticatedUserContext.mockReset();
 });
 
 describe("site-content publication POST", () => {
+  it("uses service authority only for source preflight and user-context authority for SQL mutation", () => {
+    const route = readFileSync("src/app/api/site-content/publications/route.ts", "utf8");
+    const publication = readFileSync("src/lib/site-content/site-content-publication.ts", "utf8");
+    const migration = readFileSync("supabase/migrations/20260824123000_add_site_content_health_probe.sql", "utf8");
+
+    expect(route).toContain("requireAuthenticatedUserContext");
+    expect(route).toContain("sourceSupabase:");
+    expect(route).toContain("publicationSupabase:");
+    expect(publication).not.toContain("p_published_by: input.actorId");
+    expect(publication).toContain("sourceSupabase: RpcClient");
+    expect(publication).toContain("publicationSupabase: RpcClient");
+    expect(migration).toContain("raw_app_meta_data->>'site_role' is not distinct from 'administrator'");
+    expect(migration).toContain("administrator_authorization_version");
+    expect(migration).toContain("site-content-admin-authorization-v1");
+    expect(migration).toContain(
+      "drop function if exists public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid)",
+    );
+  });
+
   it("normalizes only the selected locked legacy row through static SQL branches", () => {
     const migration = readFileSync(
       "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
@@ -114,7 +133,7 @@ describe("site-content publication POST", () => {
   it("denies a non-administrator before any command RPC can change state", async () => {
     mockRuntime();
     const { AuthenticationError } = await import("@/lib/supabase/auth");
-    requireAuthenticatedUser.mockRejectedValue(new AuthenticationError("Administrator access required."));
+    requireAuthenticatedUserContext.mockRejectedValue(new AuthenticationError("Administrator access required."));
     const { POST } = await import("../src/app/api/site-content/publications/route");
 
     const response = await POST(
@@ -137,7 +156,10 @@ describe("site-content publication POST", () => {
 
   it("derives the actor from administrator authentication and never accepts public JSON", async () => {
     mockRuntime();
-    requireAuthenticatedUser.mockResolvedValue({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    requireAuthenticatedUserContext.mockResolvedValue({
+      user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      publicationClient: { rpc },
+    });
     rpc.mockResolvedValue({
       data: [{ outcome: "applied", logical_id: "medications:sertraline", change_epoch: 1 }],
       error: null,
@@ -182,14 +204,16 @@ describe("site-content publication POST", () => {
       expect.objectContaining({
         p_expected_record_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
         p_expected_projection_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
-        p_published_by: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       }),
     );
   });
 
   it("returns 409 when the optimistic publication command is stale or a no-op", async () => {
     mockRuntime();
-    requireAuthenticatedUser.mockResolvedValue({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    requireAuthenticatedUserContext.mockResolvedValue({
+      user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      publicationClient: { rpc },
+    });
     rpc.mockResolvedValue({ data: [{ outcome: "conflict", conflict_code: "already_retired" }], error: null });
     const { POST } = await import("../src/app/api/site-content/publications/route");
 

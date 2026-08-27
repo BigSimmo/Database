@@ -5,8 +5,8 @@ import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
-/** Treat blank/whitespace as unset so offline scrub can pin "" without failing `.url()`. */
-function coerceBlankUrlEnv(value: unknown): unknown {
+/** Treat blank/whitespace as unset so optional placeholders can remain empty without failing validation. */
+function coerceBlankEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
 }
 
@@ -21,6 +21,13 @@ const envSchema = z.object({
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: z.preprocess(
+    coerceBlankEnv,
+    z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+  ),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   // Inbound webhook receivers. Each shared secret gates a machine-to-machine
@@ -46,7 +53,7 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
-  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
   // Optional release tag for Sentry production readability and source-map correlation
   // (for example: a short git SHA or deployment ID).
@@ -56,7 +63,7 @@ const envSchema = z.object({
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
-  SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+  SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).

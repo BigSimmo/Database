@@ -8,6 +8,7 @@ import type {
 } from "@/lib/site-content/site-content-contracts";
 import { publicKnowledgeToolCatalogRecordById } from "@/lib/tools-catalog";
 import type { ClinicalSourceRole, SiteContentDomain, SourceCorpusScope } from "@/lib/types";
+import changeOwnerManifest from "@/lib/site-content/site-content-change-owners.json";
 
 export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const;
 
@@ -18,6 +19,7 @@ export type SiteContentProducerDefinition = {
   domain: SiteContentDomain;
   producerClass: SiteContentRecord["producerClass"];
   canonicalOwner: string;
+  changeOwners: readonly string[];
   dataSource: string;
   editorDataSource?: string;
   contentProjection?: "descriptive_metadata_only";
@@ -37,7 +39,7 @@ const publicRoute = (base: string) => (slug: string) => `${base}/${encodeURIComp
 const producer = (
   definition: Omit<
     SiteContentProducerDefinition,
-    "version" | "corpusScope" | "readPolicy" | "reviewOwner" | "activationState"
+    "version" | "corpusScope" | "readPolicy" | "reviewOwner" | "activationState" | "changeOwners"
   >,
 ): SiteContentProducerDefinition => ({
   version: "site-content-producer-v1",
@@ -45,6 +47,7 @@ const producer = (
   readPolicy: "public_active_release",
   reviewOwner: "clinical_content_governance",
   activationState: "active",
+  changeOwners: changeOwnerManifest.producers[definition.modeId],
   ...definition,
 });
 

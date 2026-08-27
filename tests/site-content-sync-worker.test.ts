@@ -34,6 +34,20 @@ function plan(): SiteContentSyncPlan {
 }
 
 describe("site-content synchronization worker", () => {
+  it("records one admitted invocation and one fixed terminal outcome around the existing one-event worker", () => {
+    const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
+    expect(source).toContain("record_site_content_sync_worker_invocation");
+    expect(source).toContain("p_phase: phase");
+    expect(source).toContain('recordInvocation(supabase, workerId, invocationId, "started", null)');
+    expect(source).toContain(
+      'const terminalPhase = counts.failed > 0 || counts.leaseLost > 0 ? "failed" : "succeeded"',
+    );
+    for (const outcome of ["idle", "ready", "claim_failed", "event_failed", "lease_lost", "worker_failed"]) {
+      expect(source).toContain(`| "${outcome}"`);
+    }
+    expect(source).toContain("crypto.randomUUID()");
+  });
+
   it("keeps the automatic Edge executor JWT-protected, bounded, fenced, and changed-only", () => {
     const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
     const config = readFileSync("supabase/config.toml", "utf8");

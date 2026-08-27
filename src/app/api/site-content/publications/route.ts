@@ -4,7 +4,7 @@ import { z } from "zod";
 import { jsonError } from "@/lib/http";
 import { publishSiteContentCommand } from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, requireAuthenticatedUserContext, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,8 +25,10 @@ const commandSchema = z
 
 export async function POST(request: Request) {
   try {
-    const supabase = createAdminClient();
-    const administrator = await requireAuthenticatedUser(request, supabase, { administrator: true });
+    const sourceSupabase = createAdminClient();
+    const { publicationClient } = await requireAuthenticatedUserContext(request, sourceSupabase, {
+      administrator: true,
+    });
     let json: unknown;
     try {
       json = await request.json();
@@ -38,8 +40,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid site-content publication command." }, { status: 400 });
     }
     const result = await publishSiteContentCommand({
-      supabase: supabase as never,
-      actorId: administrator.id,
+      sourceSupabase: sourceSupabase as never,
+      publicationSupabase: publicationClient as never,
       command: parsed.data,
     });
     if (result.outcome === "conflict") {

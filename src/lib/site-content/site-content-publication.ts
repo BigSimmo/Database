@@ -25,6 +25,10 @@ import {
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
+import {
+  parseSiteContentReleaseEvidence,
+  type SiteContentReleaseEvidence,
+} from "@/lib/site-content/site-content-health";
 
 export type DynamicSiteContentKind = "service" | "form" | "medication" | "differential" | "presentation";
 
@@ -554,24 +558,28 @@ export type SiteContentPublicationCommand = {
 };
 
 export async function publishSiteContentCommand(input: {
-  supabase: RpcClient;
-  actorId: string;
+  sourceSupabase: RpcClient;
+  publicationSupabase: RpcClient;
   command: SiteContentPublicationCommand;
 }) {
-  if (!input.supabase.from) throw new Error("Site-content source reader is unavailable.");
+  if (!input.sourceSupabase.from) throw new Error("Site-content source reader is unavailable.");
   const sourceTable =
     input.command.kind === "service" || input.command.kind === "form"
       ? "clinical_registry_records"
       : input.command.kind === "medication"
         ? "medication_records"
         : "differential_records";
-  const sourceResult = await input.supabase.from(sourceTable).select("*").eq("id", input.command.sourceRowId).single();
+  const sourceResult = await input.sourceSupabase
+    .from(sourceTable)
+    .select("*")
+    .eq("id", input.command.sourceRowId)
+    .single();
   if (sourceResult.error || !sourceResult.data || typeof sourceResult.data !== "object") {
     throw new Error(`Site-content source read failed: ${sourceResult.error?.message ?? "not found"}`);
   }
   const canonical = canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
   const rpcName = input.command.action === "publish" ? "publish_site_content_record" : "retire_site_content_record";
-  const { data, error } = await callRpc(input.supabase, rpcName, {
+  const { data, error } = await callRpc(input.publicationSupabase, rpcName, {
     p_kind: input.command.kind,
     p_source_row_id: input.command.sourceRowId,
     p_expected_source_version: input.command.expectedSourceVersion,
@@ -579,7 +587,6 @@ export async function publishSiteContentCommand(input: {
     p_reconciliation_plan_digest: input.command.reconciliationPlanDigest ?? null,
     p_expected_record_digest: siteContentValueHash(canonical.record),
     p_expected_projection_digest: siteContentProjectionDigest(canonical),
-    p_published_by: input.actorId,
   });
   if (error) throw new Error(`Site-content publication command failed: ${error.message}`);
   if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") {
@@ -596,6 +603,16 @@ export async function publishSiteContentCommand(input: {
     throw new Error("Site-content publication command failed: invalid RPC outcome.");
   }
   return { outcome: "applied" as const, result };
+}
+
+export async function readSiteContentHealthEvidence(supabase: unknown): Promise<SiteContentReleaseEvidence> {
+  const { data, error } = await callRpc(supabase as RpcClient, "read_site_content_health", {});
+  if (error) throw new Error("Site-content health evidence is unavailable.");
+  try {
+    return parseSiteContentReleaseEvidence(data);
+  } catch {
+    throw new Error("Site-content health evidence is unavailable.");
+  }
 }
 
 export async function activateSiteContentRelease(input: {

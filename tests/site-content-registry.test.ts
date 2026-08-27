@@ -30,6 +30,7 @@ import type {
 import { publicSpecifierRecordBySlug, publicSpecifierRecords, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyRecords } from "@/lib/therapies";
 import { publicKnowledgeToolCatalogRecords, toolCatalogRecords } from "@/lib/tools-catalog";
+import siteContentChangeOwners from "@/lib/site-content/site-content-change-owners.json";
 
 const activeRelease: ActiveSiteContentRelease = {
   version: "clinical-kb-site-release-v1",
@@ -96,6 +97,16 @@ describe("site content contracts", () => {
 });
 
 describe("site content producer registry", () => {
+  it("attaches the single declarative CI owner list to every producer", () => {
+    expect(Object.keys(siteContentChangeOwners.producers).sort()).toEqual(
+      siteContentProducerRegistry.map((producer) => producer.modeId).sort(),
+    );
+    for (const producer of siteContentProducerRegistry) {
+      expect(producer.changeOwners).toEqual(siteContentChangeOwners.producers[producer.modeId]);
+      expect(producer.changeOwners).toContain(producer.canonicalOwner);
+    }
+  });
+
   it("maps every public knowledge mode to its canonical site domain and role", () => {
     expect(
       Object.fromEntries(siteContentProducerRegistry.map((producer) => [producer.modeId, producer.domain])),

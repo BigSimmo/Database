@@ -15,6 +15,7 @@ function mockEnv() {
       OPENAI_PRICE_CACHED_INPUT_PER_MTOK: 0.125,
       OPENAI_PRICE_OUTPUT_PER_MTOK: 10,
       SPEND_ALERT_DAILY_USD: 25,
+      SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: "a".repeat(64),
     },
     isDemoMode: () => false,
   }));
@@ -24,6 +25,47 @@ function mockSupabase(healthy: boolean) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin-client" })) }));
   vi.doMock("@/lib/supabase/health", () => ({
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
+  }));
+  const current = new Date().toISOString();
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({
+    readSiteContentHealthEvidence: vi.fn(async () => ({
+      initialized: true,
+      bootstrapIntegrityState: "not_applicable",
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1",
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active",
+        activatedAt: current,
+      },
+      publicSiteChangeEpoch: "7",
+      outstandingHeadCount: 0,
+      populationComplete: true,
+      releaseDigestValid: true,
+      dynamicDigestValid: true,
+      administratorAttestationValid: true,
+      governanceValid: true,
+      pendingSetExact: true,
+      outstandingHeadCountAgrees: true,
+      pendingCount: 0,
+      retryPendingCount: 0,
+      processingCount: 0,
+      readyCount: 0,
+      quarantinedCount: 0,
+      oldestOutstandingOriginAgeMs: null,
+      countOverflow: false,
+      timeIntegrityValid: true,
+      expiredProcessingLeaseCount: 0,
+      synchronizerSeen: true,
+      lastInvocationAt: current,
+      lastSuccessfulInvocationAt: current,
+      latestInvocationSucceeded: true,
+      lastActivation: current,
+      rollbackAvailable: false,
+    })),
   }));
 }
 
@@ -56,7 +98,8 @@ describe("authorized deep health probe diagnostics", () => {
     const { response, body } = await deepProbe();
 
     expect(response.status).toBe(200);
-    expect(body.checks).toMatchObject({ supabase: "ok" });
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "ok" });
+    expect(body.siteContent).toMatchObject({ state: "current", releaseDigestPrefix: "cccccccccccc" });
     expect(body.slo).toMatchObject({ answers: 12 });
     expect(body.spend).toMatchObject({ totalUsd: 1.5 });
     expect(spendCalls[0]?.[1]).toMatchObject({

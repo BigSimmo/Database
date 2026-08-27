@@ -1,0 +1,55 @@
+{
+  "version": "site-content-change-owners-v1",
+  "producers": {
+    "calculators": ["src/components/calculators/calculator-fixtures.ts"],
+    "dictionary": ["src/lib/dictionary-data.ts"],
+    "differentials": [
+      "data/differentials-snapshot.json",
+      "src/data/cross-mode-differentials-index.json",
+      "src/data/differential-presentation-display-metadata.json",
+      "src/lib/differentials.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "dsm": ["src/data/dsm-clinical-content.json", "src/lib/dsm.ts"],
+    "factsheets": ["src/components/factsheets/factsheets-data.ts"],
+    "forms": [
+      "data/forms-act-section-cues.json",
+      "data/forms-catalog.json",
+      "data/forms-page-snapshot.json",
+      "data/forms-pdf-manifest.json",
+      "src/lib/forms.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "formulation": ["src/data/formulation-content.json", "src/lib/formulation.ts"],
+    "prescribing": [
+      "data/medications-snapshot.json",
+      "src/lib/medication-snapshot.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "services": [
+      "data/services-snapshot.json",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/services.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "specifiers": [
+      "data/specifiers-content.json",
+      "data/specifiers-search-index.json",
+      "src/lib/specifiers-content.ts"
+    ],
+    "therapy-compass": [
+      "public/therapy-compass-data/**",
+      "public/therapy-compass-data/therapies.09b25b0fff3a2b44.json",
+      "src/components/therapy-compass/data/generated-assets.ts",
+      "src/lib/therapies.ts"
+    ],
+    "tools": ["src/lib/tools-catalog.ts"]
+  }
+}

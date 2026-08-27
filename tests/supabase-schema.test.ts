@@ -6,6 +6,79 @@ import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
+const siteContentHealthMigration = readFileSync(
+  new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+describe("site-content Task 4 health schema", () => {
+  it("adds immutable administrator attestation and private forced-RLS invocation evidence", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain("administrator_authorized_at timestamptz not null");
+      expect(sql).toContain("administrator_authorization_version text not null");
+      expect(sql).toContain("create table public.site_content_sync_worker_invocations");
+      expect(sql).toContain("alter table public.site_content_sync_worker_invocations force row level security");
+      expect(sql).toContain("create or replace function public.record_site_content_sync_worker_invocation(");
+      expect(sql).toContain("create or replace function public.read_site_content_health()");
+    }
+  });
+
+  it("preserves Task 3 migration bytes and removes spoofable publication overloads only in Task 4", () => {
+    expect(siteContentHealthMigration).toContain("site_content_task4_requires_empty_publications");
+    expect(siteContentHealthMigration).toContain("auth.uid()");
+    expect(siteContentHealthMigration).toContain("from auth.users");
+    expect(siteContentHealthMigration).toContain("for share");
+    expect(siteContentHealthMigration).toContain("pg_advisory_xact_lock");
+    expect(siteContentHealthMigration).toContain("statement_timestamp()");
+    expect(siteContentHealthMigration).not.toMatch(/delete from public\.site_content_sync_worker_invocations/i);
+    expect(siteContentHealthMigration.indexOf("site_content_task4_requires_empty_publications")).toBeLessThan(
+      siteContentHealthMigration.indexOf("add column administrator_authorized_at"),
+    );
+    for (const name of ["publish_site_content_record", "retire_site_content_record"]) {
+      expect(siteContentHealthMigration).toContain(
+        `drop function if exists public.${name}(text, uuid, text, bigint, text, text, text, uuid)`,
+      );
+      expect(siteContentHealthMigration).toContain("auth.jwt()->>'role' is distinct from 'authenticated'");
+      expect(siteContentHealthMigration).toContain(
+        "raw_app_meta_data->>'site_role' is not distinct from 'administrator'",
+      );
+    }
+  });
+
+  it("fences invocation replay and derives one bounded, read-only health snapshot", () => {
+    expect(siteContentHealthMigration).toContain("pg_catalog.pg_advisory_xact_lock(93206432)");
+    expect(siteContentHealthMigration).toContain("admission_expires_at <= v_now");
+    expect(siteContentHealthMigration).toContain("outcome_code = 'invocation_expired'");
+    expect(siteContentHealthMigration).toContain(
+      "v_row.terminal_phase = p_phase and v_row.outcome_code = p_outcome_code",
+    );
+    expect(siteContentHealthMigration).toContain("language sql stable security definer set search_path = ''");
+    expect(siteContentHealthMigration).toContain("db_clock as (select statement_timestamp() as now)");
+    expect(siteContentHealthMigration).toContain("max(db_clock.now) - min(e.created_at)");
+    expect(siteContentHealthMigration).toContain(
+      "origin.target_publication_id is distinct from h.current_publication_id",
+    );
+    expect(siteContentHealthMigration).toContain("e.event_sequence > c.event_sequence");
+    expect(siteContentHealthMigration).toContain("not exists (select 1 from live_events e where not exists");
+    expect(siteContentHealthMigration).toContain("receipt.receipt#>>'{resource,kind}' = 'site_release'");
+    expect(siteContentHealthMigration).toContain(
+      "p.target_change_epoch = 0 and p.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid",
+    );
+    expect(siteContentHealthMigration).toContain("p.expected_record_count = 833 and p.expected_tombstone_count = 0");
+    expect(siteContentHealthMigration).not.toContain("(select state from bootstrap) = 'valid_retained'");
+    const healthStart = siteContentHealthMigration.indexOf(
+      "create or replace function public.read_site_content_health()",
+    );
+    const healthEnd = siteContentHealthMigration.indexOf(
+      "alter table public.site_content_sync_worker_invocations enable",
+      healthStart,
+    );
+    const health = siteContentHealthMigration.slice(healthStart, healthEnd);
+    expect(health).not.toMatch(/for update|pg_advisory|delete from|insert into|update public/i);
+    const publicObject = health.slice(health.lastIndexOf("select jsonb_build_object("));
+    expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
+  });
+});
 const documentIndexUnitsMigration = readFileSync(
   new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
   "utf8",

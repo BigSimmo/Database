@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (273 files) and the `package.json` script surface (267 entries),
+Curated map of `scripts/` (274 files) and the `package.json` script surface (267 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -95,6 +95,8 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `compare-retrieval-eval.ts`, `retrieval-health.ts`, `profile-retrieval-rpcs.ts`,
 `warm-retrieval-cache.ts`, `tune-search-weights.ts`, `check-rag-fixtures.mjs`, `eval-trend.mjs`
 (trend across runs), `eval-utils.ts` (shared harness helpers),
+`check-site-content-freshness.ts` (strict offline site-content release/queue/worker evidence classifier;
+live mode remains authorization-gated and is not used by CI),
 `probe-generation-quality.ts` (one approved cache-bypassed live answer; reports the structured
 `generation_quality_gate_reasons` added for `/issues` `#231` — provider-backed, refuses demo mode),
 `check-rag-adversarial-fixtures.mjs` + `rag-adversarial-contract.mjs` (offline, network-free

@@ -2572,9 +2572,10 @@ export type Database = {
       };
       site_content_publications: GeneratedTable<{
         id: string; logical_id: string; kind: string; slug: string; source_table: string; source_row_id: string;
-        source_owner_id: string; source_version: string; published_by: string; reconciliation_plan_digest: string | null;
+        source_owner_id: string; source_version: string; published_by: string; administrator_authorized_at: string;
+        administrator_authorization_version: string; reconciliation_plan_digest: string | null;
         record: Json; render_payload: Json; retired: boolean; created_at: string;
-      }, "logical_id" | "kind" | "slug" | "source_table" | "source_row_id" | "source_owner_id" | "source_version" | "published_by" | "record" | "render_payload">;
+      }, "logical_id" | "kind" | "slug" | "source_table" | "source_row_id" | "source_owner_id" | "source_version" | "published_by" | "administrator_authorized_at" | "administrator_authorization_version" | "record" | "render_payload">;
       site_content_reconciliation_plans: GeneratedTable<{
         plan_digest: string; version: string; trusted_snapshot_digest: string; trusted_snapshots: Json; dispositions: Json;
         expected_record_count: number; expected_group_count: number; batch_size: number; batch_count: number; counts: Json;
@@ -2594,6 +2595,10 @@ export type Database = {
         lease_generation: number; lease_expires_at: string | null; superseded_by_event_sequence: number | null;
         terminal_at: string | null; last_error_code: string | null; created_at: string; updated_at: string;
       }, "logical_id" | "target_publication_id" | "target_change_epoch">;
+      site_content_sync_worker_invocations: GeneratedTable<{
+        invocation_id: string; worker_id: string; started_at: string; admission_expires_at: string;
+        terminal_phase: string | null; terminal_at: string | null; outcome_code: string | null;
+      }, "invocation_id" | "worker_id" | "admission_expires_at">;
       site_content_sync_event_plans: GeneratedTable<{
         event_sequence: number; plan_digest: string; target_change_epoch: number; plan: Json; release_id: string;
         created_at: string;
@@ -3423,10 +3428,15 @@ export type Database = {
         Returns: boolean;
       };
       publish_site_content_record: {
-        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_expected_record_digest: string; p_expected_projection_digest: string; p_published_by: string };
+        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_expected_record_digest: string; p_expected_projection_digest: string };
         Returns: { outcome: string; conflict_code: string | null; logical_id: string | null; publication_id: string | null; event_sequence: number | null; change_epoch: number | null }[];
       };
       retire_site_content_record: Database["public"]["Functions"]["publish_site_content_record"];
+      record_site_content_sync_worker_invocation: {
+        Args: { p_worker_id: string; p_invocation_id: string; p_phase: string; p_outcome_code?: string | null };
+        Returns: boolean;
+      };
+      read_site_content_health: { Args: Record<PropertyKey, never>; Returns: Json };
       read_site_content_public_records: {
         Args: { p_kind: string; p_slug?: string | null };
         Returns: { initialized: boolean; record: Json | null; render_payload: Json | null; snapshot: Json }[];

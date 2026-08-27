@@ -18,6 +18,25 @@ const MAX_BATCH = 1;
 const MAX_PLAN_RECORDS = 5000;
 const LEASE_SECONDS = 120;
 
+type InvocationPhase = "started" | "succeeded" | "failed";
+type InvocationOutcome = null | "idle" | "ready" | "claim_failed" | "event_failed" | "lease_lost" | "worker_failed";
+
+async function recordInvocation(
+  supabase: ReturnType<typeof createClient>,
+  workerId: string,
+  invocationId: string,
+  phase: InvocationPhase,
+  outcome: InvocationOutcome,
+) {
+  const result = await supabase.rpc("record_site_content_sync_worker_invocation", {
+    p_worker_id: workerId,
+    p_invocation_id: invocationId,
+    p_phase: phase,
+    p_outcome_code: outcome,
+  });
+  return !result.error && result.data === true;
+}
+
 function fixedLog(code: string, event: ClaimedEvent, count = 0) {
   console.log(JSON.stringify({ code, eventSequence: event.event_sequence, logicalId: event.logical_id, count }));
 }
@@ -260,21 +279,48 @@ Deno.serve(async (request: Request) => {
     const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "1");
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(MAX_BATCH, Math.trunc(requestedLimit))) : 1;
     const workerId = crypto.randomUUID();
-    const claim = await supabase.rpc("claim_site_content_sync_events", {
-      p_worker_id: workerId,
-      p_limit: limit,
-      p_lease_seconds: LEASE_SECONDS,
-    });
-    if (claim.error) throw new Error("SITE_CONTENT_CLAIM_FAILED");
-    const events = (claim.data ?? []) as ClaimedEvent[];
-    const counts = { ready: 0, failed: 0, leaseLost: 0 };
-    for (const event of events) {
-      const outcome = await processEvent(supabase, event);
-      if (outcome === "ready") counts.ready += 1;
-      else if (outcome === "failed") counts.failed += 1;
-      else counts.leaseLost += 1;
+    const invocationId = crypto.randomUUID();
+    const admitted = await recordInvocation(supabase, workerId, invocationId, "started", null);
+    if (!admitted) {
+      return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_NOT_ADMITTED" }, { status: 503 });
     }
-    return Response.json({ ok: true, claimed: events.length, ...counts });
+    try {
+      const claim = await supabase.rpc("claim_site_content_sync_events", {
+        p_worker_id: workerId,
+        p_limit: limit,
+        p_lease_seconds: LEASE_SECONDS,
+      });
+      if (claim.error) {
+        const terminalRecorded = await recordInvocation(supabase, workerId, invocationId, "failed", "claim_failed");
+        return Response.json(
+          { ok: false, error: terminalRecorded ? "SITE_CONTENT_CLAIM_FAILED" : "SITE_CONTENT_WORKER_FAILED" },
+          { status: 500 },
+        );
+      }
+      const events = (claim.data ?? []) as ClaimedEvent[];
+      const counts = { ready: 0, failed: 0, leaseLost: 0 };
+      for (const event of events) {
+        const outcome = await processEvent(supabase, event);
+        if (outcome === "ready") counts.ready += 1;
+        else if (outcome === "failed") counts.failed += 1;
+        else counts.leaseLost += 1;
+      }
+      const terminalPhase = counts.failed > 0 || counts.leaseLost > 0 ? "failed" : "succeeded";
+      const terminalOutcome: InvocationOutcome =
+        counts.leaseLost > 0 ? "lease_lost" : counts.failed > 0 ? "event_failed" : counts.ready > 0 ? "ready" : "idle";
+      const terminalRecorded = await recordInvocation(supabase, workerId, invocationId, terminalPhase, terminalOutcome);
+      if (!terminalRecorded) {
+        return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
+      }
+      return Response.json({ ok: true, claimed: events.length, ...counts });
+    } catch {
+      try {
+        await recordInvocation(supabase, workerId, invocationId, "failed", "worker_failed");
+      } catch {
+        // The fixed response is authoritative; the durable unterminated row makes health stop.
+      }
+      return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
+    }
   } catch {
     return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
   }
