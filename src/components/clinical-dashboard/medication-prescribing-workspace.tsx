@@ -823,7 +823,7 @@ function MedicationResults({
                     data-medication-cell="action"
                     className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
                   >
-                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
+                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
