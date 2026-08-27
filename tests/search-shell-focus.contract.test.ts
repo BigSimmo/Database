@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
 import { sourceSegment } from "./helpers/source-contract";
 
 const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
-const primitives = readFileSync(new URL("../src/components/ui-primitives.tsx", import.meta.url), "utf8");
+const primitives = readPrimitiveRecipeSources();
 const comparePicker = readFileSync(
   new URL("../src/components/compare/compare-catalog-picker.tsx", import.meta.url),
   "utf8",

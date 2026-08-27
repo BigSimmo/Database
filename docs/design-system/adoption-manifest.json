@@ -148,7 +148,8 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/ui-smoke.spec.ts",
-        "tests/ui-v2-answer-safety.dom.test.tsx"
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ui-visual-baseline.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -223,7 +224,13 @@
         "preview": ".design-sync/previews/AsyncButton.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-primitives.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/design-system-contract-utils.test.ts",
+        "tests/ui-primitives.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -295,7 +302,9 @@
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
         "src/components/tools/tools-search-results-page.tsx",
+        "src/components/ui/applied-filters.tsx",
         "src/components/ui/confirm-dialog.tsx",
+        "src/components/ui/copy-button.tsx",
         "src/components/ui/print-output.tsx"
       ],
       "productImportFiles": [
@@ -316,7 +325,9 @@
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
         "src/components/tools/tools-search-results-page.tsx",
+        "src/components/ui/applied-filters.tsx",
         "src/components/ui/confirm-dialog.tsx",
+        "src/components/ui/copy-button.tsx",
         "src/components/ui/print-output.tsx"
       ],
       "designSync": {
@@ -327,6 +338,8 @@
       },
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
+        "tests/applied-filters.dom.test.tsx",
+        "tests/copy-button.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
@@ -384,14 +397,16 @@
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
-        "src/components/tools/tools-search-results-page.tsx"
+        "src/components/tools/tools-search-results-page.tsx",
+        "src/components/ui/applied-filters.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
-        "src/components/tools/tools-search-results-page.tsx"
+        "src/components/tools/tools-search-results-page.tsx",
+        "src/components/ui/applied-filters.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -400,6 +415,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/applied-filters.dom.test.tsx",
         "tests/chip-contract.test.ts",
         "tests/ckb-v2-token-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
@@ -748,6 +764,7 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
+        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
@@ -763,6 +780,7 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
+        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
@@ -783,6 +801,7 @@
       "testFiles": [
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
         "tests/rsc-boundary.test.ts",
@@ -1005,6 +1024,7 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/icon-button.dom.test.tsx",
         "tests/rsc-boundary.test.ts"
       ],
@@ -1211,6 +1231,7 @@
         "tests/diagnosis-map-panel.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
         "tests/therapy-key-facts.dom.test.tsx",
+        "tests/ui-style-contract.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -1744,6 +1765,7 @@
         "tests/ui-overlay-css-contract.test.ts",
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
+        "tests/ui-style-contract.spec.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {
@@ -2123,6 +2145,7 @@
       },
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/ui-primitives.dom.test.tsx"
       ],
@@ -2153,7 +2176,11 @@
         "preview": ".design-sync/previews/Tooltip.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-style-contract.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",

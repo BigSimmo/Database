@@ -105,7 +105,7 @@ function CalculatorResultCard({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group grid min-w-0 content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "group grid min-w-0 content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         focusRing,
       )}
     >
@@ -160,7 +160,7 @@ function CalculatorResultRow({
       type="button"
       onClick={onOpen}
       className={cn(
-        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--e2)]",
         focusRing,
       )}
     >
@@ -388,7 +388,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
   return (
     <section
       aria-label="Next clinical actions"
-      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-card)]"
+      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)]"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Next clinical actions</h2>
@@ -493,7 +493,7 @@ export function RelatedContentPanel({
   return (
     <section
       aria-label="Related knowledge-base content"
-      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-card)]"
+      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)]"
     >
       <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>From the knowledge base</h2>
       <div className="grid gap-1.5">
@@ -535,7 +535,7 @@ export function ScorePanel({
   return (
     <section
       aria-label="Score"
-      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-card)]"
+      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)]"
     >
       <div className="flex items-end justify-between gap-2">
         <div>
@@ -569,7 +569,7 @@ export function ScorePanel({
 
 export function CalculatorDetailHeader({ calc }: { calc: CalculatorFixture }) {
   return (
-    <header className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-card)] sm:p-5">
+    <header className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e2)] sm:p-5">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
         <span className="grid size-tap shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-12">
           <calc.icon className="size-icon-xl" aria-hidden="true" />
@@ -639,7 +639,7 @@ function CalculatorDetail({
       {/* Compact live ticker — phones only; desktop has the sticky rail */}
       <section
         aria-label="Live score"
-        className="sticky top-2 z-10 grid gap-1.5 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-3 py-2.5 shadow-[var(--shadow-soft)] backdrop-blur-md lg:hidden"
+        className="sticky top-2 z-10 grid gap-1.5 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-3 py-2.5 shadow-[var(--e2)] backdrop-blur-md lg:hidden"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">

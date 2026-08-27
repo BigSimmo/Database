@@ -104,7 +104,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
       data-specifier-match-card
       className={cn(
         specifierCard,
-        "group relative overflow-hidden border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)] motion-reduce:transition-none",
+        "group relative overflow-hidden border-[color:var(--border-strong)] shadow-[var(--e2)] transition hover:border-[color:var(--clinical-accent)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)] motion-reduce:transition-none",
         isTopMatch && "border-2 border-[color:var(--clinical-accent)]",
       )}
     >
