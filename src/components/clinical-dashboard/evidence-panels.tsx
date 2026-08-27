@@ -1217,7 +1217,7 @@ export function AnswerFeedbackPanel({
               {pending === item.type ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               ) : (
-                <Icon className="h-4 w-4" />
+                <Icon aria-hidden="true" className="h-4 w-4" />
               )}
               {item.label}
             </button>

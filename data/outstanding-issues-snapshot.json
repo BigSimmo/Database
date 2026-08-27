@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 144,
+    "pending": 146,
     "resolved": 376
   },
   "queue": [
@@ -1020,6 +1020,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "454d0cd5-8f4c-4ab9-b9b3-7b5a588283a1",
+      "action": "cancel",
+      "summary": "Cancel request 76744c9f-6e7f-4390-a202-756e50be0cd1: Superseded by a539a411-4648-4f71-8b40-90d49646e8a4 on #243HCC",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "455d31fc-c3d3-4645-ae2c-2696836f16af",
       "action": "add",
       "summary": "Form 12A displays a false Password protected warning although its committed PDF is readable",
@@ -1336,6 +1342,12 @@
       "action": "done",
       "summary": "#243HCC: Resolved by emitting data-settings-nav-target={item.id} on every Settings navigation control and removing the vacuous length guard from tests/settings-dialog-actions.dom.test.tsx, so the desktop rail must exactly match the rendered section ids. Focused combined verification on 2026-08-23 passed tests/settings-dialog-actions.dom.test.tsx, tests/pwa-lifecycle.dom.test.tsx, and tests/mockup-crawler-policy.test.ts: 3 files, 26 tests.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
+      "action": "done",
+      "summary": "#45V4Y7: Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "a680a25f-5aa7-4a19-94bc-0f30fcf9a61d",

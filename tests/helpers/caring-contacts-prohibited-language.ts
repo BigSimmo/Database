@@ -15,4 +15,4 @@
  * reply-monitoring claims that a message could not make but a screen could.
  */
 export const CARING_CONTACTS_PROHIBITED_LANGUAGE =
-  /\bhigh risk\b|\bsafe\b|\bengagement scores?\b|\bcampaigns?\b|\bleads?\b|\bconversions?\b|\bbest match\b|\binbox(es)?\b|\bconversations?\b|\bclinical risk\b|\brisk scores?\b|\bwellbeing scores?\b|monitor(s|ed|ing)? (the )?repl(y|ies)|repl(y|ies) (are|is) monitored/i;
+  /\bhigh risk\b|\bsafe\b|\bengagement scores?\b|\bcampaigns?\b|(?<!\b(?:incident|programme|clinical|team|service)\s)\bleads?\b|\bconversions?\b|\bbest match\b|\binbox(es)?\b|\bconversations?\b|\bclinical risk\b|\brisk scores?\b|\bwellbeing scores?\b|monitor(s|ed|ing)? (the )?repl(y|ies)|repl(y|ies) (are|is) monitored/i;
