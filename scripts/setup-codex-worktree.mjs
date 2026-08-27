@@ -77,6 +77,7 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd,
     encoding: "utf8",
+    maxBuffer: options.maxBuffer ?? 64 * 1024 * 1024,
     shell: false,
     stdio: options.capture ? "pipe" : "inherit",
   });
