@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "dffb287545ac375d43eab21ea3a44e273c2a1cdf",
-    "committed_at": "2026-08-27T11:08:26+00:00"
+    "sha": "25eb20f4c8ae7f7589b45a322d25c6d1f3ca1dca",
+    "committed_at": "2026-08-27T11:31:22+00:00"
   },
   "routes": {
     "modes": [
@@ -3926,6 +3926,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Static PR checks failing (check:repo-awareness-snapshot: committed snapshot behind — review_state differs) -> merged origin/main@603da96 (clean, no conflicts) then regenerated snapshot via npm run snapshot:repo-awareness and committed; 0 unresolved review threads found (none to fix/reply/resolve). Local full gate now green. Note: main advanced again mid-sweep to be65b8a1b (PR #2415, same DSM/compare files) producing a real post-push content conflict — left unresolved for the user, not auto-resolved.",
         "checks": "npm run verify:cheap equivalent set run piecewise: check:repo-awareness-snapshot (fail -> pass after regenerate), full static-pr check chain (34 gates, all pass), npm run lint (pass), npm run typecheck (pass), npm run test (893 files / 10824 tests passed, 4 skipped — two initially-failing tests (clinical-hazard-controls.test.ts, privacy-readiness-contract.test.ts) were a local shallow-clone ancestry artifact, confirmed pre-existing on plain origin/main and resolved by git fetch --deepen, not a code fix). No provider-backed checks run."
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/therapy-compare-phone-ux (PR #2410)",
+        "head": "871df2793ccb63ffe92f70225e8be64e25619da7",
+        "scope": "Resolve merge conflict against origin/main (requested follow-up after Run PR sweep)",
+        "outcome": "Real content conflict in compare-ids-chrome.tsx, compare-slot-strip.tsx, dsm-compare-chrome.tsx, and tests/ui-route-coverage.spec.ts caused by PR #2415 (already merged) independently reworking DsmCompareChrome to a compact horizontal rail + separate starter-chip row, while this PR added a phoneLayout=hybrid pip-summary/2x2-grid design to the same shared CompareIdsChrome/CompareSlotStrip components. Resolved by merging both prop sets into the shared components (showEmptyState/slotLayout from main plus phoneLayout/slotSummaryLabel from this PR, now coexisting) and, for the one screen both PRs redesigned (DSM compare), keeping origin/main's already-shipped compact-rail design rather than overwriting it — so this PR's hybrid layout still lands in full for Therapy compare (untouched by #2415), while DSM compare keeps its most recently reviewed design. Regenerated data/repo-awareness-snapshot.json. Pushed as merge commit 871df2793.",
+        "checks": "npx vitest run tests/compare-slot-strip.dom.test.tsx tests/compare-ids-chrome.dom.test.tsx tests/dsm-compare-chrome.dom.test.tsx tests/therapy-compare-phone-layout.dom.test.tsx tests/therapy-compare-tray.dom.test.tsx tests/phone-dock-addon-contract.test.ts -- 53 passed; npx tsc --noEmit -- clean; npx eslint on the 4 resolved files -- clean; npm run check:repo-awareness-snapshot -- in step; npx prettier --check on the 4 resolved files -- all match. No provider-backed checks run."
       },
       {
         "date": "2026-08-27",
@@ -24985,7 +24993,7 @@
       }
     ],
     "counts": {
-      "records": 2637,
+      "records": 2638,
       "refs": 1610
     }
   }
