@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "31bbefdc-0125-4b69-9ba5-f85ce916dc1a",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
+    "detail": "data/outstanding-issues-snapshot.json carries a ledger_revision pointer. Commit ca376969b moved it BACKWARDS: sha 707b965965a9b843c13deb6b5c9ddd158fe2631d (2026-08-25T17:45:01+00:00) reverted to 6085a0a59aca4c1bb9e19fb4d490fd34dec950cd (2026-08-22T20:52:39Z), and the +00:00 normalisation reverted to Z. Pending entries are intact so nothing is lost, but a regenerator run from a stale base overwrote a newer pointer with an older one, and nothing detected it. Found 2026-08-27 while verifying that PR 2390 squash-merged completely. Not caused by that PR. Next step: decide whether generate-outstanding-issues-snapshot.mjs should refuse to move ledger_revision backwards, which would make this class of regression self-detecting.",
+    "source": "PR 2390 merge verification, 2026-08-27",
+    "issueUlid": "01M10J5E95BR22179JNK7P9Z5A"
+  }
+}

@@ -1,10 +1,5 @@
-// Overview landing for the document viewer: the compact header and quick
-// actions. Extracted from DocumentViewer.tsx (maturity X3) as a pure move.
-//
-// The high-yield clinical summary used to live here too, which put it above the
-// PDF on phones — most of the first viewport spent before any of the source.
-// DocumentViewer now places it after the source, matching the order
-// `buildDocumentSectionIndex` has always described.
+// Compact document identity and task controls. The embedded source follows this
+// card immediately; extracted summaries and text deliberately sit after it.
 import { Download, Loader2, MoreHorizontal, Search, Sparkles } from "lucide-react";
 import type { MouseEventHandler } from "react";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
@@ -54,6 +49,7 @@ export function DocumentOverviewLanding({
   onDownload,
   downloading,
   canSummarizeDocument,
+  summarizing,
 }: {
   document: ClinicalDocument;
   signedUrl: string | null;
@@ -64,17 +60,24 @@ export function DocumentOverviewLanding({
   onDownload: () => void;
   downloading: boolean;
   canSummarizeDocument: boolean;
+  summarizing: boolean;
 }) {
   const documentType = compactDocumentType(document);
+  const answerLabel = summarizing ? "Answering…" : canSummarizeDocument ? "Answer from this" : "Sign in to answer";
+  const answerTitle = summarizing
+    ? "An answer is being generated from this document."
+    : canSummarizeDocument
+      ? "Answer from this document"
+      : "Sign in before answering from this document.";
 
   return (
-    <section className="grid gap-4">
-      <article className={cn(panel, "p-3 sm:p-5")}>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
+    <section>
+      <article className={cn(panel, "p-3 sm:p-4")}>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
           <DocumentFileTile
             kind={documentType}
             tone={documentTileTone(documentType)}
-            className="h-14 w-14 rounded-xl text-sm sm:h-24 sm:w-24"
+            className="h-14 w-14 rounded-xl text-sm sm:h-16 sm:w-16"
           />
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-label text-[color:var(--text-muted)]">
@@ -90,33 +93,27 @@ export function DocumentOverviewLanding({
             {/* Search relevance badges are rendered in document search results; the viewer has no ranking context. */}
           </div>
         </div>
-        {/* Phone: primary reading actions only. Download / search stay behind More
-            so the first viewport reaches the PDF and clinical summary faster. */}
+        {/* Search and grounded answering are the document-page tasks. Opening or
+            downloading the raw file remains available without competing with
+            the embedded reader for the first phone viewport. */}
         <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
-          {signedUrl ? (
-            <DocumentActionAnchor
-              href={signedUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={cn(primaryButton, "w-full min-h-12 px-2 text-xs")}
-            >
-              Open PDF
-            </DocumentActionAnchor>
-          ) : (
-            <DocumentActionAnchor
-              href="#pdf-preview-section"
-              className={cn(primaryButton, "w-full min-h-12 px-2 text-xs")}
-            >
-              Open preview
-            </DocumentActionAnchor>
-          )}
+          <DocumentActionButton
+            onClick={onSearchDocument}
+            icon={Search}
+            aria-expanded={searchOpen}
+            aria-controls={searchOpen ? "document-viewer-search" : undefined}
+            className={cn(primaryButton, "w-full min-h-12 px-2 text-xs")}
+          >
+            Search document
+          </DocumentActionButton>
           <DocumentActionButton
             onClick={onAskFromDocument}
             disabled={!canSummarizeDocument}
+            title={answerTitle}
             icon={Sparkles}
             className={cn(secondaryButton, "w-full min-h-12 whitespace-nowrap px-2 text-xs")}
           >
-            Answer from this
+            {answerLabel}
           </DocumentActionButton>
         </div>
         <details className="group mt-2 sm:hidden" data-testid="document-overview-more-actions">
@@ -130,6 +127,23 @@ export function DocumentOverviewLanding({
             More actions
           </summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
+            {signedUrl ? (
+              <DocumentActionAnchor
+                href={signedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs")}
+              >
+                Open source
+              </DocumentActionAnchor>
+            ) : (
+              <DocumentActionAnchor
+                href="#pdf-preview-section"
+                className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs")}
+              >
+                Open preview
+              </DocumentActionAnchor>
+            )}
             <DocumentActionButton
               onClick={onDownload}
               disabled={downloading}
@@ -138,32 +152,38 @@ export function DocumentOverviewLanding({
             >
               {downloading ? "Preparing" : "Download"}
             </DocumentActionButton>
-            <DocumentActionButton
-              onClick={onSearchDocument}
-              icon={Search}
-              aria-expanded={searchOpen}
-              aria-controls={searchOpen ? "document-viewer-search" : undefined}
-              className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs")}
-            >
-              Search document
-            </DocumentActionButton>
           </div>
         </details>
-        <div className="mt-4 hidden grid-cols-2 gap-2 sm:grid sm:grid-cols-4">
+        <div className="mt-3 hidden flex-wrap gap-2 border-t border-[color:var(--border)] pt-3 sm:flex">
+          <DocumentActionButton
+            onClick={onSearchDocument}
+            icon={Search}
+            aria-expanded={searchOpen}
+            aria-controls={searchOpen ? "document-viewer-search" : undefined}
+            className={cn(primaryButton, "min-h-12 px-3 text-sm")}
+          >
+            Search document
+          </DocumentActionButton>
+          <DocumentActionButton
+            onClick={onAskFromDocument}
+            disabled={!canSummarizeDocument}
+            title={answerTitle}
+            icon={Sparkles}
+            className={cn(secondaryButton, "min-h-12 whitespace-nowrap px-3 text-sm")}
+          >
+            {answerLabel}
+          </DocumentActionButton>
           {signedUrl ? (
             <DocumentActionAnchor
               href={signedUrl}
               target="_blank"
               rel="noreferrer"
-              className={cn(primaryButton, "w-full min-h-12 px-2 text-sm")}
+              className={cn(secondaryButton, "min-h-12 px-3 text-sm")}
             >
-              Open PDF
+              Open source
             </DocumentActionAnchor>
           ) : (
-            <DocumentActionAnchor
-              href="#pdf-preview-section"
-              className={cn(primaryButton, "w-full min-h-12 px-2 text-sm")}
-            >
+            <DocumentActionAnchor href="#pdf-preview-section" className={cn(secondaryButton, "min-h-12 px-3 text-sm")}>
               Open preview
             </DocumentActionAnchor>
           )}
@@ -171,26 +191,9 @@ export function DocumentOverviewLanding({
             onClick={onDownload}
             disabled={downloading}
             icon={downloading ? Loader2 : Download}
-            className={cn(secondaryButton, "w-full min-h-12 px-2 text-sm")}
+            className={cn(secondaryButton, "min-h-12 px-3 text-sm")}
           >
             {downloading ? "Preparing" : "Download"}
-          </DocumentActionButton>
-          <DocumentActionButton
-            onClick={onSearchDocument}
-            icon={Search}
-            aria-expanded={searchOpen}
-            aria-controls={searchOpen ? "document-viewer-search" : undefined}
-            className={cn(secondaryButton, "w-full min-h-12 px-2 text-sm")}
-          >
-            Search document
-          </DocumentActionButton>
-          <DocumentActionButton
-            onClick={onAskFromDocument}
-            disabled={!canSummarizeDocument}
-            icon={Sparkles}
-            className={cn(secondaryButton, "w-full min-h-12 whitespace-nowrap px-2 text-sm")}
-          >
-            Answer from this
           </DocumentActionButton>
         </div>
       </article>

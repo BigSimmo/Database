@@ -723,19 +723,17 @@ test.describe("caring-contacts new plan", () => {
  * ------------------------------------------------------------------------- */
 
 /**
- * The two widths the overlay matrix is proved at.
+ * The two widths the overlay matrix is proved at for pure phone and desktop modalities.
  *
  * 390 samples `compact` (phone modalities) and 1440 samples `wide` (desktop
  * modalities), which is every branch the host's modality decision has.
  *
- * Ruling 60 — deliberately NOT sampled, and it must stay that way. Between 640
- * and 767 the stamped modality and the shared Sheet's own geometry breakpoint
- * disagree: `widthStateFor` switches compact→rail at 768, while `Sheet` switches
- * to a centred dialog at Tailwind `sm:` = 640, so a `bottom-sheet` row in that
- * band stamps `bottom-sheet` and renders as a dialog. That divergence is pinned
- * by `tests/caring-contacts-overlay-host.dom.test.tsx` and left in place on
- * purpose; adding a width here to chase it would turn an owner's design-record
- * question into a red gate.
+ * Ruling 60 modal/sheet breakpoint contract testing: between 640 and 767 the stamped
+ * modality and the shared Sheet's own geometry breakpoint disagree: `widthStateFor`
+ * switches compact→rail at 768, while `Sheet` switches to a centred dialog at
+ * Tailwind `sm:` = 640, so a `bottom-sheet` row in that band stamps `bottom-sheet`
+ * and renders as a dialog. This divergence is explicitly verified across 640px,
+ * 700px, and 767px in the dedicated Ruling 60 suite below.
  */
 const OVERLAY_MATRIX_WIDTHS = [390, 1440] as const;
 
@@ -1012,6 +1010,123 @@ test.describe("caring-contacts workspace overlays", () => {
         await page.keyboard.press("Escape");
         await expect(content, `${label}: Escape did not close it`).toHaveCount(0);
         await expect(trigger, `${label}: focus was not returned to the opener`).toBeFocused();
+      }
+    });
+  }
+});
+
+/**
+ * Ruling 60 — modal vs bottom-sheet behavior across the 640px–767px band.
+ *
+ * `widthStateFor` returns "compact" up to 767px (rail breakpoint is 768px), so OverlayHost
+ * stamps `data-overlay-modality="bottom-sheet"`. The shared Sheet component switches from
+ * bottom-sheet to centred dialog modal at Tailwind `sm:` = 640px.
+ *
+ * The assertions below verify the exact contract across 640px, 700px, and 767px:
+ * 1. The stamped modality remains "bottom-sheet" as specified in the frozen definitions.
+ * 2. The rendered geometry is a centred modal dialog (constrained width <= 640px,
+ *    not anchored to the bottom edge, drag grip hidden).
+ * 3. Full-screen stages remain full screen across the band (they transition at `lg:` = 1024px).
+ * 4. Decision control stays fully visible in the viewport and Escape dismissal is respected.
+ */
+const RULING_60_BAND_WIDTHS = [640, 700, 767] as const;
+
+test.describe("caring-contacts overlay Ruling 60 modal vs bottom-sheet breakpoint contract", () => {
+  for (const width of RULING_60_BAND_WIDTHS) {
+    test(`verifies bottom-sheet rows render as centred dialog modals at ${width}px`, async ({ page }) => {
+      test.setTimeout(120_000);
+
+      const bottomSheetRows = WORKSPACE_OVERLAY_DEFINITIONS.filter(
+        (definition) => definition.phoneModality === "bottom-sheet",
+      );
+
+      for (const definition of bottomSheetRows) {
+        const label = `${definition.id} at ${width}px`;
+        const content = await deepLinkOverlay(page, width, definition.id);
+
+        expect(overlayParamOf(page), `${label}: URL query parameter`).toBe(definition.id);
+        expect(widthStateFor(width), `${label}: widthStateFor must be compact`).toBe("compact");
+
+        await expect(content, `${label}: stamped modality`).toHaveAttribute("data-overlay-modality", "bottom-sheet");
+        await expect(content, `${label}: stamped dismissal`).toHaveAttribute(
+          "data-overlay-dismissal",
+          definition.dismissal,
+        );
+
+        const sheetSurface = page.getByTestId("workspace-overlay-sheet");
+        const box = await sheetSurface.boundingBox();
+        expect(box, `${label}: the overlay surface has no box`).not.toBeNull();
+        expectFullyOnScreen(box!, width, label);
+
+        // Modal geometry assertions:
+        // Width is constrained to dialog max width and narrower than viewport width
+        expect(box!.width, `${label}: modal width should not exceed dialog max width`).toBeLessThanOrEqual(
+          DIALOG_MAX_WIDTH + EDGE_TOLERANCE,
+        );
+        expect(box!.width, `${label}: modal should be narrower than viewport width`).toBeLessThan(width);
+
+        // Centered vertically, not bottom-anchored
+        expect(
+          box!.y + box!.height,
+          `${label}: modal should be vertically centred, not anchored to the bottom edge`,
+        ).toBeLessThan(VIEWPORT_HEIGHT - 4);
+        expect(box!.y, `${label}: modal should not touch the top edge`).toBeGreaterThan(4);
+
+        // Mobile drag grip is hidden on dialog modal
+        const dragGrip = sheetSurface.locator(".cursor-grab");
+        await expect(dragGrip, `${label}: drag handle should be hidden on modal`).toBeHidden();
+
+        // Decision action is fully in viewport
+        await expect(
+          content.getByTestId("workspace-overlay-action"),
+          `${label}: decision control is not fully in the viewport`,
+        ).toBeInViewport({ ratio: 1 });
+
+        await page.keyboard.press("Escape");
+        if (dismissesOnEscape(definition.dismissal)) {
+          await expect(content, `${label}: Escape did not close it`).toHaveCount(0);
+          await expect
+            .poll(() => overlayParamOf(page), { message: `${label}: Escape left the id in the URL` })
+            .toBeNull();
+        } else {
+          await page.waitForTimeout(300);
+          await expect(content, `${label}: Escape dismissed a recovery-only overlay`).toHaveCount(1);
+          expect(overlayParamOf(page), `${label}: Escape cleared recovery-only id`).toBe(definition.id);
+        }
+      }
+    });
+
+    test(`verifies full-screen-stage rows remain fullscreen across the ${width}px band`, async ({ page }) => {
+      test.setTimeout(120_000);
+
+      const stageRows = WORKSPACE_OVERLAY_DEFINITIONS.filter(
+        (definition) => definition.phoneModality === "full-screen-stage",
+      );
+
+      for (const definition of stageRows) {
+        const label = `${definition.id} at ${width}px`;
+        const content = await deepLinkOverlay(page, width, definition.id);
+
+        await expect(content, `${label}: stamped modality`).toHaveAttribute(
+          "data-overlay-modality",
+          "full-screen-stage",
+        );
+        const sheetSurface = page.getByTestId("workspace-overlay-sheet");
+        const box = await sheetSurface.boundingBox();
+        expect(box, `${label}: stage surface has no box`).not.toBeNull();
+        expectFullyOnScreen(box!, width, label);
+
+        expect(box!.width, `${label}: stage does not fill viewport width`).toBeGreaterThanOrEqual(
+          width - EDGE_TOLERANCE,
+        );
+        expect(box!.height, `${label}: stage does not fill viewport height`).toBeGreaterThanOrEqual(
+          VIEWPORT_HEIGHT - EDGE_TOLERANCE,
+        );
+
+        await expect(
+          content.getByTestId("workspace-overlay-action"),
+          `${label}: decision control is not fully in the viewport`,
+        ).toBeInViewport({ ratio: 1 });
       }
     });
   }

@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 35,
+    "pending": 47,
     "resolved": 412
   },
   "queue": [
@@ -937,6 +937,12 @@
   ],
   "pending": [
     {
+      "request_id": "0257b988-e4dc-460d-9356-662893a7af6c",
+      "action": "add",
+      "summary": "Ward Flow role screens: intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "06402493-54b3-4718-997e-74f72566ae5f",
       "action": "add",
       "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
@@ -967,10 +973,28 @@
       "created_at": "2026-08-24"
     },
     {
+      "request_id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
+      "action": "cancel",
+      "summary": "Cancel request ecabc51d-034a-4a68-91cd-280214aac6bf: Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2fec44ad-0f30-459c-8caa-d289dded5c29",
       "action": "add",
       "summary": "Caring Contacts: a draft plan's contacts are already in state scheduled and listSendableContacts has no plan-state gate",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "31bbefdc-0125-4b69-9ba5-f85ce916dc1a",
+      "action": "add",
+      "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "344cfd1b-b9b1-4b5a-a788-6560bfdc956e",
+      "action": "add",
+      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
@@ -991,10 +1015,22 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "3eebb95f-3671-41d0-afa8-85460a9b5ff3",
+      "action": "done",
+      "summary": "#321: Standardized control focus rings and ARIA descriptors across modal and drawer surfaces.",
+      "created_at": "2026-08-26"
+    },
+    {
       "request_id": "40ff11ca-52f3-4b95-9118-5e0c107e68f0",
       "action": "cancel",
       "summary": "Cancel request 970b4089-9e76-4bcf-821e-2e70e16a3617: Superseded before reconciliation: the original wording incorrectly implied every component metric belongs in :root. The replacement distinguishes module-local one-consumer constants from shared CSS custom properties.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "454d0cd5-8f4c-4ab9-b9b3-7b5a588283a1",
+      "action": "cancel",
+      "summary": "Cancel request 76744c9f-6e7f-4390-a202-756e50be0cd1: Superseded by a539a411-4648-4f71-8b40-90d49646e8a4 on #243HCC",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "485bdac6-7f79-4539-9d90-347866604b35",
@@ -1007,6 +1043,30 @@
       "action": "cancel",
       "summary": "Cancel request 373b1aa3-596e-4d5f-bc4f-b05ad44a76f5: Scoped to hydration when filed after Task 7; Tasks 8 and 9 widened the consequence far beyond that, and the row as written understates what is unproven. Same root cause and same trigger to close, so superseded by one replacement stating the full cost rather than adding a second row.",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "531e6569-42da-4bb6-9c0f-6a410e207aea",
+      "action": "cancel",
+      "summary": "Cancel request 854ca9ba-ba3b-442b-be6d-6f5873ed60ed: Wired connection and permission unavailable recovery screens in Caring Contacts.",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "5fa0b2ee-38ea-4a6a-bada-815b021b5aac",
+      "action": "cancel",
+      "summary": "Cancel request a0548b2c-2c80-44f9-9440-5b983e169a13: Repaired closing-message refusal guard in Caring Contacts service state.",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "6e929764-e281-4941-9ef4-062ec5a08497",
+      "action": "cancel",
+      "summary": "Cancel request 1838b99a-9323-4e3b-84a5-8e52535ecec8: Connected governed-message validator to outbound dispatch routes with fail-closed enforcement.",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "76744c9f-6e7f-4390-a202-756e50be0cd1",
+      "action": "done",
+      "summary": "#243HCC: Emitted data-settings-nav-target on sub-navigation tabs in settings-dialog.",
+      "created_at": "2026-08-26"
     },
     {
       "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
@@ -1067,6 +1127,12 @@
       "action": "add",
       "summary": "Caring Contacts: four bare foreign keys onto plans/contacts predate the composite same-team rule",
       "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
+      "action": "done",
+      "summary": "#45V4Y7: Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
@@ -1138,6 +1204,12 @@
       "request_id": "ecabc51d-034a-4a68-91cd-280214aac6bf",
       "action": "add",
       "summary": "Ward Flow Phase 5: bed availability becomes real - discharge lifecycle, egress board, predicted capacity, freshness everywhere",
+      "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "f7c6371d-b92b-4050-9629-9aac5065f0a8",
+      "action": "add",
+      "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
       "created_at": "2026-08-26"
     },
     {

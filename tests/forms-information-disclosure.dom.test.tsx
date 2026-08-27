@@ -36,6 +36,7 @@ describe("Form information disclosures", () => {
     const trigger = within(section).getByRole("button", { name: "Does not authorise" });
     expect(trigger).toHaveAccessibleName("Does not authorise");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveAttribute("data-state", "collapsed");
 
     const panelId = trigger.getAttribute("aria-controls");
     expect(panelId).toEqual(expect.any(String));
@@ -43,12 +44,15 @@ describe("Form information disclosures", () => {
     const panel = document.getElementById(panelId);
     expect(panel).toBeTruthy();
     if (!panel) return;
+    expect(panel).toHaveAttribute("data-state", "collapsed");
     expect(panel).not.toHaveAttribute("hidden");
     expect(panel).toHaveClass("hidden", "print:block");
 
     await user.click(trigger);
 
     expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(trigger).toHaveAttribute("data-state", "expanded");
+    expect(panel).toHaveAttribute("data-state", "expanded");
     expect(within(trigger).queryByText(fullText)).not.toBeInTheDocument();
     expect(panel).not.toHaveClass("hidden");
     expect(panel).not.toHaveClass("border-t");

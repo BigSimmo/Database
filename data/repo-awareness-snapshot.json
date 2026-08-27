@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "27e66ad9ac1d82e3c5728201e2ff3edf2d2ffbc1",
-    "committed_at": "2026-08-26T16:45:54+08:00"
+    "sha": "c63b40117d673c5186dd3c5df8384dd44aaf2f9b",
+    "committed_at": "2026-08-27T11:57:46+08:00"
   },
   "routes": {
     "modes": [
@@ -589,6 +589,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/document-image-status",
+        "file": "src/app/mockups/document-image-status/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/document-navigation-contract",
         "file": "src/app/mockups/document-navigation-contract/page.tsx",
         "area": "mockup"
@@ -696,6 +701,11 @@
       {
         "path": "/mockups/favourites-library-view",
         "file": "src/app/mockups/favourites-library-view/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/favourites-phone-perfected",
+        "file": "src/app/mockups/favourites-phone-perfected/page.tsx",
         "area": "mockup"
       },
       {
@@ -896,6 +906,11 @@
       {
         "path": "/mockups/ward-flow/capacity",
         "file": "src/app/mockups/ward-flow/capacity/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/ward-flow/discharges",
+        "file": "src/app/mockups/ward-flow/discharges/page.tsx",
         "area": "mockup"
       },
       {
@@ -1388,9 +1403,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 194,
+      "pages": 197,
       "product_pages": 57,
-      "mockup_pages": 137,
+      "mockup_pages": 140,
       "redirects": 17,
       "api": 57
     }
@@ -2113,6 +2128,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2475,6 +2495,11 @@
       {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/development-speed-playbook.md",
+        "section": "root",
         "catalogued": true
       },
       {
@@ -3895,9 +3920,9 @@
       }
     ],
     "counts": {
-      "documents": 488,
-      "catalogued": 102,
-      "uncatalogued": 386,
+      "documents": 490,
+      "catalogued": 103,
+      "uncatalogued": 387,
       "sections": 18
     }
   },
@@ -3910,6 +3935,22 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/tooling-hooks-ci-invariants",
+        "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
+        "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
+        "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
+        "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
       {
         "date": "2026-08-26",
         "ref": "claude/dev-hub-handoff-accuracy (PR #2382)",
@@ -3925,6 +3966,46 @@
         "scope": "therapy compare tray: phone dock addon, add-in-place, stacked comparison, device memory",
         "outcome": "built and verified; verify:cheap exit 0 (876 files / 10547 tests), verify:phone-chrome escalated to full Chromium 521 passed",
         "checks": "verify:cheap, verify:phone-chrome (full verify:ui), lint, typecheck"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "claude/ward-flow-phase-5-p8rwcm",
+        "head": "47b51405bf3938096411895d28a4bba351d7d050",
+        "scope": "Ward Flow Phase 5 — bed availability lifecycle, leave beds, discharge board, capacity bands, freshness",
+        "outcome": "Whole-branch review: approved with findings, 0 P0, 0 P1, 7 P2 — all seven fixed and mutation-tested. Four earlier automated findings: three fixed, one rejected with reasons.",
+        "checks": "npm run test (3 pre-existing failures, identical on clean origin/main); npm run typecheck; npm run lint (eslint cache cleared); prettier --check on all changed files; chromium-mockups ward-management + ward-coordinator + ward-discharges; screenshots at 390/820/1440 on five screens, looked at"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-document-viewer-workspace-document-viewer-workspace-20260826",
+        "head": "4bb642acd2a8240471a19d15304b7adc70fa5798",
+        "scope": "document detail viewer reliability, PDF workspace UI, and phone/PWA recovery",
+        "outcome": "No P0-P2 findings after fixes; ready with documented environment-only gate limitations",
+        "checks": "focused Vitest 219/219; PDF virtualization 9/9; production Chromium 2/2; typecheck, lint, formatting, design contracts, production build passed; verify:pr-local reached 10418 passes then failed six unrelated Claude cloud shell fixtures plus one isolated flake that passed on rerun"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-document-viewer-workspace-document-viewer-workspace-20260826",
+        "head": "9719590a10d05c08d9cd8736021469b1d129f3f9",
+        "scope": "PR #2389",
+        "outcome": "fixes-applied",
+        "checks": "PR policy body canonicalized; DocumentViewer 1694/1734 via state-surface extract; vitest 20/20 shell+section+recovery; Bugbot threads resolved; CI watching"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "09ff8ca36489411f26408d6b557888459151bb4a",
+        "scope": "authenticated document cover selection, retry lifecycle, optional preview failure, and source evidence preservation",
+        "outcome": "All substantiated P2 findings fixed; no remaining P0-P2 findings",
+        "checks": "lint pass; typecheck pass; focused preview 79/79; production build pass; full suite 10489 pass with six unrelated Windows Claude-cloud failures after the one preview failure was fixed; offline fixture contracts pass; snapshot and medication checks pass"
+      },
+      {
+        "date": "2026-08-26",
+        "ref": "codex/chat-image-preview-reliability-image-preview-reliability",
+        "head": "57ab01cbe28977ed3e0db830c45a00749977e351",
+        "scope": "PR #2391",
+        "outcome": "fixes-applied",
+        "checks": "PR policy body canonicalized; cover in-flight keyed by credential; vitest use-document-cover 9/9; snapshot regenerated; threads resolved; CI watching"
       },
       {
         "date": "2026-08-26",
@@ -24896,8 +24977,8 @@
       }
     ],
     "counts": {
-      "records": 2623,
-      "refs": 1602
+      "records": 2630,
+      "refs": 1607
     }
   }
 }

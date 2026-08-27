@@ -102,14 +102,28 @@ These predate this roadmap and override anything in it:
 
 ## Phase order
 
-**Phase 5 — Bed availability becomes real.** Ward discharge flagging and confirmation, the discharge
-and egress board, predicted capacity for today in four bands, a freshness signal on every screen,
-and the coordinator's one permitted action: marking a ward's count as refresh-requested. Nothing
-else. Full spec:
-`docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`.
+**Phase 5 — Bed availability becomes real. BUILT and MERGED 2026-08-26** (PR #2390, squash
+commit `ea5482b9`)**.** Ward discharge flagging and
+confirmation, the discharge and egress board, predicted capacity for today in four bands, a
+freshness signal on every screen, and the coordinator's one permitted action: marking a ward's count
+as refresh-requested. Nothing else. Full spec:
+`docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`. What was built,
+what the screenshots caught, and what is still open: `docs/ward-flow-complete-ledger.md` §5d.
 
 Everything below needs trustworthy availability numbers underneath it, which is why this phase has
-no headline screen and still has to come first.
+no headline screen and still had to come first.
+
+**Before Phase 6 builds on it, two things are owed to the product owner.** Neither blocks Phase 5.
+
+1. **Spec D14 has still never been checked by a ward clinician.** Predicted → confirmed → blocked →
+   released is a software model of how a bed comes free. A bed may be confirmed and blocked at once
+   in reality, and "predicted" may compress several distinct real states. It is the single most
+   valuable thing to check, it is cheap to change while everything is synthetic, and Phase 6 is
+   built entirely from these numbers — so the cost of it being wrong rises the moment Phase 6 lands.
+2. **Design Phases 6 and 7 in one conversation, and 8 and 9 in another.** Each design conversation
+   carries a large fixed setup cost regardless of how much is designed, and Phase 6 is small and
+   already three-quarters determined by Phase 5's numbers. Each phase still gets its own written
+   specification — only the conversation is shared.
 
 **Phase 6 — The morning page.** Promoted from Phase 8 on 2026-08-26. Built entirely from Phase 5's
 numbers, small, and the artefact that can be put in front of colleagues. Finding out whether any of

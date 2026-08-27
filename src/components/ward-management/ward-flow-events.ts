@@ -160,9 +160,90 @@ export type WardFlowEvent =
        */
       actingUnitId: string;
       confidence: BedReleaseConfidence;
-      /** Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
-       *  BED, never about the departing patient (binding spec §4). */
+      /**
+       * The ward's own estimate of when this bed will actually be free — a fact about the BED,
+       * the same category `expectedReturn` on `RECORD_LEAVE_BED` already sits in (binding spec
+       * §4 forbids timing that could identify the departing PATIENT, not an operational estimate
+       * about the bed itself). Collected on the ward screen's flag form exactly like
+       * `expectedReturn` is, and carried through to `BedRelease.expectedAt` unchanged — see the
+       * reducer's own comment on this case for why `confirmedAt` stays a separate field.
+       */
+      expectedAt: Instant;
+      /**
+       * Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
+       * BED, never about the departing patient (binding spec §4). Optional (Phase 5, spec D3):
+       * a release is legally `blocked` xor `predicted`, never both, so the reducer reads this
+       * field's presence to decide which — see the `FLAG_BED_RELEASE` case's own comment.
+       */
+      blocker?: BedReleaseBlocker;
+    }
+  | {
+      type: "CONFIRM_BED_RELEASE";
+      role: WardFlowRole;
+      now: Instant;
+      /** The release moving from `predicted` or `blocked` into `confirmed`. */
+      releaseId: string;
+      /**
+       * The unit the caller stated it was acting as, same claim-not-proof discipline as
+       * `FLAG_BED_RELEASE`'s own field (see its doc comment). `CONFIRM_BED_RELEASE` is
+       * `ward`-only, so this is always required and always compared against the release's own
+       * `unitId`.
+       */
+      actingUnitId: string;
+    }
+  | {
+      type: "BLOCK_BED_RELEASE";
+      role: WardFlowRole;
+      now: Instant;
+      /** The release moving from `predicted` or `confirmed` into `blocked`. */
+      releaseId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
+      actingUnitId: string;
+      /**
+       * Chosen from `BED_RELEASE_BLOCKERS`, never free text — required here (unlike
+       * `FLAG_BED_RELEASE`'s optional field) because a `BLOCK_BED_RELEASE` with no blocker is a
+       * contradiction in terms. A typed caller cannot omit this; the reducer still refuses a
+       * missing or empty value at runtime rather than trusting the type alone.
+       */
       blocker: BedReleaseBlocker;
+    }
+  | {
+      type: "RELEASE_BED";
+      role: WardFlowRole;
+      now: Instant;
+      /** The release moving from `confirmed` or `blocked` into `released` — terminal. */
+      releaseId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
+      actingUnitId: string;
+    }
+  | {
+      type: "RECORD_LEAVE_BED";
+      role: WardFlowRole;
+      now: Instant;
+      /** The unit whose bed is being reported as occupied by someone on approved leave. */
+      unitId: string;
+      /** Same claim-not-proof discipline as `FLAG_BED_RELEASE`'s own field, compared against `unitId`. */
+      actingUnitId: string;
+      /** The ward's statement that this bed can be filled while its occupant is away. */
+      usable: boolean;
+      expectedReturn: Instant;
+    }
+  | {
+      type: "END_LEAVE_BED";
+      role: WardFlowRole;
+      now: Instant;
+      /** The leave bed record ending — the occupant has returned or the leave has ended. */
+      leaveBedId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field, compared against
+       *  the found leave bed's own `unitId`. */
+      actingUnitId: string;
+    }
+  | {
+      type: "REQUEST_CAPACITY_REFRESH";
+      role: WardFlowRole;
+      now: Instant;
+      /** The unit a coordinator is asking to restate its numbers. */
+      unitId: string;
     };
 
 /**
@@ -196,4 +277,12 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   RELEASE_HOLD: ["coordinator", "ward"],
   CANCEL_TRANSPORT: ["coordinator", "ward"],
   FLAG_BED_RELEASE: ["ward"],
+  CONFIRM_BED_RELEASE: ["ward"],
+  BLOCK_BED_RELEASE: ["ward"],
+  RELEASE_BED: ["ward"],
+  RECORD_LEAVE_BED: ["ward"],
+  END_LEAVE_BED: ["ward"],
+  // The one thing a coordinator may do to a ward's bed data. It changes no number: it marks that
+  // somebody asked. Spec D12.
+  REQUEST_CAPACITY_REFRESH: ["coordinator"],
 };

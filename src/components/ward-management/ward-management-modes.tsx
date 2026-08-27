@@ -47,6 +47,8 @@ import {
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
@@ -378,49 +380,89 @@ function QueueView({ role }: { role: WardRole }) {
 }
 
 function CapacityView() {
-  const { units, bedReleases, now } = useWardFlow();
+  const { units, bedReleases, leaveBeds, now, dispatch } = useWardFlow();
+  // Row-level bed-states grid below still reads `unitCapacity()` unchanged for available/held/
+  // blocked/occupied — those four sum to the unit's total beds
+  // (`tests/ward-capacity-reconciliation.test.ts` asserts that identity). Its own raw `potential`
+  // field is no longer rendered here (defect fix, visual pass): it counted every bed release for
+  // the unit regardless of state or timing, which duplicated and contradicted the headline's own
+  // careful `confirmedToday`/`predictedToday` split. The row now sources Confirmed/Predicted from
+  // the same per-unit `breakdown` the headline already computes below, rather than calling
+  // `unitCapacity` a second time for a figure it does not distinguish. See `unitCapacity`'s own
+  // `potential` field doc comment in ward-derivations.ts for why the field itself is untouched.
   const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit, bedReleases) }));
-  const totals = {
-    available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
-    held: capacities.reduce((sum, entry) => sum + entry.capacity.held, 0),
-    potential: capacities.reduce((sum, entry) => sum + entry.capacity.potential, 0),
-    blocked: capacities.reduce((sum, entry) => sum + entry.capacity.blocked, 0),
-    occupied: capacities.reduce((sum, entry) => sum + entry.capacity.occupied, 0),
+
+  // Task 7 (Phase 5, spec D6): the headline above the table used to be a single `unitCapacity()`
+  // total. It is replaced here by `capacityBreakdown()`'s five figures, summed across every unit
+  // — and only those five are ever shown as a card. `availableNow` is never added to anything:
+  // that is the one rule this whole task exists to protect (see the file-level rule in
+  // ward-bed-availability.ts). The per-unit `breakdown` computed here also feeds the per-unit
+  // row's Confirmed/Predicted chips below, so both places read the same figures.
+  const breakdowns = units.map((unit) => ({ unit, breakdown: capacityBreakdown(unit, bedReleases, leaveBeds, now) }));
+  const breakdownByUnitId = new Map(breakdowns.map((entry) => [entry.unit.id, entry.breakdown]));
+  const headline = {
+    availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
+    confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
+    predictedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.predictedToday, 0),
+    held: breakdowns.reduce((sum, entry) => sum + entry.breakdown.held, 0),
+    leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
   };
+  const excludedBeyondToday = breakdowns.reduce((sum, entry) => sum + entry.breakdown.excludedBeyondToday, 0);
+  // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
+  // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
+  // "total" card impossible to add by accident the way looping over a totals object invited.
+  const headlineCards: { key: string; label: string; value: number }[] = [
+    { key: "available-now", label: "Available now", value: headline.availableNow },
+    { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
+    { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    { key: "held", label: "Held", value: headline.held },
+    { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
+  ];
+
   return (
     <section className={styles.panel} data-testid="ward-capacity-view">
       <header className={styles.panelHeader}>
         <div>
           <h2>Ward-confirmed capacity</h2>
-          <p>Availability is not suitability. Every count includes a freshness signal.</p>
+          <p>
+            Availability is not suitability. Available now is never softened by a predicted, confirmed-but-unreleased or
+            on-leave bed.
+          </p>
         </div>
         <span className={styles.prototypeBadge}>Synthetic counts</span>
       </header>
-      <div className={styles.capacitySummary}>
-        {Object.entries(totals).map(([label, value]) => (
-          <article className={styles.summaryCard} key={label}>
-            <span>{label.replace(/^./, (character) => character.toUpperCase())}</span>
+      <div className={styles.capacitySummary} data-testid="ward-capacity-headline">
+        {headlineCards.map(({ key, label, value }) => (
+          <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
+            <span>{label}</span>
             <strong>{value}</strong>
             <small>Across {units.length} synthetic units</small>
           </article>
         ))}
       </div>
+      {excludedBeyondToday > 0 && (
+        <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">
+          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) — excluded
+          from every figure above, counted here rather than silently dropped.
+        </p>
+      )}
       <table className={styles.dataTable}>
         <thead>
           <tr>
             <th scope="col">Unit</th>
             <th scope="col">Health service</th>
             <th scope="col">Capability cue</th>
-            <th scope="col">Five bed states</th>
+            <th scope="col">Bed states</th>
             <th scope="col">Sex mix</th>
             <th scope="col">Specialling</th>
             <th scope="col">MHA authorised</th>
             <th scope="col">Freshness</th>
+            <th scope="col">Coordinator action</th>
           </tr>
         </thead>
         <tbody>
           {capacities.map(({ unit, capacity }) => {
-            const fresh = now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
+            const breakdown = breakdownByUnitId.get(unit.id);
             return (
               <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
                 <td>
@@ -432,7 +474,7 @@ function CapacityView() {
                   {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
                 </td>
                 <td>
-                  <div className={styles.bedStates}>
+                  <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
                     <span>
                       <strong>{capacity.available}</strong>Now
                     </span>
@@ -440,7 +482,10 @@ function CapacityView() {
                       <strong>{capacity.held}</strong>Held
                     </span>
                     <span>
-                      <strong>{capacity.potential}</strong>Potential
+                      <strong>{breakdown?.confirmedToday ?? 0}</strong>Confirmed
+                    </span>
+                    <span>
+                      <strong>{breakdown?.predictedToday ?? 0}</strong>Predicted
                     </span>
                     <span>
                       <strong>{capacity.blocked}</strong>Blocked
@@ -452,15 +497,46 @@ function CapacityView() {
                 </td>
                 <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
                   Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                  {/* Review Finding 2: `RELEASE_BED` moves `unit.empty` (and so derived `occupied`)
+                      without touching `unit.sexMix` — the model genuinely cannot know which sex
+                      left, so this cannot be corrected by decrementing a guessed sex or by adding
+                      `sex` to `BedRelease` (spec D11 forbids it). Once the two no longer agree, a
+                      bare sex-mix figure would present a stale, possibly-wrong number as current.
+                      Failure-behaviour rule: degrade toward stating less, never toward a claim —
+                      so this says the figure may be out of date, in real visible text, rather than
+                      silently rendering a number nothing has confirmed matches current occupancy. */}
+                  {unit.sexMix.Female + unit.sexMix.Male !== capacity.occupied ? (
+                    <div className={styles.microCopy} data-testid={`ward-capacity-sexmix-stale-${unit.id}`}>
+                      May not match current occupancy — a bed here was released since this was last recorded
+                    </div>
+                  ) : null}
                 </td>
                 <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
                 <td data-testid={`ward-capacity-authorised-${unit.id}`}>
                   {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
                 </td>
                 <td>
-                  <span className={fresh ? styles.statusGood : styles.statusWarning}>
-                    {fresh ? "Current" : "Review soon"} · {formatInstant(unit.allocatable.confirmedAt)}
-                  </span>
+                  <WardFreshness
+                    confirmedAt={unit.allocatable.confirmedAt}
+                    confirmedByRole={unit.allocatable.source === "ward" ? `NUM ${unit.name}` : undefined}
+                    now={now}
+                    derived={unit.allocatable.source !== "ward"}
+                  />
+                </td>
+                <td className={styles.refreshCell}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    data-testid={`ward-capacity-refresh-${unit.id}`}
+                    onClick={() =>
+                      dispatch({ type: "REQUEST_CAPACITY_REFRESH", role: "coordinator", now, unitId: unit.id })
+                    }
+                  >
+                    Ask this ward to restate its numbers
+                  </button>
+                  <small className={styles.microCopy}>
+                    Records that you asked. Changes no figure — nothing leaves this sandbox and no message is sent.
+                  </small>
                 </td>
               </tr>
             );

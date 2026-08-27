@@ -102,6 +102,7 @@
     "check:gitleaks-pinned": "node scripts/run-gitleaks-pinned.mjs --self-test",
     "check:ci-triage": "node scripts/ci-triage.mjs --self-test",
     "check:gate-manifest": "node scripts/check-gate-manifest.mjs",
+    "check:dev-drive-cache": "node scripts/check-dev-drive-cache.mjs --self-test && node scripts/check-dev-drive-cache.mjs",
     "check:branch-review-ledger": "node scripts/check-branch-review-ledger.mjs --self-test && node scripts/branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs",
     "check:outstanding-issues": "node scripts/check-outstanding-issues.mjs --self-test && node scripts/outstanding-issues.mjs --self-test && node scripts/ledger-inbox.mjs --self-test && node scripts/ledger-inbox.mjs check && node scripts/check-outstanding-issues.mjs && npm run check:outstanding-issues-snapshot",
     "snapshot:issues": "node scripts/generate-outstanding-issues-snapshot.mjs",
