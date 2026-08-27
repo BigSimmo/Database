@@ -351,7 +351,7 @@ async function installSuccessfulThenHoldingAnswerStreams(page: Page) {
   );
 }
 
-test("answer progress remains user-safe through fallback and keeps a compact completed state", async ({ page }) => {
+test("answer progress remains user-safe through fallback and discloses the unusual route", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 820 });
   await mockDashboardApis(page);
   await installTimedAnswerStream(page);
@@ -360,65 +360,44 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
 
-  const progress = page.getByTestId("answer-progress-stepper");
+  const progress = page.getByTestId("answer-progress");
+  const line = progress.getByTestId("answer-progress-line");
   await expect(progress).toBeVisible();
   await expect(progress).toHaveAttribute("aria-busy", "true");
-  await expect(progress).toHaveAttribute("data-density", "expanded");
-  const activityTrace = progress.getByTestId("answer-activity-trace");
-  await expect(activityTrace).toHaveAttribute("data-density", "expanded");
-  await expect(activityTrace.locator('[data-slot="answer-activity-trace-sweep"]')).toHaveCount(1);
-  await expect(progress.getByText("Creating your cited answer", { exact: true })).toBeVisible();
-  for (const label of ["Prepare scope", "Search sources", "Select evidence", "Draft answer", "Check answer"]) {
-    await expect(progress.getByText(label, { exact: true })).toBeVisible();
-  }
-  for (const description of [
-    "Interpreting your question",
-    "Scanning indexed clinical documents",
-    "Prioritising relevant passages",
-    "Synthesising the response and citations",
-    "Checking citations and clinical details",
+  // The line is the live region, because it is the element that persists while
+  // its text is replaced.
+  await expect(line).toHaveAttribute("aria-live", "polite");
+  await expect(progress.locator('[data-slot="answer-progress-dot"]')).toBeVisible();
+
+  // The retired panel narrated five orchestrator stages the reader is not
+  // operating. None of that vocabulary may come back.
+  for (const retired of [
+    "Prepare scope",
+    "Search sources",
+    "Select evidence",
+    "Draft answer",
+    "Check answer",
+    "Processing details",
   ]) {
-    await expect(progress.getByText(description, { exact: true })).toBeVisible();
+    await expect(progress.getByText(retired, { exact: true })).toHaveCount(0);
   }
+  await expect(progress.getByLabel("Answer generation stages")).toHaveCount(0);
+
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   await expect(stop).toBeVisible();
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
-  await expect(progress).toContainText("Prioritising 4 Australian source passages, including 4 WA", {
-    timeout: 3_000,
-  });
 
-  await expect(progress).toContainText("Drafting a cited answer from the selected passages", { timeout: 4_000 });
-  const stageRail = progress.getByLabel("Answer generation stages");
-  const currentStage = stageRail.locator('li[data-state="current"]');
-  await expect(currentStage).toContainText("Draft answer");
-  const compactStageGeometry = await stageRail.evaluate((rail) => {
-    const railRect = rail.getBoundingClientRect();
-    const stageRects = [...rail.querySelectorAll<HTMLElement>("li")].map((stage) => stage.getBoundingClientRect());
-    return {
-      clientWidth: rail.clientWidth,
-      scrollWidth: rail.scrollWidth,
-      railLeft: railRect.left,
-      railRight: railRect.right,
-      stageLefts: stageRects.map((stage) => stage.left),
-      stageRights: stageRects.map((stage) => stage.right),
-    };
-  });
-  expect(compactStageGeometry.scrollWidth).toBeLessThanOrEqual(compactStageGeometry.clientWidth + 1);
-  expect(Math.min(...compactStageGeometry.stageLefts)).toBeGreaterThanOrEqual(compactStageGeometry.railLeft - 1);
-  expect(Math.max(...compactStageGeometry.stageRights)).toBeLessThanOrEqual(compactStageGeometry.railRight + 1);
+  // No number the reader cannot reconcile with the screen. The stream offers
+  // resultCount 12 and australianSourceCount 4 at these stages; neither reaches
+  // the line. See tests/answer-progress.test.ts for the rule.
+  await expect(line).toContainText("Prioritising Australian sources", { timeout: 3_000 });
+  await expect(line).not.toContainText(/\d/);
+  await expect(line).toContainText("Writing the answer", { timeout: 4_000 });
 
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  const wideStageGeometry = await stageRail.evaluate((rail) => {
-    const stageRects = [...rail.querySelectorAll<HTMLElement>("li")].map((stage) => stage.getBoundingClientRect());
-    return {
-      clientWidth: rail.clientWidth,
-      scrollWidth: rail.scrollWidth,
-      stageTops: stageRects.map((stage) => stage.top),
-    };
-  });
-  expect(wideStageGeometry.scrollWidth).toBeLessThanOrEqual(wideStageGeometry.clientWidth + 1);
-  expect(Math.max(...wideStageGeometry.stageTops) - Math.min(...wideStageGeometry.stageTops)).toBeLessThanOrEqual(1);
-  await expect(progress).toContainText("Building a source-backed answer", { timeout: 5_000 });
+  // The wait is where the reader learns the model was not used, rather than
+  // meeting a source-only answer that then has to defend itself.
+  await expect(line).toContainText("Assembling the answer from the sources directly", { timeout: 5_000 });
+
   // Rolling deployments may still route a new client to an older server that
   // emits provisional token/revising frames. The client must ignore both so
   // unvalidated clinical prose never reaches the page before the final event.
@@ -427,18 +406,28 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   await expect(page.getByText("Provisional lithium draft")).toHaveCount(0);
 
   await expect(progress).toHaveAttribute("data-progress-state", "complete", { timeout: 6_000 });
-  await expect(progress).toHaveAttribute("data-density", "complete");
-  await expect(activityTrace).toHaveCount(0);
-  await expect(progress).toContainText("Answer ready in 3s");
-  await expect(progress.getByText("Processing details", { exact: true })).toBeVisible();
   await expect(page.getByTestId("stop-answer")).toHaveCount(0);
+  // No visible completion chrome. The answer surface prints its own governed
+  // provenance line above the prose, so a second "Answer ready in 3s" underneath
+  // it was a competing completion statement and the last of the elapsed counter.
+  await expect(line).toHaveCount(0);
+  await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+  await expect(progress.getByRole("status")).toContainText("Answer ready.");
+
+  // This run went through `fallback`, so the build disclosure is offered. On an
+  // ordinary run it is not — pinned in the follow-up test below.
+  const disclosure = progress.getByText("How this answer was built", { exact: true });
+  await expect(disclosure).toBeVisible();
+  await disclosure.click();
+  await expect(progress).toContainText("Assembling the answer from the sources directly");
+
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible({ timeout: 8_000 });
   await expect(page.locator("body")).not.toContainText(
     /private-(?:model|route|provider-reason|fallback|draft|check|ready)-marker/i,
   );
 });
 
-test("follow-up answer generation stays compact above the previous answer", async ({ page }) => {
+test("follow-up answer generation stays one line above the previous answer", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 820 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await mockDashboardApis(page);
@@ -452,60 +441,100 @@ test("follow-up answer generation stays compact above the previous answer", asyn
   const previousAnswer = page.getByText(/In the synthetic lithium document/i);
   await expect(previousAnswer).toBeVisible({ timeout: 8_000 });
 
+  const progress = page.getByTestId("answer-progress");
+  // The first answer took the ordinary route, so nothing is disclosed about it.
+  await expect(progress.getByText("How this answer was built", { exact: true })).toHaveCount(0);
+
   const followUpSubmit = await fillHydratedAnswerQuestion(page, "What monitoring is needed?");
   await followUpSubmit.click();
 
-  const progress = page.getByTestId("answer-progress-stepper");
-  await expect(progress).toHaveAttribute("data-density", "compact");
-  await expect(progress.getByText("Creating cited answer", { exact: true })).toBeVisible();
-  await expect(progress).toContainText("Step 4 of 5 · Draft answer");
+  await expect(progress.getByTestId("answer-progress-line")).toContainText("Writing the answer");
   await expect(previousAnswer).toBeVisible();
   await expect(progress.getByLabel("Answer generation stages")).toHaveCount(0);
-  await expect(progress.getByText("Processing details", { exact: true })).toHaveCount(0);
 
-  const activityTrace = progress.getByTestId("answer-activity-trace");
-  await expect(activityTrace).toHaveAttribute("data-density", "compact");
-  const compactSweep = activityTrace.locator('[data-slot="answer-activity-trace-sweep"]');
-  await expect(compactSweep).toHaveCount(1);
+  const dot = progress.locator('[data-slot="answer-progress-dot"]');
   expect(
-    await compactSweep.evaluate((trace) => {
-      const style = getComputedStyle(trace);
+    await dot.evaluate((node) => {
+      const style = getComputedStyle(node);
       return {
+        name: style.animationName,
         duration: style.animationDuration,
         iterationCount: style.animationIterationCount,
-        timingFunction: style.animationTimingFunction,
       };
     }),
-  ).toEqual({ duration: "2.6s", iterationCount: "infinite", timingFunction: "linear" });
+  ).toEqual({ name: "answer-progress-breath", duration: "2.4s", iterationCount: "infinite" });
+
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
   expect((await stop.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
+  // The wait must not introduce a horizontal scrollbar at any supported width,
+  // and it must stay inside its own column. The retired panel was ~210px tall;
+  // the line is a fraction of that, which is the point — assert it stays small
+  // so a future addition cannot quietly grow a panel back.
   for (const width of [320, 390, 639, 768, 1440, 1920]) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
     const geometry = await progress.evaluate((section) => {
-      const trace = section.querySelector<HTMLElement>('[data-testid="answer-activity-trace"]');
       const sectionRect = section.getBoundingClientRect();
-      const traceRect = trace?.getBoundingClientRect();
+      const lineRect = section
+        .querySelector<HTMLElement>('[data-testid="answer-progress-line"]')
+        ?.getBoundingClientRect();
       return {
         bodyClientWidth: document.body.clientWidth,
         bodyScrollWidth: document.body.scrollWidth,
         sectionLeft: sectionRect.left,
         sectionRight: sectionRect.right,
-        traceLeft: traceRect?.left ?? 0,
-        traceRight: traceRect?.right ?? 0,
-        traceHeight: traceRect?.height ?? 0,
+        sectionHeight: sectionRect.height,
+        lineLeft: lineRect?.left ?? 0,
+        lineRight: lineRect?.right ?? 0,
       };
     });
     expect(geometry.bodyScrollWidth).toBeLessThanOrEqual(geometry.bodyClientWidth + 1);
-    expect(geometry.traceLeft).toBeGreaterThanOrEqual(geometry.sectionLeft - 1);
-    expect(geometry.traceRight).toBeLessThanOrEqual(geometry.sectionRight + 1);
-    expect(geometry.traceHeight).toBeLessThanOrEqual(21);
+    expect(geometry.lineLeft).toBeGreaterThanOrEqual(geometry.sectionLeft - 1);
+    expect(geometry.lineRight).toBeLessThanOrEqual(geometry.sectionRight + 1);
+    expect(geometry.sectionHeight).toBeLessThanOrEqual(96);
   }
 
   await stop.press("Enter");
   await expect(page.getByTestId("answer-cancelled")).toBeVisible();
   await expect(previousAnswer).toBeVisible();
-  await expect(activityTrace).toHaveCount(0);
+});
+
+test("the wait stands where the answer will, so arrival swaps content in place", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installHoldingAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const progress = page.getByTestId("answer-progress");
+  await expect(progress.getByTestId("answer-progress-line")).toBeVisible();
+
+  // Status line, then the prose placeholder where the prose lands, then the
+  // sources where the answer's own rail lands. The first cut of this component
+  // put the rail directly under the line and left the placeholder to render
+  // below it, which meant the rail travelled the height of the answer at the
+  // exact moment the reader was given something to read.
+  const order = await progress.evaluate((section) => {
+    const top = (selector: string) => {
+      const node = section.querySelector<HTMLElement>(selector);
+      return node ? node.getBoundingClientRect().top : null;
+    };
+    return {
+      line: top('[data-testid="answer-progress-line"]'),
+      skeleton: top('[data-slot="answer-prose-skeleton"]'),
+      sectionChildren: [...section.children].length,
+    };
+  });
+  expect(order.line).not.toBeNull();
+  expect(order.skeleton).not.toBeNull();
+  expect(order.skeleton ?? 0).toBeGreaterThan(order.line ?? 0);
+
+  // And exactly one prose placeholder on the page — the dashboard must not also
+  // render AnswerSkeleton beside this one.
+  expect(await page.locator('[role="status"][aria-label="Loading answer"]').count()).toBe(0);
 });
 
 test("a completion frame cannot mark a previous answer complete when final is invalid", async ({ page }) => {
@@ -518,7 +547,7 @@ test("a completion frame cannot mark a previous answer complete when final is in
   await submit.click();
 
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
+  await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
 
   const followUpSubmit = await fillHydratedAnswerQuestion(page, "What about monitoring?");
   await followUpSubmit.click();
@@ -526,7 +555,6 @@ test("a completion frame cannot mark a previous answer complete when final is in
   await expect(page.getByTestId("answer-error")).toContainText("Answer stream returned an invalid final payload", {
     timeout: 10_000,
   });
-  await expect(page.getByTestId("answer-activity-trace")).toHaveCount(0);
   await expect(page.locator('[data-progress-state="complete"]')).toHaveCount(0);
   await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible();
@@ -543,77 +571,70 @@ test("answer progress keeps focus, reduced-motion, and forced-colour behavior in
   const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
 
-  const progress = page.getByTestId("answer-progress-stepper");
-  const currentStage = progress.getByLabel("Answer generation stages").locator('li[data-state="current"]');
-  await expect(currentStage).toContainText("Draft answer");
+  const progress = page.getByTestId("answer-progress");
+  const line = progress.getByTestId("answer-progress-line");
+  const dot = progress.locator('[data-slot="answer-progress-dot"]');
+  await expect(line).toContainText("Writing the answer");
+  await expect(dot).toBeVisible();
 
-  const activeSpinner = currentStage.locator("svg");
-  const activityTraceSweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-  const activityTraceBase = progress.locator('[data-slot="answer-activity-trace-base"]');
-  await expect(activeSpinner).toBeVisible();
-  await expect(activityTraceSweep).toBeVisible();
-  await expect(activityTraceBase).toBeVisible();
-  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
-  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("none");
-  // Suppressing motion must not delete the indicator. This previously resolved to
-  // "0", which left everyone with OS Reduce Motion staring at a blank, frozen panel.
-  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).opacity)).toBe("0.55");
+  // Suppressing motion must not delete the indicator. The retired ECG sweep
+  // resolved to opacity 0 here, which left everyone with OS Reduce Motion
+  // staring at a blank, frozen panel on a physical iPhone. A dot has a correct
+  // resting frame, so the guarantee is simply full opacity.
+  expect(await dot.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
+  expect(await dot.evaluate((node) => getComputedStyle(node).opacity)).toBe("1");
+  const restingBox = await dot.boundingBox();
+  expect(restingBox?.width ?? 0).toBeGreaterThan(0);
+  expect(restingBox?.height ?? 0).toBeGreaterThan(0);
 
+  // Stop is the only control in the running state, and it is reachable and
+  // operable from the keyboard.
   const stop = progress.getByRole("button", { name: "Stop generating answer" });
-  const details = progress.getByText("Processing details", { exact: true });
   await stop.focus();
-  await page.keyboard.press("Tab");
-  await expect(details).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
   await expect(stop).toBeFocused();
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).not.toBe("none");
   expect(
-    await activityTraceSweep.evaluate((trace) => {
-      const style = getComputedStyle(trace);
+    await dot.evaluate((node) => {
+      const style = getComputedStyle(node);
       return {
         name: style.animationName,
         duration: style.animationDuration,
         iterationCount: style.animationIterationCount,
-        timingFunction: style.animationTimingFunction,
       };
     }),
-  ).toEqual({
-    name: "answer-ecg-scroll",
-    duration: "3.2s",
-    iterationCount: "infinite",
-    timingFunction: "linear",
-  });
-  const restingTransform = await activityTraceSweep.evaluate(async (trace) => {
-    const animation = trace.getAnimations()[0];
+  ).toEqual({ name: "answer-progress-breath", duration: "2.4s", iterationCount: "infinite" });
+
+  const restingOpacity = await dot.evaluate(async (node) => {
+    const animation = node.getAnimations()[0];
     animation.pause();
     animation.currentTime = 0;
     await new Promise(requestAnimationFrame);
-    return getComputedStyle(trace).transform;
+    return getComputedStyle(node).opacity;
   });
-  const restingPixels = await activityTraceSweep.screenshot();
-  const midTransform = await activityTraceSweep.evaluate(async (trace) => {
-    const animation = trace.getAnimations()[0];
-    animation.currentTime = 1_600;
+  const restingPixels = await dot.screenshot();
+  const midOpacity = await dot.evaluate(async (node) => {
+    const animation = node.getAnimations()[0];
+    animation.currentTime = 1_200;
     await new Promise(requestAnimationFrame);
-    return getComputedStyle(trace).transform;
+    return getComputedStyle(node).opacity;
   });
-  const midPixels = await activityTraceSweep.screenshot();
-  // The strip actually moves: a matrix translate, not the identity, and a raster
-  // that genuinely differs. Computed style alone was never enough — the previous
-  // animation satisfied every computed-style assertion while reading as static.
-  expect(restingTransform).toBe("matrix(1, 0, 0, 1, 0, 0)");
-  expect(midTransform).not.toBe(restingTransform);
-  expect(midTransform).toMatch(/^matrix\(1, 0, 0, 1, -\d/);
-  expect(restingPixels.equals(midPixels), "the WebKit raster must visibly change as the strip travels").toBe(false);
+  const midPixels = await dot.screenshot();
+  // The breath actually breathes: a different computed opacity AND a raster that
+  // genuinely differs. Computed style alone was never enough — the animation this
+  // replaced satisfied every computed-style assertion while reading as static.
+  expect(restingOpacity).toBe("1");
+  expect(midOpacity).not.toBe(restingOpacity);
+  expect(Number.parseFloat(midOpacity)).toBeGreaterThan(0.2);
+  expect(restingPixels.equals(midPixels), "the WebKit raster must visibly change as the dot breathes").toBe(false);
 
   await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-  await expect(currentStage.locator('[data-slot="answer-progress-stage-marker"]')).toBeVisible();
-  await expect(currentStage.getByText("Draft answer", { exact: true })).toBeVisible();
-  await expect(progress.getByTestId("answer-activity-trace")).toBeVisible();
-  expect(await activeSpinner.evaluate((spinner) => getComputedStyle(spinner).animationName)).toBe("none");
-  expect(await activityTraceSweep.evaluate((trace) => getComputedStyle(trace).animationName)).toBe("none");
+  // Forced colours paint neither the token background nor the animation, so the
+  // dot declares a system colour of its own. Without it the only indicator on the
+  // surface disappears for high-contrast users.
+  await expect(dot).toBeVisible();
+  await expect(line).toContainText("Writing the answer");
+  expect(await dot.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
 
   await stop.press("Enter");
   await expect(page.getByTestId("answer-cancelled")).toBeVisible();
