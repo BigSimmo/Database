@@ -272,7 +272,10 @@ describe("Therapy Compass responsive contract", () => {
     // the stronger condition: it proves the element really is that component
     // AND carries the labelling attribute, and unlike a raw substring it
     // cannot be satisfied by matching prose elsewhere in the file.
+    expect(briefSource).toContain("const BRIEF_DURATION");
+    expect(briefSource).not.toMatch(/briefTab === "15min" \? "15-minute"/);
     expect(openingTagWith(briefSource, "Tabs", ['label="Brief intervention duration"'])).toBeTruthy();
+
     expect(openingTagWith(compareSource, "Tabs", ['label="Comparison fields"'])).toBeTruthy();
     expect(openingTagWith(compareSource, "SegmentedControl", ['label="Comparison density"'])).toBeTruthy();
     expect(openingTagWith(sheetsSource, "SegmentedControl", ['label="Reading level and tone"'])).toBeTruthy();
@@ -330,6 +333,20 @@ describe("clinical accent contrast contract", () => {
     );
     expect(pathwaysSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
     expect(briefSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
+  });
+
+  it("maps sweep-touched Lucide size={16} onto size-icon-md", () => {
+    for (const [name, source] of [
+      ["brief", briefSource],
+      ["compare", compareSource],
+      ["recommend", recommendSource],
+      ["sheets", sheetsSource],
+    ] as const) {
+      expect(source, `${name} screen`).not.toMatch(/\bsize=\{16\}/);
+    }
+    expect(briefSource).toContain("size-icon-md");
+    expect(compareSource).toContain("size-icon-md");
+    expect(sheetsSource).toContain("size-icon-md");
   });
 
   it("keeps the current dark accent/foreground token pair above text contrast", () => {

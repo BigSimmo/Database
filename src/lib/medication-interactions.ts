@@ -81,7 +81,22 @@ type IndexRow = {
   resolved: boolean;
   /** Verbatim row text, carried so the reverse direction has wording too. */
   note: string;
+  /**
+   * Groups of slugs where at least one member of EVERY group must be present
+   * in the patient's list before this row's alert fires. Set only for rows
+   * whose prose requires a class combination ("ACEi + Diuretic + NSAID") —
+   * see `scripts/build-medication-interaction-index.ts`. Absent for the
+   * ordinary either-of `counterparties` rows, which fire on any single match
+   * as before.
+   */
+  requiredGroups?: string[][];
 };
+
+/** Whether every required group of a row has at least one member in `present`. */
+function requiredGroupsSatisfied(row: IndexRow, present: ReadonlySet<string>): boolean {
+  if (!row.requiredGroups || row.requiredGroups.length === 0) return true;
+  return row.requiredGroups.every((group) => group.some((slug) => present.has(slug)));
+}
 
 type InteractionIndexShape = {
   version: number;
@@ -246,6 +261,7 @@ export function evaluateMedicationInteractions(
 
   if (entry) {
     for (const row of entry.rows) {
+      if (!requiredGroupsSatisfied(row, patient)) continue;
       for (const counterpartySlug of row.counterparties) {
         if (!patient.has(counterpartySlug)) continue;
         // Prefer the live record's wording; fall back to the indexed copy when no
@@ -259,11 +275,16 @@ export function evaluateMedicationInteractions(
   // Interaction prose is not guaranteed to be symmetric. Check each entered
   // medication's index entry as well so a clinically material edge is not missed
   // merely because it is documented on the existing drug rather than the candidate.
+  // The viewed drug itself can satisfy a required group from the reverse row's
+  // perspective (e.g. it supplies the "ACEi" side of the patient's diuretic row),
+  // so it is included alongside `patient` when checking that gate.
+  const patientWithViewed = new Set([...patient, slug]);
   for (const patientSlug of patient) {
     const reverseEntry = INDEX.bySlug[patientSlug];
     if (!reverseEntry) continue;
     for (const row of reverseEntry.rows) {
       if (!row.counterparties.includes(slug)) continue;
+      if (!requiredGroupsSatisfied(row, patientWithViewed)) continue;
       // The reverse row belongs to the PATIENT's medication, whose record this
       // caller does not hold — so its wording can only come from the index. It
       // used to be passed as "", which rendered a drug name and a severity chip

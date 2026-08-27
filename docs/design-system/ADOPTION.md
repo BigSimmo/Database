@@ -5,7 +5,7 @@ of truth is `adoption-contract.json`; the generated manifest and marked tables i
 must match it exactly.
 
 - **Date:** 12 August 2026
-- **Current state:** 54 visual references are locally registered; all 51 production page routes
+- **Current state:** 55 visual references are locally registered; all 51 production page routes
   are owned across 14 surface families, with 59 route/component roots scanned; every declared
   root uses the v2 shell and has declared proof with no committed visual baseline.
 - **Phase 1 blockers resolved first, in their own commits:** `#207` ungrounded `AnswerState`,
