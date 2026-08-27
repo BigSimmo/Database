@@ -53,6 +53,7 @@ import {
   type DifferentialSafetyFact,
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { useAccountData } from "@/components/account-data-provider";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
@@ -1060,8 +1061,7 @@ export function DifferentialDetailPage({
     ? () => {
         setSectionOpen("must-not-miss", true);
         const target = document.getElementById("differential-section-must-not-miss");
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        target?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+        target?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
       }
     : null;
   const openCompareTab = () => changeTab("compare");
