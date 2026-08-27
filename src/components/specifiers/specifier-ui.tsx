@@ -20,7 +20,7 @@ export function SpecifierPageShell({ children, className }: { children: ReactNod
 }
 
 export function SpecifierBreadcrumbs({ current }: { current?: string }) {
-  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers" }} current={current} />;
+  return <InformationPageBreadcrumbs home={{ label: "Specifiers", href: "/specifiers/search" }} current={current} />;
 }
 
 const specifierWordingPathwaySteps = [

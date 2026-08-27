@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8024644a-f093-42f4-97c0-eabfaa981267",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#102",
+    "outcome": "Documented EXPLAIN query measurement runbook for documents_title_trgm_idx.",
+    "baseRowFingerprint": "630d12e5a90fd5ab445439dadf17cde5a29145b6eedfe450c814084f8b171db5"
+  }
+}

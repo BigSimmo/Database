@@ -21,6 +21,7 @@ const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const keyFactsSource = read(`${therapyPath}/record/key-facts.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
+const recommendFieldsSource = read(`${therapyPath}/recommend-scenario-fields.tsx`);
 const pathwaysSource = read(`${therapyPath}/screens/pathways-screen.tsx`);
 const pathwayStepStackSource = read(`${therapyPath}/pathway-step-stack.tsx`);
 const pathwayPickerSource = read(`${therapyPath}/pathway-picker-sheet.tsx`);
@@ -182,7 +183,9 @@ describe("Therapy Compass responsive contract", () => {
     expect(compareSource).toContain("md:block");
     expect(compareSource).toContain('data-testid="therapy-compare-stack"');
     expect(compareSource).toContain("md:hidden");
-    expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(1);
+    expect(responsiveStackCount(recommendSource) + responsiveStackCount(recommendFieldsSource)).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
     expect(pathwayPickerSource).toContain("therapy-pathway-list");
     expect(pathwayPickerSource).toContain('data-testid="therapy-pathway-picker"');

@@ -124,6 +124,22 @@ describe("favourites phone-perfected mockup", () => {
     expect(firstClinicalReviewIndex).toBeGreaterThan(firstPinnedIndex);
   });
 
+  it("hides the landing cards once View all switches sort away from set", () => {
+    // RecentCard's "View all" control (onViewAll) sets sort to "recent". If
+    // showCards stayed true after that, the list would open with the same
+    // rows ContinueCard/RecentCard already show above it — duplicate recent
+    // items right after View all. showCards must require sort === "set" so
+    // the cards disappear once the view is no longer the set-grouped landing.
+    const pageSource = source("favourites-phone-perfected-page.tsx");
+    const showCardsLine = pageSource.split("\n").find((line) => line.trimStart().startsWith("const showCards ="));
+
+    expect(showCardsLine, "showCards assignment not found").toBeDefined();
+    expect(showCardsLine, 'showCards must require sort === "set" or View all duplicates RecentCard rows').toMatch(
+      /sort === "set"/,
+    );
+    expect(pageSource).toContain('onViewAll={() => setSort("recent")}');
+  });
+
   it("routes clear-all to its own confirmation sheet, not set management", () => {
     const pageSource = source("favourites-phone-perfected-page.tsx");
     expect(pageSource).toContain('onRequestClearAll={() => setSheet("clear-all")}');

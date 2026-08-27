@@ -1,4 +1,5 @@
 import { appModeHomeHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -37,7 +38,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/dsm/compare" },
   ],
   specifiers: [
-    { id: "search", label: "Find", href: appModeHomeHref("specifiers", { focus: true }) },
+    { id: "search", label: "Search", href: consolidatedModeSearchPath("specifiers") },
     { id: "builder", label: "Build", href: "/specifiers/builder" },
     { id: "compare", label: "Compare", href: "/specifiers/compare" },
     { id: "map", label: "Map", href: "/specifiers/map" },
@@ -166,14 +167,22 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/dsm" || pathname === "/dsm/search" || pathname.startsWith("/dsm?")) return "search";
     return null;
   }
-  if (modeId === "specifiers" || modeId === "formulation") {
+  if (modeId === "specifiers") {
+    if (pathname === "/specifiers/builder" || pathname.startsWith("/specifiers/builder/")) return "builder";
+    if (pathname === "/specifiers/compare" || pathname.startsWith("/specifiers/compare/")) return "compare";
+    if (pathname === "/specifiers/map" || pathname.startsWith("/specifiers/map/")) return "map";
+    if (pathname === "/specifiers/search" || pathname.startsWith("/specifiers/search?")) return "search";
+    if (pathname === "/specifiers" || pathname.startsWith("/specifiers?")) return "search";
+    return null;
+  }
+  if (modeId === "formulation") {
     // Exact segment prefixes, not `includes`: a future slug containing
     // "map"/"compare"/"builder" must not steal `aria-current` from Find.
     // Matches the exact-path checks in `isModeSecondaryNavigationRoute`.
-    if (pathname === `/${modeId}/builder` || pathname.startsWith(`/${modeId}/builder/`)) return "builder";
-    if (pathname === `/${modeId}/compare` || pathname.startsWith(`/${modeId}/compare/`)) return "compare";
-    if (pathname === `/${modeId}/map` || pathname.startsWith(`/${modeId}/map/`)) return "map";
-    if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
+    if (pathname === "/formulation/builder" || pathname.startsWith("/formulation/builder/")) return "builder";
+    if (pathname === "/formulation/compare" || pathname.startsWith("/formulation/compare/")) return "compare";
+    if (pathname === "/formulation/map" || pathname.startsWith("/formulation/map/")) return "map";
+    if (pathname === "/formulation" || pathname.startsWith("/formulation?")) return "search";
     return null;
   }
   if (modeId === "factsheets") {
@@ -232,7 +241,13 @@ export function isModeSecondaryNavigationRoute(params: {
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
   if (modeId === "specifiers") {
-    return pathname === "/specifiers/builder" || pathname === "/specifiers/compare" || pathname === "/specifiers/map";
+    return (
+      pathname === "/specifiers/search" ||
+      pathname.startsWith("/specifiers/search?") ||
+      pathname === "/specifiers/builder" ||
+      pathname === "/specifiers/compare" ||
+      pathname === "/specifiers/map"
+    );
   }
   if (modeId === "formulation") {
     return (
@@ -321,6 +336,27 @@ export function modeSecondaryNavigationHref(params: {
       currentSearchParams.get("b"),
       currentSearchParams.get("selected"),
     ]);
+    if (itemId === "search") {
+      const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
+      // Returning to Search with a carried query must reopen the results view
+      // (`run=1`), not the empty catalogue — even when the prior tab lacked run.
+      if (query) entries.push(["run", "1"]);
+      else if (currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
+      const scope = currentSearchParams.get("scope");
+      if (scope) entries.push(["scope", scope]);
+      const family = currentSearchParams.get("family");
+      if (family) entries.push(["family", family]);
+      const diagnosis = currentSearchParams.get("diagnosis");
+      if (diagnosis) entries.push(["diagnosis", diagnosis]);
+      for (const category of currentSearchParams.getAll("category")) {
+        entries.push(["category", category]);
+      }
+      if (currentSearchParams.get("reviewed") === "1") entries.push(["reviewed", "1"]);
+      for (const value of selections) {
+        entries.push(["specifier", value]);
+      }
+      return navigationHrefWithParams(href, entries);
+    }
     if (itemId === "builder")
       return navigationHrefWithParams(
         href,
