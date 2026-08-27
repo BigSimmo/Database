@@ -94,10 +94,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div
-        data-therapy-root
-        className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
-      >
+      <div data-therapy-root className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:grow">
         {informationPage ? (
           <TherapyCompassInformationRoute>{children}</TherapyCompassInformationRoute>
         ) : (
