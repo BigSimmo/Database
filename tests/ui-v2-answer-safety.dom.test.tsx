@@ -366,10 +366,13 @@ describe("RetrievalStateBanner", () => {
     const toggle = screen.getByTestId("retrieval-state-stale-toggle");
     expect(toggle).toHaveTextContent(/Review due\s*· 2 sources/);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByTestId("retrieval-state-overdue-row")).not.toBeInTheDocument();
+    const panel = document.getElementById(toggle.getAttribute("aria-controls")!);
+    expect(panel).toHaveAttribute("hidden");
+    expect(screen.queryAllByTestId("retrieval-state-overdue-row")).toHaveLength(2);
 
     await userEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel).not.toHaveAttribute("hidden");
     expect(screen.getByText("2 of 5 sources for this answer are past their review date.")).toBeVisible();
     expect(screen.getAllByTestId("retrieval-state-overdue-row")).toHaveLength(2);
   });

@@ -92,7 +92,7 @@ function StaleEvidenceBody({
   return (
     <div
       className={cn(
-        "w-fit max-w-full overflow-hidden border text-sm transition-[border-radius] duration-[var(--duration-quick)]",
+        "w-fit max-w-full overflow-hidden border text-sm",
         open ? "rounded-lg" : "rounded-full",
         toneWarning,
       )}
@@ -103,7 +103,7 @@ function StaleEvidenceBody({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={detailId}
-        className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+        className="inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
       >
         <span data-testid="retrieval-state-headline" className="min-w-0 truncate font-semibold">
           Review due
@@ -119,37 +119,35 @@ function StaleEvidenceBody({
           aria-hidden="true"
         />
       </button>
-      {open ? (
-        <div id={detailId} className="mt-1 border-t border-[color:var(--warning)]/15 px-2.5 pb-2 pt-2">
-          <p className="font-semibold">{headline}</p>
-          <ul className="mt-2 space-y-1">
-            {overdue.map((source) => (
-              <li
-                key={source.sourceId}
-                data-testid="retrieval-state-overdue-row"
-                data-status={source.status}
-                className="flex flex-wrap items-center gap-x-2 gap-y-1"
-              >
-                <StatusMark status={source.status} className="mt-[0.4em] self-start" />
-                <span className="min-w-0 font-medium">{source.title}</span>
-                {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
-                <span className="text-[color:var(--text-muted)]">
-                  {source.status === "outdated" ? "Superseded — was due " : "Review due "}
-                  <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
-                </span>
-                {source.sourceId.startsWith("__unidentified_") ? null : (
-                  <OpenSourceButton
-                    sourceId={source.sourceId}
-                    title={source.title}
-                    locator={source.locator}
-                    onOpenSource={onOpenSource}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <div id={detailId} hidden={!open} className="mt-1 border-t border-[color:var(--warning)]/15 px-2.5 pb-2 pt-2">
+        <p className="font-semibold">{headline}</p>
+        <ul className="mt-2 space-y-1">
+          {overdue.map((source) => (
+            <li
+              key={source.sourceId}
+              data-testid="retrieval-state-overdue-row"
+              data-status={source.status}
+              className="flex flex-wrap items-center gap-x-2 gap-y-1"
+            >
+              <StatusMark status={source.status} className="mt-[0.4em] self-start" />
+              <span className="min-w-0 font-medium">{source.title}</span>
+              {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
+              <span className="text-[color:var(--text-muted)]">
+                {source.status === "outdated" ? "Superseded — was due " : "Review due "}
+                <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
+              </span>
+              {source.sourceId.startsWith("__unidentified_") ? null : (
+                <OpenSourceButton
+                  sourceId={source.sourceId}
+                  title={source.title}
+                  locator={source.locator}
+                  onOpenSource={onOpenSource}
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
