@@ -626,6 +626,43 @@
   }
 
   /*
+   * Phase 7 Task 8's screenshot sweep found these two the same way `.headlineLabel` above was
+   * found: by measuring every PAINTED leaf of text on the print rendering in BOTH colour schemes,
+   * rather than by reading the list above and trusting it. Printed from the dark theme both
+   * resolved to `rgb(168, 178, 189)` — the identical value `.headlineLabel` printed before the
+   * fix above — which is pale grey on the white sheet the print reset forces.
+   *
+   * `.governanceBanner p` is the sentence that says this sheet is not a medical device. It is the
+   * single most important line on a printed page that a ward could otherwise mistake for a real
+   * bed state, so it must not be the faintest thing on it. The rule is scoped to the paragraph
+   * rather than to `.governanceBanner` itself so `.prototypeBadge`, which carries its own colour
+   * ON its own background, is left exactly as it is.
+   *
+   * `.emptyNote` is "No units recorded." — the whole of what a hospital block says when the
+   * network has nothing to report for it (Joondalup and Peel in the seed). Without it those two
+   * blocks print a hospital name over a blank, which is Phase 6's missing-hospital-names defect
+   * read from the other end: a heading whose only sentence is in invisible ink.
+   */
+  .governanceBanner p,
+  .emptyNote {
+    color: CanvasText;
+  }
+
+  /*
+   * `.crossLink` is in the group above, but the footer's cross-link TEXT is inside an `<a>`, and
+   * `.crossLink a` (outside this block) sets its own colour at higher specificity — so the group
+   * above never reached it, exactly as `.freshnessLine`'s own colour never reaches
+   * `WardFreshness`'s `.stamp` below. Printed from the dark theme it measured
+   * `rgb(169, 216, 248)`, a pale blue on white paper. No `!important` here, unlike the stamp
+   * below: that rule has to beat a declaration in a SIBLING MODULE, where this file cannot rely
+   * on source order, whereas this one only has to beat a rule in this same file at equal
+   * specificity, which a later rule does on its own.
+   */
+  .crossLink a {
+    color: CanvasText;
+  }
+
+  /*
    * `WardFreshness` (`ward-freshness.tsx`, mounted here via `FreshnessLine`'s I2 addition) owns
    * its own `.stamp` class in a different CSS module (`ward-freshness.module.css`), which sets an
    * explicit `color: var(--wf-muted)` — not `inherit` — so setting `.freshnessLine`'s own color

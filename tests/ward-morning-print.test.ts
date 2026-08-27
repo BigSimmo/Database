@@ -249,4 +249,40 @@ describe("Ward morning bed state — the people-waiting figure reaches the print
       ).toContain(selector);
     }
   });
+
+  /**
+   * Task 8's screenshot sweep, the same defect one more time. `.headlineLabel` was found by
+   * MEASURING every painted leaf of text under `emulateMedia({ media: "print", colorScheme:
+   * "dark" })` rather than by reading the selector group and trusting it — and the same
+   * measurement, repeated over the whole sheet instead of over the headline row, found three more
+   * that had never been in it. All three measured `rgb(168, 178, 189)` / `rgb(169, 216, 248)`:
+   * pale ink on the white sheet the print reset forces.
+   *
+   * `.governanceBanner p` is the "not a medical device" sentence, which is the last line on this
+   * page that should ever be the faintest. `.emptyNote` is the entire body of a hospital block
+   * with nothing to report (Joondalup and Peel in the seed), so without it those blocks print a
+   * name over a blank. `.crossLink a` is the case `.crossLink`'s own membership in the group did
+   * NOT cover, because the link text lives in an `<a>` carrying its own higher-specificity colour
+   * — the identical shape as `.freshnessLine span` and, before it, `.headlineLabel`: a rule that
+   * looks like it covers a row and reaches every member of it but one.
+   *
+   * This guard kills these three instances, not the class. The class is only killed by measuring
+   * the rendered sheet, which no Vitest run can do: jsdom does not evaluate `@media print`.
+   */
+  it("gives the governance sentence, the empty-site note and the footer link CanvasText ink too", () => {
+    const printBlock = printBlockWithoutComments();
+    const selectors = canvasTextSelectors(printBlock);
+
+    // Same non-vacuity guard as above: without it, a scan that returned nothing would satisfy
+    // every `toContain` below by never finding anything to contradict.
+    expect(selectors.length, "no `color: CanvasText` rule was read from the print block").toBeGreaterThan(0);
+
+    for (const selector of [".governanceBanner p", ".emptyNote", ".crossLink a"]) {
+      expect(
+        selectors,
+        `${selector} is not covered by any \`color: CanvasText\` rule — printed from the dark theme it measured ` +
+          `pale grey/blue on white paper, the same defect as .headlineLabel above`,
+      ).toContain(selector);
+    }
+  });
 });
