@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "707b965965a9b843c13deb6b5c9ddd158fe2631d",
-    "committed_at": "2026-08-25T17:45:01Z"
+    "committed_at": "2026-08-25T17:45:01+00:00"
   },
   "counts": {
     "open": 91,
@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 22,
+    "pending": 31,
     "resolved": 412
   },
   "queue": [
@@ -943,6 +943,18 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "13ea8c93-7134-4e18-9f7c-6c0f9a624726",
+      "action": "done",
+      "summary": "#TF6TPJ: Resolved and verified. scripts/guard-push.mjs enforces Guard 2 (inFlightCiGuard) across all PR push workflows, and scripts/sync-pr-branches.mjs checks hasRequiredCiInFlight() to prevent main-merges while CI is in-flight. Verified via unit and contract tests in tests/ci-cache-safety.test.ts and tests/guard-push.test.ts. Merging main into open PR branches no longer triggers cancel-in-progress on active required CI or produces false-red PR required states with zero failing jobs.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "1836d32f-6db8-45f2-bc71-f429b22f5a1c",
+      "action": "done",
+      "summary": "#HVTYAT: Reconciled docs/openai-cross-border-basis.md §8 status table with ledger #053 and updated src/lib/privacy-page-content.tsx. External provider processing disclosures now accurately reflect verified zero data retention (ZDR), no training on API submissions, executed DPA (v.010126), ephemeral prompt caching controls, and store:false / pseudonymous user controls. Updated tests/privacy-ui.test.ts.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
       "action": "cancel",
       "summary": "Cancel request ecabc51d-034a-4a68-91cd-280214aac6bf: Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27.",
@@ -985,6 +997,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
+      "action": "done",
+      "summary": "#9X40BT: Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "485bdac6-7f79-4539-9d90-347866604b35",
       "action": "add",
       "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
@@ -997,10 +1015,22 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
+      "action": "done",
+      "summary": "#S4K1GA: Verified motion preference implementation and acceptance contracts. Confirmed via globals.css and tests/answer-activity-trace-css.test.ts that Motion=Full (data-motion=\"full\") opts back in over OS Reduce Motion, Motion=Reduced (data-motion=\"reduced\") keeps the ECG trace visible at opacity 0.55 rather than opacity 0, and tests/playwright-motion-emulation-contract.test.ts pins the CSS selectors. Physical iPhone Safari and installed-PWA acceptance rubric documented in docs/search-chrome-behaviour.md § Motion & Animation Preferences; operator execution on physical hardware remains the acceptance gate.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "5fa0b2ee-38ea-4a6a-bada-815b021b5aac",
       "action": "cancel",
       "summary": "Cancel request a0548b2c-2c80-44f9-9440-5b983e169a13: Repaired closing-message refusal guard in Caring Contacts service state.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "6399ff26-1ea9-47ec-b23f-328c2bf10d6f",
+      "action": "done",
+      "summary": "#KFRC3H: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Proved the CLS bistable flake mechanism was shell-absence during hydration rather than redundant double-:has() selectors alone. Fixed by holding pwa-notice-stack unmounted until app shell mounts in src/components/pwa-lifecycle.tsx. Verified locally (0.2230 -> 0.000) and in hosted CI Lighthouse budget run 32531103787. Closed together with #50QRCF and #TYZK23.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "6e929764-e281-4941-9ef4-062ec5a08497",
@@ -1021,6 +1051,12 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "96276ae2-e83f-4c2e-8ad2-8e541471e094",
+      "action": "update",
+      "summary": "#102: summary → Operator EXPLAIN diagnostic script authored; migration and health registration still required; detail → Authored operator EXPLAIN diagnostic script (scripts/operator-explain-documents-indexes.sql) comparing documents_title_trgm_idx concatenated expression vs bare-column ILIKE predicates on title and file_name. Documented diagnostic plan comparison and execution runbook in docs/operator-apply-performance-latency-remediation.md for execution during the approved operator window. Remaining work per that runbook: author one idempotent migration with the three indexes plus search_schema_health required_indexes registration, apply during the operator window, mirror supabase/schema.sql, and regenerate the drift manifest. Task stays open until that full sequence completes and is verified.; source → docs/operator-apply-performance-latency-remediation.md; scripts/operator-explain-documents-indexes.sql",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "970b4089-9e76-4bcf-821e-2e70e16a3617",
       "action": "add",
       "summary": "Component metrics stay in :root, not @theme — record the rule where reviewers read it, because bots keep re-raising it",
@@ -1033,6 +1069,12 @@
       "created_at": "2026-08-26"
     },
     {
+      "request_id": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
+      "action": "done",
+      "summary": "#023: Completed scheduled browser matrix verification and human labeling disposition. release-browser-matrix is verified unblocked from dependency audits and green across Firefox and WebKit. Human review disposition of the stable 0.0917 irrelevant-at-10 fixture set completed using #084 per-rank diagnostic grades (338 graded top rows, 33 grade-0 tail rows): all 12 non-zero cases audited and confirmed genuine off-topic tail rows rather than ranking defects. Labels and ranking thresholds retained unchanged as evaluation audit baseline. Documented in docs/evidence/rag-irrelevant-at-10-disposition.md.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
       "action": "done",
       "summary": "#45V4Y7: Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
@@ -1043,6 +1085,12 @@
       "action": "add",
       "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "c6533595-1f18-4be2-ba89-7a793a122779",
+      "action": "done",
+      "summary": "#50QRCF: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Root cause was PWA notice stack (div.pwa-notice-stack) mounting during Next.js 16 streaming hydration window before #main-content mounted, causing phone-footer owner :has() selector flip (0.2230 shift). Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #TYZK23 and #KFRC3H.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
@@ -1061,6 +1109,12 @@
       "action": "add",
       "summary": "Ward Flow Phase 5: bed availability becomes real - discharge lifecycle, egress board, predicted capacity, freshness everywhere",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "f5a27b65-309d-465c-9f5f-b87082206325",
+      "action": "done",
+      "summary": "#TYZK23: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\"hero\"]) as false so the card paints tall then compacts when the shell returns. Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #50QRCF and #KFRC3H.",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "f7c6371d-b92b-4050-9629-9aac5065f0a8",

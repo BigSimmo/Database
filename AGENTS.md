@@ -620,7 +620,7 @@ Output-style plugins such as caveman mode may compress prose. They must never co
     Index work stays operator-prebuild + a validate-only guard migration (the `20260804110240` pattern,
     see the guard-migration contract below).
   - **Automatic branching is also ON** (one preview database per PR that changes `supabase/**`, limit
-    1). Supabase warns that Branching Compute is **not covered by the organisation's Spend Cap**. CI's
+    3). Supabase warns that Branching Compute is **not covered by the organisation's Spend Cap**. CI's
     `Migration replay` job (`db-reset-verify`, `supabase migration up --local`) independently replays
     the whole chain on every database-touching PR, so preview branches are a second net rather than the
     only one.

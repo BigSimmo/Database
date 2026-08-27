@@ -16,15 +16,26 @@ Lowering or disabling automatic branching does **not** weaken migration verifica
 - Local emulator replay catches syntax errors, dependency ordering issues, and table invariant violations before merge without incurring hosted compute charges.
 - Preview branches serve as an optional secondary validation layer rather than the sole migration gate.
 
-## 3. Operator configuration
+## 3. Recommended operator configuration (not yet independently verified as applied)
+
+This section is a **recommendation for the operator to carry out**, not a record that the dashboard
+change has been made. `AGENTS.md` § "Supabase project safety" is the authoritative contract and still
+documents the automatic-branching limit as `3` — that reflects the last independently verifiable
+state. Do not change that limit's documented value here or in `AGENTS.md` until an operator confirms
+the dashboard setting itself (a screenshot, an exported project-settings value, or an equivalent
+durable record), because the read-only check below cannot distinguish "limit lowered to 1" from
+"limit still 3, currently zero branches provisioned."
 
 - **Dashboard path:** Supabase Dashboard → **Project Settings** → **Integrations** → **GitHub**.
-- **Action:**
+- **Recommended action:**
   - Lower **Automatic branching** limit from `3` to `1` (or set to manual / disable as needed).
   - Ensure **"Supabase changes only"** is checked so non-database PRs never provision a branch database.
-- **Status check:**
+- **Independent status check available today:**
   - Read-only branch inspection (`supabase` MCP `list_branches` on `sjrfecxgysukkwxsowpy`) confirms **zero active preview branches** (only the production `main` branch is present).
   - Active preview compute spend is \$0.
+  - This confirms there is no current cost exposure regardless of the configured limit; it does **not**
+    confirm the limit itself was changed from `3` to `1` — zero active branches is equally consistent
+    with the limit still being `3` and no PR having triggered a branch recently.
 
 ## 4. Governance & safety rules
 
