@@ -21,6 +21,7 @@ import {
 } from "@/components/ward-management/ward-morning-rollup";
 import { wardSites } from "@/components/ward-management/ward-sites";
 
+import { MorningTour } from "./morning-tour";
 import styles from "./morning.module.css";
 
 /** Every figure key, in the ONE order `CAPACITY_FIGURE_LABELS` declares them — never a
@@ -105,6 +106,10 @@ export function MorningPage() {
     <div className={styles.screen} data-testid="ward-morning-page">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
+        {/* Task 3: given the same `setView` setter `MorningBody` receives below, so the tour can
+            switch the page to the live view at Start without reaching back into this component's
+            own state — the seam this file's own `MorningBody` doc comment describes. */}
+        <MorningTour onChangeView={setView} />
         <MorningBody frozen={frozen} view={view} onChangeView={setView} liveRollup={liveRollup} liveNow={now} />
       </main>
     </div>
