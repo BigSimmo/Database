@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "c19d2cb01243ef93dbd8464d756fe0b6c21c3b5c",
-    "committed_at": "2026-08-26T22:58:40+08:00"
+    "sha": "1b5de90c0dc0bab7131d103a71fcb715c71ce306",
+    "committed_at": "2026-08-27T06:51:52+08:00"
   },
   "routes": {
     "modes": [
@@ -576,6 +576,11 @@
       {
         "path": "/mockups/dictionary-control-row",
         "file": "src/app/mockups/dictionary-control-row/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/document-image-status",
+        "file": "src/app/mockups/document-image-status/page.tsx",
         "area": "mockup"
       },
       {
@@ -1383,9 +1388,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 193,
+      "pages": 194,
       "product_pages": 55,
-      "mockup_pages": 138,
+      "mockup_pages": 139,
       "redirects": 17,
       "api": 57
     }
