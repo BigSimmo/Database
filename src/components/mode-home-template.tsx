@@ -252,7 +252,7 @@ export function ModeHomeStatusNotice({
   onAction?: () => void;
 }) {
   const actionClass =
-    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9";
+    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
   const action =
     onAction && actionLabel ? (
       <button type="button" onClick={onAction} className={actionClass}>
@@ -410,8 +410,9 @@ export function ModeHomeTemplate({
                   <span className="text-balance text-center">{displayLabel}</span>
                 </>
               );
+              // DS-P2-24: catalogue chrome, not a primary CTA — compact-meta from lg.
               const pillClassName =
-                "inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-9";
+                "inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-compact-meta";
               const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
                 <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>
