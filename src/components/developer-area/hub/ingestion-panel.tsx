@@ -213,37 +213,9 @@ export function IngestionPanel() {
 
   const load = useCallback(async () => {
     const fetchedAt = new Date().toISOString();
+    let response: Response;
     try {
-      const response = await fetch("/api/ingestion/jobs", { cache: "no-store" });
-      if (!mountedRef.current) return;
-      if (response.status === 401 || response.status === 403) {
-        setState({ kind: "unauthorized", fetchedAt });
-        return;
-      }
-      if (!response.ok) {
-        setState({
-          kind: "fetch-error",
-          fetchedAt,
-          message: `The ingestion jobs endpoint could not be reached (status ${response.status}).`,
-        });
-        return;
-      }
-      const payload = asRecord(await response.json());
-      if (!mountedRef.current) return;
-      if (payload.demoMode === true) {
-        setState({ kind: "demo", fetchedAt });
-        return;
-      }
-      const parsed = parseReadyPayload(payload);
-      if (!parsed) {
-        setState({
-          kind: "fetch-error",
-          fetchedAt,
-          message: "The ingestion jobs endpoint returned an unexpected shape and could not be read.",
-        });
-        return;
-      }
-      setState({ kind: "ready", fetchedAt, ...parsed });
+      response = await fetch("/api/ingestion/jobs", { cache: "no-store" });
     } catch {
       if (!mountedRef.current) return;
       setState({
@@ -251,7 +223,52 @@ export function IngestionPanel() {
         fetchedAt,
         message: "The panel could not reach the ingestion jobs endpoint.",
       });
+      return;
     }
+
+    if (!mountedRef.current) return;
+    if (response.status === 401 || response.status === 403) {
+      setState({ kind: "unauthorized", fetchedAt });
+      return;
+    }
+    if (!response.ok) {
+      setState({
+        kind: "fetch-error",
+        fetchedAt,
+        message: `The ingestion jobs endpoint could not be reached (status ${response.status}).`,
+      });
+      return;
+    }
+
+    let payloadRaw: unknown;
+    try {
+      payloadRaw = await response.json();
+    } catch {
+      if (!mountedRef.current) return;
+      setState({
+        kind: "fetch-error",
+        fetchedAt,
+        message: "The ingestion jobs endpoint returned an invalid response body that could not be parsed as JSON.",
+      });
+      return;
+    }
+
+    const payload = asRecord(payloadRaw);
+    if (!mountedRef.current) return;
+    if (payload.demoMode === true) {
+      setState({ kind: "demo", fetchedAt });
+      return;
+    }
+    const parsed = parseReadyPayload(payload);
+    if (!parsed) {
+      setState({
+        kind: "fetch-error",
+        fetchedAt,
+        message: "The ingestion jobs endpoint returned an unexpected shape and could not be read.",
+      });
+      return;
+    }
+    setState({ kind: "ready", fetchedAt, ...parsed });
   }, []);
 
   useEffect(() => {
