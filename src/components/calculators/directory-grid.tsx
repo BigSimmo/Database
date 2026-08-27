@@ -237,7 +237,8 @@ export function CalculatorsDirectoryGridMockup() {
                   aria-pressed={active}
                   onClick={() => setDomain(chip.id)}
                   className={cn(
-                    "inline-flex min-h-10 shrink-0 items-center rounded-md border px-3 text-sm-minus font-bold",
+                    // Compact-meta domain filters, not primary CTAs.
+                    "inline-flex min-h-compact-meta shrink-0 items-center rounded-md border px-3 text-sm-minus font-bold",
                     active
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:text-[color:var(--text)]",

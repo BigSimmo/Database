@@ -173,15 +173,15 @@ describe("the config tracks globals.css", () => {
 });
 
 describe("cn module location", () => {
-  const primitivesSource = readFileSync(join(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+  const recipesSource = readFileSync(join(process.cwd(), "src/components/primitive-recipes/recipes.ts"), "utf8");
 
-  it("lives in src/lib/cn.ts and is re-exported from ui-primitives", async () => {
+  it("lives in src/lib/cn.ts and is re-exported from primitive-recipes/recipes", async () => {
     const libCnSource = readFileSync(join(process.cwd(), "src/lib/cn.ts"), "utf8");
     expect(libCnSource).toMatch(/export function cn\(/);
     expect(libCnSource).toContain("twMergeClinical");
-    expect(primitivesSource).toMatch(/from ["']@\/lib\/cn["']/);
-    expect(primitivesSource).toMatch(/export \{[\s\S]*?\bcn\b[\s\S]*?\}/);
-    expect(primitivesSource).not.toMatch(/export function cn\(/);
+    expect(recipesSource).toMatch(/from ["']@\/lib\/cn["']/);
+    expect(recipesSource).toMatch(/export \{[\s\S]*?\bcn\b[\s\S]*?\}/);
+    expect(recipesSource).not.toMatch(/export function cn\(/);
 
     const lib = await import("@/lib/cn");
     expect(cn).toBe(lib.cn);
