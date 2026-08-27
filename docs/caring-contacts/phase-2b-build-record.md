@@ -3663,3 +3663,52 @@ fix predicts the wrong cost.**
 is an exit"*. Staging nothing is an **absence** at the host, indistinguishable from an overlay reached by
 address except through the row's `mutatesState`. The marker closes that for a test, not for the host. Owner's
 call, as Task 10 first recorded.
+
+### Ruling [152] — Task 21 ACCEPTED, and its most valuable finding is about the method, not the screens
+
+**Accepted.** Every screen × condition cell in the phase now names the `file:line` that proves it, and
+**all forty-five are proved**. The browser gate went from **84 passed to `115 passed (3.0m)`** on a fresh
+build root; `test:cc-guards` `Test Files 37 passed (37)` / `Tests 827 passed (827)`; `tsc` exit 0 with no
+output, read from `tsc` directly; uncached eslint 0; Prettier clean.
+
+**Its inventory made a shortfall visible that no branch could have seen.** Each of the four branches proved
+its own screen as it landed, so before the merge the coverage was per-screen rather than uniform: Today had
+all six widths, every other screen had 320px only, and **reduced motion had no coverage on any screen but
+Today**. That shape is invisible until the branches are read together — the same argument Ruling [133] made
+for holding this task, confirmed by the task itself.
+
+**The limit it insists on, and it is right to:** every cell is proved **on the state this server can
+reach**, which for six of the nine screens is an empty or statement state rather than a populated screen.
+That is stated in the report rather than hidden in a column, and Task 20's three address-only rows —
+`delivery-detail`, `resolve-failed-delivery`, `template-changed-retired` — are recorded as unreachable in a
+browser walk with the reason, **not as covered**.
+
+**F3 is the finding worth keeping, and it is about evidence rather than about this phase.** `run-playwright.mjs`
+can reuse a build directory (`PLAYWRIGHT_BUILD_ROOT_ID` + `PLAYWRIGHT_KEEP_BUILD_ROOT`), cutting a three-minute
+build to about one, and rounds 1–3 used it. **Two mutations touching disjoint files — one only `globals.css`,
+one only `sheet.tsx` — returned byte-identical twenty-six-element failure lists.** Two unrelated changes do
+not do that. Re-run on fresh roots, **both are green**. The whole table was then re-run on fresh roots and
+only those verdicts kept; every other row matched, so the corruption looks confined — and *"looks confined"
+is not a basis for keeping the rest*. **Do not use a kept build root for mutation testing.** This is the
+mutation-evidence trap this programme has recorded in three other disguises: a driver that wrote another
+task's ledger, a row that printed RAN and wrote an empty file, and now a build root that manufactures a red.
+
+**F1 contradicts what this repository looks like it is doing, and it is measured.** The reduced-motion
+guarantee is carried by **one universal clamp in `globals.css`**, not by the ~164 `motion-reduce:` call
+sites. Removing the clamp's `transition-duration` line reddens, listing twenty-three still-transitioning
+interactive elements on Today; removing a component's `motion-reduce:transition-none` and leaving the clamp
+is **green**. So the clamp is sufficient and the variant is not — and *why* the variant is not sufficient is
+unexplained, since it should set `transition-property: none` on those very elements. **A whole-app question,
+not a Caring Contacts one**, and flagged rather than chased.
+
+**F4 is the mutation rule restated in a new costume.** Two Tailwind arbitrary-value utilities added to make
+an overflow assertion fail both left it green **because neither moved the layout** — worthless as evidence
+either way. An inline `style={{ minWidth: 3000 }}` reddens it at once. A claim built on the first green was
+**withdrawn** in its own commit (`679d5749e`) rather than left standing. *Check first that the mutation
+changes a value some assertion reads* — the rule that keeps being paid for.
+
+**Two follow-ups recorded, neither this task's:** the per-screen blocks still use `documentOverflow` while
+the new blocks use the wider `layoutOverflow`, and only the latter is proved falsifiable (F6); and the
+stale `data/outstanding-issues-snapshot.json` (F5), which was **mine** — regenerated and committed at
+`c1cea69fb`, pending 47 → 36, exactly the eleven inbox requests `8d0b374b4` removed. Task 21 left it
+uncommitted deliberately and said so, which is the correct handling of a generated file another change owns.
