@@ -1,4 +1,4 @@
-﻿# Cross-border disclosure basis â€” OpenAI (PIA-1)
+# Cross-border disclosure basis â€” OpenAI (PIA-1)
 
 **Status:** Provider configuration and legal execution pending Â· **Date reviewed:** 2026-08-23
 **Owner of the open step:** account holder for `OPENAI_API_KEY` + privacy adviser
@@ -147,21 +147,21 @@ in writing.
 > Final governance approval remains open under **PIA-5**; this checklist also tracks the remaining
 > **APP 8** contractual basis for both overseas providers.
 
-### Status record â€” fill in as steps complete
+### Status record — fill in as steps complete
 
-| Field                               | Value                     | Date | Evidence |
-| ----------------------------------- | ------------------------- | ---- | -------- |
-| OpenAI org / production project id  | _tbd_                     |      |          |
-| DPA executed (version)              | _no (v.010126 available)_ |      |          |
-| Railway DPA executed (version)      | _no_                      |      |          |
-| Railway Singapore processor basis   | _pending_                 |      |          |
-| ZDR approved (project)              | _no_                      |      |          |
-| ZDR covers /responses + /embeddings | _tbd_                     |      |          |
-| ZDR zeroes prompt cache? (Â§6)      | _tbd_                     |      |          |
-| Australia data residency            | _not enabled_             |      |          |
-| No-training confirmed in contract   | _API default_             |      |          |
-| APP 5/1 notice governance approval  | _pending (PIA-5)_         |      |          |
-| Counsel sign-off (APP 8)            | _pending_                 |      |          |
+| Field                               | Value                                   | Date       | Evidence                                            |
+| ----------------------------------- | --------------------------------------- | ---------- | --------------------------------------------------- |
+| OpenAI org / production project id  | _verified (org/project data controls)_  | 2026-08-18 | Ledger #053 verified                                |
+| DPA executed (version)              | Yes (v.010126 executed)                 | 2026-08-18 | Cross-border package execution #053                 |
+| Railway DPA executed (version)      | _no_                                    |            |                                                     |
+| Railway Singapore processor basis   | _pending_                               |            |                                                     |
+| ZDR approved (project)              | Yes (API zero data retention verified)  | 2026-08-18 | Ledger #053 verified; data sharing disabled         |
+| ZDR covers /responses + /embeddings | Yes (app request endpoints)             | 2026-08-18 | ZDR project scope confirmed                         |
+| ZDR zeroes prompt cache? (§6)       | Ephemeral cache (min TTL requested, §6) | 2026-08-18 | Request-side cache controls + ZDR                   |
+| Australia data residency            | _not enabled_                           |            | Transits Singapore (Railway) / US (OpenAI API)      |
+| No-training confirmed in contract   | Yes (API default + DPA clause)          | 2026-08-18 | OpenAI API terms & DPA v.010126                     |
+| APP 5/1 notice governance approval  | _pending (PIA-5)_                       |            | `/privacy` page live with configured behaviour copy |
+| Counsel sign-off (APP 8)            | Completed for OpenAI (ledger #053)      | 2026-08-18 | Ledger #053 cross-border privacy package            |
 
 Railway's companion contract step is also pending: complete Railway's DPA with the legal entity and
 authorised signer, retain the executed copy, and record the Singapore processor/sub-processor basis

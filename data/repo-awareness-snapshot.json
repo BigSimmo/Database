@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "f3dd2316b95fb5c5e4109583aaf8eace9c835dd6",
-    "committed_at": "2026-08-27T04:06:56+00:00"
+    "sha": "b37154a2f6b1ed22b3c5f75b54b9c39f2ba8ca6a",
+    "committed_at": "2026-08-27T04:35:21+00:00"
   },
   "routes": {
     "modes": [
@@ -2407,6 +2407,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/rag-reliability-evidence-2026-07-27.md",
         "section": "evidence",
         "catalogued": false
@@ -2520,6 +2525,11 @@
         "path": "docs/operator-backlog.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/operator-supabase-branching-cap.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3804,9 +3814,9 @@
       }
     ],
     "counts": {
-      "documents": 468,
+      "documents": 470,
       "catalogued": 103,
-      "uncatalogued": 365,
+      "uncatalogued": 367,
       "sections": 18
     }
   },
