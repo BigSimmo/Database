@@ -69,9 +69,12 @@ export function Disclosure({
     onOpenChange?.(next);
   }
 
+  const dataState = open ? "expanded" : "collapsed";
+
   return (
     <div
       data-testid="disclosure"
+      data-state={dataState}
       className={cn(
         "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
         // A print-expanded panel must not be clipped by the collapsed-height
@@ -84,6 +87,7 @@ export function Disclosure({
         <button
           type="button"
           id={`${id}-trigger`}
+          data-state={dataState}
           aria-expanded={open}
           aria-controls={panelId}
           onClick={toggle}
@@ -133,6 +137,7 @@ export function Disclosure({
         role="region"
         aria-labelledby={`${id}-trigger`}
         data-open={open ? "true" : "false"}
+        data-state={dataState}
         className={cn(
           "px-3 py-3 print:block",
           !open && "hidden",
