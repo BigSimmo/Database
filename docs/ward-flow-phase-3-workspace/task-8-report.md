@@ -8,7 +8,7 @@
   local token set on `.screen`, following the same convention as `coordinator.module.css` and
   `ward-management.module.css` — CSS Modules scope per file, so their local tokens are not
   reachable from this one).
-- `src/app/ward-management/ward/[unitId]/page.tsx` — the route. Next 16 async `params`
+- `src/app/mockups/ward-flow/ward/[unitId]/page.tsx` — the route. Next 16 async `params`
   (`Promise<{ unitId: string }>`), matching `patients/[patientId]/page.tsx`'s exact pattern.
 - `tests/ui-ward-roles.spec.ts` — Playwright, two tests (brief's test + R40's).
 - `tests/ward-screen.dom.test.tsx` — jsdom, three tests (R38's restriction-notice coverage plus a

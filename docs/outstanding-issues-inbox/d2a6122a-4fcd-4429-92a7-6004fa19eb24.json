@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d2a6122a-4fcd-4429-92a7-6004fa19eb24",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
+    "detail": "CodeRabbit's pre-merge Docstring Coverage check warned on every head of PR #2370, measuring 56 functions across 17 files. It is advisory only — not a required GitHub check, and it never blocked the merge. Recorded so the next person who sees the warning knows it was read rather than missed. Next action: none required. If someone wants the number up, the gap is in small helpers and test harness functions rather than in the exported surfaces, which are documented; decide whether the threshold is measuring something this repo actually wants before writing comments to satisfy it.",
+    "source": "PR #2370 pre-merge checks, 2026-08-25",
+    "issueUlid": "01M0WYCQTP2X46NY2E10SPCE0H"
+  }
+}

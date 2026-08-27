@@ -69,7 +69,7 @@ still be mid-resize. The constraint dissolves; nothing was deleted silently.
 
 ## R26: phone chrome contract
 
-Confirmed independently, not just taken on the controller's word: `src/app/ward-management/layout.tsx`
+Confirmed independently, not just taken on the controller's word: `src/app/mockups/ward-flow/layout.tsx`
 is only `<WardFlowProvider>{children}</WardFlowProvider>`, and `/ward-management` is not inside the
 `(search-app)` route group (`src/app/` has a separate `(search-app)` directory; `ward-management` is
 a sibling top-level route). So there is no `GlobalSearchShell`/`ClinicalDashboard` composer dock on

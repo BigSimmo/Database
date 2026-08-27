@@ -5,6 +5,7 @@ import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,6 +17,7 @@ import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
 import { InteractiveRow, interactiveRowBase } from "@/components/ui/interactive-row";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
+import { TherapyCompareAction } from "../record/compare-action";
 import { TherapySaveNotice } from "../record/save-notice";
 import { useTherapyFavourite } from "../use-therapy-favourite";
 
@@ -62,6 +64,10 @@ export function SheetsScreen() {
             />
           </div>
 
+          <div data-therapy-no-print className="mb-5">
+            <TherapyCompareAction therapy={t} />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
             {/* BUILDER */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
@@ -94,46 +100,21 @@ export function SheetsScreen() {
                   Toggle what appears on the sheet.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipAbout)}
-                    onClick={b.toggleAbout}
-                    aria-pressed={b.secAbout}
-                  >
+                  <ChoiceChip pressed={b.secAbout} onPressedChange={b.toggleAbout}>
                     About this therapy
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipSteps)}
-                    onClick={b.toggleSteps}
-                    aria-pressed={b.secSteps}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secSteps} onPressedChange={b.toggleSteps}>
                     Your plan
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipPractice)}
-                    onClick={b.togglePractice}
-                    aria-pressed={b.secPractice}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secPractice} onPressedChange={b.togglePractice}>
                     Practice at home
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipCoping)}
-                    onClick={b.toggleCoping}
-                    aria-pressed={b.secCoping}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secCoping} onPressedChange={b.toggleCoping}>
                     If things get hard
-                  </button>
-                  <button
-                    type="button"
-                    className={cn(interactiveRowBase, "w-auto", b.chipContacts)}
-                    onClick={b.toggleContacts}
-                    aria-pressed={b.secContacts}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secContacts} onPressedChange={b.toggleContacts}>
                     Support contacts
-                  </button>
+                  </ChoiceChip>
                 </div>
               </div>
 

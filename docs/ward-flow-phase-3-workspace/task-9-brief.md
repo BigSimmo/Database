@@ -3,7 +3,7 @@
 **Files:**
 
 - Create: `src/components/ward-management/officer/officer-screen.tsx`
-- Create: `src/app/ward-management/transport/officer/page.tsx`
+- Create: `src/app/mockups/ward-flow/transport/officer/page.tsx`
 - Modify: `tests/ui-ward-roles.spec.ts`, `adoption-contract.json`, `ward-management-navigation.tsx`
 
 - [ ] **Step 1: Write the failing test**

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
+  "createdOn": "2026-08-26",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
+    "detail": "predicted -> confirmed -> blocked -> released is a software model of how a bed comes free. A bed may be confirmed and blocked simultaneously in reality, and 'predicted' may compress several states a charge nurse would separate. Cheap to change while synthetic; recorded in the Phase 5 spec as D14 and as the assumption most likely to be wrong. Check before Phase 7 builds on it.",
+    "source": "Ward Flow Phase 5 design, 2026-08-26",
+    "issueUlid": "01M0XVHNB49GPWT3G522RG4YDC"
+  }
+}

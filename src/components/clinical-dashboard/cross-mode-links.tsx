@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Search, type LucideIcon } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { ChevronDown, Search, type LucideIcon } from "lucide-react";
 
 import { cn, eyebrowText, semanticChipTone, sourceCard, type SemanticChipTone } from "@/components/ui-primitives";
 import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-actions";
@@ -24,7 +24,7 @@ function badgeChipTone(tone: CrossModeLinkBadge["tone"]): SemanticChipTone | nul
   return tone === "clinical" ? "info" : tone;
 }
 
-type CrossModeLinksVariant = "card" | "compact" | "responsive-compact";
+type CrossModeLinksVariant = "card" | "compact" | "responsive-compact" | "line";
 
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
@@ -183,6 +183,89 @@ export function CrossModeLinksSection({
   return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />;
 }
 
+/**
+ * One line, opened on demand — the answer thread's variant (owner decision,
+ * 2026-08-26, "direction B").
+ *
+ * Under an answer this block used to be a permanently expanded rail sitting
+ * directly above a second, near-identical panel of mode matches. Two panels
+ * asking the same question ("where else does this appear") read as one panel
+ * repeated, and neither is the clinician's next step — the follow-up questions
+ * above them are. So this collapses to a single row carrying a preview of what
+ * is inside, and opens to exactly the rail it always was.
+ *
+ * The preview names come from the resolved links, so the line can never
+ * advertise a match the expanded rail does not list.
+ */
+function CrossModeLinksLine({
+  links,
+  onModeSearch,
+  query,
+}: {
+  links: CrossModeLink[];
+  onModeSearch: (mode: AppModeId, query: string) => void;
+  query: string;
+}) {
+  const [open, setOpen] = useState(false);
+  // `useId`, not a constant: two of these can mount at once (the answer thread
+  // and a historical turn), and a duplicate id is a DOM-integrity failure the
+  // smoke audit fails on.
+  const panelId = useId();
+  const preview = links.slice(0, 3).map((link) => link.title);
+  const rest = links.length - preview.length;
+  return (
+    <section aria-label="Related pages in other modes" data-testid="cross-mode-links" className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        data-testid="cross-mode-links-line-trigger"
+        className={cn(
+          "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)]",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        )}
+      >
+        <span className={cn(eyebrowText, "shrink-0")}>Also in your library</span>
+        <span className="min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)]">
+          {preview.join(" · ")}
+          {rest > 0 ? ` · +${rest}` : null}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-icon-xs shrink-0 text-[color:var(--text-muted)] transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {/* Always mounted, hidden with `display: none` when closed. Rendering it
+          only while open left `aria-controls` pointing at nothing for the whole
+          time the line was collapsed — a broken ARIA reference, which is what
+          the smoke suite's DOM-integrity audit caught. */}
+      <div
+        id={panelId}
+        role="list"
+        className={cn(
+          "cross-mode-links-rail mt-1.5 grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
+          !open && "hidden",
+        )}
+        data-testid="cross-mode-links-rail"
+      >
+        {links.map((link) => (
+          <CrossModeLinkCard
+            key={`${link.modeId}:${link.slug}`}
+            link={link}
+            Icon={appModeIcons[link.modeId]}
+            query={query}
+            onModeSearch={onModeSearch}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function CrossModeLinksStrip({
   links,
   onModeSearch,
@@ -196,6 +279,10 @@ export function CrossModeLinksStrip({
   variant?: CrossModeLinksVariant;
 }) {
   if (links.length === 0) return null;
+
+  if (variant === "line") {
+    return <CrossModeLinksLine links={links} onModeSearch={onModeSearch} query={query} />;
+  }
 
   const compact = variant === "compact";
   const responsiveCompact = variant === "responsive-compact";

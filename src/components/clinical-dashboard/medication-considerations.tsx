@@ -14,7 +14,12 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 
-import { BadgeCluster, ClinicalBadge, type ClinicalBadgeItem } from "@/components/clinical-dashboard/clinical-badge";
+import {
+  BadgeCluster,
+  ClinicalBadge,
+  clinicalBadgeToneClass,
+  type ClinicalBadgeItem,
+} from "@/components/clinical-dashboard/clinical-badge";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import {
   evaluateMedicationInteractions,
@@ -126,6 +131,53 @@ export function verdictSummaryBadge(verdict: MedicationVerdict): ClinicalBadgeIt
     tone: "success",
     icon: verdictIcon("success"),
   };
+}
+
+const PATIENT_VERDICT_COPY: Record<SemanticTone, { label: string; context: string }> = {
+  danger: { label: "Danger", context: "For this patient" },
+  warning: { label: "Caution", context: "For this patient" },
+  neutral: { label: "Manual review", context: "Patient check incomplete" },
+  success: { label: "No alert found", context: "From entered details" },
+  clinical: { label: "Clinical action", context: "For this patient" },
+  info: { label: "Patient information", context: "Review for this patient" },
+};
+
+/**
+ * Dedicated patient-specific verdict band for search results.
+ *
+ * Match quality and catalogue metadata remain ordinary badges. This band owns
+ * the safety hierarchy, states the severity in words, and keeps the result
+ * scoped to the entered patient details so colour is never the only signal and
+ * a non-firing check is never presented as a general guarantee.
+ */
+export function PatientVerdictSignal({ verdict, className }: { verdict: MedicationVerdict; className?: string }) {
+  const summary = verdictSummaryBadge(verdict);
+  const copy = PATIENT_VERDICT_COPY[verdict.tone];
+  // Indexing the stable map keeps the rendered component static for React lint.
+  const Icon = VERDICT_ICONS[verdict.tone];
+
+  return (
+    <div
+      role="group"
+      aria-label={`${copy.label}. ${copy.context}. ${summary.label}.`}
+      data-patient-verdict-signal="true"
+      data-tone={verdict.tone}
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-md border border-l-[3px] px-2 py-1.5 shadow-[var(--shadow-inset)]",
+        clinicalBadgeToneClass(verdict.tone),
+        className,
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 leading-tight">
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span className="text-2xs font-extrabold uppercase tracking-eyebrow">{copy.label}</span>
+          <span className="text-2xs font-semibold opacity-80">{copy.context}</span>
+        </span>
+        <span className="mt-0.5 block break-words text-xs font-semibold">{summary.label}</span>
+      </span>
+    </div>
+  );
 }
 
 /**

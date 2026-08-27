@@ -17,6 +17,7 @@ import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
+import { TherapyCompareAction } from "../record/compare-action";
 import { TherapySaveNotice } from "../record/save-notice";
 import { useTherapyFavourite } from "../use-therapy-favourite";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
@@ -109,6 +110,10 @@ export function BriefScreen() {
               </>
             }
           />
+
+          <div className="mb-5">
+            <TherapyCompareAction therapy={t} />
+          </div>
 
           <Tabs
             label="Brief intervention duration"

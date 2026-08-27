@@ -29,26 +29,71 @@ const baseQuery: DocumentDetailQuery = {
 };
 
 function demoPayload() {
+  const documentId = "demo-lithium";
   return {
-    document: { id: "demo-lithium", title: "Lithium Protocol", page_count: 12, chunk_count: 9 },
-    pages: Array.from({ length: 12 }, (_, index) => ({ id: `page-${index + 1}`, page_number: index + 1 })),
+    document: {
+      id: documentId,
+      title: "Lithium Protocol",
+      description: null,
+      file_name: "lithium-protocol.pdf",
+      file_type: "application/pdf",
+      file_size: 1024,
+      storage_path: "/demo-documents/lithium-protocol.pdf",
+      status: "indexed",
+      page_count: 12,
+      chunk_count: 9,
+      image_count: 3,
+      error_message: null,
+      metadata: {},
+      labels: [],
+      summary: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    },
+    pages: Array.from({ length: 12 }, (_, index) => ({
+      id: `page-${index + 1}`,
+      document_id: documentId,
+      page_number: index + 1,
+      text: `Page ${index + 1}`,
+      ocr_used: false,
+      metadata: {},
+    })),
     chunks: Array.from({ length: 9 }, (_, index) => ({
       id: `chunk-${index}`,
+      document_id: documentId,
       chunk_index: index,
       page_number: index + 1,
+      section_heading: `Section ${index + 1}`,
+      content: `Chunk ${index + 1}`,
       image_ids: index === 6 ? ["image-far"] : [],
     })),
     images: [
-      { id: "image-near", page_number: 5 },
-      { id: "image-far", page_number: 11 },
-      { id: "image-global", page_number: null },
+      {
+        id: "image-near",
+        document_id: documentId,
+        page_number: 5,
+        caption: "Near image",
+        storage_path: "private/near.png",
+        signed_url: "https://example.test/private/near.png",
+        mime_type: "image/png",
+      },
+      { id: "image-far", document_id: documentId, page_number: 11, caption: "Far image" },
+      { id: "image-global", document_id: documentId, page_number: null, caption: "Global image" },
     ],
     tableFacts: [
       { id: "fact-near", page_number: 5, source_image_id: null },
       { id: "fact-far", page_number: 11, source_image_id: null },
       { id: "fact-global", page_number: null, source_image_id: null },
       { id: "fact-selected-image", page_number: 11, source_image_id: "image-far" },
-    ],
+    ].map((fact) => ({
+      ...fact,
+      document_id: documentId,
+      table_title: null,
+      row_label: null,
+      clinical_parameter: null,
+      threshold_value: null,
+      action: null,
+    })),
   };
 }
 
@@ -110,6 +155,17 @@ describe("demo document detail windows", () => {
     expect(detail.assetScope).toBe("document");
     expect(detail.images.map((image) => image.id)).toEqual(["image-near", "image-far", "image-global"]);
     expect(detail.tableFacts).toHaveLength(4);
+  });
+
+  it("projects fixture-only and private image fields out of the wire DTO", async () => {
+    const detail = await load({ page: 5 });
+
+    expect(detail.pages[0]).not.toHaveProperty("document_id");
+    expect(detail.chunks[0]).not.toHaveProperty("document_id");
+    expect(detail.images[0]).not.toHaveProperty("document_id");
+    expect(detail.images[0]).not.toHaveProperty("storage_path");
+    expect(detail.images[0]).not.toHaveProperty("signed_url");
+    expect(detail.images[0]).not.toHaveProperty("mime_type");
   });
 
   it("restricts window-scoped assets to the page window plus selected-chunk images", async () => {
