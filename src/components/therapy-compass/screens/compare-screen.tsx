@@ -222,7 +222,7 @@ export function CompareScreen() {
               role="region"
               aria-label="Therapy comparison table"
               tabIndex={0}
-              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--shadow-soft)] md:block"
+              className="hidden overflow-x-auto rounded-xs border border-[color:var(--border)] shadow-[var(--e2)] md:block"
             >
               <table className="w-full min-w-[720px] border-collapse bg-[color:var(--surface)] text-left">
                 <caption className="sr-only">Therapy comparison by clinical field</caption>

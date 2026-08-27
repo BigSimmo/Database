@@ -52,7 +52,7 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 text-[color:var(--text)] sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-soft)]">
+        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--e2)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +91,7 @@ function Shell({ children }: { children: ReactNode }) {
 
 function Section({ title, body, children }: { title: string; body: string; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
@@ -655,7 +655,7 @@ function TableDialog() {
 
 function WeakEvidencePopup() {
   return (
-    <div className="rounded-lg border border-[color:var(--warning)]/30 border-l-4 border-l-[color:var(--warning)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+    <div className="rounded-lg border border-[color:var(--warning)]/30 border-l-4 border-l-[color:var(--warning)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]">
       <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
           <ShieldAlert className="h-4 w-4" />

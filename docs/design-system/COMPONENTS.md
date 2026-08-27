@@ -644,6 +644,15 @@ stated here falls back to the universal rules (SPEC §6) and the authoring defin
 done (SPEC §14). **Open defects** name their closing PR from the playbook (SPEC §13);
 until that PR lands the defect stands and is not re-litigated per review.
 
+### Focus chrome
+
+Two carriers, never a third:
+
+- **Controls** (`button` / `a` / `summary` / checkbox-radio-range): `outline: 2px solid var(--focus)` on `:focus-visible`, same as `controlBase`. No Tailwind `ring-*` companion on the same node.
+- **Text fields / search shells:** quiet 1px color-mix hairline. Use `fieldControl` / `fieldControlPlain` / `fieldControlWithIcon`, or `searchShell` + `searchShellInput`. Nested inputs stay `outline: none`. Never put `controlBase`'s 2px outline on a text field.
+
+`focus:ring-4` plus `focus:border` on leftover fields is forbidden: those rings win over the unlayered field `box-shadow`. Residual: the production composer pill (`.answer-footer-search-pill` / `.answer-footer-search-input`) keeps the `ui-smoke` halo until a dedicated chrome PR — do not restyle that pill here.
+
 ### 9.1 `Button`
 
 **Purpose.** The one action primitive. `AsyncButton` and hand-rolled `<button>`s converge
@@ -658,6 +667,14 @@ hover/active from semantic tokens, never `brightness-*` filters · one filled co
 surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-floor comment.
 **Tap vs compact-meta (DS-P1-09 / DS-P2-24).** Primary `Button` / `primaryControl` / filled command actions stay `min-h-tap` at **all** breakpoints — no `sm:min-h-10`, `sm:min-h-9`, `lg:min-h-9`, or `min-h-11`. Metadata, disclosure, filter chips, and table micro-actions may use `min-h-compact-meta` (40px) or a documented prefixed compact (`sm:min-h-compact-meta`). `--row-compact` / `min-h-9` (36px) is row height, not a tap target. Recipes: `interactiveCompact` and `tableMicroActionRow` are the named compact-meta exceptions in `ui-primitives.tsx`; `controlBase` stays tap-sized. Full table: TOKENS §2 “Compact-meta vs tap”.
 **Open defects → PR.** ref forwarding and the needless client boundary → follow-on.
+
+**Command CTA path.** Pick one encoding; do not invent a fourth.
+
+| Situation                                         | Winner                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Real button action (copy, continue, submit, busy) | `<Button variant="primary">` from `src/components/ui/button.tsx`                                                             |
+| Navigation that must look like the filled command | `Link` + `primaryControl` (`Button` has no `href` / `asChild`)                                                               |
+| Unavailable placeholder                           | `aria-disabled` + `ignoreUnavailableActivation` from ui-primitives; **never** native `disabled` and `aria-disabled` together |
 
 ### 9.2 `IconButton`
 
@@ -982,9 +999,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              18 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -994,7 +1011,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
+| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -1018,7 +1035,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              31 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              32 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

@@ -17,7 +17,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
 import { PageHeader } from "@/components/ui/page-header";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
@@ -154,7 +154,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
         </section>
 
         <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
             <div className="border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3">
               <p className={cn(eyebrowText, "!text-[color:var(--clinical-accent)]")}>Selected specifier</p>
               <h2 className="mt-1 text-xl font-extrabold text-[color:var(--text-heading)]">{selected.shortName}</h2>
@@ -170,10 +170,7 @@ function SpecifierMapPageContent({ initialSlug }: { initialSlug?: string }) {
                 </p>
               </div>
               <div className="grid gap-2">
-                <Link
-                  href={`/specifiers/${selected.slug}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)]"
-                >
+                <Link href={`/specifiers/${selected.slug}`} className={cn(primaryControl)}>
                   Open full guide
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>

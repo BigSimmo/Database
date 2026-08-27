@@ -22,7 +22,21 @@ const REQUIRED_GUIDELINES = [
 const read = (relativePath) => fs.readFileSync(path.join(ROOT, relativePath), "utf8");
 const hasFile = (relativePath) => fs.existsSync(path.join(ROOT, relativePath));
 
-function exportsFrom(relativePath) {
+function resolveRelativeModule(importer, specifier) {
+  let candidate;
+  if (specifier.startsWith("@/")) candidate = `src/${specifier.slice(2)}`;
+  else if (specifier.startsWith("."))
+    candidate = path.posix.normalize(`${path.posix.dirname(importer.replaceAll("\\", "/"))}/${specifier}`);
+  else return null;
+  const candidates = path.extname(candidate)
+    ? [candidate]
+    : [`${candidate}.ts`, `${candidate}.tsx`, `${candidate}/index.ts`, `${candidate}/index.tsx`];
+  return candidates.find((entry) => hasFile(entry)) ?? null;
+}
+
+function exportsFrom(relativePath, seen = new Set()) {
+  if (seen.has(relativePath) || !hasFile(relativePath)) return new Set();
+  seen.add(relativePath);
   const source = ts.createSourceFile(relativePath, read(relativePath), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const names = new Set();
   for (const statement of source.statements) {
@@ -34,8 +48,14 @@ function exportsFrom(relativePath) {
     ) {
       names.add(statement.name.getText(source));
     }
-    if (ts.isExportDeclaration(statement) && statement.exportClause && ts.isNamedExports(statement.exportClause)) {
+    if (!ts.isExportDeclaration(statement)) continue;
+    if (statement.exportClause && ts.isNamedExports(statement.exportClause)) {
       for (const element of statement.exportClause.elements) names.add(element.name.text);
+      continue;
+    }
+    if (!statement.exportClause && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const resolved = resolveRelativeModule(relativePath, statement.moduleSpecifier.text);
+      if (resolved) for (const name of exportsFrom(resolved, seen)) names.add(name);
     }
   }
   return names;
