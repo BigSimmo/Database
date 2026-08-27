@@ -29,31 +29,31 @@ picked — kept as-is rather than guessed at.
 
 ### Full prototype apps (out of scope for cleanup)
 
-| Route | What it is |
-| --- | --- |
-| `development/**` | Developer hub — reads repo status (docs index, ingestion status, task ledger, review records, route map). Linked from Settings for signed-in admins. |
-| `care-plan/**` | Fully synthetic care-planning prototype (management/patient/safety plans, presentations, review), richly cross-linked. |
-| `caring-contacts/**` | Fully synthetic Caring Contacts coordination prototype. |
-| `ward-flow/**` | Synthetic ward patient-flow prototype (capacity, discharge board, escalation, handover, live vehicle tracker, etc.), cross-linked via its own sidebar nav. |
+| Route                | What it is                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `development/**`     | Developer hub — reads repo status (docs index, ingestion status, task ledger, review records, route map). Linked from Settings for signed-in admins.       |
+| `care-plan/**`       | Fully synthetic care-planning prototype (management/patient/safety plans, presentations, review), richly cross-linked.                                     |
+| `caring-contacts/**` | Fully synthetic Caring Contacts coordination prototype.                                                                                                    |
+| `ward-flow/**`       | Synthetic ward patient-flow prototype (capacity, discharge board, escalation, handover, live vehicle tracker, etc.), cross-linked via its own sidebar nav. |
 
 ### Redirects
 
-| Route | Forwards to |
-| --- | --- |
-| `favourites-hub` | `/favourites` |
+| Route                    | Forwards to                |
+| ------------------------ | -------------------------- |
+| `favourites-hub`         | `/favourites`              |
 | `medication-prescribing` | `/medications/acamprosate` |
 
 ### Favourites page
 
-| Route | Status |
-| --- | --- |
-| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above. |
+| Route                        | Status                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above.                                                                                     |
 | `favourites-command-console` | **Superseded — recommend removing.** One of six earlier studies this README already records as replaced by `favourites-phone-perfected`. |
-| `favourites-command-desk` | **Superseded — recommend removing.** Same as above. |
-| `favourites-library-view` | **Superseded — recommend removing.** Same as above. |
-| `favourites-review-console` | **Superseded — recommend removing.** Same as above. |
-| `favourites-set-board` | **Superseded — recommend removing.** Same as above. |
-| `favourites-set-navigator` | **Superseded — recommend removing.** Same as above. |
+| `favourites-command-desk`    | **Superseded — recommend removing.** Same as above.                                                                                      |
+| `favourites-library-view`    | **Superseded — recommend removing.** Same as above.                                                                                      |
+| `favourites-review-console`  | **Superseded — recommend removing.** Same as above.                                                                                      |
+| `favourites-set-board`       | **Superseded — recommend removing.** Same as above.                                                                                      |
+| `favourites-set-navigator`   | **Superseded — recommend removing.** Same as above.                                                                                      |
 
 These six only ever link to each other (three of them share one comparison-tab component,
 `favourites-page-mockups/favourites-library-redesign-page.tsx`; the other three share
@@ -62,26 +62,26 @@ either file, so removing all six routes together removes that whole folder clean
 
 ### Services filter surface — three sequential rounds, keep together
 
-| Route | Status |
-| --- | --- |
+| Route                     | Status                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
 | `services-filter-refined` | Round 1. Round 2 imports its facet engine, chips and sheet shell — do not remove independently. |
-| `services-filter-options` | Round 2, builds on round 1's code. |
-| `filter-sheet-restyle` | Round 3, a craft pass on the same decision. |
+| `services-filter-options` | Round 2, builds on round 1's code.                                                              |
+| `filter-sheet-restyle`    | Round 3, a craft pass on the same decision.                                                     |
 
 ### Tools page
 
-| Route | Status |
-| --- | --- |
-| `tools-search-mode` | Chosen design — "Perfected Tools search mode" per this README. |
-| `tools-search-directions` | Active reference — grounds tracked issue `#162`. |
+| Route                                                                                                                                                                                                                              | Status                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `tools-search-mode`                                                                                                                                                                                                                | Chosen design — "Perfected Tools search mode" per this README.                     |
+| `tools-search-directions`                                                                                                                                                                                                          | Active reference — grounds tracked issue `#162`.                                   |
 | `tools-action-workbench`, `tools-clinical-lanes`, `tools-command-center`, `tools-split-clinical-brief`, `tools-split-compact-sheet`, `tools-split-pane`, `tools-split-safety-deck`, `tools-task-directory`, `tools-workflow-board` | Parallel drafts, no recorded winner — nine different Tools-page layout directions. |
 
 ### Privacy page
 
-| Route | Status |
-| --- | --- |
-| `privacy-live-signal-perfected` | Chosen design. |
-| `privacy-page-directions` | Active reference — the full study behind the chosen design. |
+| Route                           | Status                                                      |
+| ------------------------------- | ----------------------------------------------------------- |
+| `privacy-live-signal-perfected` | Chosen design.                                              |
+| `privacy-page-directions`       | Active reference — the full study behind the chosen design. |
 
 ### Document navigation pane — five rounds, no recorded winner
 
@@ -97,14 +97,14 @@ design decision rather than guessed at from the names.
 
 ### Document search & viewer
 
-| Route | Status |
-| --- | --- |
+| Route                                                                          | Status                                                                                                                  |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `document-search` (+ `search`, `source`, `source/evidence`, `source-overlays`) | Active reference — the master runnable document-search flow; `source-overlays` hands off into the real document viewer. |
-| `document-search-evidence-lens` | Parallel draft, no recorded winner. |
-| `document-search-triage-board` | Parallel draft, no recorded winner. |
-| `document-top-navigation` | Active study — three nav concepts shown side by side, not competing routes. |
-| `document-image-status` | Fixture backing a component test — keep. |
-| `accessible-table-browser-fixture` | Fixture backing a component test — keep. |
+| `document-search-evidence-lens`                                                | Parallel draft, no recorded winner.                                                                                     |
+| `document-search-triage-board`                                                 | Parallel draft, no recorded winner.                                                                                     |
+| `document-top-navigation`                                                      | Active study — three nav concepts shown side by side, not competing routes.                                             |
+| `document-image-status`                                                        | Fixture backing a component test — keep.                                                                                |
+| `accessible-table-browser-fixture`                                             | Fixture backing a component test — keep.                                                                                |
 
 ### Dictionary browse header — three rounds, no recorded winner
 
@@ -148,13 +148,13 @@ named directions, cross-linked to each other for comparison, no recorded winner.
 
 ### One-off studies
 
-| Route | Status |
-| --- | --- |
-| `also-matches-accents` | Chosen design — records the picked "also matches" accent treatment. |
-| `verification-notice-subtle` | Active study, no recorded winner. |
-| `warning-consolidation` | Active study — first pass on consolidating warning lines. |
-| `warning-line` | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
-| `phone-mode-sheet-yes` | Active study — design review of the shipping phone mode sheet. |
+| Route                        | Status                                                                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                       |
+| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                         |
+| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
+| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
+| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
 
 Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
 already documented below and are not part of this route index.
