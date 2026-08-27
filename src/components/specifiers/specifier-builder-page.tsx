@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { InformationPageHeader } from "@/components/information-page-shell";
 import { SpecifierPageShell, SpecifierSafetyNote, specifierCard } from "@/components/specifiers/specifier-ui";
 import { pairCompareHref } from "@/components/compare";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -272,15 +273,12 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
 
   return (
     <SpecifierPageShell>
-      <header className="grid min-w-0 gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>{specifierBuilderCopy.hero.eyebrow}</p>
-        <h1 className="text-3xl font-extrabold tracking-tight break-words text-[color:var(--text-heading)] sm:text-4xl">
-          {specifierBuilderCopy.hero.title}
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          {specifierBuilderCopy.hero.body}
-        </p>
-      </header>
+      <InformationPageHeader
+        className="border-b border-[color:var(--border)] pb-5"
+        eyebrow={specifierBuilderCopy.hero.eyebrow}
+        title={specifierBuilderCopy.hero.title}
+        subtitle={specifierBuilderCopy.hero.body}
+      />
 
       <StepProgress active={activeView} visited={visited} onChange={openStep} />
 
@@ -500,7 +498,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                         <button
                           type="button"
                           onClick={() => openStep(step.id, true)}
-                          className="inline-flex min-h-tap items-center rounded-lg px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          className="inline-flex min-h-tap items-center rounded-lg px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                         >
                           Edit
                           <span className="sr-only"> {step.fullLabel}</span>
@@ -514,7 +512,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <button
                     type="button"
                     onClick={resetBuilder}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
                     <RotateCcw className="h-4 w-4" aria-hidden />
                     {specifierBuilderCopy.review.startOver}
@@ -522,7 +520,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <button
                     type="button"
                     onClick={() => void copyWording()}
-                    className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
                     {copyState === "copied" ? (
                       <Check className="h-4 w-4" aria-hidden />
@@ -570,7 +568,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                 type="button"
                 onClick={() => move(-1)}
                 disabled={activeIndex === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
                 {specifierBuilderCopy.navigation.previous}
@@ -578,7 +576,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
               <button
                 type="button"
                 onClick={() => move(1)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 {activeIndex === 0
                   ? specifierBuilderCopy.navigation.continueToFeatures
