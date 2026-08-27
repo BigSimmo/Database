@@ -29,7 +29,7 @@ npm run check:icon-scale
   - **Text Roles**: `var(--text)`, `var(--text-muted)`, `var(--text-heading)`, `var(--text-soft)`
   - **Status & Safety Triads**: `--success-*`, `--warning-*`, `--danger-*`, `--info-*` (reserved exclusively for clinical/system status).
   - **Focus Ring & Outlines**: `var(--focus)` for all keyboard and visible focus rings.
-- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper).
+- **Raw Color Exemptions**: Strict and enumerated in `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` (e.g., globals token definitions, brand mark SVG builder, diagnostic visualizations, OpenGraph art, printable patient/factsheet paper). Medication record accent defaults (`#0f766e` in `src/lib/medications.ts` and `src/lib/medication-records.ts`) are a **scoped** exemption for the Postgres `accent` column default only — not a whole-file blank cheque, and not a mapping onto `--clinical-accent`.
 
 ### 2.2 Typography Scale
 

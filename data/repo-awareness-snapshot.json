@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59bb01b3e5c6b5c846053d2916d3e780ea38bbb1",
-    "committed_at": "2026-08-27T05:20:05+00:00"
+    "sha": "3e4f966015b826e0f84e3f1439e9e751f237fc1f",
+    "committed_at": "2026-08-27T07:49:35+00:00"
   },
   "routes": {
     "modes": [
@@ -2387,6 +2387,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/FIX-GUIDE.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/GATES.md",
         "section": "design-system",
         "catalogued": true
@@ -3867,9 +3872,9 @@
       }
     ],
     "counts": {
-      "documents": 480,
+      "documents": 481,
       "catalogued": 106,
-      "uncatalogued": 374,
+      "uncatalogued": 375,
       "sections": 19
     }
   },
@@ -3897,6 +3902,14 @@
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
         "outcome": "mergeable; snapshot regenerated; 5 premature inbox done requests removed; dev-drive-cache fails closed; Medication pin /medications",
         "checks": "vitest session-start-hook+sidebar-production 18/18; check:dev-drive-cache; check:outstanding-issues-snapshot"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "ds-hazard-1-2-sweep (PR #2416)",
+        "head": "0ed48477cf427f95d6d1dc0999ea58be64153a4c",
+        "scope": "Run PR sweep: CI fix + review threads + drift resolution",
+        "outcome": "Before: PR was 1 commit behind main (mergeable_state=behind), 0 unresolved review threads, all 5 PR comments were bot rate-limit/CI-triage noise (Codex usage cap, Supabase preview skip, CodeRabbit rate-limited, Bugbot rate-limited, stale CI-triage comment referencing an earlier pre-merge head). Hosted CI on the existing head (1365ac08) was already green (Static PR checks, PR required, Build, Unit coverage, Production UI x3, Lighthouse, Safety checks all success) after the branch author's own earlier push. Action: merge-tree check against origin/main confirmed a clean merge (no conflicts); merged origin/main (1 commit ahead, an unrelated docs/test-infra commit) into ds-hazard-1-2-sweep locally and pushed (1365ac08..0ed48477). No review threads existed to reply to or resolve. After: local verification on the merged head all passed - whole-tree Prettier check clean, tsc --noEmit clean, eslint on touched files clean, and both design-system contract test files (tests/ckb-v2-token-contract.test.ts, tests/design-system-contract-utils.test.ts) passed 66/66. Hosted CI re-triggered on new head 0ed48477: Static PR checks, Lint, Typecheck, Build+bundle-budget, Production UI critical, Lighthouse budget, Safety and config checks, Caring Contacts database, PR policy, PR mergeability, Gitleaks, Semgrep, GitGuardian all completed success. Production UI (1)/(2)/(3) and Unit coverage were still in_progress after 30+ minutes of observation (well beyond their prior ~9 minute runtime on the same suite for the previous head) with no failure signal - deferred per the sweep's 30-min-per-run babysit cap; job steps showed steady forward progress (no stall/livelock signature) so this is not treated as a regression, just unobserved completion. No auto-merge was set on this PR; none was touched.",
+        "checks": "Local: npx prettier --check . (clean), npx tsc -p tsconfig.typecheck.json --noEmit (clean), npx eslint on touched src/tests files (clean, only expected CSS-file lint-ignore warnings), npx vitest run tests/ckb-v2-token-contract.test.ts tests/design-system-contract-utils.test.ts (66 passed). Hosted CI on merge commit 0ed48477: Static PR checks/Lint/Typecheck/Build+bundle-budget/Production UI critical/Lighthouse budget/Safety and config checks/Caring Contacts database/PR policy/PR mergeability/Gitleaks/Semgrep/GitGuardian all success; Production UI (1)(2)(3) and Unit coverage still in_progress at time of this record (deferred, no failure). No provider-backed live-Supabase/OpenAI/eval commands run."
       },
       {
         "date": "2026-08-26",
@@ -24924,8 +24937,8 @@
       }
     ],
     "counts": {
-      "records": 2630,
-      "refs": 1607
+      "records": 2631,
+      "refs": 1608
     }
   }
 }
