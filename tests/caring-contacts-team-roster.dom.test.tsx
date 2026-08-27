@@ -224,6 +224,13 @@ describe("the escalation states why it happened and what would change it (spec 4
     expect(textOf(group)).toContain("a coordinator claiming the plan");
     // The reason must be IN the page, never held in a title attribute where a keyboard user reaches
     // it only by hovering.
+    //
+    // NO MUTATION OF THIS TASK'S FILES CAN MAKE THIS LINE FAIL, and it is said here rather than
+    // implied. The group is `AutomatedState`'s own element and this screen renders no attribute
+    // inside it, so the only edit that could put a `title` there is an edit to
+    // `automated-state.tsx` -- which this task does not own and which
+    // `tests/caring-contacts-explained-automation.dom.test.tsx` already guards. It is kept as the
+    // statement that this screen's §4.4 pair is reachable without a pointer, not as proof of it.
     for (const node of group.querySelectorAll("[title]")) {
       expect(node.getAttribute("title")).not.toMatch(/escalat/i);
     }
