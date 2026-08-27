@@ -1668,11 +1668,17 @@ describe("the plan actions - Ruling [129]: a hold is not a cancellation, and the
     expect(withdrawal, "the withdrawal block took on the hold's reassuring wording").not.toHaveTextContent(
       /keeps its whole schedule/i,
     );
-    // AND THE SAME AGAIN FOR THE SECOND NEGATIVE, which had neither control nor mutation: the way
-    // back is asserted present where it is true before it is asserted absent where it is not, so a
-    // rewording of the hold block cannot leave this passing forever about a phrase that by then
-    // exists nowhere on the card.
-    expect(planActionBlock("Hold this plan")).toHaveTextContent(/can be let run again/i);
+    // AND THE SAME AGAIN FOR THE SECOND NEGATIVE, which had neither control nor mutation.
+    //
+    // PINNED TO THE HOLD'S OWN CLAUSE rather than to the loose phrase, and a mutation is what
+    // forced that. The loose phrase is ALSO produced inside this block by the resume refusal's
+    // heading -- "Only a plan that is being held can be let run again" (`plan-action-rules.ts`) --
+    // which renders here whenever the plan is running, as it is in this fixture. A control written
+    // loosely therefore passes on the refusal heading while the explanation beside it could say
+    // anything at all, which is the decoration this control exists to prevent.
+    expect(planActionBlock("Hold this plan")).toHaveTextContent(
+      "no date moves, and the plan can be let run again from this screen",
+    );
     expect(withdrawal, "the withdrawal block offered a way back from an irreversible action").not.toHaveTextContent(
       /can be let run again/i,
     );
@@ -2151,10 +2157,14 @@ describe("the plan actions - a repeated submission does not act twice", () => {
       "aria-disabled",
       "true",
     );
+    // PINNED AS A LITERAL, not read back out of `PLAN_ACTION_CONDITION_REFUSALS`. A mutation is
+    // what forced that too: rewording that map's entry moves BOTH sides of a read-it-back
+    // assertion together, so it stayed green -- it was comparing two reads of one value. The
+    // literal makes this about which condition refused AND about the sentence a coordinator reads.
     expect(
       document.getElementById(action.getAttribute("aria-describedby") ?? ""),
       "the retry was refused for some reason other than the state the re-read brought back",
-    ).toHaveTextContent(PLAN_ACTION_CONDITION_REFUSALS["the-plan-is-running"].heading);
+    ).toHaveTextContent("Only a running plan can be held");
   });
 });
 
