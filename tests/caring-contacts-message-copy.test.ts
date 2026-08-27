@@ -71,9 +71,18 @@ describe("caring-contacts patient-visible copy", () => {
     // The positive control is the pair of assertions above: the status really is a non-empty
     // sentence, so these absences are asserted over a value that could have leaked into a message.
     expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS.length).toBeGreaterThan(0);
+    // PHRASES THAT ACTUALLY OCCUR IN THE STATUS, and this is the correction M9 forced. The first
+    // draft guarded "not clinically approved", which the status does not contain -- it says "has
+    // not been clinically approved", and "been" sits between the two halves. A partial leak of the
+    // status into a patient-visible string therefore passed the guard written to catch exactly
+    // that. Both phrases below are substrings of the status and of neither message.
+    for (const phrase of ["clinically approved", "provisional"]) {
+      expect(CLINICIAN_FACING_WORDING_APPROVAL_STATUS, `${phrase} is not in the status`).toContain(phrase);
+    }
     for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
       expect(text).not.toContain(CLINICIAN_FACING_WORDING_APPROVAL_STATUS);
-      expect(text).not.toContain("not clinically approved");
+      expect(text).not.toContain("clinically approved");
+      expect(text).not.toContain("provisional");
     }
   });
 
