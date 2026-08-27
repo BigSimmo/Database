@@ -10,7 +10,7 @@
     "p2": 57,
     "p3": 33,
     "queued": 9,
-    "pending": 10,
+    "pending": 11,
     "resolved": 412
   },
   "queue": [
@@ -936,6 +936,12 @@
     }
   ],
   "pending": [
+    {
+      "request_id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
+      "action": "done",
+      "summary": "#GQ5X8T: NOT A PRODUCT REGRESSION — classified as environment-specific Windows/busy-host measurement noise. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. No product, budget, tolerance, request-count, or proven CLS change was made. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
+      "created_at": "2026-08-26"
+    },
     {
       "request_id": "3a4868e6-281a-48c1-895b-82d6aade2bc7",
       "action": "cancel",
