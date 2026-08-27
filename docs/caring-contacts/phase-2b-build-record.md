@@ -3151,12 +3151,40 @@ wording.** What his approval settles is that the swap should happen and that Rul
 removes the obstacle — 271 septets keeping both lines, 230 replacing, against a 306 ceiling. **It does not
 license writing the sentence.** Ask him for the exact words; until they arrive, the message is unchanged.
 
-**Decision 4 gives a number but still has nowhere to live.** Task 19 was instructed to stop rather than
-invent a constant, and that instruction stands: five is now the owner's answer, but spec §2.5 requires a
-**governance-configured** threshold and no configuration surface exists in the sealed domain or in any
-caring-contacts migration. A hardcoded five is the same defect as a hardcoded anything — it is the
-provenance, not the value, that the disclosure control needs. The second approver is a person only he can
-name.
+**Decision 4 — CORRECTED 2026-08-28 by the whole-branch review (its MAJOR-3), and the correction is left
+in place rather than overwritten.** ~~Decision 4 gives a number but still has nowhere to live. Task 19 was
+instructed to stop rather than invent a constant, and that instruction stands: five is now the owner's
+answer, but spec §2.5 requires a governance-configured threshold and no configuration surface exists in
+the sealed domain or in any caring-contacts migration.~~
+
+**Both halves of that were false of this tree when I wrote them.**
+`src/lib/caring-contacts/reach-reporting-governance.ts` has been exactly that configuration surface since
+`db6261646` on **2026-08-26** — verified an ancestor of HEAD. It holds `smallCellThreshold: 5` beside
+`decidedBy`, `decidedOn`, `basis`, `restsOn` and `revisit`, frozen so no request can mutate it; it is in
+the sealed domain; it is read by `reachReportingThreshold()`, rendered with its provenance on the reports
+screen, and pinned value-and-provenance by `caring-contacts-reporting.test.ts`. **Task 19 did not stop** —
+its round-3 diff `2ab079db8` rewrote `reports/page.tsx` specifically to correct the earlier
+"nowhere to live" comment, and says so in its own commit message. So the owner's answer of **five ratifies
+what is already built**, and there is no work behind Decision 4's threshold half.
+
+**How I got it wrong is the controller failure this record names most often.** I read the trunk on
+2026-08-27, before `cc-demo-seed` merged, and wrote what I saw there as a fact about the system. The ruling
+is dated the day before the merge that made it false, and nothing re-read it afterwards. **The tell is
+again a sentence with no subject** — "no configuration surface exists" was true *of the trunk at that
+hour*, and the scope was dropped on the way into the record.
+
+**Why this mattered more than a typo, which is the reviewer's point and it is right:** the record is the
+handover artefact. An owner reading the original sentence concludes a disclosure control over Aboriginal
+and Torres Strait Islander reporting is still missing and that the remedy is to build one — which would
+produce **a second definition of a disclosure control**, the exact class Ruling [143] was written about a
+few paragraphs earlier.
+
+**What genuinely does remain of Decision 4:** the second approver is a person only the owner can name, and
+`reach-reporting-governance.ts` records that he already ruled on 2026-08-26 that a second-approver mechanism
+is a governance decision nobody has been asked for, and accepted that gap as proportionate for a prototype
+holding no real data. **His answer of 2026-08-27 may or may not have been intended to reopen that**; it was
+put to him as an open question when it was not one, and he answered without that context. Ask; do not assume
+either way.
 
 **Decisions 1, 6 and 7 are build work and none of them is Phase 2B.** They are recorded here and go to the
 ledger rather than being folded into a merge that is already carrying four branches. Scheduling them into
