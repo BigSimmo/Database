@@ -450,9 +450,6 @@ describe("design-system contract helpers", () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
-    // Ratcheted 8 -> 4 by the motion/z tokenisation sweep: the four remaining
-    // raw declarations are the documented exceptions that cannot take a `--z-*`
-    // rung. Lower this pin when more are tokenised; never raise it.
     expect(countRawCssZIndicesInSource(globals)).toBe(4);
     expect(countRawCssZIndicesInSource(`${globals}\n.ds-p3-06-probe{z-index:9999}`)).toBe(5);
   });
