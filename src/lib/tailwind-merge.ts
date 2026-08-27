@@ -93,6 +93,7 @@ export const CLINICAL_TWMERGE_THEME = {
   // `tap` would reduce one. Re-measure before introducing a same-variant pair:
   // order decides the outcome, and tap-then-numeric is the forbidden direction.
   spacing: [
+    "compact-meta",
     "hero-medallion",
     "icon-xs",
     "icon-sm",

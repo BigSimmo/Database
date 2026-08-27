@@ -176,7 +176,7 @@ export function DocumentViewerRail({
                           <li key={`${key}:${index}:${item}`} className="flex gap-2">
                             <span
                               aria-hidden="true"
-                              className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
+                              className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
                             />
                             <span>
                               <SafeBoldText text={item} />
