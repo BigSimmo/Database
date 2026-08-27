@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "364177bad72f7c2dae7a266b5cf8f61837dbd0e5",
-    "committed_at": "2026-08-27T04:33:41+00:00"
+    "committed_at": "2026-08-27T04:33:41Z"
   },
   "counts": {
     "open": 98,
@@ -10,7 +10,7 @@
     "p2": 60,
     "p3": 37,
     "queued": 9,
-    "pending": 33,
+    "pending": 41,
     "resolved": 414
   },
   "queue": [
@@ -1012,6 +1012,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
+      "action": "done",
+      "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "1836d32f-6db8-45f2-bc71-f429b22f5a1c",
       "action": "done",
       "summary": "#HVTYAT: Reconciled docs/openai-cross-border-basis.md §8 status table with ledger #053 and updated src/lib/privacy-page-content.tsx. External provider processing disclosures now accurately reflect verified zero data retention (ZDR), no training on API submissions, executed DPA (v.010126), ephemeral prompt caching controls, and store:false / pseudonymous user controls. Updated tests/privacy-ui.test.ts.",
@@ -1030,6 +1036,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
+      "action": "done",
+      "summary": "#76GGRG: Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2f51fee1-5eae-4230-9b26-69cc53c8865e",
       "action": "done",
       "summary": "#HVTYAT: Reconciled OpenAI ZDR claims in cross-border basis documentation against ledger record #053.",
@@ -1039,6 +1051,12 @@
       "request_id": "2f98413d-ebc4-4d3e-913d-b1bc95545c89",
       "action": "done",
       "summary": "#50QRCF: Verified stable consecutive mobile Lighthouse CLS runs following root app-shell fix.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
+      "action": "done",
+      "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
       "created_at": "2026-08-27"
     },
     {
@@ -1096,6 +1114,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "74818f95-4e71-4808-bec2-ff7ffb233ac1",
+      "action": "done",
+      "summary": "#Y0BDBJ: Implemented ReviewStateTable with 50-item responsive pagination reducing HTML payload from 1.73 MB to <100 KB.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "8024644a-f093-42f4-97c0-eabfaa981267",
       "action": "done",
       "summary": "#102: Documented EXPLAIN query measurement runbook for documents_title_trgm_idx.",
@@ -1120,6 +1144,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
+      "action": "done",
+      "summary": "#FDST2Q: Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "a7275b7e-ce79-4050-959b-f045a24e6f53",
       "action": "done",
       "summary": "#RVK6BJ: Repaired empty Claude Code worktrees and verified worktree dependency setup.",
@@ -1135,6 +1165,12 @@
       "request_id": "ad794482-fb8a-45e3-921e-c8f210bc1b5e",
       "action": "done",
       "summary": "#61TZJA: Documented visual baseline adoption workflow following document-viewer updates.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "af496d9a-fd58-4984-b216-efcf2495fd67",
+      "action": "done",
+      "summary": "#WG24JB: Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
       "created_at": "2026-08-27"
     },
     {
@@ -1186,6 +1222,12 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
+      "action": "done",
+      "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
       "action": "done",
       "summary": "#TF6TPJ: Validated Guard 2 in guard-push.mjs to ensure merge-base resolution on main merges.",
@@ -1195,6 +1237,12 @@
       "request_id": "f5a27b65-309d-465c-9f5f-b87082206325",
       "action": "done",
       "summary": "#TYZK23: Resolved on main via PR #2253 (merge 66594dd, fix commit 0cf0493). Bistable mobile / CLS (0.016 vs 0.2230) was caused by div.pwa-notice-stack mounting during the ~2s window when #main-content is absent during Next 16 streaming hydration, evaluating body:has(#main-content[data-phone-footer-owner=\"hero\"]) as false so the card paints tall then compacts when the shell returns. Fixed by gating notice stack mount on app shell hydration via MutationObserver useSyncExternalStore in src/components/pwa-lifecycle.tsx. Confirmed locally (0.2230 -> 0.000) and verified on CI Lighthouse budget run 32531103787 (CLS <= 0.016 budget). Closed together with #50QRCF and #KFRC3H.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
+      "action": "done",
+      "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
       "created_at": "2026-08-27"
     }
   ]

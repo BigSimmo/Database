@@ -411,10 +411,21 @@ function CapacityView() {
   // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
   // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
   // "total" card impossible to add by accident the way looping over a totals object invited.
-  const headlineCards: { key: string; label: string; value: number }[] = [
+  // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link directly to the discharge board.
+  const headlineCards: { key: string; label: string; value: number; href?: string }[] = [
     { key: "available-now", label: "Available now", value: headline.availableNow },
-    { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
-    { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    {
+      key: "confirmed-today",
+      label: "Confirmed today",
+      value: headline.confirmedToday,
+      href: "/mockups/ward-flow/discharges",
+    },
+    {
+      key: "predicted-today",
+      label: "Predicted today",
+      value: headline.predictedToday,
+      href: "/mockups/ward-flow/discharges",
+    },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
   ];
@@ -432,13 +443,33 @@ function CapacityView() {
         <span className={styles.prototypeBadge}>Synthetic counts</span>
       </header>
       <div className={styles.capacitySummary} data-testid="ward-capacity-headline">
-        {headlineCards.map(({ key, label, value }) => (
-          <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-            <small>Across {units.length} synthetic units</small>
-          </article>
-        ))}
+        {headlineCards.map(({ key, label, value, href }) => {
+          const content = (
+            <>
+              <span>{label}</span>
+              <strong>{value}</strong>
+              <small>Across {units.length} synthetic units</small>
+            </>
+          );
+          if (href) {
+            return (
+              <Link
+                key={key}
+                href={href}
+                className={`${styles.summaryCard} ${styles.summaryLinkCard}`}
+                data-testid={`ward-capacity-headline-${key}`}
+                aria-label={`View discharges for ${label}: ${value} across ${units.length} synthetic units`}
+              >
+                {content}
+              </Link>
+            );
+          }
+          return (
+            <article className={styles.summaryCard} key={key} data-testid={`ward-capacity-headline-${key}`}>
+              {content}
+            </article>
+          );
+        })}
       </div>
       {excludedBeyondToday > 0 && (
         <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">

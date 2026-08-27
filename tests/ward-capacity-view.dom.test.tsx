@@ -190,6 +190,17 @@ describe("ward capacity headline (Task 7)", () => {
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
     expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
 
+    // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link to the discharge board.
+    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveAttribute(
+      "href",
+      "/mockups/ward-flow/discharges",
+    );
+    expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveAttribute(
+      "href",
+      "/mockups/ward-flow/discharges",
+    );
+    expect(screen.getByTestId("ward-capacity-headline-available-now")).not.toHaveAttribute("href");
+
     // No card anywhere in the headline claims to be a total/sum of the other four.
     expect(within(headline).queryByText(/total/i)).not.toBeInTheDocument();
     expect(within(headline).queryByText(/^sum$/i)).not.toBeInTheDocument();

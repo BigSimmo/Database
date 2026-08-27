@@ -1,23 +1,14 @@
 import type { Metadata } from "next";
 
-import {
-  CARD_CLASS,
-  CountTile,
-  META_CLASS,
-  MONO_CLASS,
-  PanelSection,
-  ROW_CLASS,
-} from "@/components/developer-area/hub/panel-primitives";
+import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
+import { ReviewStateTable } from "@/components/developer-area/hub/review-state-table";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
 export const metadata: Metadata = {
   title: "Review state · Developer · Clinical KB",
   description: "Every immutable review record: which ref was reviewed, at which head, with what outcome.",
 };
-
-const DISCLOSURE_CLASS =
-  "min-h-12 cursor-pointer text-xs font-bold text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 export default function DeveloperReviewStatePage() {
   const snapshot = loadRepoAwarenessSnapshot();
@@ -60,52 +51,9 @@ export default function DeveloperReviewStatePage() {
       <PanelSection headingId="developer-review-state-heading" heading={`Records · ${counts.records}`}>
         <p className={META_CLASS}>
           Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than
-          replacing one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and
-          its list can never disagree.
+          replacing one. Paginated at 50 records per page for responsive rendering.
         </p>
-        {/*
-         * `record` is `{ date, ref, head, scope, outcome, checks }` — six free-text
-         * fields (Ruling R7: review outcomes are prose from many sessions over
-         * months, so the page never classifies or buckets `outcome`). Every field
-         * of every record is rendered unconditionally below, and nothing here
-         * branches on a field's *value* — the only structural choices are which
-         * fields get their own line versus a shared row, which is presentation,
-         * not a recognised/unrecognised-value distinction. So the "render an
-         * unrecognised value under its own heading" rule has nothing to bite on
-         * for this page, the same conclusion Task 11 reached for the quarantined
-         * test list.
-         */}
-        {records.length === 0 ? (
-          <p data-testid="developer-review-state-empty" className={META_CLASS}>
-            No immutable review records are committed.
-          </p>
-        ) : (
-          <ol data-testid="developer-review-state-records" className="grid gap-3">
-            {records.map((record, index) => (
-              <li
-                // `head` alone is not unique — 21 records in the corpus share a
-                // date, ref AND head, because one branch can be reviewed twice at one
-                // commit under different scopes. Adding `scope` disambiguates every
-                // record today, but nothing structurally guarantees it, so the index
-                // carries uniqueness and the fields carry readability.
-                key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
-                className={CARD_CLASS}
-              >
-                <div className={ROW_CLASS}>
-                  <span className={META_CLASS}>{record.date}</span>
-                  <span className="text-sm font-bold text-[color:var(--text-heading)]">{record.ref}</span>
-                  <span className={MONO_CLASS}>{record.head}</span>
-                </div>
-                <p className={META_CLASS}>{record.scope}</p>
-                <p className="text-sm leading-6 text-[color:var(--text-heading)]">{record.outcome}</p>
-                <details>
-                  <summary className={DISCLOSURE_CLASS}>Checks run</summary>
-                  <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{record.checks}</p>
-                </details>
-              </li>
-            ))}
-          </ol>
-        )}
+        <ReviewStateTable records={records} />
       </PanelSection>
     </PanelPageShell>
   );

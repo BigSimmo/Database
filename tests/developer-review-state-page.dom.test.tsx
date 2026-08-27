@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import DeveloperReviewStatePage from "@/app/mockups/development/review-state/page";
@@ -44,11 +45,18 @@ describe("developer review state page", () => {
     expect(screen.getByTestId("developer-review-state-scope")).toHaveTextContent(/pull request/i);
   });
 
-  it("renders every record, dropping none", () => {
+  it("renders paginated records (up to 50 on page 1) and navigates to the next page", async () => {
+    const user = userEvent.setup();
     render(<DeveloperReviewStatePage />);
+    const expectedFirstPageCount = Math.min(50, snapshot.review_state.counts.records);
     expect(within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem")).toHaveLength(
-      snapshot.review_state.counts.records,
+      expectedFirstPageCount,
     );
+    expect(screen.getByText(/Showing 1–50 of/)).toBeInTheDocument();
+
+    const nextButtons = screen.getAllByRole("button", { name: "Next page" });
+    await user.click(nextButtons[0]);
+    expect(screen.getByText(/Showing 51–100 of/)).toBeInTheDocument();
   });
 
   it("shows the newest record first and never a raw escaped pipe", () => {
@@ -59,20 +67,14 @@ describe("developer review state page", () => {
   });
 
   it("renders a record's outcome verbatim, in full, never classified or truncated (ruling R7)", () => {
-    // Nothing branches on `outcome` today, so this ruling holds by
-    // construction — but that also means a future edit adding, say,
-    // colour-coded badges or a `slice(0, 80)` truncation would pass every
-    // other assertion in this file. Picking the record with the longest
-    // outcome, rather than any record, is what makes a truncation regression
-    // fail here: a short outcome could stay a false substring match of itself
-    // even after truncation.
     render(<DeveloperReviewStatePage />);
     const rows = within(screen.getByTestId("developer-review-state-records")).getAllByRole("listitem");
+    const pageRecords = snapshot.review_state.records.slice(0, 50);
     let longestIndex = 0;
-    for (const [index, record] of snapshot.review_state.records.entries()) {
-      if (record.outcome.length > snapshot.review_state.records[longestIndex].outcome.length) longestIndex = index;
+    for (const [index, record] of pageRecords.entries()) {
+      if (record.outcome.length > pageRecords[longestIndex].outcome.length) longestIndex = index;
     }
-    const longestRecord = snapshot.review_state.records[longestIndex];
+    const longestRecord = pageRecords[longestIndex];
     expect(longestRecord.outcome.length).toBeGreaterThan(40);
     expect(rows[longestIndex]).toHaveTextContent(longestRecord.outcome);
   });

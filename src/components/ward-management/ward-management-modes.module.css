@@ -531,6 +531,22 @@
 
 .summaryCard {
   padding: var(--ward-space-12);
+  text-decoration: none;
+}
+
+.summaryLinkCard {
+  display: block;
+  cursor: pointer;
+  transition: background-color var(--duration-fast, 150ms) ease;
+}
+
+.summaryLinkCard:hover {
+  background: var(--ward-surface-hover, var(--surface-subtle));
+}
+
+.summaryLinkCard:focus-visible {
+  outline: 0.1875rem solid var(--ward-blue);
+  outline-offset: 0.125rem;
 }
 
 .summaryCard span,
