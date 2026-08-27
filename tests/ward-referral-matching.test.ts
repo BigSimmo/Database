@@ -1,6 +1,6 @@
 // tests/ward-referral-matching.test.ts
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -110,6 +110,11 @@ describe("legal_status", () => {
     expect(gate(authorised, "legal_status")?.detail).not.toBe(gate(unauthorised, "legal_status")?.detail);
   });
 
+  // Positive shape, not a denylist of judging fragments — the same fix as the forensic gate's
+  // test below (H5): a fragment denylist (`/patient|person|unsuitable|assessed/i`) survives an
+  // unbounded number of other ways to phrase the same judgement. The two branches that make a
+  // specific judgement about THIS bed also name it, so a coordinator reading the detail knows
+  // which unit it is talking about.
   it("neither detail string judges the person — both describe the bed or the requirement", () => {
     const authorised = referralEligibility(referral({ involuntaryBedNeeded: true }), unit({ authorised: true }), NOW);
     const unauthorised = referralEligibility(
@@ -118,13 +123,17 @@ describe("legal_status", () => {
       NOW,
     );
     const notNeeded = referralEligibility(referral({ involuntaryBedNeeded: false }), unit({ authorised: true }), NOW);
+
+    expect(gate(authorised, "legal_status")?.detail).toContain("Test Unit");
+    expect(gate(unauthorised, "legal_status")?.detail).toContain("Test Unit");
+
     for (const detail of [
       gate(authorised, "legal_status")?.detail,
       gate(unauthorised, "legal_status")?.detail,
       gate(notNeeded, "legal_status")?.detail,
     ]) {
       expect(detail).toBeDefined();
-      expect(detail).not.toMatch(/patient|person|unsuitable|assessed/i);
+      expect(detail?.toLowerCase()).not.toMatch(/\b(referral|patient|they|them|person)\b/);
     }
   });
 });
@@ -195,11 +204,16 @@ describe("forensic", () => {
     expect(gate(verdict, "forensic")?.pass).toBe(true);
   });
 
-  it("the forensic gate's detail describes the bed, not a judgement on the referral", () => {
+  // A denylist of judging fragments (the pre-fix-round-A version of this test checked only
+  // `/unsuitable|assessed|not appropriate/`) survives an unbounded number of other ways to phrase
+  // the same judgement — "This referral is not suitable for a forensic bed" contains none of
+  // those three fragments. Asserted as the POSITIVE shape instead: the detail names the unit, and
+  // contains none of the words that would put the judgement on the person rather than the bed.
+  it("the forensic gate's detail names the bed and never judges the person", () => {
     const verdict = referralEligibility(referral(), unit({ forensic: true, name: "Bunbury Adult Secure" }), NOW);
     const detail = gate(verdict, "forensic")?.detail ?? "";
     expect(detail).toContain("Bunbury Adult Secure");
-    expect(detail.toLowerCase()).not.toMatch(/unsuitable|assessed|not appropriate/);
+    expect(detail.toLowerCase()).not.toMatch(/\b(referral|patient|they|them|person)\b/);
   });
 });
 
@@ -235,6 +249,17 @@ describe("reused gates carry over unchanged", () => {
     expect(gate(verdict, "specialling")?.pass).toBe(true);
   });
 
+  // I1: a referral carries no specialling-need fact at all — nobody entered one and the record
+  // does not hold it. The gate's detail must say that about the RECORD, not assert "No
+  // specialling required" as though the absence of a fact were itself a clinical finding about
+  // the person. "required"/"not required" are the fabricated-certainty words this guards against.
+  it("the specialling gate's detail describes what the record holds, not a fabricated clinical fact", () => {
+    const verdict = referralEligibility(referral(), unit({ speciallingCapacity: 0 }), NOW);
+    const detail = gate(verdict, "specialling")?.detail ?? "";
+    expect(detail.toLowerCase()).not.toMatch(/\brequired\b/);
+    expect(detail.toLowerCase()).toMatch(/not recorded|no.*fact|unknown/);
+  });
+
   it("drops a unit whose allocatable figure has gone stale rather than showing it hopefully", () => {
     const stale = unit({ allocatable: { value: 4, source: "ward", confirmedAt: NOW - 200, staleAfterMinutes: 120 } });
     const verdict = referralEligibility(referral(), stale, NOW);
@@ -244,6 +269,22 @@ describe("reused gates carry over unchanged", () => {
   it("refuses a unit with zero allocatable beds", () => {
     const empty = unit({ allocatable: { value: 0, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 } });
     const verdict = referralEligibility(referral(), empty, NOW);
+    expect(gate(verdict, "allocatable_bed")?.pass).toBe(false);
+  });
+
+  // C2: `allocatable` and `empty` are only documented to agree "in practice" — CONFIRM_CAPACITY
+  // can raise `allocatable.value` back above `empty.value` after PATIENT_ARRIVED has already
+  // consumed the physically empty beds. This unit constructs exactly that divergence: two
+  // allocatable beds on paper, zero beds actually empty. A gate reading `unit.allocatable.value
+  // > 0` alone would wrongly pass this unit while the capacity board (which reads
+  // `availableNow = Math.min(allocatable, empty)`) correctly says zero — two screens, two
+  // answers, from the same state. `availableNow` must be the one the referral-matching gate uses.
+  it("refuses a unit whose allocatable figure has not caught up with zero physically empty beds", () => {
+    const divergent = unit({
+      allocatable: { value: 2, source: "ward", confirmedAt: NOW - 5, staleAfterMinutes: 60 },
+      empty: { value: 0, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
+    });
+    const verdict = referralEligibility(referral(), divergent, NOW);
     expect(gate(verdict, "allocatable_bed")?.pass).toBe(false);
   });
 
@@ -283,10 +324,27 @@ describe("referralCandidates", () => {
 
 /**
  * Spec D15 / the fourth most important test: matching must stay independent of the four-stage
- * bed-release model (`BedRelease`, `BED_RELEASE_STATES`, `BED_RELEASE_CONFIDENCE_LEVELS`), which
- * no ward clinician has yet validated. A source-text contract rather than a runtime assertion,
- * because the whole point is that no code path in these two files reads that model AT ALL — not
- * even one that happens to agree with `unit.allocatable` today.
+ * bed-release model, which no ward clinician has yet validated. A source-text contract rather
+ * than a runtime assertion, because the whole point is that no code path reachable from matching
+ * reads that model AT ALL — not even one that happens to agree with `unit.allocatable` today.
+ *
+ * H1 fix (this test was hollow): the identifier pattern used to check only the bare `BedRelease`,
+ * `BED_RELEASE_STATES` and `BED_RELEASE_CONFIDENCE_LEVELS` spellings — `\bBedRelease\b` requires
+ * a word boundary immediately after "BedRelease", so `BedReleaseState`, `BedReleaseConfidence`,
+ * `releaseBand`/`RELEASE_BANDS` and `capacityBreakdown` (which takes `BedRelease[]`) all survived
+ * it untouched. The pattern below enumerates every spelling that actually names a piece of the
+ * four-stage model, EXACTLY — not a `\bBedRelease\w*\b` wildcard, which would also catch
+ * `BedReleaseBlocker`/`BED_RELEASE_BLOCKERS` (`ward-change-reasons.ts`, imported by
+ * `ward-model.ts`, which every referral/unit type comes from): a real, necessary, unrelated
+ * import that has nothing to do with the release model matching must avoid. Confirmed with
+ * `node -e` in isolation before use, not asserted.
+ *
+ * The two hand-listed file paths were the second hollow half: a third file added to the import
+ * chain between `ward-eligibility.ts`/`ward-referrals.ts` and the model it reads was invisible to
+ * a test that only ever opened those two exact paths. `collectModuleGraph` below instead starts
+ * at those two entry points — legitimately named, since they ARE the matching implementation —
+ * and follows every local (`@/…` or `./…`) import transitively, so a new file introduced anywhere
+ * in that chain is checked automatically rather than needing to be added to a list by hand.
  *
  * Checked against `import` statements specifically (not the whole file) so this test does not
  * collide with a doc comment that names `BedRelease` in prose, the way the naive whole-file
@@ -295,26 +353,73 @@ describe("referralCandidates", () => {
  * structural test must not produce.
  */
 describe("matching stays independent of the four-stage bed model", () => {
-  const BED_RELEASE_IDENTIFIER = /\bBedRelease\b|\bBED_RELEASE_STATES\b|\bBED_RELEASE_CONFIDENCE_LEVELS\b/;
+  const BED_RELEASE_IDENTIFIER =
+    /\bBedRelease\b|\bBedReleaseState\b|\bBedReleaseConfidence\b|\bBED_RELEASE_STATES\b|\bBED_RELEASE_CONFIDENCE_LEVELS\b|\breleaseBand\b|\bRELEASE_BANDS\b|\bcapacityBreakdown\b/;
 
-  function importsMention(source: string, needle: RegExp) {
-    const importStatements = source.match(/import\s+[\s\S]*?;/g) ?? [];
-    return importStatements.some((statement) => needle.test(statement));
+  const SRC_ROOT = resolve(process.cwd(), "src");
+
+  function importStatementsOf(source: string): string[] {
+    return source.match(/import\s+[\s\S]*?;/g) ?? [];
   }
 
-  it("ward-eligibility.ts never imports BedRelease", () => {
-    const eligibilitySource = readFileSync(
-      resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
-      "utf8",
-    );
-    expect(importsMention(eligibilitySource, BED_RELEASE_IDENTIFIER)).toBe(false);
-  });
+  function importsMention(source: string, needle: RegExp) {
+    return importStatementsOf(source).some((statement) => needle.test(statement));
+  }
 
-  it("ward-referrals.ts never imports BedRelease", () => {
-    const referralsSource = readFileSync(
+  function specifierOf(statement: string): string | null {
+    const match = statement.match(/from\s+["']([^"']+)["']/);
+    return match ? match[1] : null;
+  }
+
+  /** Resolves a `@/…` or relative import specifier to a real file on disk, trying each extension
+   *  TypeScript's own resolution would. Returns null for a bare package specifier (react,
+   *  vitest, node:fs, …) — those are not part of this project's own module graph. */
+  function resolveLocalImport(specifier: string, fromFile: string): string | null {
+    let base: string;
+    if (specifier.startsWith("@/")) {
+      base = resolve(SRC_ROOT, specifier.slice(2));
+    } else if (specifier.startsWith(".")) {
+      base = resolve(dirname(fromFile), specifier);
+    } else {
+      return null;
+    }
+    const candidates = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
+    return candidates.find((candidate) => existsSync(candidate)) ?? null;
+  }
+
+  /** Every file transitively reachable from `entryFiles` via local imports, mapped to its own
+   *  source text — the module graph the D15 contract must hold across, not just the two files
+   *  someone remembered to list by hand. */
+  function collectModuleGraph(entryFiles: string[]): Map<string, string> {
+    const visited = new Map<string, string>();
+    const queue = [...entryFiles];
+    while (queue.length > 0) {
+      const file = queue.shift()!;
+      if (visited.has(file)) continue;
+      const source = readFileSync(file, "utf8");
+      visited.set(file, source);
+      for (const statement of importStatementsOf(source)) {
+        const specifier = specifierOf(statement);
+        if (!specifier) continue;
+        const resolved = resolveLocalImport(specifier, file);
+        if (resolved && !visited.has(resolved)) queue.push(resolved);
+      }
+    }
+    return visited;
+  }
+
+  it("no file reachable from referral matching's own imports mentions the release model", () => {
+    const entryFiles = [
+      resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
       resolve(process.cwd(), "src/components/ward-management/ward-referrals.ts"),
-      "utf8",
-    );
-    expect(importsMention(referralsSource, BED_RELEASE_IDENTIFIER)).toBe(false);
+    ];
+    const graph = collectModuleGraph(entryFiles);
+    // Sanity check on the traversal itself, not just the assertion it feeds: if this ever drops
+    // to 1, `collectModuleGraph` stopped following imports and the whole test would pass by
+    // finding nothing to check, not by matching being clean.
+    expect(graph.size).toBeGreaterThanOrEqual(2);
+
+    const offenders = [...graph.entries()].filter(([, source]) => importsMention(source, BED_RELEASE_IDENTIFIER));
+    expect(offenders.map(([file]) => file)).toEqual([]);
   });
 });

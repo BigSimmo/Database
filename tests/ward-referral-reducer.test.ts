@@ -171,7 +171,10 @@ describe("ACCEPT_REFERRAL", () => {
     });
     expect(referral(after, "RF-001").state).toBe("queued");
     expect(after.rejections).toHaveLength(1);
-    expect(after.rejections[0].reason).toContain("age");
+    // Named as the exact gate identifier, not a bare substring — `toContain("age")` also matches
+    // "manage", "message" and "storage" (H6), so it would survive a mutation that swapped in the
+    // wrong failing gate's name as long as one of those words appeared anywhere in the reason.
+    expect(after.rejections[0].reason).toContain("failed gate age:");
     // The failing gate is named by the UNIT'S NAME (matching `referralEligibility`'s own detail
     // strings), not its bare id.
     expect(after.rejections[0].reason).toContain("SCGH Adult Open");

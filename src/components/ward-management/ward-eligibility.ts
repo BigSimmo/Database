@@ -123,13 +123,17 @@ function sexDesignationAccepts(designation: SexDesignation, sex: Sex): boolean {
  * in the same accepts-shape as the other three, so a future change (an adult unit that will also
  * take a 17-year-old) lands in one place rather than needing a special case.
  *
- * `security`, `sex_mix`, `specialling`, `capacity_freshness` and `allocatable_bed` reuse
- * `eligibility()`'s logic unchanged, mapped onto the referral fields that carry the same fact
- * (`referral.sex` for `sex_mix`, `referral.secureBedNeeded` for `security`). `capacity_freshness`
- * and `allocatable_bed` read only `unit.allocatable` — the ward's own confirmed figure — and nothing
- * in this function ever reads a `BedRelease`, a release state, a band or a confidence level; that
- * is what keeps referral matching independent of the four-stage bed-release model, which no ward
- * clinician has yet validated (spec D15).
+ * `security`, `sex_mix` and `specialling` reuse `eligibility()`'s logic unchanged, mapped onto the
+ * referral fields that carry the same fact (`referral.sex` for `sex_mix`, `referral.secureBedNeeded`
+ * for `security`). `capacity_freshness` also reuses `eligibility()`'s logic unchanged. `allocatable_bed`
+ * DIFFERS from `eligibility()`'s gate of the same name: it gates on `availableNow` —
+ * `Math.min(unit.allocatable.value, unit.empty.value)` — never `unit.allocatable.value` alone,
+ * because the two are only documented to agree "in practice" and are not enforced to (see
+ * `availableNow`'s own comment below). `capacity_freshness` and `allocatable_bed` still read only
+ * `unit.allocatable` and `unit.empty` — the ward's own confirmed figures — and nothing in this
+ * function ever reads a `BedRelease`, a release state, a band or a confidence level; that is what
+ * keeps referral matching independent of the four-stage bed-release model, which no ward clinician
+ * has yet validated (spec D15).
  */
 export function referralEligibility(referral: Referral, unit: Unit, now: Instant): EligibilityVerdict {
   const fresh = capacityIsFresh(unit, now);
@@ -140,6 +144,17 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
   // equality: a referral that does not need an involuntary bed is accepted by ANY bed, including
   // an authorised one — `unit.authorised` is a capability a bed has, not a value to match against.
   const legalStatusMet = !referral.involuntaryBedNeeded || unit.authorised;
+  // Spec D15 / plan Global Constraints: the bed the coordinator can actually place someone in
+  // right now is `availableNow`, never `unit.allocatable.value` alone. The two are documented to
+  // agree "in practice" on `Unit.allocatable`, but that is not enforced — `CONFIRM_CAPACITY` can
+  // raise `allocatable.value` back above `empty.value` after arrivals have already consumed the
+  // physically empty beds, and `PATIENT_ARRIVED` decrements `empty.value` while leaving
+  // `allocatable.value` untouched. Computed inline from the unit's own two figures — never via
+  // `capacityBreakdown` (`ward-bed-availability.ts`), which takes `BedRelease[]` and would couple
+  // referral matching to the four-stage bed-release model no ward clinician has validated (see
+  // this function's own doc comment above and the D15 contract test in
+  // `ward-referral-matching.test.ts`).
+  const availableNow = Math.min(unit.allocatable.value, unit.empty.value);
 
   const gates: GateResult[] = [
     {
@@ -184,7 +199,7 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
       gate: "forensic",
       pass: !unit.forensic,
       detail: unit.forensic
-        ? `${unit.name} is a forensic bed and is never offered to a Phase 7 referral`
+        ? `${unit.name} is a forensic bed and is never offered through Phase 7 front-door matching`
         : `${unit.name} is not a forensic bed`,
     },
     {
@@ -207,13 +222,16 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
     {
       // A referral carries no specialling-need fact — unlike `Movement.specialling`, Task 1
       // fixed the referral's permitted-field list at three facts about the person and none of
-      // them expresses this. The honest reading of "no fact means no requirement" is the same
-      // one `legal_status` above uses: this gate always takes the "no specialling required"
-      // branch for a referral. If a future referral field ever carries this need, only this
-      // gate changes.
+      // them expresses this. Kept as its own gate (rather than dropped) so a coordinator reading
+      // every gate on the referral's match view learns what the system does and does not know
+      // about a referral, the same reason every gate is listed rather than only the failing ones.
+      // The detail must describe the RECORD, never assert a fact about the person: "No
+      // specialling required" would tell a coordinator something was checked and found absent,
+      // when nothing was checked — nobody entered this fact and the record does not hold it. If a
+      // future referral field ever carries this need, only this gate changes.
       gate: "specialling",
       pass: true,
-      detail: "No specialling required",
+      detail: "Specialling need is not recorded on a referral",
     },
     {
       gate: "capacity_freshness",
@@ -223,9 +241,13 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
         : `Last confirmed ${now - unit.allocatable.confirmedAt} min ago — stale`,
     },
     {
+      // `availableNow`, not `unit.allocatable.value` alone — see the comment on `availableNow`'s
+      // declaration above. The detail names both source figures so a coordinator (or a future
+      // reader of this code) can see why they can diverge, without reading anything but the
+      // unit's own two confirmed numbers.
       gate: "allocatable_bed",
-      pass: unit.allocatable.value > 0,
-      detail: `${unit.allocatable.value} allocatable`,
+      pass: availableNow > 0,
+      detail: `${availableNow} available now (${unit.allocatable.value} allocatable, ${unit.empty.value} empty)`,
     },
   ];
 
