@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 3,
+    "pending": 5,
     "resolved": 431
   },
   "queue": [
@@ -831,9 +831,21 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "8324c7e4-18fb-4073-ba6b-ae46920f768d",
+      "action": "update",
+      "summary": "#EFETZT: detail → UPDATE 2026-08-27 (PR #2413, second and third occurrences): this is not only a staleness problem, it also produces hard git merge conflicts that block auto-merge. data/repo-awareness-snapshot.json conflicted twice in fifteen minutes on one PR head — first when main advanced to be65b8a, again when main advanced to fb88b47 — each time setting mergeable_state=dirty, which suppresses refs/pull/<n>/merge so pull_request CI (CI, Gitleaks, Semgrep) does not run at all and the check list reads empty rather than red. Both were resolved identically: git merge origin/main, git checkout --theirs the snapshot, npm run snapshot:repo-awareness, commit, push. The staleness half also reproduced: check:repo-awareness-snapshot failed Static PR checks with 'review_state differs from the repository'. Cost per occurrence is one full CI round trip plus a push, and it scales with how many PRs are open, since every merge to main regenerates the file for all of them. Reinforces the fix direction already proposed on this row: exclude docs/branch-review-records/ from the compared content the way captured_revision already is, or compare a narrower key set. Adding .gitattributes merge guidance for this path would blunt the conflict half but not the CI-staleness half.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "8cf62eef-79a8-4b23-83cc-9290eb71dff3",
       "action": "add",
       "summary": "mode-home-page-skeleton still subtracts a chrome estimate from 100dvh, the pattern invariant 24 retired everywhere else",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
+      "action": "add",
+      "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
       "created_at": "2026-08-27"
     },
     {

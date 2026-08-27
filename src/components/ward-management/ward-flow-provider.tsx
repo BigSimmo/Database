@@ -104,16 +104,25 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     return () => clearInterval(id);
   }, [initialNow]);
 
-  // Recomputed from the live wall clock on every unpinned render (not only on a tick, so a
-  // missed/delayed timer tick still reports the true elapsed minutes rather than a fixed
-  // 30s-per-tick approximation) — but layered on top of the last checkpoint's accumulated
-  // total rather than the original mount instant, which is what keeps this correct beyond one
-  // day. A pinned `initialNow` (tests, deterministic renders) never touches the wall clock.
-  const elapsed =
+  // The base instant the demo day is read from, before any in-app `ADVANCE_CLOCK` offset.
+  //
+  // Pinned (`initialNow` supplied by a test or any deterministic render): the caller's instant
+  // IS the clock. It is used verbatim rather than as a mere "do not tick" flag — a pinned
+  // provider that ignored the value and always read `NOW_ANCHOR` would make every
+  // time-of-day branch in the screens unreachable from a test, because the only clock a test
+  // could ever obtain would be the one instant the fixture is authored around.
+  //
+  // Unpinned (the live app): `NOW_ANCHOR` plus real elapsed time. Recomputed from the live
+  // wall clock on every render (not only on a tick, so a missed/delayed timer tick still
+  // reports the true elapsed minutes rather than a fixed 30s-per-tick approximation) — but
+  // layered on top of the last checkpoint's accumulated total rather than the original mount
+  // instant, which is what keeps this correct beyond one day. The pinned path never touches
+  // the wall clock.
+  const base =
     initialNow !== undefined
-      ? 0
-      : clockCheckpoint.elapsedBefore + elapsedMinutesSinceMount(clockCheckpoint.reading, wallClockNow());
-  const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
+      ? initialNow
+      : NOW_ANCHOR + clockCheckpoint.elapsedBefore + elapsedMinutesSinceMount(clockCheckpoint.reading, wallClockNow());
+  const now = base + state.clockOffsetMinutes;
 
   const [focusMovementId, setFocusMovementId] = useState<string | undefined>(undefined);
 
