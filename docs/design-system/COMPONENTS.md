@@ -976,9 +976,9 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              19 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              21 |
 | `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |

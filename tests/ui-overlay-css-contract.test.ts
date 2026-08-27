@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
+
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const answerResultSurfaceSource = read("src/components/clinical-dashboard/answer-result-surface.tsx");
 const sheetSource = read("src/components/ui/sheet.tsx");
@@ -11,7 +13,7 @@ const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
 const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
 const globalSearchShellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
-const uiPrimitivesSource = read("src/components/ui-primitives.tsx");
+const uiPrimitivesSource = readPrimitiveRecipeSources();
 const therapyWorkspaceSource = read("src/components/therapy-compass/workspace.tsx");
 const masterSearchHeaderSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");

@@ -1533,7 +1533,7 @@ function SettingsCard({ rowId, padded = false, children }: { rowId: string; padd
     <div
       data-testid={`${rowId}-card`}
       className={cn(
-        "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
+        "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
         padded && "p-4",
       )}
     >
