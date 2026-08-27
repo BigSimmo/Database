@@ -235,9 +235,10 @@ rows by recording `head` per row, and did not close for the gate table.
 The discipline is explicit that an edit after a gate voids that gate's verdict, and the fix is
 re-running rather than re-attributing. What the ledger does establish independently is that the
 machine ran _something_ at `05487cdd7`: `M22`, `M6b`, `M19b` and `M20d` all record that head, and
-`M22` targets `plan-patient-detail` — the suite carrying the only executable change. That is the
-suite this review re-ran itself (§9), which settles the practical risk for the one file that matters
-and leaves the wider table on the implementer's word.
+`M22` targets `plan-patient-detail` — the suite carrying the only executable change. That suite is
+one of the three this review re-ran itself on the final tree (§9, `Tests  83 passed (83)`), which
+settles the practical risk for the file that matters and leaves the wider table on the implementer's
+word.
 
 ### Nit 1 — a refusal can name an invisible character (pre-existing, from round 1)
 
@@ -327,7 +328,7 @@ Reported honestly rather than by exit code.
 | `git cat-file -e <sha>^{commit}` on every SHA this review states                                      | all exist                                                                       |
 | the new refusal string against the repo's own interface-vocabulary regex                              | no match — the gate cannot redden on it                                         |
 | `npx eslint` on every round-2 changed file, cache directory removed first                             | no diagnostics printed, exit 0                                                  |
-| `node scripts/run-vitest.mjs run --reporter=dot` on message-copy, message-policy, plan-patient-detail | **UNRUN — lock refusal, see below**                                             |
+| `node scripts/run-vitest.mjs run --reporter=dot` on message-copy, message-policy, plan-patient-detail | `Test Files  3 passed (3)` / `Tests  83 passed (83)` — on attempt 16, see below |
 | `npm run typecheck`                                                                                   | **UNRUN — lock refusal, see below**                                             |
 
 **ESLint's silence is its pass form**, unlike Vitest's. There is no `N passed` line to paste for it,
@@ -350,15 +351,31 @@ The prettier check matters beyond formatting: the implementer's own gate table r
 and `e0285a737` edited the report afterwards. Under the discipline that edit voids the earlier
 verdict for the report file. Re-running it on the final tree closes that gap; it is clean.
 
-### The two suite runs are UNRUN, and that is a refusal rather than a result
+### The narrowed run landed on its sixteenth attempt; the typecheck never did
 
-`D:\Worktrees\Database\pr-2390-fix` held the exclusive heavy lease continuously across this review,
+`D:\Worktrees\Database\pr-2390-fix` held the exclusive heavy lease for almost the whole review,
 running `playwright tests/ui-ward-roles.spec.ts --project=chromium-mockups` — and running it
 **repeatedly**, not once: the lease record's owner PID and start time both moved between refusals
 (PID `5556` from `02:08`, then PID `45704` from `02:32`). A retry loop attempting the narrowed
-selection every forty-five seconds was refused on every attempt across roughly twenty minutes. **No
-lease was ever forced, and no `N passed` line exists to paste.** Per the discipline this is neither a
-pass nor a failure; it is recorded as UNRUN.
+selection every forty-five seconds was refused fifteen consecutive times before the lease cleared.
+**No lease was ever forced.** The run that landed:
+
+```
+ RUN  v4.1.10 D:/Worktrees/Database/cc-message-name
+ Test Files  3 passed (3)
+      Tests  83 passed (83)
+   Duration  3.46s
+```
+
+The tree it saw carries no source or test change since `05487cdd7` — `git diff 05487cdd7..HEAD -- src
+tests caring-contacts` is empty, the only later commits being this review file. So that verdict
+covers exactly the code round 2 shipped.
+
+`npm run typecheck` was refused and is recorded UNRUN. I did not retry it: round 2 adds no type, and
+the compile-affecting part of it — the three helper imports `5c78c0dcf` added to the Postgres suite —
+is settled by reading `tests/helpers/caring-contacts-postgres.ts`, where `runInTeamSession(pool,
+options, work)`, `nextAuditToken()` and `insertAuditEvent(client, event)` all exist with the
+signatures the new call sites use.
 
 **Both refusal shapes appeared, and one of them arrived with exit 0.** Worth writing down because it
 is the trap this programme has already recorded and it reproduced exactly:
@@ -369,13 +386,12 @@ is the trap this programme has already recorded and it reproduced exactly:
   through a pipe, the shell reported `chain exit=0` for a gate that never ran. A detector reading
   the exit code would have recorded that as a pass.
 
-**What this does and does not leave open.** It leaves the branch's suite verdict resting on the
-implementer's own numbers, which is the substance of Minor 5. It does **not** leave the round-2 code
-change unexamined: §9's static work establishes that only two suites read the changed string, that
-the vocabulary regex cannot match it, that no other test in the tree reads the retracted wording, and
-that ESLint is clean on every changed file. Whoever runs the wide `test:cc-guards` at the merge point
-should treat that run as closing this line, and should note that `tests/caring-contacts-postgres-repository.test.ts`
-still needs Docker to be covered at all.
+**What this leaves open.** Minor 5's practical risk is now closed for the suites that matter: the
+three that carry the round-2 change and the two modules the controller flagged as absent from every
+branch's gate are green on this tree, independently of the implementer's numbers. What remains
+resting on the implementer's word is the _wider_ table — the full `test:cc-guards` selection, the
+twelve-file supplementary selection, and the Postgres suite, which needs Docker to be covered at all.
+Whoever runs the wide gate at the merge point closes that.
 
 <!-- REVIEW GATE EVIDENCE -->
 
