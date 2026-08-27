@@ -105,7 +105,7 @@ because it contributed nothing.
 `tests/ui-style-contract.spec.ts`) — do not re-litigate. Overlay z-index vs
 named `--z-*` tokens is **implemented-blocking** in the same spec (`overlay
 z-index computed tokens`); class-string assertions are forbidden; the
-`rawCssZIndices` exception baseline stays at 8 in `globals.css`. Still planned
+`rawCssZIndices` exception baseline stays at 4 in `globals.css`. Still planned
 (PR 1–2): Tailwind conflict order · v2 cascade, ancestor **and** same-node
 forms · target geometry · contrast · print token reset. Class-string assertions
 are not accepted for any of these — computed values only.
