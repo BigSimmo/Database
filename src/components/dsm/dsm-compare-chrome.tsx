@@ -37,6 +37,8 @@ export function DsmCompareChrome({
       changeLabel="Change diagnoses"
       slotPlaceholder="Choose diagnosis"
       icon={BookOpenCheck}
+      phoneLayout="hybrid"
+      slotSummaryLabel="Up to 3 diagnoses"
       onCommit={(ids) => router.push(idsCompareHref("/dsm/compare", ids))}
     />
   );

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 
 /** Matches Tailwind `sm` / Dictionary compare: phone sheet below 640px. */
 export function usePhoneMedia() {
-  const [isPhone, setIsPhone] = useState(false);
+  const [isPhone, setIsPhone] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+  );
   useEffect(() => {
     const media = window.matchMedia("(max-width: 639px)");
     const update = () => setIsPhone(media.matches);
