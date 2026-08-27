@@ -3807,6 +3807,14 @@
     "records": [
       {
         "date": "2026-08-27",
+        "ref": "2398",
+        "head": "4228b6f91a1d130b6751fd60bdee86e673cb6ddd",
+        "scope": "pr-babysit sweep: merge conflicts, review threads, snapshot CI fix",
+        "outcome": "FIXED",
+        "checks": "merge-main, review-replies, thread-resolve, snapshot-regen"
+      },
+      {
+        "date": "2026-08-27",
         "ref": "codex/tooling-hooks-ci-invariants",
         "head": "dba86f029eed2c6d8a4c6c7594840c60d5d004a2",
         "scope": "PR #2397 babysit: merge main, conflict resolution, review thread fixes",
@@ -24839,8 +24847,8 @@
       }
     ],
     "counts": {
-      "records": 2629,
-      "refs": 1606
+      "records": 2630,
+      "refs": 1607
     }
   }
 }
