@@ -56,6 +56,7 @@ import { formatInstant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
+import { WARD_NAV } from "@/components/ward-management/ward-nav";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -412,19 +413,22 @@ function CapacityView() {
   // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
   // "total" card impossible to add by accident the way looping over a totals object invited.
   // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link directly to the discharge board.
+  // The href comes from WARD_NAV (the single source of Ward Flow destinations) so the rail and
+  // these cards cannot drift apart if the discharge route is ever renamed or regrouped.
+  const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
   const headlineCards: { key: string; label: string; value: number; href?: string }[] = [
     { key: "available-now", label: "Available now", value: headline.availableNow },
     {
       key: "confirmed-today",
       label: "Confirmed today",
       value: headline.confirmedToday,
-      href: "/mockups/ward-flow/discharges",
+      href: dischargeHref,
     },
     {
       key: "predicted-today",
       label: "Predicted today",
       value: headline.predictedToday,
-      href: "/mockups/ward-flow/discharges",
+      href: dischargeHref,
     },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
