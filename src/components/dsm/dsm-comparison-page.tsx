@@ -92,6 +92,7 @@ export function DsmComparisonPage({
   return (
     <div data-testid="dsm-comparison-page" className="min-h-full bg-[color:var(--background)] pb-8">
       <DsmPageHeader
+        breadcrumb={false}
         eyebrow=""
         homeIcon={false}
         icon={false}
