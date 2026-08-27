@@ -2824,3 +2824,81 @@ existing `NO_STAGED_COMMIT_REASON` / `recording-rows-only` path withhold the ref
 **Note what this cost.** My error produced two implementations; the adjudication produced a better component
 than either. That is luck, not a method, and it does not make the error cheaper — Task 16 spent a build on a
 component that is being deleted.
+
+### Ruling [133] — Tasks 20 and 21 run on the merged tree, never before it
+
+Both briefs were written and both were queued to run next. They must not.
+
+**Task 20 reconciles all twenty-four rows of the frozen interaction matrix.** Run on any one branch it can
+only see that branch's wiring, so it would report as unwired every row another branch wired — and its
+deliverable is precisely a table of which rows are wired. A reconciliation against a partial tree does not
+produce a weaker table, it produces a **wrong** one, and a wrong table is worse than none because the next
+reader treats it as the answer.
+
+**Task 21 proves responsive and accessibility properties across every screen in the phase**, and those
+screens are spread across four branches. Same problem, and its per-screen, per-condition table is exactly
+the artefact that would then have to be redone.
+
+This is the same failure that produced two `ExitOnlyOverlayTrigger` implementations: **a fact checked on one
+branch, asserted about the tree.** Doing it deliberately, across twenty-four rows and five conditions, would
+be that error industrialised.
+
+**Order: catch-up merge → the four feature branches → the owed gates → Task 20 → Task 21.** Both are
+verification tasks, and verification of the wrong tree is not verification.
+
+**Cost if wrong:** the merge happens without two more sets of eyes on it.
+
+### Ruling [136] — the three rounds that skipped re-review go to the final whole-branch review, not to three retrospective ones
+
+Applying the controller rule "name the review that closed a task's **last** round, not its first" to every
+task recorded as accepted. The rule permitting a skipped re-review applies to **prose-only** rounds. Reading
+the diffs rather than the commit subjects, three final rounds each carry a `fix(` commit written in answer to
+review findings — Task 10 round 3, Task 11a round 2, and Task 19 round 3. **None was prose-only**, so the
+skip was applied on a wrong premise each time. The round that answers a review is the round no review saw.
+
+Task 13's final round is **not pinned either way**; do not assume it in either direction. Task 14 was
+re-reviewed at round 4, and its round 5 was one item proved by a pasted `error TS`.
+
+**Do not dispatch retrospective scoped re-reviews for those three.** Hand the list to the final whole-branch
+review, which the method already owes and which has never been run. It runs on the merged tree where the
+four tasks' code sits together, and interactions between them are exactly what a per-task re-review cannot
+see. Three reviews of three small diffs cost more and see less than one review told where to look. Nothing
+is pushed, so finding something after the merge costs a commit on a local branch.
+
+**The final whole-branch review must be told this list explicitly, by task and by round, and asked to treat
+those diffs as unreviewed rather than as already-covered ground.** A broad review that assumes prior
+coverage gives exactly the coverage that was assumed.
+
+**The one exception is Task P**, whose unreviewed round changed `message-copy.ts` — the words a discharged
+patient reads. It gets its own scoped re-review, and nothing merges until that returns.
+
+### Ruling [137] — Task 11b's report and gates existed; the handover said they did not, and nobody checked
+
+**The correction.** `phase-2b-HANDOVER.md` and the continuation brief both state that Task 11b's report "was
+never written and its gates were never run", and instruct the next controller to ask the implementer for
+both. Reading the worktree rather than the note: the report was sitting in `cc-plan-detail` as an untracked
+file, complete — the three findings, a verification section with pasted summary lines for the guard set,
+typecheck, uncached lint and Prettier, a mutation ledger, and a section of open questions. The implementer
+was killed after writing it and before committing it, not before writing it.
+
+It is now committed unchanged as `9a64f7b6f`, authored by the implementer and committed by the controller.
+
+**What Task 11b actually needs is a review, and only a review.** Re-dispatching it to produce a report it had
+already produced would have bought nothing and cost a full implementer seat.
+
+**Why this happened, which is the part worth keeping.** The previous controller inferred the report's absence
+from the subagent's death rather than from the tree. That is the same error this build record has now
+recorded a dozen times in different clothes — **a fact true at one scope stated at a wider one.** "The agent
+died before reporting" is true of the conversation; "the report was never written" is a claim about the disk,
+and the disk was never read. The tell is again a sentence with no subject.
+
+**The rule this adds, for the transition specifically:** a handover note is a claim like any other, and it is
+written by the person with the least remaining attention at the moment they have the least of it. **Verify a
+handover against the tree before acting on it, especially where it tells you work is missing** — the cost of
+believing "it is not there" is rebuilding something that is, and unlike most false claims it never announces
+itself, because the rebuilt thing works.
+
+**Untracked is the operative risk here, not unwritten.** Worktrees in this repository have been deleted
+mid-session more than once. A report that exists only as an untracked file is one sweep away from having
+genuinely never been written, which is presumably how the claim would have become true if nobody had looked.
+**Commit reports on arrival.**
