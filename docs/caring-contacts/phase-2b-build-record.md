@@ -3488,3 +3488,64 @@ handles and wrote an **empty** output file. It was discarded and re-run, and the
 without a summary line, retries the restore, verifies it with git and aborts. **"No summary line means no
 run" caught this**; the clean-tree guard caught the unrestored mutation behind it. Both rules earned their
 place again on the same row.
+
+### Ruling [149] — the merge is done, and it found twenty-two things no branch could see
+
+All four feature branches are on the trunk, and that is verified by ancestry rather than by having
+run the commands: `git merge-base --is-ancestor` answers MERGED for `cc-message-name`,
+`cc-plan-detail`, `cc-schedule` and `cc-demo-seed`. Four merge commits, each with two parents,
+on top of two `origin/main` catch-ups. Working tree clean.
+
+**Final state: `Test Files 35 passed (35)` / `Tests 799 passed (799)`, tsc zero diagnostics, adoption
+manifest and site map both regenerated and in step.**
+
+**The merge was not a formality and this is the measurement.** Across the last three merges it
+exposed **twenty-two** defects, and **not one of them was visible on any single branch** — every one
+is an interaction between work that was individually correct:
+
+- **A user-facing bug.** The Schedule screen carries its day in the address; `day` was declared by
+  the schedule route module on one branch and absent from the workspace's recognised-parameter union
+  on another. Opening any overlay on that screen would have silently stripped it and thrown the
+  coordinator back to today.
+- **A screen test that would have tested the wrong screen.** Both `cc-schedule` and `cc-demo-seed`
+  define Playwright screen constants **by array position**, and both used index 4. Keeping both —
+  the obvious resolution — pointed `SCHEDULE_SCREEN` and `TEMPLATES_SCREEN` at one entry, so every
+  Templates browser test would have run against Schedule and passed. Screens now resolve through a
+  name lookup that throws unless exactly one entry answers, with two independent guards: a misspelled
+  name cannot compile, and a duplicated name cannot pass.
+- **A type that had gone loose.** `ExitOnlyOverlayTrigger` typed `overlayId` as `string` while Task 14
+  narrowed `WorkspaceOverlayTrigger`'s to the union. Narrowing it to `NonMutatingOverlayId` realises
+  Ruling [130]: wiring a recording row to an exit-only trigger is a **compile** error now, not a
+  render-time throw.
+- **Fifteen stale fixtures**, every one named by `tsc`, where one branch made a field required and
+  another branch's fixtures predated it. Including the **demo seed itself**, which is not a test.
+- **Two counts that were right on each branch and wrong on the tree** — the unavailable-destination
+  count (11 on one, 10 on the other, **8** merged) and the route census (70 → 71 → 75). Both were
+  derived from the source rather than from what a test printed.
+- **A silent duplicate avoided:** `patient-overview.tsx` auto-merged, and §2b warned that a
+  keep-both resolution would restore a second copy of the transport vocabulary. Checked: it imports
+  from `contact-vocabulary` and re-declares nothing.
+
+**The `test:cc-guards` union is the gate-drift rule made concrete.** Each side named 27 suites and
+each held 8 the other lacked, so **neither branch's gate could have caught the other's regressions**.
+The merged gate names 35.
+
+**Two errors of my own, both worth recording because both were caught by someone else.**
+
+1. **I resolved `design-system-adoption.test.ts` and `adoption-contract.json` by taking the branch's
+   copy, twice.** Both predate `main`'s ward-management rename, so both reintroduced references to a
+   deleted route. The trunk's post-catch-up version is the right base every time, and only the
+   branch's *new* declarations should travel — for the contract that meant merging four route
+   declarations into the trunk's file rather than replacing it.
+2. **My resolution of `caring-contacts-plan-wizard.dom.test.tsx` dropped two closing braces and a
+   comment opener**, because I matched conflict markers with a regex whose capture groups cut across
+   a comment boundary. It left 62 parse errors, which `tsc` reports **ahead of everything else** — so
+   it was also masking two real type errors elsewhere. **The subagent resolving the Playwright spec
+   found it**, by running the TypeScript program per-file rather than through a pipe, and reported
+   the program-wide counts as a positive control that the semantic pass had genuinely run.
+
+**And a correction it made to me.** I told it three shared describe blocks "differed" between the two
+sides. They are byte-identical. My line counts came from slicing each block to the *next*
+`test.describe(`, which sweeps the following section's doc comment into the block — **a measurement
+of the wrong thing, reported as a fact about the code.** Sliced to each block's own closing brace they
+match exactly. It said so plainly instead of reconciling three blocks that needed no reconciling.
