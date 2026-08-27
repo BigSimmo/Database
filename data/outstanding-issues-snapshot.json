@@ -5,13 +5,13 @@
     "committed_at": "2026-08-25T17:45:01Z"
   },
   "counts": {
-    "open": 91,
+    "open": 98,
     "p1": 1,
-    "p2": 57,
-    "p3": 33,
+    "p2": 60,
+    "p3": 37,
     "queued": 9,
-    "pending": 22,
-    "resolved": 412
+    "pending": 0,
+    "resolved": 414
   },
   "queue": [
     {
@@ -197,15 +197,6 @@
       "added": "2026-08-04"
     },
     {
-      "id": "#321",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Four follow-up groups cover nine controls after #291",
-      "detail": "PARTIAL 18 August 2026. Of the four follow-up groups: (1) the filmstrip 'Page unknown' control is FIXED — document-image-filmstrip.tsx converted its data-driven disabled state from native disabled to aria-disabled=true + ignoreUnavailableActivation + an sr-only reason, per docs/wiring-conventions.md's stated-reason pattern (settles this one control from #291's follow-up list); tests/document-image-filmstrip.dom.test.tsx gained a focused case (aria-disabled, not natively disabled, accessible description, click is a no-op), vitest run: 3 passed. The other three groups are unchanged and still not single-PR-sized: the six differential comparison page controls remain coupled to its own planned rewrite and pinned density test; DocumentViewer's persistent-access-reason/transient-loading split is a classification design decision, not yet made; the pin-limit control remains a capacity-state judgement call. Stays open for those three.",
-      "source": "PR #1778 body; verified against main 2d27039",
-      "added": "2026-08-14"
-    },
-    {
       "id": "#2AB2NJ",
       "priority": "P3",
       "type": "task",
@@ -330,15 +321,6 @@
       "detail": "CAUSE FOUND AND FIXED — landed on main 2026-08-22 in PR #2253 (merge 66594dd, fix commit 0cf0493). Full evidence is recorded on #TYZK23; this row is the gate-reliability half of the same defect. Summary: the shifting element is the PWA install card (div.pwa-notice-stack), which can mount during a window in which #main-content is briefly absent from the DOM while Next 16 streams and hydrates the route. Its phone geometry is selected by body:has(#main-content[data-phone-footer-owner=\"hero\"]) …, so a card mounting in that gap paints tall (h=401) and is restyled compact (h=161) when the shell returns — one discrete 0.2230 shift. That also explains observation (1) on this row, the part that looked impossible: the gate flips pass/fail on diffs that cannot influence layout because what varies between runs is TIMING (network speed, and whether beforeinstallprompt fires early enough to land inside the gap), not the diff. Deleting one JSON file changes nothing about the page and everything about which side of that race the run lands on — so head c8b7bcdd passing and head 09ff450c failing was never a contradiction. FIXED in src/components/pwa-lifecycle.tsx: the notice stack is held unmounted until the app shell is present. Reproduced locally at exactly 0.2230 before the fix and 0.000 after, using a synthetic beforeinstallprompt at ~120ms plus network throttling. CI on 0cf0493 (run 32531103787): Lighthouse budget SUCCESS. ALSO LANDED, and worth keeping even after this row closes: scripts/run-lighthouse-budget.mjs now prints layout-shift attribution (selector, snippet, score, raw worst item) when grading fails, before the report directory is deleted. This row previously required downloading a CI artifact that this environment cannot reach; that is no longer necessary, and the next occurrence of any layout-shift breach will name its own element. Stop rules honoured: tolerance not widened, baseline not refreshed. NOT CLOSED HERE — close with #TYZK23 and #KFRC3H once further Lighthouse budget runs confirm.",
       "source": "CI run 32531103787 on head 0cf0493; local reproduction 2026-08-22; merged in PR #2253; full trace on #TYZK23",
       "added": "2026-08-21"
-    },
-    {
-      "id": "#45V4Y7",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Dead exports on protected surfaces: answerQuestion (rag.ts), embedText (openai.ts), clinicalRankScore (clinical-search.ts)",
-      "detail": "The 2026-08-20 repo-cleanup sweep removed 60+ verified-dead exported symbols but deliberately left three untouched because they sit on RAG-protected surfaces that AGENTS.md requires flagging before any edit, deletion included. All three are exported, imported by nothing, and referenced nowhere else in the tree: src/lib/rag/rag.ts answerQuestion (a thin wrapper superseded by answerQuestionWithScope, which is what /api/answer actually calls), src/lib/openai.ts embedText, and src/lib/clinical-search.ts clinicalRankScore. Removing them cannot change retrieval behaviour because nothing calls them, but the removal still travels through docs/rag-behaviour and the RAG impact declaration on the PR. Next step: confirm with the owner, then delete in a single RAG-scoped PR carrying 'RAG impact: no retrieval behaviour change -- dead exports with zero callers'.",
-      "source": "src/lib/rag/rag.ts, src/lib/openai.ts, src/lib/clinical-search.ts",
-      "added": "2026-08-20"
     },
     {
       "id": "#TYZK23",
@@ -933,140 +915,88 @@
       "detail": "ensureTeam's insert ... on conflict do nothing is what makes the stopService race cross-team-only. After Task 11b fix round 2 it carries a comment naming it, but no test pins it, so a future change to that insert could widen the race silently. Either pin it with a test that names the serialisation or make it deliberate with a lock.",
       "source": "docs/caring-contacts/phase-2a-build-record.md deferred list item 4",
       "added": "2026-08-24"
+    },
+    {
+      "id": "#V27DZ1",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Ward Flow role screens: intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
+      "detail": "Reproduced on a quiet tree against the isolated production Playwright server, on BOTH refs, so it is not Phase 5's: this branch 1 failing run in 3 (ward-unit-screen), clean origin/main 1 failing run in 7 (ward-ed-screen, a screen Phase 5 never touches). tests/ui-ward-roles.spec.ts is byte-identical between the two refs. Both render sites of each id are mutually exclusive branches of one early return, so two elements means two component instances or streamed markup momentarily co-present; the mechanism is NOT yet established. Sample too small to say whether Phase 5 changed the rate. Not quarantined: the repo requires three reproductions on one SHA, and the assertion is correct as written. Evidence table in docs/ward-flow-complete-ledger.md section 5d-ii.",
+      "source": "session 2026-08-26",
+      "added": "2026-08-26"
+    },
+    {
+      "id": "#BR2217",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
+      "detail": "data/outstanding-issues-snapshot.json carries a ledger_revision pointer. Commit ca376969b moved it BACKWARDS: sha 707b965965a9b843c13deb6b5c9ddd158fe2631d (2026-08-25T17:45:01+00:00) reverted to 6085a0a59aca4c1bb9e19fb4d490fd34dec950cd (2026-08-22T20:52:39Z), and the +00:00 normalisation reverted to Z. Pending entries are intact so nothing is lost, but a regenerator run from a stale base overwrote a newer pointer with an older one, and nothing detected it. Found 2026-08-27 while verifying that PR 2390 squash-merged completely. Not caused by that PR. Next step: decide whether generate-outstanding-issues-snapshot.mjs should refuse to move ledger_revision backwards, which would make this class of regression self-detecting.",
+      "source": "PR 2390 merge verification, 2026-08-27",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#TBW7BR",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
+      "detail": "AGENTS.md (Evidence and calibration section) and the Phase 5 handover both said scripts/run-playwright.mjs exits 0 when tests fail and when it refuses to run. Reading the script on 2026-08-27 shows otherwise: it exits 75 with a DATABASE_HEAVY_RUN_ADMISSION_BUSY marker on admission contention, propagates Playwright's own exit status on test failure, and exits 1 on a wrapper error. The stale wording tells callers to discard a reliable signal and parse logs instead, which loses the distinction between blocked and red. Raised by automated review on PR 2405; the handover and the new docs/development-speed-playbook.md were corrected there. AGENTS.md was deliberately left alone because editing it is a policy change and would widen that PR's risk classification. Next step: correct the AGENTS.md wording to say that both the non-zero status and the decisive output line must be checked, and consider a contract test pinning the script's exit codes so the guidance cannot drift from the code again.",
+      "source": "Codex review on PR 2405, 2026-08-27",
+      "added": "2026-08-27"
+    },
+    {
+      "id": "#76GGRG",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
+      "detail": "search-pins-menu.tsx declares role=menu/menuitem but implements no arrow-key, Home/End or roving-focus handling, so it promises the ARIA menu keyboard model and delivers Tab. mode-action-popup.tsx implements the model properly. answer-source-drawer.tsx was the third shape and was changed on 2026-08-25 (PR #2370) to role=group with plain buttons — a disclosure, which is what it actually is. Next action: pick one rule for the repo and apply it to search-pins-menu.tsx — either implement the keyboard model or drop the menu roles as the drawer did. No gate covers this, so it will keep diverging. Not urgent: every one of these menus is operable by Tab today; the defect is the mismatch between what is announced and what works.",
+      "source": "PR #2370 review (CodeRabbit), verified in source 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#875H6T",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
+      "detail": "Ward prediction track record; 'why not here' across the whole state for one patient; a sixty-second self-driving guided tour; out-of-area ledger; 'waiting since' promoted in the priority queue; named moments on the demo clock. All accepted by the product owner 2026-08-26 and described in docs/ward-flow-roadmap.md.",
+      "source": "Product-owner direction, 2026-08-26",
+      "added": "2026-08-26"
+    },
+    {
+      "id": "#HX1KSZ",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
+      "detail": "The earlier pending request overgeneralised the :root-versus-@theme boundary. Correct rule: keep a one-consumer component metric local to its owning JS/TS module, such as cardTextWidth (max-w-[158px] in src/components/clinical-dashboard/answer-source-rail.tsx); do not promote it to a global CSS custom property or an @theme token. Apply the :root-versus-@theme decision only when a shared CSS custom property is needed by multiple non-nested consumers: a shared off-scale metric such as --answer-message-gutter (calc(2.75rem + 1px), including its transparent-border compensation) belongs in :root, while @theme is reserved for deliberate design-scale tokens that should generate a utility family. NEXT ACTION (small, docs-only): add a prohibition-table row to docs/design-system/GATES.md section 3 that states this three-way boundary (module-local component constant vs shared :root custom property vs @theme scale token), names both prior examples accurately, and explicitly does not convert either value. The existing tailwind-merge coupling still applies to any deliberate @theme --spacing-* token: tests/tailwind-merge-config.test.ts requires CLINICAL_TWMERGE_THEME.spacing coverage.",
+      "source": "PR #2381 review thread PRRT_kwDOSh5Fis6cUDDj, reviewing request 970b4089-9e76-4bcf-821e-2e70e16a3617; prior instances #2374 and #2377",
+      "added": "2026-08-26"
+    },
+    {
+      "id": "#9GPWT3",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
+      "detail": "predicted -> confirmed -> blocked -> released is a software model of how a bed comes free. A bed may be confirmed and blocked simultaneously in reality, and 'predicted' may compress several states a charge nurse would separate. Cheap to change while synthetic; recorded in the Phase 5 spec as D14 and as the assumption most likely to be wrong. Check before Phase 7 builds on it.",
+      "source": "Ward Flow Phase 5 design, 2026-08-26",
+      "added": "2026-08-26"
+    },
+    {
+      "id": "#2X46NY",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
+      "detail": "CodeRabbit's pre-merge Docstring Coverage check warned on every head of PR #2370, measuring 56 functions across 17 files. It is advisory only — not a required GitHub check, and it never blocked the merge. Recorded so the next person who sees the warning knows it was read rather than missed. Next action: none required. If someone wants the number up, the gap is in small helpers and test harness functions rather than in the exported surfaces, which are documented; decide whether the threshold is measuring something this repo actually wants before writing comments to satisfy it.",
+      "source": "PR #2370 pre-merge checks, 2026-08-25",
+      "added": "2026-08-25"
+    },
+    {
+      "id": "#WG24JB",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
+      "detail": "Spec D9 (docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md) says the discharge board is reached from the sidebar's Boards group AND from the capacity board's own figures. Only the sidebar entry was built; the capacity headline cards are plain non-interactive articles. Found by the Phase 5 whole-branch review. Unimplemented spec clause, not a defect. Small, and best done at the start of Phase 6 while the numbers are fresh. Any new inbound link must keep the route-reachability contract satisfied.",
+      "source": "session 2026-08-26",
+      "added": "2026-08-26"
     }
   ],
-  "pending": [
-    {
-      "request_id": "0257b988-e4dc-460d-9356-662893a7af6c",
-      "action": "add",
-      "summary": "Ward Flow role screens: intermittent Playwright strict-mode violation, a role screen's own test id resolves to 2 elements",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "1b2198c4-a52f-4302-be1c-806d91f905ac",
-      "action": "cancel",
-      "summary": "Cancel request ecabc51d-034a-4a68-91cd-280214aac6bf: Superseded by completion. This request would file Ward Flow Phase 5 as an open P2 task, but Phase 5 was built and merged on 2026-08-26 (PR 2390, squash commit ea5482b9, all checks green). Applying it would add finished work to the recommended queue. The two items genuinely still owed from Phase 5 are tracked separately: the unvalidated spec D14 four-state model, and the Phase 6/7 design conversation. Cancelled 2026-08-27.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "31bbefdc-0125-4b69-9ba5-f85ce916dc1a",
-      "action": "add",
-      "summary": "outstanding-issues snapshot ledger_revision rolled backwards by a stale regenerator",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "344cfd1b-b9b1-4b5a-a788-6560bfdc956e",
-      "action": "add",
-      "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "3a4868e6-281a-48c1-895b-82d6aade2bc7",
-      "action": "cancel",
-      "summary": "Cancel request 8b2a3f89-9bdb-4fb1-8fd0-35165d050263: Implemented the requested local source-card width constant in this owning answer-page change.",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "3eebb95f-3671-41d0-afa8-85460a9b5ff3",
-      "action": "done",
-      "summary": "#321: Standardized control focus rings and ARIA descriptors across modal and drawer surfaces.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "40ff11ca-52f3-4b95-9118-5e0c107e68f0",
-      "action": "cancel",
-      "summary": "Cancel request 970b4089-9e76-4bcf-821e-2e70e16a3617: Superseded before reconciliation: the original wording incorrectly implied every component metric belongs in :root. The replacement distinguishes module-local one-consumer constants from shared CSS custom properties.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "454d0cd5-8f4c-4ab9-b9b3-7b5a588283a1",
-      "action": "cancel",
-      "summary": "Cancel request 76744c9f-6e7f-4390-a202-756e50be0cd1: Superseded by a539a411-4648-4f71-8b40-90d49646e8a4 on #243HCC",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "485bdac6-7f79-4539-9d90-347866604b35",
-      "action": "add",
-      "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "531e6569-42da-4bb6-9c0f-6a410e207aea",
-      "action": "cancel",
-      "summary": "Cancel request 854ca9ba-ba3b-442b-be6d-6f5873ed60ed: Wired connection and permission unavailable recovery screens in Caring Contacts.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "5fa0b2ee-38ea-4a6a-bada-815b021b5aac",
-      "action": "cancel",
-      "summary": "Cancel request a0548b2c-2c80-44f9-9440-5b983e169a13: Repaired closing-message refusal guard in Caring Contacts service state.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "6e929764-e281-4941-9ef4-062ec5a08497",
-      "action": "cancel",
-      "summary": "Cancel request 1838b99a-9323-4e3b-84a5-8e52535ecec8: Connected governed-message validator to outbound dispatch routes with fail-closed enforcement.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "76744c9f-6e7f-4390-a202-756e50be0cd1",
-      "action": "done",
-      "summary": "#243HCC: Emitted data-settings-nav-target on sub-navigation tabs in settings-dialog.",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
-      "action": "add",
-      "summary": "The answer source-rail card carries three hardcoded pixel measurements, one of them duplicated",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "970b4089-9e76-4bcf-821e-2e70e16a3617",
-      "action": "add",
-      "summary": "Component metrics stay in :root, not @theme — record the rule where reviewers read it, because bots keep re-raising it",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "970bbb8b-4dbe-4e27-97a4-80142db94d7d",
-      "action": "add",
-      "summary": "Ward Flow: six agreed enhancements not yet assigned to a phase",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
-      "action": "done",
-      "summary": "#45V4Y7: Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
-      "created_at": "2026-08-27"
-    },
-    {
-      "request_id": "b85ad821-4c9b-4925-b86b-2d5767052b20",
-      "action": "add",
-      "summary": "Scope the component-metric rule: keep one-consumer values local; use :root only for shared off-scale CSS custom properties, not @theme",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "cfa44b9c-3d68-4030-b1e3-3d8f182ca3d4",
-      "action": "add",
-      "summary": "Ward Flow's bed-release state model is unvalidated by any ward clinician",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "d2a6122a-4fcd-4429-92a7-6004fa19eb24",
-      "action": "add",
-      "summary": "Docstring coverage on the answer-source changes sits at 62.5% against CodeRabbit's 80% advisory threshold",
-      "created_at": "2026-08-25"
-    },
-    {
-      "request_id": "ecabc51d-034a-4a68-91cd-280214aac6bf",
-      "action": "add",
-      "summary": "Ward Flow Phase 5: bed availability becomes real - discharge lifecycle, egress board, predicted capacity, freshness everywhere",
-      "created_at": "2026-08-26"
-    },
-    {
-      "request_id": "f7c6371d-b92b-4050-9629-9aac5065f0a8",
-      "action": "add",
-      "summary": "Ward Flow spec D9: the discharge board is reachable only from the sidebar, not from the capacity board's own figures",
-      "created_at": "2026-08-26"
-    }
-  ]
+  "pending": []
 }
