@@ -3572,7 +3572,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       (url) =>
         url.pathname === origin.pathname &&
         url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
+        url.searchParams.get("run") === origin.searchParams.get("run") &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode"),
       { timeout: 30_000 },
     );
     await expect(workspace).toBeVisible({ timeout: 30_000 });
@@ -3605,7 +3606,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
         (url) =>
           url.pathname === origin.pathname &&
           url.searchParams.get("q") === origin.searchParams.get("q") &&
-          url.searchParams.get("run") === origin.searchParams.get("run"),
+          url.searchParams.get("run") === origin.searchParams.get("run") &&
+          url.searchParams.get("mode") === origin.searchParams.get("mode"),
         { timeout: 30_000 },
       );
     }
