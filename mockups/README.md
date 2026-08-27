@@ -102,11 +102,14 @@ design decision rather than guessed at from the names.
 | `document-image-status`                                                        | Fixture backing a component test — keep.                                                                                |
 | `accessible-table-browser-fixture`                                             | Fixture backing a component test — keep.                                                                                |
 
-### Dictionary browse header — three rounds, no recorded winner
+### Dictionary browse header — three rounds, keep all three
 
 `dictionary-browse-header`, `dictionary-browse-header-compact`, `dictionary-control-row` —
-see the dated write-ups below; each attacks a different part of the same header and none is
-recorded as the final pick.
+see the dated write-ups below; each attacks a different part of the same header. Round two's
+Version 01 is the one that actually shipped to `/dictionary/browse` (confirmed against the
+shipping commit, corrected below — the write-up briefly recorded the wrong version as chosen).
+None of the three routes supersedes another at the route level — round two and round three both
+import code from round one's component file, so all three stay regardless.
 
 ### Search chrome & composer
 
@@ -230,8 +233,12 @@ dropdown on phones** and moves **Abbreviations out of the header into the Filter
 | Version                        | Phone chrome | Trade-off                                                           |
 | ------------------------------ | ------------ | ------------------------------------------------------------------- |
 | 01 Title bar + letter dropdown | 2 rows       | Title still costs a row the mode nav already implies                |
-| 02 Single fused row (rec.)     | 1 row        | An active filter chip costs the row its title and count at 390 px   |
+| 02 Single fused row            | 1 row        | An active filter chip costs the row its title and count at 390 px   |
 | 03 Slim toolbar, title retired | 1 slim bar   | Phone loses its visual page title; depends on the mode nav above it |
+
+**Shipped: Version 01**, not the recommendation the study opened with — the commit that shipped this study to
+`/dictionary/browse` records "Version 01 is the chosen direction" (PR #2143). `dictionary-control-row`'s later study
+builds on that outcome.
 
 Demoting a view switch into a sheet hides state, so each version surfaces an active **Abbreviations** chip beside the
 letter control. Without it the header would claim 96 terms while listing 24 abbreviations.
