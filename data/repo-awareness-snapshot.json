@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "072aba85fedc9a237d9a18ac2b256fb6cc92cd38",
-    "committed_at": "2026-08-27T13:11:23+00:00"
+    "sha": "2717fc58379236dbc41f6755cf77d55c9f6d4b12",
+    "committed_at": "2026-08-27T22:51:37+08:00"
   },
   "routes": {
     "modes": [
@@ -3747,6 +3747,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-pinned-clock-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-roadmap.md",
         "section": "root",
         "catalogued": false
@@ -3842,9 +3847,9 @@
       }
     ],
     "counts": {
-      "documents": 481,
+      "documents": 482,
       "catalogued": 107,
-      "uncatalogued": 374,
+      "uncatalogued": 375,
       "sections": 19
     }
   },
