@@ -231,3 +231,48 @@ home" and calling its shape "a real shape for WA's rural mental health system". 
 real-world claims of exactly the kind this phase's own governing rule forbids, and a comment
 asserting a fact is how the deleted Form 1A figure entered this codebase in the first place. It is
 queued for correction in Phase 7's fix round C.
+
+---
+
+## D8-8 — Travel-time bands are invented placeholders, kept trivially replaceable (OWNER, 2026-08-28)
+
+Asked directly, with the governance risk stated plainly — that the site table uses real hospital
+names, so a band printed beside one is read as a claim about that hospital whatever the label says —
+the product owner's instruction was: **"Invent simple placeholders for now easy to change later."**
+
+This supersedes nothing in D8-7; it answers the question D8-7 left open. D8-7 settled that the bands
+are synthetic fixture data labelled as such. D8-8 settles that the values themselves are invented
+now rather than waited for, and that **the cost of replacing them later is the constraint the
+implementation is designed around.**
+
+### What "easy to change later" has to mean in the code
+
+This is the load-bearing half of the instruction, and it is not automatic. Four rules:
+
+1. **One table, one file, nothing derived.** Every band lives in a single fixture table keyed by
+   home region and site. No band is computed, cached, inlined into a component, hard-coded into a
+   test fixture, or written into a doc comment. Replacing the file's values must be the whole of the
+   change.
+2. **No test asserts a specific band for a specific place.** Tests assert the _mechanism_ — that
+   grouping preserves every unit, that an unknown band degrades conservatively, that the ledger
+   counts what it says it counts. A test that pins "Broome is three hours or more" would make the
+   owner's future correction a test failure, which is precisely the trap that turns a placeholder
+   into a fact nobody dares touch.
+3. **The values are chosen to exercise the code, not to resemble geography.** Pick pairs that
+   produce all four bands, the sparse-region case, and the whole-region gap. **Do not consult a map**
+   — an implementer who checks the distances has quietly turned a placeholder into an unverified
+   real-world claim while feeling diligent about it. The fixture's own doc comment says so, in those
+   words.
+4. **The screen keeps saying they are invented.** The placeholder status is visible to a reader, not
+   only to a developer reading a comment. Same treatment roadmap decision 10 already requires for
+   escalation indicator numbers.
+
+### What this costs when the real bands arrive
+
+The values in one fixture file, and nothing else. Not a screen, not a test, not a stored figure.
+If that ever stops being true, it is a defect.
+
+### What is still not decided
+
+Whether the real bands should eventually be checked and by whom. The placeholders are explicitly a
+"for now", and section 3's sixth question stays open.
