@@ -671,3 +671,88 @@ acceptable rather than a quiet regression:
 `Unit.sexDesignation`. It must be reworked to read the daily return, falling back to the whole-ward
 designation only when no return has been made — and saying so, never silently substituting one for
 the other.
+
+---
+
+## Build-phase decisions, 2026-08-29
+
+Taken with the owner after the calculation layer was finished and before any screen was built.
+
+### DB-4 — How the screens get built (approved: 1, 2, 3; declined: 4)
+
+**Something ugly on screen in the first hour.** One ward, real seeded data, no styling — before any
+component is built properly. The calculation layer reached 109 tests with nothing anyone could look
+at; that shape was correct for work running beside another session and must not carry into the
+screens. Every defect that ever reached a page in this project was found by rendering it and looking,
+never by a test.
+
+**The daily sheet is built FIRST among the screens, not in the middle** where the plan had it.
+Everything on the board depends on wards actually updating it, so if it is not genuinely under a
+minute for a twenty-bed ward the board is decoration. **Time it with a stopwatch against the seeded
+fixture**, early, while it is cheap to change — not in principle, and not at the end.
+
+**The print layout is built alongside the screen, not after it.** Phase 6 shipped a sheet that
+promised one page and printed five, and it was found at the end. Page count is checked with the
+capture tool at every step.
+
+**DECLINED for now: the blocked-discharge figure on the morning page.** It was offered as the number
+that changes conversations, on the page people print. The owner left it. That page is deliberately
+fixed and has already gained one figure this programme; a third is a real decision and he has not
+made it. The figure stays on the ward board and the statistics page. **Do not add it to the morning
+page without a recorded decision.**
+
+### DB-5 — "What moved since I last looked" (approved, and the owner singled it out)
+
+A coordinator opening twenty wards does not want twenty boards; they want the handful of things that
+changed. Entirely derived — no new record, nothing extra for a ward to enter.
+
+It is NOT the same as the board's own "since yesterday" line, which is one ward orienting its own
+staff. This is the coordinator's cross-ward view: which wards have new discharges, new pulls, newly
+blocked beds, or dates that slipped, since that coordinator last looked.
+
+**Note the constraint that shapes it:** "since I last looked" is per-person state, and this prototype
+holds no per-person state and no accounts. So it is scoped to the session, or to a chosen point
+(since the morning handover, since yesterday) — never to a stored per-user timestamp. Choosing the
+simpler of those is preferable to inventing a user model.
+
+### DB-6 — The transport officer screen answers one question
+
+**The owner's scope, and it narrows what was previously assumed:**
+
+> "The transport officer only is about letting them update when they are about to start a job and
+> also see when a patient can be picked up or dropped off to the ward."
+
+That is the whole screen. It is a **task surface, not an information surface**, and the distinction
+matters: an earlier recommendation put the empty-bed-time statistic here as a prompt. **That was
+wrong and is withdrawn.** Empty-bed time is a flow measure for the coordinator and the statistics
+page; an officer with a van does not need a management figure, they need to know which job they can
+start.
+
+**The one question the screen answers: which of my jobs can I start right now, and if not, why not.**
+
+Two windows govern every job, and they come from opposite ends:
+
+| Window | Stated by | Meaning |
+| ------ | --------- | ------- |
+| **Pickup** | the origin (emergency department or site) | when the person can be collected |
+| **Drop-off** | the receiving ward, **at the moment it pulls** (D15) | when the ward can take a handover |
+
+**A job is startable when both windows are open.** That derived fact is the screen's entire content,
+and it is what closes the failure this exists to prevent: an ambulance arriving at a ward that cannot
+take a handover.
+
+Three groups, in this order: **can start now** · **not yet** · **in progress**. A row in "not yet"
+must say **which window is shut and until when** — an officer told only "not yet" will ring the ward,
+which is the phone call the screen exists to remove.
+
+Actions are the transitions the model already carries (`TransportJob`: `acceptedAt`, `enRouteAt`,
+`collectedAt`, `arrivedAt`). The officer's primary act is **starting** a job; the rest follow. One tap
+each, no forms, and undo rather than confirmation dialogs (D17).
+
+**What this screen must NOT become:** a bed board, a statistics page, or a place where an officer is
+shown how long beds have been empty. Every one of those is someone else's screen, and this one has a
+person standing next to a vehicle.
+
+**Dependency:** the drop-off window requires D15's receiving-time list, still owner-pending. Until it
+arrives the screen can be built showing pickup only, with the drop-off column stated as not yet
+recorded — never blank, and never implying the ward has said "any time".
