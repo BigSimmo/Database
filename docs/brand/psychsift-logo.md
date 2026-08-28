@@ -35,6 +35,12 @@ Three deliberate corrections were made to the original:
 3. **Every junction is tangent-continuous.** Consecutive arcs share a tangent at their meeting
    point, so there is no visible kink at any size.
 
+**The terminals are sharp, and that matters.** Both tips of each stroke come to a genuine point —
+a cusp, where the outer sweep runs into the inner edge. At the size the original was drawn, a sharp
+point blurs into a rounded blob, and an earlier pass of this file was fitted to that blur and gave
+the mark rounded club-ends. It was wrong: enlarging the original shows a clean horn at the head and
+a taper at the tail. Nothing is rounded off here.
+
 ## Construction
 
 Work in **glyph units**: the S is exactly 100 units tall and 54.8 wide, with its top-left corner at
@@ -43,25 +49,28 @@ the origin. The whole mark is one stroke plus a 180° rotation of that same stro
 
 ### The stroke
 
-Six circular arcs, in order around the outline:
+Four circular arcs, meeting at two tangent points and two sharp cusps:
 
-| #   | Arc           | Centre         | Radius | Role                                    |
-| --- | ------------- | -------------- | ------ | --------------------------------------- |
-| 1   | Head terminal | (38.66, 3.37)  | 2.0    | rounded tip of the head                 |
-| 2   | Throat        | (44.20, 20.50) | 16.0   | the scoop under the head                |
-| 3   | Elbow         | (24.13, 34.55) | 8.5    | the outward flick into the tail         |
-| 4   | Tail inner    | (51.95, 64.67) | 32.5   | the long inner sweep of the tail        |
-| 5   | Tail terminal | (18.53, 55.33) | 2.2    | rounded tip of the tail                 |
-| 6   | Outer sweep   | (30.00, 30.00) | 30.0   | the whole outer edge, head back to tail |
+| Arc         | Centre         | Radius | Role                                     |
+| ----------- | -------------- | ------ | ---------------------------------------- |
+| Outer sweep | (30.00, 30.00) | 30.0   | the whole outer edge, head round to tail |
+| Throat      | (46.25, 20.45) | 20.0   | the scoop under the head                 |
+| Elbow       | (27.49, 35.74) | 4.2    | the outward flick into the tail          |
+| Tail inner  | (59.30, 67.85) | 41.0   | the long inner sweep of the tail         |
 
-Arcs 2, 3 and 4 are mutually tangent: the distance between the centres of 2 and 3 equals
-16.0 + 8.5, and between 3 and 4 equals 8.5 + 32.5. The two terminals are each tangent internally to
-arc 6 and externally to their neighbour, which is what makes the tips round rather than pointed.
+- **Head cusp** at (39.6152, 1.5826) — where the outer sweep meets the throat.
+- **Tail cusp** at (19.4776, 58.0941) — where the tail inner arc meets the outer sweep.
+- **Tangent points** at (30.7462, 33.0846), throat into elbow, and (30.4462, 38.7217), elbow into
+  tail.
 
-**Adjusting the weight.** One number controls how heavy the stroke is: shift the inner boundary
-outward by `d` by setting radius 2 to `17.5 − d`, radius 3 to `7.0 + d`, and radius 4 to `34.0 − d`.
-Tangency survives automatically, because the three constraints only involve sums of consecutive
-radii. The primary mark uses **d = 1.5**.
+The elbow is not a free choice: its centre is _derived_ from tangency to its two neighbours, so
+the distance from the throat's centre to it equals 20.0 + 4.2, and from it to the tail's centre
+equals 4.2 + 41.0. Change any radius and the elbow relocates so both tangencies still hold exactly.
+
+**Adjusting the weight.** The tail radius is the control. Shrinking it thickens the tail and
+narrows the navy channel between the two strokes; the head cusp does not move, because only the
+throat radius decides where that lands. At 41.0 the narrowest point of the channel is 5.8 units,
+which matches the original.
 
 ### The point trail
 
@@ -83,9 +92,10 @@ heavy S off to the left.
 ### Small sizes
 
 At 32 px and below, the navy channel between the two strokes closes up. `psychsift-favicon.svg` is
-a separate optical cut for that range: weight `d = 0.6` and rotation centre `(28.2, 50)`, which
-opens the channel by 60% while widening the silhouette by only 3%, and it drops the two blue points
-and enlarges the S. Use it for favicons, browser tabs, and anything rendered under 32 px.
+a separate optical cut for that range: the tail radius opens out to 43.5 and the rotation centre
+moves to (28.0, 50), which doubles the channel to 11.6 units while widening the silhouette by only
+2%. It also drops the two blue points and enlarges the S. Use it for favicons, browser tabs, and
+anything rendered under 32 px.
 
 ## Colours
 
