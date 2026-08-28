@@ -98,6 +98,7 @@ export const WARD_NAV: readonly WardNavItem[] = [
   { id: "discharges", href: "/mockups/ward-flow/discharges", label: "Discharges", group: "board" },
   { id: "morning", href: "/mockups/ward-flow/morning", label: "Morning bed state", group: "board" },
   { id: "referrals", href: "/mockups/ward-flow/referrals", label: "Referral board", group: "board" },
+  { id: "out-of-area", href: "/mockups/ward-flow/out-of-area", label: "Out of area", group: "board" },
 ];
 
 /**

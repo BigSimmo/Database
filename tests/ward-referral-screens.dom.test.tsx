@@ -15,6 +15,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
@@ -29,11 +30,16 @@ import {
   type Referral,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
+import type { Admission } from "@/components/ward-management/ward-admissions";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
 import {
+  INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
   NOT_RECORDED_LABEL,
+  OUT_OF_AREA_BANDS,
   SYNTHETIC_TRAVEL_TIMES_NOTICE,
+  travelBand,
   TRAVEL_BAND_LABELS,
   TRAVEL_BANDS,
   unitTravelBand,
@@ -1092,5 +1098,228 @@ describe("ReferralMatchView — the optional local-bed step is never owed", () =
     // Nothing was refused, and the referral is still queued — this step is not a decision.
     expect(screen.queryByTestId("ward-referral-match-rejection")).not.toBeInTheDocument();
     expect(screen.getByTestId("ward-referral-board-select-RF-005")).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * Phase 8, Task 5: the out-of-area ledger screen.
+ * ------------------------------------------------------------------------------------------- */
+
+function renderLedger(admissions?: Admission[]) {
+  return render(
+    <WardFlowProvider initialNow={NOW_ANCHOR}>
+      {admissions === undefined ? <OutOfAreaBoard /> : <OutOfAreaBoard admissions={admissions} />}
+    </WardFlowProvider>,
+  );
+}
+
+/**
+ * Admissions the band table cannot place at all — built by asking `travelBand` directly, never by
+ * calling `outOfAreaLedger`. An expectation computed from the very derivation the screen calls
+ * would move with it, so a screen that classified by something else entirely would still agree
+ * with its own expectation.
+ *
+ * This is also the fixture the seeded records cannot produce on their own: a screen where the
+ * unclassified count is the only non-zero number. That is the state whose wording goes wrong most
+ * easily, because there is nothing else on the page to anchor the reader against.
+ */
+function unclassifiableAdmissions(): Admission[] {
+  const units = allUnits();
+  return wardAdmissions.filter((admission) => {
+    if (admission.state !== "occupied" || admission.arrivedAt === null) return false;
+    const unit = units.find((candidate) => candidate.id === admission.unitId);
+    return unit !== undefined && travelBand(admission.homeRegion, unit.siteCode) === undefined;
+  });
+}
+
+/** Admissions the band table places OUT of area, again asked of `travelBand` directly. */
+function outOfAreaAdmissions(): Admission[] {
+  const units = allUnits();
+  return wardAdmissions.filter((admission) => {
+    if (admission.state !== "occupied" || admission.arrivedAt === null) return false;
+    const unit = units.find((candidate) => candidate.id === admission.unitId);
+    if (unit === undefined) return false;
+    const band = travelBand(admission.homeRegion, unit.siteCode);
+    return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
+  });
+}
+
+function ledgerText(): string {
+  return screen.getByTestId("ward-out-of-area-board").textContent ?? "";
+}
+
+describe("OutOfAreaBoard — the two governance notices", () => {
+  it("renders the invented-threshold notice as a whole sentence, not an abbreviation of one", () => {
+    // Asserted as the WHOLE string. A `toContain` on its first clause would stay green against a
+    // screen that truncated the notice, which is the exact failure this screen cannot afford: the
+    // threshold is this prototype's own invention, and the half of the sentence that says so is
+    // the half a truncation drops.
+    renderLedger();
+    expect(screen.getByTestId("ward-out-of-area-threshold-notice").textContent).toBe(
+      INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
+    );
+  });
+
+  it("renders the synthetic-travel-times notice as a whole sentence, because bands are shown here", () => {
+    renderLedger();
+    expect(screen.getByTestId("ward-out-of-area-synthetic-notice").textContent).toBe(SYNTHETIC_TRAVEL_TIMES_NOTICE);
+  });
+
+  it("keeps both notices above the entries rather than in a footnote below them", () => {
+    // Position is part of the requirement, not presentation: a disclaimer met only after the
+    // number it disclaims has already been read is a footnote, and a footnote is what gets left
+    // out of the screenshot somebody pastes into a meeting.
+    renderLedger();
+    const board = screen.getByTestId("ward-out-of-area-board");
+    const order = Array.from(board.querySelectorAll("[data-testid]")).map((node) => node.getAttribute("data-testid"));
+    // Presence is asserted before position, or a DELETED notice would satisfy "above the entries"
+    // with an index of -1 and this test would pass on the worst possible screen.
+    expect(order).toContain("ward-out-of-area-threshold-notice");
+    expect(order).toContain("ward-out-of-area-synthetic-notice");
+    expect(order).toContain("ward-out-of-area-entries");
+    expect(order.indexOf("ward-out-of-area-threshold-notice")).toBeLessThan(order.indexOf("ward-out-of-area-entries"));
+    expect(order.indexOf("ward-out-of-area-synthetic-notice")).toBeLessThan(order.indexOf("ward-out-of-area-entries"));
+  });
+
+  it("carries the standing not-a-medical-device banner every sibling board carries", () => {
+    renderLedger();
+    expect(screen.getByTestId("ward-out-of-area-governance")).toHaveTextContent("not a medical device");
+  });
+});
+
+describe("OutOfAreaBoard — two counts that share no denominator", () => {
+  it("states both numbers, each as its own sentence, on the seeded records", () => {
+    renderLedger();
+    const expectedOutOfArea = outOfAreaAdmissions().length;
+    const expectedUnclassified = unclassifiableAdmissions().length;
+    // The fixture's own shape is why this screen is dangerous: the unclassified count is far the
+    // larger of the two. Asserted as a relation, never as a pinned total — pinning either would
+    // pin a consequence of the invented band table.
+    expect(expectedUnclassified).toBeGreaterThan(expectedOutOfArea);
+    expect(expectedOutOfArea).toBeGreaterThan(0);
+
+    expect(screen.getByTestId("ward-out-of-area-count-people")).toHaveTextContent(
+      `${expectedOutOfArea} people are recorded as being in a bed far from home.`,
+    );
+    expect(screen.getByTestId("ward-out-of-area-count-not-banded")).toHaveTextContent(
+      `${expectedUnclassified} more could not be placed in a band because this prototype holds no travel time for their home region.`,
+    );
+  });
+
+  it("still states the unclassified count when it is the only non-zero number", () => {
+    // The state the seeded records cannot reach. A screen that rendered this count only alongside
+    // entries would go silent exactly where the gap is total — and a silent gap reads as no gap.
+    const unclassifiable = unclassifiableAdmissions();
+    expect(unclassifiable.length).toBeGreaterThan(0);
+    renderLedger(unclassifiable);
+
+    expect(screen.getByTestId("ward-out-of-area-count-not-banded")).toHaveTextContent(
+      `${unclassifiable.length} more could not be placed in a band because this prototype holds no travel time for their home region.`,
+    );
+    expect(screen.getByTestId("ward-out-of-area-count-people")).toHaveTextContent(
+      "0 people are recorded as being in a bed far from home.",
+    );
+  });
+
+  it("presents neither number as a share, a fraction or a percentage of the other", () => {
+    renderLedger();
+    const text = ledgerText();
+    // No "18 of 235", no "18/235", no "7.7%", and no meter or progress element that would draw one
+    // number inside the other. At the seeded ratio of roughly twelve to one, any of those would be
+    // the dominant reading of the screen, and it would be false.
+    expect(text).not.toMatch(/\d+\s*(?:of|out of|\/)\s*\d+/);
+    expect(text).not.toContain("%");
+    const board = screen.getByTestId("ward-out-of-area-board");
+    expect(board.querySelector("progress")).toBeNull();
+    expect(board.querySelector("[role='progressbar']")).toBeNull();
+    expect(board.querySelector("[role='meter']")).toBeNull();
+  });
+});
+
+describe("OutOfAreaBoard — what the screen says it is", () => {
+  it("says the list is seeded and not a live count", () => {
+    renderLedger();
+    const provenance = screen.getByTestId("ward-out-of-area-provenance");
+    expect(provenance).toHaveTextContent("This is not a live statewide count.");
+    expect(provenance).toHaveTextContent("this prototype does not record admissions as they happen");
+  });
+
+  it("never claims that nobody leaves this ledger", () => {
+    /*
+     * The sentence this task originally mandated, forbidden on 2026-08-29 (D8-9). An `Admission`
+     * ends — `state: "left"`, `leftAt` — and `outOfAreaLedger` excludes anybody not currently
+     * holding a bed, so a screen saying otherwise would state something false as fact. This guard
+     * is the only thing standing between a plausible-sounding sentence and a clinical screen,
+     * because it is exactly the kind of claim a reader has no way to check.
+     */
+    renderLedger();
+    const text = ledgerText().toLowerCase();
+    for (const forbidden of [
+      "no record of anyone leaving",
+      "nobody ever leaves",
+      "never leaves this ledger",
+      "nobody leaves this ledger",
+    ]) {
+      expect(text, `the ledger screen must not claim "${forbidden}"`).not.toContain(forbidden);
+    }
+    // The true half is present, so this test cannot be satisfied by the paragraph being deleted.
+    expect(screen.getByTestId("ward-out-of-area-provenance")).toHaveTextContent(
+      "Somebody who has left their bed is not on this list",
+    );
+  });
+});
+
+describe("OutOfAreaBoard — the entries", () => {
+  it("shows home region, unit and band for every out-of-area admission", () => {
+    renderLedger();
+    const expected = outOfAreaAdmissions();
+    expect(expected.length).toBeGreaterThan(0);
+    const units = allUnits();
+    for (const admission of expected) {
+      const row = screen.getByTestId(`ward-out-of-area-row-${admission.id}`);
+      const unit = units.find((candidate) => candidate.id === admission.unitId)!;
+      expect(row).toHaveTextContent(admission.homeRegion);
+      expect(row).toHaveTextContent(unit.name);
+      expect(row).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(admission.homeRegion, unit.siteCode)!]);
+    }
+  });
+
+  it("renders the entries in the records' own order, ranking nobody", () => {
+    /*
+     * The expected order is taken from `wardAdmissions` itself, never from `outOfAreaLedger` — an
+     * expectation read out of the derivation under test would follow it into any sort it grew.
+     *
+     * This is the phase's defining hazard in its sharpest form. A sort by elapsed time here would
+     * be a ranking of people by how recently they were sent away, which reads as a repatriation
+     * priority nobody has decided, and nothing on the screen would look wrong.
+     */
+    renderLedger();
+    const expectedIds = outOfAreaAdmissions().map((admission) => admission.id);
+    const renderedIds = Array.from(
+      screen.getByTestId("ward-out-of-area-table").querySelectorAll("tr[data-testid]"),
+    ).map((row) => (row.getAttribute("data-testid") ?? "").replace(/^ward-out-of-area-row-/, ""));
+    expect(renderedIds).toEqual(expectedIds);
+  });
+
+  it("shows elapsed time and nothing that reads as a deadline", () => {
+    // No countdown, no target, no "overdue", no "left". `formatElapsed` is not reused either: it
+    // appends "waiting", and somebody in a bed far from home is not waiting for anything this
+    // prototype has recorded.
+    renderLedger();
+    const entries = (screen.getByTestId("ward-out-of-area-entries").textContent ?? "").toLowerCase();
+    for (const word of ["overdue", "target", "deadline", "breach", "waiting", "remaining", " left", " due"]) {
+      expect(entries, `"${word.trim()}" reads as a deadline on a screen that has none`).not.toContain(word);
+    }
+    // And an elapsed duration really is rendered, so the absence above is not absence of the whole
+    // column.
+    expect(entries).toMatch(/\d+h \d{2}m|\d+m/);
+  });
+
+  it("says plainly that nobody is out of area rather than showing an empty region", () => {
+    renderLedger([]);
+    expect(screen.getByTestId("ward-out-of-area-empty")).toHaveTextContent(
+      "Nobody on these records is in a bed far from home.",
+    );
+    expect(screen.queryByTestId("ward-out-of-area-table")).not.toBeInTheDocument();
   });
 });

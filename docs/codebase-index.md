@@ -460,7 +460,23 @@ it) from clinical discovery entirely.
   fabricated number or a bare zero. Dispatches `ACCEPT_REFERRAL`/`DECLINE_REFERRAL`
   with role `coordinator`; a reducer refusal (including the failing gate's own name) surfaces as a
   visible `Rejection` rather than being swallowed. Not yet linked from the rail/panel/drawer nav —
-  recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6)
+  recorded in `WARD_NAV_INTENTIONALLY_UNLISTED` (`ward-nav.ts`) pending Task 6),
+  `out-of-area/out-of-area-board.tsx` (Phase 8 Task 5, spec D8-3: the out-of-area ledger —
+  `/mockups/ward-flow/out-of-area`, a `board` entry in `WARD_NAV` beside Handover, Escalation,
+  Discharges, Morning and the referral board. Renders `outOfAreaLedger` (`ward-referrals.ts`) and
+  recomputes nothing: one row per person currently in a bed the invented travel-time table places
+  three hours or more from home or reachable only by air, showing home region, unit, band label and
+  elapsed time since arrival — no countdown, no target, no threshold colour. Entries render in the
+  records' own order with no comparator anywhere in the file; a sort by elapsed time would read as
+  a repatriation ranking nobody has decided. The ledger's two counts are stated as two separate
+  sentences that share no denominator — people out of area, and admissions the table cannot place
+  at all, the second roughly twelve times the first on the seeded records — with no fraction,
+  percentage or progress element permitted by test. Both
+  `INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE` and `SYNTHETIC_TRAVEL_TIMES_NOTICE` are imported from
+  `ward-distance.ts` and rendered whole, above the entries. The only ward screen that reads the
+  admission seed, and it does so as a default parameter: `Admission` is not in reducer state and no
+  event creates or ends one, so the screen states in its own words that the list is seeded and is
+  not a live count)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)

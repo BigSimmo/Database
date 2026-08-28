@@ -38,6 +38,7 @@ import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
@@ -100,14 +101,15 @@ const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((ent
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
   it("finds every known page.tsx under src/app/mockups/ward-flow, both static and dynamic", () => {
-    // 20 page.tsx files measured on this branch at HEAD: 17 static + 3 dynamic
+    // 21 page.tsx files measured on this branch at HEAD: 18 static + 3 dynamic
     // (ed/[edId], patients/[patientId], ward/[unitId]) — Task 6 added the discharges board,
     // Phase 6 Task 2 added the morning bed state page, Phase 7 Task 4 added the referral intake
-    // form's route (referrals/new), Phase 7 Task 5 added the referral board's route (referrals).
+    // form's route (referrals/new), Phase 7 Task 5 added the referral board's route (referrals),
+    // Phase 8 Task 5 added the out-of-area ledger's route (out-of-area).
     // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
     // handful, and every assertion below would then vacuously pass — so this is checked before
     // trusting any of them.
-    expect(wardFlowRoutes.length).toBe(20);
+    expect(wardFlowRoutes.length).toBe(21);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -116,6 +118,7 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/morning`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals/new`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals`);
+    expect(staticRoutes).toContain(`${ROUTE_PREFIX}/out-of-area`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/transport/officer`);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ward/rph-adult-secure`))).toBe(true);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ed/peel-ed`))).toBe(true);
@@ -220,6 +223,24 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
     expect(WARD_NAV_INTENTIONALLY_UNLISTED.has(WARD_REFERRAL_INTAKE_HREF)).toBe(true);
     expect(WARD_REFERRAL_INTAKE_HREF).toBe("/mockups/ward-flow/referrals/new");
     expect(staticRoutes, "the intake route the constant names must exist on disk").toContain(WARD_REFERRAL_INTAKE_HREF);
+  });
+
+  /**
+   * Phase 8 Task 5, pinned by name for the same reason the referral board above is: direction 2 of
+   * the two-way check is satisfied by a route being in EITHER a nav array OR
+   * `WARD_NAV_INTENTIONALLY_UNLISTED`, so it stays green if the out-of-area ledger silently moves
+   * out of the rail into the exemption map. Which of the two it lands in is the decision — the
+   * ledger is the phase's headline screen and a coordinator has to be able to reach it — so that
+   * is what needs the assertion.
+   */
+  it("puts the out-of-area ledger in the coordinator's boards", () => {
+    const board = WARD_NAV.find((item) => item.href === "/mockups/ward-flow/out-of-area");
+    expect(board, "the out-of-area ledger must be a WARD_NAV destination, not an unlisted exemption").toBeDefined();
+    expect(board?.group).toBe("board");
+    expect(board?.label).toBe("Out of area");
+    expect(staticRoutes, "the route the nav entry names must exist on disk").toContain(
+      "/mockups/ward-flow/out-of-area",
+    );
   });
 
   it("groups every item as either a role screen or a specialist board", () => {
@@ -339,6 +360,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   },
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
   { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
+  { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
 ];
 
 describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on the map)", () => {
@@ -350,7 +372,7 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
-    expect(RENDERABLE_ROUTES.length).toBe(19);
+    expect(RENDERABLE_ROUTES.length).toBe(20);
   });
 });
 

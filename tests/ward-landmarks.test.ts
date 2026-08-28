@@ -47,6 +47,7 @@ import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
@@ -113,6 +114,7 @@ type RouteRender = { route: string; render: () => ReactNode };
  * `/mockups/ward-flow/referrals/new` (Phase 7 Task 4, `ReferralIntakeForm`) added this entry in
  * the same commit that added the route, precisely to avoid repeating that omission.
  * `/mockups/ward-flow/referrals` (Phase 7 Task 5, `ReferralBoard`) does the same.
+ * `/mockups/ward-flow/out-of-area` (Phase 8 Task 5, `OutOfAreaBoard`) does the same again.
  */
 const RENDERABLE_ROUTES: RouteRender[] = [
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
@@ -137,16 +139,17 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   },
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
   { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
+  { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 20 measured on this branch (19 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 21 measured on this branch (20 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
-    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 20, not 19: Phase 7 Task 5
-    // added `/mockups/ward-flow/referrals` (`ReferralBoard`) — see RENDERABLE_ROUTES's own doc
+    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
+    // added `/mockups/ward-flow/out-of-area` (`OutOfAreaBoard`) — see RENDERABLE_ROUTES's own doc
     // comment.
-    expect(wardFlowRoutes.length).toBe(20);
+    expect(wardFlowRoutes.length).toBe(21);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -158,8 +161,8 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 19 entries, one per live route", () => {
-    expect(RENDERABLE_ROUTES.length).toBe(19);
+  it("RENDERABLE_ROUTES has exactly 20 entries, one per live route", () => {
+    expect(RENDERABLE_ROUTES.length).toBe(20);
   });
 });
 

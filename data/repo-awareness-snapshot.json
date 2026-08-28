@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59dcd56d1635559da7432de72da0954cee47ea23",
-    "committed_at": "2026-08-28T05:31:35+08:00"
+    "sha": "403a43f0696c23ae80e1035b6488402c897588dd",
+    "committed_at": "2026-08-29T06:44:08+08:00"
   },
   "routes": {
     "modes": [
@@ -944,6 +944,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/out-of-area",
+        "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/patients/[patientId]",
         "file": "src/app/mockups/ward-flow/patients/[patientId]/page.tsx",
         "area": "mockup"
@@ -1412,9 +1417,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 198,
+      "pages": 199,
       "product_pages": 55,
-      "mockup_pages": 143,
+      "mockup_pages": 144,
       "redirects": 17,
       "api": 58
     }
@@ -3187,6 +3192,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-08-28-ward-flow-phase-8-distance.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-28-ward-flow-ward-board.md",
         "section": "superpowers",
         "catalogued": false
@@ -3537,6 +3547,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-handover-after-phase-7.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-2-kickoff.md",
         "section": "root",
         "catalogued": false
@@ -3837,6 +3852,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-9-decisions.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
         "catalogued": false
@@ -3937,9 +3957,9 @@
       }
     ],
     "counts": {
-      "documents": 491,
+      "documents": 494,
       "catalogued": 106,
-      "uncatalogued": 385,
+      "uncatalogued": 388,
       "sections": 19
     }
   },

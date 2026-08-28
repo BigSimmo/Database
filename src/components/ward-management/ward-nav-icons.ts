@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ListFilter,
   LogOut,
+  Milestone,
   Route,
   Search,
   ShieldCheck,
@@ -50,4 +51,7 @@ export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
   discharges: LogOut,
   morning: Sunrise,
   referrals: Inbox,
+  // A distance marker on a road, deliberately not a map pin or a compass: this destination is
+  // about how far somebody is from home, and nothing in Phase 8 may assert where any hospital is.
+  "out-of-area": Milestone,
 };
