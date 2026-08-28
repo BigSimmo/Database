@@ -294,6 +294,25 @@ function addCalendarMonths(parts: CalendarParts, amount: number): CalendarParts 
   return { year, month, day: Math.min(parts.day, daysInMonth(year, month)) };
 }
 
+/**
+ * The AWST calendar day a whole number of calendar months away from another one, clamping to the
+ * last day of a shorter target month -- exactly the rule `addCalendarMonths` above applies to build
+ * this schedule's own Month-N cadence. `null` for an input that is not a real AWST calendar day,
+ * matching `firstContactDayBounds` above.
+ *
+ * EXPORTED FOR THE DEMO SEED. It needs to place a plan's own discharge day a fixed number of
+ * calendar months before "now" so a later cadence entry this same module builds forward from that
+ * discharge day lands exactly on today. A negative `months` here has to be the same arithmetic
+ * `buildApprovedSchedule` uses going forward, or the two could disagree about what "N months" means
+ * on a month-length boundary -- which is exactly the kind of second copy this file's other exports
+ * (`firstContactDayBounds`, `SENDING_PREFERENCE_OPTIONS`) exist to avoid.
+ */
+export function calendarDayPlusMonths(calendarDay: string, months: number): string | null {
+  const parsed = parseCalendarDay(calendarDay);
+  if (!parsed) return null;
+  return formatCalendarDay(addCalendarMonths(parsed, months));
+}
+
 function differenceInCalendarDays(later: CalendarParts, earlier: CalendarParts): number {
   return Math.round((toUtcCursor(later).getTime() - toUtcCursor(earlier).getTime()) / MILLISECONDS_PER_DAY);
 }

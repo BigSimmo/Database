@@ -59,9 +59,10 @@ import {
 } from "@/lib/caring-contacts-server/demo-seed";
 import { demoActorForRole } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACTS_STORE_GLOBAL_KEY, caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { systemClock } from "@/lib/caring-contacts/clock";
+import { awstCalendarDay, systemClock } from "@/lib/caring-contacts/clock";
 import { pathwayVersionId as toPathwayVersionId, planId as toPlanId } from "@/lib/caring-contacts/ids";
 import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
+import { DISPATCHED_CONTACT_STATES } from "@/lib/caring-contacts/model";
 import { PATHWAY_VERSION_PROVENANCE_WORDING } from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
@@ -320,6 +321,39 @@ describe("the seeded population", () => {
 
     for (const text of seededText) {
       expect(text).not.toMatch(CARING_CONTACTS_PROHIBITED_LANGUAGE);
+    }
+  });
+
+  // Round 2. The previous round of this seed advanced Week 1, Month 1 and Month 2 through the real
+  // dispatch path while Rowan's plan was discharged only one day ago -- so all three of those
+  // contacts' own scheduled days were still in the FUTURE, and the patient overview reported
+  // messages already sent (two with a delivery receipt, one failed) for dates that had not
+  // happened yet. Nothing in the write path caught this: `startContactDispatch` only checks that
+  // the plan is active, never that the contact's own day has arrived, so a self-contradictory
+  // timeline was structurally valid and every existing test above stayed green while seeding it.
+  // This is the guard that specific defect needs: any contact whose state means the message
+  // already left (`DISPATCHED_CONTACT_STATES` -- sent, delivered, or any provider exception) must
+  // sit on or before the current AWST day, for every seeded plan, not only Rowan's.
+  it("never advances a contact past scheduled while its own day is still in the future", async () => {
+    const store = await seededStore();
+    const today = awstCalendarDay(systemClock().now());
+    const plans = await store.listPlans({ actor: coordinator });
+
+    const dispatchedContacts = (
+      await Promise.all(
+        plans.map((record) => store.listContacts(toPlanId(record.plan.id), { actor: coordinator })),
+      )
+    )
+      .flat()
+      .filter((entry) => DISPATCHED_CONTACT_STATES.includes(entry.contact.state));
+
+    // Guards the guard: a population that dispatched nothing would satisfy the loop below by
+    // checking nothing at all, exactly the Round 1, I4 trap the two tests above this one already
+    // name. The seed's own module note promises three attempted contacts on Rowan's plan alone.
+    expect(dispatchedContacts.length).toBeGreaterThan(0);
+
+    for (const entry of dispatchedContacts) {
+      expect(entry.planned.calendarDay <= today).toBe(true);
     }
   });
 });

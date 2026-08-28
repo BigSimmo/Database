@@ -5,6 +5,7 @@ import { awstCalendarDay, toAwstParts } from "@/lib/caring-contacts/clock";
 import {
   APPROVED_SEND_WINDOW,
   buildApprovedSchedule,
+  calendarDayPlusMonths,
   FIRST_CONTACT_REASON_MAX_LENGTH,
   firstContactDayBounds,
   SENDING_PREFERENCE_OPTIONS,
@@ -363,6 +364,36 @@ describe("firstContactDayBounds — the range a screen may offer (Phase 2B Task 
     expect(firstContactDayBounds("")).toBeNull();
     expect(firstContactDayBounds("2026-02-30")).toBeNull();
     expect(firstContactDayBounds("10/03/2026")).toBeNull();
+  });
+});
+
+describe("calendarDayPlusMonths — the arithmetic the demo seed re-discharges a plan against (Ruling 159)", () => {
+  // The demo seed needs to place a plan's own discharge day a fixed number of calendar months
+  // before "now" so a later Month-N cadence entry lands exactly on today. These cases check the
+  // exported function against the schedule it is meant to agree with, not against a second,
+  // hand-typed set of dates that could quietly drift away from it.
+  const dischargeDay = awstCalendarDay(discharge); // 2026-03-10
+
+  it("agrees with the Month-N cadence buildApprovedSchedule itself builds forward", () => {
+    const contacts = ok(buildApprovedSchedule({ dischargeAt: discharge, sendingPreference: "morning" }));
+    const monthTwo = contacts.find((contact) => contact.cadenceLabel === "Month 2");
+    expect(monthTwo).toBeDefined();
+    expect(calendarDayPlusMonths(dischargeDay, 2)).toBe(monthTwo!.calendarDay);
+  });
+
+  it("goes backwards for a negative amount, which is what the demo seed actually uses", () => {
+    expect(calendarDayPlusMonths("2026-08-29", -2)).toBe("2026-06-29");
+  });
+
+  it("clamps to the last day of a shorter target month, in both directions", () => {
+    expect(calendarDayPlusMonths("2026-01-31", 1)).toBe("2026-02-28"); // 2026 is not a leap year
+    expect(calendarDayPlusMonths("2026-03-31", -1)).toBe("2026-02-28");
+  });
+
+  it("answers null for a day that is not a real AWST calendar day", () => {
+    expect(calendarDayPlusMonths("", 2)).toBeNull();
+    expect(calendarDayPlusMonths("2026-02-30", 2)).toBeNull();
+    expect(calendarDayPlusMonths("10/03/2026", 2)).toBeNull();
   });
 });
 

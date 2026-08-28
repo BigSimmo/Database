@@ -51,6 +51,7 @@
 import "server-only";
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 
+import { awstCalendarDay, awstWallTimeToInstant } from "@/lib/caring-contacts/clock";
 import type { Clock } from "@/lib/caring-contacts/clock";
 import { idempotencyKey, patientId, pathwayVersionId, planId, referralId } from "@/lib/caring-contacts/ids";
 import type { PathwayVersionId, PlanId, ReferralId } from "@/lib/caring-contacts/ids";
@@ -65,7 +66,7 @@ import type {
   StoredContact,
   WriteContext,
 } from "@/lib/caring-contacts/repository";
-import { buildApprovedSchedule } from "@/lib/caring-contacts/schedule";
+import { buildApprovedSchedule, calendarDayPlusMonths } from "@/lib/caring-contacts/schedule";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { demoActorForRole, demoSystemDispatcher, isCaringContactsDemoEnabled } from "./session";
@@ -136,13 +137,6 @@ const DEMO_SEED_MESSAGE_TEXT: Readonly<Record<MessageType, string>> = Object.fre
  */
 const CULTURAL_IDENTITY_NOT_STATED = "Not stated";
 
-/**
- * AWST is UTC+8 year-round (../clock.ts), so subtracting an exact multiple of this from any
- * instant always shifts its AWST calendar day back by exactly that many days -- there is no
- * daylight-saving boundary here for the arithmetic to cross.
- */
-const MILLISECONDS_PER_DAY = 86_400_000;
-
 type DemoPlanSeed = {
   planIdentifier: string;
   sendingPreference: SendingPreference;
@@ -150,19 +144,23 @@ type DemoPlanSeed = {
   finalState: "active" | "paused" | "withdrawn";
   patientDetail: EpisodePatientDetail;
   /**
-   * Whole days this plan's OWN discharge instant is pushed before the shared `dischargeAt` the
-   * pathway snapshot uses. Default 0.
+   * Whole calendar months this plan's OWN discharge day is pushed before the shared `dischargeAt`
+   * the pathway snapshot uses, computed with `calendarDayPlusMonths` (a negative offset) rather than
+   * a fixed count of days -- see that function's own note on why a second, day-approximated copy of
+   * month arithmetic would be able to disagree with `buildApprovedSchedule`'s. Default 0.
    *
    * WHY THIS IS THE LEVER, checked against the schedule rather than assumed. `buildApprovedSchedule`
-   * puts the first contact at discharge + 1 day (`FIRST_CONTACT_DEFAULT_OFFSET_DAYS`), so a plan
-   * discharged one day before the shared instant opens its "Day 1" contact on the current AWST day.
-   * A single contact COULD instead be moved with `rescheduleContact`'s `changeContactDate` branch,
-   * but that write requires a non-blank reason and a recorded team-lead approval -- both of them
-   * free text or an attestation about why this invented patient's date moved, for a contact that has
-   * no other reason to move. Re-discharging the plan a day early tells the truer story ("what is due
-   * today" is what a plan actually discharged yesterday puts there) without inventing either.
+   * puts Month N at discharge + N calendar months (`MONTH_OFFSETS`), so a plan discharged exactly N
+   * months before the shared instant opens its "Month N" contact on the current AWST day -- and
+   * because the shift is in calendar months, that holds whatever day of the year the seed runs on,
+   * not only on the one day it was written. A single contact COULD instead be moved with
+   * `rescheduleContact`'s `changeContactDate` branch, but that write requires a non-blank reason and
+   * a recorded team-lead approval -- both of them free text or an attestation about why this
+   * invented patient's date moved, for a contact that has no other reason to move. Re-discharging
+   * the plan tells the truer story ("what is due today" is what a plan actually discharged that many
+   * months ago puts there) without inventing either.
    */
-  dischargeDaysBeforeShared?: number;
+  dischargeMonthsBeforeShared?: number;
   /**
    * Claim this plan for the demo coordinator once it is active. Never set on every plan in
    * `DEMO_SEED_PEOPLE`: the roster needs one coordinator visibly carrying work, and the unclaimed-
@@ -181,8 +179,10 @@ type DemoPlanSeed = {
    * provider-reported exception -- exactly what `deliveryExceptionExplanation`
    * (schedule-screen.tsx) and the Schedule screen's `resolve-failed-delivery` trigger need a
    * subject for, and what `contactSendability` needs to offer `delivery-detail` on the patient
-   * overview. A plan that ALSO sets `dischargeDaysBeforeShared` must never name "Day 1" here --
-   * leaving that one contact untouched at `scheduled` is what makes it show as due today.
+   * overview. A plan that ALSO sets `dischargeMonthsBeforeShared` (call it N) must never name
+   * "Month N" here -- leaving that one contact untouched at `scheduled` is what makes it show as
+   * due today, and naming it here besides would attempt a contact whose own date is still in the
+   * future, which is exactly the incoherent state this module exists not to seed.
    */
   attemptedContacts?: readonly { key: string; cadenceLabel: string; outcome: ProviderStatus }[];
 };
@@ -243,15 +243,24 @@ type DemoPersonSeed = {
  *     unclaimed on purpose: the unclaimed-work escalation (spec 4.2) needs a subject too, and a
  *     population where every plan was claimed would delete that observation as completely as one
  *     where none was;
- *   * Rowan's plan is discharged one day before the shared `dischargeAt`, so its "Day 1" contact
- *     falls on the current AWST day and the Schedule screen opens on a populated day instead of an
- *     empty one. See `DemoPlanSeed.dischargeDaysBeforeShared` for why this is the lever the domain
- *     actually offers;
- *   * three more of Rowan's contacts are advanced past `scheduled` through the real dispatch path,
- *     two to a successful `delivered` outcome and one -- deliberately the CLOSEST to today, so
- *     paging the Schedule screen forward reaches it in a couple of clicks rather than dozens -- to
- *     `notDelivered`. That is what gives `delivery-detail` and `resolve-failed-delivery` an actual
- *     subject; see `DemoPlanSeed.attemptedContacts`.
+ *   * Rowan's plan is discharged two calendar months before the shared `dischargeAt`, so its
+ *     "Month 2" contact falls on the current AWST day and the Schedule screen opens on a populated
+ *     day instead of an empty one. See `DemoPlanSeed.dischargeMonthsBeforeShared` for why this is
+ *     the lever the domain actually offers, and why it has to be calendar months rather than a
+ *     fixed day count;
+ *   * three of Rowan's EARLIER contacts -- "Day 1", "Week 1" and "Month 1", every one of them
+ *     already in the past under that same re-discharge -- are advanced past `scheduled` through the
+ *     real dispatch path, two to a successful `delivered` outcome and one -- deliberately "Month 1",
+ *     the CLOSEST of the three to today, so paging the Schedule screen forward reaches it in a
+ *     couple of clicks rather than dozens -- to `notDelivered`. That is what gives `delivery-detail`
+ *     and `resolve-failed-delivery` an actual subject; see `DemoPlanSeed.attemptedContacts`.
+ *
+ *     WHY ONLY THE PAST THREE, AND NEVER "MONTH 2" ITSELF OR ANYTHING AFTER IT: a contact that has
+ *     not been reached yet cannot honestly carry an outcome. An earlier round of this seed
+ *     attempted contacts whose own scheduled date was still in the future, which is what let the
+ *     patient overview claim messages had already been sent for a plan whose only due-or-past
+ *     contact was still `scheduled` -- self-contradictory on its face. Every attempted contact here
+ *     is checked to sit on or before the current AWST day; see `tests/caring-contacts-demo-seed.test.ts`.
  * Mira and Ari are left exactly as before: a paused plan and a withdrawn one are the OTHER two
  * states the caseload has to show, and neither can also carry an active dispatch -- the store
  * refuses `startContactDispatch` on anything but an active plan, correctly.
@@ -266,13 +275,14 @@ const DEMO_SEED_PEOPLE: readonly DemoPersonSeed[] = Object.freeze([
       planIdentifier: "demo-seed-plan-rowan",
       sendingPreference: "morning",
       finalState: "active",
-      dischargeDaysBeforeShared: 1,
+      dischargeMonthsBeforeShared: 2,
       claimedByCoordinator: true,
       attemptedContacts: [
-        // Closest to today first, deliberately the failure -- see the module note on why.
-        { key: "week1", cadenceLabel: "Week 1", outcome: "notDelivered" },
-        { key: "month1", cadenceLabel: "Month 1", outcome: "delivered" },
-        { key: "month2", cadenceLabel: "Month 2", outcome: "delivered" },
+        // Closest to today first, deliberately the failure -- see the module note on why. Never
+        // "Month 2" here: that is the contact left `scheduled`, due today.
+        { key: "month1", cadenceLabel: "Month 1", outcome: "notDelivered" },
+        { key: "week1", cadenceLabel: "Week 1", outcome: "delivered" },
+        { key: "day1", cadenceLabel: "Day 1", outcome: "delivered" },
       ],
       patientDetail: {
         patientName: "Rowan Example",
@@ -508,10 +518,11 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
     const plan: PlanId = planId(person.plan.planIdentifier);
 
     // Per-plan, not the shared instant every plan used to take unmodified: see
-    // `DemoPlanSeed.dischargeDaysBeforeShared` for why shifting THIS plan's own discharge, rather
-    // than the pathway snapshot's, is the honest lever for "a contact due today".
-    const planDischargeAt = person.plan.dischargeDaysBeforeShared
-      ? new Date(dischargeAt.getTime() - person.plan.dischargeDaysBeforeShared * MILLISECONDS_PER_DAY)
+    // `DemoPlanSeed.dischargeMonthsBeforeShared` for why shifting THIS plan's own discharge, rather
+    // than the pathway snapshot's, is the honest lever for "a contact due today" -- and why it has
+    // to be calendar months.
+    const planDischargeAt = person.plan.dischargeMonthsBeforeShared
+      ? shiftedPlanDischargeAt(dischargeAt, person.plan.dischargeMonthsBeforeShared, person.key)
       : dischargeAt;
 
     const created = taken(
@@ -631,6 +642,35 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
 function taken<T>(step: string, result: TransitionResult<T>): T {
   if (!result.ok) throw new DemoSeedRefusedError(step, result.reason);
   return result.value;
+}
+
+/**
+ * A plan's own discharge instant, shifted back `months` calendar months from the shared
+ * `dischargeAt` the pathway snapshot uses -- see `DemoPlanSeed.dischargeMonthsBeforeShared` for why
+ * this has to be calendar-month arithmetic rather than a fixed day count. Delegates the arithmetic
+ * itself to `calendarDayPlusMonths`, the same function `buildApprovedSchedule`'s own Month-N cadence
+ * is built from, so the two cannot disagree about what "N months earlier" means on a month-length
+ * boundary -- a second, day-approximated copy of that arithmetic here could.
+ *
+ * `shared`'s own AWST calendar day is always a real one -- `awstCalendarDay` derives it from a live
+ * `Date` -- so `calendarDayPlusMonths` refusing it would be a defect in that function, not a
+ * possible outcome of this seed's own input. The refusal is still surfaced through
+ * `DemoSeedRefusedError` rather than asserted away, for the same reason every other write below is:
+ * a refusal is a finding, not a case to route around.
+ */
+function shiftedPlanDischargeAt(shared: Date, months: number, personKey: string): Date {
+  const shiftedCalendarDay = calendarDayPlusMonths(awstCalendarDay(shared), -months);
+  if (!shiftedCalendarDay) {
+    throw new DemoSeedRefusedError(
+      `discharge-shift:${personKey}`,
+      "calendarDayPlusMonths refused the shared discharge instant's own AWST calendar day",
+    );
+  }
+  // Midday, not midnight -- the same convention `awstCalendarDayOffset` uses (../clock.ts). Only
+  // the AWST calendar day this instant carries is ever read back: `buildApprovedSchedule` takes it
+  // through `awstCalendarDay`, and every screen that displays a plan's `dischargeAt` does too -- so
+  // the hour chosen here is otherwise inert, and midday keeps it clear of a day boundary regardless.
+  return awstWallTimeToInstant(shiftedCalendarDay, 12);
 }
 
 /**
