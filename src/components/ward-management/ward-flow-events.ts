@@ -8,7 +8,7 @@ import type {
   UrgencyChangeReason,
 } from "@/components/ward-management/ward-change-reasons";
 import type {
-  BedReleaseConfidence,
+  BedReleaseWaitingOn,
   Cohort,
   DeclineReason,
   HomeRegion,
@@ -166,7 +166,14 @@ export type WardFlowEvent =
        * compared against `unitId`.
        */
       actingUnitId: string;
-      confidence: BedReleaseConfidence;
+      /**
+       * What this discharge is still waiting on, chosen from `BED_RELEASE_WAITING_ON`. Renamed
+       * from `confidence` by the Q1 axis change of 2026-08-28: a ward states a FACT about what is
+       * outstanding rather than estimating a probability two wards cannot mean the same thing by.
+       * `"Nothing outstanding"` is the value for a prediction with no obstacle — it is a real
+       * choice, not the absence of one, so the picker never has to be left blank.
+       */
+      waitingOn: BedReleaseWaitingOn;
       /**
        * The ward's own estimate of when this bed will actually be free — a fact about the BED,
        * the same category `expectedReturn` on `RECORD_LEAVE_BED` already sits in (binding spec
@@ -219,12 +226,12 @@ export type WardFlowEvent =
       /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
       actingUnitId: string;
       /**
-       * A `"predicted"` release carries a confidence and a `"confirmed"` one does not, so the
-       * reversal has to restate it — there is no earlier value to restore, and inventing one
-       * would be the reducer asserting a belief the ward never stated. (Q1 will replace this
-       * axis with "what is it waiting on" once the owner's list arrives; the field moves with it.)
+       * A `"predicted"` release carries a waiting-on value and a `"confirmed"` one does not, so
+       * the reversal has to restate it — there is no earlier value to restore, and inventing one
+       * would be the reducer asserting something the ward never said. Moved with the Q1 axis
+       * change of 2026-08-28, exactly as the bed-model rework said it would.
        */
-      confidence: BedReleaseConfidence;
+      waitingOn: BedReleaseWaitingOn;
     }
   | {
       type: "BLOCK_BED_RELEASE";
@@ -276,9 +283,10 @@ export type WardFlowEvent =
        */
       preparing: boolean;
       /**
-       * What it is waiting on, chosen from `BED_PREPARATION_NOTES`. That array is deliberately
-       * empty pending the owner's list, so no caller can supply a note yet and the reducer stores
-       * `null`. The field exists so filling one array is the whole change.
+       * What the bed is waiting on to be ready, chosen from `BED_PREPARATION_NOTES` — the owner
+       * supplied that list on 2026-08-28, so a caller may now name a note. Optional: "being made
+       * ready, reason not stated" stays legal. Omitted or `undefined` stores `null`, and the
+       * reducer forces `null` whenever `preparing` is false.
        */
       note?: BedPreparationNote;
     }

@@ -347,15 +347,16 @@ describe("referralCandidates", () => {
 
 /**
  * Spec D15 / the fourth most important test: matching must stay independent of the bed-release
- * model — three stages plus a blocked flag since the rework of 2026-08-28, and still unvalidated
+ * model — three stages plus a blocked flag since the rework of 2026-08-28, a waiting-on axis in
+ * place of `likely`/`possible` since the Q1 change of the same date, and still unvalidated
  * by any ward clinician. The contract is unchanged by that rework, and deliberately so: the
  * whole point of D15 is that matching does not care what shape the release model is today. A source-text contract rather
  * than a runtime assertion, because the whole point is that no code path reachable from matching
  * reads that model AT ALL — not even one that happens to agree with `unit.allocatable` today.
  *
  * H1 fix (this test was hollow): the identifier pattern used to check only the bare `BedRelease`,
- * `BED_RELEASE_STATES` and `BED_RELEASE_CONFIDENCE_LEVELS` spellings — `\bBedRelease\b` requires
- * a word boundary immediately after "BedRelease", so `BedReleaseState`, `BedReleaseConfidence`,
+ * `BED_RELEASE_STATES` and the confidence spellings that preceded `BED_RELEASE_WAITING_ON` — `\bBedRelease\b` requires
+ * a word boundary immediately after "BedRelease", so `BedReleaseState`, `BedReleaseWaitingOn`,
  * `releaseBand`/`RELEASE_BANDS` and `capacityBreakdown` (which takes `BedRelease[]`) all survived
  * it untouched. The pattern below enumerates every spelling that actually names a piece of the
  * release model, EXACTLY — not a `\bBedRelease\w*\b` wildcard, which would also catch
@@ -379,7 +380,7 @@ describe("referralCandidates", () => {
  */
 describe("matching stays independent of the bed-release model", () => {
   const BED_RELEASE_IDENTIFIER =
-    /\bBedRelease\b|\bBedReleaseState\b|\bBedReleaseConfidence\b|\bBED_RELEASE_STATES\b|\bBED_RELEASE_CONFIDENCE_LEVELS\b|\breleaseBand\b|\bRELEASE_BANDS\b|\bcapacityBreakdown\b/;
+    /\bBedRelease\b|\bBedReleaseState\b|\bBedReleaseWaitingOn\b|\bBED_RELEASE_STATES\b|\bBED_RELEASE_WAITING_ON\b|\breleaseBand\b|\bRELEASE_BANDS\b|\bcapacityBreakdown\b/;
 
   const SRC_ROOT = resolve(process.cwd(), "src");
 

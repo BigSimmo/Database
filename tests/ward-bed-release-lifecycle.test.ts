@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { capacityBreakdown } from "../src/components/ward-management/ward-bed-availability";
-import { BED_RELEASE_BLOCKERS } from "../src/components/ward-management/ward-change-reasons";
+import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "../src/components/ward-management/ward-change-reasons";
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
 import type { WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
@@ -39,7 +39,7 @@ describe("ward bed release lifecycle", () => {
     });
     expect(next.rejections).toHaveLength(0);
     expect(release(next, "WR-002").state).toBe("confirmed");
-    expect(release(next, "WR-002").confidence).toBeNull();
+    expect(release(next, "WR-002").waitingOn).toBeNull();
   });
 
   it("fix round 2 (Finding 3, P2, spec D7): confirming at a later instant moves confirmedAt to that instant, not the original flag time", () => {
@@ -67,8 +67,8 @@ describe("ward bed release lifecycle", () => {
 
   /**
    * Bed-model rework (2026-08-28). This used to assert `state === "blocked"` and a null
-   * confidence — the fourth state swallowing the row's stage. Blocking is now a FLAG: the stage
-   * is untouched, so a predicted release stays predicted and keeps the confidence it was flagged
+   * waiting-on value — the fourth state swallowing the row's stage. Blocking is now a FLAG: the
+   * stage is untouched, so a predicted release stays predicted and keeps the value it was flagged
    * with, and the role that recorded the block is stored beside the reason.
    */
   it("2. a ward blocks a release with a blocker from the list — the flag goes on, the stage does not move", () => {
@@ -88,7 +88,7 @@ describe("ward bed release lifecycle", () => {
     expect(release(next, "WR-002").state).toBe("predicted");
     expect(release(next, "WR-002").blocker).toBe(blocker);
     expect(release(next, "WR-002").blockedBy).toBe("NUM SCGH Adult Open");
-    expect(release(next, "WR-002").confidence).toBe(before.confidence);
+    expect(release(next, "WR-002").waitingOn).toBe(before.waitingOn);
   });
 
   /**
@@ -165,11 +165,11 @@ describe("ward bed release lifecycle", () => {
       now: NOW,
       releaseId: "WR-007",
       actingUnitId: "fsh-adult-secure",
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
     });
     expect(next.rejections).toHaveLength(0);
     expect(release(next, "WR-007").state).toBe("predicted");
-    expect(release(next, "WR-007").confidence).toBe("possible");
+    expect(release(next, "WR-007").waitingOn).toBe("Nothing outstanding");
     expect(release(next, "WR-007").blocker).toBe(release(state, "WR-007").blocker);
   });
 
@@ -183,7 +183,7 @@ describe("ward bed release lifecycle", () => {
       now: NOW,
       releaseId: "WR-002",
       actingUnitId: "scgh-adult-open",
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
     });
     expect(next.rejections).toHaveLength(1);
     expect(release(next, "WR-002")).toEqual(before);
@@ -221,17 +221,68 @@ describe("ward bed release lifecycle", () => {
       releaseId: "WR-008",
       actingUnitId: "arm-adult-open",
       preparing: true,
+      // List 3 (2026-08-28): a REAL note, where this line previously asserted `null` because
+      // `BED_PREPARATION_NOTES` was empty and no caller could supply one. The assertion is
+      // strengthened rather than dropped — the note now has to round-trip AND still change no
+      // figure, which is the case the old version could not express at all.
+      note: "Being cleaned",
     });
     expect(next.rejections).toHaveLength(0);
     expect(release(next, "WR-008").preparing).toBe(true);
-    // No note is stored, and none can be: `BED_PREPARATION_NOTES` is owner-pending and empty.
-    expect(release(next, "WR-008").preparationNote).toBeNull();
+    expect(release(next, "WR-008").preparationNote).toBe("Being cleaned");
 
     const after = capacityBreakdown(unit(next, "arm-adult-open"), next.bedReleases, next.leaveBeds, NOW);
     expect(after).toEqual(before);
     // Non-vacuity: this unit really does have a bed to withhold, so a gating implementation had
     // somewhere to go wrong.
     expect(after.availableNow).toBeGreaterThan(0);
+  });
+
+  /**
+   * List 3 (2026-08-28), the two halves the reducer has always claimed and could never be shown:
+   * a note outside `BED_PREPARATION_NOTES` is REFUSED, and clearing `preparing` clears the note
+   * with it. Neither was testable while the array was empty — every note was refused, so a guard
+   * that refused everything and a guard that checked membership were indistinguishable.
+   */
+  it("2h. refuses a preparation note outside BED_PREPARATION_NOTES, and clearing the flag clears the note", () => {
+    const state = seeded();
+    const refused = wardFlowReducer(state, {
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      preparing: true,
+      // Deliberately plausible-looking and deliberately NOT on the owner's list. A truthiness
+      // check would accept it; only real membership refuses it.
+      note: "Awaiting a deep clean" as unknown as (typeof BED_PREPARATION_NOTES)[number],
+    });
+    expect(refused.rejections).toHaveLength(1);
+    expect(refused.rejections[0]?.reason).toContain("BED_PREPARATION_NOTES");
+    expect(release(refused, "WR-008").preparationNote).toBe(release(state, "WR-008").preparationNote);
+
+    const noted = wardFlowReducer(state, {
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      preparing: true,
+      note: "Awaiting maintenance or repair",
+    });
+    expect(release(noted, "WR-008").preparationNote).toBe("Awaiting maintenance or repair");
+
+    const cleared = wardFlowReducer(noted, {
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      preparing: false,
+    });
+    // "not being made ready, waiting on a clean" is a contradiction, so the note goes with it.
+    expect(release(cleared, "WR-008").preparing).toBe(false);
+    expect(release(cleared, "WR-008").preparationNote).toBeNull();
   });
 
   /**
@@ -327,7 +378,7 @@ describe("ward bed release lifecycle", () => {
     });
     expect(next.rejections).toHaveLength(0);
     expect(release(next, "WR-001").state).toBe("released");
-    expect(release(next, "WR-001").confidence).toBeNull();
+    expect(release(next, "WR-001").waitingOn).toBeNull();
     expect(release(next, "WR-001").blocker).toBeNull();
     const after = capacityBreakdown(unit(next, "rph-adult-secure"), next.bedReleases, next.leaveBeds, NOW);
     expect(after.availableNow).toBe(before.availableNow + 1);
@@ -407,7 +458,7 @@ describe("ward bed release lifecycle", () => {
       now: NOW,
       releaseId: "WR-001",
       actingUnitId: "rph-adult-secure",
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
     });
     const afterUnblock = wardFlowReducer(afterRevert, {
       type: "CLEAR_BED_RELEASE_BLOCK",

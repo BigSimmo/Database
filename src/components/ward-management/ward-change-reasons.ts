@@ -84,6 +84,23 @@ export const BED_RELEASE_BLOCKERS = [
   "Awaiting accommodation",
   "Awaiting transport",
   "Awaiting receiving-service acceptance",
+  // OWNER-APPROVED addition, 2026-08-28 ("The three lists", List 1). This entry deliberately
+  // OVERTURNS the Phase 5 exclusion recorded in the comment above ("family availability"), and
+  // the reasoning is recorded here so the next reader does not re-argue it: the "describes the person, not the bed" rule is sound in
+  // general and is kept everywhere else, but it fails on its own terms here. A discharge held up
+  // because nobody can collect someone, or because the family need a day's notice, IS a real
+  // reason the bed is not coming free. Excluding it does not stop it happening — it makes a ward
+  // record "Awaiting service coordination" instead, and the recorded reason becomes WRONG. A
+  // wrong reason is worse than a blunt one.
+  //
+  // Guardianship and financial arrangements stay excluded; the Phase 5 reasoning still holds for
+  // those two. Adding any further entry remains a recorded product decision, never an
+  // implementer's convenience.
+  //
+  // Provenance, stated because it matters: these words were proposed by an agent session and
+  // APPROVED by the product owner. No charge nurse has seen them. If a clinician offers different
+  // words, theirs replace these verbatim.
+  "Awaiting family or carer arrangement",
 ] as const;
 export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
 
@@ -103,16 +120,17 @@ export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
  * derives `availableNow` from the UNIT's own fields and never reads a release at all, and
  * matching never reads a `BedRelease` in the first place (`tests/ward-referral-matching.test.ts`).
  *
- * **This array is deliberately EMPTY, and the emptiness is the whole point.** The permitted
- * values are OWNER-PENDING — the same pending list as the blocked-discharge reasons and the
- * "what is this discharge waiting on" axis (Q1). An agent must never invent a clinical
- * vocabulary, and a placeholder here would be exactly that. Until the owner supplies the list,
- * `BedPreparationNote` resolves to `never`, so `BedRelease.preparationNote` can only ever be
- * `null` and the boolean `BedRelease.preparing` carries the whole signal. Filling this one array
- * is all that is needed to turn the note on, plus a picker on the ward screen — which is
- * deliberately NOT built, because there is nothing to offer in it yet.
+ * **The owner supplied the list on 2026-08-28** ("The three lists", List 3), so this array is no
+ * longer empty and the note is expressible. Cleaning is his own example. Maintenance is the other
+ * thing expected to take a bed out of use briefly without anything clinical changing. Both
+ * describe the BED and nothing else, which is the same bar every list above holds to.
+ *
+ * Provenance, stated because it matters: these words were proposed by an agent session and
+ * APPROVED by the product owner. No charge nurse has seen them. If a clinician offers different
+ * words, theirs replace these verbatim. Adding an entry is a recorded product decision, never an
+ * implementer's convenience.
  */
-export const BED_PREPARATION_NOTES = [] as const;
+export const BED_PREPARATION_NOTES = ["Being cleaned", "Awaiting maintenance or repair"] as const;
 export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
 
 export const changeReasonLabels: Record<

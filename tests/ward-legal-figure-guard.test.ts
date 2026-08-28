@@ -4,6 +4,7 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
+  BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
   CANCEL_TRANSPORT_REASONS,
   LEGAL_STATUS_CHANGE_REASONS,
@@ -18,7 +19,7 @@ import {
 } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import {
-  BED_RELEASE_CONFIDENCE_LEVELS,
+  BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
   REFERRAL_DECLINE_REASONS,
   type LegalForm,
@@ -549,18 +550,20 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       );
     case "FLAG_BED_RELEASE":
       // `actingUnitId` mirrors `unitId`, same reasoning as CONFIRM_CAPACITY above. One candidate
-      // per confidence level crossed with every blocker — the same "one candidate per real
+      // per waiting-on value crossed with every blocker — the same "one candidate per real
       // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO set, so a branch
-      // keyed on either dimension is entered rather than assumed reachable.
+      // keyed on either dimension is entered rather than assumed reachable. The Q1 axis change
+      // (2026-08-28) widened this dimension from two confidence levels to five waiting-on values,
+      // so the sweep now covers strictly more of the vocabulary that reaches a screen.
       return unitIds.flatMap((unitId) =>
-        BED_RELEASE_CONFIDENCE_LEVELS.flatMap((confidence) =>
+        BED_RELEASE_WAITING_ON.flatMap((waitingOn) =>
           BED_RELEASE_BLOCKERS.map((blocker) => ({
             type,
             role,
             now,
             unitId,
             actingUnitId: unitId,
-            confidence,
+            waitingOn,
             expectedAt: now + 60,
             blocker,
           })),
@@ -581,34 +584,37 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         actingUnitId: release.unitId,
       }));
     case "REVERT_BED_RELEASE":
-      // Bed-model rework (2026-08-28). One candidate per release crossed with every confidence
-      // level — the same "one candidate per real domain value" precedent every list-valued event
-      // above follows, so a branch keyed on the chosen confidence cannot go unentered.
+      // Bed-model rework (2026-08-28). One candidate per release crossed with every waiting-on
+      // value — the same "one candidate per real domain value" precedent every list-valued event
+      // above follows, so a branch keyed on the chosen value cannot go unentered.
       return state.bedReleases.flatMap((release) =>
-        BED_RELEASE_CONFIDENCE_LEVELS.map((confidence) => ({
+        BED_RELEASE_WAITING_ON.map((waitingOn) => ({
           type,
           role,
           now,
           releaseId: release.id,
           actingUnitId: release.unitId,
-          confidence,
+          waitingOn,
         })),
       );
     case "SET_BED_PREPARATION":
-      // One candidate per release crossed with BOTH `preparing` values, the same reasoning
-      // RECORD_LEAVE_BED's `usable` pair uses. No `note` candidate is generated and none can be:
-      // `BED_PREPARATION_NOTES` is deliberately empty pending the product owner's list, so there
-      // is no permitted value to sweep. When that array is filled, this case gains the same
-      // cross-product every other list-valued event here already has.
+      // One candidate per release crossed with BOTH `preparing` values AND every permitted note
+      // (plus `undefined`, which is "being made ready, reason not stated"). The note dimension is
+      // new: `BED_PREPARATION_NOTES` was empty pending the product owner's list, so there was no
+      // permitted value to sweep, and the comment here said this case would gain the cross-product
+      // the day the array was filled. It was filled on 2026-08-28 and this is that cross-product.
       return state.bedReleases.flatMap((release) =>
-        [true, false].map((preparing) => ({
-          type,
-          role,
-          now,
-          releaseId: release.id,
-          actingUnitId: release.unitId,
-          preparing,
-        })),
+        [true, false].flatMap((preparing) =>
+          [undefined, ...BED_PREPARATION_NOTES].map((note) => ({
+            type,
+            role,
+            now,
+            releaseId: release.id,
+            actingUnitId: release.unitId,
+            preparing,
+            note,
+          })),
+        ),
       );
     case "BLOCK_BED_RELEASE":
       // One candidate per release crossed with every blocker — the same "one candidate per real

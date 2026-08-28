@@ -59,21 +59,36 @@ stuck.
 "Blocked" is now a flag that sits on top of a predicted or confirmed discharge, not a stage that
 replaces it. **Still worth telling us if that is not how it feels on a ward.**
 
-**2. Is "predicted" one thing, or several?**
+**2. Is "predicted" one thing, or several? — WE CHANGED THE AXIS, and the words need your check**
 
-We've used one word. A charge nurse might distinguish between "we're thinking about it on the ward
-round", "the family have been told", and "we're waiting on one thing before we commit" — which
-sound like quite different levels of confidence to plan against.
+We used to offer two levels of confidence, "likely" and "possible", while a discharge was
+predicted. We no longer do. Asking a ward to estimate a probability turned out to be the wrong
+question — two wards' "likely" do not mean the same thing, so a coordinator cannot compare them or
+add them up. A predicted discharge now records **what it is still waiting on** instead, which is a
+fact rather than a judgement.
 
-We currently offer two levels of confidence, "likely" and "possible", but only while a discharge is
-predicted. Is that the right split, or the wrong axis entirely?
+**The words currently on the screen are these, and they are the thing we most want you to correct.**
 
-**This is the question we most want answered.** The current thinking is that asking a ward to
-estimate a probability is the wrong question — two wards' "likely" do not mean the same thing, so a
-coordinator cannot compare them — and that the useful thing to record is **what the discharge is
-still waiting on**, chosen from a short list. That list does not exist yet, and nobody will invent
-it: it has to come from someone who works on a ward. **What would be on it?** The same list would
-name the reasons a discharge is blocked, because they are the same question asked at two moments.
+_What a predicted discharge is waiting on:_ Awaiting ward round · Awaiting family or carer
+agreement · Awaiting accommodation · Awaiting a community team to accept · Nothing outstanding.
+
+_Why a decided discharge is stuck:_ Awaiting clean · Awaiting pharmacy · Awaiting placement
+confirmation · Awaiting service coordination · Awaiting accommodation · Awaiting transport ·
+Awaiting receiving-service acceptance · Awaiting family or carer arrangement.
+
+_What a bed that is already free is being made ready for:_ Being cleaned · Awaiting maintenance or
+repair.
+
+**Read the provenance carefully, because it matters.** These words were **proposed by us and
+approved by the product owner. No charge nurse has seen them.** They are an approved proposal, not
+a validated vocabulary — which is exactly why they are in front of you now. If a ward says
+something different, the ward's words replace ours exactly as spoken.
+
+Two specific things worth your eye. "Nothing outstanding" exists so a ward is never forced to name
+an obstacle that does not exist. And "Awaiting family or carer arrangement" was deliberately added
+against our own earlier rule that a reason must describe the bed and not the person — because a
+discharge nobody can collect is a real reason a bed is not coming free, and excluding it only made
+wards record a different reason that was wrong.
 
 **3. Does a bed ever go backwards? — ANSWERED, and we changed it**
 
@@ -103,8 +118,10 @@ dishonestly.
 Nothing written. Just, in conversation:
 
 1. Do the three stages, plus a blocked flag, describe something you recognise?
-2. **What is on the list?** — the things a discharge waits on, and the things that block one.
-   This is the one we cannot answer for ourselves, and nothing further gets built until it exists.
+2. **Are those the right words?** — the three lists in question 2 above. This is the one we cannot
+   answer for ourselves. We have shipped an approved proposal so there is something concrete to
+   react to, not because the question is closed. Wrong entries, missing entries and better wording
+   all replace ours.
 3. Which of the three questions above still has the wrong answer in our version?
 4. Is there a stage we've missed entirely?
 

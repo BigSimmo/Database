@@ -1091,7 +1091,7 @@ describe("release and cancel", () => {
 describe("bed release flagging", () => {
   /**
    * Bed-model rework (2026-08-28). This used to assert the flagged release came out in the fourth
-   * state `"blocked"` with a null confidence. There is no such state now: a flag always creates a
+   * state `"blocked"` with a null waiting-on value. There is no such state now: a flag always creates a
    * PREDICTED release, and naming a blocker sets the blocked flag on it. That is the whole change
    * — a bed coming free but currently held up is a prediction AND a block, and pretending those
    * were alternatives is what let `capacityBreakdown` count such a release nowhere at all.
@@ -1114,7 +1114,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: EXPECTED_FREE,
       blocker: "Awaiting clean",
     });
@@ -1126,7 +1126,7 @@ describe("bed release flagging", () => {
     // The stage says how certain the discharge is; the flag says whether it is stuck. Both, at
     // once, on one release — which the four-stage model could not express.
     expect(flagged.state).toBe("predicted");
-    expect(flagged.confidence).toBe("likely");
+    expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBe("Awaiting clean");
     // The role that recorded the block, never a person (Q3).
     expect(flagged.blockedBy).toBe(`NUM ${unit.name}`);
@@ -1162,7 +1162,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: laterToday,
     });
 
@@ -1182,14 +1182,14 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: NOW + 60,
     });
 
     expect(after.rejections).toEqual([]);
     const flagged = after.bedReleases.at(-1)!;
     expect(flagged.state).toBe("predicted");
-    expect(flagged.confidence).toBe("likely");
+    expect(flagged.waitingOn).toBe("Awaiting ward round");
     expect(flagged.blocker).toBeNull();
     // No blocker means no blocking role either — the two move together in both directions.
     expect(flagged.blockedBy).toBeNull();
@@ -1207,7 +1207,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: otherUnit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Awaiting pharmacy",
     });
@@ -1230,7 +1230,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Awaiting service coordination",
     });
@@ -1255,7 +1255,7 @@ describe("bed release flagging", () => {
       now: NOW,
       unitId: unit.id,
       actingUnitId: unit.id,
-      confidence: "possible",
+      waitingOn: "Nothing outstanding",
       expectedAt: NOW + 60,
       blocker: "Family unavailable to collect",
     } as unknown as WardFlowEvent;
@@ -1288,7 +1288,7 @@ describe("bed release privacy", () => {
       "unitId",
       "state",
       "expectedAt",
-      "confidence",
+      "waitingOn",
       "blocker",
       // Added by the bed-model rework (2026-08-28), and each extended here deliberately, which is
       // exactly what this allowlist is for. `blockedBy` is a ROLE — a unit or service label,
@@ -1308,7 +1308,7 @@ describe("bed release privacy", () => {
       now: NOW,
       unitId: seeded.units[0].id,
       actingUnitId: seeded.units[0].id,
-      confidence: "likely",
+      waitingOn: "Awaiting ward round",
       expectedAt: NOW + 60,
       blocker: "Awaiting clean",
     });

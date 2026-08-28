@@ -366,21 +366,34 @@ export const BED_RELEASE_STATES = ["predicted", "confirmed", "released"] as cons
 export type BedReleaseState = (typeof BED_RELEASE_STATES)[number];
 
 /**
- * Narrowed from `confirmed | likely | possible` (Phase 5, spec D1). "Confirmed" was doing two jobs
- * at once — a position in the lifecycle and a degree of belief — and the lifecycle now owns it.
- * A confirmed release has no confidence, because it is not a belief any more.
+ * **The Q1 axis change, landed 2026-08-28** ("The three lists", List 2). This replaces
+ * `BED_RELEASE_CONFIDENCE_LEVELS` — the `likely` / `possible` pair Phase 5 shipped — outright.
  *
- * **Q1 of the 2026-08-28 decisions replaces this axis entirely** — `likely`/`possible` become
- * "what is this discharge still waiting on", chosen from a fixed list, because a probability
- * estimate is a judgement two wards cannot mean the same thing by, while what a discharge is
- * waiting on is a comparable fact. That list is OWNER-PENDING and is the SAME list as the
- * blocked-discharge reasons (`BED_RELEASE_BLOCKERS`) and the preparation notes
- * (`BED_PREPARATION_NOTES`) — one list arriving three times. Until he supplies it these two
- * levels stay exactly as they are; inventing the replacement vocabulary is precisely what this
- * project refuses to do.
+ * A predicted discharge no longer carries HOW CONFIDENT the ward is; it carries WHAT IT IS
+ * WAITING ON. The owner's reasoning: confidence asks a ward to estimate a probability, people are
+ * poor at that, and worse, two wards' "likely" do not mean the same thing — so a coordinator can
+ * neither compare them nor add them up. What a discharge is waiting on is a **fact, not a
+ * judgement**: comparable across wards, and actionable. A bed waiting on a ward round is a
+ * different prospect from one waiting on a family meeting.
+ *
+ * **`"Nothing outstanding"` carries more weight than it looks.** It is a predicted discharge with
+ * no obstacle at all — the closest thing to the old "likely", and the one a coordinator can most
+ * safely plan against. Without it the list would force a ward to name an obstacle that does not
+ * exist, which is how a fixed list starts producing false records.
+ *
+ * Provenance, stated because it matters: these words were proposed by an agent session and
+ * APPROVED by the product owner. No charge nurse has seen them, and this is the list of the three
+ * most in need of a clinician's own words — the owner is not the one held up waiting on a ward
+ * round. They ship verbatim; a clinician's wording replaces them verbatim in turn.
  */
-export const BED_RELEASE_CONFIDENCE_LEVELS = ["likely", "possible"] as const;
-export type BedReleaseConfidence = (typeof BED_RELEASE_CONFIDENCE_LEVELS)[number];
+export const BED_RELEASE_WAITING_ON = [
+  "Awaiting ward round",
+  "Awaiting family or carer agreement",
+  "Awaiting accommodation",
+  "Awaiting a community team to accept",
+  "Nothing outstanding",
+] as const;
+export type BedReleaseWaitingOn = (typeof BED_RELEASE_WAITING_ON)[number];
 
 /**
  * A bed release carries **nothing whatsoever about the departing patient** — no identifier, no
@@ -394,8 +407,21 @@ export type BedRelease = {
   unitId: string;
   state: BedReleaseState;
   expectedAt: Instant;
-  /** Non-null only while `state` is `"predicted"`. */
-  confidence: BedReleaseConfidence | null;
+  /**
+   * What this discharge is still waiting on, chosen from `BED_RELEASE_WAITING_ON`. Non-null only
+   * while `state` is `"predicted"` — a confirmed discharge is a decision, not something still
+   * being waited on, and a released one has already happened.
+   *
+   * Renamed from `confidence` by the Q1 axis change of 2026-08-28. Keeping the old name over the
+   * new values would have put "Awaiting ward round" in a field called `confidence` on a screen a
+   * coordinator reads as fact, which is the kind of quiet mismatch this project treats as a
+   * defect rather than a cosmetic point.
+   *
+   * `"Nothing outstanding"` is a legitimate value, not an absence: it means a predicted discharge
+   * with no obstacle. `null` means the release is not predicted at all. The two are different and
+   * must not be collapsed.
+   */
+  waitingOn: BedReleaseWaitingOn | null;
   /**
    * **The blocked FLAG's reason** (bed-model rework, 2026-08-28). Non-null means this discharge
    * is decided-or-expected AND currently stuck; it may sit on a `"predicted"` release or on a
@@ -424,9 +450,13 @@ export type BedRelease = {
    */
   preparing: boolean;
   /**
-   * What the bed is waiting on to be ready, once the owner supplies `BED_PREPARATION_NOTES`.
-   * That array is deliberately empty, so this type is `never | null` and the field can only be
-   * `null` today — the structure is here so turning the note on is one array, not a schema change.
+   * What the bed is waiting on to be ready, chosen from `BED_PREPARATION_NOTES` — the owner
+   * supplied that list on 2026-08-28, so the field is now expressible where it could previously
+   * only be `null`. `null` alongside `preparing: true` remains legal and means "being made ready,
+   * reason not stated"; `preparing: false` forces it null, because "not being made ready, waiting
+   * on a clean" is a contradiction.
+   *
+   * **A note here still gates NOTHING.** See `preparing` above and `BED_PREPARATION_NOTES`.
    */
   preparationNote: BedPreparationNote | null;
   confirmedAt: Instant;

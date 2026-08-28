@@ -59,7 +59,7 @@ function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expec
           now,
           unitId,
           actingUnitId: unitId,
-          confidence: "likely",
+          waitingOn: "Awaiting ward round",
           expectedAt: expectedAt ?? now,
         })
       }

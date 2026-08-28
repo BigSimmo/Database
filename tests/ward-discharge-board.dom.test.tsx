@@ -48,7 +48,7 @@ function FarFutureReleaseFlagger() {
           now: EVENING_SHIFT_END_MINUTES + 100,
           unitId: "rph-adult-secure",
           actingUnitId: "rph-adult-secure",
-          confidence: "possible",
+          waitingOn: "Nothing outstanding",
           expectedAt: EVENING_SHIFT_END_MINUTES + 100,
         })
       }

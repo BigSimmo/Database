@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import {
-  BED_RELEASE_CONFIDENCE_LEVELS,
+  BED_RELEASE_WAITING_ON,
   BED_RELEASE_STATES,
   type BedRelease,
   type LeaveBed,
@@ -23,11 +23,49 @@ describe("bed release model", () => {
     expect(BED_RELEASE_STATES).not.toContain("blocked");
   });
 
-  it("no longer treats 'confirmed' as a confidence, because it is a state", () => {
-    expect(BED_RELEASE_CONFIDENCE_LEVELS).toEqual(["likely", "possible"]);
+  /**
+   * The Q1 axis change (2026-08-28, "The three lists" List 2). This replaces "no longer treats
+   * 'confirmed' as a confidence...", which pinned `["likely", "possible"]`. A predicted discharge
+   * no longer states how confident the ward is; it states what it is WAITING ON — a fact two wards
+   * can mean the same thing by, which a probability estimate is not.
+   *
+   * Pinned to the EXACT members in the EXACT owner-approved order, not to a length: a length check
+   * would pass an entry silently reworded, and these words go in front of a coordinator as fact.
+   * `"Nothing outstanding"` is asserted present by name as well, because it is the load-bearing
+   * one — without it the list forces a ward to name an obstacle that does not exist.
+   */
+  it("states what a predicted discharge is waiting on, in the owner-approved words, and offers 'Nothing outstanding'", () => {
+    expect(BED_RELEASE_WAITING_ON).toEqual([
+      "Awaiting ward round",
+      "Awaiting family or carer agreement",
+      "Awaiting accommodation",
+      "Awaiting a community team to accept",
+      "Nothing outstanding",
+    ]);
+    expect(BED_RELEASE_WAITING_ON).toContain("Nothing outstanding");
+    expect(BED_RELEASE_WAITING_ON).not.toContain("likely");
+    expect(BED_RELEASE_WAITING_ON).not.toContain("possible");
   });
 
-  it("offers seven blockers, all of them about the bed and none about a person", () => {
+  /**
+   * List 3 (2026-08-28). This array was empty until the owner supplied it, which made
+   * `BedPreparationNote` resolve to `never` and `preparationNote` unusable. Pinned to its exact
+   * members for the same reason as the two lists either side of it.
+   */
+  it("offers exactly the two owner-approved preparation notes, both about the bed", () => {
+    expect(BED_PREPARATION_NOTES).toEqual(["Being cleaned", "Awaiting maintenance or repair"]);
+  });
+
+  /**
+   * List 1 (2026-08-28) adds an eighth: "Awaiting family or carer arrangement". That entry
+   * deliberately overturns the Phase 5 exclusion of family availability — see
+   * `ward-change-reasons.ts` for the owner's reasoning, which is that excluding it does not stop
+   * the delay happening, it just makes the recorded reason wrong.
+   *
+   * Pinned to the EXACT members in the EXACT order. A length check would pass an entry silently
+   * reworded or reordered, and these words are read by a coordinator as fact.
+   */
+  it("offers eight blockers, all of them about the bed and none about a person", () => {
     expect(BED_RELEASE_BLOCKERS).toEqual([
       "Awaiting clean",
       "Awaiting pharmacy",
@@ -36,7 +74,11 @@ describe("bed release model", () => {
       "Awaiting accommodation",
       "Awaiting transport",
       "Awaiting receiving-service acceptance",
+      "Awaiting family or carer arrangement",
     ]);
+    // Still excluded, and the Phase 5 reasoning still holds for these two: they describe the
+    // person's affairs, not the bed.
+    expect(BED_RELEASE_BLOCKERS.some((blocker) => /guardian|financial/i.test(blocker))).toBe(false);
   });
 
   /**
@@ -54,7 +96,7 @@ describe("bed release model", () => {
         // what this allowlist exists to hold: a field named for the departing patient would fail
         // here even if every fixture value looked innocent.
         "blockedBy",
-        "confidence",
+        "waitingOn",
         "confirmedAt",
         "confirmedBy",
         "expectedAt",
@@ -128,16 +170,24 @@ describe("bed release model", () => {
    * Q4 (2026-08-28): the preparation indication must be seeded somewhere, or every screen that
    * renders it renders nothing and the display is untested by construction.
    *
-   * `preparationNote` is asserted null on EVERY release, and that is the assertion that keeps the
-   * owner-pending list honest: `BED_PREPARATION_NOTES` is deliberately empty because the permitted
-   * values must come from him, so a fixture carrying a made-up note is exactly the invented
-   * clinical vocabulary this project refuses. When his list arrives this expectation is the one
-   * that has to change, on purpose.
+   * This replaces "...and no invented preparation note anywhere", which asserted `preparationNote`
+   * NULL on every release. That assertion existed to keep the owner-pending list honest while
+   * `BED_PREPARATION_NOTES` was empty — a fixture note would have been invented clinical
+   * vocabulary. The owner supplied List 3 on 2026-08-28, so the fixture may now carry a note, and
+   * the assertion changes on purpose rather than being dropped: it is now the STRONGER claim that
+   * every seeded note is a member of the owner's list, which still fails on an invented one and
+   * additionally fails on a note that has drifted out of the list by a rewording.
    */
-  it("seeds a bed being made ready, and no invented preparation note anywhere", () => {
+  it("seeds a bed being made ready with a real note, and no invented preparation note anywhere", () => {
     expect(bedReleases.some((release) => release.preparing)).toBe(true);
+    expect(bedReleases.some((release) => release.preparationNote !== null)).toBe(true);
     for (const release of bedReleases) {
-      expect(release.preparationNote).toBeNull();
+      if (release.preparationNote !== null) {
+        expect(BED_PREPARATION_NOTES).toContain(release.preparationNote);
+        // A note only ever describes a bed that is being made ready. The reducer forces this;
+        // the fixture must not contradict it.
+        expect(release.preparing).toBe(true);
+      }
     }
   });
 
@@ -149,15 +199,21 @@ describe("bed release model", () => {
    * Replaces "carries a blocker exactly when blocked...". D3's blocked-xor-predicted rule went
    * with the fourth state: a blocker is now legal on a predicted OR a confirmed release, and
    * illegal only on a released one, because once the bed is free nothing is being held up.
-   * The confidence rule is untouched — it still belongs to `predicted` and to nothing else.
+   * The waiting-on rule is untouched by the Q1 axis change — only what the field MEANS changed, so
+   * it still belongs to `predicted` and to nothing else. Every non-null value is additionally
+   * pinned to be a member of `BED_RELEASE_WAITING_ON`, which the old confidence check could not
+   * express meaningfully over a two-member union but which now guards real rendered words.
    *
    * `blockedBy` is pinned to move WITH the blocker in both directions. A block with no recorded
    * role, or a role left behind on a release nobody says is blocked, are both records that
    * cannot be acted on, and neither would be caught by checking the two fields separately.
    */
-  it("carries a blocker only while unreleased, a confidence exactly when predicted, and a blocking role exactly when blocked", () => {
+  it("carries a blocker only while unreleased, a waiting-on value exactly when predicted, and a blocking role exactly when blocked", () => {
     for (const release of bedReleases) {
-      expect(release.confidence === null).toBe(release.state !== "predicted");
+      expect(release.waitingOn === null).toBe(release.state !== "predicted");
+      if (release.waitingOn !== null) {
+        expect(BED_RELEASE_WAITING_ON).toContain(release.waitingOn);
+      }
       if (release.state === "released") {
         expect(release.blocker).toBeNull();
       }

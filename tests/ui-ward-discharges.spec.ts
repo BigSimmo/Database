@@ -101,7 +101,11 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     );
 
     // --- Step 1: flag a bed coming free. No blocker chosen — a plain prediction. ---
-    await page.locator("#ward-bed-release-confidence").selectOption("likely");
+    // The Q1 axis change (2026-08-28): this picker asked for a confidence (`likely`) and now asks
+    // what the discharge is waiting on. "Nothing outstanding" is the value for a prediction with
+    // no obstacle — the closest thing to the old `likely`, and the right choice for a journey that
+    // goes on to prove a plain prediction moves the Predicted figure.
+    await page.locator("#ward-bed-release-waiting-on").selectOption("Nothing outstanding");
     await page.locator("#ward-bed-release-expected-at").fill("16:30");
     await page.getByTestId("ward-flag-bed-release-submit").click();
 

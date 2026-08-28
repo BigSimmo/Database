@@ -4,7 +4,7 @@ import { referralEligibility } from "@/components/ward-management/ward-eligibili
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
-  BED_RELEASE_CONFIDENCE_LEVELS,
+  BED_RELEASE_WAITING_ON,
   COHORTS,
   HOME_REGIONS,
   PARALLEL_REFERRAL_CAP,
@@ -715,7 +715,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // old "blocked xor predicted" rule is gone with the fourth state it described — a bed
       // that is coming free but currently held up is a prediction AND a block, and pretending
       // those were alternatives is what let `capacityBreakdown` count such a release nowhere.
-      // `confidence` is therefore kept on both paths, because the release is predicted on both.
+      // `waitingOn` is therefore kept on both paths, because the release is predicted on both.
       // Fix round 2 (P1): `expectedAt` now carries the ward's own estimate of when the bed will
       // actually be free (`event.expectedAt`, collected on the flag form exactly like
       // `expectedReturn` on the leave-bed form) rather than `event.now`. Before this fix every
@@ -744,7 +744,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         unitId: flaggedUnit.id,
         state: "predicted",
         expectedAt: event.expectedAt,
-        confidence: event.confidence,
+        waitingOn: event.waitingOn,
         blocker: event.blocker ?? null,
         blockedBy: event.blocker !== undefined ? flaggingRole : null,
         // A bed nobody has yet left is not being made ready. Preparation only ever begins after
@@ -798,7 +798,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: BedRelease = {
         ...release,
         state: "confirmed",
-        confidence: null,
+        waitingOn: null,
         confirmedAt: event.now,
       };
       return replaceBedRelease(state, release.id, updated);
@@ -825,14 +825,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       // Membership check, not truthiness — the same discipline BLOCK_BED_RELEASE's own blocker
       // check holds to, and for the same reason: a runtime rule, not merely a compile-time one.
-      if (!BED_RELEASE_CONFIDENCE_LEVELS.includes(event.confidence)) {
-        return reject(state, event, `REVERT_BED_RELEASE confidence must be chosen from BED_RELEASE_CONFIDENCE_LEVELS`);
+      if (!BED_RELEASE_WAITING_ON.includes(event.waitingOn)) {
+        return reject(state, event, `REVERT_BED_RELEASE waitingOn must be chosen from BED_RELEASE_WAITING_ON`);
       }
       // The blocked flag survives: reversing the discharge decision does not unstick the bed.
       const reverted: BedRelease = {
         ...release,
         state: "predicted",
-        confidence: event.confidence,
+        waitingOn: event.waitingOn,
         confirmedAt: event.now,
       };
       return replaceBedRelease(state, release.id, reverted);
@@ -924,16 +924,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `SET_BED_PREPARATION was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Membership check against the owner-pending list, same discipline as the blocker checks
-      // above. `BED_PREPARATION_NOTES` is deliberately EMPTY until the owner supplies it, so this
-      // currently refuses every note — which is the correct behaviour, not an oversight: there is
-      // no permitted vocabulary yet, and an agent must not invent one. Widened to `readonly
-      // string[]` only so the comparison compiles against an empty tuple.
+      // Membership check, same discipline as the blocker checks above: "notes are chosen, never
+      // typed" is a RUNTIME rule, not merely a compile-time one, so an untyped caller supplying
+      // anything outside `BED_PREPARATION_NOTES` is refused rather than stored.
       //
-      // Read through a `string | undefined` binding rather than off `event` directly: while the
-      // list is empty `BedPreparationNote` is `never`, so `event.note !== undefined` narrows
-      // `event` itself to `never` and the membership call stops compiling. The binding keeps the
-      // guard written once, correct now and correct the day the array is filled.
+      // The owner supplied that list on 2026-08-28, so this now accepts the two real notes where
+      // it previously refused everything. The `string | undefined` binding and the `readonly
+      // string[]` widening are kept deliberately: they were what made this guard compile while
+      // `BedPreparationNote` was `never`, they cost nothing now, and they are what keeps the
+      // check honest if a future edit ever empties the array again.
       const requestedNote: string | undefined = event.note;
       if (requestedNote !== undefined && !(BED_PREPARATION_NOTES as readonly string[]).includes(requestedNote)) {
         return reject(state, event, `SET_BED_PREPARATION note must be chosen from BED_PREPARATION_NOTES`);
@@ -979,7 +978,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updatedRelease: BedRelease = {
         ...release,
         state: "released",
-        confidence: null,
+        waitingOn: null,
         blocker: null,
         blockedBy: null,
         confirmedAt: event.now,

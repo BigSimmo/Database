@@ -3,10 +3,12 @@
 import { useState, type FormEvent } from "react";
 
 import {
+  BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
   CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
   RELEASE_HOLD_REASONS,
+  type BedPreparationNote,
   type BedReleaseBlocker,
   type CancelTransportReason,
   type ReleaseHoldReason,
@@ -27,9 +29,9 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import {
-  BED_RELEASE_CONFIDENCE_LEVELS,
+  BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
-  type BedReleaseConfidence,
+  type BedReleaseWaitingOn,
   type DeclineReason,
   type Movement,
   type Unit,
@@ -136,7 +138,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // Task 11 (spec item 9): the bed-release flag. Not keyed by movement id — unlike decline,
   // release and cancel above, this is not about any one referral, it is about this ward's own
   // bed stock, so one form per screen is enough.
-  const [bedReleaseConfidence, setBedReleaseConfidence] = useState<BedReleaseConfidence | undefined>(undefined);
+  const [bedReleaseWaitingOn, setBedReleaseWaitingOn] = useState<BedReleaseWaitingOn | undefined>(undefined);
   const [bedReleaseBlocker, setBedReleaseBlocker] = useState<BedReleaseBlocker | undefined>(undefined);
   // Fix round 2 (P1): the ward's own estimate of when this bed will actually be free, collected
   // exactly like `leaveExpectedReturn` below and parsed the same way via
@@ -151,7 +153,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // one-open-at-a-time pattern as the block form above. It exists because forbidding the
   // reversal never stopped wards reversing a decision — it only stopped them recording it.
   const [revertOpenFor, setRevertOpenFor] = useState<string | undefined>(undefined);
-  const [revertChoice, setRevertChoice] = useState<BedReleaseConfidence | undefined>(undefined);
+  const [revertChoice, setRevertChoice] = useState<BedReleaseWaitingOn | undefined>(undefined);
+  // List 3 (2026-08-28): the preparation-note picker, one row open at a time — the same
+  // open-for/choice pair the block and revert forms above already use.
+  const [preparationOpenFor, setPreparationOpenFor] = useState<string | undefined>(undefined);
+  const [preparationChoice, setPreparationChoice] = useState<BedPreparationNote | undefined>(undefined);
   // Task 5: the small leave-bed form. Not keyed by anything — like the flag-bed-release form
   // above, this is about this ward's own bed stock, so one form per screen is enough.
   const [leaveUsable, setLeaveUsable] = useState(false);
@@ -192,6 +198,15 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // this list (spec D10's "removes it from the pending list"), never rendered with dead controls.
   const pendingBedReleases = bedReleases.filter(
     (release) => release.unitId === unit.id && release.state !== "released",
+  );
+
+  // List 3 (2026-08-28): this unit's own beds that have already been RELEASED. They are the only
+  // beds a preparation note applies to — the note says what a free bed is being made ready for.
+  // They are deliberately a SEPARATE list from `pendingBedReleases` above rather than being
+  // restored to it: `released` is still terminal for every lifecycle control, and nothing in this
+  // section moves a stage.
+  const releasedBedReleases = bedReleases.filter(
+    (release) => release.unitId === unit.id && release.state === "released",
   );
 
   // Task 5: this unit's own beds currently occupied by someone on approved leave — read here only
@@ -258,7 +273,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
   function submitBedRelease(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!bedReleaseConfidence) return;
+    if (!bedReleaseWaitingOn) return;
     // Fix round 2 (P1): same parse-and-bail discipline as `submitLeaveBed`'s own
     // `expectedReturn` below — an empty or malformed time input refuses the submit rather than
     // guessing a value.
@@ -276,11 +291,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
       now,
       unitId: wardUnitId,
       actingUnitId: unitId,
-      confidence: bedReleaseConfidence,
+      waitingOn: bedReleaseWaitingOn,
       expectedAt,
       blocker: bedReleaseBlocker,
     });
-    setBedReleaseConfidence(undefined);
+    setBedReleaseWaitingOn(undefined);
     setBedReleaseBlocker(undefined);
     setBedReleaseExpectedAt("");
   }
@@ -296,9 +311,10 @@ export function WardScreen({ unitId }: WardScreenProps) {
   }
 
   // Bed-model rework (2026-08-28): the reversal. `confirmed -> predicted`, recorded like any
-  // other change. The confidence has to be restated because a predicted release carries one and
-  // a confirmed release does not — this row's own picker supplies it, defaulting to nothing so
-  // the ward states a belief rather than inheriting one.
+  // other change. What the discharge is waiting on has to be restated because a predicted release
+  // carries it and a confirmed release does not — this row's own picker supplies it, defaulting to
+  // nothing so the ward states the fact rather than inheriting one. "Nothing outstanding" is a
+  // real choice in that picker, so a ward reversing an unobstructed discharge has a value to give.
   function revertBedRelease(event: FormEvent<HTMLFormElement>, releaseId: string) {
     event.preventDefault();
     if (!revertChoice) return;
@@ -308,10 +324,53 @@ export function WardScreen({ unitId }: WardScreenProps) {
       now,
       releaseId,
       actingUnitId: unitId,
-      confidence: revertChoice,
+      waitingOn: revertChoice,
     });
     setRevertOpenFor(undefined);
     setRevertChoice(undefined);
+  }
+
+  // List 3 (2026-08-28): recording what a released bed is being made ready for.
+  //
+  // **This changes no bed figure and must never be made to.** `capacityBreakdown` derives
+  // `availableNow` from the unit's own fields and never reads a release, and matching never reads
+  // a `BedRelease` at all — the bed stays offered, stays counted, and stays allocatable the whole
+  // time it is being cleaned. That is the owner's own clinical answer to Q4: pulling the next
+  // patient takes hours anyway, so holding the bed back would invent a delay that does not exist.
+  function submitBedPreparation(event: FormEvent<HTMLFormElement>, releaseId: string) {
+    event.preventDefault();
+    if (!preparationChoice) return;
+    dispatch({
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now,
+      releaseId,
+      actingUnitId: unitId,
+      preparing: true,
+      note: preparationChoice,
+    });
+    setPreparationOpenFor(undefined);
+    setPreparationChoice(undefined);
+  }
+
+  // The bed has finished being made ready. `preparing: false` forces the note null in the reducer,
+  // because "not being made ready, waiting on a clean" is a contradiction.
+  function finishBedPreparation(releaseId: string) {
+    dispatch({
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now,
+      releaseId,
+      actingUnitId: unitId,
+      preparing: false,
+    });
+    setPreparationOpenFor(undefined);
+    setPreparationChoice(undefined);
+  }
+
+  function toggleBedPreparation(releaseId: string) {
+    setPreparationOpenFor((current) => (current === releaseId ? undefined : releaseId));
+    setPreparationChoice(undefined);
   }
 
   // Bed-model rework (2026-08-28): lifting the blocked flag. The stage is untouched — a confirmed
@@ -531,22 +590,25 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <span className={styles.capacityLabel}>Flag a bed coming free at {unit.name}</span>
             <div className={styles.capacityRow}>
               <div>
-                <label className={styles.declineLegend} htmlFor="ward-bed-release-confidence">
-                  Confidence
+                {/* The Q1 axis change (2026-08-28): this picker used to ask the ward how CONFIDENT
+                    it was and now asks what the discharge is WAITING ON. Two wards' "likely" do not
+                    mean the same thing; "Awaiting ward round" does. */}
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-waiting-on">
+                  Waiting on
                 </label>
                 <select
-                  id="ward-bed-release-confidence"
+                  id="ward-bed-release-waiting-on"
                   required
                   className={styles.capacityInput}
-                  value={bedReleaseConfidence ?? ""}
-                  onChange={(event) => setBedReleaseConfidence(event.target.value as BedReleaseConfidence)}
+                  value={bedReleaseWaitingOn ?? ""}
+                  onChange={(event) => setBedReleaseWaitingOn(event.target.value as BedReleaseWaitingOn)}
                 >
                   <option value="" disabled>
-                    Choose confidence
+                    Choose what it is waiting on
                   </option>
-                  {BED_RELEASE_CONFIDENCE_LEVELS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
+                  {BED_RELEASE_WAITING_ON.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
                     </option>
                   ))}
                 </select>
@@ -594,14 +656,14 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 type="submit"
                 data-testid="ward-flag-bed-release-submit"
                 className={styles.capacitySubmit}
-                disabled={!bedReleaseConfidence}
+                disabled={!bedReleaseWaitingOn}
               >
                 Flag bed coming free
               </button>
             </div>
             <p className={styles.capacityConfirmed}>
-              Records confidence, an expected free time and a blocker only &mdash; nothing about the departing patient.
-              Writes to {unit.name} only &mdash; never any other ward.
+              Records what the discharge is waiting on, an expected free time and a blocker only &mdash; nothing about
+              the departing patient. Writes to {unit.name} only &mdash; never any other ward.
             </p>
           </form>
 
@@ -716,20 +778,20 @@ export function WardScreen({ unitId }: WardScreenProps) {
                             className={styles.declineLegend}
                             htmlFor={`ward-bed-release-revert-select-${release.id}`}
                           >
-                            Confidence once reverted
+                            Waiting on, once reverted
                           </label>
                           <select
                             id={`ward-bed-release-revert-select-${release.id}`}
-                            data-testid={`ward-bed-release-revert-confidence-${release.id}`}
+                            data-testid={`ward-bed-release-revert-waiting-on-${release.id}`}
                             required
                             className={styles.capacityInput}
                             value={revertChoice ?? ""}
-                            onChange={(event) => setRevertChoice(event.target.value as BedReleaseConfidence)}
+                            onChange={(event) => setRevertChoice(event.target.value as BedReleaseWaitingOn)}
                           >
                             <option value="" disabled>
-                              Choose a confidence
+                              Choose what it is waiting on
                             </option>
-                            {BED_RELEASE_CONFIDENCE_LEVELS.map((item) => (
+                            {BED_RELEASE_WAITING_ON.map((item) => (
                               <option key={item} value={item}>
                                 {item}
                               </option>
@@ -789,6 +851,109 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 })}
               </ul>
             )}
+          </div>
+
+          {/* List 3 (2026-08-28): what a RELEASED bed is being made ready for. The picker exists
+              because the owner supplied `BED_PREPARATION_NOTES`; before that the array was empty
+              and there was nothing to offer.
+
+              **Every bed in this list is still available.** The note is informational and gates
+              nothing — see `submitBedPreparation` above and `BED_PREPARATION_NOTES` for the
+              owner's own clinical reasoning. No control here moves a lifecycle stage: `released`
+              is still terminal. */}
+          <div className={styles.capacityForm} data-testid="ward-bed-preparation-list">
+            <span className={styles.capacityLabel}>Beds being made ready at {unit.name}</span>
+            {releasedBedReleases.length === 0 ? (
+              <p className={styles.placeholder}>No released bed at {unit.name} yet.</p>
+            ) : (
+              <ul className={styles.cardList}>
+                {releasedBedReleases.map((release) => {
+                  const preparationOpen = preparationOpenFor === release.id;
+                  return (
+                    <li key={release.id} data-testid={`ward-bed-preparation-${release.id}`} className={styles.card}>
+                      <header className={styles.cardHeader}>
+                        <strong>{bedReleaseStateLabels[release.state]}</strong>
+                        {release.preparing ? (
+                          <strong data-testid={`ward-bed-preparation-flag-${release.id}`}>Being made ready</strong>
+                        ) : null}
+                        <span className={styles.cardMeta}>Still available</span>
+                      </header>
+                      {release.preparationNote ? (
+                        <span className={styles.cardMeta} data-testid={`ward-bed-preparation-note-${release.id}`}>
+                          {release.preparationNote}
+                        </span>
+                      ) : null}
+                      <WardFreshness
+                        confirmedAt={release.confirmedAt}
+                        confirmedByRole={release.confirmedBy}
+                        now={now}
+                      />
+                      <div className={styles.actionRow}>
+                        <button
+                          type="button"
+                          data-testid={`ward-bed-preparation-toggle-${release.id}`}
+                          aria-expanded={preparationOpen}
+                          className={styles.declineButton}
+                          onClick={() => toggleBedPreparation(release.id)}
+                        >
+                          {release.preparing ? "Change what it is waiting on" : "Being made ready"}
+                        </button>
+                        {release.preparing ? (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-preparation-finish-${release.id}`}
+                            className={styles.declineButton}
+                            onClick={() => finishBedPreparation(release.id)}
+                          >
+                            Ready
+                          </button>
+                        ) : null}
+                      </div>
+                      {preparationOpen ? (
+                        <form
+                          className={styles.declineForm}
+                          onSubmit={(event) => submitBedPreparation(event, release.id)}
+                          data-testid={`ward-bed-preparation-form-${release.id}`}
+                        >
+                          <label className={styles.declineLegend} htmlFor={`ward-bed-preparation-select-${release.id}`}>
+                            What this bed is waiting on
+                          </label>
+                          <select
+                            id={`ward-bed-preparation-select-${release.id}`}
+                            data-testid={`ward-bed-preparation-note-select-${release.id}`}
+                            required
+                            className={styles.capacityInput}
+                            value={preparationChoice ?? ""}
+                            onChange={(event) => setPreparationChoice(event.target.value as BedPreparationNote)}
+                          >
+                            <option value="" disabled>
+                              Choose what it is waiting on
+                            </option>
+                            {BED_PREPARATION_NOTES.map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            data-testid={`ward-bed-preparation-submit-${release.id}`}
+                            disabled={!preparationChoice}
+                            className={styles.declineSubmit}
+                          >
+                            Confirm being made ready
+                          </button>
+                        </form>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className={styles.capacityConfirmed}>
+              A bed being made ready is still offered and still counts as available &mdash; the note says what it is
+              waiting on, never that it is held back. Writes to {unit.name} only &mdash; never any other ward.
+            </p>
           </div>
 
           {/* Task 5 (spec D10): a small form for a bed occupied by someone on approved leave —

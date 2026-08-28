@@ -5,7 +5,7 @@ import {
   EVENING_SHIFT_END_MINUTES,
   releaseBand,
 } from "@/components/ward-management/ward-bed-availability";
-import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import type { BedRelease, LeaveBed } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
@@ -18,7 +18,7 @@ function release(overrides: Partial<BedRelease>): BedRelease {
     unitId: unit.id,
     state: "predicted",
     expectedAt: NOW_ANCHOR + 60,
-    confidence: "likely",
+    waitingOn: "Awaiting ward round",
     blocker: null,
     blockedBy: null,
     preparing: false,
@@ -74,7 +74,7 @@ describe("capacity breakdown", () => {
     const bare = capacityBreakdown(unit, [], [], NOW_ANCHOR);
     const loaded = capacityBreakdown(
       unit,
-      [release({ state: "predicted" }), release({ id: "WR-T02", state: "confirmed", confidence: null })],
+      [release({ state: "predicted" }), release({ id: "WR-T02", state: "confirmed", waitingOn: null })],
       [],
       NOW_ANCHOR,
     );
@@ -104,7 +104,7 @@ describe("capacity breakdown", () => {
   it("counts a blocked release expected beyond today in excludedBeyondToday and nowhere else", () => {
     const result = capacityBreakdown(
       unit,
-      [blockedRelease({ state: "confirmed", confidence: null, expectedAt: NOW_ANCHOR + 1440 })],
+      [blockedRelease({ state: "confirmed", waitingOn: null, expectedAt: NOW_ANCHOR + 1440 })],
       [],
       NOW_ANCHOR,
     );
@@ -130,8 +130,8 @@ describe("capacity breakdown", () => {
    * flagging an existing confirmed release changes the confirmed count by exactly nothing.
    */
   it("keeps a blocked-but-confirmed release counting as confirmed, and reports it as blocked beside that", () => {
-    const unblocked = capacityBreakdown(unit, [release({ state: "confirmed", confidence: null })], [], NOW_ANCHOR);
-    const blocked = capacityBreakdown(unit, [blockedRelease({ state: "confirmed", confidence: null })], [], NOW_ANCHOR);
+    const unblocked = capacityBreakdown(unit, [release({ state: "confirmed", waitingOn: null })], [], NOW_ANCHOR);
+    const blocked = capacityBreakdown(unit, [blockedRelease({ state: "confirmed", waitingOn: null })], [], NOW_ANCHOR);
 
     expect(unblocked.confirmedToday).toBe(1);
     expect(unblocked.blockedToday).toBe(0);
@@ -160,8 +160,8 @@ describe("capacity breakdown", () => {
     const result = capacityBreakdown(
       unit,
       [
-        release({ id: "WR-T01", state: "confirmed", confidence: null }),
-        blockedRelease({ id: "WR-T02", state: "confirmed", confidence: null }),
+        release({ id: "WR-T01", state: "confirmed", waitingOn: null }),
+        blockedRelease({ id: "WR-T02", state: "confirmed", waitingOn: null }),
         release({ id: "WR-T03", state: "predicted" }),
         blockedRelease({ id: "WR-T04", state: "predicted" }),
       ],
@@ -185,8 +185,8 @@ describe("capacity breakdown", () => {
    * `availableNow`.
    */
   it("never lets a preparation note change any figure — a bed being made ready is still available", () => {
-    const plain = release({ state: "released", preparing: false });
-    const beingPrepared = release({ state: "released", preparing: true });
+    const plain = release({ state: "released", preparing: false, preparationNote: null });
+    const beingPrepared = release({ state: "released", preparing: true, preparationNote: null });
 
     expect(capacityBreakdown(unit, [beingPrepared], [], NOW_ANCHOR)).toEqual(
       capacityBreakdown(unit, [plain], [], NOW_ANCHOR),
@@ -196,9 +196,33 @@ describe("capacity breakdown", () => {
     expect(capacityBreakdown(unit, [beingPrepared], [], NOW_ANCHOR).availableNow).toBeGreaterThan(0);
   });
 
+  /**
+   * List 3 (2026-08-28) filled `BED_PREPARATION_NOTES`, so `preparationNote` can carry a real
+   * value for the first time — and the flag test above, written while every note was `null`,
+   * could not have caught a figure that keyed on the NOTE rather than on the boolean.
+   *
+   * This closes that hole: EVERY permitted note is swept, and every figure must be byte-identical
+   * to the un-prepared bed's. That is the owner's Q4 answer stated as an assertion — "once a bed
+   * is available, a patient will be pulled" — and it is the rule this whole list must never break.
+   */
+  it("never lets ANY specific preparation note change a figure, sweeping the whole owner-approved list", () => {
+    const plain = capacityBreakdown(unit, [release({ state: "released", preparing: false })], [], NOW_ANCHOR);
+    expect(plain.availableNow).toBeGreaterThan(0);
+
+    for (const note of BED_PREPARATION_NOTES) {
+      const withNote = capacityBreakdown(
+        unit,
+        [release({ state: "released", preparing: true, preparationNote: note })],
+        [],
+        NOW_ANCHOR,
+      );
+      expect(withNote, `"${note}" must change no bed figure — a bed being made ready is still offered`).toEqual(plain);
+    }
+  });
+
   it("never lets a preparation note change a figure on an unreleased release either", () => {
-    const plain = release({ state: "confirmed", confidence: null, preparing: false });
-    const beingPrepared = release({ state: "confirmed", confidence: null, preparing: true });
+    const plain = release({ state: "confirmed", waitingOn: null, preparing: false });
+    const beingPrepared = release({ state: "confirmed", waitingOn: null, preparing: true });
 
     expect(capacityBreakdown(unit, [beingPrepared], [], NOW_ANCHOR)).toEqual(
       capacityBreakdown(unit, [plain], [], NOW_ANCHOR),
