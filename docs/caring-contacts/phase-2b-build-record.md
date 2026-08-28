@@ -3975,3 +3975,40 @@ loosening a condition to reach a surface would be the defect.**
 browser suite pins that an empty caseload is served as a page rather than as a missing resource. Seeding
 that server would trade a proven contract for an unproven one, which four separate handover notes have now
 warned against.
+
+### Ruling [158] — Supabase is the intended eventual database, and the schema already ports to it with one adaptation
+
+**2026-08-29.** The owner stated the intention plainly: _"Will eventually connect this to [Supabase]
+in the future also as the database."_ Recorded here rather than left in chat because it changes what
+"correct" means for every future migration in `caring-contacts/supabase/migrations/`.
+
+**The good news, checked against the migrations rather than assumed.** Supabase is Postgres with
+row-level security as its primary tenancy mechanism, and that is exactly the shape this schema
+already has: RLS `enable`d **and** `force`d on every table since 0002, one team-scoped policy per
+table, deny-by-default with no unconditionally-true policy anywhere, and the anonymous role granted
+`SELECT` with no policy specifically so the anonymous test proves the policies are doing the work.
+**No extension is required by any migration** — `grep 'create extension'` across all eight returns
+nothing — so there is no dependency on anything a Supabase project might not enable.
+
+**The one real adaptation, named now so it is not discovered late.** Tenancy resolves through
+`caring_contacts.current_team_id()`, which reads a session setting the application sets per
+connection. Supabase's ordinary pattern resolves tenancy from the JWT instead, via `auth.jwt()`.
+**Only that function's body changes**; every policy already routes through it, which is precisely
+why it was written as a function rather than as an inlined expression repeated across ~20 policies.
+The two custom roles (`caring_contacts_app`, `caring_contacts_anon`) would map onto Supabase's
+`authenticated` and `anon`, or be created alongside them — Supabase permits both.
+
+**THE HAZARD THIS RULING EXISTS TO PREVENT, and it is a serious one.** These migrations live in
+`caring-contacts/supabase/migrations/`, which is **not** the repository's `supabase/migrations/`.
+That other directory replays against the live `Clinical KB Database` project, and per `AGENTS.md`
+**merging to `main` applies it to the live clinical database automatically, within seconds** — a
+measured 34 s. Moving these files there, or creating a Caring Contacts migration in that directory,
+would deploy patient-shaped tables to the live clinical database on merge, with no deploy step to
+forget and no window in which to hold it back.
+
+Two committed tests exist solely to stop that — `tests/caring-contacts-domain-isolation.test.ts` and
+`tests/caring-contacts-migrations.test.ts` both fail if a Caring Contacts migration appears in the
+repository's `supabase/migrations/`, and every migration file in this directory carries the warning
+in its own header. **Do not weaken either test to make a future Supabase connection convenient.**
+Connecting to Supabase is a deliberate, separately approved operator act against a chosen project —
+it is not achieved by relocating files into the directory that auto-deploys.
