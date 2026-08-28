@@ -20,10 +20,20 @@ The brief said **"You are the only agent here."** That was false of the tree whi
 - `src/lib/caring-contacts-server/session.ts` was modified at **01:29:15** on 2026-08-29, and
   `src/lib/caring-contacts-server/demo-seed.ts` at **01:32:00** — mid-session, by something other
   than this task. Minutes later `tests/caring-contacts-team-page.dom.test.tsx` joined them.
-- Two commits landed on this branch that are not mine: **`a33fd9aff`** ("ruling 158 — Supabase as
-  the intended database, and the auto-deploy hazard") and **`e45dfefc5`** ("seed a claimed plan, a
-  due-today contact, and attempted dispatches"). The second one is Team-screen-adjacent work,
-  which is the same surface as deliverable two.
+- Three commits landed on this branch that are not mine: **`a33fd9aff`** ("ruling 158 — Supabase as
+  the intended database, and the auto-deploy hazard"), **`e45dfefc5`** ("seed a claimed plan, a
+  due-today contact, and attempted dispatches") and **`b2da3fd1a`** ("ruling 159 — the seed timeline
+  contradicted itself and every test passed"). The middle one is Team-screen-adjacent work, which is
+  the same surface as deliverable two.
+- A `next dev` server (PID 42528) was running in this worktree throughout, started by that agent and
+  actively browsing caring-contacts pages. It is what makes the unscoped typecheck unpassable —
+  see §6.
+- By the end, `src/lib/caring-contacts-server/demo-seed.ts` and `src/lib/caring-contacts/schedule.ts`
+  — the latter a **sealed-domain** module — were modified and uncommitted in the tree by that agent.
+
+All five of my commits (`98a8c428b`, `5fdff3389`, `ccee65fc3`, `f64083ddf`, `d17944bef`) were
+verified as ancestors of HEAD with `git merge-base --is-ancestor` afterwards, and the content of
+every file I changed was re-checked as still present.
 
 Nothing of mine was lost — I staged explicit paths for every commit and never used `git add -A` —
 and nothing of theirs was swept into my commits. But three consequences travel with the evidence
@@ -341,18 +351,34 @@ Every absence in the new tests is asserted over a value that was proven present 
 
 ## 6. Gates
 
-All run on the final tree. `test:cc-guards` and the browser gate additionally cover another task's
-work, per §1.
+All re-run after the final edit. **The tree kept moving underneath them** (§1): the offline gates
+saw HEAD `d17944bef`, the browser gate saw HEAD `b2da3fd1a` plus the other agent's uncommitted
+`demo-seed.ts`. Every one of them therefore covers another task's work as well as this one's, and
+none of them is evidence about this change alone.
 
-| Gate                                                                                | Result                                                                                                                                                                                                                              |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run caring-contacts:db:test`                                                   | `Test Files 2 passed (2)`, `Tests 212 passed (212)` — up from 205. The suite drops and replays the whole migration chain from empty in `beforeAll`, so **0008 replaying from empty is what this run proves**, not a separate claim. |
-| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`)                                  | `Test Files 42 passed (42)`, `Tests 1040 passed (1040)`                                                                                                                                                                             |
-| off-gate suites reaching the modules touched                                        | `Test Files 8 passed (8)`, `Tests 207 passed (207)` — api-handler, page-access-audit, server-store, simulation, write-serialisation, assignment, access-audit, permissions                                                          |
-| `npx tsc -p tsconfig.json --noEmit`                                                 | exit 0, no output, read from `tsc` directly. `.next` was removed first; two stale `.next/dev/types/validator.ts` errors about routes that no longer exist disappeared with it.                                                      |
-| `npx eslint <changed files>`                                                        | exit 0, `node_modules/.cache/eslint` removed first                                                                                                                                                                                  |
-| `npx prettier --check`                                                              | clean (`.sql` has no parser here, as for 0005–0007)                                                                                                                                                                                 |
-| `npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` | **`126 passed (3.1m)`** on a fresh build root. No `PLAYWRIGHT_KEEP_BUILD_ROOT`.                                                                                                                                                     |
+| Gate                                                                                | Result                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run caring-contacts:db:test`                                                   | **`Test Files 2 passed (2)`, `Tests 213 passed (213)`** — up from 205. The suite drops the schema and replays the whole migration chain from empty in `beforeAll`, so **0008 replaying from empty is what this run proves**, not a separate claim.        |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`)                                  | **`Test Files 42 passed (42)`, `Tests 1041 passed (1041)`**                                                                                                                                                                                               |
+| off-gate suites reaching the modules touched                                        | `Test Files 8 passed (8)`, `Tests 207 passed (207)` — api-handler, page-access-audit, server-store, simulation, write-serialisation, assignment, access-audit, permissions                                                                                |
+| `npx tsc --noEmit`                                                                  | **exit 0**, no output, read from `tsc` directly — but only with `.next` excluded. See the paragraph below; the unscoped run cannot pass while another agent's dev server is live in this worktree, and the reason is not in any file this change touched. |
+| `npx eslint <changed files>`                                                        | exit 0, `node_modules/.cache/eslint` removed first                                                                                                                                                                                                        |
+| `npx prettier --check <changed files>`                                              | `All matched files use Prettier code style!` (`.sql` has no parser here, as for 0005–0007)                                                                                                                                                                |
+| `npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` | **`126 passed (3.4m)`** on a fresh build root. No `PLAYWRIGHT_KEEP_BUILD_ROOT`. Run twice: `126 passed (3.1m)` at `ccee65fc3`, then again on the final tree.                                                                                              |
+
+**The typecheck needs its caveat read, not skipped.** `npx tsc -p tsconfig.json --noEmit` reports
+eight errors, all eight at `.next/dev/types/validator.ts:2645`, and `tsconfig.json` includes
+`.next/dev/types/**/*.ts`. That line reads `Validate ../../../src/app/(search-app)/formulation/layout.tsx`
+— a comment with its `//` missing. It is a **generated** file being rewritten by a `next dev` server
+(PID 42528) that another agent started in this worktree and is actively browsing through; the file's
+mtime moved during the check. `rm -rf .next`, which the brief names as the remedy for a stale build
+directory, would have broken that running server, so it was not done.
+
+Instead the same compiler ran over the same project with `.next/**` excluded and nothing else
+changed, and returned **exit 0 with no output**. Read that at the scope it was checked at: every
+`.ts`/`.tsx`/`.mts` file in this repository outside `.next` compiles, which includes every file this
+change touches. The generated Next route-type validator was not checked, and on this tree it cannot
+be until that dev server stops.
 
 `npm run test`, `npm run build` and `npm run verify:ui` were **not** run — the controller runs those.
 
