@@ -28,6 +28,7 @@ import { useMemo, useState } from "react";
 
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
+  BED_RELEASE_BLOCKED_FIGURE_LABEL,
   buildActionInbox,
   candidateReason,
   changeAudit,
@@ -404,17 +405,24 @@ function CapacityView() {
     availableNow: breakdowns.reduce((sum, entry) => sum + entry.breakdown.availableNow, 0),
     confirmedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.confirmedToday, 0),
     predictedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.predictedToday, 0),
+    blockedToday: breakdowns.reduce((sum, entry) => sum + entry.breakdown.blockedToday, 0),
     held: breakdowns.reduce((sum, entry) => sum + entry.breakdown.held, 0),
     leaveUsable: breakdowns.reduce((sum, entry) => sum + entry.breakdown.leaveUsable, 0),
   };
   const excludedBeyondToday = breakdowns.reduce((sum, entry) => sum + entry.breakdown.excludedBeyondToday, 0);
-  // Five cards, named explicitly rather than derived from `Object.entries` — that keeps this
-  // list exactly the five figures spec D6 names, in the order it names them, and makes a sixth
-  // "total" card impossible to add by accident the way looping over a totals object invited.
+  // Six cards, named explicitly rather than derived from `Object.entries` — that keeps this list
+  // exactly the figures spec D6 names, in the order it names them, and makes a "total" card
+  // impossible to add by accident the way looping over a totals object invited. The sixth,
+  // `blocked-releases`, arrived with the bed-model rework of 2026-08-28: it is a CROSS-CUT of
+  // Confirmed today and Predicted today, never a sum with them and never a subtraction from
+  // them, and its label is deliberately not the bare word "Blocked" — the per-unit rows below
+  // already use that for physically blocked BEDS (`unitCapacity().blocked`), which is a
+  // different fact. See `BED_RELEASE_BLOCKED_FIGURE_LABEL`.
   const headlineCards: { key: string; label: string; value: number }[] = [
     { key: "available-now", label: "Available now", value: headline.availableNow },
     { key: "confirmed-today", label: "Confirmed today", value: headline.confirmedToday },
     { key: "predicted-today", label: "Predicted today", value: headline.predictedToday },
+    { key: "blocked-releases", label: BED_RELEASE_BLOCKED_FIGURE_LABEL, value: headline.blockedToday },
     { key: "held", label: "Held", value: headline.held },
     { key: "leave-usable", label: "Leave (usable)", value: headline.leaveUsable },
   ];

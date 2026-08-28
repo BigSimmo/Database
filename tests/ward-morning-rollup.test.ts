@@ -13,6 +13,7 @@ import {
 import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
 import { bedReleases, leaveBeds, referrals } from "@/components/ward-management/ward-movements";
 import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
+import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -71,6 +72,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: NOW,
           confidence: null,
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -81,6 +85,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: NOW,
           confidence: "likely",
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -91,6 +98,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: NOW,
           confidence: null,
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -121,6 +131,75 @@ describe("ward-morning-rollup", () => {
       expect(result.service.confirmedToday).toBe(2);
       expect(result.service.predictedToday).toBe(1);
       expect(result.service.leaveUsable).toBe(1);
+      // No release in this set carries the blocked flag, so the rollup's new sixth figure is a
+      // real zero rather than an unasserted one — see the dedicated blocked-flag rollup test
+      // below for the non-zero half.
+      expect(result.service.blockedToday).toBe(0);
+    });
+  });
+
+  /**
+   * Bed-model rework (2026-08-28). `blockedToday` is a real per-unit sum like every other figure,
+   * AND it is a cross-cut: the same release is counted here and in `confirmedToday`. The fixture
+   * is built so a rollup that partitioned instead of cross-cutting — subtracting the blocked one
+   * out of `confirmedToday` — produces a different number here, which is exactly the arithmetic
+   * the four-stage model performed by accident and this rework exists to undo.
+   */
+  describe("rule 1 (continued): blockedToday is a real per-unit sum that cross-cuts the other two", () => {
+    it("sums the blocked flag across units without taking those releases out of confirmed or predicted", () => {
+      const unitA = unit({ id: "unit-a", siteCode: "RPH" });
+      const unitB = unit({ id: "unit-b", siteCode: "RPH" });
+      const releases: BedRelease[] = [
+        {
+          id: "r-blocked-confirmed",
+          unitId: "unit-a",
+          state: "confirmed",
+          expectedAt: NOW,
+          confidence: null,
+          blocker: BED_RELEASE_BLOCKERS[0],
+          blockedBy: "Ward",
+          preparing: false,
+          preparationNote: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+        {
+          id: "r-blocked-predicted",
+          unitId: "unit-b",
+          state: "predicted",
+          expectedAt: NOW,
+          confidence: "likely",
+          blocker: BED_RELEASE_BLOCKERS[1],
+          blockedBy: "Ward",
+          preparing: false,
+          preparationNote: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+        // An unblocked confirmed release, so "confirmedToday" is not vacuously equal to the
+        // blocked count and a partitioning implementation has somewhere to go wrong.
+        {
+          id: "r-clear",
+          unitId: "unit-a",
+          state: "confirmed",
+          expectedAt: NOW,
+          confidence: null,
+          blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
+          confirmedAt: NOW,
+          confirmedBy: "Ward",
+        },
+      ];
+      const testSite = site({ code: "RPH" });
+
+      const result = serviceRollup([testSite], [unitA, unitB], releases, [], NOW);
+
+      expect(result.service.blockedToday).toBe(2);
+      expect(result.service.confirmedToday).toBe(2);
+      expect(result.service.predictedToday).toBe(1);
+      expect(result.sites[0]?.rollup.blockedToday).toBe(2);
     });
   });
 
@@ -149,6 +228,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: EVENING_SHIFT_END_MINUTES + 60,
           confidence: "likely",
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -159,6 +241,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: EVENING_SHIFT_END_MINUTES + 120,
           confidence: null,
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -171,6 +256,9 @@ describe("ward-morning-rollup", () => {
           expectedAt: NOW,
           confidence: null,
           blocker: null,
+          blockedBy: null,
+          preparing: false,
+          preparationNote: null,
           confirmedAt: NOW,
           confirmedBy: "Ward",
         },
@@ -376,11 +464,20 @@ describe("ward-morning-rollup", () => {
     expect(withReleases.service.availableNow).toBe(withNone.service.availableNow);
   });
 
-  it("defines the five figure labels once, in the order the spec lists them", () => {
+  /**
+   * Six labels since the bed-model rework of 2026-08-28. `blockedToday` is a capacity figure about
+   * beds, so unlike `PEOPLE_WAITING_LABEL` it belongs in the shared vocabulary and is rendered at
+   * every level. Its text is deliberately "Blocked releases" and not the bare "Blocked": the ward
+   * screen already renders a "Blocked" chip meaning physically blocked BEDS
+   * (`unitCapacity().blocked`), and two chips reading the same word beside each other while
+   * meaning different things is a defect, not a tidy-up.
+   */
+  it("defines the six figure labels once, in the order the spec lists them", () => {
     expect(CAPACITY_FIGURE_LABELS).toEqual({
       availableNow: "Available now",
       confirmedToday: "Confirmed today",
       predictedToday: "Predicted today",
+      blockedToday: "Blocked releases",
       held: "Held",
       leaveUsable: "Leave (usable)",
     });
@@ -466,6 +563,7 @@ describe("ward-morning-rollup", () => {
         "availableNow",
         "confirmedToday",
         "predictedToday",
+        "blockedToday",
         "held",
         "leaveUsable",
       ]);

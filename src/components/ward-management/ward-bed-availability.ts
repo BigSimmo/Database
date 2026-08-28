@@ -8,6 +8,14 @@ import type { BedRelease, LeaveBed, Unit } from "@/components/ward-management/wa
  * The rule this file exists to enforce: **nothing predicted, confirmed-but-unreleased, or on leave
  * is ever added into `availableNow`.** A coordinator must be able to point at that number and say
  * "that is a bed I can fill this minute", and it must never have been softened by an expectation.
+ *
+ * The rule's mirror image, added by the bed-model rework of 2026-08-28 (Q4) and just as binding:
+ * **nothing is ever SUBTRACTED from `availableNow` for a preparation note either.** A released bed
+ * being made ready (cleaning, and whatever the owner's pending list eventually names) is still
+ * offered and still counted, because pulling the next patient takes hours anyway — see
+ * `BED_PREPARATION_NOTES`. `availableNow` is derived from the unit's own `allocatable`/`empty`
+ * figures and reads no `BedRelease` field at all, which is what makes both halves of the rule
+ * structural rather than remembered.
  */
 
 const MIDDAY_MINUTES = 12 * 60; // 720
@@ -53,6 +61,18 @@ export type CapacityBreakdown = {
   availableNow: number;
   confirmedToday: number;
   predictedToday: number;
+  /**
+   * How many of today's releases carry the blocked flag — the figure the four-stage model
+   * structurally could not produce (bed-model rework, 2026-08-28).
+   *
+   * **It is a CROSS-CUT, not a fourth bucket.** Every release counted here is also counted in
+   * `confirmedToday` or `predictedToday`, because being stuck says nothing about how certain the
+   * discharge is. Never add it to those two, and never subtract it from them: it answers "how
+   * many of these is somebody having to chase", which is a different question from "how many are
+   * coming". A release expected beyond tonight is excluded here exactly as it is from the other
+   * two, so this figure and `excludedBeyondToday` never double-count.
+   */
+  blockedToday: number;
   held: number;
   leaveUsable: number;
   excludedBeyondToday: number;
@@ -73,6 +93,7 @@ export function capacityBreakdown(
 
   let confirmedToday = 0;
   let predictedToday = 0;
+  let blockedToday = 0;
   let excludedBeyondToday = 0;
 
   for (const release of unitReleases) {
@@ -82,8 +103,16 @@ export function capacityBreakdown(
       excludedBeyondToday += 1;
       continue;
     }
+    // The bed-model rework's whole point (2026-08-28). `state` now carries ONLY how certain the
+    // discharge is, so these two branches are exhaustive over every unreleased release and
+    // nothing can fall between them — which is exactly what a release in the old fourth state
+    // `"blocked"` did, silently dropping a stuck confirmed discharge out of the ward's confirmed
+    // count. A blocked-but-confirmed bed is counted as confirmed here, deliberately, and the
+    // block is reported alongside rather than instead. Do not re-introduce a `blocker` test into
+    // this if/else — that is the defect, not a refinement of it.
     if (release.state === "confirmed") confirmedToday += 1;
-    else if (release.state === "predicted") predictedToday += 1;
+    else predictedToday += 1;
+    if (release.blocker !== null) blockedToday += 1;
   }
 
   const leaveUsable = leave.filter((bed) => bed.unitId === unit.id && bed.usable).length;
@@ -92,6 +121,7 @@ export function capacityBreakdown(
     availableNow,
     confirmedToday,
     predictedToday,
+    blockedToday,
     held,
     leaveUsable,
     excludedBeyondToday,

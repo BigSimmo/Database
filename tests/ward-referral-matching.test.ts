@@ -346,8 +346,10 @@ describe("referralCandidates", () => {
 });
 
 /**
- * Spec D15 / the fourth most important test: matching must stay independent of the four-stage
- * bed-release model, which no ward clinician has yet validated. A source-text contract rather
+ * Spec D15 / the fourth most important test: matching must stay independent of the bed-release
+ * model — three stages plus a blocked flag since the rework of 2026-08-28, and still unvalidated
+ * by any ward clinician. The contract is unchanged by that rework, and deliberately so: the
+ * whole point of D15 is that matching does not care what shape the release model is today. A source-text contract rather
  * than a runtime assertion, because the whole point is that no code path reachable from matching
  * reads that model AT ALL — not even one that happens to agree with `unit.allocatable` today.
  *
@@ -356,7 +358,7 @@ describe("referralCandidates", () => {
  * a word boundary immediately after "BedRelease", so `BedReleaseState`, `BedReleaseConfidence`,
  * `releaseBand`/`RELEASE_BANDS` and `capacityBreakdown` (which takes `BedRelease[]`) all survived
  * it untouched. The pattern below enumerates every spelling that actually names a piece of the
- * four-stage model, EXACTLY — not a `\bBedRelease\w*\b` wildcard, which would also catch
+ * release model, EXACTLY — not a `\bBedRelease\w*\b` wildcard, which would also catch
  * `BedReleaseBlocker`/`BED_RELEASE_BLOCKERS` (`ward-change-reasons.ts`, imported by
  * `ward-model.ts`, which every referral/unit type comes from): a real, necessary, unrelated
  * import that has nothing to do with the release model matching must avoid. Confirmed with
@@ -375,7 +377,7 @@ describe("referralCandidates", () => {
  * about staying independent of the release model, which is exactly the false positive a
  * structural test must not produce.
  */
-describe("matching stays independent of the four-stage bed model", () => {
+describe("matching stays independent of the bed-release model", () => {
   const BED_RELEASE_IDENTIFIER =
     /\bBedRelease\b|\bBedReleaseState\b|\bBedReleaseConfidence\b|\bBED_RELEASE_STATES\b|\bBED_RELEASE_CONFIDENCE_LEVELS\b|\breleaseBand\b|\bRELEASE_BANDS\b|\bcapacityBreakdown\b/;
 

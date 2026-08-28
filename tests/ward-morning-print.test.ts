@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { CAPACITY_FIGURE_LABELS } from "@/components/ward-management/ward-morning-rollup";
+
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
@@ -284,5 +286,49 @@ describe("Ward morning bed state — the people-waiting figure reaches the print
           `pale grey/blue on white paper, the same defect as .headlineLabel above`,
       ).toContain(selector);
     }
+  });
+});
+
+/**
+ * Bed-model rework (2026-08-28), written because this exact regression shipped and was caught only
+ * by Chromium.
+ *
+ * The print block forces `.figureGridDense` to a FIXED column count so each hospital's totals stay
+ * on one row; without it `repeat(auto-fit, minmax(7rem, 1fr))` wraps them to two rows at A4 width,
+ * and across the real 17-hospital fixture that pushes the pinnable sheet onto a second page. The
+ * count was hardcoded to 5 for the five figures that existed at the time. Adding `blockedToday` as
+ * a sixth figure left that 5 untouched, every hospital wrapped, and `ui-ward-morning.spec.ts`'s
+ * `page.pdf({ format: "A4" })` measurement went from 1 page to 2 — while the entire 58-file ward
+ * Vitest suite stayed green, because jsdom does not evaluate `@media print` and cannot paginate.
+ *
+ * This guard cannot measure the sheet either. What it CAN do is pin the coupling that broke: the
+ * column count must equal the number of figures the page actually renders. That turns a slow,
+ * browser-only, one-line-of-CSS failure into a fast one with the reason attached. The PDF
+ * measurement in `ui-ward-morning.spec.ts` remains the real proof and is not replaced by this.
+ */
+describe("Ward morning bed state — the printed figure grid has one column per figure", () => {
+  it("forces exactly as many print columns as CAPACITY_FIGURE_LABELS has members", () => {
+    const css = source("src/components/ward-management/morning/morning.module.css");
+    const printStart = css.indexOf("@media print {");
+    expect(printStart, "morning.module.css: could not find the @media print block").toBeGreaterThanOrEqual(0);
+    const printBlock = css.slice(printStart);
+
+    const match = /\.figureGridDense\s*\{[^}]*grid-template-columns:\s*repeat\((\d+),/.exec(printBlock);
+    expect(
+      match,
+      "no `.figureGridDense { grid-template-columns: repeat(N, ...) }` rule was found inside @media print — " +
+        "without a fixed column count the site figure grid wraps at A4 width and the sheet spills onto a second page",
+    ).not.toBeNull();
+
+    const figureCount = Object.keys(CAPACITY_FIGURE_LABELS).length;
+    // Non-vacuity: if the vocabulary itself were ever emptied, a `repeat(0, ...)` would satisfy an
+    // equality check while proving nothing.
+    expect(figureCount).toBeGreaterThan(1);
+    expect(
+      Number(match![1]),
+      `.figureGridDense prints ${match![1]} columns but the page renders ${figureCount} figures ` +
+        `(CAPACITY_FIGURE_LABELS) — every hospital's totals will wrap to a second row and the sheet will ` +
+        `no longer fit one A4 page`,
+    ).toBe(figureCount);
   });
 });

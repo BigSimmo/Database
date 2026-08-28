@@ -65,9 +65,17 @@ describe("ward bed release lifecycle", () => {
     expect(release(next, "WR-002").confirmedAt).not.toBe(originalConfirmedAt);
   });
 
-  it("2. a ward blocks a release with a blocker from the list", () => {
+  /**
+   * Bed-model rework (2026-08-28). This used to assert `state === "blocked"` and a null
+   * confidence — the fourth state swallowing the row's stage. Blocking is now a FLAG: the stage
+   * is untouched, so a predicted release stays predicted and keeps the confidence it was flagged
+   * with, and the role that recorded the block is stored beside the reason.
+   */
+  it("2. a ward blocks a release with a blocker from the list — the flag goes on, the stage does not move", () => {
     const state = seeded();
     const [blocker] = BED_RELEASE_BLOCKERS;
+    const before = release(state, "WR-002");
+    expect(before.state).toBe("predicted");
     const next = wardFlowReducer(state, {
       type: "BLOCK_BED_RELEASE",
       role: "ward",
@@ -77,9 +85,192 @@ describe("ward bed release lifecycle", () => {
       blocker,
     });
     expect(next.rejections).toHaveLength(0);
-    expect(release(next, "WR-002").state).toBe("blocked");
+    expect(release(next, "WR-002").state).toBe("predicted");
     expect(release(next, "WR-002").blocker).toBe(blocker);
-    expect(release(next, "WR-002").confidence).toBeNull();
+    expect(release(next, "WR-002").blockedBy).toBe("NUM SCGH Adult Open");
+    expect(release(next, "WR-002").confidence).toBe(before.confidence);
+  });
+
+  /**
+   * THE case the whole rework exists for, proved end to end through the reducer rather than only
+   * against `capacityBreakdown`'s arithmetic. A ward confirms a discharge, then reports it stuck.
+   * Under the four-stage model the second event moved the release into `"blocked"`, which
+   * `capacityBreakdown` counted in neither `confirmedToday` nor `predictedToday` — so the ward's
+   * confirmed count fell by one at the exact moment it got stuck, with nothing saying why.
+   */
+  it("2b. blocking a CONFIRMED release leaves it confirmed, still counted as confirmed, and reported as blocked", () => {
+    const state = seeded();
+    // WR-001 (rph-adult-secure) is seeded confirmed.
+    expect(release(state, "WR-001").state).toBe("confirmed");
+    const before = capacityBreakdown(unit(state, "rph-adult-secure"), state.bedReleases, state.leaveBeds, NOW);
+
+    const next = wardFlowReducer(state, {
+      type: "BLOCK_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+      blocker: BED_RELEASE_BLOCKERS[0],
+    });
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-001").state).toBe("confirmed");
+
+    const after = capacityBreakdown(unit(next, "rph-adult-secure"), next.bedReleases, next.leaveBeds, NOW);
+    expect(before.confirmedToday).toBeGreaterThan(0);
+    expect(after.confirmedToday).toBe(before.confirmedToday);
+    expect(after.blockedToday).toBe(before.blockedToday + 1);
+  });
+
+  /** The flag comes off without touching the stage either — the mirror of 2b. */
+  it("2c. clearing the block leaves the stage alone and drops the blocked count", () => {
+    const state = seeded();
+    const blocked = wardFlowReducer(state, {
+      type: "BLOCK_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+      blocker: BED_RELEASE_BLOCKERS[0],
+    });
+    const cleared = wardFlowReducer(blocked, {
+      type: "CLEAR_BED_RELEASE_BLOCK",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+    });
+    expect(cleared.rejections).toHaveLength(0);
+    expect(release(cleared, "WR-001").state).toBe("confirmed");
+    expect(release(cleared, "WR-001").blocker).toBeNull();
+    expect(release(cleared, "WR-001").blockedBy).toBeNull();
+    expect(
+      capacityBreakdown(unit(cleared, "rph-adult-secure"), cleared.bedReleases, cleared.leaveBeds, NOW).blockedToday,
+    ).toBe(0);
+  });
+
+  /**
+   * The reversal the four-stage model forbade. Forbidding it never stopped a ward reversing a
+   * decision — it only stopped the ward recording it, which is worse. The blocked flag survives,
+   * because reversing the discharge decision does not unstick the bed.
+   */
+  it("2d. a ward reverts a confirmed release back to predicted, keeping any block", () => {
+    const state = seeded();
+    // WR-007 is seeded confirmed AND blocked — the blocked-but-confirmed shape.
+    expect(release(state, "WR-007").state).toBe("confirmed");
+    expect(release(state, "WR-007").blocker).not.toBeNull();
+
+    const next = wardFlowReducer(state, {
+      type: "REVERT_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-007",
+      actingUnitId: "fsh-adult-secure",
+      confidence: "possible",
+    });
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-007").state).toBe("predicted");
+    expect(release(next, "WR-007").confidence).toBe("possible");
+    expect(release(next, "WR-007").blocker).toBe(release(state, "WR-007").blocker);
+  });
+
+  it("2e. a ward may not revert a release that is not confirmed — rejected, release unchanged", () => {
+    const state = seeded();
+    const before = release(state, "WR-002");
+    expect(before.state).toBe("predicted");
+    const next = wardFlowReducer(state, {
+      type: "REVERT_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+      confidence: "likely",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(release(next, "WR-002")).toEqual(before);
+  });
+
+  /**
+   * Q4 (2026-08-28): the preparation indication is INFORMATIONAL and gates nothing. Proved
+   * against the unit's own bed figures, which is where a gating implementation would have to
+   * write — `capacityBreakdown`'s `availableNow` reads those and never a release.
+   */
+  it("2f. marking a released bed as being made ready changes no bed figure at all", () => {
+    const state = seeded();
+    // WR-008 (arm-adult-open) is the seeded released bed, and the fixture already marks it as
+    // being made ready. The flag is cleared FIRST so `before` and `after` genuinely differ in the
+    // one field under test — comparing "preparing" against "preparing" would subtract the same
+    // bed from both sides of a gating implementation and pass while proving nothing.
+    expect(release(state, "WR-008").state).toBe("released");
+    expect(release(state, "WR-008").preparing).toBe(true);
+
+    const cleared = wardFlowReducer(state, {
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      preparing: false,
+    });
+    expect(release(cleared, "WR-008").preparing).toBe(false);
+    const before = capacityBreakdown(unit(cleared, "arm-adult-open"), cleared.bedReleases, cleared.leaveBeds, NOW);
+
+    const next = wardFlowReducer(cleared, {
+      type: "SET_BED_PREPARATION",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      preparing: true,
+    });
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-008").preparing).toBe(true);
+    // No note is stored, and none can be: `BED_PREPARATION_NOTES` is owner-pending and empty.
+    expect(release(next, "WR-008").preparationNote).toBeNull();
+
+    const after = capacityBreakdown(unit(next, "arm-adult-open"), next.bedReleases, next.leaveBeds, NOW);
+    expect(after).toEqual(before);
+    // Non-vacuity: this unit really does have a bed to withhold, so a gating implementation had
+    // somewhere to go wrong.
+    expect(after.availableNow).toBeGreaterThan(0);
+  });
+
+  /**
+   * Confirming a stuck prediction must KEEP the flag. This is the counting defect approached from
+   * the other end: if confirmation quietly cleared the block, the system would assert the bed was
+   * unstuck because somebody decided the discharge, and "how many confirmed discharges are stuck"
+   * — the question the four-stage model structurally could not answer — would read zero forever.
+   */
+  it("2g. confirming a blocked prediction keeps the flag, and the bed counts as confirmed AND blocked", () => {
+    const state = seeded();
+    const blocked = wardFlowReducer(state, {
+      type: "BLOCK_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+      blocker: BED_RELEASE_BLOCKERS[0],
+    });
+    const confirmed = wardFlowReducer(blocked, {
+      type: "CONFIRM_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+    });
+
+    expect(confirmed.rejections).toHaveLength(0);
+    expect(release(confirmed, "WR-002").state).toBe("confirmed");
+    expect(release(confirmed, "WR-002").blocker).toBe(BED_RELEASE_BLOCKERS[0]);
+    expect(release(confirmed, "WR-002").blockedBy).toBe("NUM SCGH Adult Open");
+
+    const after = capacityBreakdown(
+      unit(confirmed, "scgh-adult-open"),
+      confirmed.bedReleases,
+      confirmed.leaveBeds,
+      NOW,
+    );
+    expect(after.confirmedToday).toBe(1);
+    expect(after.blockedToday).toBe(1);
   });
 
   it("3. a ward blocks with no blocker — rejected, release unchanged", () => {
@@ -188,7 +379,9 @@ describe("ward bed release lifecycle", () => {
     expect(afterUnit.allocatable.value).toBeLessThanOrEqual(afterUnit.beds);
   });
 
-  it("5. a coordinator may not confirm, block or release a bed — three rejections, no state change (spec D2)", () => {
+  /** Spec D2, extended by the 2026-08-28 rework to the three events it added: only the ward moves
+   *  a bed between stages, flags it stuck or unstuck, or says it is being made ready. */
+  it("5. a coordinator may not confirm, revert, block, unblock, prepare or release a bed — six rejections, no state change (spec D2)", () => {
     const state = seeded();
     const beforeConfirmTarget = release(state, "WR-002");
     const beforeReleaseTarget = release(state, "WR-001");
@@ -208,7 +401,30 @@ describe("ward bed release lifecycle", () => {
       actingUnitId: "scgh-adult-open",
       blocker: BED_RELEASE_BLOCKERS[0],
     });
-    const afterRelease = wardFlowReducer(afterBlock, {
+    const afterRevert = wardFlowReducer(afterBlock, {
+      type: "REVERT_BED_RELEASE",
+      role: "coordinator",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+      confidence: "likely",
+    });
+    const afterUnblock = wardFlowReducer(afterRevert, {
+      type: "CLEAR_BED_RELEASE_BLOCK",
+      role: "coordinator",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+    });
+    const afterPrepare = wardFlowReducer(afterUnblock, {
+      type: "SET_BED_PREPARATION",
+      role: "coordinator",
+      now: NOW,
+      releaseId: "WR-001",
+      actingUnitId: "rph-adult-secure",
+      preparing: true,
+    });
+    const afterRelease = wardFlowReducer(afterPrepare, {
       type: "RELEASE_BED",
       role: "coordinator",
       now: NOW,
@@ -216,7 +432,7 @@ describe("ward bed release lifecycle", () => {
       actingUnitId: "rph-adult-secure",
     });
 
-    expect(afterRelease.rejections).toHaveLength(3);
+    expect(afterRelease.rejections).toHaveLength(6);
     expect(release(afterRelease, "WR-002")).toEqual(beforeConfirmTarget);
     expect(release(afterRelease, "WR-001")).toEqual(beforeReleaseTarget);
   });

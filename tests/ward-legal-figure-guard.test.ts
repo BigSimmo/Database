@@ -567,6 +567,7 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         ),
       );
     case "CONFIRM_BED_RELEASE":
+    case "CLEAR_BED_RELEASE_BLOCK":
       // `actingUnitId` must mirror the RELEASE's own unit, not merely any unit id — the reducer
       // compares against `release.unitId`, same claim-not-proof discipline FLAG_BED_RELEASE's own
       // doc comment sets out. One candidate per release already in `state.bedReleases`, generated
@@ -579,6 +580,36 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         releaseId: release.id,
         actingUnitId: release.unitId,
       }));
+    case "REVERT_BED_RELEASE":
+      // Bed-model rework (2026-08-28). One candidate per release crossed with every confidence
+      // level — the same "one candidate per real domain value" precedent every list-valued event
+      // above follows, so a branch keyed on the chosen confidence cannot go unentered.
+      return state.bedReleases.flatMap((release) =>
+        BED_RELEASE_CONFIDENCE_LEVELS.map((confidence) => ({
+          type,
+          role,
+          now,
+          releaseId: release.id,
+          actingUnitId: release.unitId,
+          confidence,
+        })),
+      );
+    case "SET_BED_PREPARATION":
+      // One candidate per release crossed with BOTH `preparing` values, the same reasoning
+      // RECORD_LEAVE_BED's `usable` pair uses. No `note` candidate is generated and none can be:
+      // `BED_PREPARATION_NOTES` is deliberately empty pending the product owner's list, so there
+      // is no permitted value to sweep. When that array is filled, this case gains the same
+      // cross-product every other list-valued event here already has.
+      return state.bedReleases.flatMap((release) =>
+        [true, false].map((preparing) => ({
+          type,
+          role,
+          now,
+          releaseId: release.id,
+          actingUnitId: release.unitId,
+          preparing,
+        })),
+      );
     case "BLOCK_BED_RELEASE":
       // One candidate per release crossed with every blocker — the same "one candidate per real
       // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO/FLAG_BED_RELEASE

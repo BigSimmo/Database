@@ -87,6 +87,34 @@ export const BED_RELEASE_BLOCKERS = [
 ] as const;
 export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
 
+/**
+ * The bed-model rework of 2026-08-28 (`docs/ward-flow-phase-6-7-decisions.md`, Q4). Once a bed is
+ * released it may carry a short indication that it is being MADE READY — the owner's example was
+ * cleaning. His own clinical reasoning is why this is a note and not a fifth lifecycle stage:
+ *
+ * > "Once a bed is available, a patient will be pulled. Pulled patient takes hours to transport
+ * > and move, so it is fine to allocate this bed. Just have a note for preparing bed maybe until
+ * > it is ready."
+ *
+ * So the note is **informational and must NEVER gate allocation**. A bed being made ready is
+ * still offered, still counts in `availableNow`, and still appears in every figure. Anything
+ * else reintroduces the delay that answer says does not exist. Structurally this is enforced
+ * three ways and none of them is a comment: the note lives on a `BedRelease`, `capacityBreakdown`
+ * derives `availableNow` from the UNIT's own fields and never reads a release at all, and
+ * matching never reads a `BedRelease` in the first place (`tests/ward-referral-matching.test.ts`).
+ *
+ * **This array is deliberately EMPTY, and the emptiness is the whole point.** The permitted
+ * values are OWNER-PENDING — the same pending list as the blocked-discharge reasons and the
+ * "what is this discharge waiting on" axis (Q1). An agent must never invent a clinical
+ * vocabulary, and a placeholder here would be exactly that. Until the owner supplies the list,
+ * `BedPreparationNote` resolves to `never`, so `BedRelease.preparationNote` can only ever be
+ * `null` and the boolean `BedRelease.preparing` carries the whole signal. Filling this one array
+ * is all that is needed to turn the note on, plus a picker on the ward screen — which is
+ * deliberately NOT built, because there is nothing to offer in it yet.
+ */
+export const BED_PREPARATION_NOTES = [] as const;
+export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
+
 export const changeReasonLabels: Record<
   UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason,
   string

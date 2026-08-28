@@ -170,7 +170,7 @@ describe("ward capacity board", () => {
  * that moves no bed figure at all.
  */
 describe("ward capacity headline (Task 7)", () => {
-  it("renders the capacity headline as five separate figures and never a sum", () => {
+  it("renders the capacity headline as six separate figures and never a sum", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
@@ -178,15 +178,21 @@ describe("ward capacity headline (Task 7)", () => {
     );
 
     const headline = screen.getByTestId("ward-capacity-headline");
-    // Structural proof, not a text scan: exactly these five testids exist under the headline and
-    // no others — a sixth card (a "total"/"sum") would fail this count even if it were labelled
-    // something this test does not otherwise search for.
+    // Structural proof, not a text scan: exactly these six testids exist under the headline and
+    // no others — a seventh card (a "total"/"sum") would fail this count even if it were labelled
+    // something this test does not otherwise search for. The count rose from five to six with the
+    // bed-model rework of 2026-08-28, which added `blocked-releases`; the guard is unchanged in
+    // kind, and every card is still named individually below so the count alone can never stand
+    // in for knowing WHICH cards are there.
     const cards = headline.querySelectorAll('[data-testid^="ward-capacity-headline-"]');
-    expect(cards).toHaveLength(5);
+    expect(cards).toHaveLength(6);
 
     expect(screen.getByTestId("ward-capacity-headline-available-now")).toHaveTextContent("Available now");
     expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveTextContent("Confirmed today");
     expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveTextContent("Predicted today");
+    // Deliberately "Blocked releases", not the bare "Blocked": the per-unit rows below already
+    // use that word for physically blocked BEDS, which is a different fact.
+    expect(screen.getByTestId("ward-capacity-headline-blocked-releases")).toHaveTextContent("Blocked releases");
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
     expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
 

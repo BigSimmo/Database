@@ -55,13 +55,18 @@ function bedStateCells(page: Page) {
 }
 
 /**
- * A release row's own state label — the single `<strong>{bedReleaseStateLabels[release.state]}</strong>`
+ * A release row's own STAGE label — the first `<strong>{bedReleaseStateLabels[release.state]}</strong>`
  * in its `cardHeader` (`ward-screen.tsx`). Every row also carries a `WardFreshness` stamp that
- * literally reads "Confirmed HH:MM · NUM <ward>" for EVERY state, not only `confirmed` — the
- * reducer sets `confirmedAt`/`confirmedBy` on every `FLAG_BED_RELEASE`/`CONFIRM_BED_RELEASE`/
- * `BLOCK_BED_RELEASE` write regardless of the resulting `state`, because those fields mean "last
- * reported", not "currently in the confirmed state". A plain `toContainText("Confirmed")` on the
- * row is therefore true at every step and asserts nothing — this reads the state label alone.
+ * literally reads "Confirmed HH:MM · NUM <ward>" for EVERY stage, not only `confirmed` — the
+ * reducer sets `confirmedAt`/`confirmedBy` on every bed-release write regardless of the resulting
+ * `state`, because those fields mean "last reported", not "currently in the confirmed stage". A
+ * plain `toContainText("Confirmed")` on the row is therefore true at every step and asserts
+ * nothing — this reads the stage label alone.
+ *
+ * `.first()` matters more since the bed-model rework of 2026-08-28: a blocked row renders a
+ * SECOND `<strong>` for the flag, right after the stage. That is the change made visible — the
+ * stage and the flag are two facts shown together, where the four-stage model showed one word
+ * that erased the other.
  */
 function releaseStateLabel(row: Locator) {
   return row.locator("strong").first();
@@ -133,16 +138,33 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await page.getByTestId(`ward-bed-release-block-toggle-${releaseId}`).click();
     await page.getByTestId(`ward-bed-release-blocker-${releaseId}`).selectOption("Awaiting clean");
     await page.getByTestId(`ward-bed-release-block-submit-${releaseId}`).click();
-    await expect(releaseStateLabel(releaseRow)).toHaveText("Blocked");
+    // Bed-model rework (2026-08-28). Blocking is a FLAG, so the stage does not move: this row
+    // still reads "Confirmed", AND it now also reads "Blocked". Before the rework the stage label
+    // flipped to "Blocked" and the fact that the ward had already decided this discharge was
+    // gone from the screen entirely.
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
+    await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveText("Blocked");
     await expect(releaseRow).toContainText("Awaiting clean");
 
-    // --- The board reflects the block: Confirmed drops back to 1. A blocked release counts as
-    // neither confirmed nor predicted (`capacityBreakdown` in `ward-bed-availability.ts`) — it is
-    // no longer on schedule but is not yet a physical fact either, and that absence from both
-    // figures is itself the honest read, not a bug this test should paper over. ---
+    // --- The board reflects the block WITHOUT losing the confirmed discharge. This assertion
+    // used to read "1Confirmed" and was the browser-level statement of the defect the rework
+    // exists to close: marking a confirmed discharge blocked dropped the ward's confirmed count
+    // by one, so the figures improved at the exact moment the ward got stuck. The bed is still a
+    // confirmed discharge — it is simply also stuck, and the stuck-ness is now its own figure. ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(2)).toHaveText("1Confirmed");
+    await expect(cells.nth(2)).toHaveText("2Confirmed");
     await expect(cells.nth(3)).toHaveText("0Predicted");
+    await expect(page.getByTestId("ward-capacity-headline-blocked-releases")).toContainText("Blocked releases");
+
+    // --- Step 3b: the flag comes off again without touching the stage. A flag that can only ever
+    // be set is not a flag, and under the four-stage model the only way out of "blocked" was a
+    // state change — which is the conflation being undone. ---
+    await goBackToWard(page);
+    await page.getByTestId(`ward-bed-release-unblock-${releaseId}`).click();
+    await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveCount(0);
+    await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
+    await goToCapacityBoard(page);
+    await expect(cells.nth(2)).toHaveText("2Confirmed");
 
     // --- Step 4: back to the ward, release the bed — the one transition in this lifecycle that
     // changes a real, physical bed count rather than just a record about one. ---

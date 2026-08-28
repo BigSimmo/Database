@@ -148,7 +148,7 @@ function getInitialReducedMotion(): boolean {
  *
  * Tour progress — which beat, running or not — lives ENTIRELY in this component's own `useState`
  * calls and never enters the reducer's shared `WardFlowState` (spec D11): that is what keeps this
- * file cheap to change if the four-stage bed model is ever revised. The events it dispatches are
+ * file cheap to change if the bed model is ever revised (it was, on 2026-08-28). The events it dispatches are
  * shared state, exactly like every other screen's; the fact that a tour is driving them is not.
  */
 export function MorningTour({ onChangeView }: { onChangeView: (view: MorningView) => void }) {

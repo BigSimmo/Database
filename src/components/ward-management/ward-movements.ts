@@ -730,6 +730,9 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 45,
     confidence: null,
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 10,
     confirmedBy: "NUM RPH Adult Secure",
   },
@@ -740,6 +743,9 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 90,
     confidence: "likely",
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 25,
     confirmedBy: "NUM SCGH Adult Open",
   },
@@ -750,6 +756,9 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 180,
     confidence: "possible",
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 60,
     confirmedBy: "NUM FSH Older Adult",
   },
@@ -760,6 +769,9 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 30,
     confidence: null,
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 5,
     confirmedBy: "NUM FRE Adult Open",
   },
@@ -770,6 +782,9 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 120,
     confidence: "likely",
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 35,
     confirmedBy: "NUM BTY Adult Secure",
   },
@@ -780,36 +795,62 @@ export const bedReleases: BedRelease[] = [
     expectedAt: NOW_ANCHOR + 240,
     confidence: "possible",
     blocker: null,
+    blockedBy: null,
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 80,
     confirmedBy: "NUM Graylands Older Adult",
   },
   {
+    // Bed-model rework (2026-08-28): the release the counting defect was found on, seeded in the
+    // exact shape that used to be uncountable — a discharge the ward has DECIDED and which is
+    // nonetheless stuck. Under the four-stage model this was `state: "blocked"`, which
+    // `capacityBreakdown` sorted into neither `confirmedToday` nor `predictedToday`, so marking
+    // it blocked silently dropped FSH Adult Secure's confirmed count to zero. It now counts as
+    // confirmed AND as blocked, which is what a bed coordinator actually needs to see.
     id: "WR-007",
     unitId: "fsh-adult-secure",
-    state: "blocked",
+    state: "confirmed",
     expectedAt: NOW_ANCHOR + 120,
     confidence: null,
     blocker: "Awaiting accommodation",
+    blockedBy: "NUM FSH Adult Secure",
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 35,
     confirmedBy: "NUM FSH Adult Secure",
   },
   {
+    // Q4 (2026-08-28): a released bed that is being made ready. `preparing` is INFORMATIONAL and
+    // gates nothing — this bed is still offered, still counts in `availableNow`, and still
+    // appears in every figure, because pulling the next patient takes hours anyway.
+    // `preparationNote` stays null: the permitted notes are owner-pending and
+    // `BED_PREPARATION_NOTES` is deliberately empty, so there is no value an agent may put here.
     id: "WR-008",
     unitId: "arm-adult-open",
     state: "released",
     expectedAt: NOW_ANCHOR - 15,
     confidence: null,
     blocker: null,
+    blockedBy: null,
+    preparing: true,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 15,
     confirmedBy: "NUM ARM Adult Open",
   },
   {
+    // The other half of the flag: a discharge that is still only EXPECTED and is also stuck. The
+    // two together mean the flag is seeded on both stages it can sit on, so a bucket keyed on
+    // state alone cannot pass by accident.
     id: "WR-009",
     unitId: "rgh-adult-secure",
-    state: "blocked",
+    state: "predicted",
     expectedAt: NOW_ANCHOR + 200,
-    confidence: null,
+    confidence: "possible",
     blocker: "Awaiting receiving-service acceptance",
+    blockedBy: "NUM RGH Adult Secure",
+    preparing: false,
+    preparationNote: null,
     confirmedAt: NOW_ANCHOR - 50,
     confirmedBy: "NUM RGH Adult Secure",
   },

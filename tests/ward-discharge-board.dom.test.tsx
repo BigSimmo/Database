@@ -75,6 +75,51 @@ describe("DischargeBoard", () => {
     expect(within(blockedTable).getByText("Awaiting accommodation")).toBeInTheDocument();
   });
 
+  /**
+   * Bed-model rework (2026-08-28). The Blocked group is now keyed on the FLAG, not on a state, so
+   * it holds releases at two different stages at once — and every row states its own stage.
+   * Without that column the group would swallow the fact this rework exists to preserve: that a
+   * stuck discharge can be one the ward has already DECIDED. A coordinator who cannot tell a
+   * blocked prediction from a blocked confirmation cannot tell which bed to chase first.
+   *
+   * The real fixture seeds exactly this pair — WR-007 confirmed-and-blocked at fsh-adult-secure,
+   * WR-009 predicted-and-blocked at rgh-adult-secure — so the assertion is over a genuinely mixed
+   * group, not one row that happens to agree with whatever the implementation prints.
+   */
+  it("states each blocked row's own stage, so a blocked confirmation is not mistaken for a blocked prediction", () => {
+    renderBoard();
+
+    const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
+    const dataRows = within(blockedTable).getAllByRole("row").slice(1);
+    expect(dataRows).toHaveLength(2);
+
+    const stagesByUnit = new Map(
+      dataRows.map((row) => {
+        const cells = within(row).getAllByRole("cell");
+        return [cells[0].textContent, cells[3].textContent];
+      }),
+    );
+    expect(stagesByUnit.get("FSH Adult Secure")).toBe("Confirmed");
+    expect(stagesByUnit.get("RGH Adult Secure")).toBe("Predicted");
+  });
+
+  /**
+   * The grouping rule itself, stated as a rule rather than inferred from the fixture: the flag is
+   * read BEFORE the stage. A blocked-but-confirmed release belongs in Blocked (the group a
+   * coordinator scans first) and must NOT also appear under Confirmed — this board is a work
+   * queue, where each release appears exactly once. That is deliberately the opposite trade-off
+   * from `CapacityBreakdown.blockedToday`, which is a set of counts and cross-cuts on purpose.
+   */
+  it("puts a blocked-but-confirmed release in Blocked and nowhere else", () => {
+    renderBoard();
+
+    const confirmedTable = screen.getByTestId("ward-discharge-table-confirmed");
+    expect(within(confirmedTable).queryByText("FSH Adult Secure")).not.toBeInTheDocument();
+
+    const blockedTable = screen.getByTestId("ward-discharge-table-blocked");
+    expect(within(blockedTable).getByText("FSH Adult Secure")).toBeInTheDocument();
+  });
+
   it("renders each row's confirming role exactly once — never duplicated alongside the freshness stamp", () => {
     renderBoard();
 

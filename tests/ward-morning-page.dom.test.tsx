@@ -628,6 +628,7 @@ describe("MorningPage", () => {
         availableNow: 4,
         confirmedToday: 1,
         predictedToday: 1,
+        blockedToday: 1,
         held: 1,
         leaveUsable: 1,
         excludedBeyondToday,

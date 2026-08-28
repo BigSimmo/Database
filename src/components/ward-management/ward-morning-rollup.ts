@@ -1,6 +1,6 @@
 import { capacityBreakdown, type CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
-import { unitSiteCode } from "@/components/ward-management/ward-derivations";
+import { BED_RELEASE_BLOCKED_FIGURE_LABEL, unitSiteCode } from "@/components/ward-management/ward-derivations";
 import type { BedRelease, LeaveBed, Referral, Site, Unit } from "@/components/ward-management/ward-model";
 import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
 
@@ -20,11 +20,20 @@ import { referralQueueOrder } from "@/components/ward-management/ward-referrals"
  */
 export const MORNING_HANDOVER_MINUTES = 8 * 60; // 08:00
 
-/** The five figure labels, defined once (spec D3, D14). Every level renders from this. */
+/**
+ * The six figure labels, defined once (spec D3, D14). Every level renders from this.
+ *
+ * `blockedToday` joined them in the bed-model rework of 2026-08-28. It is a capacity figure about
+ * beds, so unlike `PEOPLE_WAITING_LABEL` below it belongs here and is rendered at service,
+ * hospital and ward level like the rest. It is a CROSS-CUT of `confirmedToday`/`predictedToday`,
+ * never a bucket of its own — see `CapacityBreakdown.blockedToday` — so no level may add it to
+ * them or subtract it from them.
+ */
 export const CAPACITY_FIGURE_LABELS = {
   availableNow: "Available now",
   confirmedToday: "Confirmed today",
   predictedToday: "Predicted today",
+  blockedToday: BED_RELEASE_BLOCKED_FIGURE_LABEL,
   held: "Held",
   leaveUsable: "Leave (usable)",
 } as const;
@@ -148,6 +157,7 @@ const EMPTY_BREAKDOWN: CapacityBreakdown = {
   availableNow: 0,
   confirmedToday: 0,
   predictedToday: 0,
+  blockedToday: 0,
   held: 0,
   leaveUsable: 0,
   excludedBeyondToday: 0,
@@ -169,6 +179,7 @@ function sumBreakdowns(breakdowns: CapacityBreakdown[]): CapacityBreakdown {
       availableNow: sum.availableNow + breakdown.availableNow,
       confirmedToday: sum.confirmedToday + breakdown.confirmedToday,
       predictedToday: sum.predictedToday + breakdown.predictedToday,
+      blockedToday: sum.blockedToday + breakdown.blockedToday,
       held: sum.held + breakdown.held,
       leaveUsable: sum.leaveUsable + breakdown.leaveUsable,
       excludedBeyondToday: sum.excludedBeyondToday + breakdown.excludedBeyondToday,

@@ -14,6 +14,8 @@ import {
 import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import {
+  BED_RELEASE_BLOCKED_FIGURE_LABEL,
+  BED_RELEASE_BLOCKED_LABEL,
   bedReleaseStateLabels,
   elapsedLabel,
   isOpen,
@@ -145,6 +147,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // pattern as `declineOpenFor`/`releaseOpenFor`/`cancelOpenFor` above.
   const [blockOpenFor, setBlockOpenFor] = useState<string | undefined>(undefined);
   const [blockChoice, setBlockChoice] = useState<BedReleaseBlocker | undefined>(undefined);
+  // Bed-model rework (2026-08-28): the reversal form on an existing CONFIRMED release row, same
+  // one-open-at-a-time pattern as the block form above. It exists because forbidding the
+  // reversal never stopped wards reversing a decision — it only stopped them recording it.
+  const [revertOpenFor, setRevertOpenFor] = useState<string | undefined>(undefined);
+  const [revertChoice, setRevertChoice] = useState<BedReleaseConfidence | undefined>(undefined);
   // Task 5: the small leave-bed form. Not keyed by anything — like the flag-bed-release form
   // above, this is about this ward's own bed stock, so one form per screen is enough.
   const [leaveUsable, setLeaveUsable] = useState(false);
@@ -280,16 +287,41 @@ export function WardScreen({ unitId }: WardScreenProps) {
 
   // Task 5 (spec D10): the ward moving its OWN bed release through its own lifecycle —
   // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` and
-  // `submitBedRelease` above. `predicted -> confirmed` and `blocked -> confirmed` are the only
-  // transitions CONFIRM_BED_RELEASE accepts; this is only ever rendered on a row in one of those
-  // two states (see the legal-transition gating in the render below), so the reducer is never
-  // asked for a transition the row does not itself offer.
+  // `submitBedRelease` above. `predicted -> confirmed` is the only transition
+  // CONFIRM_BED_RELEASE accepts; this is only ever rendered on a predicted row (see the
+  // legal-transition gating in the render below), so the reducer is never asked for a transition
+  // the row does not itself offer.
   function confirmBedRelease(releaseId: string) {
     dispatch({ type: "CONFIRM_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId });
   }
 
+  // Bed-model rework (2026-08-28): the reversal. `confirmed -> predicted`, recorded like any
+  // other change. The confidence has to be restated because a predicted release carries one and
+  // a confirmed release does not — this row's own picker supplies it, defaulting to nothing so
+  // the ward states a belief rather than inheriting one.
+  function revertBedRelease(event: FormEvent<HTMLFormElement>, releaseId: string) {
+    event.preventDefault();
+    if (!revertChoice) return;
+    dispatch({
+      type: "REVERT_BED_RELEASE",
+      role: "ward",
+      now,
+      releaseId,
+      actingUnitId: unitId,
+      confidence: revertChoice,
+    });
+    setRevertOpenFor(undefined);
+    setRevertChoice(undefined);
+  }
+
+  // Bed-model rework (2026-08-28): lifting the blocked flag. The stage is untouched — a confirmed
+  // discharge that becomes unstuck is still confirmed.
+  function clearBedReleaseBlock(releaseId: string) {
+    dispatch({ type: "CLEAR_BED_RELEASE_BLOCK", role: "ward", now, releaseId, actingUnitId: unitId });
+  }
+
   // RELEASE_BED is the one transition here that changes a real bed count (see the reducer's own
-  // comment on the case) — `confirmed -> released` and `blocked -> released` only, both terminal.
+  // comment on the case) — accepted from `predicted` and `confirmed` alike, terminal either way.
   function releaseBedRelease(releaseId: string) {
     dispatch({ type: "RELEASE_BED", role: "ward", now, releaseId, actingUnitId: unitId });
   }
@@ -299,11 +331,16 @@ export function WardScreen({ unitId }: WardScreenProps) {
     setBlockChoice(undefined);
   }
 
+  function toggleRevertRelease(releaseId: string) {
+    setRevertOpenFor((current) => (current === releaseId ? undefined : releaseId));
+    setRevertChoice(undefined);
+  }
+
   function submitBlockRelease(event: FormEvent<HTMLFormElement>, releaseId: string) {
     event.preventDefault();
     if (!blockChoice) return;
-    // `predicted -> blocked` and `confirmed -> blocked` are the only transitions BLOCK_BED_RELEASE
-    // accepts; this form only ever renders on a row in one of those two states.
+    // Bed-model rework (2026-08-28): this sets the blocked FLAG and moves no stage. The form
+    // renders on any unreleased row, and `released` rows never reach this list at all.
     dispatch({ type: "BLOCK_BED_RELEASE", role: "ward", now, releaseId, actingUnitId: unitId, blocker: blockChoice });
     setBlockOpenFor(undefined);
     setBlockChoice(undefined);
@@ -440,6 +477,14 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <span className={styles.bedChip} data-state="predicted">
               Predicted {breakdown.predictedToday}
             </span>
+            {/* Bed-model rework (2026-08-28). Shown BESIDE Confirmed and Predicted, never
+                instead of either: every release counted here is also counted in one of them,
+                because being stuck says nothing about how certain the discharge is. Under the
+                old four-stage model this figure could not exist — a blocked release was counted
+                nowhere at all, so the ward's numbers improved at the moment it got stuck. */}
+            <span className={styles.bedChip} data-state="blocked-release" data-testid="ward-unit-blocked-releases">
+              {BED_RELEASE_BLOCKED_FIGURE_LABEL} {breakdown.blockedToday}
+            </span>
             <span className={styles.bedChip} data-state="leave">
               Leave (usable) {breakdown.leaveUsable}
             </span>
@@ -447,7 +492,9 @@ export function WardScreen({ unitId }: WardScreenProps) {
           <p className={styles.bedNote}>
             Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, predicted and
             leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been
-            released, so this figure is always one you can fill this minute.
+            released, so this figure is always one you can fill this minute. The blocked-release count sits alongside
+            Confirmed and Predicted rather than inside them: a discharge that is decided and stuck is still a decided
+            discharge, and it keeps counting as one.
           </p>
 
           <form className={styles.capacityForm} onSubmit={submitCapacity} data-testid="ward-capacity-form">
@@ -571,17 +618,36 @@ export function WardScreen({ unitId }: WardScreenProps) {
             ) : (
               <ul className={styles.cardList}>
                 {pendingBedReleases.map((release) => {
-                  const canConfirm = release.state === "predicted" || release.state === "blocked";
-                  const canBlock = release.state === "predicted" || release.state === "confirmed";
-                  const canRelease = release.state === "confirmed" || release.state === "blocked";
+                  // Bed-model rework (2026-08-28). Every gate below is now about the STAGE
+                  // alone, except the two block controls, which are about the FLAG alone —
+                  // that separation is the change. `released` rows never reach this list
+                  // (`pendingBedReleases`), so no control here has to test for it.
+                  const canConfirm = release.state === "predicted";
+                  const canRevert = release.state === "confirmed";
+                  const isBlocked = release.blocker !== null;
+                  const canBlock = !isBlocked;
+                  const canRelease = true;
                   const blockOpen = blockOpenFor === release.id;
+                  const revertOpen = revertOpenFor === release.id;
                   return (
                     <li key={release.id} data-testid={`ward-bed-release-${release.id}`} className={styles.card}>
                       <header className={styles.cardHeader}>
+                        {/* The stage and the flag are rendered as two separate facts, deliberately.
+                            A blocked-but-confirmed release reads "Confirmed" AND "Blocked" here —
+                            under the four-stage model the second erased the first, on the screen
+                            and in the ward's confirmed count alike. */}
                         <strong>{bedReleaseStateLabels[release.state]}</strong>
+                        {isBlocked ? (
+                          <strong data-testid={`ward-bed-release-blocked-flag-${release.id}`}>
+                            {BED_RELEASE_BLOCKED_LABEL}
+                          </strong>
+                        ) : null}
                         <span className={styles.cardMeta}>Expected {formatInstant(release.expectedAt)}</span>
                       </header>
                       {release.blocker ? <span className={styles.cardMeta}>{release.blocker}</span> : null}
+                      {release.blockedBy ? (
+                        <span className={styles.cardMeta}>Blocked by {release.blockedBy}</span>
+                      ) : null}
                       <WardFreshness
                         confirmedAt={release.confirmedAt}
                         confirmedByRole={release.confirmedBy}
@@ -598,6 +664,17 @@ export function WardScreen({ unitId }: WardScreenProps) {
                             Confirm
                           </button>
                         ) : null}
+                        {canRevert ? (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-release-revert-toggle-${release.id}`}
+                            aria-expanded={revertOpen}
+                            className={styles.declineButton}
+                            onClick={() => toggleRevertRelease(release.id)}
+                          >
+                            Back to predicted
+                          </button>
+                        ) : null}
                         {canBlock ? (
                           <button
                             type="button"
@@ -608,7 +685,16 @@ export function WardScreen({ unitId }: WardScreenProps) {
                           >
                             Blocked
                           </button>
-                        ) : null}
+                        ) : (
+                          <button
+                            type="button"
+                            data-testid={`ward-bed-release-unblock-${release.id}`}
+                            className={styles.declineButton}
+                            onClick={() => clearBedReleaseBlock(release.id)}
+                          >
+                            No longer blocked
+                          </button>
+                        )}
                         {canRelease ? (
                           <button
                             type="button"
@@ -620,6 +706,45 @@ export function WardScreen({ unitId }: WardScreenProps) {
                           </button>
                         ) : null}
                       </div>
+                      {canRevert && revertOpen ? (
+                        <form
+                          className={styles.declineForm}
+                          onSubmit={(event) => revertBedRelease(event, release.id)}
+                          data-testid={`ward-bed-release-revert-form-${release.id}`}
+                        >
+                          <label
+                            className={styles.declineLegend}
+                            htmlFor={`ward-bed-release-revert-select-${release.id}`}
+                          >
+                            Confidence once reverted
+                          </label>
+                          <select
+                            id={`ward-bed-release-revert-select-${release.id}`}
+                            data-testid={`ward-bed-release-revert-confidence-${release.id}`}
+                            required
+                            className={styles.capacityInput}
+                            value={revertChoice ?? ""}
+                            onChange={(event) => setRevertChoice(event.target.value as BedReleaseConfidence)}
+                          >
+                            <option value="" disabled>
+                              Choose a confidence
+                            </option>
+                            {BED_RELEASE_CONFIDENCE_LEVELS.map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="submit"
+                            data-testid={`ward-bed-release-revert-submit-${release.id}`}
+                            disabled={!revertChoice}
+                            className={styles.declineSubmit}
+                          >
+                            Confirm reversal
+                          </button>
+                        </form>
+                      ) : null}
                       {canBlock && blockOpen ? (
                         <form
                           className={styles.declineForm}

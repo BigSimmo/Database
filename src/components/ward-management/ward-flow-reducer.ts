@@ -1,9 +1,10 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
+  BED_RELEASE_CONFIDENCE_LEVELS,
   COHORTS,
   HOME_REGIONS,
   PARALLEL_REFERRAL_CAP,
@@ -150,7 +151,10 @@ function subjectId(event: WardFlowEvent): string {
     case "REQUEST_CAPACITY_REFRESH":
       return event.unitId;
     case "CONFIRM_BED_RELEASE":
+    case "REVERT_BED_RELEASE":
     case "BLOCK_BED_RELEASE":
+    case "CLEAR_BED_RELEASE_BLOCK":
+    case "SET_BED_PREPARATION":
     case "RELEASE_BED":
       return event.releaseId;
     case "END_LEAVE_BED":
@@ -706,12 +710,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (event.blocker !== undefined && !BED_RELEASE_BLOCKERS.includes(event.blocker)) {
         return reject(state, event, `FLAG_BED_RELEASE blocker must be chosen from BED_RELEASE_BLOCKERS`);
       }
-      // Spec D3: a release is `blocked` xor `predicted`, never both — a blocker is legal only in
-      // `blocked`, a confidence only in `predicted`. A flag that names a blocker is reporting a
-      // bed that is coming free but currently held up; a flag with no blocker is a plain
-      // prediction. `event.confidence` is discarded on the blocked path rather than stored
-      // alongside a blocker, and `event.blocker` is discarded on the predicted path, so the
-      // produced `BedRelease` can never carry both at once.
+      // Bed-model rework (2026-08-28): a flag ALWAYS creates a `"predicted"` release, and a
+      // blocker sets the blocked FLAG on it rather than choosing a different state. Spec D3's
+      // old "blocked xor predicted" rule is gone with the fourth state it described — a bed
+      // that is coming free but currently held up is a prediction AND a block, and pretending
+      // those were alternatives is what let `capacityBreakdown` count such a release nowhere.
+      // `confidence` is therefore kept on both paths, because the release is predicted on both.
       // Fix round 2 (P1): `expectedAt` now carries the ward's own estimate of when the bed will
       // actually be free (`event.expectedAt`, collected on the flag form exactly like
       // `expectedReturn` on the leave-bed form) rather than `event.now`. Before this fix every
@@ -727,36 +731,29 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // PATIENT's own timing (binding spec §4): `expectedAt` is an operational estimate about the
       // BED, the same category `expectedReturn` on `RECORD_LEAVE_BED` already sits in and is
       // already permitted to carry — see that event's own doc comment and `LeaveBed`'s type.
-      const release: BedRelease =
-        event.blocker !== undefined
-          ? {
-              id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
-              unitId: flaggedUnit.id,
-              state: "blocked",
-              expectedAt: event.expectedAt,
-              confidence: null,
-              blocker: event.blocker,
-              confirmedAt: event.now,
-              confirmedBy: `NUM ${flaggedUnit.name}`,
-            }
-          : {
-              // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
-              // glance from the hand-authored "WR-00N" fixture ids, same reasoning as
-              // RAISE_REFERRAL's "WF-9NN". Safe to derive from `state.bedReleases.length` here
-              // (unlike `RECORD_LEAVE_BED`'s own id below, see that case's comment): nothing in
-              // this reducer ever removes an entry from `bedReleases` — `CONFIRM_BED_RELEASE`,
-              // `BLOCK_BED_RELEASE` and `RELEASE_BED` all transition a release in place via
-              // `replaceBedRelease`, so the array only ever grows and its length is a safe,
-              // collision-free id source.
-              id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
-              unitId: flaggedUnit.id,
-              state: "predicted",
-              expectedAt: event.expectedAt,
-              confidence: event.confidence,
-              blocker: null,
-              confirmedAt: event.now,
-              confirmedBy: `NUM ${flaggedUnit.name}`,
-            };
+      const flaggingRole = `NUM ${flaggedUnit.name}`;
+      const release: BedRelease = {
+        // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
+        // glance from the hand-authored "WR-00N" fixture ids, same reasoning as
+        // RAISE_REFERRAL's "WF-9NN". Safe to derive from `state.bedReleases.length` here
+        // (unlike `RECORD_LEAVE_BED`'s own id below, see that case's comment): nothing in
+        // this reducer ever removes an entry from `bedReleases` — every other bed-release
+        // case transitions a release in place via `replaceBedRelease`, so the array only ever
+        // grows and its length is a safe, collision-free id source.
+        id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
+        unitId: flaggedUnit.id,
+        state: "predicted",
+        expectedAt: event.expectedAt,
+        confidence: event.confidence,
+        blocker: event.blocker ?? null,
+        blockedBy: event.blocker !== undefined ? flaggingRole : null,
+        // A bed nobody has yet left is not being made ready. Preparation only ever begins after
+        // `RELEASE_BED`, and only through `SET_BED_PREPARATION` — see that case.
+        preparing: false,
+        preparationNote: null,
+        confirmedAt: event.now,
+        confirmedBy: flaggingRole,
+      };
       return { ...state, bedReleases: [...state.bedReleases, release] };
     }
 
@@ -774,10 +771,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `CONFIRM_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transitions: predicted -> confirmed, blocked -> confirmed. Nothing else. Naming
-      // both the current state and the attempted target keeps a refusal readable without having
-      // to cross-reference the state machine comment above.
-      if (release.state !== "predicted" && release.state !== "blocked") {
+      // Legal transition: predicted -> confirmed. Nothing else. Naming both the current state and
+      // the attempted target keeps a refusal readable without having to cross-reference the state
+      // machine comment above. (Before the 2026-08-28 rework this also accepted `blocked ->
+      // confirmed`; there is no such state now, and a blocked release is confirmed from whichever
+      // stage it is actually in, keeping its flag.)
+      if (release.state !== "predicted") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to confirmed`);
       }
       // Fix round 2 (P2, spec D7): `confirmedAt` restates to `event.now` on every accepted
@@ -790,14 +789,53 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // is, by construction, always the same ward that produced the existing `confirmedBy` — there
       // is no other unit's role this could ever become, so restating it would write back the exact
       // same string it already holds.
+      //
+      // `blocker`/`blockedBy` are deliberately CARRIED THROUGH untouched (bed-model rework,
+      // 2026-08-28): "a discharge that is decided and stuck is exactly that — still confirmed,
+      // and flagged". Clearing the flag here would re-create the counting defect this rework
+      // exists to close, just from the other end, by making a confirmation quietly assert the
+      // bed is unstuck. `CLEAR_BED_RELEASE_BLOCK` is the one and only way a flag comes off.
       const updated: BedRelease = {
         ...release,
         state: "confirmed",
         confidence: null,
-        blocker: null,
         confirmedAt: event.now,
       };
       return replaceBedRelease(state, release.id, updated);
+    }
+
+    case "REVERT_BED_RELEASE": {
+      // The reversal the four-stage model forbade (bed-model rework, 2026-08-28). It is recorded
+      // exactly like every other change — `confirmedAt` restated to `event.now`, `confirmedBy`
+      // left alone for the reason CONFIRM_BED_RELEASE's own case sets out — because a reversal
+      // that cannot be recorded honestly gets recorded dishonestly instead.
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `REVERT_BED_RELEASE was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // Legal transition: confirmed -> predicted. `released` is terminal and `predicted` is
+      // already there, so both fall into the same refusal.
+      if (release.state !== "confirmed") {
+        return reject(state, event, `cannot move release ${release.id} from ${release.state} to predicted`);
+      }
+      // Membership check, not truthiness — the same discipline BLOCK_BED_RELEASE's own blocker
+      // check holds to, and for the same reason: a runtime rule, not merely a compile-time one.
+      if (!BED_RELEASE_CONFIDENCE_LEVELS.includes(event.confidence)) {
+        return reject(state, event, `REVERT_BED_RELEASE confidence must be chosen from BED_RELEASE_CONFIDENCE_LEVELS`);
+      }
+      // The blocked flag survives: reversing the discharge decision does not unstick the bed.
+      const reverted: BedRelease = {
+        ...release,
+        state: "predicted",
+        confidence: event.confidence,
+        confirmedAt: event.now,
+      };
+      return replaceBedRelease(state, release.id, reverted);
     }
 
     case "BLOCK_BED_RELEASE": {
@@ -821,21 +859,94 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!event.blocker || !BED_RELEASE_BLOCKERS.includes(event.blocker)) {
         return reject(state, event, `BLOCK_BED_RELEASE requires a blocker chosen from BED_RELEASE_BLOCKERS`);
       }
-      // Legal transitions: predicted -> blocked, confirmed -> blocked. Nothing else.
-      if (release.state !== "predicted" && release.state !== "confirmed") {
-        return reject(state, event, `cannot move release ${release.id} from ${release.state} to blocked`);
+      // Bed-model rework (2026-08-28): this sets a FLAG and moves no stage at all. A blocked
+      // release keeps whichever stage it was in — `predicted` stays predicted, and a confirmed
+      // discharge that gets stuck stays CONFIRMED and keeps counting as confirmed. Only
+      // `released` is refused: the bed is already free, so there is nothing left to hold up.
+      const blockedUnit = findUnit(state, release.unitId);
+      if (!blockedUnit) return reject(state, event, `no unit found for id ${release.unitId}`);
+      if (release.state === "released") {
+        return reject(state, event, `cannot block release ${release.id} because it is already released`);
       }
       // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
-      // (see its comment in full) — `confirmedAt` moves to `event.now` on this transition too,
-      // and `confirmedBy` stays untouched for the same reason.
+      // (see its comment in full) — `confirmedAt` moves to `event.now` on this write too, and
+      // `confirmedBy` stays untouched for the same reason. `blockedBy` is a separate role field
+      // rather than a reuse of `confirmedBy` because "who says this bed is stuck" and "who last
+      // reported its stage" are different questions once a block outlives a stage change.
       const updated: BedRelease = {
         ...release,
-        state: "blocked",
-        confidence: null,
         blocker: event.blocker,
+        blockedBy: `NUM ${blockedUnit.name}`,
         confirmedAt: event.now,
       };
       return replaceBedRelease(state, release.id, updated);
+    }
+
+    case "CLEAR_BED_RELEASE_BLOCK": {
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `CLEAR_BED_RELEASE_BLOCK was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // Refused rather than silently accepted as a no-op: "this bed is no longer stuck" is a
+      // claim about a bed that WAS stuck, and a screen offering it on an unflagged release is a
+      // defect the reducer should surface on the rejections list, not absorb.
+      if (release.blocker === null) {
+        return reject(state, event, `release ${release.id} carries no blocked flag to clear`);
+      }
+      const unblocked: BedRelease = {
+        ...release,
+        blocker: null,
+        blockedBy: null,
+        confirmedAt: event.now,
+      };
+      return replaceBedRelease(state, release.id, unblocked);
+    }
+
+    case "SET_BED_PREPARATION": {
+      // Q4 (2026-08-28): a bed may carry a short indication that it is being MADE READY. This
+      // writes that indication and NOTHING else — it touches no unit field, no capacity figure
+      // and no availability. `capacityBreakdown` derives `availableNow` from the unit own
+      // `allocatable`/`empty` and never reads a release, so a bed being prepared is still
+      // offered, still counted and still allocatable, exactly as the owner requires. Do not add
+      // a unit write here to "hold" a bed while it is cleaned; that is the delay his answer
+      // says does not exist.
+      const release = findBedRelease(state, event.releaseId);
+      if (!release) return reject(state, event, `no bed release found for id ${event.releaseId}`);
+      if (event.actingUnitId !== release.unitId) {
+        return reject(
+          state,
+          event,
+          `SET_BED_PREPARATION was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
+        );
+      }
+      // Membership check against the owner-pending list, same discipline as the blocker checks
+      // above. `BED_PREPARATION_NOTES` is deliberately EMPTY until the owner supplies it, so this
+      // currently refuses every note — which is the correct behaviour, not an oversight: there is
+      // no permitted vocabulary yet, and an agent must not invent one. Widened to `readonly
+      // string[]` only so the comparison compiles against an empty tuple.
+      //
+      // Read through a `string | undefined` binding rather than off `event` directly: while the
+      // list is empty `BedPreparationNote` is `never`, so `event.note !== undefined` narrows
+      // `event` itself to `never` and the membership call stops compiling. The binding keeps the
+      // guard written once, correct now and correct the day the array is filled.
+      const requestedNote: string | undefined = event.note;
+      if (requestedNote !== undefined && !(BED_PREPARATION_NOTES as readonly string[]).includes(requestedNote)) {
+        return reject(state, event, `SET_BED_PREPARATION note must be chosen from BED_PREPARATION_NOTES`);
+      }
+      const prepared: BedRelease = {
+        ...release,
+        preparing: event.preparing,
+        // Clearing the flag clears the note with it — "being made ready, waiting on nothing" is
+        // a state, "not being made ready, waiting on a clean" is a contradiction.
+        preparationNote: event.preparing ? (event.note ?? null) : null,
+        confirmedAt: event.now,
+      };
+      return replaceBedRelease(state, release.id, prepared);
     }
 
     case "RELEASE_BED": {
@@ -848,10 +959,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RELEASE_BED was raised acting as unit ${event.actingUnitId} but release ${release.id} belongs to unit ${release.unitId}`,
         );
       }
-      // Legal transitions: confirmed -> released, blocked -> released. released is terminal —
-      // there is no target state further on to move to, so both current-`released` and any other
-      // state fall into the same refusal below.
-      if (release.state !== "confirmed" && release.state !== "blocked") {
+      // Legal transitions: confirmed -> released and predicted -> released. `released` is
+      // terminal, so only a release already in it is refused. Predicted is accepted deliberately:
+      // "the person has left" is a statement of fact about an empty bed, not a prediction being
+      // promoted into availability, and the four-stage model already permitted the same journey
+      // via `predicted -> blocked -> released`. Narrowing it during the rework would have refused
+      // a path wards could already take.
+      if (release.state === "released") {
         return reject(state, event, `cannot move release ${release.id} from ${release.state} to released`);
       }
       const unit = findUnit(state, release.unitId);
@@ -859,11 +973,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // Fix round 2 (P2, spec D7): same freshness restatement as CONFIRM_BED_RELEASE's own case
       // (see its comment in full) — `confirmedAt` moves to `event.now` on this transition too,
       // and `confirmedBy` stays untouched for the same reason.
+      // The blocked flag comes off here, and here only besides `CLEAR_BED_RELEASE_BLOCK`: once
+      // the bed is actually free there is nothing left being held up, so a surviving flag would
+      // be a claim about a discharge that has already happened.
       const updatedRelease: BedRelease = {
         ...release,
         state: "released",
         confidence: null,
         blocker: null,
+        blockedBy: null,
         confirmedAt: event.now,
       };
       // RELEASE_BED is the one event in this six-case group that changes an actual bed count,

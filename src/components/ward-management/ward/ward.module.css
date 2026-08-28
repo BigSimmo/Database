@@ -177,6 +177,18 @@
   color: var(--clinical-accent);
 }
 
+/* Bed-model rework (2026-08-28): how many of today's releases are stuck. Dashed like the three
+   forward-looking chips above, because it counts the same releases they do rather than a fourth
+   set of beds — but in the danger palette `[data-state="blocked"]` uses, because these are the
+   ones somebody has to chase. The two are deliberately not the same chip and do not read the
+   same: that one counts physically blocked BEDS, this one counts blocked RELEASES, which is why
+   its label is "Blocked releases" (see `BED_RELEASE_BLOCKED_FIGURE_LABEL`). */
+.bedChip[data-state="blocked-release"] {
+  border-style: dashed;
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
 /* Task 5, spec D7/D12: this unit's own confirmed-capacity stamp, and — when one exists — the
    refresh-requested mark sitting beside it. Wraps rather than forcing a single line: the mark's
    text is long enough on a narrow phone width that forcing it onto the freshness stamp's own

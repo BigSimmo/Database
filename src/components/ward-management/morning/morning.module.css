@@ -516,11 +516,18 @@
    * Print density, second half of C3. Dropping ward rows alone (above) still left 3 pages
    * measured against the real 17-hospital fixture (`page.pdf({format:"A4"})`) — the remaining
    * cost is geometric, not content: on screen, `.figureGrid`'s `repeat(auto-fit, minmax(7rem,
-   * 1fr))` wraps five items to two rows once the container is narrower than roughly five times
-   * that minimum, which a printed A4 page's content width usually is. Forcing five fixed columns
-   * here (site-level only, via `.figureGridDense` — `FigureList`'s `printDense` prop,
-   * morning-page.tsx) keeps each hospital's totals on ONE row, and every spacing token in this
-   * block is tightened only for print — none of this touches the on-screen layout.
+   * 1fr))` wraps the figures to two rows once the container is narrower than roughly that many
+   * times the minimum, which a printed A4 page's content width usually is. Forcing one fixed
+   * column per figure here (site-level only, via `.figureGridDense` — `FigureList`'s `printDense`
+   * prop, morning-page.tsx) keeps each hospital's totals on ONE row, and every spacing token in
+   * this block is tightened only for print — none of this touches the on-screen layout.
+   *
+   * The column count MUST equal `CAPACITY_FIGURE_LABELS`'s member count, and it is not a free
+   * choice: it was 5, and the bed-model rework of 2026-08-28 added `blockedToday` as a sixth
+   * figure without touching this rule, which wrapped every one of the 17 hospitals to two rows
+   * and pushed the sheet to a second A4 page — caught by `ui-ward-morning.spec.ts`'s own
+   * `page.pdf()` measurement, not by any Vitest run. If a seventh figure is ever added, this
+   * number moves with it and the PDF is measured again.
    */
   /*
    * Three columns rather than one long single-column stack: 17 hospitals is inherently tall
@@ -541,7 +548,7 @@
   }
 
   .figureGridDense {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: var(--mp-space-6);
   }
 

@@ -3,6 +3,7 @@
 import { RELEASE_BANDS, releaseBand, type ReleaseBand } from "@/components/ward-management/ward-bed-availability";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { bedReleaseStateLabels } from "@/components/ward-management/ward-derivations";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { BedRelease, Unit } from "@/components/ward-management/ward-model";
@@ -35,9 +36,21 @@ const GROUP_LABELS = {
 
 type GroupKey = keyof typeof GROUP_LABELS;
 
-/** Every group, in the fixed scan order spec D9 names — blocked first because those are the
- *  rows somebody must act on. Never reorder this array; `tests/ward-discharge-board.dom.test.tsx`
- *  pins the rendered heading order against it. */
+/**
+ * Every group, in the fixed scan order spec D9 names — blocked first because those are the rows
+ * somebody must act on. Never reorder this array; `tests/ward-discharge-board.dom.test.tsx` pins
+ * the rendered heading order against it.
+ *
+ * Bed-model rework (2026-08-28): these four groups are no longer four STATES. There are three
+ * stages now, and `blocked` is a flag that sits on a predicted or confirmed release. The board
+ * keeps its four groups because they answer the coordinator's actual question — how much work is
+ * left on this row — and a stuck release is the one that needs somebody whichever stage it is in.
+ * `groupDischarges` therefore reads the FLAG first and the stage second, which is why a
+ * blocked-but-confirmed release lands here rather than under Confirmed. Note the asymmetry with
+ * `CapacityBreakdown.blockedToday`, and it is deliberate: the board is a work queue where each
+ * release must appear exactly once, the breakdown is a set of counts where "how many confirmed"
+ * and "how many stuck" are both wanted in full.
+ */
 const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "predicted", "released-today"];
 
 const BAND_LABELS: Record<ReleaseBand, string> = {
@@ -49,8 +62,8 @@ const BAND_LABELS: Record<ReleaseBand, string> = {
 
 const EMPTY_REASON: Record<GroupKey, string> = {
   blocked: "release is currently blocked",
-  confirmed: "release is confirmed and unreleased",
-  predicted: "release is predicted",
+  confirmed: "release is confirmed, unreleased and not blocked",
+  predicted: "release is predicted and not blocked",
   "released-today": "release has been released today",
 };
 
@@ -84,8 +97,13 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
       excludedBeyondToday += 1;
       continue;
     }
+    // The flag is read BEFORE the stage (bed-model rework, 2026-08-28), so a confirmed discharge
+    // that is stuck appears in the group a coordinator scans first rather than sitting quietly
+    // under Confirmed. Order matters: swapping these two tests would bury exactly the row this
+    // board exists to surface. `released` still wins over everything — a bed that is already
+    // free is nobody's work, and the reducer clears the flag when it releases anyway.
     if (release.state === "released") buckets["released-today"].push(release);
-    else if (release.state === "blocked") buckets.blocked.push(release);
+    else if (release.blocker !== null) buckets.blocked.push(release);
     else if (release.state === "confirmed") buckets.confirmed.push(release);
     else buckets.predicted.push(release);
   }
@@ -128,9 +146,9 @@ export function DischargeBoard() {
         <div className={styles.governanceBanner} data-testid="ward-discharge-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This board is <strong>not a medical device</strong>. It shows only the release state a ward has recorded —
-            predicted, confirmed, blocked or released — and it never adds a predicted or unreleased bed into
-            &quot;available now&quot;.
+            This board is <strong>not a medical device</strong>. It shows only what a ward has recorded — a release
+            predicted, confirmed or released, and whether it is currently blocked — and it never adds a predicted or
+            unreleased bed into &quot;available now&quot;.
           </p>
         </div>
 
@@ -181,6 +199,7 @@ function DischargeGroupSection({
                   <th scope="col">Unit</th>
                   <th scope="col">Health service</th>
                   <th scope="col">Expected</th>
+                  <th scope="col">Stage</th>
                   <th scope="col">Blocker</th>
                   <th scope="col">Freshness</th>
                 </tr>
@@ -194,6 +213,12 @@ function DischargeGroupSection({
                       <td>{unitLabel(unit, release.unitId)}</td>
                       <td>{healthServiceLabel(unit)}</td>
                       <td>{BAND_LABELS[band]}</td>
+                      {/* Bed-model rework (2026-08-28): the stage is rendered on every row, in
+                          every group. Without it the Blocked group would swallow the one fact
+                          this rework exists to preserve — that a stuck discharge is still a
+                          DECIDED one — and a coordinator could not tell a blocked prediction
+                          from a blocked confirmation. */}
+                      <td>{bedReleaseStateLabels[release.state]}</td>
                       <td>{release.blocker ?? "—"}</td>
                       <td>
                         <WardFreshness
@@ -220,6 +245,7 @@ function DischargeGroupSection({
                     <span className={styles.cardUnit}>{unitLabel(unit, release.unitId)}</span>
                   </div>
                   <p className={styles.cardService}>{healthServiceLabel(unit)}</p>
+                  <p className={styles.cardService}>{bedReleaseStateLabels[release.state]}</p>
                   {release.blocker && <p className={styles.cardBlocker}>{release.blocker}</p>}
                   <WardFreshness confirmedAt={release.confirmedAt} confirmedByRole={release.confirmedBy} now={now} />
                 </li>

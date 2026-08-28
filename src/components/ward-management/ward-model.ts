@@ -1,5 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import type {
+  BedPreparationNote,
   BedReleaseBlocker,
   LegalStatusChangeReason,
   UrgencyChangeReason,
@@ -343,14 +344,40 @@ export type Rejection = {
 /**
  * A bed release's lifecycle, in the order a bed moves through it. Hand-listed (never derived) for
  * the same reason `DECLINE_REASONS` is: a UI picker needs a runtime list, not just a type.
+ *
+ * **Three stages since 2026-08-28**, down from four — the product owner's decision, recorded in
+ * `docs/ward-flow-phase-6-7-decisions.md` ("The bed model becomes three stages plus a flag").
+ * Each stage says how CERTAIN the discharge is, and nothing else. `"blocked"` was removed as a
+ * stage and became a flag (`BedRelease.blocker`/`blockedBy`) that sits ON a predicted or
+ * confirmed release, because being stuck is not a degree of certainty.
+ *
+ * The defect that forced it, verified in the code before it was raised: `capacityBreakdown`
+ * (`ward-bed-availability.ts`) sorted today's releases into `confirmedToday` or `predictedToday`
+ * by state, so a release in state `"blocked"` matched NEITHER branch and was counted nowhere.
+ * Marking a confirmed discharge blocked silently dropped the ward's confirmed count — the figures
+ * improved at the exact moment the ward got stuck. A blocked-but-confirmed bed now keeps counting
+ * as confirmed, and `CapacityBreakdown.blockedToday` states how many are stuck beside it.
+ *
+ * Transitions go BOTH ways: `confirmed` may return to `predicted` when a decision is reversed
+ * (`REVERT_BED_RELEASE`). The old one-way model did not stop reversals happening — it made wards
+ * record them dishonestly.
  */
-export const BED_RELEASE_STATES = ["predicted", "confirmed", "blocked", "released"] as const;
+export const BED_RELEASE_STATES = ["predicted", "confirmed", "released"] as const;
 export type BedReleaseState = (typeof BED_RELEASE_STATES)[number];
 
 /**
  * Narrowed from `confirmed | likely | possible` (Phase 5, spec D1). "Confirmed" was doing two jobs
  * at once — a position in the lifecycle and a degree of belief — and the lifecycle now owns it.
  * A confirmed release has no confidence, because it is not a belief any more.
+ *
+ * **Q1 of the 2026-08-28 decisions replaces this axis entirely** — `likely`/`possible` become
+ * "what is this discharge still waiting on", chosen from a fixed list, because a probability
+ * estimate is a judgement two wards cannot mean the same thing by, while what a discharge is
+ * waiting on is a comparable fact. That list is OWNER-PENDING and is the SAME list as the
+ * blocked-discharge reasons (`BED_RELEASE_BLOCKERS`) and the preparation notes
+ * (`BED_PREPARATION_NOTES`) — one list arriving three times. Until he supplies it these two
+ * levels stay exactly as they are; inventing the replacement vocabulary is precisely what this
+ * project refuses to do.
  */
 export const BED_RELEASE_CONFIDENCE_LEVELS = ["likely", "possible"] as const;
 export type BedReleaseConfidence = (typeof BED_RELEASE_CONFIDENCE_LEVELS)[number];
@@ -369,9 +396,39 @@ export type BedRelease = {
   expectedAt: Instant;
   /** Non-null only while `state` is `"predicted"`. */
   confidence: BedReleaseConfidence | null;
-  /** Non-null only while `state` is `"blocked"`. Always a `BedReleaseBlocker` — enforced by the
-   *  type here, and by a membership check against `BED_RELEASE_BLOCKERS` in the reducer. */
+  /**
+   * **The blocked FLAG's reason** (bed-model rework, 2026-08-28). Non-null means this discharge
+   * is decided-or-expected AND currently stuck; it may sit on a `"predicted"` release or on a
+   * `"confirmed"` one, and a blocked-but-confirmed release still counts as confirmed. Always
+   * `null` on a `"released"` release — once the bed is free there is nothing left being held up.
+   *
+   * Before this rework `blocked` was a fourth STATE and this field was legal only in it, which
+   * is what made a stuck confirmed discharge fall out of the ward's confirmed count entirely.
+   * Always a `BedReleaseBlocker` — enforced by the type here, and by a membership check against
+   * `BED_RELEASE_BLOCKERS` in the reducer.
+   */
   blocker: BedReleaseBlocker | null;
+  /**
+   * The role that recorded the block, non-null exactly when `blocker` is. A role — a unit or
+   * service label — never a personal name, the same discipline `confirmedBy` holds to. Kept
+   * separate from `confirmedBy` because the two answer different questions once a block can
+   * outlive a state change: `confirmedBy` is who last reported this release's stage, this is who
+   * said it was stuck (Q3: provenance stays a role and a timestamp, never a person).
+   */
+  blockedBy: string | null;
+  /**
+   * Q4 of the 2026-08-28 decisions: this bed is being MADE READY (cleaning and the like).
+   * **Informational only — it must NEVER gate allocation.** A bed being prepared is still
+   * offered, still counts in `availableNow`, and still appears in every figure, because the pull
+   * of the next patient takes hours anyway. See `BED_PREPARATION_NOTES` for the full reasoning.
+   */
+  preparing: boolean;
+  /**
+   * What the bed is waiting on to be ready, once the owner supplies `BED_PREPARATION_NOTES`.
+   * That array is deliberately empty, so this type is `never | null` and the field can only be
+   * `null` today — the structure is here so turning the note on is one array, not a schema change.
+   */
+  preparationNote: BedPreparationNote | null;
   confirmedAt: Instant;
   /** A role — a unit or service label. Never a personal name. */
   confirmedBy: string;

@@ -216,6 +216,59 @@ describe("ward screen bed capacity chip row uses the shared breakdown, not the r
     expect(chipRow).toHaveTextContent("Blocked 0");
     expect(chipRow).toHaveTextContent("Occupied 18");
   });
+
+  /**
+   * Bed-model rework (2026-08-28): the ward's own blocked-release figure, shown BESIDE Confirmed
+   * and Predicted rather than instead of either.
+   *
+   * The two words matter as much as the number. This chip row already carries a "Blocked" chip
+   * meaning physically blocked BEDS (`unitCapacity().blocked`, 0 at rph-adult-secure), so the new
+   * figure reads "Blocked releases" — two chips reading the same word beside each other while
+   * meaning different things would be a defect, not a tidy-up. Both are asserted here together,
+   * which is the only place in the suite where the distinction can actually go wrong.
+   */
+  it("renders the blocked-release count beside Confirmed, worded so it cannot be read as the physical Blocked chip", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="rph-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    const chipRow = screen.getByTestId("ward-unit-beds");
+    // rph-adult-secure's one seeded release (WR-001) is confirmed and unblocked.
+    expect(chipRow).toHaveTextContent("Confirmed 1");
+    expect(screen.getByTestId("ward-unit-blocked-releases")).toHaveTextContent("Blocked releases 0");
+    // ...and the physical bed chip still says its own, different thing.
+    expect(chipRow).toHaveTextContent("Blocked 0");
+  });
+
+  /**
+   * The same unit's figures after the ward reports that confirmed discharge stuck — the exact
+   * journey the rework exists for, at the screen a ward actually looks at. Confirmed must NOT
+   * fall; before the rework it fell to 0 here, so the ward's screen looked better at the moment
+   * its bed became harder to free.
+   */
+  it("keeps Confirmed at 1 when the ward blocks its confirmed release, and moves Blocked releases to 1", () => {
+    render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <WardScreen unitId="rph-adult-secure" />
+      </WardFlowProvider>,
+    );
+
+    fireEvent.click(screen.getByTestId("ward-bed-release-block-toggle-WR-001"));
+    fireEvent.change(screen.getByTestId("ward-bed-release-blocker-WR-001"), {
+      target: { value: "Awaiting clean" },
+    });
+    fireEvent.click(screen.getByTestId("ward-bed-release-block-submit-WR-001"));
+
+    const chipRow = screen.getByTestId("ward-unit-beds");
+    expect(chipRow).toHaveTextContent("Confirmed 1");
+    expect(screen.getByTestId("ward-unit-blocked-releases")).toHaveTextContent("Blocked releases 1");
+    // The row itself states both facts, in two separate elements.
+    const row = screen.getByTestId("ward-bed-release-WR-001");
+    expect(within(row).getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getByTestId("ward-bed-release-blocked-flag-WR-001")).toHaveTextContent("Blocked");
+  });
 });
 
 /**

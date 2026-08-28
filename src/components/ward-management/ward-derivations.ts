@@ -55,9 +55,24 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
 export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
   predicted: "Predicted",
   confirmed: "Confirmed",
-  blocked: "Blocked",
   released: "Released",
 };
+
+/** The blocked FLAG's label on one release row (bed-model rework, 2026-08-28). Deliberately NOT
+ *  a member of `bedReleaseStateLabels` above: being stuck is not one of the three stages, it sits
+ *  on top of one, and a screen renders both — "Confirmed" and "Blocked" together are the whole
+ *  point of the change. Named once here so no screen types the word itself. */
+export const BED_RELEASE_BLOCKED_LABEL = "Blocked";
+
+/**
+ * The same fact as a COUNT, and deliberately worded differently from the flag above.
+ * `unitCapacity()` already has a `blocked` figure meaning physically blocked BEDS, and the ward
+ * screen renders both chips side by side; two chips reading "Blocked" and meaning different
+ * things would be a defect, not a tidy-up. This is the one the morning page, the capacity board
+ * and the ward screen all render (`CAPACITY_FIGURE_LABELS.blockedToday` reads it), so the
+ * vocabulary spec D3/D14 requires to be identical at every level is identical by construction.
+ */
+export const BED_RELEASE_BLOCKED_FIGURE_LABEL = "Blocked releases";
 
 /** Counts are derived from whatever `movements` list the caller passes — every screen now
  * passes the live provider state (Task 6), so the pipeline strip can never advertise a count
@@ -361,7 +376,7 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
 /**
  * Re-exported from `ward-eligibility.ts`, where this function now lives — see its doc comment
  * there for what it does and for why it moved (fix round C, F1 / review finding C1: importing it
- * from THIS module pulled the four-stage bed-release model into referral matching's transitive
+ * from THIS module pulled the bed-release model into referral matching's transitive
  * import graph and broke the D15 contract test). Kept exported here so the six call sites that
  * already import it from `ward-derivations` need no edit.
  */

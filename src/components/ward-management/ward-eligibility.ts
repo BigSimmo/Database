@@ -132,7 +132,7 @@ function sexDesignationAccepts(designation: SexDesignation, sex: Sex): boolean {
  * `availableNow`'s own comment below). `capacity_freshness` and `allocatable_bed` still read only
  * `unit.allocatable` and `unit.empty` — the ward's own confirmed figures — and nothing in this
  * function ever reads a `BedRelease`, a release state, a band or a confidence level; that is what
- * keeps referral matching independent of the four-stage bed-release model, which no ward clinician
+ * keeps referral matching independent of the bed-release model, which no ward clinician
  * has yet validated (spec D15).
  */
 export function referralEligibility(referral: Referral, unit: Unit, now: Instant): EligibilityVerdict {
@@ -151,7 +151,7 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
   // physically empty beds, and `PATIENT_ARRIVED` decrements `empty.value` while leaving
   // `allocatable.value` untouched. Computed inline from the unit's own two figures — never via
   // `capacityBreakdown` (`ward-bed-availability.ts`), which takes `BedRelease[]` and would couple
-  // referral matching to the four-stage bed-release model no ward clinician has validated (see
+  // referral matching to the bed-release model no ward clinician has validated (see
   // this function's own doc comment above and the D15 contract test in
   // `ward-referral-matching.test.ts`).
   const availableNow = Math.min(unit.allocatable.value, unit.empty.value);
@@ -287,7 +287,7 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
  * this file. `ward-referrals.ts` reads it from here, and that is the whole point: taking it from
  * `ward-derivations.ts` instead pulled `ward-flow-reducer.ts`, `ward-flow-events.ts` and
  * `ward-movements.ts` into referral matching's transitive module graph, and all three name the
- * four-stage bed-release model at the top of the file — which turned the D15 contract test in
+ * bed-release model at the top of the file — which turned the D15 contract test in
  * `tests/ward-referral-matching.test.ts` red (5 files and 0 offenders became 17 files and 4).
  * D15 is deliberately structural: no code path reachable from matching may read that model AT
  * ALL, not even one that happens to agree with `unit.allocatable` today.

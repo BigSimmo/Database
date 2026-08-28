@@ -1,5 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import type {
+  BedPreparationNote,
   BedReleaseBlocker,
   CancelTransportReason,
   LegalStatusChangeReason,
@@ -177,9 +178,13 @@ export type WardFlowEvent =
       expectedAt: Instant;
       /**
        * Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
-       * BED, never about the departing patient (binding spec §4). Optional (Phase 5, spec D3):
-       * a release is legally `blocked` xor `predicted`, never both, so the reducer reads this
-       * field's presence to decide which — see the `FLAG_BED_RELEASE` case's own comment.
+       * BED, never about the departing patient (binding spec §4). Optional: a ward may report a
+       * bed coming free that is ALREADY stuck.
+       *
+       * Bed-model rework (2026-08-28): supplying this no longer changes which STATE the release
+       * is created in. Every `FLAG_BED_RELEASE` creates a `"predicted"` release, and a blocker
+       * sets the blocked FLAG on it. Before the rework a flagged blocker produced a release in
+       * the fourth state `"blocked"`, which `capacityBreakdown` then counted nowhere at all.
        */
       blocker?: BedReleaseBlocker;
     }
@@ -187,7 +192,9 @@ export type WardFlowEvent =
       type: "CONFIRM_BED_RELEASE";
       role: WardFlowRole;
       now: Instant;
-      /** The release moving from `predicted` or `blocked` into `confirmed`. */
+      /** The release moving from `predicted` into `confirmed`. Any blocked flag it carries is
+       *  deliberately KEPT — a discharge that is decided and stuck is exactly that, and losing
+       *  the flag here would recreate the count defect this rework closed from the other side. */
       releaseId: string;
       /**
        * The unit the caller stated it was acting as, same claim-not-proof discipline as
@@ -198,10 +205,37 @@ export type WardFlowEvent =
       actingUnitId: string;
     }
   | {
+      type: "REVERT_BED_RELEASE";
+      role: WardFlowRole;
+      now: Instant;
+      /**
+       * The release moving from `confirmed` back to `predicted` — the reversal the four-stage
+       * model forbade (bed-model rework, 2026-08-28). Forbidding it never stopped a decision
+       * being reversed on a ward; it only made the ward record the reversal dishonestly, by
+       * leaving a confirmed row standing that everybody knew was no longer true. Any blocked flag
+       * survives the reversal untouched: reversing the decision does not unstick the bed.
+       */
+      releaseId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
+      actingUnitId: string;
+      /**
+       * A `"predicted"` release carries a confidence and a `"confirmed"` one does not, so the
+       * reversal has to restate it — there is no earlier value to restore, and inventing one
+       * would be the reducer asserting a belief the ward never stated. (Q1 will replace this
+       * axis with "what is it waiting on" once the owner's list arrives; the field moves with it.)
+       */
+      confidence: BedReleaseConfidence;
+    }
+  | {
       type: "BLOCK_BED_RELEASE";
       role: WardFlowRole;
       now: Instant;
-      /** The release moving from `predicted` or `confirmed` into `blocked`. */
+      /**
+       * The release gaining the blocked FLAG. Bed-model rework (2026-08-28): this no longer
+       * changes `state` at all — a blocked release stays `predicted` or `confirmed`, and a
+       * blocked-but-confirmed bed keeps counting as confirmed. `released` is refused: there is
+       * nothing left to hold up once the bed is free.
+       */
       releaseId: string;
       /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
       actingUnitId: string;
@@ -214,10 +248,51 @@ export type WardFlowEvent =
       blocker: BedReleaseBlocker;
     }
   | {
+      type: "CLEAR_BED_RELEASE_BLOCK";
+      role: WardFlowRole;
+      now: Instant;
+      /**
+       * The release whose blocked flag is being lifted — the bed is unstuck, and its stage is
+       * whatever it already was. A flag that can only ever be set is not a flag; before the
+       * rework the only way out of `"blocked"` was a state change, which is precisely the
+       * conflation being undone here.
+       */
+      releaseId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
+      actingUnitId: string;
+    }
+  | {
+      type: "SET_BED_PREPARATION";
+      role: WardFlowRole;
+      now: Instant;
+      /** The release whose bed is being made ready, or has finished being made ready. */
+      releaseId: string;
+      /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
+      actingUnitId: string;
+      /**
+       * Whether this bed is currently being made ready. **Purely informational** (Q4): nothing
+       * in this codebase may read it to decide whether the bed can be offered, counted or
+       * allocated — see `BED_PREPARATION_NOTES` for the owner's own reasoning.
+       */
+      preparing: boolean;
+      /**
+       * What it is waiting on, chosen from `BED_PREPARATION_NOTES`. That array is deliberately
+       * empty pending the owner's list, so no caller can supply a note yet and the reducer stores
+       * `null`. The field exists so filling one array is the whole change.
+       */
+      note?: BedPreparationNote;
+    }
+  | {
       type: "RELEASE_BED";
       role: WardFlowRole;
       now: Instant;
-      /** The release moving from `confirmed` or `blocked` into `released` — terminal. */
+      /**
+       * The release moving into `released` — terminal. Accepted from `confirmed` and from
+       * `predicted` alike: `released` is a statement of fact about a bed that is now empty, not a
+       * promotion of a prediction into availability, and the four-stage model already allowed the
+       * same journey through `blocked`. Narrowing it to `confirmed`-only during the rework would
+       * have refused a path wards could already take.
+       */
       releaseId: string;
       /** Same claim-not-proof discipline as `CONFIRM_BED_RELEASE`'s own field. */
       actingUnitId: string;
@@ -327,7 +402,13 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   CANCEL_TRANSPORT: ["coordinator", "ward"],
   FLAG_BED_RELEASE: ["ward"],
   CONFIRM_BED_RELEASE: ["ward"],
+  // Bed-model rework (2026-08-28). All three are `ward`-only for the same reason the four above
+  // are: only the ward moves a bed between stages, flags it stuck or unstuck, or says it is being
+  // made ready. A coordinator sees every one of them and changes none of them.
+  REVERT_BED_RELEASE: ["ward"],
   BLOCK_BED_RELEASE: ["ward"],
+  CLEAR_BED_RELEASE_BLOCK: ["ward"],
+  SET_BED_PREPARATION: ["ward"],
   RELEASE_BED: ["ward"],
   RECORD_LEAVE_BED: ["ward"],
   END_LEAVE_BED: ["ward"],
