@@ -21,9 +21,11 @@ import {
 } from "../src/components/ward-management/ward-model";
 import { referrals as seededReferrals } from "../src/components/ward-management/ward-movements";
 import {
+  candidateAccepts,
   groupCandidatesByTravelBand,
   outOfAreaLedger,
   referralCandidates,
+  travelBandGroupCounts,
   type ReferralCandidate,
 } from "../src/components/ward-management/ward-referrals";
 import { allUnits } from "../src/components/ward-management/ward-sites";
@@ -432,5 +434,85 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
     // an empty result here would mean the sweep was broken, not that the contract holds.
     expect(importers).toContain(ALLOWED);
     expect(importers).toEqual([ALLOWED]);
+  });
+});
+
+describe("the counts a band group heading carries", () => {
+  const subject = referral();
+  const candidatesOf = () => referralCandidates(subject, allUnits(), NOW);
+
+  it("counts the verdicts the rows actually carry, never a fresh recomputation", () => {
+    // The structural claim, tested by making a recomputation and the rendered rows disagree on
+    // purpose. Every candidate's verdict is INVERTED before grouping, so any implementation that
+    // asked `referralEligibility` again would report the true eligibility while the rows beneath
+    // showed the opposite. Reading the verdict off the candidate is the only way to pass.
+    const real = candidatesOf();
+    const trulyAccepting = real.filter((candidate) => candidate.verdict.eligible).length;
+    expect(trulyAccepting, "every unit gives the same verdict — inverting them would prove nothing").toBeGreaterThan(0);
+    expect(trulyAccepting).toBeLessThan(real.length);
+
+    const inverted = real.map((candidate) => ({
+      ...candidate,
+      verdict: { ...candidate.verdict, eligible: !candidate.verdict.eligible },
+    }));
+    const groups = groupCandidatesByTravelBand(subject, inverted);
+
+    let accepting = 0;
+    let units = 0;
+    for (const group of groups) {
+      const counts = travelBandGroupCounts(group);
+      // Per group: exactly the rows in it, and exactly the rows in it that say they accept.
+      expect(counts.units).toBe(group.candidates.length);
+      expect(counts.accepting).toBe(group.candidates.filter((candidate) => candidate.verdict.eligible).length);
+      accepting += counts.accepting;
+      units += counts.units;
+    }
+    expect(units).toBe(real.length);
+    // The decisive line: the headings follow the inverted rows, not the real eligibility.
+    expect(accepting).toBe(real.length - trulyAccepting);
+    expect(accepting).not.toBe(trulyAccepting);
+  });
+
+  it("adds up across the groups to exactly what the whole candidate list shows", () => {
+    const candidates = candidatesOf();
+    const counts = groupCandidatesByTravelBand(subject, candidates).map(travelBandGroupCounts);
+    expect(counts.reduce((total, entry) => total + entry.units, 0)).toBe(candidates.length);
+    expect(counts.reduce((total, entry) => total + entry.accepting, 0)).toBe(
+      candidates.filter(candidateAccepts).length,
+    );
+    for (const entry of counts) expect(entry.accepting).toBeLessThanOrEqual(entry.units);
+  });
+
+  it("returns zeroes for a band no unit sits in, so the heading can still be rendered", () => {
+    const emptyBandOf = (bands: (string | undefined)[]) => TRAVEL_BANDS.find((band) => !bands.includes(band));
+    const homeRegion = regionWhere((bands) => emptyBandOf(bands) !== undefined);
+    expect(homeRegion, "no home region leaves a band empty — the zero case is untestable").not.toBeNull();
+    const emptyBand = emptyBandOf(bandsAcrossNetwork(homeRegion!))!;
+
+    const local = referral({ homeRegion: homeRegion! });
+    const groups = groupCandidatesByTravelBand(local, referralCandidates(local, allUnits(), NOW));
+    const empty = groups.find((group) => group.band === emptyBand)!;
+    // "None within an hour" is the answer a coordinator came for. Zero, not absent.
+    expect(travelBandGroupCounts(empty)).toEqual({ units: 0, accepting: 0 });
+  });
+
+  it("reports two present facts and nothing about what is missing", () => {
+    // No completeness figure, no tally of what the fixture failed to record, nothing that reads as
+    // a shortfall. A `missing`, `notRecorded`, `total` or `of` key appearing here is how a heading
+    // starts reporting an absence as a number.
+    const groups = groupCandidatesByTravelBand(subject, candidatesOf());
+    for (const group of groups)
+      expect(Object.keys(travelBandGroupCounts(group)).sort()).toEqual(["accepting", "units"]);
+  });
+
+  it("is the only place the match view decides what accepting means", () => {
+    // One exported function, not two files agreeing. If the screen spells the verdict itself again,
+    // a heading and the rows beneath it can drift apart without either looking wrong.
+    const source = readFileSync(
+      join(resolve(process.cwd(), "src"), "components", "ward-management", "referrals", "referral-match.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("candidateAccepts");
+    expect(source).not.toMatch(/verdict\.eligible/);
   });
 });

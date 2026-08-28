@@ -13,6 +13,7 @@ import {
 } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
+  candidateAccepts,
   DECLINE_REASON_LABELS,
   matchReason,
   networkHasCohort,
@@ -45,7 +46,7 @@ type ReferralMatchViewProps = {
  */
 export function ReferralMatchView({ referral, units, now, dispatch, rejections }: ReferralMatchViewProps) {
   const candidates = referralCandidates(referral, units, now);
-  const accepting = candidates.filter((candidate) => candidate.verdict.eligible);
+  const accepting = candidates.filter(candidateAccepts);
   const hasCohort = networkHasCohort(referral, units);
 
   const [declineReason, setDeclineReason] = useState<ReferralDeclineReason>(REFERRAL_DECLINE_REASONS[0]);
@@ -205,10 +206,10 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
 }
 
 function MatchRow({ candidate, onAccept }: { candidate: ReferralCandidate; onAccept: (unitId: string) => void }) {
-  const { unit, verdict } = candidate;
+  const { unit } = candidate;
   return (
     <li
-      className={verdict.eligible ? styles.matchRowAccepts : styles.matchRowDeclines}
+      className={candidateAccepts(candidate) ? styles.matchRowAccepts : styles.matchRowDeclines}
       data-testid={`ward-referral-match-row-${unit.id}`}
     >
       <div className={styles.matchRowTop}>
@@ -221,7 +222,7 @@ function MatchRow({ candidate, onAccept }: { candidate: ReferralCandidate; onAcc
           </span>
         ) : null}
       </div>
-      {verdict.eligible ? (
+      {candidateAccepts(candidate) ? (
         <div className={styles.matchAcceptRow}>
           <span className={styles.acceptsLabel} data-testid={`ward-referral-match-accepts-${unit.id}`}>
             Accepts this referral

@@ -224,6 +224,56 @@ export function groupCandidatesByTravelBand(referral: Referral, candidates: Refe
 }
 
 /**
+ * The ONE spelling of "this bed accepts this referral", for every surface that shows or counts
+ * one. A row's styling, a row's wording, a group heading's count and any future summary all ask
+ * this, so a heading can never mean something subtly different by "accepts" than the row beneath
+ * it means. Three screens once each held their own copy of a single label and two of them
+ * disagreed; the fix that was learned there is one exported function, not two files agreeing.
+ *
+ * It reads the verdict already on the candidate and NEVER recomputes eligibility. That is the
+ * whole point — see `travelBandGroupCounts` below for why recomputation is the specific way these
+ * numbers come apart.
+ */
+export function candidateAccepts(candidate: ReferralCandidate): boolean {
+  return candidate.verdict.eligible;
+}
+
+/**
+ * The two figures a band group's heading carries (owner decision, 2026-08-29): how many units are
+ * in this band, and how many of those accept this referral.
+ *
+ * **Why this is a shared function rather than arithmetic each screen does for itself.** Two
+ * surfaces will show band groups — the match view, and later the network diagram — and "how many
+ * of these accept this referral" is a VERDICT, not arithmetic. Two components each deciding what
+ * "accepts" means is how this project ended up with three screens holding their own copy of one
+ * label, two of which disagreed.
+ *
+ * **Why it takes the GROUP and not `(referral, units, now)`.** This is the structural guarantee,
+ * not a convention: taking the group means the only thing it can count is the very
+ * `ReferralCandidate` objects the rows beneath the heading render, reading the `verdict` already
+ * computed for each. It is not possible to write a heading that disagrees with its own rows,
+ * because there is no second verdict for it to disagree with. A signature taking `now` would
+ * permit exactly that divergence — `referralEligibility`'s `capacity_freshness` gate is
+ * time-dependent, so a heading recomputed even a moment after the rows could legitimately report a
+ * different number for the same beds, and nothing would look wrong in either place.
+ *
+ * **It counts what is present, never what is missing.** Two positive facts about the beds in this
+ * band. There is deliberately no completeness figure, no tally of what the fixture failed to
+ * record, and nothing that reads as a shortfall — an absence is shown by the not-recorded group
+ * being present and populated, never by a number here. `accepting` is a subset of `units` and is
+ * the only ratio these two ever form; neither is related to `outOfAreaLedger`'s counts, which
+ * share no denominator with these or with each other.
+ *
+ * An empty group returns zeroes, and callers still render it: "none within an hour" is the answer
+ * a coordinator came for, and a heading that vanishes when its count is zero cannot give it.
+ */
+export type TravelBandGroupCounts = { units: number; accepting: number };
+
+export function travelBandGroupCounts(group: TravelBandGroup): TravelBandGroupCounts {
+  return { units: group.candidates.length, accepting: group.candidates.filter(candidateAccepts).length };
+}
+
+/**
  * One person currently in a bed the fixture records as out of area, and how long since they got
  * there. Carries the `Referral` and the `Unit` themselves rather than copies of fields off them,
  * so nothing here becomes a second place a name, a band or a time is spelled.
