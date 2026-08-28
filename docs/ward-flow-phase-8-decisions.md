@@ -184,6 +184,13 @@ patched over, and the first is the one that needs the owner.
 
 ### 1. D8-3's clock has nothing to start from
 
+> **SUPERSEDED 2026-08-29 — see D8-9 below.** The gap this section records is closed, and closed by
+> a different route than the one described here: a person occupying a bed is an `Admission`, and
+> that record ends. **The sentence at the foot of this section — that the prototype records nobody
+> ever leaving a bed, so nobody ever leaves the out-of-area ledger, and that the screen must say so
+> plainly — is FALSE and must never be written on any screen.** The original text is left in place
+> as the record of what was believed when the specification was written.
+
 D8-3 rules that the out-of-area clock starts **when the person arrives in the far bed**. Nothing in
 the system records a referral arriving anywhere.
 
@@ -203,6 +210,16 @@ so the choice is visible.
 A smaller consequence of the same gap: the prototype records nobody ever **leaving** a bed, so
 during a demo run nobody ever leaves the out-of-area ledger either. The screen is specified to say
 so plainly. Whether a departure record should exist is a separate question, and it is the owner's.
+
+> **This paragraph is the false one. Do not act on it.** (2026-08-29, D8-9.) A departure record
+> does exist: `Admission` carries `state: "left"` and `leftAt`, `outOfAreaLedger` excludes anybody
+> not currently holding a bed, and `tests/ward-travel-grouping.test.ts` goes red if that exclusion
+> is removed. People leave this ledger. Task 5 of
+> `docs/superpowers/plans/2026-08-28-ward-flow-phase-8-distance.md` carries the same pointer at its
+> head and beside its mutation-test box. What may honestly be said instead: the ledger reflects this
+> prototype's own seeded records rather than a live statewide count, the travel times are invented
+> and unchecked, the "out of area" line is this prototype's own invention, and many beds cannot be
+> classified at all — a count reported separately, never as a shortfall of the other.
 
 ### 2. Roadmap 11 and D8-7 contradict each other
 

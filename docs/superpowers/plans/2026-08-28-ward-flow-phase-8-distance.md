@@ -613,6 +613,33 @@ suitable, and when). No free text, ever.
 
 ## Task 5: The out-of-area ledger screen
 
+> **SUPERSEDED IN PART, 2026-08-29 — read this before starting Task 5.**
+>
+> **One sentence mandated below is now FALSE, and must never be written on any screen.** The bullet
+> requiring the screen to say in its own words that this prototype has no record of anyone leaving a
+> bed, so nobody ever leaves this ledger during a demo run, is superseded — and so is the
+> mutation-test box that would have pinned that sentence in place. **That box is not a to-do. Leave
+> it unchecked and do not act on it.**
+>
+> **Why it is false.** A person occupying a bed is recorded as an `Admission`
+> (`src/components/ward-management/ward-admissions.ts`), and that record ENDS — `state: "left"` and
+> `leftAt`. `outOfAreaLedger` excludes anybody not currently holding a bed, and
+> `tests/ward-travel-grouping.test.ts` goes red if that exclusion is removed. People do leave this
+> ledger. Writing the sentence anyway would put an untrue statement on a clinical screen and pin it
+> there with a test, which is the defect class this project takes most seriously — the same class as
+> the invented Mental Health Act figure that got into this codebase by being asserted and believed.
+>
+> **What is still true, and is available to whoever writes the replacement.** The travel times are
+> invented and unchecked; the "out of area" line is this prototype's own invention; the ledger
+> reflects this prototype's own seeded records rather than a live statewide count; and many beds
+> cannot be classified at all — a count reported separately, and never as a shortfall of the other.
+>
+> Decision provenance and reversal cost: `docs/ward-flow-phase-8-decisions.md`, D8-9.
+>
+> **Everything else in this task stands** — the two-numbers wording, both imported notices, the
+> elapsed-time-and-nothing-else rule, the empty state, and the six registration sites. The original
+> text below is left in place deliberately: it is the record of what was planned.
+
 **Why this exists.** This is the "one with teeth" — how many people are currently in a bed a long way
 from where they live, and for how long. It is also the figure most likely to be quoted in a room, so
 the screen has to say what it is not, in full, on the screen itself.
@@ -661,6 +688,12 @@ owner can move it.
   only when `entries.length > 0`; watch red.
 - No element presents `entries.length` and `notBanded` as a fraction or percentage.
 - The "nobody ever leaves this ledger" sentence renders. **Mutation:** delete it; watch red.
+
+  > **SUPERSEDED 2026-08-29 — do not write this test, and do not write that sentence.** It is
+  > false: `Admission` records a person leaving, and `outOfAreaLedger` excludes anybody not
+  > currently holding a bed. See the note at the head of this task and
+  > `docs/ward-flow-phase-8-decisions.md`, D8-9. Nothing replaces this box — the wording that does
+  > ship is covered by the two notice assertions above.
 
 **Registration.** Run
 `.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/check-registration.sh` and quote the
