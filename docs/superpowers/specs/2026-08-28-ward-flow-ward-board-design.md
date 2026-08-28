@@ -581,3 +581,53 @@ Local and offline only. No provider-backed command, ever.
    once (four stages to three plus a flag) on the owner's own decision, which is evidence the design
    goal is working — the revision cost this design nothing, because it was still on paper. The
    clinician check remains the cheapest, highest-value validation available.
+
+---
+
+## Decisions taken during the build, 2026-08-29
+
+Both arose because an implementer refused to invent something and flagged the gap instead. Both were
+put to the owner and answered the same day. Recorded here rather than in chat, because the recurring
+failure in this project is a decision that lived only in a conversation.
+
+### DB-1 — The waiting clock starts when the referral was raised
+
+"How long do people wait for a bed at this ward" measures from **`Referral.raisedAt`** — the moment
+the person was first referred anywhere — not from when this ward accepted them onto its list.
+
+Owner's choice, and it needs **no new field**: that instant is already recorded. It measures the
+whole wait, including the part before any ward had said yes, which is usually the part that matters.
+
+**What must travel with it:** `ward-statistics.ts` currently returns `null` for this figure because
+it is given only `Admission[]`, which carries no waitlist-start instant. Its signature must widen to
+take the referrals as well. That is a real change to a module already built and tested — it is not
+a hole to be filled by adding a field to `Admission`.
+
+The honest cost of this choice, stated because a later reader will ask: the figure includes delay a
+ward could not have prevented, so it must never be presented as that ward's own performance. It is
+the patient's wait, not the ward's score.
+
+### DB-2 — Confirming a discharge is a separate, deliberate act
+
+A discharge date is a **plan**. Confirming is a **decision**. They are different facts and the
+record now holds both.
+
+`Admission` gains `dischargeConfirmedAt: Instant | null` and `dischargeConfirmedBy: string | null`
+(a **role**, never a personal name — roadmap decision 8). The permitted-field list therefore moves
+deliberately, and `tests/ward-admission-model.test.ts`'s structural assertion must be widened on
+purpose, not incidentally — the same discipline `Referral` held to when it went from three fields to
+five.
+
+**This is not a widening of what is held about a person.** It is a fact about the ward's own
+decision, in the same category as `dischargeDateSetBy`. The governance rule that makes a widening a
+governance decision covers facts about the patient; this is not one.
+
+**What it unblocks:** D4's `confirmed` stage was unreachable. An implementer building the release
+derivation found it could only ever emit `predicted` or `released`, because nothing on the record
+distinguished a plan from a decision — and it **declined to invent a proxy** (a date within some
+window, or a move count) on the grounds that it would render a decision nobody made. That was the
+right call and it is why this field exists. `derivedBedReleases` must now emit `confirmed` from this
+field and from nothing else.
+
+**Still not approved:** every derived prediction currently reports its `waitingOn` as
+`"Nothing outstanding"`, the most conservative value available. Nobody has reviewed that default.
