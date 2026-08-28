@@ -238,7 +238,7 @@ describe("the /caring-contacts/team page - fails closed", () => {
 });
 
 describe("the /caring-contacts/team page - against the real demo population", () => {
-  it("counts the seeded plans as unclaimed and puts no patient, plan or contact id on the screen", async () => {
+  it("shows the seeded plan nobody has claimed as escalated, and puts no patient, plan or contact id on the screen", async () => {
     mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
     const { store } = withAccessSpy(await createDemoWorkspaceStore(fixedClock(NOW)));
 
@@ -258,9 +258,10 @@ describe("the /caring-contacts/team page - against the real demo population", ()
     const roster = screen.getByTestId("caring-contacts-team");
     const text = roster.textContent ?? "";
     // And the second half of the control: those plans reached the ROLL-UP, not merely the store.
-    // Nothing in the seed claims a plan and the render measures against the wall clock, so every
-    // plan the seed left open is unclaimed and long past the threshold; an empty store would render
-    // "Every plan that is running has a coordinator" here instead.
+    // The seed now claims one of its two non-ended plans (the roster needs a coordinator actually
+    // carrying work too), but it deliberately leaves the other one open, and the render measures
+    // against the wall clock -- so that plan is unclaimed and long past the threshold; an empty
+    // store, or one where every plan had been claimed, would render neither escalation group here.
     //
     // NOT a count. The first version of this control asserted the block contained
     // `String(plans.length)`, and it was wrong twice over: the seed leaves one plan ENDED, which

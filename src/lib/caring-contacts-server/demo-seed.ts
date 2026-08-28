@@ -56,14 +56,19 @@ import { idempotencyKey, patientId, pathwayVersionId, planId, referralId } from 
 import type { PathwayVersionId, PlanId, ReferralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
-import type { MessageType, SendingPreference, TransitionResult } from "@/lib/caring-contacts/model";
+import type { MessageType, ProviderStatus, SendingPreference, TransitionResult } from "@/lib/caring-contacts/model";
 import type { PathwayVersion, PathwayVersionSnapshot } from "@/lib/caring-contacts/pathway-versions";
-import type { Actor } from "@/lib/caring-contacts/permissions";
-import type { CaringContactRepository, EpisodePatientDetail, WriteContext } from "@/lib/caring-contacts/repository";
+import type { Actor, CaringContactActor } from "@/lib/caring-contacts/permissions";
+import type {
+  CaringContactRepository,
+  EpisodePatientDetail,
+  StoredContact,
+  WriteContext,
+} from "@/lib/caring-contacts/repository";
 import { buildApprovedSchedule } from "@/lib/caring-contacts/schedule";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "@/lib/caring-contacts/synthetic-contacts";
 
-import { demoActorForRole, isCaringContactsDemoEnabled } from "./session";
+import { demoActorForRole, demoSystemDispatcher, isCaringContactsDemoEnabled } from "./session";
 
 /** Thrown when something asks this module to seed a store it did not build. */
 export class DemoSeedForeignStoreError extends Error {
@@ -131,12 +136,55 @@ const DEMO_SEED_MESSAGE_TEXT: Readonly<Record<MessageType, string>> = Object.fre
  */
 const CULTURAL_IDENTITY_NOT_STATED = "Not stated";
 
+/**
+ * AWST is UTC+8 year-round (../clock.ts), so subtracting an exact multiple of this from any
+ * instant always shifts its AWST calendar day back by exactly that many days -- there is no
+ * daylight-saving boundary here for the arithmetic to cross.
+ */
+const MILLISECONDS_PER_DAY = 86_400_000;
+
 type DemoPlanSeed = {
   planIdentifier: string;
   sendingPreference: SendingPreference;
   /** Where the plan is left. Every plan is created and activated first; this is the last move. */
   finalState: "active" | "paused" | "withdrawn";
   patientDetail: EpisodePatientDetail;
+  /**
+   * Whole days this plan's OWN discharge instant is pushed before the shared `dischargeAt` the
+   * pathway snapshot uses. Default 0.
+   *
+   * WHY THIS IS THE LEVER, checked against the schedule rather than assumed. `buildApprovedSchedule`
+   * puts the first contact at discharge + 1 day (`FIRST_CONTACT_DEFAULT_OFFSET_DAYS`), so a plan
+   * discharged one day before the shared instant opens its "Day 1" contact on the current AWST day.
+   * A single contact COULD instead be moved with `rescheduleContact`'s `changeContactDate` branch,
+   * but that write requires a non-blank reason and a recorded team-lead approval -- both of them
+   * free text or an attestation about why this invented patient's date moved, for a contact that has
+   * no other reason to move. Re-discharging the plan a day early tells the truer story ("what is due
+   * today" is what a plan actually discharged yesterday puts there) without inventing either.
+   */
+  dischargeDaysBeforeShared?: number;
+  /**
+   * Claim this plan for the demo coordinator once it is active. Never set on every plan in
+   * `DEMO_SEED_PEOPLE`: the roster needs one coordinator visibly carrying work, and the unclaimed-
+   * work escalation needs a plan nobody has claimed, and both facts have to survive out of the same
+   * population.
+   */
+  claimedByCoordinator?: boolean;
+  /**
+   * Contacts to advance past `scheduled` through the real dispatch path -- `startContactDispatch`,
+   * `recordContactSent`, `recordContactProviderStatus`, in that order, exactly as the sealed
+   * `driveTwelveMonthSimulation` driver calls them (../simulation.ts). Named by the contact's own
+   * `cadenceLabel` rather than by array position, so this cannot silently retarget a different
+   * contact if the schedule shape ever changes.
+   *
+   * `outcome: "delivered"` is what a successful attempt reports; any other `ProviderStatus` is a
+   * provider-reported exception -- exactly what `deliveryExceptionExplanation`
+   * (schedule-screen.tsx) and the Schedule screen's `resolve-failed-delivery` trigger need a
+   * subject for, and what `contactSendability` needs to offer `delivery-detail` on the patient
+   * overview. A plan that ALSO sets `dischargeDaysBeforeShared` must never name "Day 1" here --
+   * leaving that one contact untouched at `scheduled` is what makes it show as due today.
+   */
+  attemptedContacts?: readonly { key: string; cadenceLabel: string; outcome: ProviderStatus }[];
 };
 
 type DemoPersonSeed = {
@@ -187,6 +235,26 @@ type DemoPersonSeed = {
  *   * one accepted referral with NO plan, which is what the wizard needs: a patient who already
  *     has a non-terminal plan is refused a second one by the store, and correctly;
  *   * one referral still awaiting handover, so the two referral states are distinguishable.
+ *
+ * THREE FURTHER STATES, MEASURED BY RUNNING THE APP RATHER THAN READ FROM THE STORE'S SHAPE ABOVE,
+ * added without touching the three properties above them or any existing plan's final state:
+ *   * Rowan's plan is CLAIMED by the demo coordinator, through `applyAssignment`'s real `claim`
+ *     transition, so the Team roster has an actual person carrying actual work. Mira's plan stays
+ *     unclaimed on purpose: the unclaimed-work escalation (spec 4.2) needs a subject too, and a
+ *     population where every plan was claimed would delete that observation as completely as one
+ *     where none was;
+ *   * Rowan's plan is discharged one day before the shared `dischargeAt`, so its "Day 1" contact
+ *     falls on the current AWST day and the Schedule screen opens on a populated day instead of an
+ *     empty one. See `DemoPlanSeed.dischargeDaysBeforeShared` for why this is the lever the domain
+ *     actually offers;
+ *   * three more of Rowan's contacts are advanced past `scheduled` through the real dispatch path,
+ *     two to a successful `delivered` outcome and one -- deliberately the CLOSEST to today, so
+ *     paging the Schedule screen forward reaches it in a couple of clicks rather than dozens -- to
+ *     `notDelivered`. That is what gives `delivery-detail` and `resolve-failed-delivery` an actual
+ *     subject; see `DemoPlanSeed.attemptedContacts`.
+ * Mira and Ari are left exactly as before: a paused plan and a withdrawn one are the OTHER two
+ * states the caseload has to show, and neither can also carry an active dispatch -- the store
+ * refuses `startContactDispatch` on anything but an active plan, correctly.
  */
 const DEMO_SEED_PEOPLE: readonly DemoPersonSeed[] = Object.freeze([
   {
@@ -198,6 +266,14 @@ const DEMO_SEED_PEOPLE: readonly DemoPersonSeed[] = Object.freeze([
       planIdentifier: "demo-seed-plan-rowan",
       sendingPreference: "morning",
       finalState: "active",
+      dischargeDaysBeforeShared: 1,
+      claimedByCoordinator: true,
+      attemptedContacts: [
+        // Closest to today first, deliberately the failure -- see the module note on why.
+        { key: "week1", cadenceLabel: "Week 1", outcome: "notDelivered" },
+        { key: "month1", cadenceLabel: "Month 1", outcome: "delivered" },
+        { key: "month2", cadenceLabel: "Month 2", outcome: "delivered" },
+      ],
       patientDetail: {
         patientName: "Rowan Example",
         // Required since Task P. The given name this seeded person is called in the message,
@@ -345,6 +421,9 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
   const coordinator = demoActorForRole("coordinator");
   const clinicalProgrammeLead = demoActorForRole("clinicalProgrammeLead");
   const livedExperienceRepresentative = demoActorForRole("livedExperienceRepresentative");
+  // The one system actor every dispatch write below is attributed to -- see `demoSystemDispatcher`
+  // for why a human demo role can never hold this capability instead.
+  const dispatcher = demoSystemDispatcher();
 
   if ((await store.listPathwayVersions({ actor: coordinator })).length > 0) return { populated: false };
 
@@ -428,6 +507,13 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
     if (!person.plan) continue;
     const plan: PlanId = planId(person.plan.planIdentifier);
 
+    // Per-plan, not the shared instant every plan used to take unmodified: see
+    // `DemoPlanSeed.dischargeDaysBeforeShared` for why shifting THIS plan's own discharge, rather
+    // than the pathway snapshot's, is the honest lever for "a contact due today".
+    const planDischargeAt = person.plan.dischargeDaysBeforeShared
+      ? new Date(dischargeAt.getTime() - person.plan.dischargeDaysBeforeShared * MILLISECONDS_PER_DAY)
+      : dischargeAt;
+
     const created = taken(
       `createPlan:${person.key}`,
       await store.createPlan(
@@ -436,7 +522,7 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
           referralId: referralId(person.referralIdentifier),
           patientId: patientId(person.patientIdentifier),
           pathwayVersionId: version,
-          dischargeAt,
+          dischargeAt: planDischargeAt,
           sendingPreference: person.plan.sendingPreference,
           // Required since Task 9b. The derived both-confirmed set: createPlan refuses anything
           // less, so a seed whose plans must exist can hold no other value, and taking the exported
@@ -455,6 +541,67 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
         writeAs(coordinator, `plan-activate-${person.key}`),
       ),
     );
+
+    // ---- Ownership --------------------------------------------------------------------------
+    // `claim` requires no plan state at all -- see ../assignment -- so this could run before or
+    // after the pause/withdraw branches below with the same result. It runs here, against the
+    // just-activated plan, because every seeded plan that claims is also one this seed leaves
+    // active.
+    if (person.plan.claimedByCoordinator) {
+      taken(
+        `assignment:claim:${person.key}`,
+        await store.applyAssignment(
+          { planId: plan, action: { type: "claim", actorId: coordinator.id } },
+          writeAs(coordinator, `assignment-claim-${person.key}`),
+        ),
+      );
+    }
+
+    // ---- Dispatch -----------------------------------------------------------------------------
+    // Real writes through the real four-step path (../repository's own doc comment on
+    // `startContactDispatch`), attributed to the system actor and never to a human demo role --
+    // see `demoSystemDispatcher`. `startContactDispatch` refuses anything but an active plan, so
+    // this must run before any pause/withdraw below, not after.
+    if (person.plan.attemptedContacts && person.plan.attemptedContacts.length > 0) {
+      const contactsForPlan: readonly StoredContact[] = await store.listContacts(plan, { actor: coordinator });
+
+      for (const attempt of person.plan.attemptedContacts) {
+        const stored = contactsForPlan.find((entry) => entry.planned.cadenceLabel === attempt.cadenceLabel);
+        if (!stored) {
+          throw new DemoSeedRefusedError(
+            `dispatch:${person.key}:${attempt.key}`,
+            `no seeded contact carries the cadence label "${attempt.cadenceLabel}"`,
+          );
+        }
+
+        const started = taken(
+          `startContactDispatch:${person.key}:${attempt.key}`,
+          await store.startContactDispatch(
+            { planId: plan, contactId: stored.contact.id, expectedContactVersion: stored.contact.version },
+            writeAs(dispatcher, `dispatch-start-${person.key}-${attempt.key}`),
+          ),
+        );
+        const sent = taken(
+          `recordContactSent:${person.key}:${attempt.key}`,
+          await store.recordContactSent(
+            { planId: plan, contactId: started.contact.id, expectedContactVersion: started.contact.version },
+            writeAs(dispatcher, `dispatch-sent-${person.key}-${attempt.key}`),
+          ),
+        );
+        taken(
+          `recordContactProviderStatus:${person.key}:${attempt.key}`,
+          await store.recordContactProviderStatus(
+            {
+              planId: plan,
+              contactId: sent.contact.id,
+              expectedContactVersion: sent.contact.version,
+              status: attempt.outcome,
+            },
+            writeAs(dispatcher, `dispatch-status-${person.key}-${attempt.key}`),
+          ),
+        );
+      }
+    }
 
     if (person.plan.finalState === "paused") {
       taken(
@@ -490,7 +637,7 @@ function taken<T>(step: string, result: TransitionResult<T>): T {
  * Fixed, never-derived idempotency keys. Fixed is the point: a key that varied per run would make
  * a repeated seed a NEW write rather than a replay the store already knows the answer to.
  */
-function writeAs(actor: Actor, label: string): WriteContext {
+function writeAs(actor: CaringContactActor, label: string): WriteContext {
   return { actor, idempotencyKey: idempotencyKey(`demo-seed-${label}`) };
 }
 
