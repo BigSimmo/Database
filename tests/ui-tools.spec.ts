@@ -719,7 +719,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     const sharedHomeBrand = page.getByTestId("shared-home-brand");
     await expect(sharedHomeBrand).toBeVisible();
     await expect(sharedHomeBrand).toContainText("PsychSift");
-    await expect(sharedHomeBrand).toContainText("Source-backed clinical search");
+    await expect(sharedHomeBrand).toContainText("From question to source");
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Answers" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-sparkles\b/);
     await searchInput.fill("lithium draft");

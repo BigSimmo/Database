@@ -2284,7 +2284,7 @@ export function MasterSearchHeader({
                   PsychSift
                 </span>
                 <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                  Source-backed clinical search
+                  From question to source
                 </span>
               </span>
             </div>
