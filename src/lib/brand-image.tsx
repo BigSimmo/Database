@@ -8,9 +8,12 @@ import { BRAND_LIGHT, brandMarkSvg, type BrandColors } from "@/lib/brand-mark";
 export const BRAND_ICON_FIELD = BRAND_LIGHT.tile;
 
 /** Single-colour palette for manifest `monochrome` icons: platforms read only
- *  the alpha channel and recolour the silhouette themselves, so the tile and
- *  ink collapse into one white glyph on a transparent field. */
-export const BRAND_MONOCHROME: BrandColors = { tile: "#ffffff", ink: "#ffffff" };
+ *  the alpha channel and recolour the silhouette themselves, so the tile drops
+ *  out entirely and the glyph alone carries the shape. Filling the tile white
+ *  as well — as this did until 2026-08-28 — hands the platform a solid rounded
+ *  square with no mark in it, because a white glyph on a white tile is opaque
+ *  everywhere the alpha channel can see. */
+export const BRAND_MONOCHROME: BrandColors = { tile: "transparent", ink: "#ffffff" };
 
 /** data: URI of the flat brand-mark SVG for <img> inside ImageResponse. Satori
  *  rasterises the SVG server-side, so no browser CSP or network is involved.

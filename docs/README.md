@@ -35,6 +35,7 @@ npm run docs:check-links
 - [design-system/SPEC.md](design-system/SPEC.md) — the complete v2 design system: roles, rules, rationale (never values)
 - [design-system/TOKENS.md](design-system/TOKENS.md) — reconciled token inventory: every role, winning name, owner, and what it replaces
 - [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
+- [brand/psychsift-logo.md](brand/psychsift-logo.md) — the PsychSift mark: arc-by-arc construction, colours, file set, and usage rules
 - [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
