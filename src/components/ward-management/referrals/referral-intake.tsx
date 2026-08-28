@@ -95,6 +95,16 @@ function initialDraft(): ReferralDraft {
  * there is no free-text input anywhere on this screen, and there never should be; a field that
  * seems to need one is a finding to report, not a control to add here.
  *
+ * Every picker carries a real accessible NAME (review finding I4). Each field used to be a
+ * `<fieldset>` with a `<legend>`, which names the fieldset's own `group` role and NOT the
+ * `<select>` inside it — so all six controls announced as unnamed combo boxes on the one screen
+ * a police or ambulance officer fills in on a phone (spec D12), carrying the five permitted facts
+ * about a person. They are now `<label htmlFor>` + `<select id>`, which is what the house pattern
+ * already does: `ed-screen.tsx`'s own referral form wraps each `<select>` in a `<label>`, and
+ * `referral-match.tsx`'s decline picker uses this exact `.fieldLegend` label shape. No CSS
+ * changed — `.fieldCard` and `.fieldLegend` are class selectors, so they style a `<div>` and a
+ * `<label>` identically. Tap targets are untouched: every `.select` stays `--ri-space-48` (48px).
+ *
  * `RECEIVE_REFERRAL` can be refused by the reducer (unknown source, an age band outside
  * `COHORTS`, an origin site code that does not resolve, urgency outside 1-3, or a home region
  * outside `HOME_REGIONS` — see `ward-flow-reducer.ts`'s own case). This form's pickers only ever
@@ -156,8 +166,6 @@ export function ReferralIntakeForm() {
     <div className={styles.screen} data-testid="ward-referral-intake-screen">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
-        <h1 className="sr-only">Raise a referral</h1>
-
         <div className={styles.governanceBanner} data-testid="ward-referral-intake-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -168,16 +176,27 @@ export function ReferralIntakeForm() {
         </div>
 
         <header className={styles.pageHeader}>
-          <h2 className={styles.pageTitle}>Raise a referral</h2>
+          {/*
+           * Review finding M6: this screen used to carry an `sr-only` <h1> at the top of <main>
+           * AND this visible heading with identical text, so a screen-reader user heard the same
+           * phrase twice at two levels. The VISIBLE heading is the <h1> — one heading, seen and
+           * heard alike, and the landmark contract (exactly one <h1> per route,
+           * `tests/ward-landmarks.test.ts`) is satisfied by the heading a sighted user reads
+           * rather than by a duplicate nobody can see.
+           */}
+          <h1 className={styles.pageTitle}>Raise a referral</h1>
           <p className={styles.pageSubtitle}>
             One form for every source &mdash; community, crisis service, police, ambulance or inter-hospital.
           </p>
         </header>
 
         <form className={styles.form} onSubmit={handleSubmit} data-testid="ward-referral-intake-form">
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Age band</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-ageBand">
+              Age band
+            </label>
             <select
+              id="ward-referral-intake-ageBand"
               data-testid="ward-referral-intake-ageBand"
               className={styles.select}
               value={draft.ageBand}
@@ -189,11 +208,14 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Sex</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-sex">
+              Sex
+            </label>
             <select
+              id="ward-referral-intake-sex"
               data-testid="ward-referral-intake-sex"
               className={styles.select}
               value={draft.sex}
@@ -205,11 +227,14 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Home region</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-homeRegion">
+              Home region
+            </label>
             <select
+              id="ward-referral-intake-homeRegion"
               data-testid="ward-referral-intake-homeRegion"
               className={styles.select}
               value={draft.homeRegion}
@@ -223,11 +248,14 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Referral source</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-source">
+              Referral source
+            </label>
             <select
+              id="ward-referral-intake-source"
               data-testid="ward-referral-intake-source"
               className={styles.select}
               value={draft.source}
@@ -241,11 +269,14 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Urgency</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-urgency">
+              Urgency
+            </label>
             <select
+              id="ward-referral-intake-urgency"
               data-testid="ward-referral-intake-urgency"
               className={styles.select}
               value={draft.urgency}
@@ -265,11 +296,14 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
-          <fieldset className={styles.fieldCard}>
-            <legend className={styles.fieldLegend}>Origin site</legend>
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-originSiteCode">
+              Origin site
+            </label>
             <select
+              id="ward-referral-intake-originSiteCode"
               data-testid="ward-referral-intake-originSiteCode"
               className={styles.select}
               value={draft.originSiteCode}
@@ -281,7 +315,7 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
-          </fieldset>
+          </div>
 
           <label className={styles.toggleCard}>
             <input

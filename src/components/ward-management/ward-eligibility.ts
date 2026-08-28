@@ -196,10 +196,21 @@ export function referralEligibility(referral: Referral, unit: Unit, now: Instant
       // D7: a forensic bed is described so the board can be honest about the network, and is
       // never offered — the gate fails for every referral, unconditionally, with a detail that
       // says so plainly rather than implying the person was assessed and found unsuitable.
+      //
+      // Task 8 finding C: this detail used to end "…is never offered through Phase 7 front-door
+      // matching". "Phase 7" and "front-door matching" are this project's own build vocabulary
+      // and mean nothing to a ward coordinator, who is the one reading it. A gate detail may say
+      // only what is true of the BED, in words the reader already has.
+      //
+      // "as a destination", not "for a referral": this file's own `legal_status` gate already
+      // uses "destination" for a bed being placed into, and the word "referral" here would put
+      // the sentence's object back on the request — which the guard in
+      // `tests/ward-referral-matching.test.ts` ("the forensic gate's detail names the bed and
+      // never judges the person") refuses, correctly. That guard was left exactly as it was.
       gate: "forensic",
       pass: !unit.forensic,
       detail: unit.forensic
-        ? `${unit.name} is a forensic bed and is never offered through Phase 7 front-door matching`
+        ? `${unit.name} is a forensic bed and is never offered as a destination`
         : `${unit.name} is not a forensic bed`,
     },
     {

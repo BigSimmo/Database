@@ -298,6 +298,19 @@
   font-style: italic;
 }
 
+/* Spec D14's own sentence, on the section where the outcome is read (review finding I3): an
+   acceptance records a unit and does not arrange a transfer. Not `.emptyNote`'s italic muted
+   grey — this must be read, not skimmed past, so it takes the body colour and a left rule like
+   `.matchGovernance`. */
+.decidedNote {
+  margin: 0;
+  border-left: 0.125rem solid var(--border);
+  padding-left: var(--ri-space-8);
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--ri-leading-body);
+}
+
 .tableScroll {
   overflow-x: auto;
 }
@@ -427,6 +440,15 @@
   font-weight: 700;
 }
 
+/* The decided card's outcome detail — the accepting unit's name, or the decline reason (review
+   finding I3). Set at the same weight as the card's own id so the record's substance is not the
+   faintest thing on the card, and above `.cardService`, which carries the timings. */
+.cardDetail {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-xs);
+}
+
 /* `display: block` because the queued card's copy of this is a `<span>`, not a `<p>` — a
    `<button>`'s content model is phrasing content (M5). On the decided card's `<p>` it is a
    no-op, so both variants keep the identical layout they had. */
@@ -451,6 +473,18 @@
   margin: 0;
   color: var(--text-heading);
   font-size: var(--text-sm, 0.875rem);
+  font-weight: 700;
+}
+
+/* Review finding I1 / Task 8 finding B: the urgency tier is its own line on the match view,
+   never a field inside `.matchSummary`'s dot-separated run — see `referral-match.tsx`'s own
+   comment for why the layout changed rather than the words. Styled like the board's tier cell
+   (plain text, heading colour, bold), not as a coloured badge: a tier is a category a clinician
+   set, and colouring it here would read as this screen's own judgement of urgency. */
+.matchTier {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 

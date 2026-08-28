@@ -29,7 +29,9 @@ import {
   type Referral,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { referrals } from "@/components/ward-management/ward-movements";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
+import { DECLINE_REASON_LABELS } from "@/components/ward-management/ward-referrals";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /** Mirrors `ward-discharge-board.dom.test.tsx`'s own harness pattern: a real reducer-backed
@@ -168,6 +170,39 @@ describe("ReferralIntakeForm", () => {
     // returning the bare tier again would fail here even though the line above still matched.
     expect(optionText).toContain("Tier 1 · most urgent");
     expect(optionText).toContain("Tier 3 · least urgent");
+  });
+
+  /**
+   * Review finding I4. Every `<select>` on this form used to sit inside a `<fieldset>` with a
+   * `<legend>` — which names the fieldset's own `group` role and NOT the control inside it, so
+   * all six announced as unnamed combo boxes. This is the phone-first screen spec D12 puts in
+   * front of a police or ambulance officer, and the six unnamed controls carried the five
+   * permitted facts about a person.
+   *
+   * `getByLabelText` is the assertion that matters: it resolves through the accessible name
+   * only, so a `<legend>` (or a `<div>` that merely LOOKS like a label) cannot satisfy it. Each
+   * name is then required to resolve to the very control the rest of this suite drives by
+   * `data-testid`, so a label pointing at the wrong `id` — a real and silent failure mode of
+   * `htmlFor` — fails here rather than reading as a pass.
+   */
+  it("gives every select a real accessible name, resolving to that same control", () => {
+    renderForm();
+
+    const named: [string, string][] = [
+      ["Age band", "ward-referral-intake-ageBand"],
+      ["Sex", "ward-referral-intake-sex"],
+      ["Home region", "ward-referral-intake-homeRegion"],
+      ["Referral source", "ward-referral-intake-source"],
+      ["Urgency", "ward-referral-intake-urgency"],
+      ["Origin site", "ward-referral-intake-originSiteCode"],
+    ];
+    for (const [name, testId] of named) {
+      expect(screen.getByLabelText(name)).toBe(screen.getByTestId(testId));
+    }
+
+    // Non-vacuity: the list above must cover every combobox the form renders, so a seventh
+    // picker added later without a name is caught rather than simply going unlisted here.
+    expect(screen.getAllByRole("combobox")).toHaveLength(named.length);
   });
 
   it("describes the request, never the person, for the two need toggles", () => {
@@ -432,6 +467,84 @@ describe("ReferralBoard", () => {
     expect(screen.queryByTestId("ward-referral-board-select-RF-005")).not.toBeInTheDocument();
     expect(screen.getByTestId("ward-referral-board-decided-row-RF-005")).toBeInTheDocument();
     expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(`Accepted at ${clickedUnitName}.`);
+  });
+
+  /**
+   * Review finding I1 / Task 8 finding B: the branch's most embarrassing defect. The match view
+   * rendered a bare `Tier 2` inline in its summary line while the board row directly above it —
+   * same page, same field, same moment — read "Tier 2 · urgent". This asserts BOTH halves,
+   * because either one alone can pass while the screen is still wrong: the tier element must
+   * carry `urgencyTierLabel`'s own output, AND the summary line must no longer carry a tier at
+   * all (substituting the shared label back into that dot-separated run would produce
+   * "Adult · Female · Tier 2 · urgent · Perth Metropolitan", a worse screen, not a better one).
+   *
+   * Read against `urgencyTierLabel` itself, never a hard-coded string, so this is a guard on
+   * "one spelling", not on the spelling this test happens to remember.
+   */
+  it("the match view spells the urgency tier exactly as the board does, and never inside the summary line", () => {
+    renderBoard();
+    fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-005"));
+
+    const referral = referrals.find((candidate) => candidate.id === "RF-005")!;
+    const expected = urgencyTierLabel(referral.urgency);
+    expect(screen.getByTestId("ward-referral-match-tier")).toHaveTextContent(expected);
+
+    // The very same spelling is on the board row above it — the two strings this defect had
+    // disagreeing, asserted together rather than one at a time.
+    expect(screen.getByTestId("ward-referral-board-row-RF-005")).toHaveTextContent(expected);
+
+    // And the summary line carries no tier of any kind. Exact text, not `toContainText`: a
+    // summary that put the tier back would still "contain" the three fields below.
+    expect(screen.getByTestId("ward-referral-match-summary")).toHaveTextContent(
+      `${referral.ageBand} · ${referral.sex} · ${referral.homeRegion}`,
+    );
+    expect(screen.getByTestId("ward-referral-match-summary").textContent).not.toMatch(/Tier/);
+  });
+
+  /**
+   * Review finding I3, and spec D14's own Risks sentence: "An accepted referral goes nowhere
+   * (D14). Deliberate, and the board must say so rather than implying a handover happened."
+   * Nothing on either referral screen said so. `ACCEPT_REFERRAL` creates no `Movement`, holds no
+   * bed and arranges no transfer — a colleague shown "RF-006 | Accepted" and nothing else could
+   * reasonably conclude otherwise.
+   */
+  it("the decided section says plainly that an acceptance holds no bed and creates no movement", () => {
+    renderBoard();
+    const note = screen.getByTestId("ward-referral-board-decided-note");
+    expect(note).toHaveTextContent(/no bed is held/i);
+    expect(note).toHaveTextContent(/no movement is created/i);
+  });
+
+  /**
+   * The other half of I3: the decided rows named no unit and gave no reason, and the ONE screen
+   * that carried either (the match view's decided panel) was reachable only in the moment
+   * straight after deciding a referral you had selected — select anything else, or reload, and
+   * it was gone for good. A decline reason that cannot be read back makes the fixed reason list,
+   * the entire mechanism by which this phase justifies holding no free text, worthless here.
+   *
+   * Both outcome kinds, from the shipped fixture: RF-006 accepted (names its unit) and RF-004
+   * declined `out_of_catchment` (names the reason, in `DECLINE_REASON_LABELS`' own words).
+   */
+  it("every decided row names its accepting unit, or its decline reason", () => {
+    renderBoard();
+
+    const acceptedUnitId = referrals.find((candidate) => candidate.id === "RF-006")!.acceptedUnitId!;
+    const acceptedUnitName = allUnits().find((unit) => unit.id === acceptedUnitId)!.name;
+    expect(screen.getByTestId("ward-referral-board-decided-detail-RF-006")).toHaveTextContent(acceptedUnitName);
+
+    const declineReason = referrals.find((candidate) => candidate.id === "RF-004")!.declineReason!;
+    expect(screen.getByTestId("ward-referral-board-decided-detail-RF-004")).toHaveTextContent(
+      DECLINE_REASON_LABELS[declineReason],
+    );
+
+    // Non-vacuity, and the phone view too: every decided referral carries a detail on both
+    // renderings, so a row that silently lost one cannot hide behind these two named cases.
+    const decided = referrals.filter((candidate) => candidate.state !== "queued");
+    expect(decided.length).toBeGreaterThan(1);
+    for (const referral of decided) {
+      expect(screen.getByTestId(`ward-referral-board-decided-detail-${referral.id}`).textContent).not.toBe("");
+      expect(screen.getByTestId(`ward-referral-board-decided-detail-card-${referral.id}`).textContent).not.toBe("");
+    }
   });
 
   it("declining a queued referral moves it to recently decided with the chosen reason", () => {

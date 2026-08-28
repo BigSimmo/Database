@@ -11,7 +11,9 @@ import {
   type Rejection,
   type Unit,
 } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
+  DECLINE_REASON_LABELS,
   matchReason,
   networkHasCohort,
   referralCandidates,
@@ -20,20 +22,6 @@ import {
 } from "@/components/ward-management/ward-referrals";
 
 import styles from "./referrals.module.css";
-
-/**
- * Display labels only — never the picker's own option set (always `REFERRAL_DECLINE_REASONS`
- * itself), same convention as `referral-intake.tsx`'s `SOURCE_LABELS`: a reason missing from this
- * map still renders, via the `??` fallback below, just less prettily.
- */
-const DECLINE_REASON_LABELS: Record<ReferralDeclineReason, string> = {
-  no_suitable_bed: "No suitable bed",
-  age_band_not_provided_here: "Age band not provided here",
-  sex_designation_unavailable: "Sex designation unavailable",
-  secure_bed_unavailable: "Secure bed unavailable",
-  out_of_catchment: "Out of catchment",
-  referred_elsewhere: "Referred elsewhere",
-};
 
 type ReferralMatchViewProps = {
   referral: Referral;
@@ -130,8 +118,21 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
         <strong>Not a medical device.</strong> Every unit below is listed in the network&apos;s own fixed order — this
         view never ranks units by suitability and never suggests which bed is best. A coordinator decides.
       </p>
+      {/*
+       * The tier is its OWN element, never a field inside the dot-separated summary line below
+       * (review finding I1 / Task 8 finding B). This view used to render a bare `Tier 2` inline
+       * while the board row directly above it read "Tier 2 · urgent" — one field, one page, two
+       * spellings, the fourth instance on this branch of the project's most expensive defect
+       * class. Substituting `urgencyTierLabel` INTO the summary line would have produced
+       * "Adult · Female · Tier 2 · urgent · Perth Metropolitan", where "urgent" reads as a fifth
+       * dot-separated field; so the layout changed rather than the words, and the tier now sits
+       * on its own exactly as it does on the board's card list.
+       */}
+      <p className={styles.matchTier} data-testid="ward-referral-match-tier" data-tier={referral.urgency}>
+        {urgencyTierLabel(referral.urgency)}
+      </p>
       <p className={styles.matchSummary} data-testid="ward-referral-match-summary">
-        {referral.ageBand} · {referral.sex} · Tier {referral.urgency} · {referral.homeRegion}
+        {referral.ageBand} · {referral.sex} · {referral.homeRegion}
       </p>
       <p className={styles.waitBadge} data-testid="ward-referral-match-wait">
         {referralWaitLabel(referral, now)}

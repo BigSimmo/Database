@@ -155,6 +155,20 @@ describe("RECEIVE_REFERRAL", () => {
       expect(after.rejections[0].reason).toContain("COHORTS");
     });
 
+    // Review finding M1: `sex` was the one enum-shaped field on this event with no membership
+    // check. `"F"` rather than an obvious nonsense value on purpose — it is the abbreviation a
+    // non-form caller would plausibly send, and the one whose consequences are invisible: it is
+    // never a key of `unit.sexMix`, so `sexMix["F"] ?? 0` is 0 on every unit, and
+    // `sexDesignationAccepts` refuses it at every designated unit. The referral would have
+    // queued and then matched almost nothing, with a plausible-looking reason per unit, instead
+    // of being refused where it entered.
+    it("refuses a sex outside SEXES, by membership rather than truthiness", () => {
+      const after = withBadField({ sex: "F" });
+      expect(after.referrals).toEqual(seeded().referrals);
+      expect(after.rejections).toHaveLength(1);
+      expect(after.rejections[0].reason).toContain("SEXES");
+    });
+
     it("refuses a source outside REFERRAL_SOURCES, by membership rather than truthiness", () => {
       const after = withBadField({ source: "self_referral" });
       expect(after.referrals).toEqual(seeded().referrals);

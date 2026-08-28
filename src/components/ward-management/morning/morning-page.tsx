@@ -203,7 +203,7 @@ export function MorningBody({
                 by side and performs no arithmetic across them. */}
             <div className={styles.headlineRow}>
               <HeadlineFigure rollup={activeRollup.service} now={activeNow} />
-              <PeopleWaitingFigure count={activePeopleWaiting} />
+              <PeopleWaitingFigure count={activePeopleWaiting} view={view} />
             </div>
             <RemainingFigures rollup={activeRollup.service} />
             <ExcludedBeyondTonight count={activeRollup.service.excludedBeyondToday} />
@@ -277,6 +277,20 @@ function GovernanceBanner() {
 export function NoHandoverYet({ onSwitchToLive }: { onSwitchToLive: () => void }) {
   return (
     <div className={styles.noHandover} data-testid="ward-morning-no-handover">
+      {/*
+       * Review finding M5: this page's only <h1> lives in `HeadlineFigure`, which renders inside
+       * the `!noHandoverYet && activeRollup` branch — so in THIS branch the page had no <h1> at
+       * all. It is reachable through the demo control mounted on every ward screen:
+       * `morningHandoverInstant` returns null once `now` passes into the next operating day
+       * before 08:00, about fourteen "+1 hour" presses from `NOW_ANCHOR`. The landmark suite
+       * renders `MorningPage` at `NOW_ANCHOR` only, where the other branch always wins.
+       *
+       * The two branches are mutually exclusive, so exactly one <h1> renders either way — and a
+       * second here would be as much a defect as none (`tests/ward-landmarks.test.ts`). The text
+       * is the page's own name (`ward-nav.ts`'s "Morning bed state"), never the headline's "Beds
+       * available right now", which would title a screen showing no bed figure at all.
+       */}
+      <h1 className={styles.noHandoverTitle}>Morning bed state</h1>
       <p>The 08:00 handover has not been taken for this day.</p>
       <button type="button" className={styles.noHandoverButton} onClick={onSwitchToLive}>
         Show the live view instead
@@ -360,7 +374,7 @@ export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: I
  * of `referralQueueOrder`'s own list — the very list the referral board renders. This page
  * computes no figure of its own (spec D1).
  */
-function PeopleWaitingFigure({ count }: { count: number }) {
+function PeopleWaitingFigure({ count, view }: { count: number; view: MorningView }) {
   return (
     <section className={styles.peopleWaiting} data-testid="ward-morning-people-waiting">
       <h2 className={styles.peopleWaitingTitle}>{PEOPLE_WAITING_LABEL}</h2>
@@ -369,9 +383,24 @@ function PeopleWaitingFigure({ count }: { count: number }) {
           {count}
         </span>
       </p>
+      {/*
+       * Review finding M7: the first sentence used to read "counted exactly as the referral board
+       * counts them" on BOTH views. The derivation claim is true — this figure is the length of
+       * `referralQueueOrder`'s own list, the very list the board renders — but on the fixed view
+       * the number is captured in a `useState` initialiser at mount and never moves again, so the
+       * present tense it reads as is not. Accept a referral (the guided tour does exactly that,
+       * through the real reducer) and the board reads Queued (1) while this still reads 2, under
+       * a sentence saying the two are counted the same.
+       *
+       * So the fixed view is worded the way every bed figure on it already is — as at the
+       * handover instant — and the live-agreement sentence stays on the view where it is true.
+       */}
       <p className={styles.peopleWaitingNote} data-testid="ward-morning-people-waiting-note">
-        Referrals still queued, counted exactly as the referral board counts them. It is shown beside the beds figure,
-        never taken away from it — this page states demand and supply and leaves the comparison to the reader.
+        {view === "fixed"
+          ? "Referrals still queued as at the handover instant above, counted the way the referral board counts them. It does not move as the board is worked through the day."
+          : "Referrals still queued, counted exactly as the referral board counts them."}{" "}
+        It is shown beside the beds figure, never taken away from it — this page states demand and supply and leaves the
+        comparison to the reader.
       </p>
     </section>
   );

@@ -475,11 +475,20 @@ export type HomeRegion = (typeof HOME_REGIONS)[number];
  *
  * This list moved from three fields to four mid-build (Task 2, "A fifth answer, given mid-build"
  * in `docs/ward-flow-phase-6-7-decisions.md`, spec D5), and from four to five in Phase 7 fix
- * round B (this task, "A sixth answer, given mid-build" in the same doc): `homeRegion` closed the
- * gap that a bed could be declined "out of catchment" while the system held no catchment for
- * anybody. Each widening is deliberate and rare on purpose — widening this list again is a
+ * round B (this task, "A sixth answer, given mid-build" in the same doc), which added
+ * `homeRegion`. Each widening is deliberate and rare on purpose — widening this list again is a
  * governance decision, not an implementation one, and this test is what makes that true rather
  * than aspirational.
+ *
+ * **What `homeRegion` did and did not do** (corrected, review finding I5). It is the first fact
+ * this system holds about where a person is from. It does NOT give any bed a catchment: neither
+ * `Site` nor `Unit` carries a region, nothing associates a bed, unit, site or service with one,
+ * and nothing checks a `DECLINE_REFERRAL` carrying `out_of_catchment` against anything at all —
+ * that decline reason is still the coordinator's own assertion, checked against nothing. Closing
+ * that gap is Phase 8's work. This comment previously claimed the gap was closed; it was not,
+ * and `HOME_REGIONS`' own comment 25 lines above already said the honest version. A comment
+ * asserting an unchecked real-world fact is exactly how the deleted Form 1A figure entered this
+ * codebase — an agent read it, believed it, and wrote it into the model.
  */
 export type Referral = {
   id: string;

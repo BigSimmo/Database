@@ -14,6 +14,7 @@ import {
 } from "../src/components/ward-management/ward-model";
 import { referrals } from "../src/components/ward-management/ward-movements";
 import {
+  DECLINE_REASON_LABELS,
   hasConfirmedCapacity,
   matchReason,
   networkHasCohort,
@@ -198,6 +199,25 @@ describe("front-door contract — fixed lists", () => {
   it("no Mental Health Act figure, timeframe or threshold appears in any decline reason", () => {
     for (const reason of REFERRAL_DECLINE_REASONS) {
       expect(reason).not.toMatch(/\d/);
+    }
+  });
+
+  /**
+   * Review finding M2: the check above sweeps the ENUM KEYS, which nobody reads. The strings a
+   * coordinator actually picks from in the decline `<select>` (and now reads back on the board's
+   * decided row) are `DECLINE_REASON_LABELS`' VALUES, and nothing swept those — so changing
+   * `no_suitable_bed`'s label to "No suitable bed within 24 hours" left the key untouched, passed
+   * the digit check above, and rendered the figure on a clinical surface.
+   *
+   * The key-set pin is the other half: a label map that silently loses a key falls back to the
+   * raw enum value at every consumer, and a label map that gains one puts a string on screen that
+   * no reason can ever produce. Both halves are asserted here rather than in a DOM test, because
+   * this is a property of the copy itself and must hold before any screen renders it.
+   */
+  it("no digit appears in any decline reason LABEL, and the label map covers exactly the reasons", () => {
+    expect(Object.keys(DECLINE_REASON_LABELS).sort()).toEqual([...REFERRAL_DECLINE_REASONS].sort());
+    for (const reason of REFERRAL_DECLINE_REASONS) {
+      expect(DECLINE_REASON_LABELS[reason]).not.toMatch(/\d/);
     }
   });
 

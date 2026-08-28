@@ -1,6 +1,6 @@
 // tests/ward-referral-matching.test.ts
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -432,15 +432,33 @@ describe("matching stays independent of the four-stage bed model", () => {
   }
 
   it("no file reachable from referral matching's own imports mentions the release model", () => {
+    // KNOWN LIMIT, named rather than left implicit (review finding I2, second residual), in the
+    // style the legal-figure guard already uses: these two entry points are hand-maintained.
+    // They ARE the matching implementation, so a file reached FROM them is covered automatically
+    // by the traversal below — but a future matching module imported only by, say,
+    // `referral-match.tsx` would sit outside this graph entirely and would need adding here.
     const entryFiles = [
       resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
       resolve(process.cwd(), "src/components/ward-management/ward-referrals.ts"),
     ];
     const graph = collectModuleGraph(entryFiles);
-    // Sanity check on the traversal itself, not just the assertion it feeds: if this ever drops
-    // to 1, `collectModuleGraph` stopped following imports and the whole test would pass by
-    // finding nothing to check, not by matching being clean.
-    expect(graph.size).toBeGreaterThanOrEqual(2);
+
+    // Sanity check on the TRAVERSAL itself, not just the assertion it feeds.
+    //
+    // Review finding I2: this used to read `expect(graph.size).toBeGreaterThanOrEqual(2)`, and
+    // `entryFiles` holds two files that are both seeded unconditionally into the queue and both
+    // read successfully — so `graph.size` could never be below 2 and the check could not fail.
+    // Forcing `resolveLocalImport` to return `null` (the exact "stopped following imports"
+    // mutation its own comment named) collapsed the graph from 5 files to 2 and the test stayed
+    // green with zero offenders: precisely the hand-listed-pair state this traversal replaced.
+    //
+    // The floor below is what the check actually claims — that files are reached TRANSITIVELY,
+    // beyond the two entry points. `ward-model.ts` is named because it is reached only through
+    // an import chain (neither entry file is it), so a broken resolver cannot produce it; the
+    // count is `>=`, never `===`, so adding a legitimate import never turns this red.
+    const transitivelyReached = [...graph.keys()].filter((file) => !entryFiles.includes(file));
+    expect(transitivelyReached.map((file) => basename(file)).sort()).toContain("ward-model.ts");
+    expect(graph.size).toBeGreaterThanOrEqual(5);
 
     const offenders = [...graph.entries()].filter(([, source]) => importsMention(source, BED_RELEASE_IDENTIFIER));
     expect(offenders.map(([file]) => file)).toEqual([]);

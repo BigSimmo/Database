@@ -34,7 +34,19 @@ const TIER_QUALIFIER: Record<UrgencyLevel, string> = {
   3: "least urgent",
 };
 
-/** The one spelling of a tier, for every screen that shows or offers one. */
+/**
+ * The one spelling of a tier, for every REFERRAL screen that shows or offers one — the intake
+ * picker, the referral board and the match view.
+ *
+ * Narrowed from "every screen that shows or offers one" (review finding M4), which was not true.
+ * Four MOVEMENT surfaces still write their own: the two urgency `<select>`s in `ed-screen.tsx`
+ * and the one in `shortlist-panel.tsx` render a bare `{option}` — the exact case this export's
+ * own rationale singles out, a screen where a human CHOOSES the value — and
+ * `shortlist-panel.tsx` renders `Tier {movement.urgency}` as a badge. All four predate this phase
+ * and carry their own pinned tests, so adopting them is a deliberate change to Phase 6 screens
+ * rather than a tidy-up to fold into this fix round. Recorded here, by name, so the next session
+ * adopts them on purpose instead of a fifth copy being written.
+ */
 export function urgencyTierLabel(urgency: UrgencyLevel): string {
   return `Tier ${urgency} · ${TIER_QUALIFIER[urgency]}`;
 }

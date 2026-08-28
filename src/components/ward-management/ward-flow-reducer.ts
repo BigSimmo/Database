@@ -9,6 +9,7 @@ import {
   PARALLEL_REFERRAL_CAP,
   REFERRAL_DECLINE_REASONS,
   REFERRAL_SOURCES,
+  SEXES,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -964,6 +965,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // what was wrong so a rejected intake is never mistaken for a silent success.
       if (!COHORTS.includes(event.ageBand)) {
         return reject(state, event, `RECEIVE_REFERRAL ageBand must be chosen from COHORTS`);
+      }
+      // Review finding M1: `sex` was the ONE enum-shaped field on this event with no membership
+      // check, though `SEXES` exists for exactly this. It is not a theoretical gap — a non-form
+      // caller (a demo control, a Playwright fixture, the guided tour) sending `sex: "F"` used to
+      // queue silently, after which `unit.sexMix["F"] ?? 0` is 0 everywhere and
+      // `sexDesignationAccepts("Female only", "F")` is false, so the referral matches almost
+      // nothing with plausible-looking per-unit reasons instead of being visibly refused.
+      if (!SEXES.includes(event.sex)) {
+        return reject(state, event, `RECEIVE_REFERRAL sex must be chosen from SEXES`);
       }
       if (!REFERRAL_SOURCES.includes(event.source)) {
         return reject(state, event, `RECEIVE_REFERRAL source must be chosen from REFERRAL_SOURCES`);

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "playwright/test";
 
+import type { UrgencyLevel } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allUnits, unitById } from "@/components/ward-management/ward-sites";
 
 /**
@@ -223,8 +225,19 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await raisedCard.click();
     const matchPanel = page.getByTestId("ward-referral-match-panel");
     await expect(matchPanel).toBeVisible();
+    // Review finding I1 / Task 8 finding B: the tier is its OWN element here, and the summary
+    // line carries no tier at all. `toHaveText` is exact both times, so a component that put the
+    // tier back inside the dot-separated run — the shape that printed a bare "Tier 2" directly
+    // beneath the board's "Tier 2 · urgent" — fails on the summary assertion rather than passing
+    // unnoticed. The tier text is `urgencyTierLabel`'s own output, never a second spelling of it
+    // written out here.
     await expect(page.getByTestId("ward-referral-match-summary")).toHaveText(
-      `${RAISED.ageBand} · ${RAISED.sex} · Tier ${RAISED.urgency} · ${RAISED.homeRegion}`,
+      `${RAISED.ageBand} · ${RAISED.sex} · ${RAISED.homeRegion}`,
+    );
+    await expect(page.getByTestId("ward-referral-match-tier")).toHaveText(
+      // `RAISED.urgency` is the `<select>` OPTION VALUE the form is driven with, so it is the
+      // string "1"; `urgencyTierLabel` takes the tier itself.
+      urgencyTierLabel(Number(RAISED.urgency) as UrgencyLevel),
     );
     await expect(page.getByTestId("ward-referral-match-accepting-count")).toHaveText(
       `${ACCEPTING_UNITS} of ${NETWORK_UNITS} units accept this referral right now.`,
@@ -238,7 +251,7 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // D7: a forensic bed is never offered, and the board says so plainly rather than leaving the
     // unit silently absent from the accepting list.
     await expect(page.getByTestId(`ward-referral-match-reason-${FORENSIC_UNIT_ID}`)).toHaveText(
-      `${FORENSIC_UNIT_NAME} is a forensic bed and is never offered through Phase 7 front-door matching`,
+      `${FORENSIC_UNIT_NAME} is a forensic bed and is never offered as a destination`,
     );
     // D3 rule 3: a designated bed constrains who may occupy it. This is the one dimension whose
     // failure mode is invisible in review — written as an equality it would exclude every
@@ -271,9 +284,16 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await expect(decidedCard).toBeVisible();
     await expect(decidedCard).toContainText("Accepted");
 
-    // D14: an accepted referral is recorded as accepted against a unit and does NOT become a
-    // movement. Nothing in this journey should have created one, and the board says only what it
-    // knows — so the final state is exactly this, and no handover is implied.
+    // D14, asserted rather than claimed (review finding M8). This comment used to say "no
+    // handover is implied" above a lone `expectNoReloadSince`, which establishes nothing of the
+    // sort — the structural property (ACCEPT_REFERRAL creates no `Movement`) is owned by
+    // `tests/ward-referral-reducer.test.ts`, and what a BROWSER can check is what the board tells
+    // the reader. So: the decided card names the unit the referral was accepted at, and the
+    // board states plainly that nothing was held or moved.
+    await expect(decidedCard).toContainText(ACCEPT_UNIT_NAME);
+    await expect(page.getByTestId("ward-referral-board-decided-note")).toContainText("No bed is held");
+    await expect(page.getByTestId("ward-referral-board-decided-note")).toContainText("no movement is created");
+
     await expectNoReloadSince(page, "the whole journey");
   });
 });

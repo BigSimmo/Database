@@ -4,7 +4,7 @@ import {
   referralEligibility,
   type EligibilityVerdict,
 } from "@/components/ward-management/ward-eligibility";
-import type { Referral, Unit } from "@/components/ward-management/ward-model";
+import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-management/ward-model";
 
 /**
  * Phase 7 (spec "The front door", D10): every unit in `units`, each paired with its eligibility
@@ -123,3 +123,27 @@ export function matchReason(candidate: ReferralCandidate): string {
 export function networkHasCohort(referral: Referral, units: Unit[]): boolean {
   return units.some((unit) => unit.cohort === referral.ageBand);
 }
+
+/**
+ * The one spelling of a decline reason, for every screen that offers or reports one.
+ *
+ * Display labels only — never a picker's own option set, which is always
+ * `REFERRAL_DECLINE_REASONS` itself (same convention as `referral-intake.tsx`'s `SOURCE_LABELS`):
+ * a reason missing from this map still renders, via each consumer's `??` fallback, just less
+ * prettily. It lives here rather than in `referral-match.tsx` because the board now reports the
+ * reason on a decided row as well (review finding I3), and two components spelling one label
+ * separately is the defect class this phase has already paid for four times.
+ *
+ * These are CATEGORY NAMES for an administrative outcome. They carry no figure, timeframe or
+ * threshold of any kind, and `tests/ward-referral-model.test.ts` sweeps the VALUES a coordinator
+ * actually reads — not merely the enum keys — for a digit, and pins this map's key set to
+ * `REFERRAL_DECLINE_REASONS` exactly.
+ */
+export const DECLINE_REASON_LABELS: Record<ReferralDeclineReason, string> = {
+  no_suitable_bed: "No suitable bed",
+  age_band_not_provided_here: "Age band not provided here",
+  sex_designation_unavailable: "Sex designation unavailable",
+  secure_bed_unavailable: "Secure bed unavailable",
+  out_of_catchment: "Out of catchment",
+  referred_elsewhere: "Referred elsewhere",
+};

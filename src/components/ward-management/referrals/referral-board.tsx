@@ -6,10 +6,11 @@ import Link from "next/link";
 import { formatInstant, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import type { Referral } from "@/components/ward-management/ward-model";
+import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-management/ward-model";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
+  DECLINE_REASON_LABELS,
   recentlyDecidedReferrals,
   referralQueueOrder,
   referralWaitLabel,
@@ -35,6 +36,30 @@ function outcomeLabel(referral: Referral): string {
   if (referral.state === "accepted") return "Accepted";
   if (referral.state === "declined") return "Declined";
   return "Queued";
+}
+
+/**
+ * What the outcome actually was, beyond the bare word (review finding I3). Before this, a decided
+ * row read only "RF-006 | Accepted | 1h before decision | 10:37" — it named no unit, gave no
+ * reason, and the ONE screen that carried either (the match view's decided panel) was reachable
+ * only in the moment straight after deciding a referral you had selected. A decline reason that
+ * cannot be read back makes the fixed reason list — the entire mechanism by which this phase
+ * justifies holding no free text — worthless on the board.
+ *
+ * Describes the record, never the person, and never asserts something the record does not hold:
+ * a missing unit or reason reads as "Not recorded", never as a guess or an empty cell.
+ */
+function outcomeDetail(referral: Referral, units: Unit[]): string {
+  if (referral.state === "accepted") {
+    const unit = units.find((candidate) => candidate.id === referral.acceptedUnitId);
+    return unit ? unit.name : "Unit not recorded";
+  }
+  if (referral.state === "declined") {
+    const reason = referral.declineReason;
+    if (reason === undefined) return "Reason not recorded";
+    return DECLINE_REASON_LABELS[reason as ReferralDeclineReason] ?? reason;
+  }
+  return "Not recorded";
 }
 
 /**
@@ -68,8 +93,6 @@ export function ReferralBoard() {
     <div className={styles.screen} data-testid="ward-referral-board-screen">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
-        <h1 className="sr-only">Referral board</h1>
-
         <div className={styles.governanceBanner} data-testid="ward-referral-board-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -80,7 +103,15 @@ export function ReferralBoard() {
         </div>
 
         <header className={styles.pageHeader}>
-          <h2 className={styles.pageTitle}>Referral board</h2>
+          {/*
+           * Review finding M6: this screen used to carry an `sr-only` <h1> at the top of <main>
+           * AND this visible heading with identical text, so a screen-reader user heard the same
+           * phrase twice at two levels. The VISIBLE heading is the <h1> — one heading, seen and
+           * heard alike, and the landmark contract (exactly one <h1> per route,
+           * `tests/ward-landmarks.test.ts`) is satisfied by the heading a sighted user reads
+           * rather than by a duplicate nobody can see.
+           */}
+          <h1 className={styles.pageTitle}>Referral board</h1>
           <p className={styles.pageSubtitle}>Queued referrals first, then recently decided.</p>
           {/*
            * Task 6. The intake form's ONLY entry point, and deliberately so: it is an action taken
@@ -96,7 +127,7 @@ export function ReferralBoard() {
         </header>
 
         <QueuedSection queued={queued} now={now} selectedId={selectedReferralId} onSelect={setSelectedReferralId} />
-        <DecidedSection decided={decided} />
+        <DecidedSection decided={decided} units={units} />
 
         {selectedReferral ? (
           <ReferralMatchView
@@ -215,10 +246,23 @@ function QueuedSection({
   );
 }
 
-function DecidedSection({ decided }: { decided: Referral[] }) {
+function DecidedSection({ decided, units }: { decided: Referral[]; units: Unit[] }) {
   return (
     <section className={styles.section} data-testid="ward-referral-board-decided">
       <h2 className={styles.sectionHeading}>Recently decided ({decided.length})</h2>
+      {/*
+       * Spec D14, and the spec's own Risks section: "An accepted referral goes nowhere (D14).
+       * Deliberate, and the board must say so rather than implying a handover happened." That
+       * sentence was unwritten until review finding I3 — the board showed "Accepted" and nothing
+       * else, and a colleague shown the prototype could reasonably conclude a transfer had been
+       * arranged. `ACCEPT_REFERRAL` creates no `Movement`, holds no bed and reaches nothing
+       * downstream (`ward-flow-reducer.ts`, pinned by `tests/ward-referral-reducer.test.ts`), so
+       * the board now says exactly that, in the place the outcome is read.
+       */}
+      <p className={styles.decidedNote} data-testid="ward-referral-board-decided-note">
+        An acceptance records which unit took this referral, and nothing more. No bed is held, no movement is created,
+        and no transfer is arranged from this board.
+      </p>
       {decided.length === 0 ? (
         <p className={styles.emptyNote} data-testid="ward-referral-board-decided-empty">
           None — no referral has been decided yet.
@@ -231,6 +275,9 @@ function DecidedSection({ decided }: { decided: Referral[] }) {
                 <tr>
                   <th scope="col">Referral</th>
                   <th scope="col">Outcome</th>
+                  {/* Review finding I3: the accepting unit, or the decline reason — the record's
+                      own detail, not merely the word for it. */}
+                  <th scope="col">Detail</th>
                   <th scope="col">Waited</th>
                   <th scope="col">Decided</th>
                 </tr>
@@ -240,6 +287,9 @@ function DecidedSection({ decided }: { decided: Referral[] }) {
                   <tr key={referral.id} data-testid={`ward-referral-board-decided-row-${referral.id}`}>
                     <td>{referral.id}</td>
                     <td>{outcomeLabel(referral)}</td>
+                    <td data-testid={`ward-referral-board-decided-detail-${referral.id}`}>
+                      {outcomeDetail(referral, units)}
+                    </td>
                     <td>{decidedWaitLabel(referral)}</td>
                     <td>{referral.decidedAt !== undefined ? formatInstant(referral.decidedAt) : "Not recorded"}</td>
                   </tr>
@@ -260,6 +310,17 @@ function DecidedSection({ decided }: { decided: Referral[] }) {
                     <span className={styles.cardUnit}>{referral.id}</span>
                     <span>{outcomeLabel(referral)}</span>
                   </div>
+                  {/* `…-decided-detail-card-<id>`, NOT `…-decided-card-detail-<id>`: the phone
+                      order test scans `[data-testid^='ward-referral-board-decided-card-']` to
+                      find the card elements themselves, so any new id under that prefix silently
+                      doubles its result set. It did — this testid was the other way round for one
+                      run and turned that test red with 10 matches where 5 were expected. */}
+                  <p
+                    className={styles.cardDetail}
+                    data-testid={`ward-referral-board-decided-detail-card-${referral.id}`}
+                  >
+                    {outcomeDetail(referral, units)}
+                  </p>
                   <p className={styles.cardService}>
                     {decidedWaitLabel(referral)} ·{" "}
                     {referral.decidedAt !== undefined ? formatInstant(referral.decidedAt) : "Not recorded"}

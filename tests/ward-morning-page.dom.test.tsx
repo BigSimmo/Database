@@ -402,6 +402,59 @@ describe("MorningPage", () => {
   });
 
   /**
+   * Review finding M7. The demand note used to read "counted exactly as the referral board counts
+   * them" on both views. `frozen.peopleWaiting` is captured in a `useState` initialiser at mount,
+   * so on the FIXED view the figure never moves again — accept a referral and the board reads one
+   * fewer while this still reads the old number, under a sentence claiming the two are counted
+   * the same. The derivation is true; the present-tense agreement is not.
+   *
+   * Asserted as the property, not the sentence: the fixed view must qualify the figure with the
+   * instant it was taken at, and must not claim live agreement; the live view, where the claim IS
+   * true, must still make it. Both are read off one render, switching views, so a component that
+   * rendered one wording unconditionally fails whichever view it picked.
+   */
+  it("qualifies the demand figure by the handover instant on the fixed view, and claims live agreement only on the live view", () => {
+    renderMorningPage();
+
+    const fixedNote = screen.getByTestId("ward-morning-people-waiting-note").textContent ?? "";
+    expect(fixedNote).toContain("as at the handover instant");
+    expect(fixedNote).not.toContain("counted exactly as the referral board counts them");
+
+    fireEvent.click(screen.getByTestId("ward-morning-view-live"));
+
+    const liveNote = screen.getByTestId("ward-morning-people-waiting-note").textContent ?? "";
+    expect(liveNote).toContain("counted exactly as the referral board counts them");
+    expect(liveNote).not.toContain("as at the handover instant");
+  });
+
+  /**
+   * Review finding M5. The page's only <h1> lives in `HeadlineFigure`, inside the branch the
+   * test above proves is NOT rendered here — so before this fix the no-handover state shipped a
+   * page with zero <h1>. `ward-landmarks.test.ts` renders `MorningPage` at `NOW_ANCHOR` only,
+   * where the other branch always wins, so it could not see this; the branch is genuinely
+   * reachable through the demo control's "+1 hour", about fourteen presses from `NOW_ANCHOR`.
+   *
+   * Exactly one, never at least one — the landmark suite's own rule is that "a second <h1> is as
+   * much a defect as none", and the two branches here are mutually exclusive.
+   */
+  it("renders exactly one <h1> in the no-handover state, where the headline figure is absent", () => {
+    const { container } = render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <NullHandoverHarness />
+      </WardFlowProvider>,
+    );
+
+    expect(screen.queryByTestId("ward-morning-headline")).not.toBeInTheDocument();
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+
+    // Switching to the live view brings the headline figure back — and still exactly one <h1>,
+    // so this fix cannot have produced two on the branch that already had one.
+    fireEvent.click(screen.getByRole("button", { name: "Show the live view instead" }));
+    expect(screen.getByTestId("ward-morning-headline")).toBeInTheDocument();
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+  });
+
+  /**
    * Same failure branch as the test above, but through the REAL `buildFrozenMorning` (see
    * `DirectFrozenHarness`'s doc comment for why `WardFlowProvider` cannot supply this directly).
    * A `buildFrozenMorning` that silently fell back to `now` instead of propagating `null` —

@@ -84,6 +84,15 @@
   padding: var(--mp-space-16);
 }
 
+/* The <h1> for the no-handover branch (review finding M5). Sized as a page title, not as the
+   headline figure's own title, because this branch shows no figure. */
+.noHandoverTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+}
+
 .noHandover p {
   margin: 0;
   color: var(--text-heading);
