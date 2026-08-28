@@ -1021,3 +1021,41 @@ Your other six findings are ruled on as follows:
   "South Metro" — and says explicitly that no distance is stated or implied. Nothing to do.
 - **The unit count:** 17 sites, 23 units. You were right to avoid repeating the spec's figure. The
   stale `22` in a Playwright assertion was fixed at `15158573c`.
+
+---
+
+## Carried into Task 10 from Phase 7 — two things nobody has looked at
+
+Both were flagged honestly by the tasks that built them rather than discovered later, and both are
+the class of defect that has reached a rendered screen in every phase of this project so far while
+every test stayed green. **Task 10 must cover them; they are not optional additions.**
+
+1. **The "beds being made ready" section has never been seen at any breakpoint.** It was proven by
+   jsdom and typecheck only. Render it at 390, 820 and 1440 and look at it. Confirm in particular
+   that a bed carrying a preparation note is still visibly **offered** and still counted — the note
+   is informational and must never read as though the bed were unavailable, which is the owner's own
+   clinical ruling (the pull of the next patient takes hours anyway).
+
+2. **The print ink on the new bed-model and list copy has never been measured.** The page _count_
+   was measured and is one A4 page; the ink was not. Measure **every painted leaf of text** in both
+   colour schemes — that is the method that found four defects where reading the selector list found
+   one, and the referral screens needed a whole print block added for exactly this reason.
+
+## Also carried: three wording observations, and only one is actionable
+
+Shipped verbatim, correctly, because the wording rule forbids an agent tidying a clinical list.
+Recorded here so they are not silently "fixed" by someone who does not know the rule:
+
+- **"Awaiting accommodation" appears in both List 1 and List 2. Leave it.** In List 1 the discharge
+  is decided and there is nowhere to go; in List 2 the decision cannot be made until accommodation is
+  sorted. Different situations, and the column disambiguates. A second phrase for the same
+  real-world thing would be worse than the overlap.
+- **List 1's "Awaiting receiving-service acceptance" and List 2's "Awaiting a community team to
+  accept" may or may not be the same thing.** Put to the owner 2026-08-29; **awaiting his answer.**
+  The session's view is that they differ — a receiving service is another inpatient unit taking the
+  patient over, a community team accepting them is follow-up after discharge — in which case both
+  belong and only List 2's phrasing needs tightening for register. **Do not resolve this by
+  guessing.**
+- **List 1 mixes registers internally** ("Awaiting clean" beside "Awaiting family or carer
+  arrangement"). **Leave it.** Each entry is clear on its own; padding the short ones for symmetry
+  makes them worse to read, and tidiness is not a reason to touch clinical wording.
