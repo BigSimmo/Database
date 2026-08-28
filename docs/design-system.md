@@ -249,12 +249,21 @@ image"}` — never a possibly-empty variable alone.
   noindexed (robots.ts + layout metadata), and exempt from token/type-scale rules — but
   **promoting a mockup to production means bringing it onto the token system first** (see the
   legacy-hex table above).
-- **Brand mark** is single-sourced in `src/lib/brand-mark.ts` (geometry + SVG builders).
-  `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
+- **Brand mark** is the PsychSift S, single-sourced in `src/lib/brand-mark.ts` (geometry + SVG
+  builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
   `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
   change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
   `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
   binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
+  Do not re-draw the paths by hand: they are the exact output of the construction recorded in
+  `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
+  are one path plus its point reflection — which is the only reason the cut between them stays
+  parallel. `app/icon.svg` deliberately uses the mark's small-size cut (a wider gap), because that
+  is the file browsers render at 16–32 px.
+- **The tile colour is not the brand's.** `BRAND_LIGHT.tile` / `BRAND_DARK.tile` are pinned to
+  `--clinical-accent` per theme by `tests/design-token-contract.test.ts`, so the mark rides the
+  application's accent rather than the brand sheet's Deep Navy. Putting the mark on navy means
+  moving that accent, which is an application-wide decision — not a brand-asset one.
 
 ## 11. What NOT to do
 

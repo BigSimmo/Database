@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "57ba1c2d2c50a28d3d5021f6031c9fb6e30a9526",
-    "committed_at": "2026-08-29T02:45:52+08:00"
+    "sha": "ad82d76afada11b4f5ca4b7cb689f51581df4483",
+    "committed_at": "2026-08-29T06:15:13+08:00"
   },
   "routes": {
     "modes": [
@@ -1747,6 +1747,11 @@
       {
         "path": "docs/branch-review-ledger.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/brand/psychsift-logo.md",
+        "section": "brand",
         "catalogued": true
       },
       {
@@ -4164,6 +4169,9 @@
         "name": "audit"
       },
       {
+        "name": "brand"
+      },
+      {
         "name": "care-plan"
       },
       {
@@ -4210,10 +4218,10 @@
       }
     ],
     "counts": {
-      "documents": 544,
-      "catalogued": 108,
+      "documents": 545,
+      "catalogued": 109,
       "uncatalogued": 436,
-      "sections": 19
+      "sections": 20
     }
   },
   "test_health": {
