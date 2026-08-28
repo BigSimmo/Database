@@ -768,3 +768,48 @@
     border: 0.125rem solid Highlight;
   }
 }
+
+/* --- referral placement (Task 7) ---------------------------------------- */
+
+/* The left column carries two queues — movements and referrals — rather than one. Both panels
+   keep their own scroll (`.queuePanel` already sets `overflow-y: auto`), so a long referral queue
+   never pushes the movement queue off the column. */
+.queueColumn {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--net-space-10);
+}
+
+.queueColumn > .queuePanel {
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+/* One unit node's verdict for the selected referral. Every node carries one, so this is never a
+   badge that marks out a shortlist — the tone distinguishes accepts from does-not-accept, and the
+   words are `matchReason`'s own. No comparative wording, and no ordering follows from it. */
+.placementVerdict {
+  border-radius: var(--radius-xs);
+  padding: var(--net-space-2) var(--net-space-4);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  line-height: var(--net-leading-tight);
+}
+
+.placementVerdict[data-accepts="true"] {
+  background: var(--net-good-soft);
+  color: var(--net-good);
+}
+
+.placementVerdict[data-accepts="false"] {
+  background: var(--net-subtle);
+  color: var(--net-muted);
+}
+
+.placementNote {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}

@@ -22,7 +22,23 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
-import type { BedRelease, HealthService, LeaveBed, Movement, Unit } from "@/components/ward-management/ward-model";
+import type {
+  BedRelease,
+  HealthService,
+  LeaveBed,
+  Movement,
+  Referral,
+  Unit,
+} from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
+import {
+  candidateAccepts,
+  matchReason,
+  referralCandidates,
+  referralQueueOrder,
+  referralWaitLabel,
+  type ReferralCandidate,
+} from "@/components/ward-management/ward-referrals";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
@@ -163,6 +179,7 @@ function ServiceCard({
   now,
   routed,
   selected,
+  placement,
   onSelect,
   registerRef,
 }: {
@@ -172,11 +189,19 @@ function ServiceCard({
   now: Instant;
   routed: boolean;
   selected: boolean;
+  /** Task 7: this unit's own verdict for the referral currently selected, or `undefined` when no
+   *  referral is selected and the diagram is showing the movement view. NEVER recomputed here —
+   *  the candidate arrives already paired with the verdict `referralCandidates` computed for it. */
+  placement?: ReferralCandidate;
   onSelect: () => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
   const capacity = unitCapacity(unit, bedReleases);
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
+  // One spelling for both outcomes, and it is the match view's own. `matchReason` answers "can
+  // this bed take this person, and if not why" for an accepting bed too ("Eligible now"), so this
+  // node and the coordinator's match view can never word the same verdict two different ways.
+  const verdict = placement ? matchReason(placement) : null;
   return (
     <button
       type="button"
@@ -186,18 +211,65 @@ function ServiceCard({
       data-routed={routed ? "true" : undefined}
       data-testid={`ward-network-card-${unit.id}`}
       className={styles.serviceCard}
-      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.`}
+      aria-label={`${unit.name}. ${capabilityLabel(unit)}. ${capacity.available} ready, ${capacity.held} held, ${breakdown.confirmedToday} confirmed, ${breakdown.predictedToday} predicted, ${capacity.blocked} blocked, of ${unit.beds} beds. Confirmed ${formatInstant(unit.allocatable.confirmedAt)}.${verdict ? ` ${verdict}.` : ""}`}
     >
       <span className={styles.serviceName}>{unit.name}</span>
       <span className={styles.serviceCapability}>{capabilityLabel(unit)}</span>
       <BedStateChips unit={unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} showTime />
+      {placement && verdict ? (
+        <span
+          className={styles.placementVerdict}
+          data-accepts={candidateAccepts(placement) ? "true" : "false"}
+          data-testid={`ward-network-verdict-${unit.id}`}
+        >
+          {verdict}
+        </span>
+      ) : null}
     </button>
   );
 }
 
+/**
+ * Task 7 (spec D8-5). What the aside says while a referral is the diagram's subject: who is being
+ * placed, and where the answers are.
+ *
+ * It deliberately carries NO tally and NO banner. "N of M units accept this referral right now"
+ * and "no unit of this age band exists in this network" are the coordinator's match view's own
+ * sentences, and the second must always be met before the first — repeating either here would be
+ * a second surface answering one question, in wording that could drift from the original. The
+ * verdicts themselves are on the unit nodes, where the beds are, from the one function the match
+ * view uses.
+ *
+ * The referral's five facts and its wait, and nothing else: no band (that is step two), no
+ * kilometre, no free text, no comparative word about any bed.
+ */
+function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: Instant }) {
+  return (
+    <>
+      <header className={styles.panelHeader}>
+        <h2>
+          <Sparkles aria-hidden="true" /> Referral placement · {referral.id}
+        </h2>
+      </header>
+      <p className={styles.patientLine} data-tier={referral.urgency} data-testid="ward-network-placement-tier">
+        {urgencyTierLabel(referral.urgency)}
+      </p>
+      <p className={styles.patientSubLine} data-testid="ward-network-placement-facts">
+        {referral.ageBand} · {referral.sex} · {referral.homeRegion}
+      </p>
+      <p className={styles.patientSubLine}>Waiting {referralWaitLabel(referral, now)}</p>
+      <p className={styles.placementNote} data-testid="ward-network-placement-note">
+        Every unit in the network carries its own verdict for this referral on the diagram — and for each one that
+        cannot take this person, the single reason why.
+      </p>
+    </>
+  );
+}
+
 export function WardNetworkWorkspace() {
-  const { movements, units, bedReleases, leaveBeds, now } = useWardFlow();
+  const { movements, units, referrals, bedReleases, leaveBeds, now } = useWardFlow();
   const [selectedPatientId, setSelectedPatientId] = useState(movements[0].id);
+  const [selectedReferralId, setSelectedReferralId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
@@ -211,7 +283,46 @@ export function WardNetworkWorkspace() {
     [movements, selectedPatientId],
   );
   const candidates = useMemo(() => (patient ? candidatesFor(patient, units, now) : []), [patient, units, now]);
-  const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
+
+  /*
+   * Task 7 (spec D8-5). Referral selection sits ALONGSIDE the movement selection above: the
+   * diagram answers "which of these beds can take this person" for either subject, and exactly one
+   * of them is the subject at a time.
+   *
+   * The queue is `referralQueueOrder` — the coordinator board's own spelling, not a second one —
+   * and the selected referral is resolved out of that list on every render rather than captured at
+   * click time (Task 6 Finding 2: a record held as an object goes stale the moment a sibling
+   * screen dispatches against it). A referral that leaves the queue therefore drops the selection
+   * and the diagram falls back to the movement view, rather than going on answering for a decision
+   * somebody has already taken.
+   */
+  const referralQueue = useMemo(() => referralQueueOrder(referrals), [referrals]);
+  const selectedReferral = useMemo(
+    () => referralQueue.find((referral) => referral.id === selectedReferralId) ?? null,
+    [referralQueue, selectedReferralId],
+  );
+
+  /*
+   * EVERY unit, each with its own verdict — `referralCandidates` never truncates, sorts or ranks,
+   * and nothing here does either. This is deliberately not the movement path's three-of-many
+   * shortlist: that shortlist is a decision taken on the movement screen and it is untouched
+   * below. The verdicts are computed ONCE, here, and every node reads that one answer; a second
+   * call per node would be a second computation of the same question.
+   */
+  const placements = useMemo(
+    () => (selectedReferral ? referralCandidates(selectedReferral, units, now) : []),
+    [selectedReferral, units, now],
+  );
+  const placementByUnitId = useMemo(
+    () => new Map(placements.map((placement) => [placement.unit.id, placement])),
+    [placements],
+  );
+
+  /* The movement shortlist's route lines and highlighted cards belong to the movement view, so
+   * they stand down while a referral is the subject. `candidates` itself is untouched — nothing is
+   * widened, narrowed or re-ordered, only which overlay the diagram is currently drawing. */
+  const routeCandidates = useMemo(() => (selectedReferral ? [] : candidates), [selectedReferral, candidates]);
+  const routedIds = useMemo(() => new Set(routeCandidates.map((candidate) => candidate.unit.id)), [routeCandidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const hubRef = useRef<HTMLDivElement | null>(null);
@@ -251,7 +362,7 @@ export function WardNetworkWorkspace() {
       next.push({ id: `demand-${service}`, path: elbow(from, onLeft ? hubLeft : hubRight), kind: "demand" });
     }
 
-    for (const candidate of candidates) {
+    for (const candidate of routeCandidates) {
       const node = cardRefs.current.get(candidate.unit.id);
       if (!node) continue;
       const box = node.getBoundingClientRect();
@@ -266,7 +377,7 @@ export function WardNetworkWorkspace() {
     }
 
     setConnectors(next);
-  }, [candidates]);
+  }, [routeCandidates]);
 
   useLayoutEffect(() => {
     measure();
@@ -319,41 +430,86 @@ export function WardNetworkWorkspace() {
       </section>
 
       <div className={styles.networkGrid}>
-        <section className={styles.queuePanel} aria-label="Priority queue">
-          <header className={styles.panelHeader}>
-            <h2>Priority queue</h2>
-            <span className={styles.count}>{movements.length}</span>
-          </header>
-          <div className={styles.queueList}>
-            {movements.map((candidate) => (
-              <button
-                type="button"
-                key={candidate.id}
-                onClick={() => {
-                  setSelectedPatientId(candidate.id);
-                  setSelectedUnitId(null);
-                }}
-                aria-pressed={candidate.id === patient.id}
-                data-testid={`ward-network-queue-${candidate.id}`}
-                className={styles.queueRow}
-              >
-                <span className={styles.queueTop}>
-                  <strong>{candidate.id}</strong>
-                  <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
-                </span>
-                <span className={styles.queueMeta}>
-                  <span className={styles.tier} data-tier={candidate.urgency}>
-                    {candidate.urgency}
+        <div className={styles.queueColumn}>
+          <section className={styles.queuePanel} aria-label="Priority queue">
+            <header className={styles.panelHeader}>
+              <h2>Priority queue</h2>
+              <span className={styles.count}>{movements.length}</span>
+            </header>
+            <div className={styles.queueList}>
+              {movements.map((candidate) => (
+                <button
+                  type="button"
+                  key={candidate.id}
+                  onClick={() => {
+                    setSelectedPatientId(candidate.id);
+                    setSelectedReferralId(null);
+                    setSelectedUnitId(null);
+                  }}
+                  aria-pressed={selectedReferral === null && candidate.id === patient.id}
+                  data-testid={`ward-network-queue-${candidate.id}`}
+                  className={styles.queueRow}
+                >
+                  <span className={styles.queueTop}>
+                    <strong>{candidate.id}</strong>
+                    <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
                   </span>
-                  {candidate.cohort} · {candidate.security} ward
-                </span>
-                <span className={styles.queueMeta}>
-                  {movementHealthService(candidate) ?? "Unknown"} · {candidate.legalStatus}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
+                  <span className={styles.queueMeta}>
+                    <span className={styles.tier} data-tier={candidate.urgency}>
+                      {candidate.urgency}
+                    </span>
+                    {candidate.cohort} · {candidate.security} ward
+                  </span>
+                  <span className={styles.queueMeta}>
+                    {movementHealthService(candidate) ?? "Unknown"} · {candidate.legalStatus}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/*
+           * Task 7. The second subject the diagram can answer for. It sits beside the movement queue
+           * rather than replacing it — a coordinator places both, and neither list is a shortlist of
+           * the other. Selecting a referral here makes it the diagram's subject; selecting it again
+           * hands the diagram back to the movement above, so every control does something.
+           */}
+          <section className={styles.queuePanel} aria-label="Referral queue">
+            <header className={styles.panelHeader}>
+              <h2>Referral queue</h2>
+              <span className={styles.count}>{referralQueue.length}</span>
+            </header>
+            <div className={styles.queueList}>
+              {referralQueue.map((referral) => (
+                <button
+                  type="button"
+                  key={referral.id}
+                  onClick={() => {
+                    setSelectedReferralId((current) => (current === referral.id ? null : referral.id));
+                    setSelectedUnitId(null);
+                  }}
+                  aria-pressed={selectedReferral?.id === referral.id}
+                  data-testid={`ward-network-referral-${referral.id}`}
+                  className={styles.queueRow}
+                >
+                  <span className={styles.queueTop}>
+                    <strong>{referral.id}</strong>
+                    <span className={styles.elapsed}>{referralWaitLabel(referral, now)}</span>
+                  </span>
+                  {/* `urgencyTierLabel`, never a bare digit: the referral board already spells a
+                   *  referral's tier this way on every row, and a second spelling of one field is
+                   *  this project's most expensive defect class. */}
+                  <span className={styles.queueMeta} data-tier={referral.urgency}>
+                    {urgencyTierLabel(referral.urgency)}
+                  </span>
+                  <span className={styles.queueMeta}>
+                    {referral.ageBand} · {referral.sex} · {referral.homeRegion}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
 
         <section className={styles.canvasPanel} aria-label="Operational constellation">
           <header className={styles.panelHeader}>
@@ -426,6 +582,7 @@ export function WardNetworkWorkspace() {
                             now={now}
                             routed={routedIds.has(unit.id)}
                             selected={detail?.id === unit.id}
+                            placement={placementByUnitId.get(unit.id)}
                             onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
                             registerRef={registerCard}
                           />
@@ -441,7 +598,7 @@ export function WardNetworkWorkspace() {
               <strong>STATEWIDE FLOW</strong>
               <span>Coordinated visibility and placement</span>
               <span className={styles.hubMeta}>
-                {patient.id} routing · {openMovements} open movements
+                {selectedReferral ? selectedReferral.id : patient.id} routing · {openMovements} open movements
               </span>
             </div>
           </div>
@@ -465,124 +622,142 @@ export function WardNetworkWorkspace() {
           </footer>
         </section>
 
-        <aside className={styles.shortlistPanel} aria-label="Explainable shortlist" aria-live="polite">
-          <header className={styles.panelHeader}>
-            <h2>
-              <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
-            </h2>
-          </header>
-          <p className={styles.patientLine}>
-            <span className={styles.tier} data-tier={patient.urgency}>
-              {patient.urgency}
-            </span>
-            {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
-          </p>
-          <p className={styles.patientSubLine}>
-            {patient.legalStatus} ·{" "}
-            {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
-          </p>
-          <p className={styles.patientSubLine}>
-            {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
-          </p>
+        <aside
+          className={styles.shortlistPanel}
+          aria-label={selectedReferral ? "Referral placement" : "Explainable shortlist"}
+          aria-live="polite"
+        >
+          {selectedReferral ? (
+            <ReferralPlacementSummary referral={selectedReferral} now={now} />
+          ) : (
+            <>
+              <header className={styles.panelHeader}>
+                <h2>
+                  <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
+                </h2>
+              </header>
+              <p className={styles.patientLine}>
+                <span className={styles.tier} data-tier={patient.urgency}>
+                  {patient.urgency}
+                </span>
+                {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
+              </p>
+              <p className={styles.patientSubLine}>
+                {patient.legalStatus} ·{" "}
+                {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
+              </p>
+              <p className={styles.patientSubLine}>
+                {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}
+              </p>
 
-          <div className={styles.tableScroll}>
-            <table className={styles.compareTable}>
-              <thead>
-                <tr>
-                  <th scope="col">
-                    <span className="sr-only">Comparison factor</span>
-                  </th>
-                  {candidates.map((candidate) => (
-                    <th scope="col" key={candidate.unit.id}>
-                      {candidate.rank} {candidate.unit.name}
-                    </th>
+              <div className={styles.tableScroll}>
+                <table className={styles.compareTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">
+                        <span className="sr-only">Comparison factor</span>
+                      </th>
+                      {candidates.map((candidate) => (
+                        <th scope="col" key={candidate.unit.id}>
+                          {candidate.rank} {candidate.unit.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Same health service as origin</th>
+                      {candidates.map((candidate) => {
+                        const fit = originServiceFit(patient, candidate.unit);
+                        return (
+                          <td key={candidate.unit.id} data-tone={fit.tone}>
+                            {fit.label}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <th scope="row">Open/secure fit</th>
+                      {candidates.map((candidate) => {
+                        const fit = settingFit(patient, candidate.unit, now);
+                        return (
+                          <td key={candidate.unit.id} data-tone={fit.tone}>
+                            {fit.label}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <th scope="row">Current bed state</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id}>
+                          <BedStateChips
+                            unit={candidate.unit}
+                            bedReleases={bedReleases}
+                            leaveBeds={leaveBeds}
+                            now={now}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <th scope="row">Transport state</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id} data-tone={transportTone(candidate.etaLabel)}>
+                          {candidate.etaLabel}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <th scope="row">Eligibility</th>
+                      {candidates.map((candidate) => (
+                        <td key={candidate.unit.id} title={candidateReason(candidate.verdict)}>
+                          <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p className={styles.tierNote}>
+                <span className={styles.tier} data-tier={patient.urgency}>
+                  {patient.urgency}
+                </span>
+                <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical
+                severity.
+              </p>
+
+              <button
+                type="button"
+                className={styles.factorsToggle}
+                aria-expanded={factorsOpen}
+                onClick={() => setFactorsOpen((open) => !open)}
+              >
+                Eligibility gates ({primary ? primary.verdict.gates.length : 0})
+                <ChevronDown aria-hidden="true" data-open={factorsOpen ? "true" : undefined} />
+              </button>
+              {factorsOpen && primary ? (
+                <ul className={styles.factorList}>
+                  {primary.verdict.gates.map((gate) => (
+                    <li key={gate.gate}>{gate.detail}</li>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Same health service as origin</th>
-                  {candidates.map((candidate) => {
-                    const fit = originServiceFit(patient, candidate.unit);
-                    return (
-                      <td key={candidate.unit.id} data-tone={fit.tone}>
-                        {fit.label}
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th scope="row">Open/secure fit</th>
-                  {candidates.map((candidate) => {
-                    const fit = settingFit(patient, candidate.unit, now);
-                    return (
-                      <td key={candidate.unit.id} data-tone={fit.tone}>
-                        {fit.label}
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr>
-                  <th scope="row">Current bed state</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id}>
-                      <BedStateChips unit={candidate.unit} bedReleases={bedReleases} leaveBeds={leaveBeds} now={now} />
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <th scope="row">Transport state</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id} data-tone={transportTone(candidate.etaLabel)}>
-                      {candidate.etaLabel}
-                    </td>
-                  ))}
-                </tr>
-                <tr>
-                  <th scope="row">Eligibility</th>
-                  {candidates.map((candidate) => (
-                    <td key={candidate.unit.id} title={candidateReason(candidate.verdict)}>
-                      <strong>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</strong>
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </ul>
+              ) : null}
 
-          <p className={styles.tierNote}>
-            <span className={styles.tier} data-tier={patient.urgency}>
-              {patient.urgency}
-            </span>
-            <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical severity.
-          </p>
+              <div className={styles.ownerBlock}>
+                <span className={styles.ownerLabel}>Current owner</span>
+                <strong>{patient.owner}</strong>
+                <span>Next action: {patient.blocker}</span>
+              </div>
 
-          <button
-            type="button"
-            className={styles.factorsToggle}
-            aria-expanded={factorsOpen}
-            onClick={() => setFactorsOpen((open) => !open)}
-          >
-            Eligibility gates ({primary ? primary.verdict.gates.length : 0})
-            <ChevronDown aria-hidden="true" data-open={factorsOpen ? "true" : undefined} />
-          </button>
-          {factorsOpen && primary ? (
-            <ul className={styles.factorList}>
-              {primary.verdict.gates.map((gate) => (
-                <li key={gate.gate}>{gate.detail}</li>
-              ))}
-            </ul>
-          ) : null}
+              <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
+                Open movement workspace
+              </Link>
+            </>
+          )}
 
-          <div className={styles.ownerBlock}>
-            <span className={styles.ownerLabel}>Current owner</span>
-            <strong>{patient.owner}</strong>
-            <span>Next action: {patient.blocker}</span>
-          </div>
-
-          <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
-            Open movement workspace
-          </Link>
+          {/* One spelling, outside the branch, because it is true of either subject. */}
           <p className={styles.assurance}>System suggests, you decide. No automatic allocation.</p>
 
           {detail ? (
