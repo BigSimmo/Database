@@ -406,7 +406,14 @@ clinician offers different words, theirs replace these.
 
 ### List 1 — why a DECIDED discharge is stuck (`BED_RELEASE_BLOCKERS`)
 
-The six Phase 5 reasons are kept unchanged, and **one is added**:
+The Phase 5 reasons are kept unchanged, and **one is added**.
+
+**CORRECTION, 2026-08-28.** This section originally said "the six Phase 5 reasons" and listed six.
+There were **seven**: the transcription dropped `Awaiting receiving-service acceptance`, which
+shipped in Phase 5 and is named in its own test's title. The implementing agent noticed the
+discrepancy, kept all seven, added the approved eighth, and flagged it rather than deleting a live
+entry from a working picker on the strength of a slip in this document. **That was the right call.**
+The list as shipped is eight:
 
 - Awaiting clean
 - Awaiting pharmacy
@@ -414,6 +421,8 @@ The six Phase 5 reasons are kept unchanged, and **one is added**:
 - Awaiting service coordination
 - Awaiting accommodation
 - Awaiting transport
+- Awaiting receiving-service acceptance ← present since Phase 5; omitted from this document's
+  first draft, never from the code
 - **Awaiting family or carer arrangement** ← added
 
 **Why the addition overturns a principled exclusion.** Phase 5 deliberately excluded family
