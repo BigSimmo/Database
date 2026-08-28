@@ -384,8 +384,81 @@ describe("matching stays independent of the bed-release model", () => {
 
   const SRC_ROOT = resolve(process.cwd(), "src");
 
+  // Phase 8 Task 3, fix round 3. Comments are stripped BEFORE statements are extracted, and that
+  // is load-bearing rather than tidy. The matcher below is non-greedy, so it stops at the FIRST
+  // semicolon it meets: a semicolon inside a comment in the middle of an import truncates the
+  // "statement" before the module specifier is ever reached. Measured, not assumed — the line
+  //     import { /* note; hidden */ SYNTHETIC_TRAVEL_BANDS } from "@/.../ward-travel-bands";
+  // yielded exactly `import { /* note;`, which names neither the specifier nor the import.
+  //
+  // That defeated this contract TWO ways at once, which is why it mattered here more than
+  // anywhere else it appears: a bed-release import could hide from the identifier check below,
+  // AND `collectModuleGraph` would stop following it — so the graph would narrow silently while
+  // the test still reported green. That is the "check that cannot fail" shape at the one place
+  // this phase can least afford it.
+  //
+  // Stripping first can only ever reveal MORE imports, never fewer, so it strictly strengthens
+  // every assertion built on it. Nothing else in this contract changed: the identifier list, the
+  // entry points, the non-vacuity floor and every assertion are exactly as they were.
+
+  /** Removes line and block comments while respecting string and template literals, so a module
+   *  specifier or a message that merely contains a comment marker is never mistaken for one. */
+  function withoutComments(source: string): string {
+    let out = "";
+    let index = 0;
+    let mode: "code" | "line" | "block" | "'" | '"' | "`" = "code";
+    while (index < source.length) {
+      const character = source[index];
+      const pair = source.slice(index, index + 2);
+      if (mode === "code") {
+        if (pair === "//") {
+          mode = "line";
+          index += 2;
+          continue;
+        }
+        if (pair === "/*") {
+          mode = "block";
+          index += 2;
+          continue;
+        }
+        if (character === "'" || character === '"' || character === "`") mode = character;
+        out += character;
+        index += 1;
+        continue;
+      }
+      if (mode === "line") {
+        if (character === "\n") {
+          mode = "code";
+          out += "\n";
+        }
+        index += 1;
+        continue;
+      }
+      if (mode === "block") {
+        if (pair === "*/") {
+          mode = "code";
+          index += 2;
+        } else {
+          index += 1;
+        }
+        continue;
+      }
+      // Inside a string literal: an escape consumes the next character, so an escaped quote
+      // cannot close it early.
+      if (character === "\\") {
+        out += source.slice(index, index + 2);
+        index += 2;
+        continue;
+      }
+      if (character === mode) mode = "code";
+      out += character;
+      index += 1;
+    }
+    return out;
+  }
+
   function importStatementsOf(source: string): string[] {
-    return source.match(/import\s+[\s\S]*?;/g) ?? [];
+    return withoutComments(source).match(/import\s+[\s\S]*?;/g) ?? [];
   }
 
   function importsMention(source: string, needle: RegExp) {
