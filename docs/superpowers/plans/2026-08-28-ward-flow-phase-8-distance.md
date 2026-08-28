@@ -317,6 +317,33 @@ implemented as written", item 1.
 
 ## Task 2: The arrival record and the optional local-bed record
 
+> **SUPERSEDED IN PART, 2026-08-29 — read this before starting Task 2.**
+>
+> **`Referral.arrivedAt` and the `REFERRAL_ARRIVED` event were built, then REMOVED on 2026-08-29.
+> Do not build them again.** Every instruction below about an arrival field, an arrival event, its
+> role gate, its reducer guards or its seeds is superseded, including the unchecked mutation-test
+> box that names the `REFERRAL_ARRIVED` role gate. **Those boxes are not to-dos. Leave them
+> unchecked and do not act on them.**
+>
+> **What replaces it.** A parallel workstream built `Admission`
+> (`src/components/ward-management/ward-admissions.ts`) — the one record of a person occupying a
+> bed. It records the same arrival, and unlike an accepted referral it also records the person
+> LEAVING (`state: "left"`, `leftAt`). The out-of-area ledger reads admissions, and excludes
+> anybody not currently holding a bed.
+>
+> **Why, and it is a defect rather than a preference.** The referral-based ledger had no exit. A
+> referral never stops being accepted, so somebody discharged weeks ago stayed on the ledger
+> permanently with their elapsed time still climbing.
+>
+> **What is NOT superseded: the second record, `localBedSought` and `RECORD_LOCAL_BED_SOUGHT`,
+> answering D8-6.** It answers a different question, no admission records it, and it is untouched
+> and still wanted. Everything in this section about it stands exactly as written.
+>
+> Decision provenance and reversal cost: `docs/ward-flow-phase-8-decisions.md`, D8-9.
+>
+> The original text below is left in place deliberately. It is the record of what was planned and
+> why, and deleting it would lose the reasoning that produced the field in the first place.
+
 **Why this exists.** D8-3 says the out-of-area clock starts when the person **arrives** in the far
 bed. Nothing in the system records a referral arriving anywhere: `Referral` carries `homeRegion` but
 never arrives, and `Movement` arrives but carries no home region. Without this task the ledger cannot
@@ -395,6 +422,15 @@ particular referral out of area.** Read the fixture, then seed to fit it.
 ---
 
 ## Task 3: Grouping and the ledger — two derivations, and the contract that covers them
+
+> **SUPERSEDED IN PART, 2026-08-29 — the ledger half only.** `outOfAreaLedger` takes `Admission[]`,
+> not accepted referrals: `Referral.arrivedAt` no longer exists. Every reference below to an
+> accepted referral with an `arrivedAt`, and the `sinceArrival` note reading "minutes, from
+> `arrivedAt`", now means the ADMISSION's `arrivedAt`. The clock still runs from the arrival, and
+> the entry now carries the admission in place of the referral. A person no longer holding a bed is
+> excluded — that exclusion is the whole reason for the change. **The grouping half of this task,
+> the ranking hazard it exists to close, and the D12/D15 contract extension are unchanged.** See
+> Task 2's note above and `docs/ward-flow-phase-8-decisions.md` D8-9.
 
 **Why this exists.** The phase's defining hazard is grouping quietly becoming ranking, and it will
 not arrive as a decision — it will arrive as a small helpful sort inside a group, or a group promoted

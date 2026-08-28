@@ -1,4 +1,4 @@
-import type { Admission } from "@/components/ward-management/ward-admissions";
+import { bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   OUT_OF_AREA_BANDS,
@@ -324,11 +324,22 @@ export type OutOfAreaEntry = {
  *
  * What each case does, and why:
  *
- *  - **Left** → in neither number, whatever their band and however long they were there. SOMEBODY
- *    WHO HAS LEFT IS NOT IN A BED FAR FROM HOME. This is the first check in the loop and it is
- *    deliberately its own condition rather than folded into the arrival test: a departed admission
- *    still carries the `arrivedAt` it arrived on, so nothing else in this function would exclude
- *    it. `tests/ward-travel-grouping.test.ts` pins it directly.
+ *  - **Not holding a bed** → in neither number, whatever their band and however long they were
+ *    there. SOMEBODY WHO HAS LEFT IS NOT IN A BED FAR FROM HOME. This is the first check in the
+ *    loop and it is deliberately its own condition rather than folded into the arrival test: a
+ *    departed admission still carries the `arrivedAt` it arrived on, so nothing else in this
+ *    function would exclude it.
+ *
+ *    **It is an ALLOWLIST — `bedIsOccupied`, the record's own predicate — and never a
+ *    `state !== "left"` denylist.** Two reasons, and the second is the one that matters. First, a
+ *    waitlisted admission carrying an arrival time is incoherent data, and a denylist counts it as
+ *    somebody in a bed far from home. Second, and structurally: a fifth `AdmissionState` added
+ *    later falls through a denylist as OCCUPIED BY DEFAULT. This ledger is read as fact by a
+ *    coordinator, so an unrecognised state must be excluded rather than counted — the failure
+ *    direction has to be conservative, and only an allowlist makes it so. Reusing the record's own
+ *    predicate rather than restating the states here also means a state added to
+ *    `ward-admissions.ts` is classified in ONE place. `tests/ward-travel-grouping.test.ts` pins
+ *    both the departure and the waitlisted-with-an-arrival case directly.
  *  - **Arrived, still here, band is a member of `OUT_OF_AREA_BANDS`** → an entry. The clock runs
  *    from `arrivedAt`, NEVER from `pulledAt`: the bed has been gone since the pull, but this
  *    ledger measures how long somebody has been AWAY FROM HOME, which starts when they get there.
@@ -340,10 +351,12 @@ export type OutOfAreaEntry = {
  *    in returning `undefined` rather than falling back to a band.
  *  - **Arrived, still here, band recorded and in area** → in neither number. Present and correctly
  *    classified; there is nothing to report.
- *  - **No arrival** → in neither number, and NOT reported as missing anything. A waitlisted
- *    admission has no bed and a pulled one is a bed given away to somebody still on their way, so
- *    as far as this prototype knows nobody is in it yet, and saying more would invent the arrival.
- *    A non-finite `arrivedAt` is treated the same way rather than yielding a `NaN` elapsed time.
+ *  - **Holding a bed but not yet arrived** → in neither number, and NOT reported as missing
+ *    anything. A pulled bed is one given away to somebody still on their way, so as far as this
+ *    prototype knows nobody is in it yet, and saying more would invent the arrival. A non-finite
+ *    `arrivedAt` is treated the same way rather than yielding a `NaN` elapsed time. (A waitlisted
+ *    admission never reaches this check — it holds no bed, so the allowlist above excludes it
+ *    whether or not it carries an arrival.)
  *  - **`unitId` resolves to no unit** → skipped entirely, never banded against a guessed site. It
  *    is not counted as unbanded either: nothing was looked up, so nothing failed to be found.
  *
@@ -366,9 +379,10 @@ export function outOfAreaLedger(
   let notBanded = 0;
 
   for (const admission of admissions) {
-    // The exit the referral-based version did not have. Read this file's own comment above before
-    // moving, weakening or merging this line into the arrival check below.
-    if (admission.state === "left") continue;
+    // The exit the referral-based version did not have, and an ALLOWLIST rather than a denylist.
+    // Read this file's own comment above before moving, weakening or merging this line into the
+    // arrival check below.
+    if (!bedIsOccupied(admission)) continue;
     const arrivedAt = admission.arrivedAt;
     if (arrivedAt === null || !Number.isFinite(arrivedAt)) continue;
 

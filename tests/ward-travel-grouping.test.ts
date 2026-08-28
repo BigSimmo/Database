@@ -531,6 +531,41 @@ describe("the out-of-area ledger", () => {
     expect(outOfAreaLedger([waitlisted, pulled], units, NOW)).toEqual({ entries: [], notBanded: 0 });
   });
 
+  /**
+   * The occupancy check is an ALLOWLIST, not a `state !== "left"` denylist, and this is the test
+   * that tells the two apart. A departure test alone cannot: both forms exclude a departure.
+   *
+   * A waitlisted admission holds no bed, so it can never be somebody placed in a bed far from
+   * home, whatever timestamps the record happens to carry. Under a denylist this counts — and the
+   * same hole is the structural one: a fifth `AdmissionState` added later would fall through a
+   * denylist as OCCUPIED BY DEFAULT and appear on a ledger a coordinator reads as fact. An
+   * unrecognised state must be excluded, not counted. That fifth state cannot be constructed here
+   * without widening the union, so this test pins the case that CAN be constructed, and the
+   * derivation reuses `bedIsOccupied` so both are decided in one place.
+   *
+   * The arrival is deliberately present and finite. Without it the arrival check would exclude the
+   * record on its own and this test would pass against the denylist too — proving nothing.
+   */
+  it("does not count a waitlisted admission even when it carries an arrival time", () => {
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site — the allowlist case is untestable").toBeDefined();
+
+    const arrivedAt = NOW - 30;
+    // The control: identical but for the state, and it DOES count — so the exclusion below is
+    // attributable to the state alone and not to a band, a unit or a missing arrival.
+    const occupied = admission({ id: "AD-ALLOWLIST-CONTROL", homeRegion: homeRegion!, arrivedAt });
+    expect(outOfAreaLedger([occupied], units, NOW).entries).toHaveLength(1);
+
+    const waitlistedWithArrival = admission({
+      id: "AD-WAITLISTED-ARRIVED",
+      homeRegion: homeRegion!,
+      state: "waitlisted",
+      pulledAt: null,
+      arrivedAt,
+    });
+    expect(outOfAreaLedger([waitlistedWithArrival], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
   it("skips an admission whose unit no longer resolves rather than banding it against a guess", () => {
     const subject = admission({ id: "AD-NOUNIT", unitId: "a-unit-that-does-not-exist" });
     // Not an entry, and NOT notBanded: nothing was looked up, so nothing failed to be found.

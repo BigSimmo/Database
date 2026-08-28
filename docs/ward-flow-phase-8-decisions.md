@@ -276,3 +276,70 @@ If that ever stops being true, it is a defect.
 
 Whether the real bands should eventually be checked and by whom. The placeholders are explicitly a
 "for now", and section 3's sixth question stays open.
+
+## D8-9 — There is one record of a person occupying a bed, and it is `Admission` (OWNER, 2026-08-29)
+
+**Provenance, stated exactly.** Decided by the product owner (Josh) on 2026-08-29. It reached this
+workstream **relayed by the parallel ward-board session**, not from him directly. Because it
+contradicted an answer he had given earlier the same day, the coordinator **confirmed it with him
+directly before any code changed** rather than acting on the relay. That sequence is recorded
+because a relayed instruction that reverses an owner's own earlier answer is exactly the kind of
+thing that should not be acted on unconfirmed.
+
+**The decision.** A person occupying a bed is recorded in exactly one place —
+`src/components/ward-management/ward-admissions.ts` — and never in two. `Referral.arrivedAt` and the
+`REFERRAL_ARRIVED` event, built earlier in this phase to close D8-3's missing clock, were removed on
+2026-08-29. The out-of-area ledger reads admissions.
+
+### What this supersedes
+
+- **The closure specified in the plan's Task 2** (`Referral.arrivedAt` + `REFERRAL_ARRIVED` + its
+  role gate, guards and seeds). The plan's Task 2 and Task 3 headings now carry superseded notes;
+  the original text is deliberately left in place as the record of what was planned.
+- **Section "Where these decisions did not reach → 1. D8-3's clock has nothing to start from."**
+  That gap is closed, and closed by a different route than the one recorded there.
+- **A sentence that was mandated for the Task 5 screen, and is now FALSE.** That section says the
+  prototype records nobody ever leaving a bed, so nobody ever leaves the out-of-area ledger, and
+  that the screen must say so plainly. `Admission` carries `leftAt` and a `left` state, the ledger
+  excludes anybody not currently holding a bed, and a test fails if that exclusion is removed.
+  **That sentence must not be written on any screen.** Shipping it would put a false statement on a
+  clinical screen, which is the defect class this project takes most seriously — the same class as
+  the invented Mental Health Act figure that got into this codebase by being asserted in a comment
+  and believed.
+
+  Still true, and available to whoever writes the replacement: the travel times are invented and
+  unchecked, the "out of area" line is this prototype's own invention, the figure reflects the
+  prototype's own records rather than a live statewide count, and many beds cannot be classified at
+  all — a count reported separately, and never as a shortfall of the other.
+
+**What is NOT superseded.** D8-6's optional local-bed record — `Referral.localBedSought` and
+`RECORD_LOCAL_BED_SOUGHT` — is untouched and still wanted. It answers a different question, no
+admission records it, and it was built in the same task purely by coincidence of scheduling.
+
+### Why, and it is a defect rather than a preference
+
+The referral-based ledger **had no exit.** A referral never stops being accepted, so it reported
+every accepted referral with an arrival time and counted minutes since that arrival forever.
+Somebody discharged weeks ago stayed on the ledger with their elapsed time still climbing, on a
+screen a coordinator reads as fact. `Admission` carries both ends — `state` and `leftAt` — so it
+closes. Two records of one fact would also have let a person be in a bed according to one and not
+the other, which is the shape this model's naming discipline exists to prevent.
+
+### What it costs to reverse
+
+Reversal is cheap in code and expensive in judgement, and the second is the reason not to.
+
+- **In code, small and bounded.** Restoring the field and its event is one optional field on
+  `Referral`, one event variant, one role-gate entry, one reducer case with its two guards, and the
+  ledger reading a referral again. All of it is in this repository's history at commit `a7abb6c73`
+  and its parent, so it is a revert rather than a rebuild. Roughly a day, most of it re-proving the
+  tests.
+- **What reversal would cost that code does not measure.** It reinstates a ledger that cannot
+  release anybody, so it re-opens the defect above rather than trading it for something. It puts a
+  second record of one fact back into the model, after which the two can disagree. And it would
+  need the owner's own reversal of his 2026-08-29 answer, not an implementer's or a session's — he
+  has now answered this question twice in one day in opposite directions, so a third change must be
+  his, in writing, and dated.
+- **What is NOT recoverable by reverting.** The tests that pinned the referral-side behaviour were
+  deleted with their subject rather than weakened (thirteen assertions, each verified at review as
+  having a genuinely absent subject). A reversal re-authors them; it does not restore them.
