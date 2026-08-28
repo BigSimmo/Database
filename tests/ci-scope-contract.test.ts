@@ -76,6 +76,13 @@ describe("site-content CI owner contract", () => {
     }
   });
 
+  it("classifies each current dynamic registry transitive input independently", () => {
+    expect(classify("src/lib/registry-corpus-links.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/registry-records.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/medication-records.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/differential-records.ts")).toContain("site_content_changed=true");
+  });
+
   it("keeps manifest validation fail-closed in the selector self-test", () => {
     const source = readFileSync("scripts/ci-change-scope.mjs", "utf8");
     expect(source).toContain("validateSiteContentChangeOwners");

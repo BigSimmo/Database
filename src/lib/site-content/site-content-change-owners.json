@@ -7,7 +7,9 @@
       "data/differentials-snapshot.json",
       "src/data/cross-mode-differentials-index.json",
       "src/data/differential-presentation-display-metadata.json",
+      "src/lib/differential-records.ts",
       "src/lib/differentials.ts",
+      "src/lib/registry-corpus-links.ts",
       "src/lib/registry-corpus.ts",
       "src/lib/registry-seed.ts",
       "src/lib/site-content/adapters/registry.ts"
@@ -20,21 +22,27 @@
       "data/forms-page-snapshot.json",
       "data/forms-pdf-manifest.json",
       "src/lib/forms.ts",
+      "src/lib/registry-corpus-links.ts",
       "src/lib/registry-corpus.ts",
+      "src/lib/registry-records.ts",
       "src/lib/registry-seed.ts",
       "src/lib/site-content/adapters/registry.ts"
     ],
     "formulation": ["src/data/formulation-content.json", "src/lib/formulation.ts"],
     "prescribing": [
       "data/medications-snapshot.json",
+      "src/lib/medication-records.ts",
       "src/lib/medication-snapshot.ts",
+      "src/lib/registry-corpus-links.ts",
       "src/lib/registry-corpus.ts",
       "src/lib/registry-seed.ts",
       "src/lib/site-content/adapters/registry.ts"
     ],
     "services": [
       "data/services-snapshot.json",
+      "src/lib/registry-corpus-links.ts",
       "src/lib/registry-corpus.ts",
+      "src/lib/registry-records.ts",
       "src/lib/registry-seed.ts",
       "src/lib/services.ts",
       "src/lib/site-content/adapters/registry.ts"

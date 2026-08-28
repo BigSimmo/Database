@@ -25,6 +25,129 @@ values (
   :'bootstrap_activation_evidence'::jsonb
 );
 
+savepoint task4_bootstrap_dynamic_digest;
+
+update public.site_content_releases
+set dynamic_state_digest = case
+  when dynamic_state_digest = repeat('f', 64) then repeat('e', 64)
+  else repeat('f', 64)
+end
+where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  (value->>'bootstrapIntegrityState' = 'invalid') as passed,
+  value::text as evidence
+from evidence
+\gset bootstrap_dynamic_
+
+rollback to savepoint task4_bootstrap_dynamic_digest;
+
+insert into task4_health_integrity_results(case_name, passed, evidence)
+values (
+  'retained bootstrap accepted a different valid dynamic-state digest',
+  :'bootstrap_dynamic_passed'::boolean,
+  :'bootstrap_dynamic_evidence'::jsonb
+);
+
+savepoint task4_epoch_zero_dynamic_digest;
+
+update public.site_content_releases
+set state = 'superseded'
+where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+
+insert into public.site_content_releases (
+  id, state, target_change_epoch, previous_release_id, registry_version,
+  static_manifest_digest, dynamic_state_digest, release_digest, generation_id,
+  plan_digest, reconciliation_plan_digest, expected_added_count,
+  expected_changed_count, expected_unchanged_count, expected_record_count,
+  expected_tombstone_count, must_pass_checks, activated_at
+) values (
+  '60000000-0000-5000-8000-000000000001'::uuid,
+  'active',
+  1,
+  'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid,
+  'task4-epoch-zero-dynamic-digest-v1',
+  repeat('1', 64),
+  repeat('2', 64),
+  repeat('3', 64),
+  'task4-epoch-zero-dynamic-digest-v1',
+  repeat('4', 64),
+  null,
+  0,
+  0,
+  0,
+  0,
+  0,
+  true,
+  pg_catalog.clock_timestamp()
+);
+
+insert into public.site_content_release_receipts (
+  receipt_id, release_id, receipt_kind, recovery_readiness_digest, receipt
+)
+select
+  'sha256:' || repeat('6', 64),
+  '60000000-0000-5000-8000-000000000001'::uuid,
+  'activation',
+  repeat('7', 64),
+  jsonb_build_object(
+    'resource', jsonb_build_object(
+      'kind', 'site_release',
+      'siteReleaseId', '60000000-0000-5000-8000-000000000001',
+      'siteReleaseDigest', repeat('3', 64)
+    ),
+    'previousResource', jsonb_build_object(
+      'siteReleaseId', bootstrap.id::text,
+      'siteReleaseDigest', bootstrap.release_digest
+    )
+  )
+from public.site_content_releases bootstrap
+where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+
+update public.site_content_sync_state
+set change_epoch = 1,
+  served_change_epoch = 1,
+  active_release_id = '60000000-0000-5000-8000-000000000001'::uuid,
+  active_release_digest = repeat('3', 64),
+  initialized = true;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  ((value->>'rollbackAvailable')::boolean = true) as passed,
+  value::text as evidence
+from evidence
+\gset epoch_zero_rollback_baseline_
+
+update public.site_content_releases
+set dynamic_state_digest = case
+  when dynamic_state_digest = repeat('f', 64) then repeat('e', 64)
+  else repeat('f', 64)
+end
+where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  ((value->>'rollbackAvailable')::boolean = false) as passed,
+  value::text as evidence
+from evidence
+\gset epoch_zero_rollback_dynamic_
+
+rollback to savepoint task4_epoch_zero_dynamic_digest;
+
+insert into task4_health_integrity_results(case_name, passed, evidence)
+values
+  (
+    'exact epoch-zero predecessor was not rollback-available before digest mutation',
+    :'epoch_zero_rollback_baseline_passed'::boolean,
+    :'epoch_zero_rollback_baseline_evidence'::jsonb
+  ),
+  (
+    'epoch-zero predecessor accepted a different valid dynamic-state digest',
+    :'epoch_zero_rollback_dynamic_passed'::boolean,
+    :'epoch_zero_rollback_dynamic_evidence'::jsonb
+  );
+
 do $$
 declare
   v_state text;
