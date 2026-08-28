@@ -264,3 +264,132 @@ Both bed-category readings were confirmed by the owner on 2026-08-27 and are no 
 them — sex designation — corrected an assumption recorded here wrongly, which is precisely the
 reason assumptions are written down as assumptions rather than folded silently into a
 specification.
+
+---
+
+## The bed model becomes three stages plus a flag (OWNER, 2026-08-28)
+
+**Decided by the product owner on 2026-08-28**, after the structural argument below was put to him
+and he agreed to it. This supersedes the four-stage model
+(`predicted → confirmed → blocked → released`) that Phases 5 to 7 were built on top of.
+
+### The defect that prompted it, verified in the code before it was raised
+
+`capacityBreakdown` (`ward-bed-availability.ts`) sorts today's releases into `confirmedToday` or
+`predictedToday`. A release in state `"blocked"` matches **neither branch**, so it falls through
+both and is counted **nowhere**.
+
+Mark a confirmed discharge as blocked and the ward's confirmed count drops by one, with nothing
+appearing anywhere to say why. **The figures improve at the exact moment the ward is stuck.**
+
+### The change
+
+**Three stages**, describing how certain the discharge is:
+
+- **predicted** — with the existing `likely` / `possible` confidence
+- **confirmed**
+- **released**
+
+**`blocked` stops being a stage and becomes a flag** that sits on top of a predicted or confirmed
+discharge, carrying a reason and the role that recorded it. A discharge that is decided and stuck is
+exactly that: still confirmed, and flagged.
+
+**Transitions go both ways**, and a reversal is recorded like any other change. `confirmed` can
+return to `predicted` when a decision is reversed. The one-way model did not stop that happening —
+it made a ward record it dishonestly.
+
+### What does NOT change
+
+- **A predicted bed is still never counted as available.** The Phase 5 rule is untouched.
+- Leave beds are still counted separately and never mixed into the available figure.
+- Only the ward can move a bed between stages; the coordinator can see them and not change them.
+- Only genuinely empty beds are offered.
+
+### What changes in the counting, and it is one place
+
+A blocked-but-confirmed bed **keeps counting as confirmed**, and the number of blocked beds is shown
+separately beside it. Nothing else moves.
+
+**What this gains beyond honesty:** "how many confirmed discharges are stuck, and why" becomes a
+question the system can answer. That is a figure a bed coordinator actually wants, and the four-stage
+model structurally could not produce it.
+
+### Cost
+
+One fewer member of `BED_RELEASE_STATES`; one optional reason field on `BedRelease`; one extra figure
+in `CapacityBreakdown`; a blocked indicator on the ward and morning screens. Materially cheaper now
+than after Phases 8 and 9 build on top.
+
+### What this does NOT settle
+
+**The clinician check is still owed** (`docs/ward-flow-clinician-check.md`). This change answers the
+question the reviewer had the strongest structural argument about; it answers none of the others, and
+the remaining ones are exactly the ones that need someone who works on a ward. **Ask anyway.**
+
+The blocked-discharge reason list remains **owner-pending** and must not be invented by an agent —
+it is already flagged as pending in the separate ward-board plan, and that list and this change are
+the same question arriving twice.
+
+## The five remaining bed-model questions, answered (OWNER, 2026-08-28)
+
+Decided in the same conversation as the three-stage change above.
+
+### Q1 — "Predicted" changes axis: from how confident, to what is outstanding
+
+The two confidence levels (`likely` / `possible`) are replaced by **what the discharge is still
+waiting on**, chosen from a fixed list.
+
+**Why.** Confidence asks a ward to estimate a probability. People are poor at that, and worse, two
+wards' "likely" do not mean the same thing — so a coordinator cannot compare them or add them up.
+What a discharge is waiting on is a **fact, not a judgement**: it is comparable across wards, and it
+tells a coordinator something they can act on. A bed waiting on transport is a different prospect
+from one waiting on a family meeting.
+
+**BLOCKED ON THE OWNER'S LIST.** The permitted values must come from him or a charge nurse and must
+never be invented by an agent. This is the same list as the blocked-discharge reasons, which is
+already owner-pending in the ward-board plan — the two are one list arriving twice.
+
+### Q2 — The "today" horizon stays, and so does the excluded count
+
+Anything expected after this evening stays out of every count, and the screen keeps saying how many
+were left out.
+
+**Why.** That excluded count is the safety valve. If it is routinely large in real use, that is
+evidence the horizon is too short, and it surfaces on its own rather than being guessed at now.
+Changing it later is one constant.
+
+### Q3 — Provenance stays as a role and a timestamp
+
+No change. A name would add accountability pressure but no information a coordinator can act on, and
+it would break the standing rule that an owner is always a role, never a person. If anything is
+missing it is not _who_ but _how_ — whether a number was counted or estimated — and nobody has asked
+for that, so it is not built speculatively.
+
+### Q4 — No missing stage. A released bed is allocatable immediately; preparation is a note
+
+**The owner's own clinical answer, and it is load-bearing:**
+
+> "Once a bed is available, a patient will be pulled. Pulled patient takes hours to transport and
+> move, so it is fine to allocate this bed. Just have a note for preparing bed maybe until it is
+> ready. I.e. cleaning or something like that."
+
+So there is **no fifth stage**, and the design question that prompted this — whether a bed is really
+fillable the moment the person leaves — is answered: **yes, because the pull takes hours anyway.**
+
+What is added instead is a **preparation note**: a bed may carry a short indication that it is being
+made ready (cleaning, and whatever else his list eventually names). It is **informational and must
+never gate allocation** — a bed with a preparation note is still offered, still counts as available,
+and still appears in every figure. Anything else would reintroduce the delay this answer says does
+not exist.
+
+This is consistent with his earlier correction recorded in the ward-board plan: **the bed is lost at
+the PULL, not at the arrival.**
+
+### Q5 — Leave beds stay separate, with one thing to check
+
+No change: a bed someone is coming back to is not a bed you can fill.
+
+**But the rule is not quite "leave beds never count".** The model already carries a `usable` flag per
+leave bed, and `capacityBreakdown` counts the usable ones in `leaveUsable`. **Outstanding question
+for the owner:** who decides a leave bed is usable, and on what basis? That flag is the one route by
+which a bed someone is returning to can reach the available figure.
