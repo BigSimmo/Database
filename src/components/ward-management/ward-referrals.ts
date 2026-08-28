@@ -1,5 +1,11 @@
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
+  OUT_OF_AREA_BANDS,
+  TRAVEL_BANDS,
+  unitTravelBand,
+  type TravelBand,
+} from "@/components/ward-management/ward-distance";
+import {
   candidateReason,
   referralEligibility,
   type EligibilityVerdict,
@@ -147,3 +153,156 @@ export const DECLINE_REASON_LABELS: Record<ReferralDeclineReason, string> = {
   belongs_to_another_service: "Belongs to another service",
   referred_elsewhere: "Referred elsewhere",
 };
+
+/**
+ * Phase 8 (spec D8, Task 3). One band group: the band, and the candidates whose unit sits in it.
+ *
+ * `"not_recorded"` is a GROUP KEY, never a label — the one spelling a coordinator reads is
+ * `NOT_RECORDED_LABEL` (`ward-distance.ts`), like every other band label on every other screen.
+ *
+ * Deliberately carries no count field. The two figures each heading shows — how many units are in
+ * the band, and how many of those accept this referral — are `candidates.length` and
+ * `candidates.filter((candidate) => candidate.verdict.eligible).length`: arithmetic over facts
+ * already in this group, derived where they are rendered rather than frozen here. Nothing is
+ * hidden by that choice, and it keeps this type a pure rearrangement of the caller's list.
+ */
+export type TravelBandGroup = { band: TravelBand | "not_recorded"; candidates: ReferralCandidate[] };
+
+/**
+ * The group order, derived from `TRAVEL_BANDS` and never hand-written. A parallel list of band
+ * names is how two screens end up disagreeing about what bands exist — the same discipline
+ * `TRAVEL_BAND_LABELS` holds to.
+ *
+ * `"not_recorded"` sits last because a gap is not a distance and cannot be placed among them, not
+ * because it is far. Nothing in this order ranks anything: `TRAVEL_BANDS`' own doc comment records
+ * that `air_transport_only` sits last "for grouping order and for nothing else".
+ */
+const TRAVEL_BAND_GROUP_ORDER: readonly (TravelBand | "not_recorded")[] = [...TRAVEL_BANDS, "not_recorded"];
+
+/**
+ * Phase 8 (spec D8, Task 3): the candidate list rearranged by how far each bed is from where this
+ * person lives. A PURE REARRANGEMENT of a list somebody else computed — it adds nothing, removes
+ * nothing and decides nothing.
+ *
+ * Three properties, each pinned by a test in `tests/ward-travel-grouping.test.ts`, because the
+ * defining hazard of this phase is grouping quietly becoming ranking and that never arrives as a
+ * decision — it arrives as a small helpful sort inside a group, or a group promoted to the top
+ * because it is the useful one:
+ *
+ *  1. **Nothing is lost.** Every candidate lands in exactly one group. The key expression below is
+ *     total over `TRAVEL_BAND_GROUP_ORDER` by construction — `unitTravelBand` returns
+ *     `TravelBand | undefined`, and `undefined` maps to `"not_recorded"` — so there is no branch a
+ *     candidate can fall out of and no bucket to be forgotten. A bed whose band the fixture does
+ *     not record is SHOWN as unrecorded, never dropped and never guessed at.
+ *  2. **Nothing is reordered inside a group.** `filter` preserves the caller's order, which is the
+ *     site table's own order (`allUnits()` in `ward-sites.ts`), the same fixed order the morning
+ *     page and the match view already use. There is no comparator here to tune.
+ *  3. **Always exactly five groups, empty ones included.** An omitted group is worse than an empty
+ *     one: "there is nothing within an hour" is the answer a coordinator came for, and a group
+ *     that vanishes when it is empty cannot give it.
+ *
+ * Distance NEVER gates. Grouping is all this does — `ward-eligibility.ts` knows nothing about a
+ * band and has no `travel_time` gate, so a bed three hours away that accepts this referral still
+ * says so and still carries its Accept control.
+ *
+ * The band is looked up per call and never stored — not here, not on a `Referral`, not in a cache.
+ * A stored band would outlive the day `ward-travel-bands.ts`'s placeholder values are replaced
+ * with checked ones, which is precisely what must not happen.
+ *
+ * KNOWN LIMIT the signature cannot enforce, recorded rather than papered over: this groups the list
+ * it is GIVEN, so "nothing is lost" is a property relative to its own input and not a guarantee
+ * that every unit in the network reached it. `referralCandidates` above never truncates, and
+ * `tests/ward-travel-grouping.test.ts` asserts separately that the grouped total equals the full
+ * unit count — that second test, not this function, is what stops a later screen quietly handing
+ * it three units of many.
+ */
+export function groupCandidatesByTravelBand(referral: Referral, candidates: ReferralCandidate[]): TravelBandGroup[] {
+  return TRAVEL_BAND_GROUP_ORDER.map((band) => ({
+    band,
+    candidates: candidates.filter((candidate) => (unitTravelBand(referral, candidate.unit) ?? "not_recorded") === band),
+  }));
+}
+
+/**
+ * One person currently in a bed the fixture records as out of area, and how long since they got
+ * there. Carries the `Referral` and the `Unit` themselves rather than copies of fields off them,
+ * so nothing here becomes a second place a name, a band or a time is spelled.
+ *
+ * `band` is narrowed to `TravelBand` and only ever holds a member of `OUT_OF_AREA_BANDS` — an
+ * unrecorded band can never reach this type, which makes "every entry is genuinely out of area" a
+ * fact about the type rather than a claim about the code.
+ */
+export type OutOfAreaEntry = {
+  referral: Referral;
+  unit: Unit;
+  band: TravelBand;
+  /** Minutes since `arrivedAt`, computed exactly as `referralWaitLabel` above computes a wait —
+   *  never clamped here, so a fixture authored with an arrival in the future reads as the oddity
+   *  it is rather than silently as zero. `formatElapsed` clamps at the point of display. */
+  sinceArrival: number;
+};
+
+/**
+ * Phase 8 (spec D8-3): how many people are currently in a bed a long way from where they live, and
+ * how many arrivals could not be classified at all. Two counts of two different things.
+ *
+ * **The two numbers do not share a denominator.** `entries.length` counts people out of area;
+ * `notBanded` counts arrivals the fixture records no band for. Neither is a part of the other and
+ * neither is a part of any whole — this returns exactly those two keys and no total, precisely so
+ * that no screen can read a proportion out of it. A ratio of the two would be a figure this phase
+ * has not been asked to author and that nobody has checked.
+ *
+ * What each case does, and why:
+ *
+ *  - **Accepted, arrived, band is a member of `OUT_OF_AREA_BANDS`** → an entry. The clock runs from
+ *    `arrivedAt`, NEVER from `decidedAt`: a decision and an arrival are different facts, and that
+ *    difference is the whole reason `arrivedAt` was added to the model.
+ *  - **Accepted, arrived, band not recorded** → `notBanded`, never an entry. An unknown band must
+ *    never become a figure, and a count that quietly excluded what it could not classify would be
+ *    quoted as complete. The gap is reported as a gap — the same rule `travelBand` itself follows
+ *    in returning `undefined` rather than falling back to a band.
+ *  - **Accepted, arrived, band recorded and in area** → in neither number. Present and correctly
+ *    classified; there is nothing to report.
+ *  - **Accepted, no arrival** → in neither number, and NOT reported as missing anything. As far as
+ *    this prototype knows the person has not arrived, and saying more would invent the arrival. A
+ *    non-finite `arrivedAt` is treated the same way rather than yielding a `NaN` elapsed time — the
+ *    same `typeof … === "number" && Number.isFinite(…)` reasoning `hasConfirmedCapacity` above
+ *    spells out in full.
+ *  - **Accepted, arrived, `acceptedUnitId` resolves to no unit** → skipped entirely, never banded
+ *    against a guessed site. It is not counted as unbanded either: nothing was looked up, so
+ *    nothing failed to be found.
+ *
+ * Order is the order `referrals` arrived in, and there is no comparator here at all. This is a
+ * ledger of people, not a queue, and nothing about it ranks, prioritises or shortlists anyone.
+ *
+ * `units` is a parameter rather than a call to `allUnits()` so this derivation stays pure over its
+ * inputs and testable against a fixture — the same reason `referralCandidates` above takes one.
+ */
+export function outOfAreaLedger(
+  referrals: Referral[],
+  units: Unit[],
+  now: Instant,
+): { entries: OutOfAreaEntry[]; notBanded: number } {
+  const entries: OutOfAreaEntry[] = [];
+  let notBanded = 0;
+
+  for (const referral of referrals) {
+    if (referral.state !== "accepted") continue;
+    const arrivedAt = referral.arrivedAt;
+    if (typeof arrivedAt !== "number" || !Number.isFinite(arrivedAt)) continue;
+
+    const unit = units.find((candidate) => candidate.id === referral.acceptedUnitId);
+    if (!unit) continue;
+
+    const band = unitTravelBand(referral, unit);
+    if (band === undefined) {
+      notBanded += 1;
+      continue;
+    }
+    if (!OUT_OF_AREA_BANDS.includes(band)) continue;
+
+    entries.push({ referral, unit, band, sinceArrival: minutesUntil(now, arrivedAt) });
+  }
+
+  return { entries, notBanded };
+}

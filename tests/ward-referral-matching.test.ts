@@ -466,4 +466,24 @@ describe("matching stays independent of the bed-release model", () => {
     const offenders = [...graph.entries()].filter(([, source]) => importsMention(source, BED_RELEASE_IDENTIFIER));
     expect(offenders.map(([file]) => file)).toEqual([]);
   });
+
+  /**
+   * Phase 8 Task 3. The two travel-band modules join this graph automatically the moment
+   * `ward-referrals.ts` imports `ward-distance.ts` — but a coverage claim you cannot see is not a
+   * coverage claim. Without this assertion a future refactor that moved the grouping or the
+   * out-of-area ledger into a module outside this graph would silently narrow the contract to
+   * cover less than it does today, and every test above would stay green while it did. Named
+   * explicitly so that refactor fails HERE, where the reason is written down, rather than nowhere.
+   *
+   * `toContain`, never an exact list: a legitimate new import must never turn this red.
+   */
+  it("covers the travel-band modules the Phase 8 derivations read", () => {
+    const entryFiles = [
+      resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
+      resolve(process.cwd(), "src/components/ward-management/ward-referrals.ts"),
+    ];
+    const reached = [...collectModuleGraph(entryFiles).keys()].map((file) => basename(file));
+    expect(reached).toContain("ward-distance.ts");
+    expect(reached).toContain("ward-travel-bands.ts");
+  });
 });
