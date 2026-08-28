@@ -30,6 +30,24 @@ export type TravelBand = (typeof TRAVEL_BANDS)[number];
  */
 export type TravelBandTable = Readonly<Partial<Record<HomeRegion, Readonly<Partial<Record<string, TravelBand>>>>>>;
 
+/**
+ * TRUE while every band in `SYNTHETIC_TRAVEL_BANDS` is invented — which it is today, and will
+ * remain until somebody measures real travel times and replaces the values below.
+ *
+ * Flipping this to `false` is a governance act, not a tidy-up. It asserts that the table no
+ * longer carries invented placeholders, and it TURNS OFF the guard in
+ * `tests/ward-travel-bands.test.ts` that forbids any home region being recorded at every site in
+ * the network. That guard exists only because a suspiciously complete table of INVENTED values is
+ * how a placeholder starts reading as a checked fact. Once the values are checked, completeness is
+ * a virtue, and the guard would instead be pressuring somebody to withhold real data to keep a
+ * test green — which is worse than the fill-in it guards against. Flip the flag in the same change
+ * that replaces the values; never before, and never to make a test pass.
+ *
+ * Deliberately a boolean and nothing else. A count, a date, a proportion or a threshold here would
+ * be a figure this phase must not author, and would need a provenance record of its own.
+ */
+export const TRAVEL_BANDS_ARE_INVENTED: boolean = true;
+
 /** SYNTHETIC. Every band below is invented, exactly like every bed number in `ward-sites.ts`.
  *  Nobody has measured or checked the real travel time between any WA region and any hospital in
  *  this table, and no value here was chosen to resemble one — the pairs recorded were chosen to

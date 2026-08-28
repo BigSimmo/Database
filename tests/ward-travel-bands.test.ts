@@ -17,7 +17,7 @@ import {
 import { HOME_REGIONS, type HomeRegion, type Referral, type Unit } from "../src/components/ward-management/ward-model";
 import { referrals } from "../src/components/ward-management/ward-movements";
 import { wardSites } from "../src/components/ward-management/ward-sites";
-import { SYNTHETIC_TRAVEL_BANDS } from "../src/components/ward-management/ward-travel-bands";
+import { SYNTHETIC_TRAVEL_BANDS, TRAVEL_BANDS_ARE_INVENTED } from "../src/components/ward-management/ward-travel-bands";
 
 /**
  * Phase 8 Task 1. What this file may and may not assert, because getting that boundary wrong is
@@ -70,6 +70,15 @@ const UNRECORDED_PAIRS: { region: HomeRegion; siteCode: string }[] = HOME_REGION
 const COMPLETELY_MAPPED_REGIONS: HomeRegion[] = HOME_REGIONS.filter((region) =>
   SITE_CODES.every((siteCode) => SYNTHETIC_TRAVEL_BANDS[region]?.[siteCode] !== undefined),
 );
+
+/**
+ * The strict completeness guard runs only while the bands are marked invented. Its title carries
+ * the reason either way, so a skipped run says so in the reporter rather than simply vanishing —
+ * a guard nobody notices has gone is not a guard.
+ */
+const COMPLETENESS_GUARD_TITLE = TRAVEL_BANDS_ARE_INVENTED
+  ? "records no home region at every site, while the bands are marked invented"
+  : "SKIPPED — no completeness guard: TRAVEL_BANDS_ARE_INVENTED is false, so the bands are no longer marked invented";
 
 const WARD_DIR = join(process.cwd(), "src", "components", "ward-management");
 const MODULE_FILES = ["ward-distance.ts", "ward-travel-bands.ts"];
@@ -200,19 +209,32 @@ describe("travel bands", () => {
     }
   });
 
-  it("leaves the table deliberately incomplete, with no home region mapped at every site", () => {
-    // A missing pair is a first-class answer, and a suspiciously complete band table is a review
-    // finding rather than thoroughness — filling a gap is exactly the pressure that sends an
-    // author to a map. Two claims: gaps genuinely exist, and no single region has been completed.
+  it.skipIf(!TRAVEL_BANDS_ARE_INVENTED)(COMPLETENESS_GUARD_TITLE, () => {
+    // THE claim that closes "the table is deliberately incomplete". It stands alone, in its own
+    // test, and first in the file's ordering of this property, because the companion claim below
+    // ("at least one pair is unrecorded") is mathematically near-vacuous — a hundred and fifty-odd
+    // gaps against zero — and would mask this one if they shared a body.
     //
-    // The second is the one with teeth, and it is deliberately strict. If real, checked travel
-    // times are ever measured for every site in a region, this test SHOULD fail: completing a
-    // region is a governance moment that deserves a deliberate decision, not a silent green run.
-    expect(UNRECORDED_PAIRS.length, "every possible pair is recorded — the table is not sparse").toBeGreaterThan(0);
+    // A suspiciously complete table of INVENTED values is how a placeholder starts reading as a
+    // checked fact: filling a gap is exactly the pressure that sends an author to a map.
+    //
+    // It is gated on `TRAVEL_BANDS_ARE_INVENTED` rather than written as an unconditional rule,
+    // and the reason is the incentive, not the red. Nothing about the table's shape distinguishes
+    // an invented fill-in from a measured one, so an unconditional version would eventually fire
+    // on somebody entering REAL travel times — on a test named for leaving the table incomplete.
+    // The natural way to get back to green would be to not record the real data. A test that
+    // pressures somebody into withholding checked data is worse than the fill-in it guards
+    // against. The flag makes that moment a deliberate flag flip instead of a mystifying failure.
     expect(COMPLETELY_MAPPED_REGIONS, "a home region is recorded at every site in the network").toEqual([]);
+  });
 
-    // The gaps are gaps in the lookup too, not merely in the literal: nothing invents a band for
-    // an unrecorded pair on the way out.
+  it("reads every unrecorded pair as a gap, never as a band", () => {
+    // The gaps are gaps in the LOOKUP, not merely in the literal: nothing invents a band for an
+    // unrecorded pair on the way out. The length check is a non-vacuity precondition for the loop
+    // beneath it — proof that it iterates at all — and is not doing the work of the guard above.
+    expect(UNRECORDED_PAIRS.length, "the fixture records every possible pair, so this loop is empty").toBeGreaterThan(
+      0,
+    );
     for (const pair of UNRECORDED_PAIRS) {
       expect(travelBand(pair.region, pair.siteCode), `${pair.region} to ${pair.siteCode} must read as a gap`).toBe(
         undefined,
