@@ -13,7 +13,7 @@
  *
  * This module is plain string data with no React and no client code, so the
  * tools catalogue can name the workspace's front door without pulling any of
- * the workspace itself into the Clinical KB dashboard's bundle.
+ * the workspace itself into the PsychSift dashboard's bundle.
  */
 
 export const CARING_CONTACTS_BASE = "/caring-contacts" as const;

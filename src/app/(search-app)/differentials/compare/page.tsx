@@ -12,7 +12,7 @@ import {
 } from "@/lib/differentials";
 
 export const metadata: Metadata = {
-  title: "Compare differentials | Clinical KB",
+  title: "Compare differentials | PsychSift",
   description: "Compare selected differential diagnoses side by side with safety and bedside context.",
 };
 

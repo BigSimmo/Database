@@ -91,7 +91,7 @@ describe("Database skill catalog", () => {
       Codex: 43,
       Claude: 8,
       Cursor: 15,
-      "Clinical KB plugin": 1,
+      "PsychSift plugin": 1,
     });
   });
 

@@ -21,8 +21,15 @@ export const BRAND_VIEWBOX = "0 0 512 512";
 /** Rounded tile: a corner radius of 3/16 of the side. */
 export const BRAND_TILE = { x: 0, y: 0, size: 512, rx: 96 } as const;
 
-/** Places the 100-unit glyph inside the tile, centred on its ink bounding box. */
+/** Places the 100-unit glyph inside the tile, centred on its ink bounding box,
+ *  at 80% of the tile height so the rounded corners keep their margin. */
 export const BRAND_GLYPH_TRANSFORM = "translate(111.2867 51.2) scale(4.0804)";
+
+/** The same glyph with no tile behind it, scaled so its ink fills the box top to
+ *  bottom. Used by the in-app mark, where the symbol stands on the page ground
+ *  and the surrounding layout — not a tile — provides the breathing room. The
+ *  mark therefore occupies exactly the slot the tiled version used to. */
+export const BRAND_GLYPH_TRANSFORM_BARE = "translate(75.1084 0) scale(5.1006)";
 
 /** The upper stroke. Four arcs and the straight cut, meeting at two cusps. */
 export const BRAND_STROKE_PATH =
@@ -43,15 +50,20 @@ export const BRAND_COUNTER_TRANSFORM = "translate(55.1029 100.3813) scale(-1.07)
 /** The settled point. */
 export const BRAND_POINT = { cx: 60.4716, cy: 17.3581, r: 10.4586 } as const;
 
-/** Brand colours per theme. These mirror --clinical-accent and
- *  --clinical-accent-contrast per theme in globals.css. They cannot read the
- *  tokens (the favicon and the generated PNG icon routes render outside any
- *  stylesheet), so they must be re-derived by hand whenever the accent moves —
- *  then `npm run brand:update` regenerates app/icon.svg, which
- *  `npm run brand:check` verifies in verify:cheap, and the design-token
+/** Brand colours per theme. The symbol carries the colour and the ground stays
+ *  out of its way: `ink` mirrors --clinical-accent, and `tile` mirrors the page
+ *  ground it sits on (--surface-raised). So on a white page the mark reads as
+ *  the bare symbol with no box around it, which is how it is meant to be seen;
+ *  the tile exists only because a .ico and a raster app icon have no
+ *  transparency to fall back on and must paint some ground.
+ *
+ *  These cannot read the tokens (the favicon and the generated PNG icon routes
+ *  render outside any stylesheet), so they must be re-derived by hand whenever
+ *  the accent moves — then `npm run brand:update` regenerates app/icon.svg,
+ *  which `npm run brand:check` verifies in verify:cheap, and the design-token
  *  contract test fails if they ever disagree with the token. */
-export const BRAND_LIGHT = { tile: "#1d6fb8", ink: "#ffffff" } as const;
-export const BRAND_DARK = { tile: "#74bdf0", ink: "#08203a" } as const;
+export const BRAND_LIGHT = { tile: "#ffffff", ink: "#1d6fb8" } as const;
+export const BRAND_DARK = { tile: "#171b1e", ink: "#74bdf0" } as const;
 
 export type BrandColors = { tile: string; ink: string };
 

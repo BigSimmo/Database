@@ -604,7 +604,7 @@ describe("the workspace schema", () => {
     });
   }
 
-  it("keeps every caring-contact migration out of the Clinical KB migration directory", () => {
+  it("keeps every caring-contact migration out of the PsychSift migration directory", () => {
     const caringContactMigrations = readdirSync(path.join(process.cwd(), "caring-contacts", "supabase", "migrations"));
     expect(caringContactMigrations).toContain("0003_caring_contacts_workspace.sql");
     const repositoryMigrations = readdirSync(path.join(process.cwd(), "supabase", "migrations"));

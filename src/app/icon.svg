@@ -1,10 +1,10 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <style>
-    .tile { fill: #1d6fb8; }
-    .ink { fill: #ffffff; }
+    .tile { fill: #ffffff; }
+    .ink { fill: #1d6fb8; }
     @media (prefers-color-scheme: dark) {
-      .tile { fill: #74bdf0; }
-      .ink { fill: #08203a; }
+      .tile { fill: #171b1e; }
+      .ink { fill: #74bdf0; }
     }
   </style>
   <rect class="tile" x="0" y="0" width="512" height="512" rx="96" />

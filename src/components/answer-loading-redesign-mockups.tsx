@@ -860,7 +860,7 @@ export function AnswerLoadingRedesignMockupsPage() {
               <Search aria-hidden="true" className="h-4 w-4" />
             </span>
             <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              Clinical KB · answer page · the wait
+              PsychSift · answer page · the wait
             </p>
             <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--success-soft)] px-2 text-3xs font-semibold text-[color:var(--success)]">
               Direction B shipped

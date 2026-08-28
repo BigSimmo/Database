@@ -10,13 +10,13 @@ export const repositorySkillSurfaces = [
   { name: "Codex", root: skillsRoot },
   { name: "Claude", root: path.join(repositoryRoot, ".claude", "skills") },
   { name: "Cursor", root: path.join(repositoryRoot, ".cursor", "skills") },
-  { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
+  { name: "PsychSift plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
 ];
 export const expectedRepositorySkillSurfaceCounts = {
   Codex: 43,
   Claude: 8,
   Cursor: 15,
-  "Clinical KB plugin": 1,
+  "PsychSift plugin": 1,
 };
 
 function wordCount(value) {

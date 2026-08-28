@@ -167,7 +167,7 @@ async function mockStressData(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-clinical-kb",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -341,7 +341,7 @@ async function openScopeControl(page: Page) {
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB long-content stress coverage", () => {
+test.describe("PsychSift long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
     // Scope opens in a sheet below lg; 1000px keeps the stress path stable on desktop.

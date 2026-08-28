@@ -2281,7 +2281,7 @@ export function MasterSearchHeader({
               <BrandMark className="h-10 w-10" />
               <span className="min-w-0">
                 <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
-                  Clinical KB
+                  PsychSift
                 </span>
                 <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
                   Source-backed clinical search

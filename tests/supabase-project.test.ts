@@ -66,7 +66,7 @@ describe("Supabase project guard", () => {
   const stagingProject = {
     url: `https://${stagingRef}.supabase.co`,
     ref: stagingRef,
-    name: "Clinical KB Staging",
+    name: "PsychSift Staging",
   };
 
   it("accepts an explicitly declared staging project", () => {
@@ -108,7 +108,7 @@ describe("Supabase project guard", () => {
     const check = checkSupabaseProjectConfig({
       NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
       SUPABASE_STAGING_PROJECT_REF: expectedSupabaseProject.ref,
-      SUPABASE_STAGING_PROJECT_NAME: "Clinical KB Staging",
+      SUPABASE_STAGING_PROJECT_NAME: "PsychSift Staging",
     });
 
     expect(check.status).toBe("mismatch");

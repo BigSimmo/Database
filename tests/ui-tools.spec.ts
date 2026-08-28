@@ -104,7 +104,7 @@ async function mockAnswerDashboardApi(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -454,7 +454,7 @@ async function expectVerticalSeparation(page: Page, upperSelector: string, lower
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB tools directory and legacy launcher", () => {
+test.describe("PsychSift tools directory and legacy launcher", () => {
   test.describe.configure({ timeout: 60_000 });
 
   for (const viewport of [
@@ -513,7 +513,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
         await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(page.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
@@ -530,12 +530,9 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
+    await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute(
-      "href",
-      "/?mode=answer",
-    );
+    await expect(results.getByRole("link", { name: "Open PsychSift Search" })).toHaveAttribute("href", "/?mode=answer");
     await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
       "href",
       "/medications",
@@ -546,7 +543,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
     const categories = results.getByRole("radiogroup", { name: "Tool category" });
     await categories.getByRole("radio", { name: /Treat/ }).click();
-    await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" })).toHaveCount(0);
+    await expect(results.getByRole("heading", { level: 2, name: "PsychSift Search" })).toHaveCount(0);
     await categories.getByRole("radio", { name: /All tools/ }).click();
 
     await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
@@ -638,7 +635,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Tool results" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "PsychSift Search" }).first()).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
@@ -660,7 +657,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       ["Services", "/services"],
       ["Forms", "/forms"],
       ["Saved workflows", "/favourites"],
-      ["Clinical KB Search", "/?mode=answer"],
+      ["PsychSift Search", "/?mode=answer"],
     ] as const) {
       const detailsButton = page.getByRole("button", { name: `View details for ${title}` });
       await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
@@ -721,7 +718,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     const searchInput = visibleGlobalSearchInput(page);
     const sharedHomeBrand = page.getByTestId("shared-home-brand");
     await expect(sharedHomeBrand).toBeVisible();
-    await expect(sharedHomeBrand).toContainText("Clinical KB");
+    await expect(sharedHomeBrand).toContainText("PsychSift");
     await expect(sharedHomeBrand).toContainText("Source-backed clinical search");
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Answers" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-sparkles\b/);
@@ -742,7 +739,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(sharedHome).toBeVisible();
     await expect(sharedHome.getByRole("heading", { level: 2, name: "Clinical Services" })).toBeVisible();
     await expect(sharedHome.locator(".mode-home-icon svg")).toHaveClass(/\blucide-route\b/);
-    await expect(sharedHomeBrand).toContainText("Clinical KB");
+    await expect(sharedHomeBrand).toContainText("PsychSift");
     await expect(page.getByText("Services Navigator", { exact: true })).toHaveCount(0);
     await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
@@ -2846,7 +2843,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
   });
 });
 
-test.describe("Clinical KB service detail page", () => {
+test.describe("PsychSift service detail page", () => {
   test.describe.configure({ timeout: 60_000 });
 
   for (const viewport of [
@@ -3213,7 +3210,7 @@ test.describe("Responsive layout guards", () => {
     const patientCopyPanel = page.locator("[data-safety-plan-copy]");
     await expect(patientCopyPanel).toHaveCount(1);
     await expect(
-      patientCopyPanel.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+      patientCopyPanel.getByText(/Copying, printing, or saving a PDF moves the plan outside PsychSift/i),
     ).toBeVisible();
 
     await page.evaluate(() => {

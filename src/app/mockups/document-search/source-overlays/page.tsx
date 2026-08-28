@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SourceOverlayRedesignMockups } from "@/components/source-overlay-redesign-mockups";
 
 export const metadata: Metadata = {
-  title: "Source Overlay Redesign Mockups - Clinical KB",
+  title: "Source Overlay Redesign Mockups - PsychSift",
   description: "Document scope and source library overlay redesign mockups for desktop and phone.",
 };
 

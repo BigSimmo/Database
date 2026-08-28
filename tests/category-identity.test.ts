@@ -57,7 +57,7 @@ describe("category identity registry", () => {
     expect(source).toContain("bg-[color:var(--cat-soft)]");
     expect(source).toContain("grid-cols-1");
     expect(source).toContain("Also matches");
-    expect(source).not.toContain("Across Clinical KB");
+    expect(source).not.toContain("Across PsychSift");
   });
 
   it("tints library chips from APP_MODE_ACCENT", () => {

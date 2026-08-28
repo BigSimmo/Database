@@ -81,7 +81,7 @@ describe("caring-contacts domain isolation", () => {
     expect(offences).toEqual([]);
   });
 
-  it("keeps caring-contact migrations out of the Clinical KB migration directory", () => {
+  it("keeps caring-contact migrations out of the PsychSift migration directory", () => {
     const clinicalKbMigrations = path.join(process.cwd(), "supabase", "migrations");
     const strays = readdirSync(clinicalKbMigrations).filter((name) => /caring[-_]?contact/i.test(name));
     expect(strays).toEqual([]);

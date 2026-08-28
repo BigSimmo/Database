@@ -61,8 +61,8 @@ export type ToolCatalogRecord = {
 export const toolCatalogRecords: ToolCatalogRecord[] = [
   {
     id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    mobileTitle: "Clinical KB",
+    title: "PsychSift Search",
+    mobileTitle: "PsychSift",
     description: "Ask source-backed clinical questions and move straight to evidence.",
     bestFor: "Quick answers and guidance",
     detail: "Ask source-backed clinical questions and move straight to evidence.",
