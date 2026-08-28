@@ -393,3 +393,72 @@ No change: a bed someone is coming back to is not a bed you can fill.
 leave bed, and `capacityBreakdown` counts the usable ones in `leaveUsable`. **Outstanding question
 for the owner:** who decides a leave bed is usable, and on what basis? That flag is the one route by
 which a bed someone is returning to can reach the available figure.
+
+## The three lists (OWNER-APPROVED, 2026-08-28 — proposed by the session, accepted by the owner)
+
+**Provenance, stated precisely because it matters.** These words were **proposed by this session and
+approved by the product owner**. They are NOT clinician-supplied vocabulary, and no charge nurse has
+seen them. That distinction is recorded here so a later reader does not mistake an approved proposal
+for a validated one — and so the clinician check, when it happens, knows to ask about these too.
+
+The owner's own instruction stands: whatever a ward actually says goes in **verbatim**. If a
+clinician offers different words, theirs replace these.
+
+### List 1 — why a DECIDED discharge is stuck (`BED_RELEASE_BLOCKERS`)
+
+The six Phase 5 reasons are kept unchanged, and **one is added**:
+
+- Awaiting clean
+- Awaiting pharmacy
+- Awaiting placement confirmation
+- Awaiting service coordination
+- Awaiting accommodation
+- Awaiting transport
+- **Awaiting family or carer arrangement** ← added
+
+**Why the addition overturns a principled exclusion.** Phase 5 deliberately excluded family
+availability on the grounds that it describes the person rather than the bed. That reasoning is
+sound in general and is kept everywhere else. Here it fails on its own terms: a discharge held up
+because nobody can collect someone, or because the family need a day's notice, **is** a real reason
+a bed is not coming free. Excluding it does not stop it happening — it makes a ward choose "awaiting
+service coordination" instead, and the recorded reason becomes wrong. A wrong reason is worse than a
+blunt one.
+
+Still excluded, and the Phase 5 reasoning still holds for these: guardianship and financial
+arrangements.
+
+### List 2 — what a PREDICTED discharge is waiting on (replaces `BED_RELEASE_CONFIDENCE_LEVELS`)
+
+This list did not exist. It replaces `likely` / `possible` (Q1).
+
+- Awaiting ward round
+- Awaiting family or carer agreement
+- Awaiting accommodation
+- Awaiting a community team to accept
+- **Nothing outstanding**
+
+**"Nothing outstanding" carries more weight than it looks.** It is a predicted discharge with no
+obstacle at all — the closest thing to today's "likely", and the one a coordinator can most safely
+plan against. Without it the list would force a ward to name an obstacle that does not exist.
+
+**This is the list most in need of a clinician's words.** It was reasoned about from shape; the owner
+approved it, but he is not the one who holds up a discharge waiting on a ward round.
+
+### List 3 — what a RELEASED bed is being made ready for (`BED_PREPARATION_NOTES`)
+
+- Being cleaned
+- Awaiting maintenance or repair
+
+Cleaning is the owner's own example. Maintenance is the other thing expected to take a bed out of use
+briefly without anything clinical changing.
+
+**Unchanged and absolute:** a bed carrying a preparation note is **still offered, still counts in
+`availableNow`, and still appears in every figure.** The note must never gate allocation — the pull
+of the next patient takes hours anyway, which is the owner's own clinical reasoning for Q4.
+
+### One rule that binds all three
+
+These lists appear on a screen a coordinator reads as fact. **The wording ships verbatim.** No agent
+tidies, shortens, sentence-cases or "improves" any entry, and no agent adds an entry. Adding one is a
+recorded product decision, never an implementer's convenience — the same rule `ward-change-reasons.ts`
+has carried since Phase 5.
