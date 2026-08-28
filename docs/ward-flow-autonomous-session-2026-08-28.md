@@ -185,6 +185,34 @@ Appended as they arise. These are the ones that need a fact neither of us has.
   finer grouping; collapse to the four you approved; or keep ten for travel time and show only the
   coarse four anywhere a region appears beside a person. **I have changed nothing.**
 
+- **Five freshness windows nobody recorded a source for, and the guard cannot see them.** Phase 7's
+  final review found the match view calling a bed "stale" while the morning page calls the same ward
+  "confirmed". Asked to investigate rather than change it, the fix round found three things worth
+  your attention:
+
+  The word "stale" rests on a threshold, and there is no single threshold — there are **five**,
+  hand-written into the site fixture per figure: 15 and 20 minutes on the emergency-department feed
+  figures, and 60, 90 and 120 minutes on the ward figures. **None of them has any record of who chose
+  it.**
+
+  Worse, the guard that exists to catch exactly this **structurally cannot see them.** It inspects
+  exported declarations in one file; these are properties inside object literals in a different file.
+  So the mechanism that was built to stop an unrecorded number entering the model reports clean while
+  five unrecorded numbers sit outside its reach.
+
+  To be fair to it: these are bed-data freshness windows, not Mental Health Act figures, so no legal
+  prohibition has been broken. But they are the same _shape_ as the Form 1A deadline you removed — a
+  number nobody can trace, doing work on a clinical screen.
+
+  There is also a plain inconsistency underneath: the morning page's freshness roll-up never reads
+  those windows at all, which is why it can say "23 of 23 wards confirmed" about a ward the match
+  view is refusing as stale. The numbers agree; only the language differs.
+
+  **Nothing has been changed.** Three ways it could go, and it is yours: record where the five windows
+  came from and keep them; replace them with one window you choose and label it as the prototype's
+  own; or drop the word "stale" from the screen and state the elapsed time only. **I did not choose,
+  because closing it alters what a coordinator is told on a clinical surface either way.**
+
 ## 6. If this session is interrupted
 
 Trust this file and `git log` over any recollection. The execution ledgers name every commit. Resume at
