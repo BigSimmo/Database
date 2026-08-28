@@ -58,6 +58,95 @@ the quotations in this plan** — it has been overtaken once already and may hav
 
 ---
 
+---
+
+## ADDENDUM, 2026-08-29 — parallel execution, four owner decisions, and three lessons from Phase 8
+
+### Branch and scope
+
+This work now runs **simultaneously with Phase 8**, on branch `claude/ward-flow-ward-board`, cut
+from Phase 8's tip `15bdddda1`, in the pre-installed worktree
+`D:\Repos\Database\.claude\worktrees
+ostalgic-vaughan-7ee231`. No new worktree was created.
+
+**Only the logic layer runs in parallel.** Six tasks — 1, 3, 4, 5, 6, 7 — every one creating files
+that do not exist on Phase 8's branch. Everything else waits.
+
+| Runs now | Waits for Phase 8 |
+| -------- | ----------------- |
+| 1 (occupancy record), 3 (seed), 4 (discharge dates), 5 (board figures), 6 (teams), 7 (statistics) | 2 (events/reducer/provider), 8–18 (components, page, nav, retiring the ward screen, journey, gate) |
+
+**The rule that makes it safe: never edit a file that already exists on Phase 8's branch.** Read
+from `ward-model.ts`, `ward-sites.ts`, `ward-bed-availability.ts` and `ward-distance.ts` as much as
+needed; write to none of them. Task 1 therefore puts the occupancy record **in its own new file**,
+not in `ward-model.ts` — which is also better structure, since that file is already large.
+
+**Merge Phase 8's branch into this one at every task boundary**, not at the end. Phase 8 has changed
+the shared model twice this week; drift is caught cheaply at each step and expensively at the end.
+
+### The four owner decisions, 2026-08-29
+
+1. **ONE record, not two.** The occupancy record is the single answer to "who is in this bed, since
+   when, and how far from home". It serves the ward board **and** Phase 8's out-of-area ledger.
+   Phase 8's `Referral.arrivedAt` (added in its Task 2, `ef4af1c85`) is superseded by it — one commit
+   old, cheap to unwind. **Phase 8 must be told**; until it is, do not assume its Tasks 3 and 5 read
+   from this record.
+2. **Ten WA regions stay.** Not the coarser metro/country grouping. Unchanged from what is built.
+3. **`sex` goes on the occupancy record** — confirmed, not merely unopposed. The ward's typed
+   male/female counts become derived, which is the point.
+4. **Parallel work approved**, on its own branch, logic layer only.
+
+Still outstanding: **the receiving-time options at the pull (D15).** Task 15 is not in this parallel
+set, so nothing is blocked.
+
+### Three lessons from Phase 8's ledger — all BINDING here
+
+**1. `mutate.sh` cannot fail, and this plan told you to use it.**
+
+`.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh` lines 29–30 copy the backup
+over the source and then `diff` the backup against that copy — comparing a file with itself. Its
+"restore verified byte-identical" line proves only that `cp` succeeded. **A check that cannot fail,
+inside the tool every task uses to prove its checks can fail.** Its line-27 "sed matched nothing"
+guard is sound and unaffected.
+
+**Every mutation in this plan must instead:** record `git hash-object` for the file before mutating,
+restore, re-record, compare the two blob ids, **and** confirm `git status --porcelain` is empty.
+That last part is not belt-and-braces: a single-file comparison cannot catch a `sed` that also
+matched in a second file, which happened on this branch once and broke 33 tests nobody had
+considered. Ignore every `mutate.sh` invocation written in Tasks 1 and 2 above.
+
+**2. An assertion that searches for a satisfying example is not an invariant.**
+
+Phase 8's most valuable finding: its "distance is not a gate" test **survived a real distance gate**,
+because it searched the fixture for an out-of-area bed that accepts a referral and simply found a
+different pair the mutant still allowed. It passed as soon as *any* example existed — including one
+the defect itself permitted. It is now stated as verdict invariance under home region, which no
+distance gate survives under any name.
+
+**Restate the behavioural tests in this plan as invariants**, not searches. Specifically:
+
+- **The preparation-note trap (Task 8):** assert that a unit's available count is **invariant** under
+  adding a preparation note to one of its beds. Do not search for a bed that is still offered — that
+  passes the moment any bed is.
+- **The blocked cross-cut (Task 4):** assert the confirmed count is **invariant** under blocking a
+  confirmed release, and that the blocked count rises. Not "find a blocked release that is still
+  counted".
+- **The sex constraint (Task 5):** assert the accepting-bed count is **invariant** under changing the
+  referral's sex when every bed is undesignated. Not "find an undesignated bed that accepts a man".
+- **Fixture-coverage assertions in Task 3 are exempt** — `some(...)` is correct there, because the
+  claim genuinely is "the fixture contains such a case".
+
+**3. One exported function, never two components agreeing** (Phase 8 ruling 20).
+
+"How many of these beds accept this person" is a **verdict, not arithmetic**. Two surfaces will show
+it — the ward board's headline and its bed grid — and two components each deciding what "accepts"
+means is how this project ended up with three screens holding one label and two of them disagreeing.
+`headlineAvailable` and `constraintSentence` (Task 5) must be the single source for both, and the
+count must derive from the **same verdict the tiles render**, structurally rather than
+coincidentally. It counts what is present, never what is missing; empty groups return zero and are
+still rendered.
+
+
 ## Speed model — how this phase runs fast without weakening anything
 
 The single biggest cost here is not thinking, it is **lock contention**. Lint, typecheck, full Vitest, build and Playwright serialise across every one of the 221 worktrees on this machine. A task that runs `npm run lint` costs the whole phase twenty minutes and proves nothing a focused run did not.
