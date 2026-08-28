@@ -48,7 +48,7 @@ export const BRAND_STROKE_PATH_SMALL =
 export const BRAND_COUNTER_TRANSFORM = "translate(55.1029 100.3813) scale(-1.07)";
 
 /** The settled point. */
-export const BRAND_POINT = { cx: 60.4716, cy: 17.3581, r: 10.4586 } as const;
+export const BRAND_POINT = { cx: 60.4716, cy: 24.3581, r: 10.4586 } as const;
 
 /** Brand colours per theme. The symbol carries the colour and the ground stays
  *  out of its way: `ink` mirrors --clinical-accent, and `tile` mirrors the page

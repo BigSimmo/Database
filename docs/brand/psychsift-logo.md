@@ -157,12 +157,26 @@ approximately — true is what fixes the cut's position; see **The middle line**
 
 ### The point
 
-A circle of radius **10.4586** centred at **(60.4716, 17.3581)**.
+A circle of radius **10.4586** centred at **(60.4716, 24.3581)**.
 
-Measured against the cut, its centre sits **43.95 units along** the cut from the cut's midpoint and
-**14.90 units off** it, on the lower stroke's side. Its nearest approach to the S is 13.65 units —
-a little over three times the width of the cut, which is what keeps it reading as a separate
-particle rather than part of the letter.
+Measured against the cut, its centre sits **37.82 units along** the cut from the cut's midpoint and
+**18.27 units off** it, on the lower stroke's side. Its nearest approach to the upper stroke is
+18.46 units and to the lower stroke 14.95 — both several times the width of the cut, which is what
+keeps it reading as a separate particle rather than part of the letter.
+
+It sat 7 units higher, at (60.4716, 17.3581), until 2026-08-28. The problem was not the size of the
+gap in the abstract but what the gap was measured to: the nearest point on the entire S was the
+upper stroke's sharp tip, and that tip aimed directly at the circle from 13.65 units away — 2.2 px
+at a 16 px icon, which antialiasing closes. A sharp point aimed at a circle reads as contact even
+when the numbers say otherwise. Dropping the circle 7 units opens that approach to 18.46 units
+(+35%) while the lower stroke, a broad flank rather than a point, still keeps 14.95. It also moves
+the circle from 17% to 24% of the glyph's height, which is where the bowl of a **P** closes back
+onto its stem — so the mark now carries a hint of the P in PsychSift alongside the S, which it did
+not when the circle sat level with the tip.
+
+The move is purely vertical, and deliberately so: the circle defines the glyph's right edge, so any
+horizontal move would change the ink bounding box and with it every placement, lockup layout and
+maskable safe-zone derived from it. As drawn, the bounding box is unchanged to four decimal places.
 
 An earlier draft of these files had it at (58.9234, 16.5279) with radius 10.2165. That was a
 measurement error, not a decision: 1.8 units in and 2.3% small, which crowded the S's shoulder and
