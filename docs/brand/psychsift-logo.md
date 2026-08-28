@@ -2,7 +2,7 @@
 
 The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
 circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 922 bytes.
+size, and the primary file is 850 bytes.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -26,10 +26,11 @@ enlargement and must not be used.
 The geometry here was measured from a high-resolution view of the original, arc by arc, at the
 **50% level of its anti-aliased edges** — the one place on a blurred edge that is not biased by the
 blur. Each arc was then fitted on its own, so its residual could be inspected rather than hidden in
-an aggregate: per-arc RMS runs from 0.05 to 0.14 units in 100. The finished mark covers 94.4% of
-the original by area (intersection over union), against 84.8% for the previous draft of these files.
+an aggregate: per-arc RMS runs from 0.05 to 0.14 units in 100. The finished mark covers 94.7% of
+the original by area (intersection over union), against 94.1% for the previous cut and 84.8% for
+the draft before that.
 
-Two earlier drafts got this wrong in instructive ways, and both errors came from trusting a
+Three earlier drafts got this wrong in instructive ways, and every error came from trusting a
 measurement that the source could not actually support.
 
 **The terminals are sharp.** At the size the original was first sampled, a sharp point blurs into a
@@ -44,52 +45,98 @@ reads heavy. Fitting by nearest-point distance had hidden this, because every po
 wrong outline still sits close to _some_ point of the right one. Comparing coverage against the
 original's grey levels showed it immediately.
 
+**The middle line is one system, not two.** The third draft drew each stroke's facing edge from
+its own circle: the upper stroke's curved one way, the lower stroke's the other. Two arcs bowing
+apart open a lens-shaped gap between them, and the channel swelled from 5.4 units at its ends to
+8.6 in the middle — a visible dip in what should read as a single clean line. Measuring the
+original across the channel settles it: its gap is **4.75 units wide with a standard deviation of
+0.25**, which is to say constant. Both of its edges are arcs of the same circle, one inside the
+other. The mark is now built that way, and its gap measures 4.75 with a standard deviation of
+0.10 — steadier than the original it was taken from.
+
 Two things were corrected, and one apparent oddity was kept.
 
 **Corrected.** The glyph is centred in its tile; the original sat hard against the right edge. And
 every junction between arcs is tangent-continuous, so enlarging the mark reveals no kink.
 
-**Kept.** The second stroke is drawn **7% larger** than the first. Forcing the two to be identical
-measurably worsens the match and opens up the channel between them, which is the tension the mark
-depends on. A further 3.5° rotation improves the fit by another half a percent; it was left out
-deliberately, because an arbitrary tilt is not something a logo specification should carry.
+**Kept.** The second stroke's outer silhouette is drawn **7% larger** than the first's. Forcing the
+two to be identical measurably worsens the match and opens up the channel between them, which is the
+tension the mark depends on. A further 3.5° rotation improves the fit by another half a percent; it
+was left out deliberately, because an arbitrary tilt is not something a logo specification should
+carry.
 
 ## Construction
 
 Work in **glyph units**: the S is exactly 100 units tall and 55.10 wide, with its top-left corner
 at the origin.
 
-### The master stroke
+### The middle line
 
-Five circular arcs, meeting at three tangent points and two sharp cusps:
+The gap between the two strokes is defined **once**, by a single circle:
+
+|                            |                    |
+| -------------------------- | ------------------ |
+| Centre                     | (89.7175, 83.5939) |
+| Upper stroke's facing edge | radius 74.8165     |
+| Lower stroke's facing edge | radius 70.0627     |
+
+Because both edges are arcs of the same centre, the gap is **4.7537 units wide along its whole
+length** and both edges curve the same way. Everything else in the mark is built to meet those two
+arcs tangentially. This is the part to protect: draw the two facing edges from separate circles and
+the gap opens into a lens, which is what the previous cut did.
+
+### The upper stroke
+
+Four circular arcs, meeting at two tangent points and two sharp cusps:
 
 | Arc         | Centre             | Radius  | Role                                             |
 | ----------- | ------------------ | ------- | ------------------------------------------------ |
 | Outer sweep | (29.2009, 29.2009) | 29.2009 | the outer edge, from the head to two-thirds down |
 | Tail-outer  | (51.5937, 16.1418) | 55.1234 | the hook that draws the tail to a point          |
 | Throat      | (44.8724, 20.0286) | 17.7232 | the scoop under the head                         |
-| Elbow       | (29.2867, 33.5044) | 2.8805  | the flick into the tail                          |
-| Tail-inner  | (65.6136, 70.4548) | 48.9362 | the long inner sweep of the tail                 |
+| Blend       | (23.9407, 34.1024) | 7.5     | turns the throat into the facing edge            |
+| Facing edge | (89.7175, 83.5939) | 74.8165 | the upper side of the middle line                |
 
 - **Head cusp** at (41.3675, 2.6554) — outer sweep into throat.
-- **Tail cusp** at (17.8645, 59.7414) — tail-inner into tail-outer.
-- **Tangent points** at (3.9761, 43.9116) outer sweep into tail-outer, (31.4657, 31.6204) throat
-  into elbow, and (31.3061, 35.5585) elbow into tail-inner.
+- **Tail cusp** at (18.6157, 60.3124) — facing edge into tail-outer.
+- **Tangent points** at (3.9761, 43.9116) outer sweep into tail-outer, (30.1646, 29.9176) throat
+  into blend, and (29.9337, 38.6117) blend into facing edge.
 
 The outer sweep is centred at (r, r) for its own radius, so it is tangent to both the top and the
 left edge of the stroke's bounding box. That relationship fell out of the fit rather than being
 imposed, and it is the quickest way to check a redraw.
 
-### The second stroke
+The blend exists because the throat and the facing edge are both concave and too far apart to meet
+directly. The original resolved that with a 2.88-unit flick, which is tight enough to read as a
+corner; 7.5 units reads as a curve. It is the one place in the mark where the edge turns over
+twice, and it is unavoidable.
 
-The same path, transformed:
+### The lower stroke
+
+The outer silhouette is the upper stroke's, point-reflected and enlarged 7%:
 
 ```
 translate(55.1029 100.3813) scale(-1.07)
 ```
 
-A negative uniform scale is a 180° rotation and a 7% enlargement in one step. At their closest the
-two strokes pass **4.4 units** apart; that narrow diagonal channel is the whole character of the mark.
+A negative uniform scale is a 180° rotation and a 7% enlargement in one step. That gives:
+
+| Arc         | Centre             | Radius  | Role                                  |
+| ----------- | ------------------ | ------- | ------------------------------------- |
+| Outer sweep | (23.8579, 69.1363) | 31.2450 | the outer edge                        |
+| Tail-outer  | (−0.1024, 83.1096) | 58.9820 | the hook into the tail                |
+| Throat      | (7.0894, 78.9507)  | 18.9638 | the scoop under the head              |
+| Blend       | (34.7205, 64.9764) | 12.0    | turns the throat into the facing edge |
+| Facing edge | (89.7175, 83.5939) | 70.0627 | the lower side of the middle line     |
+
+- **Head cusp** at (10.8397, 97.5400) — outer sweep into throat.
+- **Tail cusp** at (37.0958, 37.3365) — facing edge into tail-outer.
+- **Tangent points** at (50.8485, 53.3959) outer sweep into tail-outer, (24.0121, 70.3921) throat
+  into blend, and (23.3541, 61.1286) blend into facing edge.
+
+The facing edge is **not** the reflection of the upper stroke's — it is the inner arc of the same
+channel circle. That is the whole point of the change, and it is why the lower stroke's inner edge
+has to be listed rather than derived.
 
 ### The point
 
@@ -106,9 +153,10 @@ heavy S off to the left.
 
 ### Small sizes
 
-At 32 px and below the 4.4-unit channel closes up. `psychsift-favicon.svg` is a separate optical
-cut for that range: the second stroke's origin moves out by 3 units in both directions, widening
-the channel to 8.5 — nearly double — for a 2% change in the silhouette's proportion. Use it for
+At 32 px and below the 4.75-unit channel closes up. `psychsift-favicon.svg` is a separate optical
+cut for that range: the channel is widened to **7.75 units** by moving each facing edge 1.5 units
+away from the other, and the two arcs are re-solved against the strokes they meet. Because only the
+facing edges move, the outer silhouette is byte-for-byte the one in the primary file. Use it for
 favicons, browser tabs, and anything rendered under 32 px.
 
 ## Colours
