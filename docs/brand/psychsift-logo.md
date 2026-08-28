@@ -249,6 +249,14 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
   When it sits next to the word PsychSift, mark it `aria-hidden` instead so screen readers do not
   say the name twice.
 
+## Settled
+
+**The tail tips.** Both tails end in a clean angled cut at about 81°. A flatter tail hook draws them
+into finer points, closer to the blurry original; that version was drawn, compared and rejected by
+the owner on 2026-08-28. Fine points thin both strokes, they belong with a curved middle line rather
+than a straight one, and they are the first thing to disappear at 16 px. Do not revisit this without
+a reason those three do not already answer.
+
 ## Two things still open
 
 - The brand sheet gives two different taglines: "CLARITY. EVIDENCE. BETTER CARE." in the header and
