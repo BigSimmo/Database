@@ -397,16 +397,39 @@ describe("matching stays independent of the bed-release model", () => {
   // the test still reported green. That is the "check that cannot fail" shape at the one place
   // this phase can least afford it.
   //
-  // Stripping first can only ever reveal MORE imports, never fewer, so it strictly strengthens
-  // every assertion built on it. Nothing else in this contract changed: the identifier list, the
-  // entry points, the non-vacuity floor and every assertion are exactly as they were.
+  // CORRECTED fix round 5 — the claim that stood here was false, and a false reassurance in a
+  // comment is how this codebase acquired an invented Mental Health Act figure. It read
+  // "stripping first can only ever reveal MORE imports, never fewer, so it strictly strengthens
+  // every assertion built on it". The second half is the safe part and remains true; the first
+  // half was not. A scanner that loses track of where it is reveals FEWER imports, not more: a
+  // regex literal containing a quote character used to flip it into string mode permanently, and
+  // every line after that went unscanned. Measured over every file under `src`, that blinded nine
+  // files, one for its last 65 lines. Imports sit above the offending regex in all nine, so no
+  // import was actually lost and this contract was sound in practice — but it was sound by
+  // accident of file layout, not by construction, and the comment claimed otherwise.
+  //
+  // What is true now, and why: the scanner TRACKS regex literals rather than stripping them, and
+  // resynchronises at a newline inside a quoted string or a regex, since neither may contain one.
+  // Where it still cannot be sure, it reports `balanced: false` and the sweep fails loudly rather
+  // than reporting clean over a partial read. Nothing else in this contract changed: the
+  // identifier list, the entry points, the non-vacuity floor and every assertion are as they were.
 
   /** Removes line and block comments while respecting string and template literals, so a module
    *  specifier or a message that merely contains a comment marker is never mistaken for one. */
   function withoutComments(source: string): string {
+    return scanSource(source).text;
+  }
+
+  // Where a `/` may legitimately begin a REGEX LITERAL rather than a division. Bounded to the
+  // trailing few characters so this stays linear over a large file.
+  const REGEX_MAY_FOLLOW =
+    /(^|[([{,;:=!&|?+\-*%~^<>])\s*$|\b(return|typeof|case|in|of|delete|void|instanceof|new|do|else|yield|await)\s+$/;
+
+  function scanSource(source: string): { text: string; balanced: boolean } {
     let out = "";
     let index = 0;
-    let mode: "code" | "line" | "block" | "'" | '"' | "`" = "code";
+    let inCharacterClass = false;
+    let mode: "code" | "line" | "block" | "'" | '"' | "`" | "regex" = "code";
     while (index < source.length) {
       const character = source[index];
       const pair = source.slice(index, index + 2);
@@ -421,7 +444,41 @@ describe("matching stays independent of the bed-release model", () => {
           index += 2;
           continue;
         }
+        // A regex literal is TRACKED, never stripped: its text stays in the output, so this can
+        // only ever scan more than it did, never less. What matters is that a quote character
+        // inside one no longer opens a string that was never there. `answer-claim-marks.ts`
+        // contains a regex holding a backtick, which opened TEMPLATE mode — and a template
+        // legitimately spans newlines, so the newline resynchronisation below could not recover it
+        // and the rest of the file went unscanned.
+        if (character === "/" && REGEX_MAY_FOLLOW.test(out.slice(-12))) {
+          mode = "regex";
+          inCharacterClass = false;
+          out += character;
+          index += 1;
+          continue;
+        }
         if (character === "'" || character === '"' || character === "`") mode = character;
+        out += character;
+        index += 1;
+        continue;
+      }
+      if (mode === "regex") {
+        if (character === "\\") {
+          out += source.slice(index, index + 2);
+          index += 2;
+          continue;
+        }
+        // A regex literal cannot span a raw newline either, so this resynchronises for the same
+        // reason the string branch below does.
+        if (character === "\n") {
+          mode = "code";
+          out += "\n";
+          index += 1;
+          continue;
+        }
+        if (character === "[") inCharacterClass = true;
+        else if (character === "]") inCharacterClass = false;
+        else if (character === "/" && !inCharacterClass) mode = "code";
         out += character;
         index += 1;
         continue;
@@ -443,18 +500,35 @@ describe("matching stays independent of the bed-release model", () => {
         }
         continue;
       }
-      // Inside a string literal: an escape consumes the next character, so an escaped quote
-      // cannot close it early.
+      // Inside a quoted string. The escape is handled FIRST so a line continuation (a backslash
+      // followed by a newline) is consumed as one unit rather than tripping the resynchronisation
+      // below.
       if (character === "\\") {
         out += source.slice(index, index + 2);
         index += 2;
+        continue;
+      }
+      // RESYNCHRONISATION, added fix round 5. A single- or double-quoted literal cannot contain a
+      // raw newline — that is a syntax error in JavaScript — so meeting one means the scanner
+      // opened a string that was never really there and has lost its place. The case that does
+      // this is a REGEX LITERAL containing a quote character, which this scanner does not track:
+      // without the line below, one such regex flips the scanner into string mode permanently and
+      // every line after it goes unscanned. Measured over every file under `src`, that silently
+      // blinded nine files, one of them for its last 65 lines. Template literals legitimately span
+      // newlines, so they are excluded here and are covered by the balance check instead.
+      if (character === "\n" && mode !== "`") {
+        mode = "code";
+        out += "\n";
+        index += 1;
         continue;
       }
       if (character === mode) mode = "code";
       out += character;
       index += 1;
     }
-    return out;
+    // A scan that ends inside a string, a template or a block comment has lost its place, and a
+    // guard that has lost its place must say so rather than report clean over a partial read.
+    return { text: out, balanced: mode === "code" || mode === "line" };
   }
 
   function importStatementsOf(source: string): string[] {
@@ -522,6 +596,24 @@ describe("matching stays independent of the bed-release model", () => {
    * than against `withoutComments` alone, so it pins the behaviour the contract depends on rather
    * than an implementation detail of the helper.
    */
+  it("scans every file in the graph to the end, rather than losing its place part-way", () => {
+    // The companion to the stripper test below. That one proves the scanner sees through a
+    // comment; this one proves it never stops seeing. A scanner that ends a file still believing
+    // it is inside a string has read only part of it, and would report this contract clean over
+    // whatever it never reached — silently, and while green.
+    const entryFiles = [
+      resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
+      resolve(process.cwd(), "src/components/ward-management/ward-referrals.ts"),
+    ];
+    const graph = collectModuleGraph(entryFiles);
+    expect(graph.size, "the graph collapsed — this balance check would prove nothing").toBeGreaterThanOrEqual(5);
+    const desynchronised = [...graph.entries()].filter(([, source]) => !scanSource(source).balanced);
+    expect(
+      desynchronised.map(([file]) => basename(file)),
+      "the comment scanner lost its place inside a file this contract depends on",
+    ).toEqual([]);
+  });
+
   it("sees an import that a comment would otherwise hide from this contract", () => {
     const hiddenByLineComment = [
       "import {",
@@ -566,6 +658,33 @@ describe("matching stays independent of the bed-release model", () => {
       'const url = "https://example.test/a"; ',
     );
     expect(withoutComments("const a = 1; /* block */ const b = 2;")).toBe("const a = 1;  const b = 2;");
+
+    // DIRECTLY PINS THE RESYNCHRONISATION. Regex tracking now handles every case in the real
+    // fixture, so nothing under `src` requires the resynchronisation any more and a mutation
+    // removing it reddened nothing — it was live code with no test. It is the net for a quote the
+    // regex heuristic misjudges, so rather than delete it or leave it unproven it is pinned here
+    // on a synthetic input: a scanner that has opened a string which was never there must recover
+    // at the newline instead of treating every following comment as string content.
+    const strayQuote = [
+      'const broken = "oops',
+      "// hidden; comment",
+      'import { BedRelease } from "./ward-model";',
+    ].join("\n");
+    expect(
+      withoutComments(strayQuote),
+      "the scanner did not recover, so a later comment was read as code",
+    ).not.toContain("hidden");
+    expect(scanSource(strayQuote).balanced, "the scanner ended a recoverable file out of step").toBe(true);
+
+    // PINS THE BALANCE DETECTOR ITSELF. The sweep that applies it can only fail if some file in
+    // its scope actually desynchronises, and no file in the graph does today — so without this
+    // line the detector would be an unfalsifiable check dressed as a guard. An unterminated
+    // template cannot be recovered by the newline rule, because a template legitimately spans
+    // newlines, so it is the honest case for "the scanner finished out of step".
+    expect(
+      scanSource("const a = `unterminated").balanced,
+      "the balance check cannot detect an unbalanced scan, so the sweep using it proves nothing",
+    ).toBe(false);
   });
 
   it("no file reachable from referral matching's own imports mentions the release model", () => {

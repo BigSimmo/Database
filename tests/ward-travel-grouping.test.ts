@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { Admission } from "../src/components/ward-management/ward-admissions";
+import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "../src/components/ward-management/ward-admissions-seed";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -30,7 +31,7 @@ import {
   type OutOfAreaEntry,
   type ReferralCandidate,
 } from "../src/components/ward-management/ward-referrals";
-import { allUnits } from "../src/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 
 /**
  * Phase 8 Task 3. The same boundary `tests/ward-travel-bands.test.ts` sets for itself applies here
@@ -242,6 +243,7 @@ describe("distance groups the list and never gates it", () => {
     // function under test is steered by the defect it is looking for.
     let outOfAreaPairsSwept = 0;
     let outOfAreaPairsAccepted = 0;
+    let pairsRefused = 0;
 
     for (const candidate of allUnits()) {
       for (const shape of shapesFor(candidate)) {
@@ -270,6 +272,7 @@ describe("distance groups the list and never gates it", () => {
           expect(gateFingerprint(entry.verdict)).toEqual(gateFingerprint(reference.verdict));
         }
         for (const entry of swept) {
+          if (!entry.verdict.eligible) pairsRefused += 1;
           if (entry.band === undefined || !OUT_OF_AREA_BANDS.includes(entry.band)) continue;
           outOfAreaPairsSwept += 1;
           if (entry.verdict.eligible) outOfAreaPairsAccepted += 1;
@@ -277,13 +280,32 @@ describe("distance groups the list and never gates it", () => {
       }
     }
 
-    // The invariance above proves nothing unless the sweep really covered out-of-area pairs, and
-    // the claim a coordinator reads — a bed three hours away that accepts this referral still says
-    // so, and still carries its Accept control — needs at least one of them to be accepting.
+    // AN INVARIANCE TEST NEEDS A COMPANION THAT PINS AN ABSOLUTE IN A CASE WHERE THE ANSWERS
+    // SHOULD DIFFER. Invariance proves nothing when everything collapses to one value, and it
+    // collapses in BOTH directions: a network that refuses everybody is perfectly invariant, and
+    // so is a network that accepts everybody — the second is worse, because it makes the two
+    // out-of-area floors below MORE satisfied rather than less. The three floors here are that
+    // companion. Each stands for a distinct property, and none of them is arithmetic about the
+    // others:
+    //
+    //   1. the sweep really reached out-of-area pairs, so "distance does not gate" has a subject;
+    //   2. at least one of those pairs ACCEPTS, so uniform refusal cannot masquerade as
+    //      invariance — and so the claim a coordinator reads is real: a bed three hours away that
+    //      accepts this referral still says so, and still carries its Accept control;
+    //   3. at least one pair REFUSES, so uniform acceptance cannot either. Without this the gates
+    //      could all have been reduced to `true` and every assertion above would still pass.
+    //
+    // Floors rather than absolute counts, deliberately: an exact number here would be brittle
+    // against any fixture change and would start pinning the placeholder band table, which no test
+    // in this file may do. The floor is the weakest statement that still rules the collapse out.
     expect(outOfAreaPairsSwept, "the sweep covered no out-of-area pair — invariance proves nothing").toBeGreaterThan(0);
     expect(
       outOfAreaPairsAccepted,
       "no out-of-area bed in the fixture accepts anybody — 'distance does not gate' is unproven",
+    ).toBeGreaterThan(0);
+    expect(
+      pairsRefused,
+      "every unit accepted every referral — uniform acceptance is perfectly invariant, so the sweep above proves nothing",
     ).toBeGreaterThan(0);
   });
 
@@ -646,9 +668,19 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
   /** Removes line and block comments while respecting string and template literals, so a module
    *  specifier or a message that happens to contain `//` is never mistaken for a comment. */
   function withoutComments(source: string): string {
+    return scanSource(source).text;
+  }
+
+  // Where a `/` may legitimately begin a REGEX LITERAL rather than a division. Bounded to the
+  // trailing few characters so this stays linear over a large file.
+  const REGEX_MAY_FOLLOW =
+    /(^|[([{,;:=!&|?+\-*%~^<>])\s*$|\b(return|typeof|case|in|of|delete|void|instanceof|new|do|else|yield|await)\s+$/;
+
+  function scanSource(source: string): { text: string; balanced: boolean } {
     let out = "";
     let index = 0;
-    let mode: "code" | "line" | "block" | "'" | '"' | "`" = "code";
+    let inCharacterClass = false;
+    let mode: "code" | "line" | "block" | "'" | '"' | "`" | "regex" = "code";
     while (index < source.length) {
       const character = source[index];
       const pair = source.slice(index, index + 2);
@@ -663,7 +695,41 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
           index += 2;
           continue;
         }
+        // A regex literal is TRACKED, never stripped: its text stays in the output, so this can
+        // only ever scan more than it did, never less. What matters is that a quote character
+        // inside one no longer opens a string that was never there. `answer-claim-marks.ts`
+        // contains a regex holding a backtick, which opened TEMPLATE mode — and a template
+        // legitimately spans newlines, so the newline resynchronisation below could not recover it
+        // and the rest of the file went unscanned.
+        if (character === "/" && REGEX_MAY_FOLLOW.test(out.slice(-12))) {
+          mode = "regex";
+          inCharacterClass = false;
+          out += character;
+          index += 1;
+          continue;
+        }
         if (character === "'" || character === '"' || character === "`") mode = character;
+        out += character;
+        index += 1;
+        continue;
+      }
+      if (mode === "regex") {
+        if (character === "\\") {
+          out += source.slice(index, index + 2);
+          index += 2;
+          continue;
+        }
+        // A regex literal cannot span a raw newline either, so this resynchronises for the same
+        // reason the string branch below does.
+        if (character === "\n") {
+          mode = "code";
+          out += "\n";
+          index += 1;
+          continue;
+        }
+        if (character === "[") inCharacterClass = true;
+        else if (character === "]") inCharacterClass = false;
+        else if (character === "/" && !inCharacterClass) mode = "code";
         out += character;
         index += 1;
         continue;
@@ -685,18 +751,35 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
         }
         continue;
       }
-      // Inside a string literal: an escape consumes the next character, so an escaped quote
-      // cannot close it early.
+      // Inside a quoted string. The escape is handled FIRST so a line continuation (a backslash
+      // followed by a newline) is consumed as one unit rather than tripping the resynchronisation
+      // below.
       if (character === "\\") {
         out += source.slice(index, index + 2);
         index += 2;
+        continue;
+      }
+      // RESYNCHRONISATION, added fix round 5. A single- or double-quoted literal cannot contain a
+      // raw newline — that is a syntax error in JavaScript — so meeting one means the scanner
+      // opened a string that was never really there and has lost its place. The case that does
+      // this is a REGEX LITERAL containing a quote character, which this scanner does not track:
+      // without the line below, one such regex flips the scanner into string mode permanently and
+      // every line after it goes unscanned. Measured over every file under `src`, that silently
+      // blinded nine files, one of them for its last 65 lines. Template literals legitimately span
+      // newlines, so they are excluded here and are covered by the balance check instead.
+      if (character === "\n" && mode !== "`") {
+        mode = "code";
+        out += "\n";
+        index += 1;
         continue;
       }
       if (character === mode) mode = "code";
       out += character;
       index += 1;
     }
-    return out;
+    // A scan that ends inside a string, a template or a block comment has lost its place, and a
+    // guard that has lost its place must say so rather than report clean over a partial read.
+    return { text: out, balanced: mode === "code" || mode === "line" };
   }
 
   it("strips a comment that would otherwise hide an import", () => {
@@ -722,11 +805,45 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
       'const url = "https://example.test/a"; ',
     );
     expect(withoutComments("const a = 1; /* block */ const b = 2;")).toBe("const a = 1;  const b = 2;");
+
+    // DIRECTLY PINS THE RESYNCHRONISATION. Regex tracking now handles every case in the real
+    // fixture, so nothing under `src` requires the resynchronisation any more and a mutation
+    // removing it reddened nothing — it was live code with no test. It is the net for a quote the
+    // regex heuristic misjudges, so rather than delete it or leave it unproven it is pinned here
+    // on a synthetic input: a scanner that has opened a string which was never there must recover
+    // at the newline instead of treating every following comment as string content.
+    const strayQuote = ['const broken = "oops', "// hidden; comment", '} from "x/ward-travel-bands";'].join("\n");
+    expect(
+      withoutComments(strayQuote),
+      "the scanner did not recover, so a later comment was read as code",
+    ).not.toContain("hidden");
+    expect(scanSource(strayQuote).balanced, "the scanner ended a recoverable file out of step").toBe(true);
+
+    // PINS THE BALANCE DETECTOR ITSELF. The sweep that applies it can only fail if some file in
+    // its scope actually desynchronises, and no file in the graph does today — so without this
+    // line the detector would be an unfalsifiable check dressed as a guard. An unterminated
+    // template cannot be recovered by the newline rule, because a template legitimately spans
+    // newlines, so it is the honest case for "the scanner finished out of step".
+    expect(
+      scanSource("const a = `unterminated").balanced,
+      "the balance check cannot detect an unbalanced scan, so the sweep using it proves nothing",
+    ).toBe(false);
   });
 
   it("no module under src reads ward-travel-bands.ts except ward-distance.ts", () => {
     const files = readdirSync(SRC_ROOT, { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
     expect(files.length, "the src sweep collected no files — this contract would prove nothing").toBeGreaterThan(50);
+
+    // The scanner must not silently under-read. If it finishes a file believing it is still inside
+    // a string, a template or a block comment, it has lost its place and everything after that
+    // point went unscanned — so this guard would report clean over a partial read. That is not a
+    // theoretical worry: before the resynchronisation in `scanSource`, a regex literal containing
+    // a quote character blinded nine files under `src`, one of them for its last 65 lines.
+    const desynchronised = files.filter((file) => !scanSource(readFileSync(join(SRC_ROOT, file), "utf8")).balanced);
+    expect(
+      desynchronised,
+      `the comment scanner lost its place in ${desynchronised.length} file(s): ${desynchronised.join(", ")}`,
+    ).toEqual([]);
 
     const readers = files
       // The fixture declaring its own contents is not a module reading it. Excluded by exact path
@@ -820,5 +937,116 @@ describe("the counts a band group heading carries", () => {
     );
     expect(source).toContain("candidateAccepts");
     expect(source).not.toMatch(/verdict\.eligible/);
+  });
+});
+
+describe("the out-of-area ledger over the seeded wards", () => {
+  /**
+   * The seeded demonstration. Everything above this block is built from small hand-made fixtures,
+   * which is how the RULES are proved; this block runs the same derivation over the realistic
+   * occupancy the phase will actually render — 267 admissions across 23 units — so a rule that
+   * holds on three synthetic rows and collapses on real data cannot pass unnoticed.
+   *
+   * `now` is the seed's OWN anchor. Reading it with any other value would silently reprice every
+   * stay length in the fixture.
+   */
+  const units = allUnits();
+  const ledger = outOfAreaLedger(wardAdmissions, units, WARD_ADMISSIONS_ANCHOR);
+  const entryIds = ledger.entries.map((entry) => entry.admission.id);
+  const admissionById = (id: string) => wardAdmissions.find((admission) => admission.id === id);
+
+  /**
+   * THE GUARD THAT HAD TO TRAVEL WITH THE FIXTURE. `WARD_ADMISSIONS_ANCHOR` is a second copy of
+   * `NOW_ANCHOR`, written out in the seed because `tests/ward-flow-single-source.test.ts` limits
+   * reads of the shared constant under `src/` to three named files and the seed is not one.
+   *
+   * A drifted copy is close to undetectable by anything else: every seeded stay length would
+   * shift together, every band would silently re-bucket, and every test would read the same stale
+   * value and agree with itself. The seed ships its own copy of this assertion in
+   * `tests/ward-admissions-seed.test.ts` — but that file does not currently load (see this task's
+   * report), so as things stand this is the only place the check actually runs.
+   */
+  it("holds the seed's duplicated time anchor equal to the shared one", () => {
+    expect(
+      WARD_ADMISSIONS_ANCHOR,
+      "the seed's copy of the operating-day anchor has drifted from NOW_ANCHOR — every seeded stay length is now wrong",
+    ).toBe(NOW_ANCHOR);
+  });
+
+  it("measures every entry from its own arrival, against the seed's anchor", () => {
+    expect(ledger.entries.length).toBeGreaterThan(0);
+    for (const entry of ledger.entries) {
+      expect(entry.sinceArrival).toBe(WARD_ADMISSIONS_ANCHOR - entry.admission.arrivedAt!);
+    }
+  });
+
+  it("counts occupied out-of-area beds, and every entry is genuinely one", () => {
+    for (const entry of ledger.entries) {
+      expect(entry.admission.state).not.toBe("left");
+      expect(typeof entry.admission.arrivedAt).toBe("number");
+      expect(OUT_OF_AREA_BANDS).toContain(entry.band);
+      // Looked up, never stored, and never taken from anywhere but the occupied unit's own site.
+      expect(entry.band).toBe(travelBand(entry.admission.homeRegion, entry.unit.siteCode));
+    }
+    // The seed author's own named examples. These ARE coupled to the placeholder band table, and
+    // that coupling is declared rather than hidden: when somebody replaces those invented values
+    // with measured ones, this list and the one in the not-recorded test below are what move. No
+    // band is named here, and no total is pinned.
+    for (const id of ["AD-RPHS-01", "AD-SCGA-03", "AD-ARMA-01"]) {
+      expect(entryIds, `${id} should be an occupied out-of-area bed in the seed`).toContain(id);
+    }
+  });
+
+  it("reports admissions it cannot classify as notBanded, never as out of area", () => {
+    expect(ledger.notBanded).toBeGreaterThan(0);
+    for (const id of ["AD-RPHS-03", "AD-RPHS-05"]) {
+      const admission = admissionById(id);
+      expect(admission, `${id} is missing from the seed`).toBeDefined();
+      const unit = units.find((candidate) => candidate.id === admission!.unitId)!;
+      expect(travelBand(admission!.homeRegion, unit.siteCode)).toBeUndefined();
+      expect(entryIds, `${id} has no recorded band and must never be counted as out of area`).not.toContain(id);
+    }
+  });
+
+  it("drops somebody who has LEFT an out-of-area bed, and that exclusion is doing work", () => {
+    for (const id of ["AD-LEFT-01", "AD-LEFT-04"]) {
+      const departed = admissionById(id);
+      expect(departed, `${id} is missing from the seed`).toBeDefined();
+      expect(departed!.state).toBe("left");
+      expect(entryIds, "somebody who has left is not in a bed far from home").not.toContain(id);
+
+      // THE SELF-CHECK, and the reason AD-LEFT-02 is deliberately not used here. Absence alone
+      // would also be satisfied by a departure whose band simply is not out of area, which is
+      // exactly what AD-LEFT-02 is. Putting the same person back in the same bed must produce an
+      // entry — so the exclusion above is the departure check doing work, not the band.
+      const stillHere: Admission = { ...departed!, state: "occupied", leftAt: null };
+      const returned = outOfAreaLedger([stillHere], units, WARD_ADMISSIONS_ANCHOR);
+      expect(
+        returned.entries.map((entry) => entry.admission.id),
+        `${id} was excluded because of its band, not because it had left — this test proves nothing`,
+      ).toEqual([id]);
+    }
+  });
+
+  it("keeps the two counts apart, at a ratio where conflating them would mislead badly", () => {
+    // On this seed the unclassified count outnumbers the out-of-area count by roughly twelve to
+    // one. At that ratio any construction implying the unclassified figure is a shortfall, a
+    // remainder or an incompleteness OF the out-of-area figure would not be a small presentational
+    // slip — it would be the dominant reading of the screen, and it would be false. They are two
+    // counts of two different things: how many people are in a bed far from home, and how many
+    // beds this prototype cannot place at all.
+    expect(Object.keys(ledger).sort()).toEqual(["entries", "notBanded"]);
+    expect(ledger.notBanded).toBeGreaterThan(ledger.entries.length);
+    // Asserted as floors and a relation, never as totals. Pinning the exact counts would pin a
+    // consequence of the invented band table, which no test in this file may do.
+    expect(ledger.entries.length).toBeGreaterThan(0);
+  });
+
+  it("never counts one admission in both numbers, and never counts one twice", () => {
+    expect(new Set(entryIds).size).toBe(entryIds.length);
+    const classified = ledger.entries.length + ledger.notBanded;
+    // Not a denominator, and deliberately not asserted as one: this is a sanity bound proving no
+    // admission was counted in both, not a whole either figure is a part of.
+    expect(classified).toBeLessThanOrEqual(wardAdmissions.length);
   });
 });
