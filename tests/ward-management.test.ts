@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import { WARD_VIEWS } from "@/components/ward-management/ward-nav";
 
-import { elapsedLabel } from "../src/components/ward-management/ward-derivations";
+import { originServiceFit } from "@/components/ward-management/ward-management-network";
+
+import { elapsedLabel, movementHealthService } from "../src/components/ward-management/ward-derivations";
 import { legalFormName } from "../src/components/ward-management/ward-legal-forms";
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
-import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits, siteByCode } from "../src/components/ward-management/ward-sites";
 
 const modesSource = readFileSync("src/components/ward-management/ward-management-modes.tsx", "utf8");
 
@@ -138,5 +140,61 @@ describe("Ward Flow synthetic prototype", () => {
     const movement = movementById("WF-001");
     expect(movement).toBeDefined();
     expect(elapsedLabel(movement!, NOW_ANCHOR)).toBe("1h 35m waiting");
+  });
+});
+
+/**
+ * Phase 8 Task 6. `originServiceFit` compares the candidate unit's health service against the
+ * health service of the emergency department the patient presented to — two service names, and
+ * nothing else. It labelled the matching case **"Best"**, which on screen read as the system's
+ * opinion about which bed this person should have: a ranking claim over a comparison it never
+ * made. Phase 8 puts honest travel bands on this same screen, and an unchecked superlative
+ * sitting beside a checked band reads as though it had been checked too.
+ *
+ * The regex is the same shape as the one `tests/ward-travel-bands.test.ts` holds over the band
+ * labels, so the two proximity/ranking surfaces on this screen refuse the same vocabulary rather
+ * than each holding their own idea of it.
+ */
+describe("originServiceFit states a fact, never a ranking", () => {
+  const COMPARATIVE = /best|nearest|closest|furthest|most remote|hardest|optimal|recommended|worst/i;
+
+  function labelsAcrossTheFixture() {
+    return wardMovements.flatMap((movement) => allUnits().map((unit) => originServiceFit(movement, unit)));
+  }
+
+  it("labels the match and the mismatch by what was compared, and nothing more", () => {
+    // Named cases first, so the sweep below cannot pass by returning one constant everywhere.
+    const matching = wardMovements
+      .flatMap((movement) => allUnits().map((unit) => ({ movement, unit })))
+      .find(({ movement, unit }) => {
+        const unitService = siteByCode(unit.siteCode)?.service;
+        // `undefined === undefined` is not a match: the function's own guard requires a real
+        // service on the unit's site before it will call the two the same.
+        return unitService !== undefined && unitService === movementHealthService(movement);
+      });
+    const differing = wardMovements
+      .flatMap((movement) => allUnits().map((unit) => ({ movement, unit })))
+      .find(({ movement, unit }) => {
+        const unitService = siteByCode(unit.siteCode)?.service;
+        return unitService !== undefined && unitService !== movementHealthService(movement);
+      });
+
+    // Non-vacuity: the shipped fixture really does contain both branches, so neither assertion
+    // below is passing because its case never occurs.
+    expect(matching).toBeDefined();
+    expect(differing).toBeDefined();
+
+    expect(originServiceFit(matching!.movement, matching!.unit).label).toBe("Same health service");
+    expect(originServiceFit(differing!.movement, differing!.unit).label).toBe("Different health service");
+  });
+
+  it("never labels a candidate with a comparative or ranking word", () => {
+    const labels = labelsAcrossTheFixture().map((fit) => fit.label);
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label, `"${label}" ranks a candidate rather than stating what was compared`).not.toMatch(COMPARATIVE);
+    }
+    // Exactly two answers ship, so a third label cannot appear unnoticed.
+    expect([...new Set(labels)].sort()).toEqual(["Different health service", "Same health service"]);
   });
 });

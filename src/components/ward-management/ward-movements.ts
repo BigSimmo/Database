@@ -899,8 +899,10 @@ export const leaveBeds: LeaveBed[] = [
  *     authorised and correctly accepts it, while `sjgs-adult-open` (Adult/Open/Undesignated, but
  *     NOT authorised) is a real bed elsewhere in the network that correctly refuses it — the
  *     dimension is testable rather than decorative.
- *   - RF-004: declined, `declineReason: "out_of_catchment"` — an administrative fact about the
- *     referral's origin, not a judgement on the person.
+ *   - RF-004: declined, `declineReason: "belongs_to_another_service"` — an administrative fact
+ *     about the referral's origin, not a judgement on the person. Phase 8 Task 6 renamed this
+ *     reason from `"out_of_catchment"`: nothing in this model holds a catchment for anybody, so
+ *     the old spelling implied a check the system never performed.
  *   - RF-006: `secureBedNeeded: true`, `sex: "Male"`, accepted at `fsh-adult-secure` — the
  *     network's `"Male only"` designated Secure bed (fix round B, review finding M1 — moved here
  *     from `brm-adult-secure`, whose own comment explains why a forensic unit can never be the
@@ -998,7 +1000,7 @@ export const referrals: Referral[] = [
     originSiteCode: "PEEL",
     transportNeeded: true,
     state: "declined",
-    declineReason: "out_of_catchment",
+    declineReason: "belongs_to_another_service",
     decidedAt: NOW_ANCHOR - 25,
     // Fix round B (review finding M2/M3): was "Duty psychiatrist" — DECLINE_REFERRAL is also
     // coordinator-only and always writes "Flow coordinator"; see RF-002's own comment above.

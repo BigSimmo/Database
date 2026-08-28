@@ -502,18 +502,24 @@ export type ReferralState = (typeof REFERRAL_STATES)[number];
  * `"secure_bed_unavailable"` are the network having nothing that fits; `"age_band_not_provided_here"`
  * and `"sex_designation_unavailable"` are the network's own capability gaps (this site does not run
  * that cohort, or has no bed of a workable designation left), not a judgement on the referral;
- * `"out_of_catchment"` and `"referred_elsewhere"` are administrative facts about where the request
- * belongs. None of these is a figure, timeframe or threshold from the Mental Health Act, and none
- * reads as being about the person's presentation or behaviour — the same bar that kept
- * "Pending case review outcome" out of `BED_RELEASE_BLOCKERS` ("case review" reads as about the
- * patient's own case, not the bed/service).
+ * `"belongs_to_another_service"` and `"referred_elsewhere"` are administrative facts about where
+ * the request belongs — and `"belongs_to_another_service"` is deliberately NOT spelled
+ * `"out_of_catchment"`, which it was until Phase 8 Task 6: "out of catchment" names a boundary
+ * this system does not hold for anybody, so the label asserted a check nothing performs. The
+ * renamed reason states only what a coordinator can actually know and say, and it stays distinct
+ * from `"referred_elsewhere"` (this request is another service's to answer, versus this request
+ * has already been sent on somewhere else). None of these is a figure, timeframe or threshold
+ * from the Mental Health Act, and none reads as being about the person's presentation or
+ * behaviour — the same bar that kept "Pending case review outcome" out of
+ * `BED_RELEASE_BLOCKERS` ("case review" reads as about the patient's own case, not the
+ * bed/service).
  */
 export const REFERRAL_DECLINE_REASONS = [
   "no_suitable_bed",
   "age_band_not_provided_here",
   "sex_designation_unavailable",
   "secure_bed_unavailable",
-  "out_of_catchment",
+  "belongs_to_another_service",
   "referred_elsewhere",
 ] as const;
 export type ReferralDeclineReason = (typeof REFERRAL_DECLINE_REASONS)[number];
@@ -570,9 +576,14 @@ export type HomeRegion = (typeof HOME_REGIONS)[number];
  * **What `homeRegion` did and did not do** (corrected, review finding I5). It is the first fact
  * this system holds about where a person is from. It does NOT give any bed a catchment: neither
  * `Site` nor `Unit` carries a region, nothing associates a bed, unit, site or service with one,
- * and nothing checks a `DECLINE_REFERRAL` carrying `out_of_catchment` against anything at all —
- * that decline reason is still the coordinator's own assertion, checked against nothing. Closing
- * that gap is Phase 8's work. This comment previously claimed the gap was closed; it was not,
+ * and nothing checks a `DECLINE_REFERRAL`'s administrative decline reason against anything at all
+ * — that reason is still the coordinator's own assertion, checked against nothing. Phase 8 Task 6
+ * closed the honesty half of that gap by renaming `"out_of_catchment"` to
+ * `"belongs_to_another_service"`, so the reason no longer implies a catchment check; the reason is
+ * still unchecked, and `homeRegion` cannot check it — a catchment is a service's boundary and a
+ * home region is where a person lives, and the two vocabularies do not align (ten WA regions
+ * against five health services), so mapping one onto the other would invent an administrative
+ * fact. This comment previously claimed the gap was closed; it was not,
  * and `HOME_REGIONS`' own comment 25 lines above already said the honest version. A comment
  * asserting an unchecked real-world fact is exactly how the deleted Form 1A figure entered this
  * codebase — an agent read it, believed it, and wrote it into the model.

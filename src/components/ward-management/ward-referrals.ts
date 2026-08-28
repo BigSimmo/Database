@@ -144,6 +144,6 @@ export const DECLINE_REASON_LABELS: Record<ReferralDeclineReason, string> = {
   age_band_not_provided_here: "Age band not provided here",
   sex_designation_unavailable: "Sex designation unavailable",
   secure_bed_unavailable: "Secure bed unavailable",
-  out_of_catchment: "Out of catchment",
+  belongs_to_another_service: "Belongs to another service",
   referred_elsewhere: "Referred elsewhere",
 };

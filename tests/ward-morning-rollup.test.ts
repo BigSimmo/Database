@@ -530,7 +530,7 @@ describe("ward-morning-rollup", () => {
         referral({ id: "q-2", state: "queued" }),
         referral({ id: "a-1", state: "accepted", acceptedUnitId: "rph-adult-open", decidedAt: NOW - 5 }),
         referral({ id: "a-2", state: "accepted", acceptedUnitId: "rph-adult-open", decidedAt: NOW - 4 }),
-        referral({ id: "d-1", state: "declined", declineReason: "out_of_catchment", decidedAt: NOW - 3 }),
+        referral({ id: "d-1", state: "declined", declineReason: "belongs_to_another_service", decidedAt: NOW - 3 }),
       ];
 
       // Guard the guard: the set really does hold decided referrals, so "2" cannot be right for

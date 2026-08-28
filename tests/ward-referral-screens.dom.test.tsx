@@ -523,7 +523,8 @@ describe("ReferralBoard", () => {
    * the entire mechanism by which this phase justifies holding no free text, worthless here.
    *
    * Both outcome kinds, from the shipped fixture: RF-006 accepted (names its unit) and RF-004
-   * declined `out_of_catchment` (names the reason, in `DECLINE_REASON_LABELS`' own words).
+   * declined `belongs_to_another_service` (names the reason, in `DECLINE_REASON_LABELS`' own
+   * words).
    */
   it("every decided row names its accepting unit, or its decline reason", () => {
     renderBoard();
@@ -552,13 +553,15 @@ describe("ReferralBoard", () => {
     fireEvent.click(screen.getByTestId("ward-referral-board-select-RF-005"));
 
     fireEvent.change(screen.getByTestId("ward-referral-match-decline-reason"), {
-      target: { value: "out_of_catchment" },
+      target: { value: "belongs_to_another_service" },
     });
     fireEvent.click(screen.getByTestId("ward-referral-match-decline"));
 
     expect(screen.queryByTestId("ward-referral-board-select-RF-005")).not.toBeInTheDocument();
     expect(screen.getByTestId("ward-referral-board-decided-row-RF-005")).toBeInTheDocument();
-    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(/^Declined — Out of catchment\.$/);
+    expect(screen.getByTestId("ward-referral-match-decided")).toHaveTextContent(
+      /^Declined — Belongs to another service\.$/,
+    );
   });
 });
 

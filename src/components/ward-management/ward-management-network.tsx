@@ -75,11 +75,23 @@ function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidat
  * `Movement` has no catchment field (see the doc comment on `movementHealthService` and the
  * glossary's Catchment entry). Naming this `catchmentFit` previously collapsed exactly the
  * distinction Accepted ADR 3 exists to keep separate.
+ *
+ * The two labels are the fact this function computes and nothing more. They were "Best" and
+ * "Escalation" until Phase 8 Task 6. "Best" was the defect: on screen it read as the system's
+ * opinion about which bed this person should have, when all that was compared was two health
+ * service names — the doc comment above already said so at length, and the label did not.
+ * Phase 8 puts honest travel bands on this same screen, which would have made the superlative
+ * look as though it had been checked too. Nothing here sorts, ranks or hides a candidate, and
+ * neither label may ever carry a comparative word (`tests/ward-management.test.ts` pins that,
+ * the same guard `tests/ward-travel-bands.test.ts` holds over the band labels). The tones are
+ * unchanged — a colour is not a claim in the way a word is.
  */
-function originServiceFit(patient: Movement, unit: Unit) {
+export function originServiceFit(patient: Movement, unit: Unit) {
   const unitService = siteByCode(unit.siteCode)?.service;
-  if (unitService && unitService === movementHealthService(patient)) return { label: "Best", tone: "good" as const };
-  return { label: "Escalation", tone: "warning" as const };
+  if (unitService && unitService === movementHealthService(patient)) {
+    return { label: "Same health service", tone: "good" as const };
+  }
+  return { label: "Different health service", tone: "warning" as const };
 }
 
 function settingFit(patient: Movement, unit: Unit, now: Instant) {

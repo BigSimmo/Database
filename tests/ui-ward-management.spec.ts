@@ -153,7 +153,15 @@ test.describe("@mockup Ward Flow command view", () => {
     // This row compares health services against the *origin* ED, not the patient's catchment
     // (catchment is where a patient lives, not where they presented) — named for what it
     // actually measures rather than implying a judgement the model cannot make yet.
-    await expect(shortlist.getByRole("row", { name: /Same health service as origin/ })).toContainText("Escalation");
+    //
+    // Phase 8 Task 6 renamed the cells from "Best"/"Escalation" to "Same health service"/
+    // "Different health service", because "Best" read as the system's opinion about which bed
+    // this person should have. "Different health service" is asserted rather than "Same health
+    // service" deliberately: the row header already contains the words "Same health service", so
+    // asserting those would pass against the header alone and prove nothing about any cell.
+    await expect(shortlist.getByRole("row", { name: /Same health service as origin/ })).toContainText(
+      "Different health service",
+    );
 
     // A service card opens its own detail block.
     await network.getByTestId("ward-network-card-fre-older-adult").click();

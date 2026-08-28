@@ -159,9 +159,40 @@ describe("front-door contract — fixed lists", () => {
       "age_band_not_provided_here",
       "sex_designation_unavailable",
       "secure_bed_unavailable",
-      "out_of_catchment",
+      "belongs_to_another_service",
       "referred_elsewhere",
     ]);
+  });
+
+  /**
+   * Phase 8 Task 6. `"out_of_catchment"` claimed a check the system cannot perform: nothing in
+   * this model holds a catchment for anybody, and `homeRegion` cannot supply one (a catchment is
+   * a service's boundary, a home region is where a person lives, and ten WA regions do not map
+   * onto five health services). The reason was RENAMED, not removed — "this request belongs to
+   * another service" is a real administrative answer a coordinator can give and can know, and
+   * removing it would push coordinators onto a reason that means something else.
+   *
+   * Which is why distinctness is asserted here rather than left implied by the array pin above:
+   * `"belongs_to_another_service"` (another service should answer this request) and
+   * `"referred_elsewhere"` (this request has already been sent on) are two different answers, and
+   * collapsing them into one is the cheap "tidy-up" this test exists to refuse.
+   */
+  it("renames the catchment reason and keeps it distinct from referred_elsewhere", () => {
+    expect(REFERRAL_DECLINE_REASONS).toContain("belongs_to_another_service");
+    expect(REFERRAL_DECLINE_REASONS).toContain("referred_elsewhere");
+    expect(REFERRAL_DECLINE_REASONS).not.toContain("out_of_catchment" as never);
+    expect(new Set(REFERRAL_DECLINE_REASONS).size).toBe(REFERRAL_DECLINE_REASONS.length);
+
+    // The labels a coordinator actually reads must stay two different sentences too — a shared
+    // label collapses the two answers on screen even when the enum keeps them apart.
+    expect(DECLINE_REASON_LABELS.belongs_to_another_service).toBe("Belongs to another service");
+    expect(DECLINE_REASON_LABELS.belongs_to_another_service).not.toBe(DECLINE_REASON_LABELS.referred_elsewhere);
+
+    // And the renamed reason must not reintroduce the claim it was renamed to drop.
+    for (const reason of REFERRAL_DECLINE_REASONS) {
+      expect(reason).not.toMatch(/catchment/i);
+      expect(DECLINE_REASON_LABELS[reason]).not.toMatch(/catchment/i);
+    }
   });
 
   /**
