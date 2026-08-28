@@ -4049,3 +4049,56 @@ everything later stays scheduled. That preserves every property the previous rou
 a contact due today, three attempted, exactly one failure — and additionally makes the failure the
 most recent past contact, which is what its own comment said it wanted. A test now pins the
 invariant directly: **a contact carrying a delivery outcome may never be seeded on a future date.**
+
+### Ruling [160] — close-out: the wireframe reads as a working system, and every gate is green on the final tree
+
+**2026-08-29.** The three states the workspace needed in order to demonstrate itself now exist, and
+each was confirmed **by opening the page**, not by reading the seed:
+
+- **Team** — `demo-coordinator` carrying 1 plan with 1 contact needing review, and 1 plan still
+  unclaimed, so the spec 4.2 escalation still has a subject. The screen states its own limits in
+  place: coordinators appear in identifier order, _"which is not a placing, and no figure here is a
+  measure of a person"_.
+- **Schedule** — today (Sat 29 Aug 2026) carries `Caring contact · Month 2` at 10:00 am AWST, state
+  `Scheduled`. Paging back to 29 July shows `Already sent 1` and `Named exceptions 1`: the failed
+  delivery, on its own day, out of its sending window so one patient is never counted twice.
+- **Patient** — Rowan Example, discharged 29 June 2026, _"Transport so far: 3 messages sent, of which
+  2 carry a delivery receipt."_ Every one of those dates is in the past. Ruling [159] is closed.
+
+**Final gates, all re-run on the final tree with the dev server stopped.** Stopping it mattered: the
+retention implementer had to run its typecheck with `.next` excluded because a live dev server was
+rewriting Next's generated validator underneath it, and it said so rather than reporting the wider
+verdict it had not earned. With the server down the same check passes unscoped.
+
+| Gate               | Result                                                                     |
+| ------------------ | -------------------------------------------------------------------------- |
+| Full unit suite    | `11572 passed \| 75 skipped` (923 files), zero failures                    |
+| Database + RLS     | `213 passed` on Postgres 17, whole migration chain replayed from empty     |
+| Browser (Chromium) | `629 passed (21.8m)`, full journey set                                     |
+| Lint               | clean at `--max-warnings 0`                                                |
+| Typecheck          | exit 0, unscoped                                                           |
+| Cold build         | compiled from a cleared `.next`; client bundle secret-surface check passed |
+| Bundle budget      | production 1724.4 KiB vs 1656.0 baseline, within tolerance                 |
+
+**Docker had to be repaired before any of the database evidence existed**, and that is worth
+recording because it nearly cost the phase its most important gate. The engine was crashing at
+startup on orphaned zero-byte socket files (`sailor-ingest.sock`, then
+`docker-secrets-engine/engine.sock`) that it could not delete — _"The file cannot be accessed by the
+system."_ The privileged service could not be started without an interactive elevation prompt and
+the owner was away. **The fix needed no elevation at all**: move the two directories aside and let
+Docker recreate them. Nothing was deleted; both originals are kept as `*.stale-20260829`.
+
+Until that was done, `caring-contacts-migrations.test.ts` and
+`caring-contacts-postgres-repository.test.ts` were **silently outside every suite anyone was
+running** — they belong to the separate `caring-contacts-db` Vitest project, so the 1401-test
+"full caring-contacts" run that looked complete had never touched the migration or the Postgres
+repository. That is how a broken test reached a commit: the implementer could not run the suite that
+covered its own change. **A gate that cannot run is not a gate that passes**, and the difference is
+invisible from a green summary line.
+
+**Two residual notes for the owner**, neither blocking:
+
+1. A replay after a retention clearance now answers with a named refusal rather than the original
+   value. That is a real narrowing of the replay contract, deliberately chosen over deleting the row
+   and freeing the key, and it should be seen rather than discovered.
+2. `plans.created_at` is not immutable, and the unclaimed-work escalation now depends on it.

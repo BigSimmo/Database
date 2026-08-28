@@ -78,13 +78,25 @@ fixture and eval harness untouched. Verified by listing the diff's paths against
 
 ## Verification
 
-- [x] Full unit suite — `11561 passed | 75 skipped`, zero failures.
-- [x] Database and row-level-security suite — `205 passed`, against Postgres 17 in a container.
-- [x] Browser gate — `126 passed`, Chromium.
-- [x] Cold build — compiled successfully from a cleared `.next`.
-- [x] Bundle budget — production 1724.4 KiB against a 1656.0 KiB baseline, inside the 10% tolerance.
+Every gate below was re-run on the final tree, with the local dev server stopped so nothing could
+rewrite generated files mid-check.
+
+- [x] Full unit suite — `11572 passed | 75 skipped`, zero failures (923 files).
+- [x] Database and row-level-security suite — `213 passed`, against Postgres 17 in a container. The
+      suite drops the schema and replays the whole migration chain from empty, so this is also the
+      proof that migration 0008 replays from nothing.
+- [x] Browser gate — `629 passed (21.8m)`, Chromium, full journey set.
+- [x] Lint — clean at `--max-warnings 0`.
+- [x] Typecheck — exit 0, unscoped.
+- [x] Cold build — compiled from a cleared `.next`; client bundle secret-surface check passed.
+- [x] Bundle budget — production 1724.4 KiB gzip against a 1656.0 KiB baseline, within tolerance;
+      mockups 637.9 KiB against 613.1 KiB, within tolerance; both measured routes within tolerance.
 
 Every figure above is the decisive line from the gate's own output, not a summary of an exit code.
+
+**One warning, stated rather than hidden.** `check:bundle-budget` reports that its recorded baseline
+commit cannot be verified as an ancestor of `HEAD` in this checkout. That is a missing-object
+condition in the local clone, not a size regression — every measured figure is inside tolerance.
 
 ## Risk and rollout
 
