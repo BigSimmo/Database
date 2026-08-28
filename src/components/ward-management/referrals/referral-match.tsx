@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, type Dispatch } from "react";
 
-import type { Instant } from "@/components/ward-management/ward-clock";
+import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import {
+  NOT_RECORDED_LABEL,
+  SYNTHETIC_TRAVEL_TIMES_NOTICE,
+  TRAVEL_BAND_LABELS,
+} from "@/components/ward-management/ward-distance";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import {
   REFERRAL_DECLINE_REASONS,
@@ -15,14 +20,64 @@ import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
   candidateAccepts,
   DECLINE_REASON_LABELS,
+  groupCandidatesByTravelBand,
   matchReason,
   networkHasCohort,
   referralCandidates,
   referralWaitLabel,
+  travelBandGroupCounts,
   type ReferralCandidate,
+  type TravelBandGroup,
+  type TravelBandGroupCounts,
 } from "@/components/ward-management/ward-referrals";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 import styles from "./referrals.module.css";
+
+/**
+ * Phase 8, Task 4. The width at which the band groups start open, matching
+ * `referrals.module.css`'s own `--ri-two-col-breakpoint` / `@media (max-width: 40rem)` swap so the
+ * screen has ONE breakpoint rather than a second one written here that could drift from it.
+ *
+ * Owner decision, 2026-08-29: shut by default at phone width, open at desktop width. The binding
+ * condition on that decision is why it is safe, and it is a condition on the markup below rather
+ * than on this constant: every heading and BOTH of its counts render whether the group is open or
+ * shut, including for an empty group, so "there is nothing available within an hour" is answerable
+ * without opening anything. Collapsing folds; it does not hide. It was approved INSTEAD of a
+ * metro/rural toggle, which was declined precisely because that would have hidden beds.
+ */
+const BAND_GROUPS_OPEN_MEDIA_QUERY = "(min-width: 40rem)";
+
+/**
+ * Whether the band groups start open, tracked live so a rotation or a resize is honoured rather
+ * than frozen at mount. The server (and jsdom, which omits `matchMedia` unless a test installs the
+ * stub) answers `false` — the phone default — so nothing width-dependent is guessed where no width
+ * is known, and a shut group is the conservative answer in any case: every heading and both counts
+ * are on the screen either way.
+ */
+const useBandGroupsOpenByDefault = createBrowserStore<boolean>(
+  (onStoreChange) => {
+    if (typeof window.matchMedia !== "function") return () => {};
+    const media = window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY);
+    media.addEventListener("change", onStoreChange);
+    return () => media.removeEventListener("change", onStoreChange);
+  },
+  () => (typeof window.matchMedia === "function" ? window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY).matches : false),
+  false,
+);
+
+/**
+ * The event types this view's own controls raise, and the one spelling of each in the rejection
+ * banner. A refusal the reducer raises for any of them surfaces here rather than being swallowed —
+ * including `RECORD_LOCAL_BED_SOUGHT`, whose control this screen owns.
+ */
+const MATCH_VIEW_DECISION_EVENTS = ["ACCEPT_REFERRAL", "DECLINE_REFERRAL", "RECORD_LOCAL_BED_SOUGHT"] as const;
+
+const REJECTED_DECISION_LABELS: Record<(typeof MATCH_VIEW_DECISION_EVENTS)[number], string> = {
+  ACCEPT_REFERRAL: "Acceptance",
+  DECLINE_REFERRAL: "Decline",
+  RECORD_LOCAL_BED_SOUGHT: "Local bed search",
+};
 
 type ReferralMatchViewProps = {
   referral: Referral;
@@ -48,6 +103,24 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
   const candidates = referralCandidates(referral, units, now);
   const accepting = candidates.filter(candidateAccepts);
   const hasCohort = networkHasCohort(referral, units);
+  /*
+   * Phase 8, Task 4. The grouping is asked for ONCE and everything on this screen below reads that
+   * one answer — the group headings, their two counts, each row's own band, and the
+   * every-candidate-unrecorded sentence. A second lookup into the fixture for any of those is how
+   * one screen ends up giving two answers about the same pair, which is the defect Phase 5 shipped.
+   */
+  const bandGroups = groupCandidatesByTravelBand(referral, candidates);
+  const bandGroupCounts = bandGroups.map(travelBandGroupCounts);
+  const groupedUnitCount = bandGroupCounts.reduce((total, counts) => total + counts.units, 0);
+  const notRecordedIndex = bandGroups.findIndex((group) => group.band === "not_recorded");
+  /* Derived from the grouping's OWN output, never from a second read of the travel-band table. */
+  const everyCandidateUnrecorded =
+    groupedUnitCount > 0 && notRecordedIndex >= 0 && bandGroupCounts[notRecordedIndex].units === groupedUnitCount;
+
+  /* Shut on a phone, open at desktop width — read through the repository's own SSR-safe external
+   * store rather than by setting state in an effect, so the value is already correct on the first
+   * client render and no cascading re-render is needed to reach it. */
+  const bandGroupsOpenByDefault = useBandGroupsOpenByDefault();
 
   const [declineReason, setDeclineReason] = useState<ReferralDeclineReason>(REFERRAL_DECLINE_REASONS[0]);
   const [lastRejection, setLastRejection] = useState<Rejection | undefined>(undefined);
@@ -68,7 +141,7 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
       // raised elsewhere must never surface here as though it were about this referral.
       const isForThisDecision =
         newest.movementId === referral.id &&
-        (newest.attempted === "ACCEPT_REFERRAL" || newest.attempted === "DECLINE_REFERRAL");
+        (MATCH_VIEW_DECISION_EVENTS as readonly string[]).includes(newest.attempted);
       setLastRejection(isForThisDecision ? newest : undefined);
     } else {
       setLastRejection(undefined);
@@ -79,6 +152,19 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
   function handleAccept(unitId: string) {
     priorRejectionCountRef.current = rejections.length;
     dispatch({ type: "ACCEPT_REFERRAL", role: "coordinator", now, referralId: referral.id, unitId });
+    setCheckToken((token) => token + 1);
+  }
+
+  /*
+   * The optional local-bed step (spec D8-6). One control, on this screen, creating a record only
+   * when it is taken — never a field on the intake form, because a form field is the one shape
+   * guaranteed to read as owed. It is offered on EVERY referral, not only country ones: offering
+   * it only on country referrals would assert that looking closer to home first is a country
+   * practice, which is precisely the question nobody has answered.
+   */
+  function handleLocalBedSought() {
+    priorRejectionCountRef.current = rejections.length;
+    dispatch({ type: "RECORD_LOCAL_BED_SOUGHT", role: "coordinator", now, referralId: referral.id });
     setCheckToken((token) => token + 1);
   }
 
@@ -162,11 +248,64 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
         </p>
       ) : null}
 
-      <ul className={styles.matchList} data-testid="ward-referral-match-list">
-        {candidates.map((candidate) => (
-          <MatchRow key={candidate.unit.id} candidate={candidate} onAccept={handleAccept} />
+      {/*
+       * Every piece of distance wording on this screen sits BELOW the structural-gap banner above.
+       * "No youth unit exists in this network" is not a distance problem and must never be dressed
+       * as one, so the banner is met first and the bands only afterwards.
+       *
+       * The one place this screen states that the travel times are invented. It is imported, never
+       * retyped, and it renders once — a band shown anywhere without this sentence on the same
+       * screen is a defect.
+       */}
+      <p className={styles.syntheticNotice} data-testid="ward-referral-match-synthetic-notice">
+        {SYNTHETIC_TRAVEL_TIMES_NOTICE}
+      </p>
+
+      {everyCandidateUnrecorded ? (
+        <p className={styles.allNotRecorded} data-testid="ward-referral-match-all-not-recorded">
+          <strong>{NOT_RECORDED_LABEL}</strong> — This prototype holds no travel time between this person&apos;s home
+          region and these sites. That is a gap in the invented data, not a statement that these beds are far away.
+        </p>
+      ) : null}
+
+      <div className={styles.matchList} data-testid="ward-referral-match-list">
+        {bandGroups.map((group, index) => (
+          <BandGroup
+            /* Includes the width default, so crossing the breakpoint re-seeds every group's
+             * open/shut state by remount. The key never depends on the band or on either count —
+             * the collapse state must not vary with which band this is or with what is in it. */
+            key={`${group.band}-${bandGroupsOpenByDefault}`}
+            group={group}
+            counts={bandGroupCounts[index]}
+            openByDefault={bandGroupsOpenByDefault}
+            onAccept={handleAccept}
+          />
         ))}
-      </ul>
+      </div>
+
+      {/*
+       * Rule 3 of the optional step, and the reason this branch has no `else` that renders
+       * anything: absence renders as NOTHING AT ALL. No "Not recorded", no empty checkbox, no grey
+       * placeholder, no warning icon, no amber row. A referral without the record must look exactly
+       * like a referral that never needed one, because it may be one — and no figure anywhere on
+       * this screen or any other counts how many referrals lack it.
+       */}
+      <div className={styles.localBed} data-testid="ward-referral-match-local-bed">
+        {referral.localBedSought ? (
+          <p className={styles.localBedRecord} data-testid="ward-referral-match-local-bed-sought-record">
+            A local bed was sought and none was suitable, at {formatInstant(referral.localBedSought.at)}.
+          </p>
+        ) : (
+          <button
+            type="button"
+            className={styles.localBedButton}
+            data-testid="ward-referral-match-local-bed-sought"
+            onClick={handleLocalBedSought}
+          >
+            Record that a local bed was sought and none was suitable
+          </button>
+        )}
+      </div>
 
       <div className={styles.declineControls} data-testid="ward-referral-match-decline-controls">
         <label className={styles.fieldLegend} htmlFor="ward-referral-match-decline-reason">
@@ -197,15 +336,93 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
 
       {lastRejection ? (
         <p className={styles.rejection} data-testid="ward-referral-match-rejection" role="alert">
-          {lastRejection.attempted === "ACCEPT_REFERRAL" ? "Acceptance" : "Decline"} not recorded:{" "}
-          {lastRejection.reason}
+          {REJECTED_DECISION_LABELS[lastRejection.attempted as (typeof MATCH_VIEW_DECISION_EVENTS)[number]]} not
+          recorded: {lastRejection.reason}
         </p>
       ) : null}
     </section>
   );
 }
 
-function MatchRow({ candidate, onAccept }: { candidate: ReferralCandidate; onAccept: (unitId: string) => void }) {
+/**
+ * One band group: its heading, its two counts, and the rows in it.
+ *
+ * `<details>`/`<summary>` rather than a hand-built disclosure, deliberately. The summary — heading
+ * and BOTH counts — is rendered whether the group is open or shut, and it is rendered for an empty
+ * group exactly as for a populated one, which is the binding condition the owner attached to
+ * collapsing at all. Nothing is omitted, nothing is reordered, and the open/shut state depends only
+ * on viewport width: never on which band this is, and never on either count. Making an empty group
+ * non-collapsible would be exactly that forbidden dependency, so every group behaves the same.
+ *
+ * The band is taken from the GROUP this row sits in rather than looked up again per row. A band
+ * looked up in two places is a band that can disagree with itself, and here the heading and the
+ * rows beneath it would be the two places.
+ */
+function BandGroup({
+  group,
+  counts,
+  openByDefault,
+  onAccept,
+}: {
+  group: TravelBandGroup;
+  counts: TravelBandGroupCounts;
+  openByDefault: boolean;
+  onAccept: (unitId: string) => void;
+}) {
+  /* Seeded from the width default and then owned by the coordinator's own toggling. The parent
+   * REMOUNTS this component when that default changes (see its `key`), which is what re-seeds every
+   * group on a rotation or resize — deliberately, rather than by setting state from an effect. */
+  const [open, setOpen] = useState(openByDefault);
+
+  const label = bandGroupLabel(group.band);
+  return (
+    <details
+      className={styles.bandGroup}
+      data-testid={`ward-referral-match-band-group-${group.band}`}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className={styles.bandSummary}>
+        <span className={styles.bandLabel}>{label}</span>
+        {/* Two positive facts about the beds in this band, from `travelBandGroupCounts` — which
+         *  counts the very candidates rendered below, so a heading cannot disagree with its own
+         *  rows. Neither figure counts what is missing. */}
+        <span className={styles.bandCounts} data-testid={`ward-referral-match-band-counts-${group.band}`}>
+          {counts.units} {counts.units === 1 ? "unit" : "units"} in this band · {counts.accepting}{" "}
+          {counts.accepting === 1 ? "accepts" : "accept"} this referral
+        </span>
+      </summary>
+      {group.candidates.length === 0 ? (
+        <p className={styles.bandEmpty} data-testid={`ward-referral-match-band-empty-${group.band}`}>
+          No unit in this band.
+        </p>
+      ) : (
+        <ul className={styles.bandRows}>
+          {group.candidates.map((candidate) => (
+            <MatchRow key={candidate.unit.id} candidate={candidate} bandText={label} onAccept={onAccept} />
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
+
+/** The one spelling of a group's heading, both bands and the gap. `NOT_RECORDED_LABEL` is a label a
+ *  coordinator reads; `"not_recorded"` is only ever a key. An unrecorded band NEVER renders blank —
+ *  a blank cell in a distance column is read as "close". */
+function bandGroupLabel(band: TravelBandGroup["band"]): string {
+  return band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[band];
+}
+
+function MatchRow({
+  candidate,
+  bandText,
+  onAccept,
+}: {
+  candidate: ReferralCandidate;
+  bandText: string;
+  onAccept: (unitId: string) => void;
+}) {
   const { unit } = candidate;
   return (
     <li
@@ -222,6 +439,9 @@ function MatchRow({ candidate, onAccept }: { candidate: ReferralCandidate; onAcc
           </span>
         ) : null}
       </div>
+      <p className={styles.matchBand} data-testid={`ward-referral-match-band-${unit.id}`}>
+        {bandText}
+      </p>
       {candidateAccepts(candidate) ? (
         <div className={styles.matchAcceptRow}>
           <span className={styles.acceptsLabel} data-testid={`ward-referral-match-accepts-${unit.id}`}>

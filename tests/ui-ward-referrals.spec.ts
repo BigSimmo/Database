@@ -48,6 +48,12 @@ const RAISED = {
   urgency: "1",
 } as const;
 
+/** Phase 8: the four travel bands plus the not-recorded group. Written out here rather than
+ *  derived, for the same reason `tests/ward-travel-grouping.test.ts` writes its own copy out: a
+ *  count derived from `TRAVEL_BANDS` moves with it and could not fail, so adding or removing a
+ *  band stays a decision somebody takes in a test. It counts groups on a screen. */
+const BAND_GROUP_COUNT = 5;
+
 /** The unit this journey accepts at: the first unit in the site table's own order, and the order
  *  the match view lists every unit in (D10 — it never sorts, ranks or truncates). */
 const ACCEPT_UNIT_ID = "rph-adult-secure";
@@ -243,8 +249,27 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await expect(page.getByTestId("ward-referral-match-accepting-count")).toHaveText(
       `${ACCEPTING_UNITS} of ${NETWORK_UNITS} units accept this referral right now.`,
     );
-    // Every unit in the network is listed, never a shortlist (D10).
+    // Every unit in the network is listed, never a shortlist (D10). Phase 8 groups those rows by
+    // travel band, so they are spread across five `<details>` groups rather than one flat list —
+    // the count is unchanged, which is the property this line has always pinned.
     await expect(page.getByTestId("ward-referral-match-list").locator("li")).toHaveCount(NETWORK_UNITS);
+
+    // Phase 8, Task 4 (owner decision, 2026-08-29): the band groups are SHUT by default at phone
+    // width, and this journey is phone width throughout. Nothing is hidden by that — every heading
+    // and both of its counts are on the screen while shut, asserted here before anything is opened,
+    // so "there is nothing available within an hour" is answerable without expanding a thing.
+    const bandGroups = page.getByTestId("ward-referral-match-list").locator("details");
+    await expect(bandGroups).toHaveCount(BAND_GROUP_COUNT);
+    for (let index = 0; index < BAND_GROUP_COUNT; index += 1) {
+      await expect(bandGroups.nth(index).locator("summary")).toBeVisible();
+    }
+    // The invented-travel-times sentence is on this screen, once, wherever a band is shown.
+    await expect(page.getByTestId("ward-referral-match-synthetic-notice")).toBeVisible();
+    // A coordinator on a phone opens the groups to reach the rows. Every group is expanded here so
+    // the assertions below see the whole network exactly as they did before the grouping existed.
+    for (let index = 0; index < BAND_GROUP_COUNT; index += 1) {
+      await bandGroups.nth(index).locator("summary").click();
+    }
 
     // The bed accepted below, and one unit per reason it is not offered — each named, so a rule
     // that stopped excluding anything cannot pass unnoticed.

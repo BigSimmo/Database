@@ -528,12 +528,151 @@
   color: var(--danger-text);
 }
 
+/*
+ * Phase 8, Task 4. `.matchList` is now the container for the five band groups rather than the flat
+ * row list; the rows themselves live in `.bandRows` inside each group. The class name is kept (and
+ * so is its `data-testid`) because the property it carries is unchanged: every unit in the network
+ * is inside it, and its element count is what pins non-truncation on this screen.
+ */
 .matchList {
   display: grid;
   gap: var(--ri-space-8);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/*
+ * A band group folds; it does not hide. The heading and both counts live in `.bandSummary`, which
+ * a `<details>` renders open or shut alike — including for an empty group — so "there is nothing
+ * available within an hour" is answerable without opening anything.
+ */
+.bandGroup {
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.bandSummary {
+  display: flex;
+  min-height: var(--ri-space-48);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ri-space-8);
+  padding: var(--ri-space-8) var(--ri-space-12);
+  cursor: pointer;
+  /* `display: flex` suppresses the browser's own disclosure triangle, so the affordance is
+     replaced explicitly below rather than lost. A group a coordinator cannot see is openable is
+     a group whose rows they will not find. */
+  list-style: none;
+}
+
+.bandSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* Drawn rather than written, so it adds no text to the heading: a glyph in the summary would
+   become part of every count and label assertion and could drift into wording. */
+.bandSummary::after {
+  width: 0;
+  height: 0;
+  border-top: 0.3125rem solid transparent;
+  border-bottom: 0.3125rem solid transparent;
+  border-left: 0.375rem solid var(--text-muted);
+  content: "";
+}
+
+.bandGroup[open] > .bandSummary::after {
+  transform: rotate(90deg);
+}
+
+.bandSummary:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: -0.125rem;
+}
+
+.bandLabel {
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* Two present facts, styled as quiet supporting text — never as a badge or a score, which would
+   read as this screen's own judgement of a band rather than a count of what is in it. */
+.bandCounts {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+}
+
+.bandRows {
+  display: grid;
+  gap: var(--ri-space-8);
+  margin: 0;
+  padding: 0 var(--ri-space-12) var(--ri-space-12);
+  list-style: none;
+}
+
+.bandEmpty {
+  margin: 0;
+  padding: 0 var(--ri-space-12) var(--ri-space-12);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ri-leading-body);
+}
+
+/* An unrecorded band is named on the row, never left blank — a blank cell in a distance column is
+   read as "close". Same quiet treatment as every other band, so a gap is not styled as a warning. */
+.matchBand {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+}
+
+.syntheticNotice,
+.allNotRecorded {
+  margin: 0;
+  border-left: 0.125rem solid var(--border);
+  padding-left: var(--ri-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ri-leading-body);
+}
+
+/* The optional local-bed step. Nothing here renders when the record is absent except the offer
+   itself — no placeholder, no warning colour, no amber row. */
+.localBed {
+  display: grid;
+  gap: var(--ri-space-8);
+}
+
+.localBedButton {
+  display: inline-flex;
+  min-height: var(--ri-space-48);
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  padding: 0 var(--ri-space-14);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-align: center;
+}
+
+.localBedButton:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+.localBedRecord {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ri-leading-body);
 }
 
 .matchRowAccepts,
