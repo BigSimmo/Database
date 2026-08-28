@@ -2,7 +2,7 @@
 
 The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
 circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 850 bytes.
+size, and the primary file is 810 bytes.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -26,9 +26,8 @@ enlargement and must not be used.
 The geometry here was measured from a high-resolution view of the original, arc by arc, at the
 **50% level of its anti-aliased edges** — the one place on a blurred edge that is not biased by the
 blur. Each arc was then fitted on its own, so its residual could be inspected rather than hidden in
-an aggregate: per-arc RMS runs from 0.05 to 0.14 units in 100. The finished mark covers 94.7% of
-the original by area (intersection over union), against 94.1% for the previous cut and 84.8% for
-the draft before that.
+an aggregate: per-arc RMS runs from 0.05 to 0.14 units in 100. Outside the middle the mark covers 94% of
+the original by area (intersection over union); the middle departs from the original on purpose.
 
 Three earlier drafts got this wrong in instructive ways, and every error came from trusting a
 measurement that the source could not actually support.
@@ -45,14 +44,21 @@ reads heavy. Fitting by nearest-point distance had hidden this, because every po
 wrong outline still sits close to _some_ point of the right one. Comparing coverage against the
 original's grey levels showed it immediately.
 
-**The middle line is one system, not two.** The third draft drew each stroke's facing edge from
-its own circle: the upper stroke's curved one way, the lower stroke's the other. Two arcs bowing
-apart open a lens-shaped gap between them, and the channel swelled from 5.4 units at its ends to
-8.6 in the middle — a visible dip in what should read as a single clean line. Measuring the
-original across the channel settles it: its gap is **4.75 units wide with a standard deviation of
-0.25**, which is to say constant. Both of its edges are arcs of the same circle, one inside the
-other. The mark is now built that way, and its gap measures 4.75 with a standard deviation of
-0.10 — steadier than the original it was taken from.
+**The middle line is one straight cut.** Two drafts got this wrong in the same way. The first drew
+each stroke's facing edge from its own circle, curving opposite ways; two arcs bowing apart open a
+lens, and the gap swelled from 5.4 units at its ends to 8.6 in the middle. The second made both
+edges arcs of a single circle, which fixed the width but left each stroke reaching its edge through
+a tight 7.5-unit blend that reads as a knuckle on the spine of the S.
+
+The mark now does the simplest thing instead: the two strokes are divided by **one straight line**,
+and each stroke's facing edge is that line offset by half the gap. The two edges are therefore
+exactly parallel — the gap is one width down its whole length, and neither edge can curve against
+the other. Each stroke joins its edge with a single 13-unit blend under the head, and both blends
+bend the same way, away from the other stroke. Nothing on either facing edge turns over.
+
+This is a deliberate improvement on the original rather than a copy of it. The original's channel
+is 4.75 units wide with a standard deviation of 0.25 and bows by 1.25 units along its length; this
+one is 4.35 with a standard deviation of 0.28 and does not bow at all.
 
 Two things were corrected, and one apparent oddity was kept.
 
@@ -72,44 +78,43 @@ at the origin.
 
 ### The middle line
 
-The gap between the two strokes is defined **once**, by a single circle:
+The two strokes are divided by **one straight line**:
 
-|                            |                    |
-| -------------------------- | ------------------ |
-| Centre                     | (89.7175, 83.5939) |
-| Upper stroke's facing edge | radius 74.8165     |
-| Lower stroke's facing edge | radius 70.0627     |
+|                            |                                |
+| -------------------------- | ------------------------------ |
+| A point on it              | (26.2380, 48.6900)             |
+| Unit normal                | (0.87626, 0.48184)             |
+| Direction                  | 118.806°                       |
+| Upper stroke's facing edge | the line at normal·x = 44.3521 |
+| Lower stroke's facing edge | the line at normal·x = 48.5521 |
 
-Because both edges are arcs of the same centre, the gap is **4.7537 units wide along its whole
-length** and both edges curve the same way. Everything else in the mark is built to meet those two
-arcs tangentially. This is the part to protect: draw the two facing edges from separate circles and
-the gap opens into a lens, which is what the previous cut did.
+The two edges are the same line offset ±2.1 units, so they are exactly parallel: the gap is
+**4.2 units wide down its whole length** and neither edge curves against the other. Everything else
+in the mark is built to meet those two lines tangentially.
+
+This is the part to protect. Give the two facing edges separate curves and the gap opens into a
+lens; that is what the first two cuts of these files did.
 
 ### The upper stroke
 
-Four circular arcs, meeting at two tangent points and two sharp cusps:
+Three arcs and one straight segment, meeting at two tangent points and two sharp cusps:
 
-| Arc         | Centre             | Radius  | Role                                             |
-| ----------- | ------------------ | ------- | ------------------------------------------------ |
-| Outer sweep | (29.2009, 29.2009) | 29.2009 | the outer edge, from the head to two-thirds down |
-| Tail-outer  | (51.5937, 16.1418) | 55.1234 | the hook that draws the tail to a point          |
-| Throat      | (44.8724, 20.0286) | 17.7232 | the scoop under the head                         |
-| Blend       | (23.9407, 34.1024) | 7.5     | turns the throat into the facing edge            |
-| Facing edge | (89.7175, 83.5939) | 74.8165 | the upper side of the middle line                |
+| Segment     | Centre             | Radius   | Role                                             |
+| ----------- | ------------------ | -------- | ------------------------------------------------ |
+| Outer sweep | (29.2009, 29.2009) | 29.2009  | the outer edge, from the head to two-thirds down |
+| Tail hook   | (51.5937, 16.1418) | 55.1234  | the hook that draws the tail to a point          |
+| Throat      | (44.8724, 20.0286) | 17.7232  | the scoop under the head                         |
+| Blend       | (17.3065, 33.5945) | 13.0     | carries the throat onto the cut                  |
+| Facing edge | —                  | straight | the upper side of the middle line                |
 
-- **Head cusp** at (41.3675, 2.6554) — outer sweep into throat.
-- **Tail cusp** at (18.6157, 60.3124) — facing edge into tail-outer.
-- **Tangent points** at (3.9761, 43.9116) outer sweep into tail-outer, (30.1646, 29.9176) throat
-  into blend, and (29.9337, 38.6117) blend into facing edge.
+- **Head cusp** at (41.3675, 2.6554) — outer sweep into throat, 36°.
+- **Tail cusp** at (17.7944, 59.6872) — the cut into the tail hook, 81°.
+- **Tangent points** at (3.9761, 43.9116) outer sweep into tail hook, (28.9705, 27.8543) throat into
+  blend, and (28.6978, 39.8584) blend onto the cut.
 
 The outer sweep is centred at (r, r) for its own radius, so it is tangent to both the top and the
 left edge of the stroke's bounding box. That relationship fell out of the fit rather than being
 imposed, and it is the quickest way to check a redraw.
-
-The blend exists because the throat and the facing edge are both concave and too far apart to meet
-directly. The original resolved that with a 2.88-unit flick, which is tight enough to read as a
-corner; 7.5 units reads as a curve. It is the one place in the mark where the edge turns over
-twice, and it is unavoidable.
 
 ### The lower stroke
 
@@ -121,22 +126,22 @@ translate(55.1029 100.3813) scale(-1.07)
 
 A negative uniform scale is a 180° rotation and a 7% enlargement in one step. That gives:
 
-| Arc         | Centre             | Radius  | Role                                  |
-| ----------- | ------------------ | ------- | ------------------------------------- |
-| Outer sweep | (23.8579, 69.1363) | 31.2450 | the outer edge                        |
-| Tail-outer  | (−0.1024, 83.1096) | 58.9820 | the hook into the tail                |
-| Throat      | (7.0894, 78.9507)  | 18.9638 | the scoop under the head              |
-| Blend       | (34.7205, 64.9764) | 12.0    | turns the throat into the facing edge |
-| Facing edge | (89.7175, 83.5939) | 70.0627 | the lower side of the middle line     |
+| Segment     | Centre             | Radius   | Role                              |
+| ----------- | ------------------ | -------- | --------------------------------- |
+| Outer sweep | (23.8579, 69.1363) | 31.2450  | the outer edge                    |
+| Tail hook   | (−0.1024, 83.1096) | 58.9820  | the hook into the tail            |
+| Throat      | (7.0894, 78.9507)  | 18.9638  | the scoop under the head          |
+| Blend       | (36.2329, 63.7405) | 13.9100  | carries the throat onto the cut   |
+| Facing edge | —                  | straight | the lower side of the middle line |
 
-- **Head cusp** at (10.8397, 97.5400) — outer sweep into throat.
-- **Tail cusp** at (37.0958, 37.3365) — facing edge into tail-outer.
-- **Tangent points** at (50.8485, 53.3959) outer sweep into tail-outer, (24.0121, 70.3921) throat
-  into blend, and (23.3541, 61.1286) blend into facing edge.
+- **Head cusp** at (10.8397, 97.5400) — outer sweep into throat, 36°.
+- **Tail cusp** at (35.5467, 36.1199) — the cut into the tail hook, 82°.
+- **Tangent points** at (50.8485, 53.3959) outer sweep into tail hook, (23.9013, 70.1765) throat
+  into blend, and (24.0441, 57.0382) blend onto the cut.
 
-The facing edge is **not** the reflection of the upper stroke's — it is the inner arc of the same
-channel circle. That is the whole point of the change, and it is why the lower stroke's inner edge
-has to be listed rather than derived.
+The blend radius is the upper stroke's 13.0 scaled by the same 1.07, so the two strokes turn onto
+the cut identically. The facing edge is **not** derived from the upper stroke's — it is the same
+line, offset the other way, which is why it has to be stated rather than transformed.
 
 ### The point
 
@@ -153,11 +158,11 @@ heavy S off to the left.
 
 ### Small sizes
 
-At 32 px and below the 4.75-unit channel closes up. `psychsift-favicon.svg` is a separate optical
-cut for that range: the channel is widened to **7.75 units** by moving each facing edge 1.5 units
-away from the other, and the two arcs are re-solved against the strokes they meet. Because only the
-facing edges move, the outer silhouette is byte-for-byte the one in the primary file. Use it for
-favicons, browser tabs, and anything rendered under 32 px.
+At 32 px and below the 4.2-unit cut closes up. `psychsift-favicon.svg` is a separate optical cut for
+that range: the gap is widened to **7.2 units** by moving each facing edge 1.5 units away from the
+other, and the blends are re-solved against the lines they now meet. Because only the facing edges
+move, the outer silhouette is identical to the one in the primary file. Use it for favicons, browser
+tabs, and anything rendered under 32 px.
 
 ## Colours
 
