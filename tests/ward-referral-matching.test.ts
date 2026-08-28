@@ -602,16 +602,28 @@ describe("matching stays independent of the bed-release model", () => {
   });
 
   /**
-   * Phase 8 Task 3. The two travel-band modules join this graph automatically the moment
-   * `ward-referrals.ts` imports `ward-distance.ts` — but a coverage claim you cannot see is not a
-   * coverage claim. Without this assertion a future refactor that moved the grouping or the
-   * out-of-area ledger into a module outside this graph would silently narrow the contract to
-   * cover less than it does today, and every test above would stay green while it did. Named
-   * explicitly so that refactor fails HERE, where the reason is written down, rather than nowhere.
+   * Phase 8 Task 3, extended by Task 2R. These modules join this graph automatically the moment
+   * `ward-referrals.ts` imports them — but a coverage claim you cannot see is not a coverage
+   * claim. Without this assertion a future refactor that moved the grouping or the out-of-area
+   * ledger into a module outside this graph would silently narrow the contract to cover less than
+   * it does today, and every test above would stay green while it did. Named explicitly so that
+   * refactor fails HERE, where the reason is written down, rather than nowhere.
+   *
+   * `ward-admissions.ts` was added by Task 2R, when the out-of-area ledger stopped reading an
+   * arrival stamped on a `Referral` and started reading the `Admission` record — the one thing in
+   * this model that records a person occupying a bed AND records them leaving it. That import
+   * pulls `ward-admissions.ts` and, through it, `ward-change-reasons.ts` into the graph this
+   * contract sweeps. Both are checked against the bed-release identifier by the test above like
+   * every other file in the graph, and `ward-change-reasons.ts` carries no imports of its own, so
+   * it extends the graph's reach no further. `BedReleaseBlocker`/`BED_RELEASE_BLOCKERS` — which
+   * `ward-admissions.ts` does import — are deliberately NOT in that identifier pattern: they are
+   * the owner-approved blocked-reason vocabulary, not a piece of the release model, and the
+   * pattern above enumerates spellings exactly rather than using a `BedRelease\w*` wildcard for
+   * precisely this reason.
    *
    * `toContain`, never an exact list: a legitimate new import must never turn this red.
    */
-  it("covers the travel-band modules the Phase 8 derivations read", () => {
+  it("covers the travel-band and admission modules the Phase 8 derivations read", () => {
     const entryFiles = [
       resolve(process.cwd(), "src/components/ward-management/ward-eligibility.ts"),
       resolve(process.cwd(), "src/components/ward-management/ward-referrals.ts"),
@@ -619,5 +631,6 @@ describe("matching stays independent of the bed-release model", () => {
     const reached = [...collectModuleGraph(entryFiles).keys()].map((file) => basename(file));
     expect(reached).toContain("ward-distance.ts");
     expect(reached).toContain("ward-travel-bands.ts");
+    expect(reached).toContain("ward-admissions.ts");
   });
 });

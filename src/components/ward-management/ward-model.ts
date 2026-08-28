@@ -623,26 +623,6 @@ export type Referral = {
   /** A role, never a person. */
   decidedBy?: string;
   /**
-   * Phase 8 (spec D8-3): when this referral ARRIVED in the bed it was accepted into. A fact about
-   * the REFERRAL, not about the person — the same operational family as `raisedAt` and
-   * `decidedAt`, which is precisely why adding it does not widen the five facts this type holds
-   * about anybody. It exists because the out-of-area measure starts its elapsed count at arrival,
-   * and nothing in this model recorded a referral arriving anywhere: a `Referral` carries a home
-   * region and never arrives, a `Movement` arrives and carries no home region.
-   *
-   * It is ONE TIMESTAMP and must stay one. `REFERRAL_ARRIVED` (`ward-flow-reducer.ts`) creates no
-   * `Movement`, sets no location, no legal status and no stage — Phase 7's D14 seam, that an
-   * accepted referral is deliberately not turned into a movement, is still exactly where it was.
-   * The moment this field acquires a companion carrying any of those, that decision has been
-   * reversed by accident rather than by decision; `tests/ward-referral-reducer.test.ts` asserts
-   * the absence of all four explicitly so a future change argues with a test rather than slips by.
-   *
-   * Carries NO travel band, and never will. A band is a fact about a pair (home region, site) and
-   * is only ever looked up through `ward-distance.ts` — storing one here would outlive the day the
-   * placeholder values in `ward-travel-bands.ts` are replaced with checked ones.
-   */
-  arrivedAt?: Instant;
-  /**
    * Phase 8 (spec D8-6): that somebody looked for a bed closer to home before this referral was
    * placed, and when. Optional because nobody knows whether country services do this today — the
    * step exists as something a coordinator MAY record if it happened, and is never a stage the

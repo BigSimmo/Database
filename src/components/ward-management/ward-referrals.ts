@@ -1,7 +1,9 @@
+import type { Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   OUT_OF_AREA_BANDS,
   TRAVEL_BANDS,
+  travelBand,
   unitTravelBand,
   type TravelBand,
 } from "@/components/ward-management/ward-distance";
@@ -275,83 +277,112 @@ export function travelBandGroupCounts(group: TravelBandGroup): TravelBandGroupCo
 
 /**
  * One person currently in a bed the fixture records as out of area, and how long since they got
- * there. Carries the `Referral` and the `Unit` themselves rather than copies of fields off them,
- * so nothing here becomes a second place a name, a band or a time is spelled.
+ * there. Carries the `Admission` and the `Unit` themselves rather than copies of fields off them,
+ * so nothing here becomes a second place a band or a time is spelled.
  *
  * `band` is narrowed to `TravelBand` and only ever holds a member of `OUT_OF_AREA_BANDS` — an
  * unrecorded band can never reach this type, which makes "every entry is genuinely out of area" a
  * fact about the type rather than a claim about the code.
  */
 export type OutOfAreaEntry = {
-  referral: Referral;
+  admission: Admission;
   unit: Unit;
   band: TravelBand;
-  /** Minutes since `arrivedAt`, computed exactly as `referralWaitLabel` above computes a wait —
-   *  never clamped here, so a fixture authored with an arrival in the future reads as the oddity
-   *  it is rather than silently as zero. `formatElapsed` clamps at the point of display. */
+  /** Minutes since the admission's `arrivedAt`, computed exactly as `referralWaitLabel` above
+   *  computes a wait — never clamped here, so a fixture authored with an arrival in the future
+   *  reads as the oddity it is rather than silently as zero. `formatElapsed` clamps at the point
+   *  of display. */
   sinceArrival: number;
 };
 
 /**
  * Phase 8 (spec D8-3): how many people are currently in a bed a long way from where they live, and
- * how many arrivals could not be classified at all. Two counts of two different things.
+ * how many of those beds could not be classified at all. Two counts of two different things.
+ *
+ * **It reads `Admission`, and that is the whole of Task 2R.** An earlier version read an
+ * `arrivedAt` stamp added to `Referral`, and it had NO EXIT: a referral never stops being
+ * accepted, so somebody discharged weeks ago stayed on this ledger forever with their elapsed
+ * time still climbing. `Admission` (`ward-admissions.ts`) is the one record of a person occupying
+ * a bed and it closes — `state: "left"` and `leftAt` — which is why the referral field and its
+ * `REFERRAL_ARRIVED` event were removed rather than kept alongside. One fact, one record.
  *
  * **The two numbers do not share a denominator.** `entries.length` counts people out of area;
- * `notBanded` counts arrivals the fixture records no band for. Neither is a part of the other and
+ * `notBanded` counts admissions the fixture records no band for. Neither is a part of the other and
  * neither is a part of any whole — this returns exactly those two keys and no total, precisely so
  * that no screen can read a proportion out of it. A ratio of the two would be a figure this phase
  * has not been asked to author and that nobody has checked.
  *
+ * **`notBanded` will normally be the far larger number, and that is the honest output of this
+ * rule rather than a defect.** `SYNTHETIC_TRAVEL_BANDS` records only some home regions, and only
+ * some sites within those, so most beds cannot be classified at all — measured against the
+ * admission seed as it stood on 2026-08-29, the unclassified count outnumbered the out-of-area
+ * count by roughly twelve to one. At that ratio ANY construction implying the second number is a
+ * shortfall, a remainder or an incompleteness of the first would be actively misleading, which is
+ * why the guard here is structural rather than advisory: this function returns two keys, no total,
+ * no percentage and no denominator, and `tests/ward-travel-grouping.test.ts` asserts that key set
+ * exactly. Two facts, side by side, neither one a part of the other.
+ *
  * What each case does, and why:
  *
- *  - **Accepted, arrived, band is a member of `OUT_OF_AREA_BANDS`** → an entry. The clock runs from
- *    `arrivedAt`, NEVER from `decidedAt`: a decision and an arrival are different facts, and that
- *    difference is the whole reason `arrivedAt` was added to the model.
- *  - **Accepted, arrived, band not recorded** → `notBanded`, never an entry. An unknown band must
+ *  - **Left** → in neither number, whatever their band and however long they were there. SOMEBODY
+ *    WHO HAS LEFT IS NOT IN A BED FAR FROM HOME. This is the first check in the loop and it is
+ *    deliberately its own condition rather than folded into the arrival test: a departed admission
+ *    still carries the `arrivedAt` it arrived on, so nothing else in this function would exclude
+ *    it. `tests/ward-travel-grouping.test.ts` pins it directly.
+ *  - **Arrived, still here, band is a member of `OUT_OF_AREA_BANDS`** → an entry. The clock runs
+ *    from `arrivedAt`, NEVER from `pulledAt`: the bed has been gone since the pull, but this
+ *    ledger measures how long somebody has been AWAY FROM HOME, which starts when they get there.
+ *    Reading `pulledAt` would overstate every entry by the transport delay, in the same direction
+ *    every time. The pull-to-arrival gap is a real and separate figure; nothing here surfaces it.
+ *  - **Arrived, still here, band not recorded** → `notBanded`, never an entry. An unknown band must
  *    never become a figure, and a count that quietly excluded what it could not classify would be
  *    quoted as complete. The gap is reported as a gap — the same rule `travelBand` itself follows
  *    in returning `undefined` rather than falling back to a band.
- *  - **Accepted, arrived, band recorded and in area** → in neither number. Present and correctly
+ *  - **Arrived, still here, band recorded and in area** → in neither number. Present and correctly
  *    classified; there is nothing to report.
- *  - **Accepted, no arrival** → in neither number, and NOT reported as missing anything. As far as
- *    this prototype knows the person has not arrived, and saying more would invent the arrival. A
- *    non-finite `arrivedAt` is treated the same way rather than yielding a `NaN` elapsed time — the
- *    same `typeof … === "number" && Number.isFinite(…)` reasoning `hasConfirmedCapacity` above
- *    spells out in full.
- *  - **Accepted, arrived, `acceptedUnitId` resolves to no unit** → skipped entirely, never banded
- *    against a guessed site. It is not counted as unbanded either: nothing was looked up, so
- *    nothing failed to be found.
+ *  - **No arrival** → in neither number, and NOT reported as missing anything. A waitlisted
+ *    admission has no bed and a pulled one is a bed given away to somebody still on their way, so
+ *    as far as this prototype knows nobody is in it yet, and saying more would invent the arrival.
+ *    A non-finite `arrivedAt` is treated the same way rather than yielding a `NaN` elapsed time.
+ *  - **`unitId` resolves to no unit** → skipped entirely, never banded against a guessed site. It
+ *    is not counted as unbanded either: nothing was looked up, so nothing failed to be found.
  *
- * Order is the order `referrals` arrived in, and there is no comparator here at all. This is a
+ * Order is the order `admissions` arrived in, and there is no comparator here at all. This is a
  * ledger of people, not a queue, and nothing about it ranks, prioritises or shortlists anyone.
  *
  * `units` is a parameter rather than a call to `allUnits()` so this derivation stays pure over its
  * inputs and testable against a fixture — the same reason `referralCandidates` above takes one.
+ *
+ * The band is looked up through `ward-distance.ts` from the admission's own `homeRegion` and the
+ * accepting unit's site, exactly as `unitTravelBand` does it for a referral. No band is stored on
+ * an `Admission`, and none is stored here.
  */
 export function outOfAreaLedger(
-  referrals: Referral[],
+  admissions: Admission[],
   units: Unit[],
   now: Instant,
 ): { entries: OutOfAreaEntry[]; notBanded: number } {
   const entries: OutOfAreaEntry[] = [];
   let notBanded = 0;
 
-  for (const referral of referrals) {
-    if (referral.state !== "accepted") continue;
-    const arrivedAt = referral.arrivedAt;
-    if (typeof arrivedAt !== "number" || !Number.isFinite(arrivedAt)) continue;
+  for (const admission of admissions) {
+    // The exit the referral-based version did not have. Read this file's own comment above before
+    // moving, weakening or merging this line into the arrival check below.
+    if (admission.state === "left") continue;
+    const arrivedAt = admission.arrivedAt;
+    if (arrivedAt === null || !Number.isFinite(arrivedAt)) continue;
 
-    const unit = units.find((candidate) => candidate.id === referral.acceptedUnitId);
+    const unit = units.find((candidate) => candidate.id === admission.unitId);
     if (!unit) continue;
 
-    const band = unitTravelBand(referral, unit);
+    const band = travelBand(admission.homeRegion, unit.siteCode);
     if (band === undefined) {
       notBanded += 1;
       continue;
     }
     if (!OUT_OF_AREA_BANDS.includes(band)) continue;
 
-    entries.push({ referral, unit, band, sinceArrival: minutesUntil(now, arrivedAt) });
+    entries.push({ admission, unit, band, sinceArrival: minutesUntil(now, arrivedAt) });
   }
 
   return { entries, notBanded };

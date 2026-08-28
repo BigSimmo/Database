@@ -925,19 +925,28 @@ export const leaveBeds: LeaveBed[] = [
  *     RF-001 deliberately is not (review finding M1's related note): the age dimension is only
  *     honourable if at least one seed path shows it actually working, not only failing. Also
  *     out-of-area, from Geraldton (Mid West).
- *   - RF-008: Phase 8 Task 2. Accepted AND arrived, and the only accepted referral whose travel
- *     band is one of `OUT_OF_AREA_BANDS` — see its own comment below for why it was added rather
- *     than made out of one of the five above, and for why what it shows on screen will read
- *     oddly on purpose.
+ *   - RF-008: Phase 8 Task 2. The only accepted referral whose travel band — looked up from its
+ *     home region to the site of the unit it was accepted into — is one of `OUT_OF_AREA_BANDS`.
+ *     It records no arrival (Task 2R removed arrivals from this type entirely); it is kept
+ *     because it is the one seeded referral an out-of-area admission can honestly be joined to.
+ *     See its own comment below for why what it shows on screen will read oddly on purpose.
  *
- * Phase 8 Task 2 also seeded arrivals (`arrivedAt`) so the equity ledger has real content in all
- * three shapes the spec requires: RF-008 arrived and its band is out of area, RF-002 arrived and
- * its band is NOT RECORDED for that pair, and RF-006 and RF-007 are accepted with NO ARRIVAL at
- * all. RF-003 arrived with an in-area band, which is the case the ledger must exclude. Which
- * referral fell into which shape was read out of `SYNTHETIC_TRAVEL_BANDS` (`ward-travel-bands.ts`)
- * rather than chosen, and NO band was added, moved or edited to arrange it. No referral stores a
- * band: a band is a fact about a (home region, site) pair and is only ever looked up, through
- * `ward-distance.ts`.
+ * Phase 8 Task 2R REMOVED the arrivals this fixture briefly carried. A referral no longer records
+ * arriving anywhere: `Admission` (`ward-admissions.ts`) is the one record of a person occupying a
+ * bed, it carries both a pull time and an arrival time, and — unlike an accepted referral, which
+ * is accepted forever — it also carries `state: "left"` and `leftAt`, so somebody discharged
+ * weeks ago leaves the out-of-area ledger instead of accumulating time on it indefinitely. That
+ * missing exit was a real defect in the referral-based version, not a preference.
+ *
+ * NOTHING IS SEEDED FOR THAT LEDGER YET. No `Admission` fixture exists in this file or anywhere
+ * else, so the ledger has no seeded content in any shape; it is exercised only by test-local
+ * admissions. The seed fixture is owned by the workstream that built `Admission` and is in flight
+ * on its own branch — see `tests/ward-travel-grouping.test.ts` for the shapes it must cover. Do
+ * not close that gap by seeding one here: two authors seeding the same fixture is a merge
+ * collision in which one set is thrown away.
+ *
+ * No referral stores a band, and neither does an admission: a band is a fact about a (home
+ * region, site) pair and is only ever looked up, through `ward-distance.ts`.
  * No referral carries anything beyond `ageBand`/`sex`/`secureBedNeeded`/`involuntaryBedNeeded`/
  * `homeRegion` about the person, no free text anywhere, `originSiteCode` is always one of
  * `wardSites`' own synthetic codes (never an address), and `homeRegion` is always one of
@@ -973,12 +982,6 @@ export const referrals: Referral[] = [
     state: "accepted",
     acceptedUnitId: "ger-adult-open",
     decidedAt: NOW_ANCHOR - 10,
-    // Phase 8 Task 2: the seed's "arrived, but the band for this pair is NOT RECORDED" case. Its
-    // home region is Kimberley and `ger-adult-open` sits at site GER, a pair
-    // `SYNTHETIC_TRAVEL_BANDS` (`ward-travel-bands.ts`) records nothing for — so the ledger must
-    // show this arrival as a gap rather than guess a band for it. Read out of the fixture, not
-    // chosen: no band was added, moved or edited to make this so.
-    arrivedAt: NOW_ANCHOR - 6,
     // Fix round B (review finding M2/M3): was "Bed management", a decider ACCEPT_REFERRAL
     // (ward-flow-reducer.ts) can never actually produce — that event is coordinator-only and
     // always writes "Flow coordinator". Made consistent with what the live reducer writes.
@@ -1004,12 +1007,6 @@ export const referrals: Referral[] = [
     state: "accepted",
     acceptedUnitId: "scgh-adult-open",
     decidedAt: NOW_ANCHOR - 15,
-    // Phase 8 Task 2: an arrival the out-of-area ledger must EXCLUDE. Perth Metropolitan to site
-    // SCGH is recorded in `SYNTHETIC_TRAVEL_BANDS` as a band that is not one of
-    // `OUT_OF_AREA_BANDS`, so a ledger that counted every arrival, or that treated any recorded
-    // band as far, would be visibly wrong here rather than merely unproven. Again read out of the
-    // fixture rather than chosen.
-    arrivedAt: NOW_ANCHOR - 9,
     decidedBy: "Flow coordinator",
   },
   {
@@ -1100,12 +1097,16 @@ export const referrals: Referral[] = [
   },
   {
     // Phase 8 Task 2. Added — not edited into an existing referral — because the equity ledger
-    // (spec D8-3) needs at least one accepted referral that HAS ARRIVED and whose travel band is
-    // one of `OUT_OF_AREA_BANDS`, and NONE of RF-002/RF-003/RF-006/RF-007 is: their pairs read
-    // out of `SYNTHETIC_TRAVEL_BANDS` as unrecorded, unrecorded, in-area and unrecorded. The band
-    // table is owner-ruled placeholder data and was not touched to close that gap; this referral
+    // (spec D8-3) needs at least one accepted referral whose travel band is one of
+    // `OUT_OF_AREA_BANDS`, and NONE of RF-002/RF-003/RF-006/RF-007 is: their pairs read out of
+    // `SYNTHETIC_TRAVEL_BANDS` as unrecorded, unrecorded, in-area and unrecorded. The band table
+    // is owner-ruled placeholder data and was not touched to close that gap; this referral
     // instead uses a pair the table ALREADY records as out of area, and the pair was read out of
     // the fixture rather than chosen for how it reads.
+    //
+    // Task 2R: this referral no longer records an arrival, because no referral does. The ledger
+    // reads `Admission` instead, and this is the referral an out-of-area admission can be joined
+    // to when that fixture lands.
     //
     // READ THIS BEFORE "FIXING" IT. Every band in `SYNTHETIC_TRAVEL_BANDS` is invented and
     // assigned mechanically by list position, so this seed is very likely a metropolitan person
@@ -1136,8 +1137,5 @@ export const referrals: Referral[] = [
     acceptedUnitId: "fsh-adult-secure",
     decidedAt: NOW_ANCHOR - 45,
     decidedBy: "Flow coordinator",
-    // The arrival the out-of-area ledger counts elapsed time from. No band is stored here or
-    // anywhere else on this record; `ward-distance.ts` looks one up when a screen needs it.
-    arrivedAt: NOW_ANCHOR - 20,
   },
 ];

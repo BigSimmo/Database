@@ -368,23 +368,6 @@ export type WardFlowEvent =
       unitId: string;
     }
   | {
-      type: "REFERRAL_ARRIVED";
-      role: WardFlowRole;
-      now: Instant;
-      /**
-       * The ACCEPTED referral that has arrived in the bed it was accepted into. Phase 8 (spec
-       * D8-3): the out-of-area measure counts elapsed time from arrival, and nothing recorded a
-       * referral arriving anywhere before this event existed.
-       *
-       * The event carries this id and nothing else. It deliberately has NO `unitId`, `siteCode`,
-       * `legalStatus`, `stage` or `movementId` field: the referral already names the unit it was
-       * accepted into, and any of those would turn one timestamp into the beginning of a second
-       * movement model — reversing Phase 7's D14 seam by accident rather than by decision. Adding
-       * a field here is a governance decision, not an implementation one.
-       */
-      referralId: string;
-    }
-  | {
       type: "RECORD_LOCAL_BED_SOUGHT";
       role: WardFlowRole;
       now: Instant;
@@ -462,10 +445,6 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   RECEIVE_REFERRAL: ["community"],
   ACCEPT_REFERRAL: ["coordinator"],
   DECLINE_REFERRAL: ["coordinator"],
-  // Phase 8 Task 2. `REFERRAL_ARRIVED` is `coordinator` OR `ward` because both can honestly know
-  // it: the receiving ward sees the person arrive, and the coordinator is told. Two roles here is
-  // the same shape `CHANGE_URGENCY`/`CHANGE_LEGAL_STATUS` already use, not a new precedent.
-  REFERRAL_ARRIVED: ["coordinator", "ward"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec
   // says only "role-gated like every other referral event", and the control sits on the
   // coordinator's own match view. The owner may want `community` here as well (a community team

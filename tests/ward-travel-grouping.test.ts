@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import type { Admission } from "../src/components/ward-management/ward-admissions";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -20,7 +21,6 @@ import {
   type Sex,
   type Unit,
 } from "../src/components/ward-management/ward-model";
-import { referrals as seededReferrals } from "../src/components/ward-management/ward-movements";
 import {
   candidateAccepts,
   groupCandidatesByTravelBand,
@@ -334,6 +334,22 @@ describe("distance groups the list and never gates it", () => {
 });
 
 describe("the out-of-area ledger", () => {
+  /**
+   * Phase 8 Task 2R. These tests read `Admission`, not `Referral`.
+   *
+   * **Nothing is seeded.** No `Admission` fixture exists anywhere in the repository yet — the seed
+   * is owned by the workstream that built the record and is in flight on its own branch — so every
+   * admission below is built in the test that needs it. That is stated rather than worked around:
+   * this suite proves the derivation, and NOT that the demonstration data a screen will render
+   * holds any of these shapes. When that fixture lands it must carry, at minimum, an occupied
+   * out-of-area admission, one whose band the table does not record, and one that has LEFT an
+   * out-of-area bed. Until then the seeded demonstration is owed, not delivered.
+   *
+   * The boundary this whole file sets still applies: no test here names a region and a hospital
+   * together in an expectation. Where a concrete out-of-area or unrecorded pair is needed it is
+   * SEARCHED for in the fixture and the test fails loudly by name if none exists, so replacing the
+   * placeholders with checked values either leaves this file green or fails it honestly.
+   */
   const units = allUnits();
   // Asserted rather than assumed. A bare `!` here would turn a renamed or removed unit into a
   // confusing `undefined` failure deep inside an unrelated expectation, several tests later.
@@ -345,114 +361,204 @@ describe("the out-of-area ledger", () => {
     ).toBeDefined();
   });
 
-  it("counts only accepted arrivals whose band is a member of OUT_OF_AREA_BANDS", () => {
-    const { entries } = outOfAreaLedger(seededReferrals, units, NOW);
-    expect(entries.length, "the seed holds no out-of-area arrival — the ledger has nothing to prove").toBeGreaterThan(
-      0,
-    );
-    for (const entry of entries) {
-      expect(OUT_OF_AREA_BANDS).toContain(entry.band);
-      expect(entry.referral.state).toBe("accepted");
-      expect(typeof entry.referral.arrivedAt).toBe("number");
-      expect(entry.unit.id).toBe(entry.referral.acceptedUnitId);
-      // The band is looked up from the ACCEPTING UNIT'S site, never stored and never guessed.
-      expect(entry.band).toBe(unitTravelBand(entry.referral, entry.unit));
-    }
-  });
+  /** A whole `Admission`, every field written out, so a field added to the record makes these
+   *  tests fail to compile rather than silently defaulting. Occupied and arrived by default —
+   *  the state this ledger is about — with each test overriding only what it is testing. */
+  function admission(overrides: Partial<Admission> = {}): Admission {
+    return {
+      id: "AD-TEST",
+      unitId: "fsh-adult-secure",
+      referralId: "RF-TEST",
+      sex: "Female",
+      homeRegion: "Perth Metropolitan",
+      state: "occupied",
+      pulledAt: NOW - 90,
+      arrivedAt: NOW - 30,
+      expectedDischargeAt: null,
+      dischargeDateMoves: 0,
+      dischargeDateSetAt: null,
+      dischargeDateSetBy: null,
+      blockReason: null,
+      leavingDestination: null,
+      leftAt: null,
+      ...overrides,
+    };
+  }
 
-  it("counts an arrival whose band the fixture does not record as notBanded, never as out of area", () => {
-    const homeRegion = HOME_REGIONS.find(
-      (region) => unitTravelBand(referral({ homeRegion: region }), acceptingUnit!) === undefined,
-    );
-    expect(homeRegion, "no home region is unrecorded for this site — the unbanded case is untestable").toBeDefined();
-
-    const subject = referral({
-      id: "RF-UNBANDED",
-      homeRegion: homeRegion!,
-      sex: "Male",
-      secureBedNeeded: true,
-      state: "accepted",
-      acceptedUnitId: acceptingUnit!.id,
-      decidedAt: NOW - 40,
-      arrivedAt: NOW - 20,
-    });
-    const ledger = outOfAreaLedger([subject], units, NOW);
-    expect(ledger.entries).toEqual([]);
-    expect(ledger.notBanded).toBe(1);
-  });
-
-  it("puts an accepted referral with no arrival in neither number", () => {
-    const subject = referral({
-      id: "RF-NOARRIVAL",
-      state: "accepted",
-      acceptedUnitId: acceptingUnit!.id,
-      decidedAt: NOW - 40,
-    });
-    expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 0 });
-  });
-
-  it("skips an accepted arrival whose unit no longer resolves rather than banding it against a guess", () => {
-    const subject = referral({
-      id: "RF-NOUNIT",
-      state: "accepted",
-      acceptedUnitId: "a-unit-that-does-not-exist",
-      decidedAt: NOW - 40,
-      arrivedAt: NOW - 20,
-    });
-    expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 0 });
-  });
-
-  it("runs the clock from arrivedAt, never from decidedAt", () => {
-    const outOfAreaRegion = HOME_REGIONS.find((region) => {
-      const band = unitTravelBand(referral({ homeRegion: region }), acceptingUnit!);
+  /** A home region the fixture records as out of area for `siteCode`, searched rather than named.
+   *  Returns `undefined` when none exists, which every caller asserts against by name. */
+  function outOfAreaRegionFor(siteCode: string): HomeRegion | undefined {
+    return HOME_REGIONS.find((region) => {
+      const band = travelBand(region, siteCode);
       return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
     });
-    expect(outOfAreaRegion, "no home region is out of area for this site — the clock case is untestable").toBeDefined();
+  }
+
+  /** A home region the fixture records NO band for at `siteCode`. */
+  function unbandedRegionFor(siteCode: string): HomeRegion | undefined {
+    return HOME_REGIONS.find((region) => travelBand(region, siteCode) === undefined);
+  }
+
+  /** A home region the fixture records a band for at `siteCode` that is NOT out of area. */
+  function inAreaRegionFor(siteCode: string): HomeRegion | undefined {
+    return HOME_REGIONS.find((region) => {
+      const band = travelBand(region, siteCode);
+      return band !== undefined && !OUT_OF_AREA_BANDS.includes(band);
+    });
+  }
+
+  it("counts an occupied admission whose band is a member of OUT_OF_AREA_BANDS", () => {
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site — the ledger is untestable").toBeDefined();
+
+    const subject = admission({ id: "AD-FAR", homeRegion: homeRegion! });
+    const { entries, notBanded } = outOfAreaLedger([subject], units, NOW);
+    expect(entries).toHaveLength(1);
+    expect(notBanded).toBe(0);
+    expect(entries[0].admission).toBe(subject);
+    expect(entries[0].unit.id).toBe(subject.unitId);
+    expect(OUT_OF_AREA_BANDS).toContain(entries[0].band);
+    // The band is looked up from the ADMISSION's home region and the unit's own site, never
+    // stored on the record and never guessed.
+    expect(entries[0].band).toBe(travelBand(subject.homeRegion, entries[0].unit.siteCode));
+  });
+
+  /**
+   * THE POINT OF TASK 2R. The version this replaced read accepted referrals, and a referral never
+   * stops being accepted — so somebody discharged weeks ago stayed on the ledger forever with
+   * their elapsed time still climbing. `Admission` closes, and this is the test that says so.
+   *
+   * The two admissions differ in ONE field pair (`state`/`leftAt`) and are otherwise identical,
+   * including the arrival the clock runs from — so nothing but the departure can explain the
+   * difference in the result. Deleting the `state === "left"` guard in `outOfAreaLedger` makes
+   * this fail; nothing else in that function would exclude a departed admission, because a
+   * departed admission still carries the `arrivedAt` it arrived on.
+   */
+  it("excludes an admission that has LEFT, however far from home and however long it stayed", () => {
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site — the exit case is untestable").toBeDefined();
+
+    const stillHere = admission({ id: "AD-STILL-HERE", homeRegion: homeRegion! });
+    const hasLeft = admission({
+      ...stillHere,
+      id: "AD-LEFT",
+      state: "left",
+      leavingDestination: "discharged-to-the-community",
+      leftAt: NOW - 5,
+    });
+
+    // The control: identical but for the departure, and it does count.
+    expect(outOfAreaLedger([stillHere], units, NOW).entries).toHaveLength(1);
+    // Somebody who has left is not in a bed far from home. Neither number, not one of them.
+    expect(outOfAreaLedger([hasLeft], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+    // And a departure is not rescued by a very long stay, which is exactly the entry the broken
+    // version accumulated.
+    const longGone = admission({ ...hasLeft, id: "AD-LONG-GONE", arrivedAt: NOW - 100000, leftAt: NOW - 90000 });
+    expect(outOfAreaLedger([longGone], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
+  it("does not count an admission that has LEFT as notBanded either, whatever its band", () => {
+    // The departure check comes FIRST, so a departed admission is never even banded. Folding it
+    // in after the band lookup would put this one in `notBanded`, which is a figure about beds
+    // somebody is currently in.
+    const homeRegion = unbandedRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is unrecorded for this site — this case is untestable").toBeDefined();
+
+    const hasLeft = admission({
+      id: "AD-LEFT-UNBANDED",
+      homeRegion: homeRegion!,
+      state: "left",
+      leavingDestination: "discharged-to-the-community",
+      leftAt: NOW - 5,
+    });
+    expect(outOfAreaLedger([hasLeft], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
+  it("counts an admission whose band the fixture does not record as notBanded, never as out of area", () => {
+    const homeRegion = unbandedRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is unrecorded for this site — the unbanded case is untestable").toBeDefined();
+
+    const subject = admission({ id: "AD-UNBANDED", homeRegion: homeRegion! });
+    expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 1 });
+  });
+
+  it("puts an occupied admission whose band is recorded and in area in neither number", () => {
+    const homeRegion = inAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is in area for this site — the in-area case is untestable").toBeDefined();
+
+    const subject = admission({ id: "AD-IN-AREA", homeRegion: homeRegion! });
+    expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
+  it("puts an admission with no arrival in neither number, whether it is waitlisted or pulled", () => {
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site — the no-arrival case is untestable").toBeDefined();
+
+    // Waitlisted: no bed at all, so no pull either.
+    const waitlisted = admission({
+      id: "AD-WAITLISTED",
+      homeRegion: homeRegion!,
+      state: "waitlisted",
+      pulledAt: null,
+      arrivedAt: null,
+    });
+    // Pulled: the bed IS gone, but nobody is in it yet — so this ledger, which measures time away
+    // from home, has nothing to measure. `bedIsOccupied` answers the other question and counts it.
+    const pulled = admission({ id: "AD-PULLED", homeRegion: homeRegion!, state: "pulled", arrivedAt: null });
+
+    expect(outOfAreaLedger([waitlisted, pulled], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
+  it("skips an admission whose unit no longer resolves rather than banding it against a guess", () => {
+    const subject = admission({ id: "AD-NOUNIT", unitId: "a-unit-that-does-not-exist" });
+    // Not an entry, and NOT notBanded: nothing was looked up, so nothing failed to be found.
+    expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 0 });
+  });
+
+  it("runs the clock from arrivedAt, never from pulledAt", () => {
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site — the clock case is untestable").toBeDefined();
 
     const arrivedAt = NOW - 20;
-    const decidedAt = NOW - 45;
-    const subject = referral({
-      id: "RF-CLOCK",
-      homeRegion: outOfAreaRegion!,
-      sex: "Male",
-      secureBedNeeded: true,
-      state: "accepted",
-      acceptedUnitId: acceptingUnit!.id,
-      decidedAt,
-      arrivedAt,
-    });
+    const pulledAt = NOW - 45;
+    const subject = admission({ id: "AD-CLOCK", homeRegion: homeRegion!, pulledAt, arrivedAt });
+
     const { entries } = outOfAreaLedger([subject], units, NOW);
     expect(entries).toHaveLength(1);
     expect(entries[0].sinceArrival).toBe(NOW - arrivedAt);
-    // Two different facts, and the difference is the whole point of recording an arrival at all.
-    expect(entries[0].sinceArrival).not.toBe(NOW - decidedAt);
+    // Two different facts. The bed has been gone since the pull; this ledger measures how long
+    // somebody has been away from home, which starts when they get there. The pull-to-arrival gap
+    // is a real figure and deliberately not surfaced here.
+    expect(entries[0].sinceArrival).not.toBe(NOW - pulledAt);
   });
 
   it("reports two counts with no shared denominator to read a proportion from", () => {
     // `notBanded` and `entries.length` count two different things. A `total`, `of`, `all` or
     // `percentage` key appearing here is how a later screen comes to present them as parts of one
     // whole, which neither this derivation nor any screen may do.
-    expect(Object.keys(outOfAreaLedger(seededReferrals, units, NOW)).sort()).toEqual(["entries", "notBanded"]);
+    //
+    // This matters more than it looks. The band table records only some home regions and only some
+    // sites within those, so in real seeded data the unclassified count dwarfs the out-of-area one
+    // — about twelve to one when it was measured. A key that let the two be divided would turn
+    // that honest gap into an apparent shortfall, which is exactly the reading that must be
+    // impossible rather than merely discouraged.
+    const homeRegion = outOfAreaRegionFor(acceptingUnit!.siteCode);
+    expect(homeRegion, "no home region is out of area for this site").toBeDefined();
+    const ledger = outOfAreaLedger([admission({ homeRegion: homeRegion! })], units, NOW);
+    expect(Object.keys(ledger).sort()).toEqual(["entries", "notBanded"]);
   });
 
-  it("preserves the order the referrals were given in and never ranks them", () => {
-    // REWRITTEN after review. The previous version used two arrivals at ONE unit, given
-    // newest-first, and its own comment claimed that caught four comparators. It caught one.
-    // "Most recently arrived first" — the exact idiom `recentlyDecidedReferrals` uses in this very
-    // source file, and so the one most likely to be written by somebody being helpful — was a
-    // NO-OP against it, and so were "shortest wait first", "by band" and "by unit".
-    //
-    // Three arrivals now, given in middle/oldest/newest order, spread across two out-of-area sites
-    // with different bands. Everything is located by SEARCH, so a fixture change surfaces as a
-    // loud skip-reason rather than silently making the test vacuous the way the last one did.
+  it("preserves the order the admissions were given in and never ranks them", () => {
+    // Three arrivals, given in middle/oldest/newest order, spread across two out-of-area sites
+    // with different bands — so a comparator on band and a comparator on unit both have something
+    // to move, not just a comparator on time. Everything is located by SEARCH, so a fixture change
+    // surfaces as a loud skip-reason rather than silently making the test vacuous.
     const outOfAreaAt = (homeRegion: HomeRegion) =>
-      allUnits().filter((candidate) => {
-        const band = unitTravelBand(referral({ homeRegion }), candidate);
+      units.filter((candidate) => {
+        const band = travelBand(homeRegion, candidate.siteCode);
         return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
       });
 
-    // Two units at DIFFERENT sites, out of area for one shared home region, and carrying different
-    // bands — so a comparator on band and a comparator on unit both have something to move.
     let placement: { homeRegion: HomeRegion; first: Unit; second: Unit } | null = null;
     for (const homeRegion of HOME_REGIONS) {
       const far = outOfAreaAt(homeRegion);
@@ -461,7 +567,7 @@ describe("the out-of-area ledger", () => {
         (candidate) =>
           first &&
           candidate.siteCode !== first.siteCode &&
-          unitTravelBand(referral({ homeRegion }), candidate) !== unitTravelBand(referral({ homeRegion }), first),
+          travelBand(homeRegion, candidate.siteCode) !== travelBand(homeRegion, first.siteCode),
       );
       if (first && second) {
         placement = { homeRegion, first, second };
@@ -474,42 +580,31 @@ describe("the out-of-area ledger", () => {
     ).not.toBeNull();
     const { homeRegion, first, second } = placement!;
 
-    const arrival = (id: string, unit: Unit, arrivedAt: number): Referral =>
-      referral({
-        id,
-        homeRegion,
-        sex: "Male",
-        ageBand: unit.cohort,
-        secureBedNeeded: unit.security === "Secure",
-        state: "accepted",
-        acceptedUnitId: unit.id,
-        decidedAt: arrivedAt - 5,
-        arrivedAt,
-      });
+    const arrival = (id: string, unit: Unit, arrivedAt: number): Admission =>
+      admission({ id, homeRegion, unitId: unit.id, pulledAt: arrivedAt - 5, arrivedAt });
 
     // Middle, oldest, newest — an order that is not sorted by arrival in either direction.
     const given = [
-      arrival("RF-ORDER-MIDDLE", first, NOW - 120),
-      arrival("RF-ORDER-OLDEST", second, NOW - 300),
-      arrival("RF-ORDER-NEWEST", first, NOW - 10),
+      arrival("AD-ORDER-MIDDLE", first, NOW - 120),
+      arrival("AD-ORDER-OLDEST", second, NOW - 300),
+      arrival("AD-ORDER-NEWEST", first, NOW - 10),
     ];
     const givenIds = given.map((entry) => entry.id);
 
     const { entries } = outOfAreaLedger(given, units, NOW);
     expect(entries).toHaveLength(3);
     // This is a ledger of people, not a queue. Nothing here ranks, prioritises or shortlists.
-    expect(entries.map((entry) => entry.referral.id)).toEqual(givenIds);
+    expect(entries.map((entry) => entry.admission.id)).toEqual(givenIds);
 
     // The fixture must be able to DETECT each comparator somebody might helpfully add. Asserting
     // that the given order differs from every plausible sorted order is what makes the assertion
-    // above a guard rather than a coincidence — this is precisely the check the previous version
-    // lacked, and lacking it is why its own comment was wrong about three of the four.
+    // above a guard rather than a coincidence.
     const orderedBy = (compare: (a: OutOfAreaEntry, b: OutOfAreaEntry) => number) =>
-      [...entries].sort(compare).map((entry) => entry.referral.id);
+      [...entries].sort(compare).map((entry) => entry.admission.id);
     const detectable: [string, string[]][] = [
-      ["most recently arrived first", orderedBy((a, b) => b.referral.arrivedAt! - a.referral.arrivedAt!)],
-      ["longest waiting first", orderedBy((a, b) => a.referral.arrivedAt! - b.referral.arrivedAt!)],
-      ["shortest wait first", orderedBy((a, b) => a.sinceArrival - b.sinceArrival)],
+      ["most recently arrived first", orderedBy((a, b) => b.admission.arrivedAt! - a.admission.arrivedAt!)],
+      ["longest here first", orderedBy((a, b) => a.admission.arrivedAt! - b.admission.arrivedAt!)],
+      ["shortest time here first", orderedBy((a, b) => a.sinceArrival - b.sinceArrival)],
       ["by band", orderedBy((a, b) => a.band.localeCompare(b.band))],
       ["by unit", orderedBy((a, b) => a.unit.id.localeCompare(b.unit.id))],
     ];
