@@ -662,3 +662,191 @@
     display: grid;
   }
 }
+
+/*
+ * Print: ink-on-paper, no rail, no chrome control, no interactive control. This module had NO
+ * `@media print` block at all until the Phase 7 visual pass (fix round D) found that printing any
+ * of the three screens this file styles — the referral board, the intake form, and the match view
+ * beneath the board — while the device is in dark mode renders nearly the whole page as pale grey
+ * text on white paper. Starts from `morning.module.css`'s own `@media print` block (read its
+ * comments for the two traps repeated below), applied across a much bigger surface: three screens
+ * sharing one module, not one.
+ *
+ * `.screen` carries its own explicit `background: var(--surface)` for the on-screen dark theme
+ * (`ckb-v2-tokens.css`'s `.dark .ckb-v2` ramp resolves it to near-black — `#101315`). The global
+ * print reset in globals.css only resets `html`/`body`'s own background, which does not cascade
+ * into an element's own explicit `background` declaration — so without this reset, printing any
+ * of the three screens while the app is in dark mode paints the whole screen container as a dark
+ * band, not the white sheet the print reset promises everywhere else. Every card-shaped container
+ * below (`.fieldCard`, `.section`, `.card`, `.matchPanel`, `.toggleCard`, `.matchRowAccepts`,
+ * `.matchRowDeclines`) has the identical problem for the same reason — each carries its own
+ * explicit `background: var(--surface-subtle)` / `var(--surface-raised)`, confirmed by measuring
+ * `getComputedStyle(...).backgroundColor` on the rendered dark-mode print output: `rgb(13, 15,
+ * 17)` for `.fieldCard`, `rgb(28, 33, 38)` for `.toggleCard` — near-black islands that would
+ * survive a `.screen`-only reset.
+ *
+ * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the root.
+ * System colours such as `CanvasText` below resolve against the *inherited* `color-scheme`, not
+ * the active media type — so under print while the app is in dark mode, `CanvasText` resolves to
+ * white (dark-appearance ink) rather than black, printing white text on the white sheet the print
+ * reset forces. Pinning `color-scheme: light` here makes every `CanvasText` reference under
+ * `.screen` resolve to the light (paper) appearance regardless of the on-screen theme — see
+ * `morning.module.css`'s own block for the measured before/after on that page.
+ *
+ * `color-scheme: light` alone does not fix the muted-text selectors below: a muted colour TOKEN
+ * in the dark theme (`--text`, `--text-heading`, `--text-muted`, `--warning-text`,
+ * `--danger-text`, `--success-text`) is a pale grey/blue/red custom-property value regardless of
+ * what `color-scheme` says, so each selector that uses one of those tokens for text needs naming
+ * explicitly. Found by measuring every painted leaf of text on all three screens, in both colour
+ * schemes, under `@media print` (`.tmp-visual/print-ink-sweep.mjs` /
+ * `print-ink-sweep-match.mjs`) — not by reading this stylesheet's selector list and trusting it,
+ * the same lesson the morning page's own sweep already learned three times over. Measured before
+ * this fix, printed from the dark theme: `.sectionHeading` at `rgb(251, 252, 253)` (contrast
+ * 1.03:1), `.table th` at `rgb(168, 178, 189)` (2.15:1), `.table td` / `.waitBadge` /
+ * `.decidedNote` at `rgb(244, 246, 248)` (1.08:1), `.matchSummary` / `.matchGovernance` /
+ * `.matchReasonText` at `rgb(168, 178, 189)` (2.15:1), `.matchTier` / `.matchUnitName` /
+ * `.fieldLegend` / `.toggleCard` at `rgb(251, 252, 253)` (1.03:1) — pale ink on the white sheet
+ * the print reset forces, on 58 of 59 leaves (board), 14 of 15 (intake), 63 of 63 (match).
+ *
+ * `.prototypeBadge` is deliberately left out of the group below, exactly as `morning.module.css`
+ * leaves its own identical badge unfixed: it carries its own background too (`--warning-bg`), so
+ * background-printing is a printer setting, not a text-colour defect this fix can close, and
+ * fixing text colour alone (`rgb(242, 196, 90)`, contrast 1.64:1) would not make it legible.
+ * Already reported, not new here.
+ */
+@media print {
+  .screen {
+    grid-template-columns: 1fr;
+    background: none;
+    color-scheme: light;
+  }
+
+  .screen > aside {
+    display: none !important;
+  }
+
+  .main {
+    overflow: visible;
+    padding: 0;
+  }
+
+  .governanceBanner {
+    border-bottom: 0.0625rem solid CanvasText;
+    background: none;
+  }
+
+  /*
+   * Every bordered, background-carrying card container across all three screens — the intake
+   * form's field cards, the board's queued/decided sections and card-list items, the match
+   * panel, and the match view's per-unit rows. `break-inside: avoid` keeps each card from
+   * splitting across a page boundary, matching `morning.module.css`'s identical group.
+   */
+  .fieldCard,
+  .section,
+  .card,
+  .matchPanel,
+  .matchRowAccepts,
+  .matchRowDeclines {
+    border-color: CanvasText;
+    background: none;
+    break-inside: avoid;
+  }
+
+  /*
+   * `.toggleCard` is both the card AND the text carrier — the checkbox label text is a direct
+   * child of the `<label className={styles.toggleCard}>` element, not a separately classed span
+   * inside it — so it needs the card group's border/background treatment and the text group's
+   * `color: CanvasText` in the same rule.
+   */
+  .toggleCard {
+    border-color: CanvasText;
+    background: none;
+    break-inside: avoid;
+    color: CanvasText;
+  }
+
+  /*
+   * The four semantic alert boxes (rejection/confirmation on the intake form and the decline
+   * rejection on the match view; the structural-gap and no-bed-accepts banners on the match
+   * view). Each carries its own themed border/background/text-colour triplet
+   * (`--danger-*`/`--warning-*`/`--success-*`) that is just as illegible in dark-mode print as
+   * the muted tokens above — printed black-on-white here rather than colour-on-colour, which
+   * reads as more urgent on paper, not less.
+   */
+  .rejection,
+  .confirmation,
+  .structuralGap,
+  .noBedAccepts {
+    border-color: CanvasText;
+    background: none;
+    color: CanvasText;
+  }
+
+  /* The two small inline badges that carry meaningful figures, not decoration — the waiting
+     time on every queued row and match header, and the forensic-bed flag on a match row. Unlike
+     `.prototypeBadge` above, these are read, not skimmed past, so they get the same treatment as
+     the alert boxes rather than being left as a known exception. */
+  .waitBadge,
+  .forensicBadge {
+    background: none;
+    color: CanvasText;
+  }
+
+  .selectedRow {
+    background: none;
+  }
+
+  /* The six pickers on the intake form and the decline-reason picker on the match view: a
+     `<select>` sets its own explicit `background`/`color` (never the OS default), so pinning
+     `color-scheme: light` above does not reach it — the box stays a near-black island with
+     near-white text unless reset here directly, confirmed by looking at the rendered dark-mode
+     print output, not only by measuring text-node leaves (a `<select>`'s displayed value is
+     drawn by the browser's native control, not as a walkable DOM text node). */
+  .select {
+    background: none;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  /*
+   * `.table td` (0,1,1: one class plus one type) already outranks `.waitBadge` alone (0,1,0)
+   * wherever a waiting-time badge is rendered as a `<td className={styles.waitBadge}>` — measured
+   * before this fix, the badge's OWN `color: var(--warning-text)` never actually applied inside a
+   * table row at all (`getComputedStyle` returned `var(--text)`'s value, not `--warning-text`'s).
+   * Giving `.table td` its own `color: CanvasText` here is therefore both correct on its own
+   * terms and the thing that actually reaches a table-row waiting badge, rather than relying on
+   * `.waitBadge`'s lower-specificity rule below to win a fight it does not win in this context.
+   */
+  .table th,
+  .table td {
+    border-bottom-color: CanvasText;
+    color: CanvasText;
+  }
+
+  .declineControls {
+    border-top-color: CanvasText;
+  }
+
+  /*
+   * The muted/heading text group. `.governanceBanner p` and `.matchPanel > p` cover the two
+   * places on this file's screens where the caveat/count sentence is a plain, unclassed `<p>`
+   * (the "not a medical device" prose, and the match view's own "N of M units accept this
+   * referral right now." / "Accepted at X." / "Declined — reason." lines) — the same shape as
+   * `morning.module.css`'s own `.governanceBanner p` entry, styled via a descendant selector
+   * because the paragraph itself carries no class.
+   */
+  .sectionHeading,
+  .decidedNote,
+  .fieldLegend,
+  .governanceBanner p,
+  .matchHeading,
+  .matchGovernance,
+  .matchTier,
+  .matchSummary,
+  .matchReasonText,
+  .matchUnitName,
+  .acceptsLabel,
+  .matchPanel > p {
+    color: CanvasText;
+  }
+}
