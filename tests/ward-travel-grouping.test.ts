@@ -9,6 +9,7 @@ import {
   OUT_OF_AREA_BANDS,
   TRAVEL_BAND_LABELS,
   TRAVEL_BANDS,
+  travelBand,
   unitTravelBand,
 } from "../src/components/ward-management/ward-distance";
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
@@ -26,6 +27,7 @@ import {
   outOfAreaLedger,
   referralCandidates,
   travelBandGroupCounts,
+  type OutOfAreaEntry,
   type ReferralCandidate,
 } from "../src/components/ward-management/ward-referrals";
 import { allUnits } from "../src/components/ward-management/ward-sites";
@@ -69,6 +71,16 @@ function referral(overrides: Partial<Referral> = {}): Referral {
  *  list of band names — the defect that once left two screens disagreeing about what bands exist. */
 const GROUP_ORDER: string[] = [...TRAVEL_BANDS, "not_recorded"];
 
+/**
+ * Written out as a literal ON PURPOSE, and the one number in this file that is not derived.
+ * `GROUP_ORDER` above comes from `TRAVEL_BANDS`, and so does the grouping's own order, so
+ * `expect(groups).toHaveLength(GROUP_ORDER.length)` compares a list against itself and cannot
+ * fail — add a band and both sides move together. Pinning the count independently means adding or
+ * removing a band is a decision somebody makes here, in a test, rather than a silent consequence.
+ * It counts groups on a screen; it is not a clinical, legal or measured figure of any kind.
+ */
+const EXPECTED_GROUP_COUNT = 5;
+
 function flatten(groups: { candidates: ReferralCandidate[] }[]): ReferralCandidate[] {
   return groups.flatMap((group) => group.candidates);
 }
@@ -94,6 +106,7 @@ describe("grouping candidates by travel band", () => {
   it("returns exactly five groups, in TRAVEL_BANDS order followed by not_recorded", () => {
     const subject = referral();
     const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, allUnits(), NOW));
+    expect(groups).toHaveLength(EXPECTED_GROUP_COUNT);
     expect(groups.map((group) => String(group.band))).toEqual(GROUP_ORDER);
   });
 
@@ -111,7 +124,7 @@ describe("grouping candidates by travel band", () => {
 
     const subject = referral({ homeRegion: homeRegion! });
     const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, allUnits(), NOW));
-    expect(groups).toHaveLength(GROUP_ORDER.length);
+    expect(groups).toHaveLength(EXPECTED_GROUP_COUNT);
     expect(groups.map((group) => String(group.band))).toEqual(GROUP_ORDER);
     // The band no unit in the whole network sits in still gets a group, and that group is empty.
     expect(groups.find((group) => group.band === emptyBand)?.candidates).toEqual([]);
@@ -174,7 +187,7 @@ describe("grouping candidates by travel band", () => {
     const headings = groups.map((group) =>
       group.band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[group.band],
     );
-    expect(headings).toHaveLength(GROUP_ORDER.length);
+    expect(headings).toHaveLength(EXPECTED_GROUP_COUNT);
     for (const heading of headings) expect(heading).not.toMatch(comparative);
     for (const group of groups) expect(String(group.band)).not.toMatch(comparative);
   });
@@ -212,7 +225,11 @@ describe("distance groups the list and never gates it", () => {
   const gateFingerprint = (verdict: ReturnType<typeof referralEligibility>) =>
     verdict.gates.map((entry) => `${entry.gate}:${entry.pass}`);
 
-  it("decides eligibility identically wherever the person lives", () => {
+  /** Every synthetic site code in the network, so the sweep below varies `originSiteCode` over
+   *  real values rather than one invented string. */
+  const SITE_CODES = [...new Set(allUnits().map((candidate) => candidate.siteCode))];
+
+  it("decides eligibility identically wherever the person lives, and wherever they were referred from", () => {
     // The honest formulation of "distance never gates", and the one a distance gate cannot survive
     // under ANY name. `homeRegion` is the only input a band is computed from — a band is
     // `f(homeRegion, siteCode)` — so a gate that reads distance necessarily makes the verdict for
@@ -228,10 +245,18 @@ describe("distance groups the list and never gates it", () => {
 
     for (const candidate of allUnits()) {
       for (const shape of shapesFor(candidate)) {
-        const swept = HOME_REGIONS.map((homeRegion) => {
-          const subject = referral({ ...shape, homeRegion });
+        // `originSiteCode` is swept alongside `homeRegion` because measuring from the hospital
+        // the referral came from, rather than from where the person lives, is THE founding defect
+        // of this phase: it called a city bed close for someone driven into a city emergency
+        // department from a long way away. It is also the single most likely wrong implementation
+        // anybody would write here, and until this sweep existed nothing caught it. Pairing the
+        // two rather than crossing them keeps the sweep O(regions) while still varying each.
+        const swept = HOME_REGIONS.map((homeRegion, index) => {
+          const originSiteCode = SITE_CODES[index % SITE_CODES.length];
+          const subject = referral({ ...shape, homeRegion, originSiteCode });
           return {
             homeRegion,
+            originSiteCode,
             band: unitTravelBand(subject, candidate),
             verdict: referralEligibility(subject, candidate, NOW),
           };
@@ -240,7 +265,7 @@ describe("distance groups the list and never gates it", () => {
         for (const entry of swept) {
           expect(
             entry.verdict.eligible,
-            `${candidate.id} changed its verdict for a person from ${entry.homeRegion} — something is reading distance`,
+            `${candidate.id} changed its verdict for a person from ${entry.homeRegion} referred via ${entry.originSiteCode} — something is reading distance`,
           ).toBe(reference.verdict.eligible);
           expect(gateFingerprint(entry.verdict)).toEqual(gateFingerprint(reference.verdict));
         }
@@ -262,6 +287,39 @@ describe("distance groups the list and never gates it", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("rests on a fixture that really does vary the band across home regions", () => {
+    // The invariance proof is only as strong as the spread of bands the fixture exposes. If every
+    // pair returned the same band — or none at all — a band-reading gate would not vary with home
+    // region either, and the sweep above would stay green while proving nothing. These are the two
+    // structural facts that proof depends on, asserted here rather than assumed. No site or region
+    // is named: both are computed across the whole fixture, so replacing the placeholder values
+    // cannot turn this into a pinned claim about a particular hospital.
+    const bandsAt = (siteCode: string) =>
+      new Set(HOME_REGIONS.map((homeRegion) => travelBand(homeRegion, siteCode) ?? "not_recorded"));
+    const siteCodes = [...new Set(allUnits().map((candidate) => candidate.siteCode))];
+
+    // One site alone separates most of the partition, so a gate reading the band AT THAT SITE must
+    // vary across home regions and cannot hide inside a single value.
+    const widest = Math.max(...siteCodes.map((code) => bandsAt(code).size));
+    expect(
+      widest,
+      "no site exposes four distinct band values across the home regions — the invariance sweep can no longer prove a band-reading gate would vary",
+    ).toBeGreaterThanOrEqual(4);
+
+    // Between them the sites expose every band and the unrecorded case, so a gate keyed on any one
+    // band value is still visible to the sweep rather than only the values that happen to occur.
+    const exposed = new Set(siteCodes.flatMap((code) => [...bandsAt(code)]));
+    for (const band of TRAVEL_BANDS) {
+      expect(
+        [...exposed],
+        `no site records ${band} for any home region — a gate keyed on it would be invisible`,
+      ).toContain(band);
+    }
+    expect([...exposed], "no pair is unrecorded — the not-recorded case is invisible to the sweep").toContain(
+      "not_recorded",
+    );
+  });
+
   it("names no eligibility gate after travel, distance or a band", () => {
     const distanceish = /travel|distance|band|proximity|remote|near|far|kilometre|kilometer|\bkm\b/i;
     const seen = new Set<string>();
@@ -277,7 +335,15 @@ describe("distance groups the list and never gates it", () => {
 
 describe("the out-of-area ledger", () => {
   const units = allUnits();
-  const acceptingUnit = units.find((candidate) => candidate.id === "fsh-adult-secure")!;
+  // Asserted rather than assumed. A bare `!` here would turn a renamed or removed unit into a
+  // confusing `undefined` failure deep inside an unrelated expectation, several tests later.
+  const acceptingUnit = units.find((candidate) => candidate.id === "fsh-adult-secure");
+  it("has the accepting unit these ledger tests are built on", () => {
+    expect(
+      acceptingUnit,
+      "fsh-adult-secure is gone from the network — every ledger test below is built on it",
+    ).toBeDefined();
+  });
 
   it("counts only accepted arrivals whose band is a member of OUT_OF_AREA_BANDS", () => {
     const { entries } = outOfAreaLedger(seededReferrals, units, NOW);
@@ -296,7 +362,7 @@ describe("the out-of-area ledger", () => {
 
   it("counts an arrival whose band the fixture does not record as notBanded, never as out of area", () => {
     const homeRegion = HOME_REGIONS.find(
-      (region) => unitTravelBand(referral({ homeRegion: region }), acceptingUnit) === undefined,
+      (region) => unitTravelBand(referral({ homeRegion: region }), acceptingUnit!) === undefined,
     );
     expect(homeRegion, "no home region is unrecorded for this site — the unbanded case is untestable").toBeDefined();
 
@@ -306,7 +372,7 @@ describe("the out-of-area ledger", () => {
       sex: "Male",
       secureBedNeeded: true,
       state: "accepted",
-      acceptedUnitId: acceptingUnit.id,
+      acceptedUnitId: acceptingUnit!.id,
       decidedAt: NOW - 40,
       arrivedAt: NOW - 20,
     });
@@ -319,7 +385,7 @@ describe("the out-of-area ledger", () => {
     const subject = referral({
       id: "RF-NOARRIVAL",
       state: "accepted",
-      acceptedUnitId: acceptingUnit.id,
+      acceptedUnitId: acceptingUnit!.id,
       decidedAt: NOW - 40,
     });
     expect(outOfAreaLedger([subject], units, NOW)).toEqual({ entries: [], notBanded: 0 });
@@ -338,7 +404,7 @@ describe("the out-of-area ledger", () => {
 
   it("runs the clock from arrivedAt, never from decidedAt", () => {
     const outOfAreaRegion = HOME_REGIONS.find((region) => {
-      const band = unitTravelBand(referral({ homeRegion: region }), acceptingUnit);
+      const band = unitTravelBand(referral({ homeRegion: region }), acceptingUnit!);
       return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
     });
     expect(outOfAreaRegion, "no home region is out of area for this site — the clock case is untestable").toBeDefined();
@@ -351,7 +417,7 @@ describe("the out-of-area ledger", () => {
       sex: "Male",
       secureBedNeeded: true,
       state: "accepted",
-      acceptedUnitId: acceptingUnit.id,
+      acceptedUnitId: acceptingUnit!.id,
       decidedAt,
       arrivedAt,
     });
@@ -370,37 +436,88 @@ describe("the out-of-area ledger", () => {
   });
 
   it("preserves the order the referrals were given in and never ranks them", () => {
-    // Built synthetically, and deliberately NOT from the seed: the seed yields exactly one
-    // out-of-area entry today, and a one-entry list cannot tell an unsorted ledger from a sorted
-    // one — a test that can only ever see one row is not a guard against ordering at all. These
-    // two are listed newest-arrival-first, so any comparator (longest waiting first, most recent
-    // first, by band, by unit) moves at least one of them.
-    const outOfAreaRegion = HOME_REGIONS.find((region) => {
-      const band = unitTravelBand(referral({ homeRegion: region }), acceptingUnit);
-      return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
-    });
-    expect(
-      outOfAreaRegion,
-      "no home region is out of area for this site — the ordering case is untestable",
-    ).toBeDefined();
+    // REWRITTEN after review. The previous version used two arrivals at ONE unit, given
+    // newest-first, and its own comment claimed that caught four comparators. It caught one.
+    // "Most recently arrived first" — the exact idiom `recentlyDecidedReferrals` uses in this very
+    // source file, and so the one most likely to be written by somebody being helpful — was a
+    // NO-OP against it, and so were "shortest wait first", "by band" and "by unit".
+    //
+    // Three arrivals now, given in middle/oldest/newest order, spread across two out-of-area sites
+    // with different bands. Everything is located by SEARCH, so a fixture change surfaces as a
+    // loud skip-reason rather than silently making the test vacuous the way the last one did.
+    const outOfAreaAt = (homeRegion: HomeRegion) =>
+      allUnits().filter((candidate) => {
+        const band = unitTravelBand(referral({ homeRegion }), candidate);
+        return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
+      });
 
-    const arrival = (id: string, arrivedAt: number): Referral =>
+    // Two units at DIFFERENT sites, out of area for one shared home region, and carrying different
+    // bands — so a comparator on band and a comparator on unit both have something to move.
+    let placement: { homeRegion: HomeRegion; first: Unit; second: Unit } | null = null;
+    for (const homeRegion of HOME_REGIONS) {
+      const far = outOfAreaAt(homeRegion);
+      const first = far[0];
+      const second = far.find(
+        (candidate) =>
+          first &&
+          candidate.siteCode !== first.siteCode &&
+          unitTravelBand(referral({ homeRegion }), candidate) !== unitTravelBand(referral({ homeRegion }), first),
+      );
+      if (first && second) {
+        placement = { homeRegion, first, second };
+        break;
+      }
+    }
+    expect(
+      placement,
+      "no home region has two out-of-area units at different sites with different bands — comparator detection is untestable",
+    ).not.toBeNull();
+    const { homeRegion, first, second } = placement!;
+
+    const arrival = (id: string, unit: Unit, arrivedAt: number): Referral =>
       referral({
         id,
-        homeRegion: outOfAreaRegion!,
+        homeRegion,
         sex: "Male",
-        secureBedNeeded: true,
+        ageBand: unit.cohort,
+        secureBedNeeded: unit.security === "Secure",
         state: "accepted",
-        acceptedUnitId: acceptingUnit.id,
+        acceptedUnitId: unit.id,
         decidedAt: arrivedAt - 5,
         arrivedAt,
       });
-    const given = [arrival("RF-ORDER-RECENT", NOW - 10), arrival("RF-ORDER-OLDEST", NOW - 300)];
+
+    // Middle, oldest, newest — an order that is not sorted by arrival in either direction.
+    const given = [
+      arrival("RF-ORDER-MIDDLE", first, NOW - 120),
+      arrival("RF-ORDER-OLDEST", second, NOW - 300),
+      arrival("RF-ORDER-NEWEST", first, NOW - 10),
+    ];
+    const givenIds = given.map((entry) => entry.id);
 
     const { entries } = outOfAreaLedger(given, units, NOW);
-    expect(entries).toHaveLength(2);
+    expect(entries).toHaveLength(3);
     // This is a ledger of people, not a queue. Nothing here ranks, prioritises or shortlists.
-    expect(entries.map((entry) => entry.referral.id)).toEqual(["RF-ORDER-RECENT", "RF-ORDER-OLDEST"]);
+    expect(entries.map((entry) => entry.referral.id)).toEqual(givenIds);
+
+    // The fixture must be able to DETECT each comparator somebody might helpfully add. Asserting
+    // that the given order differs from every plausible sorted order is what makes the assertion
+    // above a guard rather than a coincidence — this is precisely the check the previous version
+    // lacked, and lacking it is why its own comment was wrong about three of the four.
+    const orderedBy = (compare: (a: OutOfAreaEntry, b: OutOfAreaEntry) => number) =>
+      [...entries].sort(compare).map((entry) => entry.referral.id);
+    const detectable: [string, string[]][] = [
+      ["most recently arrived first", orderedBy((a, b) => b.referral.arrivedAt! - a.referral.arrivedAt!)],
+      ["longest waiting first", orderedBy((a, b) => a.referral.arrivedAt! - b.referral.arrivedAt!)],
+      ["shortest wait first", orderedBy((a, b) => a.sinceArrival - b.sinceArrival)],
+      ["by band", orderedBy((a, b) => a.band.localeCompare(b.band))],
+      ["by unit", orderedBy((a, b) => a.unit.id.localeCompare(b.unit.id))],
+    ];
+    for (const [name, ordering] of detectable) {
+      expect(ordering, `a "${name}" comparator would be a no-op against this fixture — it proves nothing`).not.toEqual(
+        givenIds,
+      );
+    }
   });
 });
 
@@ -410,30 +527,124 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
   // `tests/ward-travel-bands.test.ts` imports the fixture legitimately, to assert its structure,
   // and a contract test that goes red on correct code is one whoever meets it will weaken.
   //
-  // Checked against IMPORT STATEMENTS, never whole file bodies: `ward-movements.ts` and
-  // `ward-model.ts` both name `SYNTHETIC_TRAVEL_BANDS` in prose comments explaining why they do
-  // NOT store a band, and a whole-file check would call those explanations violations.
+  // COMMENTS ARE STRIPPED FIRST, and that is the whole design of this guard rather than a detail.
+  // The obvious implementation — match `import ... ;` in the raw source — is defeated by a comment,
+  // because the match is non-greedy and stops at the FIRST semicolon it meets. A semicolon inside a
+  // comment in the middle of an import truncates the "statement" before the module specifier:
+  //
+  //     import {
+  //       // see ward-travel-bands.ts; the fixture lives there
+  //       SYNTHETIC_TRAVEL_BANDS,
+  //     } from "@/components/ward-management/ward-travel-bands";
+  //
+  // ...yields a "statement" ending at that semicolon, which contains neither the
+  // specifier nor the imported name, so the import passes unnoticed. A guard a comment can defeat
+  // is not a guard. Stripping first also lets this check the WHOLE remaining source rather than
+  // only import statements, which closes the second half of the rule — the fixture must not be
+  // indexed inline either — that a statement-only check could never have seen. `ward-movements.ts`
+  // and `ward-model.ts` name the fixture in prose explaining why they do NOT store a band; those
+  // are comments, so they disappear before anything is matched.
   const SRC_ROOT = resolve(process.cwd(), "src");
   const ALLOWED = join("components", "ward-management", "ward-distance.ts");
+  const FIXTURE = join("components", "ward-management", "ward-travel-bands.ts");
 
-  function importStatementsOf(source: string): string[] {
-    return source.match(/import\s+[\s\S]*?;/g) ?? [];
+  /** Removes line and block comments while respecting string and template literals, so a module
+   *  specifier or a message that happens to contain `//` is never mistaken for a comment. */
+  function withoutComments(source: string): string {
+    let out = "";
+    let index = 0;
+    let mode: "code" | "line" | "block" | "'" | '"' | "`" = "code";
+    while (index < source.length) {
+      const character = source[index];
+      const pair = source.slice(index, index + 2);
+      if (mode === "code") {
+        if (pair === "//") {
+          mode = "line";
+          index += 2;
+          continue;
+        }
+        if (pair === "/*") {
+          mode = "block";
+          index += 2;
+          continue;
+        }
+        if (character === "'" || character === '"' || character === "`") mode = character;
+        out += character;
+        index += 1;
+        continue;
+      }
+      if (mode === "line") {
+        if (character === "\n") {
+          mode = "code";
+          out += "\n";
+        }
+        index += 1;
+        continue;
+      }
+      if (mode === "block") {
+        if (pair === "*/") {
+          mode = "code";
+          index += 2;
+        } else {
+          index += 1;
+        }
+        continue;
+      }
+      // Inside a string literal: an escape consumes the next character, so an escaped quote
+      // cannot close it early.
+      if (character === "\\") {
+        out += source.slice(index, index + 2);
+        index += 2;
+        continue;
+      }
+      if (character === mode) mode = "code";
+      out += character;
+      index += 1;
+    }
+    return out;
   }
 
-  it("no module under src imports ward-travel-bands.ts except ward-distance.ts", () => {
+  it("strips a comment that would otherwise hide an import", () => {
+    // The stripper is what this contract rests on, so it is tested rather than trusted — and with
+    // the exact shape that defeats the naive version, plus the string literal that must survive.
+    // The exact shape that defeats the naive `import ... ;` match: the semicolon inside the
+    // comment ends the "statement" before the specifier is ever reached.
+    const awkward = [
+      "import {",
+      "  // note; see below",
+      "  SYNTHETIC_TRAVEL_BANDS,",
+      '} from "x/ward-travel-bands";',
+    ].join("\n");
+    expect(awkward.match(/import\s+[\s\S]*?;/)?.[0]).not.toContain("ward-travel-bands");
+
+    const hidden = withoutComments(awkward);
+    expect(hidden).toContain("SYNTHETIC_TRAVEL_BANDS");
+    expect(hidden).toContain("ward-travel-bands");
+    expect(hidden).not.toContain("note");
+
+    // A string literal that merely looks like a comment must survive untouched.
+    expect(withoutComments('const url = "https://example.test/a"; // trailing')).toBe(
+      'const url = "https://example.test/a"; ',
+    );
+    expect(withoutComments("const a = 1; /* block */ const b = 2;")).toBe("const a = 1;  const b = 2;");
+  });
+
+  it("no module under src reads ward-travel-bands.ts except ward-distance.ts", () => {
     const files = readdirSync(SRC_ROOT, { recursive: true, encoding: "utf8" }).filter((file) => /\.tsx?$/.test(file));
     expect(files.length, "the src sweep collected no files — this contract would prove nothing").toBeGreaterThan(50);
 
-    const importers = files.filter((file) =>
-      importStatementsOf(readFileSync(join(SRC_ROOT, file), "utf8")).some((statement) =>
-        /ward-travel-bands|SYNTHETIC_TRAVEL_BANDS/.test(statement),
-      ),
-    );
+    const readers = files
+      // The fixture declaring its own contents is not a module reading it. Excluded by exact path
+      // rather than by a pattern, so this can never quietly widen to excuse a second file.
+      .filter((file) => file !== FIXTURE)
+      .filter((file) =>
+        /ward-travel-bands|SYNTHETIC_TRAVEL_BANDS/.test(withoutComments(readFileSync(join(SRC_ROOT, file), "utf8"))),
+      );
 
-    // The detector must be shown to detect. `ward-distance.ts` really does import the fixture, so
-    // an empty result here would mean the sweep was broken, not that the contract holds.
-    expect(importers).toContain(ALLOWED);
-    expect(importers).toEqual([ALLOWED]);
+    // The detector must be shown to detect. `ward-distance.ts` really does read the fixture, so an
+    // empty result here would mean the sweep was broken, not that the contract holds.
+    expect(readers).toContain(ALLOWED);
+    expect(readers, `modules reading the travel-band fixture: ${readers.join(", ")}`).toEqual([ALLOWED]);
   });
 });
 
