@@ -25,6 +25,39 @@ const SRC_DIR = "src";
 const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pressure.ts", "ward-derivations.ts"]);
 
 /**
+ * Files allowed to import the ADMISSION seed (`ward-admissions-seed.ts`) — the sibling of the
+ * `ALLOWED` rule above, added Phase 8 Task 5 fix round 1, and it guards a SENTENCE rather than a
+ * number.
+ *
+ * `Admission` is currently not in reducer state and no `WardFlowEvent` creates, ends or moves one,
+ * so `wardAdmissions` is the only record of who is in a bed. The out-of-area ledger therefore reads
+ * the seed as a default parameter — and, because it does, that screen tells the reader in its own
+ * words that the list is seeded, that nothing done on these screens adds to it or takes from it,
+ * and that it is not a live statewide count.
+ *
+ * **That sentence is true today and nothing else keeps it true.** The moment admissions become live
+ * — a reducer key, an arrival event, a departure event — the screen's paragraph becomes false while
+ * every one of its tests stays green, because those tests pin the sentence's PRESENCE and cannot
+ * pin its TRUTH. This list is the tripwire: a second reader of the seed, or a move of the ledger
+ * off it, fails here and sends a reviewer back to that paragraph. It replaced a sentence this
+ * project had already had to correct once for being false on exactly this axis
+ * (`docs/ward-flow-phase-8-decisions.md`, D8-9), which is why it gets a guard that outlives the
+ * session that wrote it.
+ *
+ * Full paths from the repo root with forward slashes, matching `NOW_ANCHOR_ALLOWLIST`'s convention
+ * rather than `ALLOWED`'s bare basenames — this rule is scoped to the whole of `SRC_DIR`, where a
+ * bare basename could collide with an unrelated same-named file and silently exempt it.
+ *   - `ward-admissions-seed.ts` declares the fixture.
+ *   - `out-of-area/out-of-area-board.tsx` is the ledger screen. Adding a second entry here is not a
+ *     paperwork step: read that screen's provenance paragraph first and decide whether it is still
+ *     true.
+ */
+const ADMISSION_SEED_ALLOWLIST = new Set([
+  "src/components/ward-management/ward-admissions-seed.ts",
+  "src/components/ward-management/out-of-area/out-of-area-board.tsx",
+]);
+
+/**
  * Files allowed to read `NOW_ANCHOR` anywhere under `SRC_DIR` — Task 6 fix round 4, widening fix
  * round 3's rule (which was scoped only to `WARD_DIR` despite its test name claiming "every
  * read"). Keys are full paths from the repo root with forward slashes, not bare basenames: across
@@ -432,6 +465,33 @@ describe("one source of truth", () => {
       .filter(({ source }) => /from "[^"]*ward-movements"/.test(source))
       .map(({ file }) => file);
     expect(offenders).toEqual([]);
+  });
+
+  it("scans a non-empty set of src source files for the admission-seed allow-list check", () => {
+    // Same failure mode as every other rule here: a scan that came back empty would make the check
+    // below vacuous, and a vacuous check is worse than no check because it reads as a guard.
+    expect(srcDirFiles().length).toBeGreaterThan(0);
+  });
+
+  it("lets only the ledger screen read the admission seed, so its 'this is not live' sentence keeps a guard", () => {
+    const offenders = srcDirFiles()
+      .filter(({ normalizedFile }) => !ADMISSION_SEED_ALLOWLIST.has(normalizedFile))
+      .filter(({ source }) => /from "[^"]*ward-admissions-seed"/.test(source))
+      .map(({ normalizedFile }) => normalizedFile);
+    expect(
+      offenders,
+      `file(s) reading the admission seed outside ADMISSION_SEED_ALLOWLIST: ${offenders.join(", ")}. ` +
+        "Read that constant's comment before adding one — the out-of-area board states in its own words " +
+        "that this list is seeded and not live, and a second reader is usually the change that makes that false.",
+    ).toEqual([]);
+  });
+
+  it("keeps every ADMISSION_SEED_ALLOWLIST entry pointing at a file that exists", () => {
+    // A stale entry is an exemption for nothing, and it hides the day the real reader moves.
+    const scanned = new Set(srcDirFiles().map(({ normalizedFile }) => normalizedFile));
+    for (const allowed of ADMISSION_SEED_ALLOWLIST) {
+      expect(scanned, `${allowed} is allow-listed but no longer exists`).toContain(allowed);
+    }
   });
 
   it("no longer exports a stage summary frozen at import time", () => {

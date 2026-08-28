@@ -178,6 +178,26 @@ describe("travel bands", () => {
     }
   });
 
+  it("ships all four band labels and the not-recorded label verbatim, whole", () => {
+    /*
+     * Phase 8 Task 5 fix round 1. Nothing anywhere pinned these five literals. The tests above
+     * check that each label is non-empty, distinct and non-comparative, and every screen asserts
+     * against `TRAVEL_BAND_LABELS[band]` rather than against words — so a label emptied to `" "`
+     * or rewritten to "Far" passed the lot, and every DOM assertion became a `toContain(" ")` that
+     * cannot fail. The wording is what a coordinator reads off the screen; it is pinned here, once,
+     * against an independent copy, exactly as the two notices below are.
+     *
+     * "from home" is load-bearing in all four and must not be trimmed away as repetition: without
+     * it a band names a distance from nothing in particular, and the whole ledger is about
+     * distance FROM HOME rather than from the referring hospital.
+     */
+    expect(TRAVEL_BAND_LABELS.under_an_hour).toBe("Under an hour from home");
+    expect(TRAVEL_BAND_LABELS.one_to_three_hours).toBe("One to three hours from home");
+    expect(TRAVEL_BAND_LABELS.three_hours_or_more).toBe("Three hours or more from home");
+    expect(TRAVEL_BAND_LABELS.air_transport_only).toBe("Reachable only by air");
+    expect(NOT_RECORDED_LABEL).toBe("Travel time not recorded");
+  });
+
   it("ships both mandated notices verbatim, whole", () => {
     // These two sentences must reach the screen unchanged in the tasks that follow, and TRUNCATION
     // is the failure mode that matters: half of "no distance shown here should be relied on" still

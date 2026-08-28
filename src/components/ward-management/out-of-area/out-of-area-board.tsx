@@ -1,8 +1,8 @@
 "use client";
 
-import type { Admission } from "@/components/ward-management/ward-admissions";
+import { daysInBed, type Admission } from "@/components/ward-management/ward-admissions";
 import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
-import { splitDuration } from "@/components/ward-management/ward-clock";
+import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
   SYNTHETIC_TRAVEL_TIMES_NOTICE,
@@ -34,6 +34,16 @@ import styles from "./out-of-area.module.css";
  * **Elapsed time and nothing else.** No countdown, no target, no deadline, and no colour that
  * changes at a threshold. `formatElapsed` is deliberately not reused — it appends "waiting", and
  * somebody in a bed far from home is not waiting for anything this prototype has recorded.
+ *
+ * **In whole days, via `daysInBed`.** The first version of this screen rendered minutes through
+ * `splitDuration`, and on the seeded records that produced everything from `25h 30m` to
+ * `5041h 30m`. Every assertion passed, because every number was correct — the FORMAT was
+ * unreadable, and this screen's second headline fact is one nobody could read. Days are what a
+ * length of stay is spoken in, and `daysInBed` (`ward-admissions.ts`) is the one place this
+ * project computes them: counted from `arrivedAt` and never from `pulledAt`, floored at zero, and
+ * `null` rather than a substituted fallback when there is no arrival. Reimplementing the division
+ * here would be the second local copy this phase exists to prevent. It is still elapsed time and
+ * nothing else — just readable.
  *
  * **Why this one screen reads the seed directly rather than the provider.** There is no live
  * source to read: `Admission` is not in the reducer's state and no `WardFlowEvent` creates, ends
@@ -149,19 +159,26 @@ export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: A
                         <td>{entry.admission.homeRegion}</td>
                         <td>{entry.unit.name}</td>
                         <td>{TRAVEL_BAND_LABELS[entry.band]}</td>
-                        <td>{sinceArrivalLabel(entry)}</td>
+                        <td>{sinceArrivalLabel(entry, now)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
+              {/* The phone view. Each card is keyed, because below 40rem this list is the ONLY
+                  thing a coordinator sees — the table above is `display: none` there — and a row
+                  assertion that can only reach the table proves nothing about a phone. */}
               <ul className={styles.cardList} data-testid="ward-out-of-area-cards">
                 {entries.map((entry) => (
-                  <li key={entry.admission.id} className={styles.card}>
+                  <li
+                    key={entry.admission.id}
+                    className={styles.card}
+                    data-testid={`ward-out-of-area-card-${entry.admission.id}`}
+                  >
                     <div className={styles.cardTop}>
                       <span className={styles.cardRegion}>{entry.admission.homeRegion}</span>
-                      <span className={styles.cardElapsed}>{sinceArrivalLabel(entry)} since arrival</span>
+                      <span className={styles.cardElapsed}>{sinceArrivalLabel(entry, now)} since arrival</span>
                     </div>
                     <p className={styles.cardUnit}>{entry.unit.name}</p>
                     <p className={styles.cardBand}>{TRAVEL_BAND_LABELS[entry.band]}</p>
@@ -177,10 +194,21 @@ export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: A
 }
 
 /**
- * Elapsed time, clamped at the point of display exactly as `OutOfAreaEntry.sinceArrival`'s own doc
- * comment specifies. The ledger deliberately does not clamp: a fixture authored with an arrival in
- * the future must read as the oddity it is rather than silently as zero.
+ * How long this person has been in this bed, in whole days.
+ *
+ * Clamping happens inside `daysInBed`, exactly as `OutOfAreaEntry.sinceArrival`'s own doc comment
+ * specifies it should happen at the point of display: the ledger deliberately does not clamp, so a
+ * fixture authored with an arrival in the future reads as the oddity it is in a test rather than
+ * silently as zero.
+ *
+ * `null` is stated, never substituted. It cannot occur for a ledger entry — the ledger already
+ * excludes an admission with no finite `arrivedAt` — but a fallback string here would be the one
+ * shape that could put an invented stay length on this screen if that ever changed, so the absence
+ * is rendered as an absence.
  */
-function sinceArrivalLabel(entry: OutOfAreaEntry): string {
-  return splitDuration(Math.max(entry.sinceArrival, 0));
+function sinceArrivalLabel(entry: OutOfAreaEntry, now: Instant): string {
+  const days = daysInBed(entry.admission, now);
+  if (days === null) return "Arrival not recorded";
+  if (days === 0) return "Under a day";
+  return `${days} ${days === 1 ? "day" : "days"}`;
 }

@@ -1359,9 +1359,54 @@ describe("OutOfAreaBoard — the entries", () => {
     for (const word of ["overdue", "target", "deadline", "breach", "waiting", "remaining", " left", " due"]) {
       expect(entries, `"${word.trim()}" reads as a deadline on a screen that has none`).not.toContain(word);
     }
-    // And an elapsed duration really is rendered, so the absence above is not absence of the whole
-    // column.
-    expect(entries).toMatch(/\d+h \d{2}m|\d+m/);
+    // And an elapsed length of stay really is rendered, so the absence above is not the absence of
+    // the whole column. Whole days, via `daysInBed` — the minute format this screen shipped with
+    // rendered stays as long as `5041h 30m`, which is correct and unreadable.
+    expect(entries).toMatch(/\d+ days?\b/);
+  });
+
+  it("renders the same four facts on the phone card, which is all a phone shows", () => {
+    /*
+     * `in the document` is not `on the screen`. Below 40rem `out-of-area.module.css` sets the
+     * table's `.tableScroll` to `display: none` and swaps in `.cardList`, so every row assertion
+     * above targets markup a phone never renders. Without this test the phone layout carries no
+     * content assertion at all.
+     *
+     * jsdom applies no CSS module, so this checks the card's CONTENT, not its visibility. That is
+     * the half that can silently go missing: a card that dropped its band or its length of stay
+     * would leave the table — and every other test here — completely green.
+     */
+    renderLedger();
+    const subject = outOfAreaAdmissions()[0];
+    expect(subject, "the seed no longer holds an out-of-area admission; this test proves nothing").toBeDefined();
+    const unit = allUnits().find((candidate) => candidate.id === subject.unitId)!;
+    const card = screen.getByTestId(`ward-out-of-area-card-${subject.id}`);
+
+    expect(card).toHaveTextContent(subject.homeRegion);
+    expect(card).toHaveTextContent(unit.name);
+    expect(card).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(subject.homeRegion, unit.siteCode)!]);
+    expect(card.textContent ?? "").toMatch(/\d+ days? since arrival|Under a day since arrival/);
+  });
+
+  it("gives every length of stay in whole days, the way a stay is spoken about", () => {
+    /*
+     * The defect no assertion caught the first time. The seeded stays run from about a day to about
+     * 210 days, and rendered through `splitDuration` that is everything from `25h 30m` to
+     * `5041h 30m` — every figure correct, every figure unreadable, and the suite entirely green.
+     * The number was never wrong; the FORMAT was.
+     *
+     * Checked over every rendered row rather than one, and asserted BOTH ways: no `h`/`m` duration
+     * anywhere, and a day count on every single row. Either half alone would pass on a screen that
+     * had regressed for half its entries.
+     */
+    renderLedger();
+    const rows = Array.from(screen.getByTestId("ward-out-of-area-table").querySelectorAll("tr[data-testid]"));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const text = row.textContent ?? "";
+      expect(text, `an hours-and-minutes duration is unreadable at this scale: ${text}`).not.toMatch(/\d+h \d{2}m/);
+      expect(text, `no length of stay in days on this row: ${text}`).toMatch(/\d+ days?\b|Under a day/);
+    }
   });
 
   it("says plainly that nobody is out of area rather than showing an empty region", () => {
