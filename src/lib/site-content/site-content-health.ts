@@ -12,6 +12,9 @@ const RELEASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const CHANGE_EPOCH = /^(?:0|[1-9][0-9]*)$/;
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
+const RETAINED_BOOTSTRAP_RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const RETAINED_BOOTSTRAP_REGISTRY_VERSION = "site-content-bootstrap-public-release-v1";
+const RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST = "0".repeat(64);
 
 export type SiteContentBootstrapIntegrityState = "not_applicable" | "valid_retained" | "invalid";
 export type SiteContentHealthReasonCode =
@@ -322,6 +325,23 @@ function capCount(value: number): number {
   return Math.min(value, SITE_CONTENT_HEALTH_COUNT_CAP);
 }
 
+function hasExactRetainedBootstrapIdentity(input: SiteContentHealthInput): boolean {
+  const activeRelease = input.activePublicSiteRelease;
+  return (
+    isRelease(activeRelease) &&
+    activeRelease.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    activeRelease.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
+    activeRelease.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST &&
+    activeRelease.state === "active" &&
+    input.publicSiteChangeEpoch === "0" &&
+    input.partition.releaseId === activeRelease.releaseId &&
+    input.partition.staticManifestDigest === activeRelease.staticManifestDigest &&
+    input.partition.dynamicStateDigest === activeRelease.dynamicStateDigest &&
+    input.partition.releaseDigest === activeRelease.releaseDigest &&
+    input.partition.changeEpoch === input.publicSiteChangeEpoch
+  );
+}
+
 export function classifySiteContentHealth(input: SiteContentHealthInput): SiteContentHealthClassification {
   const reasons = new Set<SiteContentHealthReasonCode>(input.partition.reasons);
   const now = isTimestamp(input.now) ? Date.parse(input.now) : Number.NaN;
@@ -358,7 +378,7 @@ export function classifySiteContentHealth(input: SiteContentHealthInput): SiteCo
     input.partition.state === "unavailable" &&
     input.partition.reasons.length === 1 &&
     input.partition.reasons[0] === "expected_static_digest_missing" &&
-    input.partition.releaseId !== null;
+    hasExactRetainedBootstrapIdentity(input);
   let state: SiteContentPartitionSnapshot["state"] = retainedBootstrapOverride ? "disabled" : input.partition.state;
   if (retainedBootstrapOverride) reasons.delete("expected_static_digest_missing");
   if (input.initialized && state === "disabled") {

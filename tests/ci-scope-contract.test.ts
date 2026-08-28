@@ -1,5 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,7 +20,7 @@ function classify(file: string): string {
   return execFileSync("node", ["scripts/ci-change-scope.mjs", "--files", file], { encoding: "utf8" });
 }
 
-function runSelectorWithInjectedOwner(owner: string): void {
+function runSelectorWithInjectedOwner(owner: string, cwd = process.cwd()): void {
   const temporaryDirectory = mkdtempSync(join(tmpdir(), "site-content-ci-owner-"));
   const temporaryScript = join(temporaryDirectory, "ci-change-scope.mjs");
   try {
@@ -25,7 +34,11 @@ function runSelectorWithInjectedOwner(owner: string): void {
     );
     expect(injected).not.toBe(source);
     writeFileSync(temporaryScript, injected, "utf8");
-    execFileSync("node", [temporaryScript, "--self-test"], { cwd: process.cwd(), encoding: "utf8" });
+    execFileSync("node", [temporaryScript, "--files", "docs/ordinary-note.md"], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -85,6 +98,29 @@ describe("site-content CI owner contract", () => {
 
   it.each(["data/**", "public/**", "src/**"])("rejects the broad %s root owner glob", (owner) => {
     expect(() => runSelectorWithInjectedOwner(owner)).toThrow(/site-content-owner-manifest-broad-path/);
+  });
+
+  it("rejects an exact owner escaping through a linked ancestor while allowing a narrow real subtree", () => {
+    const repositoryDirectory = mkdtempSync(join(tmpdir(), "site-content-owner-repository-"));
+    const outsideDirectory = mkdtempSync(join(tmpdir(), "site-content-owner-outside-"));
+    const publicDirectory = join(repositoryDirectory, "public");
+    const realDirectory = join(publicDirectory, "real-subtree");
+    const linkedDirectory = join(publicDirectory, "linked-subtree");
+    try {
+      mkdirSync(realDirectory, { recursive: true });
+      writeFileSync(join(realDirectory, "owner.json"), "{}\n", "utf8");
+      writeFileSync(join(outsideDirectory, "owner.json"), "{}\n", "utf8");
+      symlinkSync(outsideDirectory, linkedDirectory, process.platform === "win32" ? "junction" : "dir");
+
+      expect(() => runSelectorWithInjectedOwner("public/real-subtree/owner.json", repositoryDirectory)).not.toThrow();
+      expect(() => runSelectorWithInjectedOwner("public/linked-subtree/owner.json", repositoryDirectory)).toThrow(
+        /site-content-owner-manifest-escaping-owner/,
+      );
+    } finally {
+      if (existsSync(linkedDirectory)) unlinkSync(linkedDirectory);
+      rmSync(repositoryDirectory, { recursive: true, force: true });
+      rmSync(outsideDirectory, { recursive: true, force: true });
+    }
   });
 
   it("still triggers for canonical exact and glob owner paths", () => {

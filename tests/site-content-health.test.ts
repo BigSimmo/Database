@@ -15,6 +15,8 @@ const staticDigest = "a".repeat(64);
 const dynamicDigest = "b".repeat(64);
 const releaseDigest = "c".repeat(64);
 const releaseId = "11111111-1111-5111-8111-111111111111";
+const retainedBootstrapReleaseId = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const retainedBootstrapDigest = "8a2edbdfe117338cc0323036ba3a68590744950ad89b9ce177415685a7115757";
 
 const release = {
   version: "clinical-kb-site-release-v1" as const,
@@ -27,6 +29,17 @@ const release = {
   activatedAt: "2026-08-27T00:00:00.000Z",
 };
 
+const retainedBootstrapRelease = {
+  version: "clinical-kb-site-release-v1" as const,
+  releaseId: retainedBootstrapReleaseId,
+  registryVersion: "site-content-bootstrap-public-release-v1",
+  staticManifestDigest: "0".repeat(64),
+  dynamicStateDigest: retainedBootstrapDigest,
+  releaseDigest: retainedBootstrapDigest,
+  state: "active" as const,
+  activatedAt: "2026-08-27T00:00:00.000Z",
+};
+
 function healthy(overrides: Partial<SiteContentHealthInput> = {}): SiteContentHealthInput {
   return {
     partition: classifySiteContentPartition({
@@ -35,6 +48,8 @@ function healthy(overrides: Partial<SiteContentHealthInput> = {}): SiteContentHe
       publicSiteChangeEpoch: "7",
       pendingPublicSiteChangeCount: 0,
     }),
+    activePublicSiteRelease: release,
+    publicSiteChangeEpoch: "7",
     now,
     initialized: true,
     bootstrapIntegrityState: "not_applicable",
@@ -188,7 +203,7 @@ describe("site-content partition classification", () => {
   it("allows only the exact retained bootstrap override and fails closed on integrity or worker evidence", () => {
     const bootstrapPartition = classifySiteContentPartition({
       expectedSiteStaticManifestDigest: undefined,
-      activePublicSiteRelease: release,
+      activePublicSiteRelease: retainedBootstrapRelease,
       publicSiteChangeEpoch: "0",
       pendingPublicSiteChangeCount: 0,
     });
@@ -196,6 +211,8 @@ describe("site-content partition classification", () => {
       classifySiteContentHealth(
         healthy({
           partition: bootstrapPartition,
+          activePublicSiteRelease: retainedBootstrapRelease,
+          publicSiteChangeEpoch: "0",
           initialized: false,
           bootstrapIntegrityState: "valid_retained",
           synchronizerSeen: false,
@@ -241,6 +258,8 @@ describe("site-content partition classification", () => {
         classifySiteContentHealth(
           healthy({
             partition: bootstrapPartition,
+            activePublicSiteRelease: retainedBootstrapRelease,
+            publicSiteChangeEpoch: "0",
             initialized: false,
             bootstrapIntegrityState: "valid_retained",
             synchronizerSeen: false,
@@ -256,7 +275,13 @@ describe("site-content partition classification", () => {
 
     expect(
       classifySiteContentHealth(
-        healthy({ partition: bootstrapPartition, initialized: false, bootstrapIntegrityState: "invalid" }),
+        healthy({
+          partition: bootstrapPartition,
+          activePublicSiteRelease: retainedBootstrapRelease,
+          publicSiteChangeEpoch: "0",
+          initialized: false,
+          bootstrapIntegrityState: "invalid",
+        }),
       ),
     ).toMatchObject({ state: "unavailable", ready: false, operationStop: true });
     expect(classifySiteContentHealth(healthy({ administratorAttestationValid: false })).reasons).toContain(
@@ -272,6 +297,88 @@ describe("site-content partition classification", () => {
       operationStop: true,
       reasons: expect.arrayContaining(["population_incomplete"]),
     });
+  });
+
+  it("fails closed when valid-retained evidence does not identify the exact retained bootstrap", () => {
+    const nonReservedPartition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: undefined,
+      activePublicSiteRelease: release,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    const exactBootstrapPartition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: undefined,
+      activePublicSiteRelease: retainedBootstrapRelease,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    const base = {
+      initialized: false,
+      bootstrapIntegrityState: "valid_retained" as const,
+      synchronizerSeen: false,
+      lastInvocationAt: null,
+      lastSuccessfulInvocationAt: null,
+      latestInvocationSucceeded: false,
+    };
+    const mismatches: Array<{ name: string; overrides: Partial<SiteContentHealthInput> }> = [
+      {
+        name: "non-reserved release",
+        overrides: {
+          partition: nonReservedPartition,
+          activePublicSiteRelease: release,
+          publicSiteChangeEpoch: "0",
+        },
+      },
+      {
+        name: "partition and active release disagreement",
+        overrides: {
+          partition: nonReservedPartition,
+          activePublicSiteRelease: retainedBootstrapRelease,
+          publicSiteChangeEpoch: "0",
+        },
+      },
+      {
+        name: "bootstrap registry identity mismatch",
+        overrides: {
+          partition: exactBootstrapPartition,
+          activePublicSiteRelease: { ...retainedBootstrapRelease, registryVersion: "site-content-registry-v1" },
+          publicSiteChangeEpoch: "0",
+        },
+      },
+      {
+        name: "bootstrap static identity mismatch",
+        overrides: {
+          partition: exactBootstrapPartition,
+          activePublicSiteRelease: { ...retainedBootstrapRelease, staticManifestDigest: staticDigest },
+          publicSiteChangeEpoch: "0",
+        },
+      },
+      {
+        name: "inactive bootstrap release",
+        overrides: {
+          partition: exactBootstrapPartition,
+          activePublicSiteRelease: { ...retainedBootstrapRelease, state: "superseded" } as never,
+          publicSiteChangeEpoch: "0",
+        },
+      },
+      {
+        name: "nonzero public epoch",
+        overrides: {
+          partition: exactBootstrapPartition,
+          activePublicSiteRelease: retainedBootstrapRelease,
+          publicSiteChangeEpoch: "1",
+        },
+      },
+    ];
+
+    for (const testCase of mismatches) {
+      expect(classifySiteContentHealth(healthy({ ...base, ...testCase.overrides })), testCase.name).toMatchObject({
+        state: "unavailable",
+        ready: false,
+        operationStop: true,
+        reasons: expect.arrayContaining(["bootstrap_invalid"]),
+      });
+    }
   });
 
   it("retains stale only when static mismatch is the sole stopping reason", () => {

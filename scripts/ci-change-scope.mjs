@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, lstatSync, readFileSync } from "node:fs";
-import { posix as posixPath } from "node:path";
+import { appendFileSync, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, posix as posixPath, relative, sep } from "node:path";
 
 const zeroSha = /^0{40}$/;
 
@@ -68,6 +68,13 @@ function pathMatches(filePath, patterns) {
   });
 }
 
+function isWithinPath(rootPath, candidatePath) {
+  const relativePath = relative(rootPath, candidatePath);
+  return (
+    relativePath === "" || (!isAbsolute(relativePath) && relativePath !== ".." && !relativePath.startsWith(`..${sep}`))
+  );
+}
+
 function validateSiteContentChangeOwners(value, label = "site-content-owner-manifest-malformed") {
   if (
     !value ||
@@ -77,6 +84,7 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
   ) {
     throw new Error(label);
   }
+  const repositoryRealPath = realpathSync(".");
   const producers = value.producers;
   if (!producers || typeof producers !== "object" || Array.isArray(producers) || Object.keys(producers).length === 0) {
     throw new Error(label);
@@ -119,6 +127,11 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
       const ownerStat = lstatSync(ownerPath);
       if (ownerStat.isSymbolicLink() || (owner.endsWith("/**") ? !ownerStat.isDirectory() : !ownerStat.isFile())) {
         throw new Error("site-content-owner-manifest-missing-owner");
+      }
+      const allowedRootRealPath = realpathSync(repositoryRoot);
+      const ownerRealPath = realpathSync(ownerPath);
+      if (!isWithinPath(repositoryRealPath, ownerRealPath) || !isWithinPath(allowedRootRealPath, ownerRealPath)) {
+        throw new Error("site-content-owner-manifest-escaping-owner");
       }
     }
   }
