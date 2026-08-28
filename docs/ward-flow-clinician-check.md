@@ -70,7 +70,7 @@ fact rather than a judgement.
 **The words currently on the screen are these, and they are the thing we most want you to correct.**
 
 _What a predicted discharge is waiting on:_ Awaiting ward round · Awaiting family or carer
-agreement · Awaiting accommodation · Awaiting a community team to accept · Nothing outstanding.
+agreement · Awaiting accommodation · Awaiting community team acceptance · Nothing outstanding.
 
 _Why a decided discharge is stuck:_ Awaiting clean · Awaiting pharmacy · Awaiting placement
 confirmation · Awaiting service coordination · Awaiting accommodation · Awaiting transport ·

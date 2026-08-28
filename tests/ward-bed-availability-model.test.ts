@@ -39,7 +39,7 @@ describe("bed release model", () => {
       "Awaiting ward round",
       "Awaiting family or carer agreement",
       "Awaiting accommodation",
-      "Awaiting a community team to accept",
+      "Awaiting community team acceptance",
       "Nothing outstanding",
     ]);
     expect(BED_RELEASE_WAITING_ON).toContain("Nothing outstanding");

@@ -443,7 +443,7 @@ This list did not exist. It replaces `likely` / `possible` (Q1).
 - Awaiting ward round
 - Awaiting family or carer agreement
 - Awaiting accommodation
-- Awaiting a community team to accept
+- Awaiting community team acceptance
 - **Nothing outstanding**
 
 **"Nothing outstanding" carries more weight than it looks.** It is a predicted discharge with no
@@ -471,3 +471,80 @@ These lists appear on a screen a coordinator reads as fact. **The wording ships 
 tidies, shortens, sentence-cases or "improves" any entry, and no agent adds an entry. Adding one is a
 recorded product decision, never an implementer's convenience — the same rule `ward-change-reasons.ts`
 has carried since Phase 5.
+
+## The eight follow-up rulings (OWNER-APPROVED, 2026-08-29)
+
+Recommendations put to the product owner on 2026-08-29 and approved as a set. Six are deliberate
+**leaves** — recorded with their reasoning so nobody "fixes" them later without knowing why they
+were left. Two are actions, both already taken.
+
+### 1. "Awaiting accommodation" appears in both List 1 and List 2 — LEAVE
+
+In List 1 the discharge is decided and there is nowhere to go; in List 2 the decision cannot be made
+until accommodation is sorted. Different situations, and the column a coordinator is reading
+disambiguates them. **A second phrase for the same real-world thing would be worse than the
+overlap.** No change.
+
+### 2. "Awaiting receiving-service acceptance" vs "Awaiting a community team to accept" — BOTH KEPT, SECOND RENAMED
+
+**Action taken.** List 2's entry is now `Awaiting community team acceptance`.
+
+**The reasoning, and its provenance.** The session's view — put to the owner and approved by him —
+is that these name **two different things**: a _receiving service_ is another inpatient unit taking
+the patient over; a _community team accepting them_ is follow-up after they leave. Both therefore
+belong, and matching the phrasing style removes the appearance of duplication without merging a real
+distinction.
+
+**Provenance, and it is stronger than the lists themselves.** Asked directly on 2026-08-29 whether
+the two name the same thing, the product owner — **a psychiatrist** — answered: _"they are different
+things. So separate them."_ This is therefore **his own clinical confirmation**, not the session's
+reasoning that he accepted, and it is the one entry in these lists that carries clinical authority
+rather than owner approval of a proposal.
+
+The two stay separate, and **neither may be merged into the other by a later reader who notices they
+look similar.** They look similar because both describe somebody accepting a patient; they differ in
+who, and in whether a bed is involved.
+
+### 3. List 1 mixes registers internally — LEAVE
+
+"Awaiting clean" beside "Awaiting family or carer arrangement" looks untidy. Each entry is clear on
+its own, and padding the short ones for symmetry makes them harder to read. **Tidiness is not a
+reason to touch clinical wording.** No change.
+
+### 4. The "beds being made ready" section has been seen at no breakpoint — CARRIED to Phase 8 Task 10
+
+Proven by jsdom and typecheck only. The visual pass must confirm a bed carrying a preparation note
+still reads as **offered**, not as unavailable — that misreading would contradict the owner's own
+ruling that the pull of the next patient takes hours anyway. Already written into the Phase 8 plan.
+
+### 5. Print ink on the new bed-model and list copy was never measured — CARRIED to Phase 8 Task 10
+
+The page _count_ was measured (one A4 page); the ink was not. Measure **every painted leaf of text**
+in both colour schemes — the method that found four defects where reading the selector list found
+one. Already written into the Phase 8 plan.
+
+### 6. The wrong-browser near miss — RECORDED, no further action
+
+A Chromium run reported `534 passed (18.9m)`, exit 0, containing **zero ward tests**, because the
+ward specs run under a different Playwright project. Caught by the agent itself and written down.
+**A green result from the wrong command is indistinguishable from a green result from the right
+one**, which is why the decisive line is quoted and never the exit code. The warning is in the
+Phase 8 handover prompt.
+
+### 7. A bed may be released straight from "predicted" without passing through "confirmed" — LEAVE
+
+Not a widening introduced by the rework: the old four-stage model already allowed the same thing by
+a different route (`predicted → blocked → released`). Forcing confirmation first would make a ward
+that discharges someone quickly record a stage that never happened. **Recording a fiction to satisfy
+a state machine is worse than the state machine being loose.** One line to narrow it if the owner
+ever wants it.
+
+### 8. The six morning-page figures do not sum to anything — LEAVE, and do not "fix" it
+
+`blockedToday` deliberately **overlaps** `confirmedToday` and `predictedToday`, because a stuck bed
+is still a confirmed bed. Nothing on screen adds them and every comment and test says so.
+
+**Forcing the six into disjoint buckets would reintroduce the exact defect the rework was built to
+remove** — a blocked bed vanishing from the confirmed count, so the ward's figures improve at the
+moment it is stuck. Recorded here because "make the numbers add up" is a plausible-sounding change
+that a future reader might make without knowing what it would undo.

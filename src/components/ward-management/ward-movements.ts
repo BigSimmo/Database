@@ -793,7 +793,7 @@ export const bedReleases: BedRelease[] = [
     unitId: "gry-older-adult",
     state: "predicted",
     expectedAt: NOW_ANCHOR + 240,
-    waitingOn: "Awaiting a community team to accept",
+    waitingOn: "Awaiting community team acceptance",
     blocker: null,
     blockedBy: null,
     preparing: false,

@@ -390,7 +390,7 @@ export const BED_RELEASE_WAITING_ON = [
   "Awaiting ward round",
   "Awaiting family or carer agreement",
   "Awaiting accommodation",
-  "Awaiting a community team to accept",
+  "Awaiting community team acceptance",
   "Nothing outstanding",
 ] as const;
 export type BedReleaseWaitingOn = (typeof BED_RELEASE_WAITING_ON)[number];
