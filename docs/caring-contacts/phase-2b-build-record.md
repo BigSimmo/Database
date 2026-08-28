@@ -4012,3 +4012,40 @@ repository's `supabase/migrations/`, and every migration file in this directory 
 in its own header. **Do not weaken either test to make a future Supabase connection convenient.**
 Connecting to Supabase is a deliberate, separately approved operator act against a chosen project —
 it is not achieved by relocating files into the directory that auto-deploys.
+
+### Ruling [159] — the seed's own timeline contradicted itself, and every test passed
+
+**2026-08-29.** The seed extension (`e45dfefc5`) closed all three measured wireframe gaps and its
+verification was green: 16 demo-seed tests, 63 collected files, 1402 tests, ESLint clean, plus an
+ephemeral live-store run the implementer wrote and deleted. **The seeded data was still incoherent,
+and no test could have said so.**
+
+Rowan's plan is discharged one day before now, which correctly puts `Day 1` on today. The three
+contacts then advanced through the real dispatch path were `Week 1`, `Month 1` and `Month 2` —
+which `buildApprovedSchedule` places at discharge + 7 days and discharge + N calendar months. **All
+three are in the future.** The patient overview therefore read _"Transport so far: 3 messages sent,
+of which 2 carry a delivery receipt"_ for a plan whose only contact on or before today was still
+`scheduled`, and the Schedule screen simultaneously reported `Already sent 0` for today.
+
+**Found by driving the running application, not by reading the diff or the report.** The report was
+accurate about everything it claimed: the dispatches did go through the real four-step path, the
+failure was real, the guard was not weakened. It simply never asked whether the dates made sense
+together, and neither did any test, because **every assertion was about state and none about the
+relationship between a contact's outcome and its position in time.**
+
+This is the same lesson as Ruling [138] and the Ward Flow verification note, in a new place: _green
+tests are evidence that the assertions hold, never that the screen is right._ Two rounds of careful
+work, an ephemeral live-store check, and a full suite all passed over a fact that was visible in
+about ninety seconds of looking at the actual page.
+
+**It also matters more here than a cosmetic defect would.** The whole purpose of this data is to let
+somebody see how the system behaves. A demonstration whose own record contradicts itself teaches the
+reader that the system is broken — so incoherent example data is worse than none, and "it is only
+the demo seed" is not a reason to leave it.
+
+The correction re-anchors the discharge two calendar months back, so `Day 1`, `Week 1` and `Month 1`
+fall in the past and carry the outcomes, `Month 2` falls on today and stays `scheduled`, and
+everything later stays scheduled. That preserves every property the previous round established —
+a contact due today, three attempted, exactly one failure — and additionally makes the failure the
+most recent past contact, which is what its own comment said it wanted. A test now pins the
+invariant directly: **a contact carrying a delivery outcome may never be seeded on a future date.**
