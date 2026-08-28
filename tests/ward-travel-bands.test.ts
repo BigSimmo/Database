@@ -4,8 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
+  SYNTHETIC_TRAVEL_TIMES_NOTICE,
   TRAVEL_BAND_LABELS,
   TRAVEL_BANDS,
   travelBand,
@@ -55,6 +57,18 @@ const RECORDED_PAIRS: { region: HomeRegion; siteCode: string; band: TravelBand }
     const band = SYNTHETIC_TRAVEL_BANDS[region]?.[siteCode];
     return band === undefined ? [] : [{ region, siteCode, band }];
   }),
+);
+
+/** Every (region, site) pair the fixture leaves unrecorded — the gaps, counted. */
+const UNRECORDED_PAIRS: { region: HomeRegion; siteCode: string }[] = HOME_REGIONS.flatMap((region) =>
+  SITE_CODES.flatMap((siteCode) =>
+    SYNTHETIC_TRAVEL_BANDS[region]?.[siteCode] === undefined ? [{ region, siteCode }] : [],
+  ),
+);
+
+/** Any home region for which the fixture records a band at EVERY site in the network. */
+const COMPLETELY_MAPPED_REGIONS: HomeRegion[] = HOME_REGIONS.filter((region) =>
+  SITE_CODES.every((siteCode) => SYNTHETIC_TRAVEL_BANDS[region]?.[siteCode] !== undefined),
 );
 
 const WARD_DIR = join(process.cwd(), "src", "components", "ward-management");
@@ -123,7 +137,7 @@ describe("travel bands", () => {
   it("labels exactly the members of TRAVEL_BANDS and nothing else", () => {
     expect(Object.keys(TRAVEL_BAND_LABELS).sort()).toEqual([...TRAVEL_BANDS].sort());
     for (const band of TRAVEL_BANDS) {
-      expect(TRAVEL_BAND_LABELS[band], `${band} needs a label`).toBeTruthy();
+      expect(TRAVEL_BAND_LABELS[band].trim().length, `${band}'s label must not be empty`).toBeGreaterThan(0);
     }
     expect(new Set(Object.values(TRAVEL_BAND_LABELS)).size).toBe(TRAVEL_BANDS.length);
   });
@@ -155,38 +169,79 @@ describe("travel bands", () => {
     }
   });
 
-  it("records a fixture chosen for coverage: every band live, gaps real, one band holding two units", () => {
-    // Every band heading has something under it, so no band is dead on the screen.
+  it("ships both mandated notices verbatim, whole", () => {
+    // These two sentences must reach the screen unchanged in the tasks that follow, and TRUNCATION
+    // is the failure mode that matters: half of "no distance shown here should be relied on" still
+    // reads like a caveat while having dropped the part that does the work. Each is therefore
+    // pinned as a WHOLE string against an independent copy — never a prefix, never a fragment,
+    // never a `toContain`.
+    expect(SYNTHETIC_TRAVEL_TIMES_NOTICE).toBe(
+      "Travel times on this screen are invented, like every bed number in this prototype. Nobody has " +
+        "measured or checked how far any of these hospitals is from anywhere, and no distance shown here " +
+        "should be relied on.",
+    );
+    expect(INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE).toBe(
+      "Out of area here means three hours or more from home, or reachable only by air. This prototype " +
+        "invented that line. Nobody has checked whether Western Australian mental health services already " +
+        'define "out of area", and if they do, their definition replaces this one.',
+    );
+  });
+
+  // The four coverage properties the authoring rule requires of the fixture, one test each, so a
+  // mutation to any one of them fails on its own name rather than hiding behind an earlier
+  // assertion in a shared test body.
+
+  it("records at least one pair in every band, so no band heading is dead", () => {
     for (const band of TRAVEL_BANDS) {
       expect(
         RECORDED_PAIRS.some((pair) => pair.band === band),
         `no pair in the fixture exercises ${band}`,
       ).toBe(true);
     }
+  });
 
-    // The table is deliberately incomplete — a missing pair is a first-class answer, and a
-    // suspiciously complete table is a review finding rather than thoroughness.
-    expect(RECORDED_PAIRS.length).toBeLessThan(HOME_REGIONS.length * SITE_CODES.length);
+  it("leaves the table deliberately incomplete, with no home region mapped at every site", () => {
+    // A missing pair is a first-class answer, and a suspiciously complete band table is a review
+    // finding rather than thoroughness — filling a gap is exactly the pressure that sends an
+    // author to a map. Two claims: gaps genuinely exist, and no single region has been completed.
+    //
+    // The second is the one with teeth, and it is deliberately strict. If real, checked travel
+    // times are ever measured for every site in a region, this test SHOULD fail: completing a
+    // region is a governance moment that deserves a deliberate decision, not a silent green run.
+    expect(UNRECORDED_PAIRS.length, "every possible pair is recorded — the table is not sparse").toBeGreaterThan(0);
+    expect(COMPLETELY_MAPPED_REGIONS, "a home region is recorded at every site in the network").toEqual([]);
 
-    // A whole home region with nothing recorded, and one a seeded referral actually uses, so the
-    // whole-region gap wording renders in the seeded data rather than only under test.
-    expect(REGIONS_WITH_NO_BANDS.length).toBeGreaterThan(0);
-    expect(REGIONS_WITH_NO_BANDS.some((region) => SEEDED_HOME_REGIONS.includes(region))).toBe(true);
+    // The gaps are gaps in the lookup too, not merely in the literal: nothing invents a band for
+    // an unrecorded pair on the way out.
+    for (const pair of UNRECORDED_PAIRS) {
+      expect(travelBand(pair.region, pair.siteCode), `${pair.region} to ${pair.siteCode} must read as a gap`).toBe(
+        undefined,
+      );
+    }
+  });
 
-    // At least two units share one band for one region, so a later no-reordering test has
-    // something to catch.
+  it("leaves a whole home region unrecorded that a seeded referral actually uses", () => {
+    // So the whole-region gap wording renders in the seeded data rather than only under test.
+    expect(REGIONS_WITH_NO_BANDS.length, "no home region is left entirely unrecorded").toBeGreaterThan(0);
+    expect(
+      REGIONS_WITH_NO_BANDS.some((region) => SEEDED_HOME_REGIONS.includes(region)),
+      "every unrecorded home region is one no seeded referral uses, so the gap never renders",
+    ).toBe(true);
+  });
+
+  it("puts at least two units in one band for one region", () => {
+    // So a later no-reordering test has something to catch.
     const crowded = HOME_REGIONS.flatMap((region) =>
       TRAVEL_BANDS.filter(
         (band) => ALL_UNITS.filter((unit) => travelBand(region, unit.siteCode) === band).length >= 2,
       ).map((band) => ({ region, band })),
     );
     expect(crowded.length, "no region/band pair holds two units").toBeGreaterThan(0);
+  });
 
-    // Every site code the fixture keys on is a real code in the network, so a typo cannot sit in
-    // the table silently answering `undefined` forever.
-    for (const pair of RECORDED_PAIRS) {
-      expect(SITE_CODES).toContain(pair.siteCode);
-    }
+  it("keys only on site codes that exist in the network", () => {
+    // Derived from `wardSites`, not from the pair list — a typo in a fixture key would otherwise
+    // sit in the table answering `undefined` forever with nothing to notice it.
     for (const region of HOME_REGIONS) {
       for (const siteCode of Object.keys(SYNTHETIC_TRAVEL_BANDS[region] ?? {})) {
         expect(SITE_CODES, `${siteCode} is not a site code in this network`).toContain(siteCode);
