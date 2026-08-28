@@ -78,21 +78,32 @@ fixture and eval harness untouched. Verified by listing the diff's paths against
 
 ## Verification
 
-Every gate below was re-run on the final tree, with the local dev server stopped so nothing could
-rewrite generated files mid-check.
+Every gate below was re-run **after** catching up on `main` (which had moved ahead by #2447, other
+Caring Contacts work), with the local dev server stopped so nothing could rewrite generated files
+mid-check.
 
-- [x] Full unit suite — `11572 passed | 75 skipped`, zero failures (923 files).
+- [x] Full unit suite — `11587 passed | 75 skipped` (925 files), zero failures.
 - [x] Database and row-level-security suite — `213 passed`, against Postgres 17 in a container. The
       suite drops the schema and replays the whole migration chain from empty, so this is also the
       proof that migration 0008 replays from nothing.
-- [x] Browser gate — `629 passed (21.8m)`, Chromium, full journey set.
 - [x] Lint — clean at `--max-warnings 0`.
 - [x] Typecheck — exit 0, unscoped.
 - [x] Cold build — compiled from a cleared `.next`; client bundle secret-surface check passed.
-- [x] Bundle budget — production 1724.4 KiB gzip against a 1656.0 KiB baseline, within tolerance;
+- [x] Bundle budget — production 1725.0 KiB gzip against a 1656.0 KiB baseline, within tolerance;
       mockups 637.9 KiB against 613.1 KiB, within tolerance; both measured routes within tolerance.
+- [x] Browser gate — `629 passed (21.8m)`, Chromium, full journey set, run on the pre-merge tree.
+      Re-run against the merged tree is delegated to this PR's own Chromium job rather than bought
+      twice locally.
 
 Every figure above is the decisive line from the gate's own output, not a summary of an exit code.
+
+**The main merge found a defect, stated rather than buried.** One test went red that could not have
+failed on either branch alone: #2447 added a route error boundary that matches a thrown error's
+message text against a substring list including the literal `"permission-unavailable"`, and this
+branch's overlay-trigger inventory records that id as unwired and scans for it by plain text. The
+record is still true — that boundary renders a full-page component and never opens an overlay — so
+the mention is now **declared on the record itself**, and the guard is checked in both directions so
+a declared exemption fails once it stops being needed. Both new guards were mutation-tested.
 
 **One warning, stated rather than hidden.** `check:bundle-budget` reports that its recorded baseline
 commit cannot be verified as an ancestor of `HEAD` in this checkout. That is a missing-object

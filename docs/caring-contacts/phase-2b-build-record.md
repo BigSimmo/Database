@@ -4102,3 +4102,53 @@ invisible from a green summary line.
    value. That is a real narrowing of the replay contract, deliberately chosen over deleting the row
    and freeing the key, and it should be seen rather than discovered.
 2. `plans.created_at` is not immutable, and the unclaimed-work escalation now depends on it.
+
+### Ruling [161] — the second main merge, and the second defect no branch could fail on alone
+
+**2026-08-29.** Preparing PR #2451 for merge required catching up on `main`, which had moved two
+commits ahead — one of them **#2447, other Caring Contacts work landed by a different session.** The
+merge conflicted in five files. GitHub reported `CONFLICTING`/`DIRTY`, and unlike the usual case this
+was **not** staleness: `git merge-tree` confirmed a genuine content conflict before any resolution
+was attempted, exactly as the anti-churn rule requires.
+
+**How each conflict was resolved, and why none of them was "take one side".**
+
+- **Two generated snapshots** (`data/outstanding-issues-snapshot.json`, `data/repo-awareness-snapshot.json`)
+  were **regenerated from the merged source** rather than hand-merged. Their own source of truth had
+  merged cleanly; a hand-resolved generated file is a file that no longer matches what generates it.
+- **`workspace-overlays.tsx`** — both sides added different code at the same point. Ours was a doc
+  comment belonging to `overlayUrl` below it; main's was three online-status helpers. **Both kept**,
+  main's helpers first and the comment left attached to the function it documents.
+- **`caring-contacts-explained-automation.dom.test.tsx`** — both sides appended to the same
+  client-boundary allowlist. The list is narrative order, not alphabetical, so **both sets of entries
+  kept in file order.**
+- **`caring-contacts-workspace-screens.test.ts`** — an add/add conflict where **both branches had
+  independently written the same guard**, 147 lines against 107. Ours was kept, for a reason that is
+  not authorship: main's version opens `if (!existsSync(rootDir)) return []`, so a moved directory
+  makes it pass vacuously — a check that cannot fail. Ours resolves routes through the repository's
+  own `collectSiteMapData` rather than a second filesystem scan, and throws at every parse step.
+  **Proved rather than assumed:** removing one entry from `WORKSPACE_SCREENS` failed all three of its
+  tests, and the spec restored byte-clean afterwards.
+
+**Then the full suite found the defect, and it is the same shape as Ruling [149]'s twenty-two.** One
+test failed: the overlay-trigger inventory's _"no mention of an id recorded as unwired"_. Main's
+#2447 added `src/app/caring-contacts/error.tsx`, a route error boundary that matches a thrown error's
+**message text** against a list of substrings — `403`, `forbidden`, `permission`, and the literal
+`"permission-unavailable"` among them — and on a match renders the full-page `PermissionUnavailable`
+component. The inventory's scan is a plain text search, so **it read an error-message substring as a
+wiring.** Neither branch could have failed on this alone: our inventory needed main's file, and
+main's file needed our inventory.
+
+**The record was still true, which is what decided the fix.** `error.tsx` never opens an overlay,
+never imports the overlay machinery, and `WorkspaceOverlays` still passes `blockReason` as `null` in
+every case, so the overlay row remains exactly as unwired as its reason says. The temptation was to
+narrow the search past `src/app/**`; that would have silently exempted a whole directory to fix one
+string. Instead the mention is **declared** on the record itself (`nonTriggerMentions`, naming the
+module and why), and the guard is now checked in **both** directions: an undeclared mention still
+fails, **and a declared module that stops mentioning the id fails too**, so an exemption cannot
+outlive its subject. A third test refuses an exemption with no real reason.
+
+Both new guards were mutation-tested with the failure predicted first: removing the declaration fails
+exactly the undeclared check and nothing else; re-pointing it at a module that does not mention the
+id fails the stale check as well. 11 tests, up from 9. **An exemption that cannot expire is a hole,
+not a guard** — that is the whole content of this ruling.
