@@ -128,6 +128,13 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
       if (ownerStat.isSymbolicLink() || (owner.endsWith("/**") ? !ownerStat.isDirectory() : !ownerStat.isFile())) {
         throw new Error("site-content-owner-manifest-missing-owner");
       }
+      const ownerPathParts = ownerPath.split("/");
+      for (let partCount = 1; partCount < ownerPathParts.length; partCount += 1) {
+        const ancestorPath = ownerPathParts.slice(0, partCount).join("/");
+        if (lstatSync(ancestorPath).isSymbolicLink()) {
+          throw new Error("site-content-owner-manifest-escaping-owner");
+        }
+      }
       const allowedRootRealPath = realpathSync(repositoryRoot);
       const ownerRealPath = realpathSync(ownerPath);
       if (!isWithinPath(repositoryRealPath, ownerRealPath) || !isWithinPath(allowedRootRealPath, ownerRealPath)) {

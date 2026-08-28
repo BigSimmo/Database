@@ -123,6 +123,38 @@ describe("site-content CI owner contract", () => {
     }
   });
 
+  it("rejects exact and glob owners through an internal linked ancestor while allowing the real subtree", () => {
+    const repositoryDirectory = mkdtempSync(join(tmpdir(), "site-content-owner-repository-"));
+    const publicDirectory = join(repositoryDirectory, "public");
+    const realDirectory = join(publicDirectory, "real-subtree");
+    const linkedDirectory = join(publicDirectory, "linked-subtree");
+    try {
+      mkdirSync(realDirectory, { recursive: true });
+      writeFileSync(join(realDirectory, "owner.json"), "{}\n", "utf8");
+      symlinkSync(realDirectory, linkedDirectory, process.platform === "win32" ? "junction" : "dir");
+
+      expect(() => runSelectorWithInjectedOwner("public/real-subtree/owner.json", repositoryDirectory)).not.toThrow();
+      expect(() => runSelectorWithInjectedOwner("public/real-subtree/**", repositoryDirectory)).not.toThrow();
+      const linkedOwnerResults = ["public/linked-subtree/owner.json", "public/linked-subtree/**"].map((owner) => {
+        try {
+          runSelectorWithInjectedOwner(owner, repositoryDirectory);
+          return "accepted";
+        } catch (error) {
+          expect(String(error)).toMatch(
+            owner.endsWith("/**")
+              ? /site-content-owner-manifest-missing-owner/
+              : /site-content-owner-manifest-escaping-owner/,
+          );
+          return "rejected";
+        }
+      });
+      expect(linkedOwnerResults).toEqual(["rejected", "rejected"]);
+    } finally {
+      if (existsSync(linkedDirectory)) unlinkSync(linkedDirectory);
+      rmSync(repositoryDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("still triggers for canonical exact and glob owner paths", () => {
     expect(classify("src/lib/dictionary-data.ts")).toContain("site_content_changed=true");
     expect(classify("public/therapy-compass-data/therapies.d0358686e452b00b.json")).toContain(
