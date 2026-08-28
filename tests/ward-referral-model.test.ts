@@ -1,6 +1,7 @@
 // tests/ward-referral-model.test.ts
 import { describe, expect, it } from "vitest";
 
+import { OUT_OF_AREA_BANDS, unitTravelBand } from "../src/components/ward-management/ward-distance";
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import {
@@ -419,6 +420,67 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
  * reducer-built test is the runtime half (catches a field the reducer actually starts WRITING,
  * under vitest, which is the shape I2's fix and the intake-form risk both describe).
  */
+/**
+ * Phase 8 Task 2 (spec D8-3). The equity ledger cannot be built without seed content in three
+ * shapes, and this is what makes the seed's claim to hold them checkable rather than asserted in
+ * a comment: an arrived referral whose band is out of area, an arrived referral whose band is NOT
+ * RECORDED for that pair, and an accepted referral with no arrival at all.
+ *
+ * Every band here is LOOKED UP through `ward-distance.ts`, the single entry point — no band is
+ * stored on any referral, and none is spelled out in this file. `OUT_OF_AREA_BANDS` is imported
+ * rather than restated for the same reason: a second local list of band names is how two places
+ * end up disagreeing about which bands are far.
+ *
+ * These are read out of `SYNTHETIC_TRAVEL_BANDS` (`ward-travel-bands.ts`), never chosen — and no
+ * band was added, moved or edited to make any of them come out. If one of these fails after the
+ * placeholder values are replaced with checked ones, the fix is to re-seed the REFERRALS to fit
+ * the new table, never to edit the table to fit the seed.
+ */
+describe("Phase 8 seed — the three arrival shapes the out-of-area ledger needs", () => {
+  const accepted = referrals.filter((referral) => referral.state === "accepted");
+
+  /** The band from a referral's home region to the unit it was accepted into, or `undefined`
+   *  when the fixture records none for that pair. */
+  function bandForAcceptedBed(referralId: string) {
+    const referral = referrals.find((candidate) => candidate.id === referralId)!;
+    return unitTravelBand(referral, unitById(referral.acceptedUnitId!)!);
+  }
+
+  it("holds at least one accepted referral that has ARRIVED and whose band is out of area", () => {
+    const outOfArea = accepted.filter((referral) => {
+      if (referral.arrivedAt === undefined) return false;
+      const band = bandForAcceptedBed(referral.id);
+      return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
+    });
+    expect(outOfArea.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("holds at least one accepted referral that has ARRIVED and whose band is NOT RECORDED for that pair", () => {
+    const unrecorded = accepted.filter(
+      (referral) => referral.arrivedAt !== undefined && bandForAcceptedBed(referral.id) === undefined,
+    );
+    expect(unrecorded.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("holds at least one accepted referral with NO arrival at all", () => {
+    expect(accepted.filter((referral) => referral.arrivedAt === undefined).length).toBeGreaterThanOrEqual(1);
+  });
+
+  /** An arrival that precedes the decision that produced the bed would be incoherent seed data,
+   *  and a later screen would render the incoherence as fact. */
+  it("never records an arrival before the decision, or on a referral that was never accepted", () => {
+    for (const referral of referrals) {
+      if (referral.arrivedAt === undefined) continue;
+      expect(referral.state, `${referral.id} records an arrival but is ${referral.state}`).toBe("accepted");
+      expect(referral.decidedAt, `${referral.id} records an arrival but no decision`).toBeDefined();
+      expect(
+        referral.arrivedAt,
+        `${referral.id} is recorded as arriving before it was accepted`,
+      ).toBeGreaterThanOrEqual(referral.decidedAt!);
+    }
+  });
+});
+
 describe("Referral privacy — structural", () => {
   const ALLOWED_REFERRAL_FIELDS = [
     "id",
@@ -437,6 +499,17 @@ describe("Referral privacy — structural", () => {
     "declineReason",
     "decidedAt",
     "decidedBy",
+    // Phase 8 Task 2, and the list widens deliberately for the third time. BOTH of these are
+    // facts about the REFERRAL, not about the person: `arrivedAt` is when this referral arrived
+    // in the bed it was accepted into, and `localBedSought` records that somebody looked closer
+    // to home, at a time, by a ROLE. They sit in the same operational family as `raisedAt`,
+    // `decidedAt` and `decidedBy`, which is exactly why adding them does not widen the five
+    // person-facts this type holds — and why `homeAddress`, `notes` or `diagnosis` still fails
+    // here. `localBedSought` deliberately has no note, reason or outcome field; the runtime
+    // companion below drives BOTH new write paths so a reducer that started writing one anyway
+    // fails under plain vitest, with no `tsc` step.
+    "arrivedAt",
+    "localBedSought",
   ].sort();
 
   it("a fully-populated Referral (every optional field set) has exactly the allowed field set", () => {
@@ -461,6 +534,9 @@ describe("Referral privacy — structural", () => {
       declineReason: "no_suitable_bed",
       decidedAt: NOW_ANCHOR + 5,
       decidedBy: "Flow coordinator",
+      arrivedAt: NOW_ANCHOR + 9,
+      // A role, never a person — and no note, reason or outcome field exists to populate.
+      localBedSought: { at: NOW_ANCHOR + 2, by: "coordinator" },
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
   });
@@ -501,6 +577,57 @@ describe("Referral privacy — structural", () => {
     expect(after.rejections).toEqual([]);
     const created = after.referrals.at(-1)!;
     for (const key of Object.keys(created)) {
+      expect(ALLOWED_REFERRAL_FIELDS).toContain(key);
+    }
+  });
+
+  /**
+   * Phase 8 Task 2 — the SAME runtime half, extended to the two write paths this task added.
+   *
+   * The type-checked guard above cannot fail under `vitest run` (`Required<Referral>` is checked
+   * by `tsc`, and vitest does not typecheck), so widening the allowlist without this would have
+   * recorded the two new fields as deliberate while proving nothing at runtime about what the
+   * reducer actually writes. These two events are exactly where an extra key would appear: an
+   * arrival that also stamped a location or a stage, or a local-bed record that grew a note or an
+   * outcome, would fail here by key name under plain vitest.
+   */
+  it("a referral the reducer ARRIVES, and one it records a local bed search against, carry only keys drawn from the allowed set", () => {
+    const seeded = seedWardFlowState();
+
+    // An accepted referral that has not yet arrived, found structurally rather than by id so the
+    // test survives a seed change — and asserted non-empty so it can never pass vacuously.
+    const notYetArrived = seeded.referrals.filter(
+      (referral) => referral.state === "accepted" && referral.arrivedAt === undefined,
+    );
+    expect(notYetArrived.length, "the seed holds no accepted referral without an arrival").toBeGreaterThan(0);
+    const arrived = wardFlowReducer(seeded, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW_ANCHOR,
+      referralId: notYetArrived[0].id,
+    });
+    expect(arrived.rejections).toEqual([]);
+    const afterArrival = arrived.referrals.find((referral) => referral.id === notYetArrived[0].id)!;
+    expect(afterArrival.arrivedAt).toBe(NOW_ANCHOR);
+    for (const key of Object.keys(afterArrival)) {
+      expect(ALLOWED_REFERRAL_FIELDS).toContain(key);
+    }
+
+    const queued = seeded.referrals.filter(
+      (referral) => referral.state === "queued" && referral.localBedSought === undefined,
+    );
+    expect(queued.length, "the seed holds no queued referral without a local-bed record").toBeGreaterThan(0);
+    const sought = wardFlowReducer(seeded, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW_ANCHOR,
+      referralId: queued[0].id,
+    });
+    expect(sought.rejections).toEqual([]);
+    const afterSearch = sought.referrals.find((referral) => referral.id === queued[0].id)!;
+    // A role and a time, and nothing else — no note, no reason, no outcome.
+    expect(Object.keys(afterSearch.localBedSought!).sort()).toEqual(["at", "by"]);
+    for (const key of Object.keys(afterSearch)) {
       expect(ALLOWED_REFERRAL_FIELDS).toContain(key);
     }
   });

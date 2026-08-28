@@ -161,6 +161,8 @@ function subjectId(event: WardFlowEvent): string {
       return event.leaveBedId;
     case "ACCEPT_REFERRAL":
     case "DECLINE_REFERRAL":
+    case "REFERRAL_ARRIVED":
+    case "RECORD_LOCAL_BED_SOUGHT":
       return event.referralId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
@@ -1187,6 +1189,57 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         decidedBy: "Flow coordinator",
       };
       return replaceReferral(state, referral.id, updated);
+    }
+
+    case "REFERRAL_ARRIVED": {
+      // Phase 8 (spec D8-3). This case writes ONE FIELD, `arrivedAt`, and that is the whole of
+      // it. Read the returned object below before extending this: it creates no `Movement`, sets
+      // no location, no legal status and no stage, and touches `state.movements` not at all.
+      // Phase 7's D14 seam — an accepted referral is deliberately NOT turned into a movement,
+      // because doing so needs an `originEdId`, a legal status and a stage machine nobody has
+      // decided on — is still exactly where D14 left it. `tests/ward-referral-reducer.test.ts`
+      // asserts the absence of all four explicitly, so extending this has to argue with a test.
+      //
+      // It also stores no travel band and reads none: a band is looked up through
+      // `ward-distance.ts` when a screen needs one, never written onto a record.
+      const referral = findReferral(state, event.referralId);
+      if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      // Only an ACCEPTED referral can have arrived: a queued one has no bed to arrive in and a
+      // declined one was never given one. The refused state is NAMED, the same discipline
+      // `ACCEPT_REFERRAL`'s own already-decided guard uses.
+      if (referral.state !== "accepted") {
+        return reject(state, event, `referral ${referral.id} has not been accepted (${referral.state})`);
+      }
+      // One-shot, exactly like `ACCEPT_REFERRAL`'s already-decided guard: a second arrival would
+      // silently overwrite the first, and the elapsed count the whole measure rests on would
+      // restart every time somebody pressed the control again.
+      if (referral.arrivedAt !== undefined) {
+        return reject(state, event, `referral ${referral.id} has already arrived`);
+      }
+      const arrived: Referral = { ...referral, arrivedAt: event.now };
+      return replaceReferral(state, referral.id, arrived);
+    }
+
+    case "RECORD_LOCAL_BED_SOUGHT": {
+      // Phase 8 (spec D8-6). Optional by design: nothing requires this to have happened, nothing
+      // reads its absence as a failing, and `ACCEPT_REFERRAL` neither checks it nor cares. It is
+      // a record that a coordinator looked closer to home, and when.
+      const referral = findReferral(state, event.referralId);
+      if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      // A search for a local bed is a thing done while the referral is still undecided. Recording
+      // one against an already-decided referral would be recording it after the fact, so the
+      // refused state is named exactly as `ACCEPT_REFERRAL`/`DECLINE_REFERRAL` name theirs.
+      if (referral.state !== "queued") {
+        return reject(state, event, `referral ${referral.id} was already decided (${referral.state})`);
+      }
+      // One-shot, same reasoning as `REFERRAL_ARRIVED` above.
+      if (referral.localBedSought !== undefined) {
+        return reject(state, event, `referral ${referral.id} already records a local bed search`);
+      }
+      // `by` is the raising ROLE, taken from the event rather than from any caller-supplied
+      // string, so a person's name cannot be written here even by a caller that wanted to.
+      const sought: Referral = { ...referral, localBedSought: { at: event.now, by: event.role } };
+      return replaceReferral(state, referral.id, sought);
     }
 
     case "RECORD_ESCALATION": {

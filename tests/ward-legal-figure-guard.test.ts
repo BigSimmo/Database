@@ -685,6 +685,20 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         .flatMap((referral) =>
           REFERRAL_DECLINE_REASONS.map((reason) => ({ type, role, now, referralId: referral.id, reason })),
         );
+    // Phase 8 Task 2. Both generated against the CURRENT state for the same reason every list
+    // above is: the sweep applies other event types as it goes, so which referrals are still
+    // accepted-and-not-yet-arrived, or still queued, shifts underneath this. Each offers every
+    // legitimate candidate and lets the reducer's own guards decide, exactly as ACCEPT_REFERRAL
+    // and DECLINE_REFERRAL do — and each is a single named list, so emptying one is the
+    // one-line mutation that proves the traversal assertion names the unreached event.
+    case "REFERRAL_ARRIVED":
+      return state.referrals
+        .filter((referral) => referral.state === "accepted" && referral.arrivedAt === undefined)
+        .map((referral) => ({ type, role, now, referralId: referral.id }));
+    case "RECORD_LOCAL_BED_SOUGHT":
+      return state.referrals
+        .filter((referral) => referral.state === "queued" && referral.localBedSought === undefined)
+        .map((referral) => ({ type, role, now, referralId: referral.id }));
   }
 }
 

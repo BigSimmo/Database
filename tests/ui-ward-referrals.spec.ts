@@ -62,9 +62,10 @@ const FEMALE_ONLY_UNIT_NAME = "Geraldton Adult Open";
 const WRONG_AGE_UNIT_ID = "rph-older-adult";
 
 /** The seed's own queued/decided split (`referrals` in `ward-movements.ts`): RF-001 and RF-005 are
- *  queued; RF-002, RF-003, RF-004, RF-006 and RF-007 are decided. */
+ *  queued; RF-002, RF-003, RF-004, RF-006, RF-007 and RF-008 are decided. RF-008 is Phase 8
+ *  Task 2's added accepted-and-arrived seed — see that fixture's own doc comment. */
 const SEEDED_QUEUED = 2;
-const SEEDED_DECIDED = 5;
+const SEEDED_DECIDED = 6;
 
 /** Every unit in the network, and how many of them accept the referral raised above. Both are
  *  hardcoded rather than recomputed from `referralEligibility`: re-deriving the expected number

@@ -306,16 +306,17 @@ describe("ReferralBoard", () => {
     expect(screen.getByTestId("ward-referral-board-wait-RF-005")).toHaveTextContent("20m waiting");
   });
 
-  it("renders the real fixture's five decided referrals, most recently decided first", () => {
+  it("renders the real fixture's six decided referrals, most recently decided first", () => {
     renderBoard();
     // Real fixture decidedAt offsets from NOW_ANCHOR: RF-002 -10, RF-003 -15, RF-004 -25,
-    // RF-006 -5, RF-007 -8 — most recent (smallest offset) first.
+    // RF-006 -5, RF-007 -8, RF-008 -45 (Phase 8 Task 2's added out-of-area seed) — most recent
+    // (smallest offset) first, so RF-008 sits last.
     const table = screen.getByTestId("ward-referral-board-decided-table");
     const ids = within(table)
       .getAllByRole("row")
       .slice(1)
       .map((row) => row.querySelector("td")?.textContent);
-    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004"]);
+    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004", "RF-008"]);
   });
 
   /**
@@ -344,6 +345,7 @@ describe("ReferralBoard", () => {
       "ward-referral-board-decided-card-RF-002",
       "ward-referral-board-decided-card-RF-003",
       "ward-referral-board-decided-card-RF-004",
+      "ward-referral-board-decided-card-RF-008",
     ]);
   });
 

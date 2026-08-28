@@ -441,12 +441,308 @@ describe("DECLINE_REFERRAL", () => {
   });
 });
 
+/**
+ * Phase 8 Task 2 (spec D8-3). The whole named risk of this task lives in the third test below:
+ * `REFERRAL_ARRIVED` is ONE TIMESTAMP, and the moment it acquires a movement, a location, a legal
+ * status or a stage, Phase 7's D14 seam — an accepted referral is deliberately NOT turned into a
+ * movement — has been reversed by accident rather than by decision. That test is written to be
+ * argued with, because somebody will later have a good reason to extend this event.
+ */
+describe("REFERRAL_ARRIVED", () => {
+  /** An accepted referral the seed leaves without an arrival, found structurally rather than by
+   *  id so a seed change cannot make these tests quietly meaningless. */
+  function acceptedNotYetArrived(state: WardFlowState): Referral {
+    const found = state.referrals.find(
+      (candidate) => candidate.state === "accepted" && candidate.arrivedAt === undefined,
+    );
+    if (!found) throw new Error("the seed holds no accepted referral without an arrival");
+    return found;
+  }
+
+  it("stamps arrivedAt on an accepted referral", () => {
+    const before = seeded();
+    const target = acceptedNotYetArrived(before);
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toEqual([]);
+    expect(referral(after, target.id).arrivedAt).toBe(NOW);
+  });
+
+  it("accepts the ward role as well as the coordinator", () => {
+    const before = seeded();
+    const target = acceptedNotYetArrived(before);
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "ward",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toEqual([]);
+    expect(referral(after, target.id).arrivedAt).toBe(NOW);
+  });
+
+  /**
+   * THE NAMED RISK OF THIS TASK, asserted rather than assumed.
+   *
+   * An arrival is one timestamp. It creates no `Movement`, sets no location, no legal status and
+   * no stage. If you are here because you have a good reason to extend `REFERRAL_ARRIVED` — a
+   * ward wants the bed number, a screen wants the stage — that reason is not enough on its own:
+   * turning an accepted referral into a movement is the decision D14 deliberately did NOT take
+   * (it needs an `originEdId`, a legal status and a stage machine nobody has settled), and
+   * reversing it belongs in a recorded product decision, not in this event.
+   */
+  it("creates no Movement and sets no location, legal status or stage — it is one timestamp", () => {
+    const before = seeded();
+    const target = acceptedNotYetArrived(before);
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toEqual([]);
+
+    // No movement was created, and no existing movement was touched in any way.
+    expect(after.movements).toHaveLength(before.movements.length);
+    expect(after.movements).toEqual(before.movements);
+
+    // The referral itself gained `arrivedAt` and NOTHING else — compared field by field against
+    // the record before the event, so a new key or a changed value fails by name. This is the
+    // assertion that catches a location, a legal status or a stage being smuggled onto the
+    // referral instead of onto a movement.
+    const updated = referral(after, target.id);
+    expect(Object.keys(updated).sort()).toEqual([...Object.keys(target), "arrivedAt"].sort());
+    expect({ ...updated, arrivedAt: undefined }).toEqual({ ...target, arrivedAt: undefined });
+
+    // Named individually as well, because the field-set check above would pass if a future
+    // change reused an EXISTING field to carry one of these.
+    for (const key of ["unitId", "siteCode", "location", "legalStatus", "legalForm", "stage", "movementId"]) {
+      expect(updated, `REFERRAL_ARRIVED must not put ${key} on a referral`).not.toHaveProperty(key);
+    }
+
+    // Nothing else in the state moved either — no unit, bed release or leave bed was touched.
+    expect(after.units).toEqual(before.units);
+    expect(after.bedReleases).toEqual(before.bedReleases);
+    expect(after.leaveBeds).toEqual(before.leaveBeds);
+  });
+
+  it("refuses a role that does not hold the event, with a visible rejection rather than a silent no-op", () => {
+    const before = seeded();
+    const target = acceptedNotYetArrived(before);
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "community",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("REFERRAL_ARRIVED requires role");
+    expect(after.rejections[0].reason).toContain("community");
+    expect(referral(after, target.id).arrivedAt).toBeUndefined();
+  });
+
+  it("refuses a referral that is not accepted, naming the state", () => {
+    const before = seeded();
+    const queued = before.referrals.find((candidate) => candidate.state === "queued")!;
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: queued.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("has not been accepted");
+    expect(after.rejections[0].reason).toContain("queued");
+    expect(referral(after, queued.id).arrivedAt).toBeUndefined();
+  });
+
+  it("refuses a declined referral too, naming the state", () => {
+    const before = seeded();
+    const declined = before.referrals.find((candidate) => candidate.state === "declined")!;
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: declined.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("declined");
+  });
+
+  it("is one-shot: a second arrival is refused and the first timestamp survives", () => {
+    const before = seeded();
+    const target = acceptedNotYetArrived(before);
+    const once = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(once.rejections).toEqual([]);
+    const twice = wardFlowReducer(once, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW + 30,
+      referralId: target.id,
+    });
+    expect(twice.rejections).toHaveLength(1);
+    expect(twice.rejections[0].reason).toContain("already arrived");
+    // The elapsed count the whole out-of-area measure rests on must not restart.
+    expect(referral(twice, target.id).arrivedAt).toBe(NOW);
+  });
+
+  it("refuses an already-arrived seeded referral rather than overwriting it", () => {
+    const before = seeded();
+    const alreadyArrived = before.referrals.find((candidate) => candidate.arrivedAt !== undefined);
+    expect(alreadyArrived, "the seed holds no referral that has already arrived").toBeDefined();
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW + 30,
+      referralId: alreadyArrived!.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("already arrived");
+    expect(referral(after, alreadyArrived!.id).arrivedAt).toBe(alreadyArrived!.arrivedAt);
+  });
+
+  it("refuses an unknown referral id rather than defaulting to one", () => {
+    const before = seeded();
+    const after = wardFlowReducer(before, {
+      type: "REFERRAL_ARRIVED",
+      role: "coordinator",
+      now: NOW,
+      referralId: "RF-DOES-NOT-EXIST",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("RF-DOES-NOT-EXIST");
+    // Nothing anywhere gained an arrival.
+    expect(after.referrals).toEqual(before.referrals);
+  });
+});
+
+/**
+ * Phase 8 Task 2 (spec D8-6). Optional by design: nobody knows whether country services look for
+ * a local bed first, so this records that it happened if it did. It is never a stage the pathway
+ * requires, never a gate on acceptance, and its absence is never counted against anyone.
+ */
+describe("RECORD_LOCAL_BED_SOUGHT", () => {
+  function queuedWithoutRecord(state: WardFlowState): Referral {
+    const found = state.referrals.find(
+      (candidate) => candidate.state === "queued" && candidate.localBedSought === undefined,
+    );
+    if (!found) throw new Error("the seed holds no queued referral without a local-bed record");
+    return found;
+  }
+
+  it("records the search against a queued referral, as a time and a ROLE and nothing else", () => {
+    const before = seeded();
+    const target = queuedWithoutRecord(before);
+    const after = wardFlowReducer(before, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toEqual([]);
+    expect(referral(after, target.id).localBedSought).toEqual({ at: NOW, by: "coordinator" });
+  });
+
+  it("stays optional: it is not required before ACCEPT_REFERRAL and never gates it", () => {
+    const before = seeded();
+    // scgh-adult-open is the deterministic match the `receiveReferral` helper above relies on.
+    const received = receiveReferral(before);
+    const created = received.referrals.at(-1)!;
+    expect(created.localBedSought).toBeUndefined();
+    const accepted = wardFlowReducer(received, {
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now: NOW,
+      referralId: created.id,
+      unitId: "scgh-adult-open",
+    });
+    expect(accepted.rejections).toEqual([]);
+    expect(referral(accepted, created.id).state).toBe("accepted");
+    expect(referral(accepted, created.id).localBedSought).toBeUndefined();
+  });
+
+  it("refuses a role that does not hold the event, with a visible rejection rather than a silent no-op", () => {
+    const before = seeded();
+    const target = queuedWithoutRecord(before);
+    const after = wardFlowReducer(before, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "ward",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("RECORD_LOCAL_BED_SOUGHT requires role");
+    expect(after.rejections[0].reason).toContain("ward");
+    expect(referral(after, target.id).localBedSought).toBeUndefined();
+  });
+
+  it("refuses an already-decided referral, naming the state", () => {
+    const before = seeded();
+    const decided = before.referrals.find((candidate) => candidate.state === "accepted")!;
+    const after = wardFlowReducer(before, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW,
+      referralId: decided.id,
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("already decided");
+    expect(after.rejections[0].reason).toContain("accepted");
+  });
+
+  it("is one-shot: a second record is refused and the first survives", () => {
+    const before = seeded();
+    const target = queuedWithoutRecord(before);
+    const once = wardFlowReducer(before, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW,
+      referralId: target.id,
+    });
+    expect(once.rejections).toEqual([]);
+    const twice = wardFlowReducer(once, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW + 30,
+      referralId: target.id,
+    });
+    expect(twice.rejections).toHaveLength(1);
+    expect(twice.rejections[0].reason).toContain("already records a local bed search");
+    expect(referral(twice, target.id).localBedSought).toEqual({ at: NOW, by: "coordinator" });
+  });
+
+  it("refuses an unknown referral id rather than defaulting to one", () => {
+    const before = seeded();
+    const after = wardFlowReducer(before, {
+      type: "RECORD_LOCAL_BED_SOUGHT",
+      role: "coordinator",
+      now: NOW,
+      referralId: "RF-DOES-NOT-EXIST",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("RF-DOES-NOT-EXIST");
+    expect(after.referrals).toEqual(before.referrals);
+  });
+});
+
 describe("seeding", () => {
   it("wires Task 1's Referral fixture into live state", () => {
     const state = seeded();
     // Fix round B added RF-007 (review finding M1's related note: a successful youth match
     // against EMyU, which nothing in the seed previously demonstrated) — 7 referrals, not 6.
-    expect(state.referrals).toHaveLength(7);
+    // Phase 8 Task 2 added RF-008, the one accepted referral whose travel band is out of area —
+    // 8, not 7. See `referrals`' own doc comment (`ward-movements.ts`) for why that case had to
+    // be added rather than made out of an existing referral.
+    expect(state.referrals).toHaveLength(8);
     expect(state.referrals.map((r) => r.id)).toEqual([
       "RF-001",
       "RF-002",
@@ -455,6 +751,7 @@ describe("seeding", () => {
       "RF-005",
       "RF-006",
       "RF-007",
+      "RF-008",
     ]);
     expect(state.frontDoorReferralSequence).toBe(0);
   });
