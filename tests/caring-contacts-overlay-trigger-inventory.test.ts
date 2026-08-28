@@ -65,8 +65,20 @@ type TriggerRecord =
   | { readonly kind: "literal"; readonly modules: readonly string[] }
   /** Raised through a named constant in this module, which a literal scan cannot see. */
   | { readonly kind: "indirect"; readonly module: string; readonly constants: readonly string[] }
-  /** Raised by nothing. The reason is the record. */
-  | { readonly kind: "unwired"; readonly reason: string };
+  /**
+   * Raised by nothing. The reason is the record.
+   *
+   * `nonTriggerMentions` names any module that contains this id as a STRING for some purpose other
+   * than raising the overlay -- declared here rather than filtered out of the scan, so the exception
+   * is visible in the inventory and has to be justified per module. Both directions are checked
+   * below: an undeclared mention fails, and a declared module that no longer mentions the id fails
+   * too, so a stale exemption cannot quietly widen the hole it was granted for.
+   */
+  | {
+      readonly kind: "unwired";
+      readonly reason: string;
+      readonly nonTriggerMentions?: readonly { readonly module: string; readonly reason: string }[];
+    };
 
 const PLAN_WIZARD = "src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx";
 const PLAN_ACTIONS = "src/components/caring-contacts/workspace/plan-actions.tsx";
@@ -132,6 +144,13 @@ const TRIGGER_INVENTORY: Readonly<Record<string, TriggerRecord>> = Object.freeze
     kind: "unwired",
     reason:
       "Role refusals are stated in place, on the control itself, with `aria-disabled` and the named reason. `OverlayHost` can render this row from a `blockReason`, and `WorkspaceOverlays` passes that prop `null` in every case — recorded as a residual in the report, not closed here.",
+    nonTriggerMentions: [
+      {
+        module: "src/app/caring-contacts/error.tsx",
+        reason:
+          "A ROUTE ERROR BOUNDARY, not a trigger, and the collision is in the string rather than in the behaviour. It matches a thrown error's MESSAGE TEXT against a list of substrings — `403`, `forbidden`, `permission`, and this id among them — and on a match renders the full-page `PermissionUnavailable` component. It never opens an overlay, never imports the overlay machinery, and cannot reach this row: `WorkspaceOverlays` still passes `blockReason` as null in every case, so the overlay stays exactly as unwired as the reason above says. Declared here because a plain text search cannot tell a message substring apart from a trigger, and silently narrowing the search would hide a real wiring somewhere else.",
+      },
+    ],
   },
   "team-switcher": {
     kind: "unwired",
@@ -266,14 +285,46 @@ describe("every row of the frozen interaction matrix is accounted for by a trigg
     expect(problems).toEqual([]);
   });
 
-  it("finds no mention of an id recorded as unwired in any screen module", () => {
+  it("finds no undeclared mention of an id recorded as unwired in any screen module", () => {
     const mentioned: string[] = [];
     for (const [id, record] of Object.entries(TRIGGER_INVENTORY)) {
       if (record.kind !== "unwired") continue;
-      const found = modulesMentioning(id);
+      const declared = new Set((record.nonTriggerMentions ?? []).map((mention) => mention.module));
+      const found = modulesMentioning(id).filter((module) => !declared.has(module));
       if (found.length > 0) mentioned.push(`${id}: ${JSON.stringify(found)}`);
     }
     expect(mentioned).toEqual([]);
+  });
+
+  it("finds every declared non-trigger mention still present, so no exemption outlives its subject", () => {
+    // The other direction of the check above. A declared module that has stopped mentioning the id
+    // is a stale exemption: it silently excuses that module from the scan forever, which is exactly
+    // the hole the scan exists to close. Fail rather than carry it.
+    const stale: string[] = [];
+    for (const [id, record] of Object.entries(TRIGGER_INVENTORY)) {
+      if (record.kind !== "unwired") continue;
+      for (const mention of record.nonTriggerMentions ?? []) {
+        if (!MODULES.includes(mention.module)) {
+          stale.push(`${id}: ${mention.module} is not a scanned screen module`);
+          continue;
+        }
+        if (!sourceOf(mention.module).includes(`"${id}"`)) {
+          stale.push(`${id}: ${mention.module} no longer mentions this id — remove the exemption`);
+        }
+      }
+    }
+    expect(stale).toEqual([]);
+  });
+
+  it("states a reason for every declared non-trigger mention", () => {
+    const silent: string[] = [];
+    for (const [id, record] of Object.entries(TRIGGER_INVENTORY)) {
+      if (record.kind !== "unwired") continue;
+      for (const mention of record.nonTriggerMentions ?? []) {
+        if (mention.reason.trim().length < 40) silent.push(`${id}: ${mention.module}`);
+      }
+    }
+    expect(silent).toEqual([]);
   });
 
   it("states a reason for every row recorded as unwired", () => {
