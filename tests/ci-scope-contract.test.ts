@@ -81,6 +81,7 @@ describe("site-content CI owner contract", () => {
     expect(classify("src/lib/registry-records.ts")).toContain("site_content_changed=true");
     expect(classify("src/lib/medication-records.ts")).toContain("site_content_changed=true");
     expect(classify("src/lib/differential-records.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/differential-presentation-display.ts")).toContain("site_content_changed=true");
   });
 
   it("keeps manifest validation fail-closed in the selector self-test", () => {

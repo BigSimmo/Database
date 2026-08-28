@@ -7,6 +7,7 @@
       "data/differentials-snapshot.json",
       "src/data/cross-mode-differentials-index.json",
       "src/data/differential-presentation-display-metadata.json",
+      "src/lib/differential-presentation-display.ts",
       "src/lib/differential-records.ts",
       "src/lib/differentials.ts",
       "src/lib/registry-corpus-links.ts",
