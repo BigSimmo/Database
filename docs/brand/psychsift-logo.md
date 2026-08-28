@@ -2,18 +2,20 @@
 
 The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
 circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is under 1 KB.
+size, and the primary file is 814 bytes.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
 ## What the mark is
 
-A rounded navy tile carrying an **S** made of two counter-rotating strokes, with a trail of three
-points falling away to the right: one large white point, then two smaller blue ones.
+A rounded navy tile carrying an **S** made of two counter-turning strokes, with a single white
+point settled to the upper right.
 
-The S is the initial of _Sift_ and reads as two halves of one judgement. The falling points are
-evidence being sifted — graded, settling, ordered. The larger white point has come to rest; the two
-blue ones are still moving.
+The S is the initial of _Sift_ and reads as two halves of one judgement. The point is what has been
+sifted out and come to rest.
+
+An earlier version of these files carried two small blue points falling below the white one. They
+have been removed at the owner's direction, and the mark is now a single colour on its tile.
 
 ## Provenance
 
@@ -21,91 +23,95 @@ The mark was drawn from the original PsychSift brand sheet. The small white-on-n
 sheet is the authoritative design; the large blue raster that circulated alongside it is a
 low-fidelity enlargement and must not be used.
 
-Measuring the original showed the design is genuinely circle-based — the outer sweep of each
-stroke sits on a circle of radius 30 (in the units below) to within a quarter of a unit across its
-whole length. This vector reconstructs those circles exactly rather than tracing the raster.
+The geometry here was fitted to a high-resolution view of the original at sub-pixel accuracy. The
+fit is a **root-mean-square error of 0.33 units in 100** against the measured outline — well inside
+the softness of the source. Measuring at that resolution showed the design is genuinely
+circle-based, which is why it reconstructs cleanly.
 
-Three deliberate corrections were made to the original:
+Two things were corrected, and one apparent oddity was deliberately kept.
 
-1. **The two strokes are now exact 180° rotations of each other.** In the raster the lower stroke
-   was noticeably heavier than the upper one, and irregularly so. Making them identical is what
-   turns the mark into a system rather than a drawing.
-2. **The glyph is centred in the tile.** The original sat hard against the right edge (a 26% margin
-   on the left against 9% on the right).
-3. **Every junction is tangent-continuous.** Consecutive arcs share a tangent at their meeting
-   point, so there is no visible kink at any size.
+**Corrected.** The glyph is now centred in its tile; the original sat hard against the right edge.
+And every junction between arcs is tangent-continuous, so enlarging the mark reveals no kink.
 
-**The terminals are sharp, and that matters.** Both tips of each stroke come to a genuine point —
-a cusp, where the outer sweep runs into the inner edge. At the size the original was drawn, a sharp
-point blurs into a rounded blob, and an earlier pass of this file was fitted to that blur and gave
-the mark rounded club-ends. It was wrong: enlarging the original shows a clean horn at the head and
-a taper at the tail. Nothing is rounded off here.
+**Kept.** The lower stroke is drawn **6% larger** than the upper one. That is not a mistake in the
+original and not noise: fitting each stroke separately, and then fitting a single rotation-plus-scale
+between them, both land on the same answer. Forcing the two strokes to be identical measurably
+worsens the match to the original and visibly opens up the channel between them, which is the
+tension the mark depends on. So the mark is one master stroke placed twice, at two sizes.
+
+**A note on the terminals.** Both tips of each stroke come to a genuine point — a cusp, where the
+outer sweep runs into the inner edge. At the size the original was drawn, a sharp point blurs into
+a rounded blob, and an earlier pass of this file was fitted to that blur and gave the mark rounded
+club-ends. It was wrong. Nothing here is rounded off.
 
 ## Construction
 
-Work in **glyph units**: the S is exactly 100 units tall and 54.8 wide, with its top-left corner at
-the origin. The whole mark is one stroke plus a 180° rotation of that same stroke about the point
-**(27.4, 50)**.
+Work in **glyph units**: the S is exactly 100 units tall and 54.84 wide, with its top-left corner
+at the origin.
 
-### The stroke
+### The master stroke
 
 Four circular arcs, meeting at two tangent points and two sharp cusps:
 
-| Arc         | Centre         | Radius | Role                                     |
-| ----------- | -------------- | ------ | ---------------------------------------- |
-| Outer sweep | (30.00, 30.00) | 30.0   | the whole outer edge, head round to tail |
-| Throat      | (46.25, 20.45) | 20.0   | the scoop under the head                 |
-| Elbow       | (27.49, 35.74) | 4.2    | the outward flick into the tail          |
-| Tail inner  | (59.30, 67.85) | 41.0   | the long inner sweep of the tail         |
+| Arc         | Centre           | Radius | Role                                     |
+| ----------- | ---------------- | ------ | ---------------------------------------- |
+| Outer sweep | (30.567, 30.567) | 30.567 | the whole outer edge, head round to tail |
+| Throat      | (46.447, 20.746) | 19.061 | the scoop under the head                 |
+| Elbow       | (29.974, 34.186) | 2.199  | the flick into the tail                  |
+| Tail inner  | (60.692, 67.165) | 42.870 | the long inner sweep of the tail         |
 
-- **Head cusp** at (39.6152, 1.5826) — where the outer sweep meets the throat.
-- **Tail cusp** at (19.4776, 58.0941) — where the tail inner arc meets the outer sweep.
-- **Tangent points** at (30.7462, 33.0846), throat into elbow, and (30.4462, 38.7217), elbow into
+- **Head cusp** at (41.9881, 2.2139) — where the outer sweep meets the throat.
+- **Tail cusp** at (18.6620, 58.7204) — where the tail inner arc meets the outer sweep.
+- **Tangent points** at (31.6779, 32.7957), throat into elbow, and (31.4729, 35.7950), elbow into
   tail.
 
-The elbow is not a free choice: its centre is _derived_ from tangency to its two neighbours, so
-the distance from the throat's centre to it equals 20.0 + 4.2, and from it to the tail's centre
-equals 4.2 + 41.0. Change any radius and the elbow relocates so both tangencies still hold exactly.
+Two facts make the construction self-checking. The outer sweep is centred at (r, r) for its own
+radius, so it is tangent to both the top and the left edge of the stroke's bounding box. And the
+elbow's centre is not a free choice — it is _derived_ from tangency to its two neighbours, so the
+distance from the throat's centre to it equals 19.061 + 2.199, and from it to the tail's centre
+equals 2.199 + 42.870. Change any radius and the elbow relocates so both tangencies still hold
+exactly.
 
-**Adjusting the weight.** The tail radius is the control. Shrinking it thickens the tail and
-narrows the navy channel between the two strokes; the head cusp does not move, because only the
-throat radius decides where that lands. At 41.0 the narrowest point of the channel is 5.8 units,
-which matches the original.
+### The second stroke
 
-### The point trail
+The same path, transformed:
 
-| Point   | Centre       | Radius | Colour     |
-| ------- | ------------ | ------ | ---------- |
-| Settled | (58.8, 17.0) | 10.0   | white      |
-| Falling | (71.5, 53.5) | 7.0    | brand blue |
-| Falling | (71.5, 71.5) | 5.6    | brand blue |
+```
+translate(54.84 100) scale(-1.06)
+```
 
-The full glyph — S plus trail — spans 0 to 78.5 horizontally and 0 to 100 vertically.
+A negative uniform scale is a 180° rotation and a 6% enlargement in one step. The offset places the
+enlarged stroke so the pair fills the box (0, 0) to (54.84, 100) exactly. At their closest the two
+strokes are 4.0 units apart — that narrow diagonal channel is the whole character of the mark.
+
+### The point
+
+A circle of radius **10.349** centred at **(58.672, 17.175)**.
+
+With the point included, the glyph spans 0 to 69.02 horizontally and 0 to 100 vertically.
 
 ### The tile
 
-A square with a corner radius of **3/16 of its side** (18.75%). The glyph is scaled to **82% of the
-tile height** and placed so that a point 42% of the way from the S's own centre toward the glyph's
-right edge lands on the tile centre. That weighting stops the light point trail from dragging the
+A square with a corner radius of **3/16 of its side** (18.75%). The glyph is scaled to **80% of the
+tile height** and placed so that a point 46% of the way from the S's own centre toward the glyph's
+right edge lands on the tile centre. That weighting stops the light single point from dragging the
 heavy S off to the left.
 
 ### Small sizes
 
-At 32 px and below, the navy channel between the two strokes closes up. `psychsift-favicon.svg` is
-a separate optical cut for that range: the tail radius opens out to 43.5 and the rotation centre
-moves to (28.0, 50), which doubles the channel to 11.6 units while widening the silhouette by only
-2%. It also drops the two blue points and enlarges the S. Use it for favicons, browser tabs, and
-anything rendered under 32 px.
+At 32 px and below, the 4-unit channel between the two strokes closes up. `psychsift-favicon.svg`
+is a separate optical cut for that range: the second stroke's offset moves out by 3.5 units in both
+directions, which widens the channel to 8.9 units — more than double — while changing the
+silhouette's proportion by 3%. Use it for favicons, browser tabs, and anything rendered under 32 px.
 
 ## Colours
 
-| Name       | Hex       | Use                                 |
-| ---------- | --------- | ----------------------------------- |
-| Deep Navy  | `#0D1B2A` | tile, and the S on light grounds    |
-| Brand Blue | `#2563EB` | the two falling points              |
-| White      | `#FFFFFF` | the S and the settled point on navy |
-| Light Blue | `#EAF2FF` | the falling points on a blue tile   |
-| Cool Gray  | `#F2F4F7` | the light tile                      |
+| Name       | Hex       | Use                                  |
+| ---------- | --------- | ------------------------------------ |
+| Deep Navy  | `#0D1B2A` | the tile; and the S on light grounds |
+| White      | `#FFFFFF` | the S and the point, on navy         |
+| Brand Blue | `#2563EB` | the blue tile; the lockup tagline    |
+| Cool Gray  | `#F2F4F7` | the light tile                       |
 
 ## The wordmark
 
@@ -128,9 +134,9 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
 | `psychsift-mark-light.svg`                | on a light tile, for pale backgrounds                |
 | `psychsift-mark-maskable.svg`             | full-bleed square for PWA and Android adaptive icons |
 | `psychsift-favicon.svg`                   | small-size optical cut, 32 px and below              |
-| `psychsift-glyph-white.svg`               | glyph alone, white S, no tile                        |
-| `psychsift-glyph-navy.svg`                | glyph alone, navy S, no tile                         |
-| `psychsift-glyph-mono.svg`                | glyph alone in `currentColor`, one colour throughout |
+| `psychsift-glyph-white.svg`               | glyph alone, white, no tile                          |
+| `psychsift-glyph-navy.svg`                | glyph alone, navy, no tile                           |
+| `psychsift-glyph-mono.svg`                | glyph alone in `currentColor`                        |
 | `psychsift-lockup-horizontal.svg`         | mark plus wordmark, for light backgrounds            |
 | `psychsift-lockup-horizontal-reverse.svg` | the same for dark backgrounds                        |
 | `psychsift-lockup-horizontal-tagline.svg` | with "CLARITY. EVIDENCE. BETTER CARE."               |
@@ -142,9 +148,8 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
 ## Using it
 
 - **Clear space**: keep a margin of at least one quarter of the mark's height on every side.
-- **Never** recolour the S, re-space the point trail, stretch the mark non-uniformly, add a shadow
-  or gradient, or place the full-colour mark on a mid-tone background — use the light or reverse
-  file instead.
+- **Never** re-space the two strokes, stretch the mark non-uniformly, add a shadow or gradient, or
+  place the full-colour mark on a mid-tone background — use the light or reverse file instead.
 - **Never** re-trace a PNG export. Start from the SVG.
 - The mark carries `role="img"` and a `<title>`, so it is announced as "PsychSift" when inlined.
   When it sits next to the word PsychSift, mark it `aria-hidden` instead so screen readers do not
@@ -152,7 +157,7 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
 
 ## Two things still open
 
-- The brand sheet gives two different taglines: "Clarity. Evidence. Better care." in the header and
+- The brand sheet gives two different taglines: "CLARITY. EVIDENCE. BETTER CARE." in the header and
   "Clinical clarity. Evidence. Better care." in the footer. The lockup uses the first.
 - The sheet specifies Inter throughout; the application uses Geist. That difference should be
   settled deliberately rather than left to drift.
