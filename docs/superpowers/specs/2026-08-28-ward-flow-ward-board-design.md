@@ -631,3 +631,43 @@ field and from nothing else.
 
 **Still not approved:** every derived prediction currently reports its `waitingOn` as
 `"Nothing outstanding"`, the most conservative value available. Nobody has reviewed that default.
+
+### DB-3 — The ward states its sex-acceptance numbers daily; the system does not derive them
+
+**D11's headline sentence was specified against a model that cannot produce it, and building it proved
+so.** The spec's example reads "Only 1 will take a man". `Unit.sexDesignation` is a single value for
+the **whole unit**, so sex acceptance is all-or-nothing and the only reachable output was "**None**
+will take a man". The situation the line existed to surface — *three beds free, but they are all in
+the male bay* — was not expressible at all.
+
+Three options were put to the owner: a ward-stated daily number, per-bed designations, or leaving the
+whole-ward property alone. **He chose the ward-stated number.**
+
+The reasoning is worth keeping: the charge nurse knows this and the system never will. Bay
+arrangements shift, and a per-bed designation that is stale on the board is worse than no designation
+at all — the same argument that keeps this prototype's bed numbers out of the model (D6).
+
+**What the ward states, once a day, on the sheet it already opens:** of its free beds, how many will
+accept a woman and how many will accept a man. **These two numbers overlap** — an undesignated bed
+counts in both — so they are two independent counts, not a split of one total. Neither may exceed the
+free-bed count, and that must be validated rather than assumed.
+
+**Where it lives — and this matters for parallel work.** It does NOT go on `Unit`, which lives in
+`ward-model.ts` and belongs to the Phase 8 session. It goes in a new record of its own, the ward's
+**daily return**: the unit, the two counts, `confirmedAt`, and `confirmedBy` (a role). That record is
+also the natural home for D10's daily-confirm freshness, which until now had no place to live.
+
+**The honest cost, stated because it cuts against a principle held everywhere else here.** This is a
+**typed** number, not a derived one, and this design has otherwise been removing typed numbers
+wherever it can (DB-2's `derivedSexMix` replaces exactly such a count). Two guards make that
+acceptable rather than a quiet regression:
+
+1. **It is validated against a derived figure** — neither count may exceed the free-bed total, which
+   the system does know.
+2. **It goes stale like everything else on the daily sheet** (D10). A ward that has not confirmed
+   today has numbers that stop claiming to be current, on its own board and on the coordinator's.
+
+`acceptingBedCounts` (`ward-board-derivations.ts`) already exists and derives from
+`Unit.sexDesignation`. It must be reworked to read the daily return, falling back to the whole-ward
+designation only when no return has been made — and saying so, never silently substituting one for
+the other.
