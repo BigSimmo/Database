@@ -3414,11 +3414,59 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           ok: false,
           reason: REPOSITORY_REFUSALS.idempotentResultClearedByRetention,
         });
+      });
 
-        // And the guarantee the redaction exists to preserve: the replay did NOT run the write
-        // again. One handover happened, so one entry stands -- not two.
-        const history = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
-        expect(history?.reassignmentHistory).toHaveLength(1);
+      /**
+       * The guarantee the redaction exists to preserve, and it is a SEPARATE CASE for a reason
+       * found by mutating.
+       *
+       * It began as a second assertion at the end of the case above. Replacing the redaction with a
+       * `delete` -- the exact mistake this whole design decision is about -- made the refusal
+       * assertion above it fail first, so the assertion that actually proves the write did not run
+       * twice was never reached and was therefore never proven at all. Split, both are reached: one
+       * says what a replay ANSWERS, the other says what a replay DOES.
+       */
+      it("does not free the key: a replay after a clearance still runs no second write", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const reassign = {
+          planId: plan.plan.id,
+          action: {
+            type: "reassign" as const,
+            toActorId: TEAM_LEAD_A.id,
+            reason: "Handing over while he is at his mother's place for a fortnight.",
+          },
+        };
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-key-claim"),
+          ),
+        );
+        unwrap(await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-key-reassign")));
+
+        // The positive control: one handover has happened, so the length below is a number that
+        // could move rather than a list that was always empty.
+        const before = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.reassignmentHistory).toHaveLength(1);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-key-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-key-clear")),
+        );
+
+        // The replay's ANSWER is deliberately not asserted here -- that is the case above. What is
+        // asserted is that the write did not happen a second time.
+        await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-key-reassign"));
+
+        const after = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(after?.reassignmentHistory).toHaveLength(1);
       });
     });
 
