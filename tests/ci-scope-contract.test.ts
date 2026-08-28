@@ -83,6 +83,10 @@ describe("site-content CI owner contract", () => {
     expect(() => runSelectorWithInjectedOwner(owner)).toThrow(/site-content-owner-manifest-noncanonical-owner/);
   });
 
+  it.each(["data/**", "public/**", "src/**"])("rejects the broad %s root owner glob", (owner) => {
+    expect(() => runSelectorWithInjectedOwner(owner)).toThrow(/site-content-owner-manifest-broad-path/);
+  });
+
   it("still triggers for canonical exact and glob owner paths", () => {
     expect(classify("src/lib/dictionary-data.ts")).toContain("site_content_changed=true");
     expect(classify("public/therapy-compass-data/therapies.d0358686e452b00b.json")).toContain(

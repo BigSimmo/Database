@@ -473,13 +473,25 @@ as $$
     left join public.site_content_releases p on p.id = r.previous_release_id
     left join lateral (select rr.* from public.site_content_release_receipts rr
       where rr.release_id = r.id and rr.receipt_kind = 'activation' order by rr.created_at desc limit 1) receipt on true
+  ),
+  activation_evidence as (
+    select case
+        when not s.initialized and b.state = 'valid_retained' then coalesce(r.activated_at, r.created_at)
+        else r.activated_at
+      end projected_at,
+      case
+        when not s.initialized and b.state = 'valid_retained' then true
+        when s.initialized and r.activated_at is not null and r.activated_at <= db_clock.now then true
+        else false
+      end valid
+    from sync_state s left join active_release r on true cross join bootstrap b cross join db_clock
   )
   select jsonb_build_object(
     'initialized', s.initialized, 'bootstrapIntegrityState', b.state,
-    'activePublicSiteRelease', case when r.id is null then null else jsonb_build_object(
+    'activePublicSiteRelease', case when r.id is null or not a.valid then null else jsonb_build_object(
       'version','clinical-kb-site-release-v1','releaseId',r.id::text,'registryVersion',r.registry_version,
       'staticManifestDigest',r.static_manifest_digest,'dynamicStateDigest',r.dynamic_state_digest,
-      'releaseDigest',r.release_digest,'state',r.state,'activatedAt',coalesce(r.activated_at,r.created_at)) end,
+      'releaseDigest',r.release_digest,'state',r.state,'activatedAt',a.projected_at) end,
     'publicSiteChangeEpoch', s.served_change_epoch::text,
     'outstandingHeadCount', (select count(*) from outstanding_heads),
     'populationComplete',i.population_complete,'releaseDigestValid',i.release_digest_valid,
@@ -491,13 +503,14 @@ as $$
     'oldestOutstandingOriginAgeMs',o.age_ms,
     'countOverflow',greatest(q.pending_count,q.retry_pending_count,q.processing_count,q.ready_count,
       q.quarantined_count,(select count(*) from outstanding_heads)) > 1000000,
-    'timeIntegrityValid',o.age_ms is null or o.age_ms >= 0,
+    'timeIntegrityValid',(o.age_ms is null or o.age_ms >= 0) and a.valid,
     'expiredProcessingLeaseCount',q.expired_lease_count,'synchronizerSeen',inv.synchronizer_seen,
     'lastInvocationAt',inv.last_invocation_at,'lastSuccessfulInvocationAt',inv.last_successful_invocation_at,
     'latestInvocationSucceeded',inv.latest_invocation_succeeded,'lastActivation',r.activated_at,
     'rollbackAvailable',rb.available)
   from sync_state s left join active_release r on true cross join bootstrap b cross join integrity i
-  cross join queue q cross join oldest o cross join invocation_summary inv cross join rollback rb;
+  cross join queue q cross join oldest o cross join invocation_summary inv cross join rollback rb
+  cross join activation_evidence a;
 $$;
 
 alter table public.site_content_sync_worker_invocations enable row level security;

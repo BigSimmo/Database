@@ -8,6 +8,23 @@ create temporary table task4_health_integrity_results (
   evidence jsonb not null
 );
 
+with evidence as (select public.read_site_content_health() value)
+select
+  (value->>'initialized' = 'false'
+    and value->>'bootstrapIntegrityState' = 'valid_retained'
+    and value->'activePublicSiteRelease'->>'activatedAt' is not null
+    and value->'lastActivation' = 'null'::jsonb) as passed,
+  value::text as evidence
+from evidence
+\gset bootstrap_activation_
+
+insert into task4_health_integrity_results(case_name, passed, evidence)
+values (
+  'retained bootstrap did not preserve its created_at activation fallback',
+  :'bootstrap_activation_passed'::boolean,
+  :'bootstrap_activation_evidence'::jsonb
+);
+
 do $$
 declare
   v_state text;
@@ -206,6 +223,32 @@ select
 from evidence
 \gset missing_
 
+update public.site_content_releases
+set activated_at = null
+where id = '20000000-0000-5000-8000-000000000005'::uuid;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  (value->'activePublicSiteRelease' = 'null'::jsonb
+    and value->'lastActivation' = 'null'::jsonb
+    and (value->>'timeIntegrityValid')::boolean = false) as passed,
+  value::text as evidence
+from evidence
+\gset missing_activation_
+
+update public.site_content_releases
+set activated_at = pg_catalog.statement_timestamp() + interval '1 minute'
+where id = '20000000-0000-5000-8000-000000000005'::uuid;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  (value->'activePublicSiteRelease' = 'null'::jsonb
+    and value->'lastActivation' <> 'null'::jsonb
+    and (value->>'timeIntegrityValid')::boolean = false) as passed,
+  value::text as evidence
+from evidence
+\gset future_activation_
+
 rollback to savepoint task4_missing_public_head;
 
 insert into task4_health_integrity_results(case_name, passed, evidence)
@@ -214,6 +257,19 @@ values (
   :'missing_passed'::boolean,
   :'missing_evidence'::jsonb
 );
+
+insert into task4_health_integrity_results(case_name, passed, evidence)
+values
+  (
+    'initialized active release accepted a missing activation timestamp',
+    :'missing_activation_passed'::boolean,
+    :'missing_activation_evidence'::jsonb
+  ),
+  (
+    'initialized active release accepted a future activation timestamp',
+    :'future_activation_passed'::boolean,
+    :'future_activation_evidence'::jsonb
+  );
 
 do $$
 begin

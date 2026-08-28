@@ -361,6 +361,13 @@ export function classifySiteContentHealth(input: SiteContentHealthInput): SiteCo
     input.partition.releaseId !== null;
   let state: SiteContentPartitionSnapshot["state"] = retainedBootstrapOverride ? "disabled" : input.partition.state;
   if (retainedBootstrapOverride) reasons.delete("expected_static_digest_missing");
+  if (input.initialized && state === "disabled") {
+    state = "unavailable";
+    reasons.delete("partition_disabled");
+    reasons.add("active_release_missing");
+    reasons.add("change_epoch_invalid");
+    reasons.add("expected_static_digest_missing");
+  }
   if (input.bootstrapIntegrityState === "invalid") reasons.add("bootstrap_invalid");
   if (!input.initialized && !retainedBootstrapOverride) {
     reasons.add(input.bootstrapIntegrityState === "not_applicable" ? "bootstrap_missing" : "bootstrap_invalid");
@@ -390,6 +397,10 @@ export function classifySiteContentHealth(input: SiteContentHealthInput): SiteCo
 
   const invocationAge = timestampAge(now, input.lastInvocationAt);
   const successAge = timestampAge(now, input.lastSuccessfulInvocationAt);
+  const activationAge = timestampAge(now, input.lastActivation);
+  if (input.initialized && (activationAge === null || !Number.isFinite(activationAge) || activationAge < 0)) {
+    reasons.add("time_integrity_invalid");
+  }
   const invocationFresh = invocationAge !== null && invocationAge >= 0 && invocationAge <= SITE_CONTENT_WORKER_FRESH_MS;
   const successFresh = successAge !== null && successAge >= 0 && successAge <= SITE_CONTENT_WORKER_FRESH_MS;
   if (state === "current" || state === "updating") {

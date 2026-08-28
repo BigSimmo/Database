@@ -106,9 +106,12 @@ function validateSiteContentChangeOwners(value, label = "site-content-owner-mani
       if (/[?\[\]{}]/.test(owner) || (/\*/.test(owner) && !owner.endsWith("/**"))) {
         throw new Error("site-content-owner-manifest-malformed-glob");
       }
-      if (owner === "data/**" || owner === "src/**") throw new Error("site-content-owner-manifest-broad-path");
       const repositoryRoot = owner.split("/", 1)[0];
-      if (!new Set(["data", "public", "src"]).has(repositoryRoot)) {
+      const allowedRepositoryRoots = new Set(["data", "public", "src"]);
+      if (allowedRepositoryRoots.has(repositoryRoot) && owner === `${repositoryRoot}/**`) {
+        throw new Error("site-content-owner-manifest-broad-path");
+      }
+      if (!allowedRepositoryRoots.has(repositoryRoot)) {
         throw new Error("site-content-owner-manifest-unknown-root");
       }
       const ownerPath = owner.endsWith("/**") ? owner.slice(0, -3) : owner;
@@ -1448,14 +1451,16 @@ function selfTest() {
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-malformed")) throw error;
   }
-  try {
-    validateSiteContentChangeOwners({
-      version: "site-content-change-owners-v1",
-      producers: { malformed: ["data/**"] },
-    });
-    throw new Error("site-content-owner-manifest-broad-path:self-test-did-not-fail");
-  } catch (error) {
-    if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-broad-path")) throw error;
+  for (const owner of ["data/**", "public/**", "src/**"]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error("site-content-owner-manifest-broad-path:self-test-did-not-fail");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-broad-path")) throw error;
+    }
   }
   for (const [expectedError, owner] of [
     ["site-content-owner-manifest-empty-owner", ""],

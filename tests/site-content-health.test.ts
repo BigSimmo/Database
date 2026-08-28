@@ -157,6 +157,34 @@ describe("site-content partition classification", () => {
     ).toBe("updating");
   });
 
+  it("fails closed when an initialized control plane has all partition evidence absent", () => {
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: undefined,
+      activePublicSiteRelease: null,
+      publicSiteChangeEpoch: null,
+      pendingPublicSiteChangeCount: 0,
+    });
+
+    expect(classifySiteContentHealth(healthy({ partition }))).toMatchObject({
+      state: "unavailable",
+      ready: false,
+      operationStop: true,
+      reasons: ["active_release_missing", "change_epoch_invalid", "expected_static_digest_missing"],
+    });
+  });
+
+  it.each([
+    ["missing", null],
+    ["future", "2026-08-27T00:10:00.001Z"],
+  ])("fails closed on %s initialized activation evidence", (_name, lastActivation) => {
+    expect(classifySiteContentHealth(healthy({ lastActivation }))).toMatchObject({
+      state: "unavailable",
+      ready: false,
+      operationStop: true,
+      reasons: ["time_integrity_invalid"],
+    });
+  });
+
   it("allows only the exact retained bootstrap override and fails closed on integrity or worker evidence", () => {
     const bootstrapPartition = classifySiteContentPartition({
       expectedSiteStaticManifestDigest: undefined,
