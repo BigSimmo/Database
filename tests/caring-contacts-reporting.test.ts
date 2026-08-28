@@ -257,6 +257,9 @@ function planRecord(id: string, state: PlanState, contacts: readonly StoredConta
     // than seeded, and reporting counts contacts and plans, never attestations.
     assuranceAttestations: [],
     dischargeAt: new Date("2026-02-20T02:00:00.000Z"),
+    // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+    // plan's creation instant is set to the same instant as its discharge rather than invented.
+    createdAt: new Date("2026-02-20T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
     contacts,

@@ -262,6 +262,124 @@ describe("caring-contact migrations", () => {
     await expect(setPreferredName("x".repeat(500))).rejects.toThrow(/plans_preferred_name_shape/);
   });
 
+  it("files a replay record against the plan it is about, without making it depend on that plan", async () => {
+    // Migration 0008. Four properties, each a real defect if it were otherwise:
+    //
+    //   * THE COLUMN EXISTS AND IS NULLABLE AND UNDEFAULTED. A replay record written for a service
+    //     stop or a training write names no plan, and every record written before this migration
+    //     names none either. A default would claim one.
+    //   * NOT BACKFILLED, so a record that predates the column still reads null rather than a plan
+    //     somebody guessed for it.
+    //   * NOT A FOREIGN KEY, and this is the property most likely to be "tidied" later. A replay
+    //     record must OUTLIVE its plan -- deleting it would free the key and let a retry execute a
+    //     clinical write a second time -- and a REFUSED `createPlan` is recorded too, naming a plan
+    //     id that was never inserted. A reference would turn that named refusal into a raised error.
+    //   * INDEXED FOR THE CLEARANCE'S OWN LOOKUP, team first, because row-level security adds the
+    //     team predicate to every statement against this table.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'idempotency_records'
+         and column_name = 'plan_id'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    const { rows: constraints } = await pool.query<{ conname: string }>(
+      `select c.conname from pg_catalog.pg_constraint c
+         join pg_catalog.pg_class t on t.oid = c.conrelid
+         join pg_catalog.pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'caring_contacts' and t.relname = 'idempotency_records' and c.contype = 'f'`,
+    );
+    // The positive control for that emptiness: the SAME query shape over `plan_reassignments`, a
+    // table 0003 deliberately gave a composite foreign key, returns one. So an empty list here is
+    // this table having no reference rather than the query finding none anywhere.
+    const { rows: reassignmentKeys } = await pool.query<{ conname: string }>(
+      `select c.conname from pg_catalog.pg_constraint c
+         join pg_catalog.pg_class t on t.oid = c.conrelid
+         join pg_catalog.pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'caring_contacts' and t.relname = 'plan_reassignments' and c.contype = 'f'`,
+    );
+    expect(reassignmentKeys.map((row) => row.conname)).toContain("plan_reassignments_plan_fk");
+    expect(constraints).toEqual([]);
+
+    const { rows: indexes } = await pool.query<{ indexdef: string }>(
+      `select indexdef from pg_catalog.pg_indexes
+        where schemaname = 'caring_contacts' and indexname = 'idempotency_records_team_plan_idx'`,
+    );
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0].indexdef).toContain("(team_id, plan_id)");
+
+    // And a record naming a plan that does not exist is ACCEPTED, which is what a refused
+    // `createPlan` produces. The insert runs as the application role inside a team session, so it
+    // is subject to the same policy the store writes under rather than to the migration role's
+    // bypass.
+    await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+      await client.query(
+        `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result, plan_id)
+         values ($1, $2, $3, $4::jsonb, $5)`,
+        [TEAM_NORTH, "refused-create", "fingerprint-1", JSON.stringify({ ok: false, reason: "not-found" }), "PLAN-NEVER-CREATED"],
+      );
+    });
+    const { rows: orphan } = await pool.query<{ plan_id: string | null }>(
+      "select plan_id from caring_contacts.idempotency_records where idempotency_key = $1",
+      ["refused-create"],
+    );
+    expect(orphan.map((row) => row.plan_id)).toEqual(["PLAN-NEVER-CREATED"]);
+
+    // NO BACKFILL, proven on a row written without the column: anything other than null here would
+    // be a default or a backfill acting.
+    await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+      await client.query(
+        `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result)
+         values ($1, $2, $3, $4::jsonb)`,
+        [TEAM_NORTH, "no-plan", "fingerprint-2", JSON.stringify({ ok: true, value: null })],
+      );
+    });
+    const { rows: unfiled } = await pool.query<{ plan_id: string | null }>(
+      "select plan_id from caring_contacts.idempotency_records where idempotency_key = $1",
+      ["no-plan"],
+    );
+    expect(unfiled.map((row) => row.plan_id)).toEqual([null]);
+  });
+
+  it("classifies every column that holds free text about a patient, on the column itself", async () => {
+    // Migration 0008, and the finding behind it: `service_stops.note` carries
+    // "Treat it as patient data" and a recorded owner disposition, while `discrepancy_note` --
+    // a clinician's account of what happened to one named patient's message -- carried nothing.
+    // Somebody classified one column and not the other, and the next reader had to derive it.
+    //
+    // Asserted on `col_description` rather than by grepping the migration text, so a classification
+    // is a property of the database a DBA can read with `\\d+` rather than a comment in a file.
+    const describeColumn = async (table: string, column: string): Promise<string | null> => {
+      const { rows } = await pool.query<{ description: string | null }>(
+        `select pg_catalog.col_description(c.oid, a.attnum) as description
+           from pg_catalog.pg_class c
+           join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+           join pg_catalog.pg_attribute a on a.attrelid = c.oid
+          where n.nspname = 'caring_contacts' and c.relname = $1 and a.attname = $2`,
+        [table, column],
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0].description;
+    };
+
+    // The two columns this migration classifies, each named as patient data in the same words
+    // `service_stops.note` uses.
+    expect(await describeColumn("contact_dispatches", "discrepancy_note")).toContain("Treat it as patient data");
+    expect(await describeColumn("plan_reassignments", "reason")).toContain("Treat it as patient data");
+    // And the replay payload, which is the one nobody would look for: it is not FOR patient data and
+    // holds it anyway, verbatim, for every write.
+    expect(await describeColumn("idempotency_records", "result")).toContain("Treat it as patient data");
+
+    // The positive control for those three: a column that is NOT patient data carries a comment
+    // that does not say so. Without it, a `col_description` that returned the same string for every
+    // column would satisfy all three assertions above.
+    const createdAt = await describeColumn("plans", "created_at");
+    expect(createdAt).toContain("free for a coordinator to take");
+    expect(createdAt).not.toContain("Treat it as patient data");
+  });
+
   it("holds the plan assurances as a closed, undefaulted, team-scoped attestation", async () => {
     // Migration 0006. Four properties, each a real defect if it were otherwise:
     //

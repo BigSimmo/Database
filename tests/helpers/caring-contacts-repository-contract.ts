@@ -2861,6 +2861,59 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
     // consent record and no assertion here may be written as though it were; agreement lives in
     // the patient's hospital record, and this system is not connected to it.
     // -------------------------------------------------------------------------
+    /**
+     * `PlanRecord.createdAt` -- the observed instant a plan became free for a coordinator to take
+     * (Group 4 review MAJOR-1, owner-approved 2026-08-28).
+     *
+     * IT IS HELD IN THE SHARED CONTRACT rather than in either store's own suite because the
+     * unclaimed-work escalation measures a safety queue age from it, and a store that answered from
+     * a different clock -- the Postgres column defaults to the database's `now()`, not this
+     * repository's -- would give the same roster two different answers about how late work is.
+     */
+    describe("the instant a plan became free for a coordinator to take", () => {
+      it("releases the plan's own creation instant, from the domain clock and not the discharge", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "created-at-1")));
+
+        expect(created.createdAt).toEqual(new Date(NOW));
+        // The positive control for the assertion above, and the one that matters: the fixture's
+        // discharge is a DIFFERENT instant from the fixture's clock, so a store that answered this
+        // field from `discharge_at` -- which is what the escalation used to measure from -- could
+        // not pass. Stated as an inequality rather than assumed from two constants.
+        expect(created.dischargeAt).not.toEqual(created.createdAt);
+        expect(created.createdAt).not.toEqual(DISCHARGE_AT);
+
+        // And it survives every read the roster is built from, not only the write's own answer.
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        expect(listed.map((record) => record.createdAt)).toEqual([new Date(NOW)]);
+        const fetched = await store.getPlan(PLAN_ID, { actor: COORDINATOR_A });
+        expect(fetched?.createdAt).toEqual(new Date(NOW));
+      });
+
+      it("is not patient content, so a retention clearance leaves it alone", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        // Positive control: the instant is there to survive.
+        expect(plan.createdAt).toEqual(new Date(NOW));
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "created-at-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "created-at-clear")),
+        );
+
+        // The same class as an attestation and an audit event: an instant, with no patient content
+        // in it. De-identification keeps those and removes the fields that identify a person.
+        const after = await store.getPlan(plan.plan.id, { actor: COORDINATOR_A });
+        expect(after?.createdAt).toEqual(new Date(NOW));
+      });
+    });
+
     describe("the attestation that a check happened", () => {
       it("records who confirmed, what they confirmed, and when", async () => {
         const store = await newStore();
@@ -3256,6 +3309,114 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           writeContext(COORDINATOR_A, "mrc-4"),
         );
         expect(refused).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.serviceStopped });
+      });
+
+      /**
+       * The handover note a coordinator writes when a plan moves (Ruling [139] MAJOR-4, owner
+       * decision 1 of 2026-08-27: delete it with the patient, do not narrow what coordinators may
+       * write).
+       *
+       * WHAT GOES AND WHAT STAYS, and the split is the same one de-identification makes everywhere
+       * else in this domain: the free text goes, the RECORD OF THE ACT stays. `deidentifyAuditEvent`
+       * keeps actor, action, timestamp and object type and drops the rest; a reassignment entry is
+       * the same shape -- who handed over, to whom, and when -- with one free-text field a clinician
+       * typed. Clearing the entry outright would destroy spec 4.3's "any formal reassignment still
+       * visible" while the plan it belongs to survives, which is the opposite of what retention is
+       * for. So the reason clears to `''` and the three facts beside it are untouched.
+       */
+      it("clears the handover note a coordinator wrote when the plan moved, and keeps the handover itself", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const handover =
+          "Moving this to the team lead: her sister is staying at the house and asked to be the contact.";
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-note-claim"),
+          ),
+        );
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "reassign", toActorId: TEAM_LEAD_A.id, reason: handover } },
+            writeContext(TEAM_LEAD_A, "mrc-note-reassign"),
+          ),
+        );
+
+        // The positive control: the note is genuinely held before the clearance runs, so the
+        // absence below is this write removing it rather than the fixture never having stored it.
+        const before = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.reassignmentHistory.map((entry) => entry.reason)).toEqual([handover]);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-note-withdraw"),
+          ),
+        );
+        unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-note-clear")));
+
+        const after = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(after?.reassignmentHistory).toHaveLength(1);
+        expect(after?.reassignmentHistory[0].reason).toBe("");
+        expect(after?.reassignmentHistory[0].fromActorId).toBe(COORDINATOR_A.id);
+        expect(after?.reassignmentHistory[0].toActorId).toBe(TEAM_LEAD_A.id);
+        expect(JSON.stringify(after)).not.toContain("sister");
+      });
+
+      /**
+       * The SECOND home of that same note, and the one the whole-branch review found: every write's
+       * verbatim result payload is kept for replay, so clearing `plan_reassignments` alone leaves a
+       * byte-identical copy in the replay record.
+       *
+       * REDACTED, NOT DELETED, and the direction matters. Deleting the row would return the key to
+       * unused, so an identical retry would EXECUTE THE WRITE A SECOND TIME -- a destroyed
+       * idempotency guarantee on a clinical write, which is a worse failure than a retained note.
+       * The row therefore stays, the key stays consumed, and only the stored answer is replaced by a
+       * named refusal. Both halves are asserted below.
+       */
+      it("clears the same note from the replay record, and the key stays consumed", async () => {
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const handover = "Handing over: he is back at his mother's place in Bunbury for a fortnight.";
+        const reassign = {
+          planId: plan.plan.id,
+          action: { type: "reassign" as const, toActorId: TEAM_LEAD_A.id, reason: handover },
+        };
+
+        unwrap(
+          await store.applyAssignment(
+            { planId: plan.plan.id, action: { type: "claim", actorId: COORDINATOR_A.id } },
+            writeContext(COORDINATOR_A, "mrc-replay-claim"),
+          ),
+        );
+        unwrap(await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign")));
+
+        // The positive control, and it is the leak stated as behaviour: replaying the key hands the
+        // note straight back out of the replay record.
+        const replayBefore = await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign"));
+        expect(JSON.stringify(replayBefore)).toContain("Bunbury");
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "mrc-replay-withdraw"),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-replay-clear")),
+        );
+
+        const replayAfter = await store.applyAssignment(reassign, writeContext(TEAM_LEAD_A, "mrc-replay-reassign"));
+        expect(replayAfter).toEqual({
+          ok: false,
+          reason: REPOSITORY_REFUSALS.idempotentResultClearedByRetention,
+        });
+
+        // And the guarantee the redaction exists to preserve: the replay did NOT run the write
+        // again. One handover happened, so one entry stands -- not two.
+        const history = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(history?.reassignmentHistory).toHaveLength(1);
       });
     });
 

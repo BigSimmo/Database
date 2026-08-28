@@ -85,6 +85,9 @@ function planRecord(id: string): PlanRecord {
     referralId: referralId(`referral-${id}`),
     pathwayVersionId: pathwayVersionId("pathway-1"),
     dischargeAt: new Date("2026-03-01T02:00:00.000Z"),
+    // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+    // plan's creation instant is set to the same instant as its discharge rather than invented.
+    createdAt: new Date("2026-03-01T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
     assuranceAttestations: [],

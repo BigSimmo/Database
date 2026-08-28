@@ -647,6 +647,9 @@ describe("the Schedule screen — a message the system decided not to send", () 
       // rather than seeded, and it is not about the attestations.
       assuranceAttestations: [],
       dischargeAt: DISCHARGE_AT,
+      // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+      // plan's creation instant is set to the same instant as its discharge rather than invented.
+      createdAt: DISCHARGE_AT,
       completedAt: null,
       outcome: "inProgress",
       contacts: [
@@ -766,6 +769,9 @@ describe("the Schedule screen — the boundaries of a day", () => {
       // rather than seeded, and it is not about the attestations.
       assuranceAttestations: [],
       dischargeAt: DISCHARGE_AT,
+      // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+      // plan's creation instant is set to the same instant as its discharge rather than invented.
+      createdAt: DISCHARGE_AT,
       completedAt: null,
       outcome: "inProgress",
       contacts: [

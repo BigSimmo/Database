@@ -59,43 +59,52 @@
 //     id. No plan id, no patient id, no contact id, and nothing from `getEpisode`, which this read
 //     never calls -- a roster needs no patient and must not be a route to one.
 //
-// TWO AGES, AND NEITHER OF THEM IS HOW LONG THE WORK HAS BEEN WAITING. Neither `PlanRecord` nor
-// `StoredContact` carries the instant the work entered the queue: there is no "became claimable"
-// instant on a plan (the plans table has a `created_at`, but the repository contract does not
-// release it) and no "entered this state" instant on a contact. So each age is measured from the
-// nearest anchor that IS recorded -- the plan's `dischargeAt` for an unclaimed plan, the scheduled
-// send time for a contact needing review -- and the field names say so rather than calling either
-// one a queue age. Both field names are long for the reason
-// `medianMinutesFromAttemptToResolution` is long.
+// TWO AGES, AND THEY ARE NOT THE SAME KIND OF NUMBER. Say which is which before reading either.
 //
-// IT IS NOT AN UPPER BOUND, AND AN EARLIER VERSION OF THIS COMMENT SAID IT WAS. That claim rested
-// on "a plan cannot have become claimable before its patient was discharged", so the reported age
-// could only ever be too large -- the conservative direction for a safety escalation. The premise
-// is false OF THE STORED FIELD. `dischargeAt` is not an observed instant: the only surface that
-// writes one is the plan wizard, and its `dischargeInstantFor` pins the value to
-// `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the AWST calendar day a coordinator typed. That is a
-// display convention, and its own author recorded why the hour was free to be arbitrary: "the time
-// of day changes nothing about the schedule". Nothing requires the typed day to be in the past
-// either, and `queueAgeMinutes` clamps a negative elapsed time to zero. So for a plan activated at
-// 08:00 on its own discharge day and never claimed:
+//   * THE UNCLAIMED AGE IS A REAL QUEUE AGE. It is measured from `PlanRecord.createdAt`, the
+//     observed instant a plan came into existence and therefore the instant it became free for a
+//     coordinator to take. For a plan nobody has claimed, `asAt` minus that instant IS how long the
+//     work has been waiting -- not an estimate of it and not a proxy for it.
+//
+//     WHY CREATION IS CLAIMABILITY, checked against the domain rather than assumed. A plan is
+//     claimable exactly while it has no owner: `applyAssignmentAction`'s `claim` has one
+//     precondition, `ownerId === null`, and no plan state gates it -- which is why a draft counts as
+//     unclaimed here alongside an active plan. A plan is created with no assignment row, so it is
+//     unowned from its first instant, and nothing in this domain returns a claimed plan to unowned:
+//     there is no release action, and `reassign` moves ownership from one person to another. So the
+//     instant a plan became claimable and the instant it was created are the same instant, for every
+//     plan. A release action would break that equality and is the change that would need a separate
+//     claimable-since instant on the contract.
+//
+//     THE ONE CASE THAT OVER-REPORTS, and it errs in the safe direction. A plan whose assignment
+//     could not be read at all (`assignment === null`, reachable if a plan is removed between the
+//     two reads) is counted as unclaimed, so its age is time since creation even if somebody owned
+//     it. That surfaces work whose owner could not be established, one escalation early, rather than
+//     dropping a discharged patient's plan out of the monitor.
+//
+//   * THE EXCEPTION-BACKLOG AGE IS NOT A WAIT AND MUST NOT BE READ AS ONE. Nothing records when a
+//     contact entered a state somebody has to look at, so `oldestMinutesSinceScheduledSend` is
+//     measured from the scheduled send -- an anchor that IS recorded. The field name says exactly
+//     that, and the screen says it in words beside the figure.
+//
+// WHAT THIS REPLACED, kept because the failure is instructive rather than because the code still has
+// it. Until 2026-08-28 the unclaimed age was anchored on `dischargeAt`, which is not an observed
+// instant: the only surface that writes one is the plan wizard, and its `dischargeInstantFor` pins
+// the value to `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the AWST calendar day a coordinator
+// typed, a display convention whose own author recorded that nothing in the domain used its time of
+// day. This module was the first reader to do instant arithmetic on it. For a plan activated at
+// 08:00 on its own discharge day and never claimed, the escalation could not raise at all before
+// midday and then under-reported by the morning offset:
 //
 //     09:00 AWST (unclaimed  60 min) -> reported age  0, withinThreshold
 //     11:00 AWST (unclaimed 180 min) -> reported age  0, withinThreshold
 //     13:00 AWST (unclaimed 300 min) -> reported age 60, escalated -- four hours late
 //
-// The escalation therefore CANNOT RAISE before the anchor is passed, and under-reports by the
-// morning offset afterwards; a backdated discharge over-reports by days. The failure the earlier
-// comment called impossible -- missing a late one -- is the one that actually occurs, so no reader
-// may take this number for a bound in either direction.
-//
-// It is pinned rather than only described: `tests/caring-contacts-team-workload.test.ts` builds a
-// discharge through the wizard's own `dischargeInstantFor` and asserts the age is anchored on that
-// convention, which is the seam no fixture in this branch crossed when the false claim was
-// written. `team-roster.tsx` states on the screen what the figure is counted from and that it is
-// neither the wait nor a limit on it.
-//
-// CLOSING IT PROPERLY IS A REPOSITORY-CONTRACT CHANGE and remains the owner's call: release the
-// plan's creation instant, or add a claimable-since column. Nothing here invents one.
+// An earlier version of this comment additionally called that figure an upper bound on the true
+// wait, so the module asserted a safety property it did not have -- "raise one early, never miss a
+// late one" described the one failure that actually occurred. Both the anchor and the claim are
+// gone; `tests/caring-contacts-team-workload.test.ts` pins the corrected behaviour on a fixture that
+// crosses the same wizard seam, which is the seam no fixture in the original branch crossed.
 import { effectiveResponder, queueAgeMinutes, UNCLAIMED_ESCALATION_MINUTES, type PlanAssignment } from "./assignment";
 import { awstIsoTimestamp } from "./clock";
 import type { ActorId } from "./ids";
@@ -178,11 +187,11 @@ export type UnclaimedWork = {
   /** Of `plans`, those that have reached the threshold. */
   escalated: number;
   /**
-   * Whole minutes from the OLDEST unclaimed plan's recorded `dischargeAt` to `asAt`; null when
-   * there are none. An anchor, NOT the time the plan has been unclaimed and not a bound on it --
-   * see the module note on what `dischargeAt` actually holds.
+   * Whole minutes the OLDEST unclaimed plan has been waiting for a coordinator to take it, measured
+   * from the instant it became claimable; null when there are none, which is a different fact from
+   * an age of zero. See the module note for why that instant is the plan's creation.
    */
-  oldestMinutesSinceDischarge: number | null;
+  oldestMinutesUnclaimed: number | null;
   state: UnclaimedEscalationState;
   clearedBy: "aCoordinatorClaimsThePlan" | null;
   /** Contacts needing review on plans nobody owns. Here so an exception cannot go uncounted for
@@ -297,7 +306,10 @@ export function buildTeamWorkload(ownership: readonly PlanOwnership[], asAt: Dat
     // nullable below and forced a second null test on a branch that could not run.
     if (assignment === null || assignment.ownerId === null) {
       unclaimedPlans += 1;
-      const minutes = queueAgeMinutes(awstIsoTimestamp(record.dischargeAt), asAtIso);
+      // `createdAt`, NOT `dischargeAt`. The plan became free for a coordinator to take when it came
+      // into existence; a recorded discharge is a display convention that says nothing about when
+      // the work arrived. See the module note.
+      const minutes = queueAgeMinutes(awstIsoTimestamp(record.createdAt), asAtIso);
       if (minutes >= UNCLAIMED_ESCALATION_MINUTES) unclaimedEscalated += 1;
       if (oldestUnclaimedMinutes === null || minutes > oldestUnclaimedMinutes) oldestUnclaimedMinutes = minutes;
       unclaimedReviewable.push(...reviewableSendInstants(record));
@@ -338,7 +350,7 @@ export function buildTeamWorkload(ownership: readonly PlanOwnership[], asAt: Dat
     unclaimed: {
       plans: unclaimedPlans,
       escalated: unclaimedEscalated,
-      oldestMinutesSinceDischarge: oldestUnclaimedMinutes,
+      oldestMinutesUnclaimed: oldestUnclaimedMinutes,
       state: unclaimedPlans === 0 ? "noUnclaimedWork" : unclaimedEscalated > 0 ? "escalated" : "withinThreshold",
       clearedBy: unclaimedPlans === 0 ? null : "aCoordinatorClaimsThePlan",
       exceptionBacklog: backlogOf(unclaimedReviewable, asAtIso),

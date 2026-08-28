@@ -130,41 +130,44 @@ function clearedByWording(clearedBy: UnclaimedWork["clearedBy"]): string | null 
 }
 
 /**
- * What the oldest unclaimed plan's figure actually is.
+ * How long the oldest unclaimed plan has been waiting.
  *
- * IT IS NOT HOW LONG THE PLAN HAS BEEN UNCLAIMED, and the sentence must not say that it is. The
- * only anchor the domain has for an unclaimed plan is `PlanRecord.dischargeAt`, which is not an
- * observed instant: the wizard writes it as `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the
- * calendar day a coordinator typed, a display convention whose own author recorded that nothing in
- * the domain used its time of day. So a plan activated at 08:00 on its discharge day and left
- * unclaimed reports ZERO all morning, and a plan whose discharge was backdated reports days. The
- * figure bounds the true wait in neither direction, and the sentence therefore names the anchor
- * and claims nothing else. See `UNCLAIMED_ANCHOR_NOTE` for what the reader is told about it.
+ * IT IS A REAL WAIT NOW, and the sentence may say so. The read measures it from the instant the plan
+ * became free for a coordinator to take -- the observed instant it was created -- so for a plan
+ * nobody has claimed, the figure IS the time it has spent waiting rather than a distance from some
+ * other recorded event.
+ *
+ * IT SAID SOMETHING ELSE UNTIL 2026-08-28, and the correction is why this comment is long. The age
+ * was anchored on the discharge recorded on the plan, which the wizard writes as midday on a typed
+ * calendar day -- so a plan left unclaimed all morning showed zero and the escalation raised hours
+ * late. The screen was made to name that anchor honestly once the bound it had wrongly claimed was
+ * withdrawn; naming an anchor honestly is not the same as measuring the right thing, and this is the
+ * second half of that fix.
  */
 function unclaimedAgeSentence(minutes: number | null): string | null {
   if (minutes === null) return null;
-  return `The oldest is ${plural(minutes, "minute", "minutes")} past the discharge recorded on its plan.`;
+  return `The oldest has been waiting ${plural(minutes, "minute", "minutes")}.`;
 }
 
 /**
- * What the unclaimed minutes are counted from, said wherever they are shown.
+ * What the unclaimed minutes are counted from, said wherever they are shown (spec 4.4).
  *
- * THIS REPLACED A FALSE ASSURANCE. The screen used to tell a clinician that "the true wait is never
- * longer than the figure shown", which is the one failure that actually occurs: the escalation
- * cannot raise before the anchor is passed, however long a plan has really been unowned. Stating a
- * bound the code does not hold is worse than stating no bound, so the claim is retracted and the
- * measurement is described instead.
+ * IT STILL EXPLAINS THE AUTOMATED FIGURE RATHER THAN ASSUMING IT IS OBVIOUS. The escalation is the
+ * one thing on this screen the system does on its own, so what it measures and what ends it are both
+ * stated in place, in all three unclaimed states -- a rule a reader can only discover by tripping it
+ * is a rule they cannot plan around.
  *
- * It is shown in all three unclaimed states, for the reason the threshold is: a rule a reader can
- * only discover by tripping it is a rule they cannot plan around.
+ * WHAT IT NO LONGER HAS TO SAY. This sentence used to carry a disclosure: that nothing recorded when
+ * a plan became free to take, so the figure could be smaller than the true wait and the escalation
+ * could fire later than it should. That is now fixed rather than disclosed, so the disclosure is
+ * gone rather than reworded and what remains says what the number is.
  *
- * It does not name midday, because it cannot say that truthfully of every plan -- the demo seed
- * records a discharge at the seeding instant rather than through the wizard's convention. What is
- * true of every plan is that the anchor is a recorded discharge and not the moment the work became
- * available, and that is what it says.
+ * It does not describe the anchor as a row being created, because a coordinator does not think in
+ * rows. What is both true and useful to them is that the clock starts when the plan appeared for
+ * somebody to take.
  */
 const UNCLAIMED_ANCHOR_NOTE =
-  "These minutes are counted from the discharge recorded on the plan, because nothing records when a plan became free for a coordinator to take. A plan can therefore show fewer minutes than it has been unclaimed, and reach the threshold later than it should.";
+  "These minutes are counted from the moment the plan appeared for a coordinator to take, so they are how long it has been waiting. A plan stays in this count until somebody claims it.";
 
 /**
  * Where a covered plan's work stays filed, said only while somebody is covering.
@@ -247,7 +250,7 @@ function unclaimedBacklogSentence(backlog: UnclaimedWork["exceptionBacklog"]): s
  */
 function UnclaimedStanding({ unclaimed, thresholdMinutes }: { unclaimed: UnclaimedWork; thresholdMinutes: number }) {
   const remedy = clearedByWording(unclaimed.clearedBy);
-  const age = unclaimedAgeSentence(unclaimed.oldestMinutesSinceDischarge);
+  const age = unclaimedAgeSentence(unclaimed.oldestMinutesUnclaimed);
 
   if (unclaimed.state === "escalated") {
     return (
@@ -555,9 +558,9 @@ export function TeamRoster({ view, mayViewPlans, mayReassignPlan }: TeamRosterPr
             as the identifier their work is filed under.
           </p>
           <p className={noteClass}>
-            Each age above is counted from something this system does record — the discharge on the plan, or the
-            contact&apos;s scheduled send — because it records nothing about when the work started waiting. Neither
-            figure is the true wait, and neither puts a limit on it.
+            The unclaimed figure is how long a plan has waited for a coordinator, counted from the moment it appeared
+            for somebody to take. The exception figures are counted from each contact&apos;s scheduled send, because
+            nothing records when a contact started needing review — those two are not the true wait.
           </p>
           <p className={noteClass}>
             A row appears for someone who owns or is covering a plan that has not ended, so this is who is carrying work

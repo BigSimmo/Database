@@ -24,7 +24,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { dischargeInstantFor } from "@/components/caring-contacts/workspace/plan-wizard/plan-activation";
 import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { UNCLAIMED_ESCALATION_MINUTES } from "@/lib/caring-contacts/assignment";
-import { awstCalendarDay, fixedClock } from "@/lib/caring-contacts/clock";
+import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import {
   actorId,
   idempotencyKey,
@@ -58,9 +58,26 @@ const CASS = actorId("ACTOR-CASS");
 
 /** 2026-08-30 10:00 AWST discharge, so the default first contact lands on the last day of August. */
 const DISCHARGE_AT = new Date("2026-08-30T02:00:00.000Z");
-/** One hour after discharge -- exactly `UNCLAIMED_ESCALATION_MINUTES` later. */
+/**
+ * When a seeded plan is CREATED, which is the instant it became free for a coordinator to take and
+ * therefore the anchor every unclaimed age below is measured from. 10:00 AWST.
+ *
+ * It is a separate constant from the discharge deliberately. The two used to be conflated -- the
+ * escalation was anchored on the recorded discharge, which is a display convention rather than an
+ * observed instant -- and a fixture that sets them to one value cannot tell a read measuring the
+ * right thing from a read measuring the wrong one.
+ */
+const CREATED_AT = "2026-08-30T02:00:00.000Z";
+/** One hour after a plan is created -- exactly `UNCLAIMED_ESCALATION_MINUTES` later. 11:00 AWST. */
 const NOW = "2026-08-30T03:00:00.000Z";
 const AS_AT = new Date(NOW);
+
+/**
+ * The store's clock, which the fixtures MOVE. `fixedClock` cannot express what these cases are
+ * about: a plan is created at one instant and the roster is read at another, and the distance
+ * between the two is the queue age under test.
+ */
+let storeInstant = new Date(CREATED_AT);
 const FIRST_CONTACT_DAY = "2026-08-31";
 
 let seeded = 0;
@@ -73,18 +90,22 @@ beforeEach(() => {
 
 type SeedOptions = {
   dischargeAt?: Date;
+  /** When the plan is created, and so when it became claimable. Defaults to `CREATED_AT`. */
+  createdAt?: string;
   planState?: Extract<PlanState, "draft" | "active" | "paused" | "withdrawn">;
   /** Who claims it. Left unclaimed when absent. */
   owner?: ActorId;
 };
 
 function newStore(): CaringContactRepository {
-  return createInMemoryRepository(fixedClock(NOW));
+  storeInstant = new Date(CREATED_AT);
+  return createInMemoryRepository({ now: () => new Date(storeInstant.getTime()) });
 }
 
 /** Creates one plan through the real write path, leaves it in the requested state, and claims it. */
 async function seedPlan(store: CaringContactRepository, options: SeedOptions = {}): Promise<PlanId> {
   seeded += 1;
+  storeInstant = new Date(options.createdAt ?? CREATED_AT);
   const suffix = String(seeded).padStart(3, "0");
   const id = planId(`SYN-PLAN-${suffix}`);
   const created = await store.createPlan(
@@ -315,10 +336,10 @@ describe("unclaimed work against the 60-minute escalation", () => {
     const atThreshold = await viewOf(store, AS_AT);
     const oneMinuteEarlier = await viewOf(store, new Date(AS_AT.getTime() - 60_000));
 
-    expect(atThreshold.unclaimed.oldestMinutesSinceDischarge).toBe(UNCLAIMED_ESCALATION_MINUTES);
+    expect(atThreshold.unclaimed.oldestMinutesUnclaimed).toBe(UNCLAIMED_ESCALATION_MINUTES);
     expect(atThreshold.unclaimed.escalated).toBe(1);
     expect(atThreshold.unclaimed.state).toBe("escalated");
-    expect(oneMinuteEarlier.unclaimed.oldestMinutesSinceDischarge).toBe(UNCLAIMED_ESCALATION_MINUTES - 1);
+    expect(oneMinuteEarlier.unclaimed.oldestMinutesUnclaimed).toBe(UNCLAIMED_ESCALATION_MINUTES - 1);
     expect(oneMinuteEarlier.unclaimed.escalated).toBe(0);
     expect(oneMinuteEarlier.unclaimed.state).toBe("withinThreshold");
   });
@@ -339,46 +360,46 @@ describe("unclaimed work against the 60-minute escalation", () => {
     await seedPlan(store, { owner: AVA });
 
     const claimed = await viewOf(store);
-    expect(claimed.unclaimed.oldestMinutesSinceDischarge).toBeNull();
+    expect(claimed.unclaimed.oldestMinutesUnclaimed).toBeNull();
 
     // The positive control: the same measure over an unclaimed plan is a number, so the null above
     // is this read distinguishing the two cases rather than never producing an age at all.
     await seedPlan(store);
-    expect((await viewOf(store)).unclaimed.oldestMinutesSinceDischarge).toBe(UNCLAIMED_ESCALATION_MINUTES);
+    expect((await viewOf(store)).unclaimed.oldestMinutesUnclaimed).toBe(UNCLAIMED_ESCALATION_MINUTES);
   });
 
   it("takes the oldest of several unclaimed plans, not the newest and not the last read", async () => {
     const store = newStore();
-    await seedPlan(store, { dischargeAt: new Date("2026-08-30T02:30:00.000Z") });
-    await seedPlan(store, { dischargeAt: new Date("2026-08-30T01:00:00.000Z") });
-    await seedPlan(store, { dischargeAt: new Date("2026-08-30T02:45:00.000Z") });
+    await seedPlan(store, { createdAt: "2026-08-30T02:30:00.000Z" });
+    await seedPlan(store, { createdAt: "2026-08-30T01:00:00.000Z" });
+    await seedPlan(store, { createdAt: "2026-08-30T02:45:00.000Z" });
 
     const view = await viewOf(store);
 
     expect(view.unclaimed.plans).toBe(3);
-    expect(view.unclaimed.oldestMinutesSinceDischarge).toBe(120);
+    expect(view.unclaimed.oldestMinutesUnclaimed).toBe(120);
   });
 });
 
 /**
- * WHAT THE UNCLAIMED AGE IS ACTUALLY ANCHORED ON, pinned as behaviour rather than left in a note.
+ * WHAT THE UNCLAIMED AGE IS ANCHORED ON, pinned as behaviour rather than left in a note.
  *
- * These cases exist because the module and the screen both used to claim that the reported age was
- * never SHORTER than the true wait -- a bound, offered as the conservative direction for a safety
- * escalation. The premise was that a plan cannot have become claimable before its patient was
- * discharged, and it is false of the stored field: `dischargeAt` is not an observed instant. The
- * only surface that writes one is the plan wizard, and `dischargeInstantFor` pins it to
- * `DISCHARGE_WALL_CLOCK_HOUR` -- midday -- on the AWST calendar day a coordinator typed.
+ * THE CASE THE GROUP 4 REVIEW REPRODUCED IS THE FIRST ONE BELOW, and until 2026-08-28 it failed.
+ * The age was measured from `dischargeAt`, which is not an observed instant: the only surface that
+ * writes one is the plan wizard, and `dischargeInstantFor` pins it to `DISCHARGE_WALL_CLOCK_HOUR`
+ * -- midday -- on the AWST calendar day a coordinator typed. So a plan created at 08:00 on its own
+ * discharge day and never claimed reported an age of ZERO at 09:00, at 10:00 and at 11:00, and
+ * escalated only at 13:00 -- four hours late, on the escalation whose stated purpose is not to miss
+ * a late one.
  *
- * Every other fixture in this file constructs `DISCHARGE_AT` by hand, which is exactly why no test
- * could have found this: the seam is crossed by no fixture that does not go through the wizard's
- * own function. These do, so the property is met as a test by the next reader rather than as a
- * surprise.
- *
- * They pin the behaviour, not an endorsement of it. Re-anchoring the escalation is a
- * repository-contract change and is the owner's call.
+ * WHY THESE CASES GO THROUGH THE WIZARD'S OWN FUNCTION. Every other fixture in this file builds a
+ * discharge instant by hand, which is exactly why no test could have found the defect: the seam
+ * between the wizard's midday convention and this read's instant arithmetic was crossed by no
+ * fixture in the branch. These cross it, so the anchoring is met as a test by the next reader
+ * rather than as a surprise -- and the midday discharge is now a value the age must IGNORE, which is
+ * the stronger property of the two.
  */
-describe("the unclaimed age is anchored on the recorded discharge, not on when a plan could be claimed", () => {
+describe("the unclaimed age is anchored on when the plan became free for a coordinator to take", () => {
   const DISCHARGE_DAY = "2026-08-30";
 
   /** The instant the wizard would store for that day, refusing to guess if it would not store one. */
@@ -388,32 +409,52 @@ describe("the unclaimed age is anchored on the recorded discharge, not on when a
     return instant;
   }
 
-  it("reports zero for a plan unclaimed all morning, because the anchor is midday on the discharge day", async () => {
+  it("reports an hour for a plan created at 08:00 and unclaimed at 09:00, and escalates there", async () => {
     const store = newStore();
     const dischargeAt = wizardDischargeInstant(DISCHARGE_DAY);
-    // The positive control for the two assertions below, and the reason this case is not a model of
-    // the seam but the seam itself: the wizard's instant really is midday AWST, which is 04:00 UTC.
+    // The positive control, and the reason this case is the seam rather than a model of it: the
+    // wizard's instant really is midday AWST, which is 04:00 UTC -- three hours AFTER the plan below
+    // is created and an hour after it is read. An age anchored on it could only be zero here.
     expect(dischargeAt.toISOString()).toBe("2026-08-30T04:00:00.000Z");
 
-    await seedPlan(store, { dischargeAt });
+    // Created 08:00 AWST, read at 09:00 AWST. Unclaimed for exactly the escalation threshold.
+    await seedPlan(store, { dischargeAt, createdAt: "2026-08-30T00:00:00.000Z" });
+    const morning = await viewOf(store, new Date("2026-08-30T01:00:00.000Z"));
 
-    // 11:00 AWST -- three hours after a coordinator could first have claimed it that morning, and
-    // an hour before the anchor. `queueAgeMinutes` clamps the negative elapsed time to zero.
-    const morning = await viewOf(store, new Date("2026-08-30T03:00:00.000Z"));
-
-    expect(morning.unclaimed.oldestMinutesSinceDischarge).toBe(0);
-    expect(morning.unclaimed.state).toBe("withinThreshold");
+    expect(morning.unclaimed.oldestMinutesUnclaimed).toBe(UNCLAIMED_ESCALATION_MINUTES);
+    expect(morning.unclaimed.escalated).toBe(1);
+    expect(morning.unclaimed.state).toBe("escalated");
   });
 
-  it("starts counting from that anchor, so nothing escalates until an hour past midday", async () => {
+  it("does not wait for the discharge anchor before it will escalate at all", async () => {
     const store = newStore();
-    await seedPlan(store, { dischargeAt: wizardDischargeInstant(DISCHARGE_DAY) });
+    // Created 08:00 AWST on its discharge day, read at 11:00 AWST -- still an hour before the
+    // midday anchor the old read counted from, and three times the threshold into the wait.
+    await seedPlan(store, {
+      dischargeAt: wizardDischargeInstant(DISCHARGE_DAY),
+      createdAt: "2026-08-30T00:00:00.000Z",
+    });
 
-    // 13:00 AWST. An hour past the anchor, and five hours past the morning of the discharge day.
-    const afternoon = await viewOf(store, new Date("2026-08-30T05:00:00.000Z"));
+    const lateMorning = await viewOf(store, new Date("2026-08-30T03:00:00.000Z"));
 
-    expect(afternoon.unclaimed.oldestMinutesSinceDischarge).toBe(UNCLAIMED_ESCALATION_MINUTES);
-    expect(afternoon.unclaimed.state).toBe("escalated");
+    expect(lateMorning.unclaimed.oldestMinutesUnclaimed).toBe(180);
+    expect(lateMorning.unclaimed.state).toBe("escalated");
+  });
+
+  it("ignores a discharge typed for a future day rather than reporting zero for it", async () => {
+    const store = newStore();
+    // `firstContactDayBounds` accepts tomorrow, so a plan can carry a discharge instant AHEAD of
+    // now. The old anchor clamped that to zero, so such a plan could never escalate at all; the
+    // wait is a fact about the plan's own age and is unaffected by it.
+    await seedPlan(store, {
+      dischargeAt: wizardDischargeInstant("2026-08-31"),
+      createdAt: "2026-08-30T00:00:00.000Z",
+    });
+
+    const view = await viewOf(store, new Date("2026-08-30T01:00:00.000Z"));
+
+    expect(view.unclaimed.oldestMinutesUnclaimed).toBe(UNCLAIMED_ESCALATION_MINUTES);
+    expect(view.unclaimed.state).toBe("escalated");
   });
 });
 

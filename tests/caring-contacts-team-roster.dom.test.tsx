@@ -42,7 +42,7 @@ function noUnclaimed(): UnclaimedWork {
   return {
     plans: 0,
     escalated: 0,
-    oldestMinutesSinceDischarge: null,
+    oldestMinutesUnclaimed: null,
     state: "noUnclaimedWork",
     clearedBy: null,
     exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
@@ -171,7 +171,7 @@ describe("unclaimed work belongs to the group with no owner, never to a person",
   const escalatedUnclaimed: UnclaimedWork = {
     plans: 3,
     escalated: 2,
-    oldestMinutesSinceDischarge: 145,
+    oldestMinutesUnclaimed: 145,
     state: "escalated",
     clearedBy: "aCoordinatorClaimsThePlan",
     exceptionBacklog: { contacts: 4, oldestMinutesSinceScheduledSend: 90 },
@@ -211,7 +211,7 @@ describe("the escalation states why it happened and what would change it (spec 4
       unclaimed: {
         plans: 3,
         escalated: 2,
-        oldestMinutesSinceDischarge: 145,
+        oldestMinutesUnclaimed: 145,
         state: "escalated",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
@@ -241,7 +241,7 @@ describe("the escalation states why it happened and what would change it (spec 4
       unclaimed: {
         plans: 1,
         escalated: 0,
-        oldestMinutesSinceDischarge: 12,
+        oldestMinutesUnclaimed: 12,
         state: "withinThreshold",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
@@ -257,7 +257,7 @@ describe("the escalation states why it happened and what would change it (spec 4
     expect(textOf(unclaimed)).toContain("a coordinator claiming the plan");
     // The anchor note is rendered by a different branch here than in the escalated case above, so
     // it is asserted on both rather than on whichever one was convenient.
-    expect(textOf(unclaimed)).toContain("nothing records when a plan became free for a coordinator to take");
+    expect(textOf(unclaimed)).toContain("counted from the moment the plan appeared for a coordinator to take");
   });
 
   it("says every running plan has a coordinator when nothing is unclaimed", () => {
@@ -283,7 +283,7 @@ describe("the escalation states why it happened and what would change it (spec 4
     // that reached for it here would print it.
     renderRoster({
       coordinators: [coordinator("ACTOR-AVA", { activePlans: 4 })],
-      unclaimed: { ...noUnclaimed(), oldestMinutesSinceDischarge: 145 },
+      unclaimed: { ...noUnclaimed(), oldestMinutesUnclaimed: 145 },
     });
 
     expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain("145 minutes");
@@ -291,20 +291,22 @@ describe("the escalation states why it happened and what would change it (spec 4
 });
 
 describe("both ages are named for what they measure, and neither is called a queue age", () => {
-  it("names the unclaimed age for the anchor it is counted from, and claims no bound on the true wait", () => {
-    // THIS ASSERTION USED TO PIN A FALSE SENTENCE, and the correction is the point of the case.
-    // The screen said the true wait "is never longer than the figure shown". It is not a bound in
-    // either direction: `dischargeAt` is not an observed instant but the display convention
-    // `DISCHARGE_WALL_CLOCK_HOUR` writes -- midday on the calendar day a coordinator typed -- so a
-    // plan activated at 08:00 and never claimed reports an age of zero all morning, and the
-    // escalation cannot raise before midday. The screen now names the anchor and states that the
-    // figure is neither the wait nor a limit on it; `tests/caring-contacts-team-workload.test.ts`
-    // pins the anchoring behaviour itself, through the wizard's own `dischargeInstantFor`.
+  it("calls the unclaimed figure a wait, because it now is one, and still claims no bound", () => {
+    // THIS ASSERTION HAS BEEN WRONG IN TWO DIFFERENT WAYS, which is why the comment is long.
+    // FIRST the screen said the true wait "is never longer than the figure shown" -- a bound it did
+    // not have, because `dischargeAt` is the display convention `DISCHARGE_WALL_CLOCK_HOUR` writes
+    // rather than an observed instant. That claim was retracted and the screen named its anchor
+    // instead. THEN the anchor itself was replaced (2026-08-28): the read measures from the instant
+    // the plan became free for a coordinator to take, so the figure IS the wait and the screen may
+    // say so. The retracted bound is still refused below, because "this is the wait" and "the wait
+    // is never longer than this" are different claims and only the first one is true.
+    // `tests/caring-contacts-team-workload.test.ts` pins the anchoring behaviour itself, through
+    // the wizard's own `dischargeInstantFor`.
     renderRoster({
       unclaimed: {
         plans: 2,
         escalated: 1,
-        oldestMinutesSinceDischarge: 145,
+        oldestMinutesUnclaimed: 145,
         state: "escalated",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
@@ -312,20 +314,23 @@ describe("both ages are named for what they measure, and neither is called a que
     });
 
     const unclaimed = screen.getByTestId("caring-contacts-team-unclaimed");
-    expect(unclaimed).toHaveTextContent("145 minutes past the discharge recorded on its plan");
+    expect(unclaimed).toHaveTextContent("The oldest has been waiting 145 minutes");
     const text = textOf(screen.getByTestId("caring-contacts-team"));
     // The positive control for the refusal below: the screen DOES say what the figure is, so the
     // absence is about the retracted claim rather than about a footer that failed to render.
-    expect(text).toContain("neither figure is the true wait");
+    expect(text).toContain("how long a plan has waited for a coordinator");
     expect(text).not.toContain("never longer than the figure shown");
+    // And the disclosure the old anchor forced onto the screen is gone rather than reworded: a
+    // reader must not still be told the escalation can fire later than it should.
+    expect(text).not.toContain("later than it should");
   });
 
-  it("says inside the unclaimed block why the minutes can be fewer than the wait", () => {
+  it("says inside the unclaimed block what the minutes are counted from, and what ends the count", () => {
     renderRoster({
       unclaimed: {
         plans: 2,
         escalated: 1,
-        oldestMinutesSinceDischarge: 145,
+        oldestMinutesUnclaimed: 145,
         state: "escalated",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 0, oldestMinutesSinceScheduledSend: null },
@@ -333,8 +338,8 @@ describe("both ages are named for what they measure, and neither is called a que
     });
 
     const unclaimed = textOf(screen.getByTestId("caring-contacts-team-unclaimed"));
-    expect(unclaimed).toContain("nothing records when a plan became free for a coordinator to take");
-    expect(unclaimed).toContain("reach the threshold later than it should");
+    expect(unclaimed).toContain("counted from the moment the plan appeared for a coordinator to take");
+    expect(unclaimed).toContain("stays in this count until somebody claims it");
   });
 
   it("names the backlog age as time since the scheduled send", () => {
@@ -365,7 +370,7 @@ describe("both ages are named for what they measure, and neither is called a que
       unclaimed: {
         plans: 2,
         escalated: 1,
-        oldestMinutesSinceDischarge: 145,
+        oldestMinutesUnclaimed: 145,
         state: "escalated",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 1, oldestMinutesSinceScheduledSend: 30 },
@@ -374,7 +379,7 @@ describe("both ages are named for what they measure, and neither is called a que
 
     // The positive control: both ages are on the screen, so these absences are about the WORDS.
     const text = textOf(screen.getByTestId("caring-contacts-team"));
-    expect(text).toContain("145 minutes past the discharge recorded on its plan");
+    expect(text).toContain("the oldest has been waiting 145 minutes");
     expect(text).toContain("45 minutes since its scheduled send");
     expect(text).not.toContain("queue age");
     expect(text).not.toContain("waiting time");
@@ -613,7 +618,7 @@ describe("the screen carries nothing about a patient", () => {
       unclaimed: {
         plans: 1,
         escalated: 1,
-        oldestMinutesSinceDischarge: 200,
+        oldestMinutesUnclaimed: 200,
         state: "escalated",
         clearedBy: "aCoordinatorClaimsThePlan",
         exceptionBacklog: { contacts: 2, oldestMinutesSinceScheduledSend: 15 },

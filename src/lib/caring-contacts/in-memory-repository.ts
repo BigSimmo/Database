@@ -51,15 +51,18 @@ import {
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "./training";
 import {
   CLEARED_PATIENT_DETAIL,
+  CLEARED_PATIENT_FREE_TEXT,
   PATHWAY_VERSION_READ_ACTIONS,
   PATIENT_NAME_READ_ACTIONS,
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
+  RETENTION_CLEARED_REPLAY_ANSWER,
   SERVICE_STATE_UNSET_TEAM,
   admitPlanAssurances,
   contactIdentifierFor,
   isTerminalPlan,
   outcomeFor,
+  replayRecordPlanId,
   type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
@@ -140,6 +143,7 @@ function toPlanRecord(stored: StoredPlan): PlanRecord {
     referralId: stored.referralId,
     pathwayVersionId: stored.pathwayVersionId,
     dischargeAt: new Date(stored.dischargeAt.getTime()),
+    createdAt: new Date(stored.createdAt.getTime()),
     completedAt: stored.completedAt === null ? null : new Date(stored.completedAt.getTime()),
     outcome: stored.outcome,
     contacts: stored.contacts.map(cloneStoredContact),
@@ -236,7 +240,19 @@ function cancelAllNonTerminalContacts(contacts: readonly StoredContact[]): {
 export function createInMemoryRepository(clock: Clock, options: RepositoryOptions = {}): CaringContactRepository {
   const plans = new Map<string, StoredPlan>();
   const auditEvents: AuditEvent[] = [];
-  const idempotency = new Map<string, { fingerprint: string; result: TransitionResult<unknown> }>();
+  const idempotency = new Map<
+    string,
+    {
+      fingerprint: string;
+      result: TransitionResult<unknown>;
+      /**
+       * The plan this replay record's ANSWER is about, so a retention clearance can find it. Null
+       * for a write that named no plan. See `planIdOf` in ./db/postgres-repository's twin and the
+       * note on `RETENTION_CLEARED_REPLAY_ANSWER`.
+       */
+      planId: PlanId | null;
+    }
+  >();
 
   // Group 1 storage. Each is its own map/singleton -- Task 10 adds a home for every rule Tasks
   // 1-9 built, and delegates every transition to the module that owns the rule; nothing here
@@ -368,7 +384,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       // after the three-role restart approval would be refused for a reason that is no longer
       // true, and the resume path is the entire point of a safety stop. Every OTHER refusal is
       // still recorded, so the general replay semantics -- one key, one answer -- are unchanged.
-      if (!previous && !blockedByServiceStop) idempotency.set(scope, { fingerprint, result });
+      if (!previous && !blockedByServiceStop) {
+        idempotency.set(scope, { fingerprint, result, planId: replayRecordPlanId(spec.input) });
+      }
       return result;
     });
   }
@@ -580,6 +598,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             referralId: input.referralId,
             pathwayVersionId: input.pathwayVersionId,
             dischargeAt: new Date(input.dischargeAt.getTime()),
+            // The instant the plan became free for a coordinator to take, taken from the domain's
+            // clock at the moment the row comes into existence -- see `PlanRecord.createdAt`. The
+            // Postgres store writes the same value into `plans.created_at` from the same clock
+            // rather than leaning on the column default, so the two stores answer identically.
+            createdAt: new Date(attestedAt.getTime()),
             completedAt: null,
             outcome: "inProgress",
             contacts,
@@ -1317,14 +1340,50 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           // That is how `firstContactReason` (Ruling 105) arrived already cleared in this store;
           // the Postgres store names columns in SQL and had to be edited, which is why the
           // clearance is pinned by the shared contract suite rather than by this shape alone.
+          //
+          // THREE MORE STORES OF FREE TEXT ABOUT THIS PATIENT, cleared in the SAME staged commit as
+          // the record for the same reason the plan row is: a committed clearance record and an
+          // uncleared note must not be able to coexist. Owner decision 1 of 2026-08-27 for the
+          // handover note; the whole-branch review's MAJOR-1 found the other two and the owner
+          // approved the same disposition for all three on 2026-08-28.
+          //
+          //   * the handover note on every reassignment of this plan. The entry itself survives --
+          //     who handed over, to whom, when -- because spec 4.3 requires a formal reassignment to
+          //     stay visible; it is the prose that goes. See `CLEARED_PATIENT_FREE_TEXT`.
+          //   * the replay record of every write that named this plan, whose stored ANSWER carries
+          //     the same note verbatim. REDACTED, never deleted: deleting it would free the key and
+          //     let a retry execute a clinical write twice. See `RETENTION_CLEARED_REPLAY_ANSWER`.
+          //   * the dispatch discrepancy note has no home in this store at all -- `DispatchRecord`
+          //     does not carry one, so there is nothing here to clear. The Postgres store holds the
+          //     column and clears it; the asymmetry is why that half is proved by the database
+          //     suite rather than by the shared contract.
           const clearedAt = clock.now();
           const cleared: StoredPlan = { ...stored, patientDetail: { ...CLEARED_PATIENT_DETAIL } };
+          const currentAssignment = assignments.get(input.planId);
+          const clearedAssignment: PlanAssignment | null =
+            currentAssignment === undefined
+              ? null
+              : {
+                  ...currentAssignment,
+                  reassignmentHistory: currentAssignment.reassignmentHistory.map((entry) => ({
+                    ...entry,
+                    reason: CLEARED_PATIENT_FREE_TEXT.reassignmentReason,
+                  })),
+                };
+          const redactedReplayKeys = [...idempotency.entries()]
+            .filter(([, record]) => record.planId === input.planId)
+            .map(([key]) => key);
           return {
             ok: true,
             value: {
               value: undefined,
               commit: () => {
                 plans.set(input.planId, cleared);
+                if (clearedAssignment !== null) assignments.set(input.planId, clearedAssignment);
+                for (const key of redactedReplayKeys) {
+                  const record = idempotency.get(key);
+                  if (record) idempotency.set(key, { ...record, result: RETENTION_CLEARED_REPLAY_ANSWER });
+                }
                 retentionCleared.set(input.planId, { terminalAt: admitted.value, clearedAt });
               },
             },

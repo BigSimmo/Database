@@ -93,15 +93,18 @@ import {
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "../training";
 import {
   CLEARED_PATIENT_DETAIL,
+  CLEARED_PATIENT_FREE_TEXT,
   PATHWAY_VERSION_READ_ACTIONS,
   PATIENT_NAME_READ_ACTIONS,
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
+  RETENTION_CLEARED_REPLAY_ANSWER,
   SERVICE_STATE_UNSET_TEAM,
   admitPlanAssurances,
   contactIdentifierFor,
   isTerminalPlan,
   outcomeFor,
+  replayRecordPlanId,
   type AccessTrailQuery,
   type CaringContactRepository,
   type ContactProviderStatusInput,
@@ -175,8 +178,13 @@ const RESTART_APPROVAL_REFUSALS: Readonly<Record<string, string>> = Object.freez
 /** A fixed identifier, never interpolated from input -- a savepoint name cannot be parameterised. */
 const INSERT_SAVEPOINT = "caring_contacts_insert";
 
+// `created_at` joins this list because `PlanRecord.createdAt` is on the contract: it is the
+// observed instant a plan became free for a coordinator to take, and the unclaimed-work escalation
+// measures its queue age from it. It holds no patient content -- an instant, like an attestation's
+// -- so a list read carrying it costs nothing the first-contact reason and preferred name cost.
 const PLAN_COLUMNS = `id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
-  discharge_at, completed_at, sending_preference, patient_name, patient_mobile_number, patient_identifiers`;
+  discharge_at, created_at, completed_at, sending_preference, patient_name, patient_mobile_number,
+  patient_identifiers`;
 
 const CONTACT_COLUMNS = `id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day,
   send_at, message_type, suppressed_reason`;
@@ -309,6 +317,7 @@ function toPlanRecord(planRow: SqlRow, contactRows: readonly SqlRow[], assurance
     referralId: textOf(planRow.referral_id) as ReferralId,
     pathwayVersionId: textOf(planRow.pathway_version_id) as PathwayVersionId,
     dischargeAt: instantOf(planRow.discharge_at),
+    createdAt: instantOf(planRow.created_at),
     completedAt:
       planRow.completed_at === null || planRow.completed_at === undefined ? null : instantOf(planRow.completed_at),
     outcome: textOf(planRow.outcome) as PlanOutcome,
@@ -666,9 +675,22 @@ export function createPostgresRepository(
       // recorded, so the general replay semantics -- one key, one answer -- are unchanged.
       if (!previous && !blockedByServiceStop) {
         await connection.query(
-          `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result)
-           values ($1, $2, $3, $4::jsonb)`,
-          [actor.teamId, idempotencyKey, fingerprint, JSON.stringify(encodeStoredValue(staged))],
+          `insert into caring_contacts.idempotency_records
+             (team_id, idempotency_key, fingerprint, result, plan_id)
+           values ($1, $2, $3, $4::jsonb, $5)`,
+          [
+            actor.teamId,
+            idempotencyKey,
+            fingerprint,
+            JSON.stringify(encodeStoredValue(staged)),
+            // The plan this stored ANSWER is about, so `markRetentionCleared` can find it. The
+            // result is the write's verbatim value and a reassignment's is a `PlanAssignment`
+            // carrying the handover note, so a record nothing could file against a plan would be a
+            // copy of that note no clearance could reach. Deliberately NOT a foreign key: this
+            // record must survive its plan, and a REFUSED `createPlan` names a plan id that was
+            // never inserted -- a reference would turn that refusal into a raised error.
+            replayRecordPlanId(spec.input),
+          ],
         );
       }
       return staged;
@@ -1163,12 +1185,20 @@ export function createPostgresRepository(
           // patient content into a read that deliberately carries none. It is written straight from
           // the caller's detail rather than derived from anything -- nothing here parses
           // `patient_name`, and nothing ever should.
+          // WRITTEN FROM THE DOMAIN CLOCK, NOT LEFT TO THE COLUMN DEFAULT. `plans.created_at`
+          // defaults to `now()`, which is the database transaction's clock rather than this
+          // repository's -- so a store leaning on the default would answer `PlanRecord.createdAt`
+          // from a different clock than the in-memory store does, and the shared contract could
+          // only catch it where it happened to compare instants. One instant serves the plan row
+          // and its attestations below, which is what the in-memory store already does.
+          const createdAt = clock.now();
+
           await connection.query(
             `insert into caring_contacts.plans
                (id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
-                discharge_at, completed_at, sending_preference, patient_name, patient_mobile_number,
-                patient_identifiers, first_contact_reason, preferred_name)
-             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, null, $7, $8, $9, $10, $11, $12)`,
+                discharge_at, created_at, completed_at, sending_preference, patient_name,
+                patient_mobile_number, patient_identifiers, first_contact_reason, preferred_name)
+             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, $7, null, $8, $9, $10, $11, $12, $13)`,
             [
               input.planId,
               actor.teamId,
@@ -1176,6 +1206,7 @@ export function createPostgresRepository(
               input.referralId,
               input.pathwayVersionId,
               input.dischargeAt,
+              createdAt,
               input.sendingPreference,
               input.patientDetail.patientName,
               input.patientDetail.patientMobileNumber,
@@ -1221,7 +1252,7 @@ export function createPostgresRepository(
           // not be typed. `team_id` is carried and the foreign key is composite for the reason
           // 0003's assignment tables are: a bare `plan_id` reference would let one team attach a row
           // to another team's plan, because foreign-key checks bypass row-level security.
-          const attestedAt = clock.now();
+          const attestedAt = createdAt;
           for (const assurance of assurances.value) {
             await connection.query(
               `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
@@ -2229,6 +2260,56 @@ export function createPostgresRepository(
           await connection.query(
             "delete from caring_contacts.cultural_identity_reports where plan_id = $1 and team_id = $2",
             [input.planId, team],
+          );
+
+          // THE THREE STORES OF FREE TEXT ABOUT THIS PATIENT THAT LIVE OUTSIDE THE PLAN ROW, cleared
+          // in the SAME transaction for the reason the plan row is: a committed clearance record and
+          // an uncleared note must not be able to coexist. Owner decision 1 of 2026-08-27 for the
+          // handover note; the whole-branch review's MAJOR-1 found the other two and the owner
+          // approved the same disposition for all three on 2026-08-28.
+          //
+          // Row-level security already scopes every statement below to this team, and `team_id` is
+          // named as well for the reason 0003's composite foreign keys exist: a predicate that says
+          // what it means survives a policy being changed above it.
+
+          // 1. The handover note on every reassignment of this plan. ONLY the reason: the row stays,
+          //    with who handed over, to whom and when, because spec 4.3 requires a formal
+          //    reassignment to remain visible and that trio holds no patient content. `reason` is
+          //    `not null`, so `''` is how the column says removed -- the same convention
+          //    `patient_name` uses.
+          await connection.query(
+            `update caring_contacts.plan_reassignments
+                set reason = $3
+              where plan_id = $1 and team_id = $2`,
+            [input.planId, team, CLEARED_PATIENT_FREE_TEXT.reassignmentReason],
+          );
+
+          // 2. The clinician's account of what happened to one of this patient's messages. Reached
+          //    through `contacts`, because `contact_dispatches` is keyed by contact rather than by
+          //    plan. Cleared to `''` rather than null: null already means "this attempt was never
+          //    reconciled", and `''` is a value the domain refuses on write
+          //    (`dispatchDiscrepancyNoteRequired`), so a REMOVED note stays distinguishable from an
+          //    attempt that never had one -- 0007's argument for `preferred_name`, applied again.
+          await connection.query(
+            `update caring_contacts.contact_dispatches d
+                set discrepancy_note = $3
+               from caring_contacts.contacts c
+              where c.id = d.contact_id and c.plan_id = $1 and d.team_id = $2
+                and d.discrepancy_note is not null`,
+            [input.planId, team, CLEARED_PATIENT_FREE_TEXT.dispatchDiscrepancyNote],
+          );
+
+          // 3. The replay record of every write that named this plan, whose stored ANSWER carries
+          //    that same handover note verbatim -- so clearing (1) alone would leave a byte-identical
+          //    copy in the one table whose stated purpose has nothing to do with patient data.
+          //    REDACTED, NEVER DELETED: deleting the row would return the key to unused and let an
+          //    identical retry execute a clinical write a second time. See
+          //    `RETENTION_CLEARED_REPLAY_ANSWER` for the whole argument and what a caller loses.
+          await connection.query(
+            `update caring_contacts.idempotency_records
+                set result = $3::jsonb
+              where plan_id = $1 and team_id = $2`,
+            [input.planId, team, JSON.stringify(encodeStoredValue(RETENTION_CLEARED_REPLAY_ANSWER))],
           );
 
           return { ok: true, value: undefined };

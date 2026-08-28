@@ -540,6 +540,9 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
       referralId: referralId("referral-x"),
       pathwayVersionId: pathwayVersionId("pathway-1"),
       dischargeAt: DISCHARGE,
+      // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+      // plan's creation instant is set to the same instant as its discharge rather than invented.
+      createdAt: DISCHARGE,
       completedAt: null,
       outcome: "inProgress",
       assuranceAttestations: [],
@@ -748,6 +751,9 @@ describe("the patient overview - a contact suppressed by a later transition stil
     referralId: referralId("referral-x"),
     pathwayVersionId: pathwayVersionId("pathway-1"),
     dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+    // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+    // plan's creation instant is set to the same instant as its discharge rather than invented.
+    createdAt: new Date("2026-08-15T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
     assuranceAttestations: [],
@@ -836,6 +842,9 @@ describe("the patient overview - a plan that has ended says so, and never promis
       referralId: referralId("referral-x"),
       pathwayVersionId: pathwayVersionId("pathway-1"),
       dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+      // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+      // plan's creation instant is set to the same instant as its discharge rather than invented.
+      createdAt: new Date("2026-08-15T02:00:00.000Z"),
       completedAt: null,
       outcome: "inProgress",
       assuranceAttestations: [],
@@ -867,6 +876,9 @@ describe("the patient overview - a plan that has ended says so, and never promis
       referralId: referralId("referral-x"),
       pathwayVersionId: pathwayVersionId("pathway-1"),
       dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+      // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+      // plan's creation instant is set to the same instant as its discharge rather than invented.
+      createdAt: new Date("2026-08-15T02:00:00.000Z"),
       completedAt: null,
       outcome: "inProgress",
       assuranceAttestations: [],
@@ -1009,6 +1021,9 @@ function planRecordFixture(overrides: Partial<PlanRecord> = {}): PlanRecord {
     referralId: referralId("referral-fixture"),
     pathwayVersionId: pathwayVersionId("pathway-1"),
     dischargeAt: DISCHARGE,
+    // Not under test here: this fixture asserts nothing about the unclaimed queue age, so the
+    // plan's creation instant is set to the same instant as its discharge rather than invented.
+    createdAt: DISCHARGE,
     completedAt: null,
     outcome: "inProgress",
     assuranceAttestations: PLAN_ASSURANCE_VALUES.map(attestationFixture),

@@ -221,6 +221,17 @@ export const REPOSITORY_REFUSALS = Object.freeze({
    * silent second row here.
    */
   planAssuranceRepeated: "plan-assurance-repeated",
+  /**
+   * What a replay is answered with once retention has cleared the plan the original write was
+   * about (owner decision 1 of 2026-08-27, and the whole-branch review's MAJOR-1).
+   *
+   * A replay record holds the VERBATIM result of the write it protects, so a reassignment's record
+   * holds the handover note a coordinator typed. Clearing the note where it is stored and leaving
+   * this copy would clear nothing. See `RETENTION_CLEARED_REPLAY_ANSWER` for why the record is
+   * REDACTED rather than deleted, and why this refusal exists at all instead of the key simply
+   * becoming free again.
+   */
+  idempotentResultClearedByRetention: "idempotent-result-cleared-by-retention",
 } as const);
 
 export type RepositoryRefusal = (typeof REPOSITORY_REFUSALS)[keyof typeof REPOSITORY_REFUSALS];
@@ -390,6 +401,97 @@ export const CLEARED_PATIENT_DETAIL: StoredPatientDetail = Object.freeze({
 });
 
 /**
+ * The free text about a patient that a retention clearance removes from OUTSIDE the plan row, and
+ * what it clears each field to (owner decision 1 of 2026-08-27, extended to all three stores on
+ * 2026-08-28 after the whole-branch review found the second and third).
+ *
+ * WHY THIS IS A SEPARATE CONSTANT FROM `CLEARED_PATIENT_DETAIL` ABOVE, rather than more fields on
+ * it. That one is a `StoredPatientDetail` -- the shape of ONE plan row's patient columns -- and its
+ * whole guarantee is that adding a field to that type without adding it there stops the module
+ * compiling. These three values live in three different tables, on rows keyed by something other
+ * than the plan, so no type relates them and no compile error is available. What holds them
+ * together is that each is prose a clinician typed about one named patient, filed somewhere whose
+ * stated purpose is not holding patient data:
+ *
+ *   * `reassignmentReason` -- the handover note, `plan_reassignments.reason` and
+ *     `PlanAssignment.reassignmentHistory[].reason`. The column is `not null`, so `''` is how it
+ *     says removed, exactly as `patient_name` does. ONLY the reason clears: the entry stays, with
+ *     who handed over, to whom and when, because spec 4.3 requires a formal reassignment to remain
+ *     visible and because that trio is the same no-patient-content class an audit event keeps.
+ *
+ *   * `dispatchDiscrepancyNote` -- `contact_dispatches.discrepancy_note`, a clinician's free-text
+ *     account of what happened to one named patient's message. The column is nullable and null
+ *     already means "this attempt was never reconciled", so it clears to `''` for 0007's reason
+ *     rather than to null: `''` is a value the domain refuses on write
+ *     (`dispatchDiscrepancyNoteRequired`), so it can only ever have been written by a clearance,
+ *     and a REMOVED note stays distinguishable from an attempt that never had one.
+ *
+ * The replay record is the third and does not belong in this shape, because it is a whole answer
+ * rather than a field -- see `RETENTION_CLEARED_REPLAY_ANSWER`.
+ */
+export const CLEARED_PATIENT_FREE_TEXT = Object.freeze({
+  reassignmentReason: "",
+  dispatchDiscrepancyNote: "",
+});
+
+/**
+ * What a replay of a cleared plan's write is answered with, and the decision behind it.
+ *
+ * THE PROBLEM. A replay record holds the verbatim result of the write it protects, keyed by team
+ * and idempotency key, with no expiry. For a reassignment that result is a `PlanAssignment`, whose
+ * `reassignmentHistory[].reason` IS the handover note -- so clearing the note from
+ * `plan_reassignments` and stopping there leaves a byte-identical copy behind, in the one table
+ * whose stated purpose has nothing to do with patient data.
+ *
+ * WHY REDACTED AND NOT DELETED, which was the live question. Deleting the row returns the key to
+ * unused: a retry carrying that key would find no previous record and RUN THE WRITE AGAIN. The
+ * guarantee this table exists for -- one key, one execution -- would be destroyed to remove a note,
+ * and a clinical write executing twice is a worse outcome than a retained one. So the row stays,
+ * the key stays consumed, and only the stored ANSWER is replaced.
+ *
+ * WHAT THE CALLER LOSES, stated rather than glossed. A replay after a clearance no longer returns
+ * the original answer; it returns this named refusal. That is a real narrowing of the replay
+ * contract and it is the conservative direction: the caller is told the answer is no longer held,
+ * instead of being handed a discharged patient's clinical prose or having its write re-executed.
+ * It is reachable only for a plan whose episode has ended and whose identifying detail has already
+ * been removed, which is not a window any live retry is in.
+ *
+ * IT IS ONE VALUE, DECLARED ONCE, for the reason `CLEARED_PATIENT_DETAIL` is: two stores writing
+ * two shapes would be two answers to "what does a replay say after a clearance", and the contract
+ * suite could only catch the difference where it happened to look.
+ */
+export const RETENTION_CLEARED_REPLAY_ANSWER: TransitionResult<never> = Object.freeze({
+  ok: false,
+  reason: REPOSITORY_REFUSALS.idempotentResultClearedByRetention,
+});
+
+/**
+ * The plan a replay record is filed against, so a retention clearance can reach it.
+ *
+ * DERIVED FROM THE WRITE'S OWN INPUT RATHER THAN DECLARED PER METHOD, and that is the whole point.
+ * A `planId` passed by hand at each write site is a field a future method can simply not pass:
+ * nothing would fail, no test would go red, and a discharged patient's prose would sit in a replay
+ * record nothing could find. Every write input in this contract that concerns a plan already names
+ * it `planId` -- `CreatePlanInput`, `PlanLifecycleInput` and everything built on it,
+ * `ContactStatusInput`, the assignment input -- so reading that field files the record correctly
+ * for a method nobody has written yet.
+ *
+ * It lives on the contract rather than in either store for `CLEARED_PATIENT_DETAIL`'s reason: two
+ * stores deciding separately which records belong to a plan would be two answers to what a
+ * clearance reaches, and the contract suite could only catch the difference where it looked.
+ *
+ * THE ONE WRITE IT FILES NOTHING FOR is `resolveDispatchDiscrepancy`, whose input names a contact
+ * and an attempt. That is safe only because its result is a `DispatchRecord`, which holds no note
+ * -- pinned by `DISPATCH_RECORD_HOLDS_NO_DISCREPANCY_NOTE` above, so releasing the note there
+ * stops the module compiling rather than quietly creating an unreachable copy.
+ */
+export function replayRecordPlanId(input: unknown): PlanId | null {
+  if (input === null || typeof input !== "object") return null;
+  const candidate = (input as { planId?: unknown }).planId;
+  return typeof candidate === "string" ? (candidate as PlanId) : null;
+}
+
+/**
  * A stored contact keeps its planned entry verbatim, including the real `sendAt` of an absorbed
  * entry. Sendability is carried by `contact.state`, which is set to the terminal `suppressed` at
  * creation for an absorbed entry — so an absorbed contact is not merely filtered out of a dispatch
@@ -445,6 +547,35 @@ export type PlanRecord = {
   referralId: ReferralId;
   pathwayVersionId: PathwayVersionId;
   dischargeAt: Date;
+  /**
+   * The OBSERVED instant this plan came into existence, and therefore the instant it became free
+   * for a coordinator to take (Group 4 review MAJOR-1, owner-approved 2026-08-28).
+   *
+   * WHY THE CONTRACT RELEASES IT AT ALL. The unclaimed-work escalation (spec 4.2) needs an instant
+   * to measure a queue age from, and until this field there was none: `team-workload.ts` used
+   * `dischargeAt`, which is not an observed instant but a display convention -- the plan wizard
+   * writes midday on the AWST calendar day a coordinator typed. Measured from that, a plan
+   * activated at 08:00 and never claimed reported an age of ZERO all morning and escalated four
+   * hours late, on a safety escalation whose whole purpose is not to miss one.
+   *
+   * WHY THE CREATION INSTANT IS THE CLAIMABLE INSTANT, checked against the domain rather than
+   * assumed. A plan is claimable exactly while it has no owner: `applyAssignmentAction`'s `claim`
+   * has ONE precondition, `ownerId === null`, and no plan state anywhere gates it -- a draft is as
+   * claimable as an active plan, which is why `buildTeamWorkload` counts both as unclaimed. A plan
+   * is created with no assignment row at all, so it is unowned from its first instant; and nothing
+   * in this domain returns a claimed plan to unowned -- there is no release action, and `reassign`
+   * moves ownership from one actor to another. So "unowned since" and "created at" are the same
+   * instant for every plan that has one, which is why this is the creation instant under its own
+   * name rather than a second `claimable_since` column holding a copy of it. A release action, if
+   * one is ever added, is the change that would break that equality and would have to introduce
+   * the separate column then.
+   *
+   * WHY IT IS NOT PART OF `patientDetail` AND IS NOT CLEARED. It is an instant, like
+   * `PlanAssuranceAttestation.attestedAt` -- no patient content, and the same class
+   * de-identification deliberately preserves. `deidentifyEpisode` keeps `planDates` for exactly
+   * this reason.
+   */
+  createdAt: Date;
   /** The instant the plan reached a terminal state; null while it is still open. */
   completedAt: Date | null;
   outcome: PlanOutcome;
@@ -606,6 +737,19 @@ export type DispatchRecord = {
   discrepancyResolvedAt: Date | null;
   discrepancyResolution: DispatchDiscrepancyResolution | null;
 };
+/**
+ * Pins `DispatchRecord` as carrying no discrepancy note, and it is load-bearing rather than tidy.
+ *
+ * `resolveDispatchDiscrepancy` is the ONE write in this store whose input holds patient free text
+ * and whose spec names no plan, so its replay record is the one that cannot be reached by plan id
+ * when retention clears an episode. That is safe only because what it stores is this shape, which
+ * holds the resolution and its instant and NOT the note. Adding the note here would put a
+ * clinician's account of one named patient's message into a replay record nothing can clear --
+ * so it stops the module compiling instead. If the note ever has to be released, the plan id has
+ * to reach the replay record first.
+ */
+export const DISPATCH_RECORD_HOLDS_NO_DISCREPANCY_NOTE: LacksKey<DispatchRecord, "discrepancyNote"> = true;
+
 export type DispatchDiscrepancyResolution = "confirmedDelivered" | "confirmedNotDelivered" | "unresolvedNoResend";
 export type ResolveDiscrepancyInput = {
   contactId: ContactId;
