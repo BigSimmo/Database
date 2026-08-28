@@ -2,7 +2,7 @@
 
 The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
 circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 810 bytes.
+size, and the primary file is 863 bytes.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -85,12 +85,18 @@ The two strokes are divided by **one straight line**:
 | A point on it              | (26.2380, 48.6900)             |
 | Unit normal                | (0.87626, 0.48184)             |
 | Direction                  | 118.806°                       |
-| Upper stroke's facing edge | the line at normal·x = 44.3521 |
-| Lower stroke's facing edge | the line at normal·x = 48.5521 |
+| Upper stroke's facing edge | the line at normal·x = 44.6629 |
+| Lower stroke's facing edge | the line at normal·x = 48.8629 |
 
 The two edges are the same line offset ±2.1 units, so they are exactly parallel: the gap is
 **4.2 units wide down its whole length** and neither edge curves against the other. Everything else
 in the mark is built to meet those two lines tangentially.
+
+The cut sits where it does for a reason: at normal·x = 44.6629 the point reflection that makes the
+second stroke carries the **upper stroke's facing edge exactly onto the lower one**. The whole mark
+is therefore invariant under that single transform, and the second stroke can be — and is — written
+as a transform of the first rather than as its own path. If the gap changes, this position has to be
+re-solved from `(normal·origin − gap) / 2.07`; it is not a free number.
 
 This is the part to protect. Give the two facing edges separate curves and the gap opens into a
 lens; that is what the first two cuts of these files did.
@@ -108,9 +114,9 @@ Three arcs and one straight segment, meeting at two tangent points and two sharp
 | Facing edge | —                  | straight | the upper side of the middle line                |
 
 - **Head cusp** at (41.3675, 2.6554) — outer sweep into throat, 36°.
-- **Tail cusp** at (17.7944, 59.6872) — the cut into the tail hook, 81°.
-- **Tangent points** at (3.9761, 43.9116) outer sweep into tail hook, (28.9705, 27.8543) throat into
-  blend, and (28.6978, 39.8584) blend onto the cut.
+- **Tail cusp** at (18.0434, 59.8793) — the cut into the tail hook, 81°.
+- **Tangent points** at (3.9761, 43.9116) outer sweep into tail hook, (29.0679, 28.0493) throat into
+  blend, and (28.8667, 40.1963) blend onto the cut.
 
 The outer sweep is centred at (r, r) for its own radius, so it is tangent to both the top and the
 left edge of the stroke's bounding box. That relationship fell out of the fit rather than being
@@ -131,30 +137,49 @@ A negative uniform scale is a 180° rotation and a 7% enlargement in one step. T
 | Outer sweep | (23.8579, 69.1363) | 31.2450  | the outer edge                    |
 | Tail hook   | (−0.1024, 83.1096) | 58.9820  | the hook into the tail            |
 | Throat      | (7.0894, 78.9507)  | 18.9638  | the scoop under the head          |
-| Blend       | (36.2329, 63.7405) | 13.9100  | carries the throat onto the cut   |
+| Blend       | (36.4044, 64.0737) | 13.9100  | carries the throat onto the cut   |
 | Facing edge | —                  | straight | the lower side of the middle line |
 
 - **Head cusp** at (10.8397, 97.5400) — outer sweep into throat, 36°.
-- **Tail cusp** at (35.5467, 36.1199) — the cut into the tail hook, 82°.
-- **Tangent points** at (50.8485, 53.3959) outer sweep into tail hook, (23.9013, 70.1765) throat
-  into blend, and (24.0441, 57.0382) blend onto the cut.
+- **Tail cusp** at (35.7966, 36.3105) — the cut into the tail hook, 81°.
+- **Tangent points** at (50.8485, 53.3959) outer sweep into tail hook, (24.0003, 70.3687) throat
+  into blend, and (24.2156, 57.3713) blend onto the cut.
 
-The blend radius is the upper stroke's 13.0 scaled by the same 1.07, so the two strokes turn onto
-the cut identically. The facing edge is **not** derived from the upper stroke's — it is the same
-line, offset the other way, which is why it has to be stated rather than transformed.
+Every one of those numbers is the point reflection of the upper stroke's, including the facing edge
+and the blend, so the second stroke is written in the files as
+
+```
+<path d="…the upper stroke…" transform="translate(55.1029 100.3813) scale(-1.07)"/>
+```
+
+and the table above is a convenience, not a second source of truth. Keeping that exact — rather than
+approximately — true is what fixes the cut's position; see **The middle line** above.
 
 ### The point
 
-A circle of radius **10.2165** centred at **(58.9234, 16.5279)**.
+A circle of radius **10.4586** centred at **(60.4716, 17.3581)**.
 
-With the point included, the glyph spans 0 to 69.14 horizontally and 0 to 100.38 vertically.
+Measured against the cut, its centre sits **43.95 units along** the cut from the cut's midpoint and
+**14.90 units off** it, on the lower stroke's side. Its nearest approach to the S is 13.65 units —
+a little over three times the width of the cut, which is what keeps it reading as a separate
+particle rather than part of the letter.
+
+An earlier draft of these files had it at (58.9234, 16.5279) with radius 10.2165. That was a
+measurement error, not a decision: 1.8 units in and 2.3% small, which crowded the S's shoulder and
+made the point look like a stray rather than a counterweight.
+
+With the point included, the glyph spans 0 to 70.93 horizontally and 0 to 100.38 vertically.
 
 ### The tile
 
 A square with a corner radius of **3/16 of its side** (18.75%). The glyph is scaled to **80% of the
-tile height** and placed so that a point 46% of the way from the S's own centre toward the glyph's
-right edge lands on the tile centre. That weighting stops the light single point from dragging the
-heavy S off to the left.
+tile height** and its ink bounding box — S and point together — is centred in the tile. At 512 px
+that leaves 112 px clear on the left and right and 51 px top and bottom.
+
+An earlier draft weighted the placement 46% of the way from the S's own centre toward the glyph's
+right edge, on the theory that the light point should not drag the heavy S leftward. It
+over-corrected badly: the mark sat 65 px from the left edge and 164 px from the right. Centring the
+bounding box is both simpler and visibly right.
 
 ### Small sizes
 
@@ -163,6 +188,15 @@ that range: the gap is widened to **7.2 units** by moving each facing edge 1.5 u
 other, and the blends are re-solved against the lines they now meet. Because only the facing edges
 move, the outer silhouette is identical to the one in the primary file. Use it for favicons, browser
 tabs, and anything rendered under 32 px.
+
+### The maskable icon
+
+`psychsift-mark-maskable.svg` is full-bleed, because Android crops adaptive icons to whatever shape
+the launcher uses. Everything that must survive that crop has to sit inside a centred circle of
+**66.7% of the icon's width**. The glyph is scaled to **62% of the height**, which puts its furthest
+ink 168 px from the centre of a 512 px icon against the 171 px the safe circle allows. Do not raise
+that 62%: an earlier draft used 58% with a different centring and still put ink 176 px out, outside
+the safe circle.
 
 ## Colours
 
