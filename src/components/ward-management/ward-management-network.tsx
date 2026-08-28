@@ -81,10 +81,19 @@ function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidat
  * opinion about which bed this person should have, when all that was compared was two health
  * service names — the doc comment above already said so at length, and the label did not.
  * Phase 8 puts honest travel bands on this same screen, which would have made the superlative
- * look as though it had been checked too. Nothing here sorts, ranks or hides a candidate, and
- * neither label may ever carry a comparative word (`tests/ward-management.test.ts` pins that,
- * the same guard `tests/ward-travel-bands.test.ts` holds over the band labels). The tones are
- * unchanged — a colour is not a claim in the way a word is.
+ * look as though it had been checked too.
+ *
+ * THIS FUNCTION sorts, ranks and hides nothing: it answers one yes/no comparison about one
+ * candidate and returns a label for it. That is a claim about this function alone, and it is
+ * deliberately not a claim about the file. `candidatesFor` above orders the shortlist and cuts it
+ * to three (`eligibleCandidatesAmong` sorts it twice), and the compare table renders a positional
+ * rank beside each column heading. Those predate Phase 8, are a deliberate three-of-many
+ * shortlist on this screen rather than a truncation bug, and are out of scope here — the point is
+ * only that the LABEL must not stack a ranking claim of its own on top of them, which is exactly
+ * what "Best" did. Neither label may ever carry a comparative word
+ * (`tests/ward-management.test.ts` pins that, the same guard `tests/ward-travel-bands.test.ts`
+ * holds over the band labels). The tones are unchanged — a colour is not a claim in the way a
+ * word is.
  */
 export function originServiceFit(patient: Movement, unit: Unit) {
   const unitService = siteByCode(unit.siteCode)?.service;

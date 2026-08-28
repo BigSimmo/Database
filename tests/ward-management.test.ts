@@ -190,7 +190,12 @@ describe("originServiceFit states a fact, never a ranking", () => {
 
   it("never labels a candidate with a comparative or ranking word", () => {
     const labels = labelsAcrossTheFixture().map((fit) => fit.label);
-    expect(labels.length).toBeGreaterThan(0);
+    // Not a "more than zero" floor, which nothing realistic could make fail. The sweep must cover
+    // EVERY movement crossed with EVERY unit, so a later narrowing of `labelsAcrossTheFixture`
+    // (one movement, or only the units on one site) is caught here rather than passing quietly on
+    // whatever subset it happened to produce — the label-set assertion below would still be
+    // satisfied by a narrowed sweep, so this is the half that pins the coverage.
+    expect(labels).toHaveLength(wardMovements.length * allUnits().length);
     for (const label of labels) {
       expect(label, `"${label}" ranks a candidate rather than stating what was compared`).not.toMatch(COMPARATIVE);
     }
