@@ -3354,7 +3354,9 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
             writeContext(COORDINATOR_A, "mrc-note-withdraw"),
           ),
         );
-        unwrap(await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-note-clear")));
+        unwrap(
+          await store.markRetentionCleared({ planId: plan.plan.id }, writeContext(COORDINATOR_A, "mrc-note-clear")),
+        );
 
         const after = await store.getAssignment(plan.plan.id, { actor: TEAM_LEAD_A });
         expect(after?.reassignmentHistory).toHaveLength(1);

@@ -884,6 +884,21 @@ export interface CaringContactRepository {
     input: { competency: TrainingCompetency },
     context: WriteContext,
   ): Promise<TransitionResult<TrainingRecord>>;
+  /**
+   * Records that an episode's identifying detail has been cleared, AND CLEARS IT, in one
+   * transaction (Ruling 64: a record named "cleared" must mean cleared).
+   *
+   * WHAT IT REACHES, which is wider than the plan row and was not always. The plan's patient
+   * columns (`CLEARED_PATIENT_DETAIL`) and the cultural-identity projection, plus the three stores
+   * of free text about the patient that live outside that row: the handover note on every
+   * reassignment of this plan, the discrepancy note on every dispatch of its contacts, and the
+   * stored answer of every replay record filed against it. See `CLEARED_PATIENT_FREE_TEXT` and
+   * `RETENTION_CLEARED_REPLAY_ANSWER`; the replay record is redacted rather than deleted, and that
+   * distinction is a guarantee rather than an implementation detail.
+   *
+   * Admissibility is ../retention's rule, not a store's: an episode that has not ended has no
+   * instant to clear against and is refused by name.
+   */
   markRetentionCleared(input: { planId: PlanId }, context: WriteContext): Promise<TransitionResult<void>>;
 
   /** Null for a plan that does not exist AND for one belonging to another team. */

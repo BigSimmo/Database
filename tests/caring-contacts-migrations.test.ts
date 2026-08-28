@@ -318,7 +318,13 @@ describe("caring-contact migrations", () => {
       await client.query(
         `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result, plan_id)
          values ($1, $2, $3, $4::jsonb, $5)`,
-        [TEAM_NORTH, "refused-create", "fingerprint-1", JSON.stringify({ ok: false, reason: "not-found" }), "PLAN-NEVER-CREATED"],
+        [
+          TEAM_NORTH,
+          "refused-create",
+          "fingerprint-1",
+          JSON.stringify({ ok: false, reason: "not-found" }),
+          "PLAN-NEVER-CREATED",
+        ],
       );
     });
     const { rows: orphan } = await pool.query<{ plan_id: string | null }>(
