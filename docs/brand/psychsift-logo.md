@@ -2,7 +2,7 @@
 
 The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
 circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 814 bytes.
+size, and the primary file is 922 bytes.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -19,76 +19,83 @@ have been removed at the owner's direction, and the mark is now a single colour 
 
 ## Provenance
 
-The mark was drawn from the original PsychSift brand sheet. The small white-on-navy mark on that
-sheet is the authoritative design; the large blue raster that circulated alongside it is a
-low-fidelity enlargement and must not be used.
+The mark was drawn from the original PsychSift brand sheet. The mark on that sheet is the
+authoritative design; the large blue raster that circulated alongside it is a low-fidelity
+enlargement and must not be used.
 
-The geometry here was fitted to a high-resolution view of the original at sub-pixel accuracy. The
-fit is a **root-mean-square error of 0.33 units in 100** against the measured outline — well inside
-the softness of the source. Measuring at that resolution showed the design is genuinely
-circle-based, which is why it reconstructs cleanly.
+The geometry here was measured from a high-resolution view of the original, arc by arc, at the
+**50% level of its anti-aliased edges** — the one place on a blurred edge that is not biased by the
+blur. Each arc was then fitted on its own, so its residual could be inspected rather than hidden in
+an aggregate: per-arc RMS runs from 0.05 to 0.14 units in 100. The finished mark covers 94.4% of
+the original by area (intersection over union), against 84.8% for the previous draft of these files.
 
-Two things were corrected, and one apparent oddity was deliberately kept.
+Two earlier drafts got this wrong in instructive ways, and both errors came from trusting a
+measurement that the source could not actually support.
 
-**Corrected.** The glyph is now centred in its tile; the original sat hard against the right edge.
-And every junction between arcs is tangent-continuous, so enlarging the mark reveals no kink.
+**The terminals are sharp.** At the size the original was first sampled, a sharp point blurs into a
+rounded blob. The first draft fitted that blur and gave the mark rounded club-ends. Both tips are
+genuine cusps: the outer edge runs into the inner edge and the crossing is the point.
 
-**Kept.** The lower stroke is drawn **6% larger** than the upper one. That is not a mistake in the
-original and not noise: fitting each stroke separately, and then fitting a single rotation-plus-scale
-between them, both land on the same answer. Forcing the two strokes to be identical measurably
-worsens the match to the original and visibly opens up the channel between them, which is the
-tension the mark depends on. So the mark is one master stroke placed twice, at two sizes.
+**The tail leaves the main sweep.** The second draft modelled each stroke as four arcs, with the
+whole outer edge on one circle. It is not: below about two-thirds of the way down, the outer edge
+peels away from that circle and hooks further out — by three full units at the very tip. That hook
+is what draws the tail into a long fine point, and without it the tail stops short and the stroke
+reads heavy. Fitting by nearest-point distance had hidden this, because every point on a slightly
+wrong outline still sits close to _some_ point of the right one. Comparing coverage against the
+original's grey levels showed it immediately.
 
-**A note on the terminals.** Both tips of each stroke come to a genuine point — a cusp, where the
-outer sweep runs into the inner edge. At the size the original was drawn, a sharp point blurs into
-a rounded blob, and an earlier pass of this file was fitted to that blur and gave the mark rounded
-club-ends. It was wrong. Nothing here is rounded off.
+Two things were corrected, and one apparent oddity was kept.
+
+**Corrected.** The glyph is centred in its tile; the original sat hard against the right edge. And
+every junction between arcs is tangent-continuous, so enlarging the mark reveals no kink.
+
+**Kept.** The second stroke is drawn **7% larger** than the first. Forcing the two to be identical
+measurably worsens the match and opens up the channel between them, which is the tension the mark
+depends on. A further 3.5° rotation improves the fit by another half a percent; it was left out
+deliberately, because an arbitrary tilt is not something a logo specification should carry.
 
 ## Construction
 
-Work in **glyph units**: the S is exactly 100 units tall and 54.84 wide, with its top-left corner
+Work in **glyph units**: the S is exactly 100 units tall and 55.10 wide, with its top-left corner
 at the origin.
 
 ### The master stroke
 
-Four circular arcs, meeting at two tangent points and two sharp cusps:
+Five circular arcs, meeting at three tangent points and two sharp cusps:
 
-| Arc         | Centre           | Radius | Role                                     |
-| ----------- | ---------------- | ------ | ---------------------------------------- |
-| Outer sweep | (30.567, 30.567) | 30.567 | the whole outer edge, head round to tail |
-| Throat      | (46.447, 20.746) | 19.061 | the scoop under the head                 |
-| Elbow       | (29.974, 34.186) | 2.199  | the flick into the tail                  |
-| Tail inner  | (60.692, 67.165) | 42.870 | the long inner sweep of the tail         |
+| Arc         | Centre             | Radius  | Role                                             |
+| ----------- | ------------------ | ------- | ------------------------------------------------ |
+| Outer sweep | (29.2009, 29.2009) | 29.2009 | the outer edge, from the head to two-thirds down |
+| Tail-outer  | (51.5937, 16.1418) | 55.1234 | the hook that draws the tail to a point          |
+| Throat      | (44.8724, 20.0286) | 17.7232 | the scoop under the head                         |
+| Elbow       | (29.2867, 33.5044) | 2.8805  | the flick into the tail                          |
+| Tail-inner  | (65.6136, 70.4548) | 48.9362 | the long inner sweep of the tail                 |
 
-- **Head cusp** at (41.9881, 2.2139) — where the outer sweep meets the throat.
-- **Tail cusp** at (18.6620, 58.7204) — where the tail inner arc meets the outer sweep.
-- **Tangent points** at (31.6779, 32.7957), throat into elbow, and (31.4729, 35.7950), elbow into
-  tail.
+- **Head cusp** at (41.3675, 2.6554) — outer sweep into throat.
+- **Tail cusp** at (17.8645, 59.7414) — tail-inner into tail-outer.
+- **Tangent points** at (3.9761, 43.9116) outer sweep into tail-outer, (31.4657, 31.6204) throat
+  into elbow, and (31.3061, 35.5585) elbow into tail-inner.
 
-Two facts make the construction self-checking. The outer sweep is centred at (r, r) for its own
-radius, so it is tangent to both the top and the left edge of the stroke's bounding box. And the
-elbow's centre is not a free choice — it is _derived_ from tangency to its two neighbours, so the
-distance from the throat's centre to it equals 19.061 + 2.199, and from it to the tail's centre
-equals 2.199 + 42.870. Change any radius and the elbow relocates so both tangencies still hold
-exactly.
+The outer sweep is centred at (r, r) for its own radius, so it is tangent to both the top and the
+left edge of the stroke's bounding box. That relationship fell out of the fit rather than being
+imposed, and it is the quickest way to check a redraw.
 
 ### The second stroke
 
 The same path, transformed:
 
 ```
-translate(54.84 100) scale(-1.06)
+translate(55.1029 100.3813) scale(-1.07)
 ```
 
-A negative uniform scale is a 180° rotation and a 6% enlargement in one step. The offset places the
-enlarged stroke so the pair fills the box (0, 0) to (54.84, 100) exactly. At their closest the two
-strokes are 4.0 units apart — that narrow diagonal channel is the whole character of the mark.
+A negative uniform scale is a 180° rotation and a 7% enlargement in one step. At their closest the
+two strokes pass **4.4 units** apart; that narrow diagonal channel is the whole character of the mark.
 
 ### The point
 
-A circle of radius **10.349** centred at **(58.672, 17.175)**.
+A circle of radius **10.2165** centred at **(58.9234, 16.5279)**.
 
-With the point included, the glyph spans 0 to 69.02 horizontally and 0 to 100 vertically.
+With the point included, the glyph spans 0 to 69.14 horizontally and 0 to 100.38 vertically.
 
 ### The tile
 
@@ -99,10 +106,10 @@ heavy S off to the left.
 
 ### Small sizes
 
-At 32 px and below, the 4-unit channel between the two strokes closes up. `psychsift-favicon.svg`
-is a separate optical cut for that range: the second stroke's offset moves out by 3.5 units in both
-directions, which widens the channel to 8.9 units — more than double — while changing the
-silhouette's proportion by 3%. Use it for favicons, browser tabs, and anything rendered under 32 px.
+At 32 px and below the 4.4-unit channel closes up. `psychsift-favicon.svg` is a separate optical
+cut for that range: the second stroke's origin moves out by 3 units in both directions, widening
+the channel to 8.5 — nearly double — for a 2% change in the silhouette's proportion. Use it for
+favicons, browser tabs, and anything rendered under 32 px.
 
 ## Colours
 
