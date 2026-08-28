@@ -490,6 +490,36 @@
     outline-offset: 3px;
     border-radius: 4px;
   }
+
+  .dont figcaption b {
+    color: #b4372e;
+  }
+  :root:not([data-theme="light"]) .dont figcaption b,
+  :root[data-theme="dark"] .dont figcaption b {
+    color: #ff8a7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .dont figcaption b {
+      color: #ff8a7a;
+    }
+  }
+  .filelist table td:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .clearspace {
+    display: grid;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    gap: 26px;
+    align-items: start;
+    margin-top: 22px;
+  }
+  @media (max-width: 720px) {
+    .clearspace {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 
 <div class="sheet">
@@ -992,6 +1022,256 @@
         <p>
           <b>The second stroke's outline stays 7% larger — kept, not corrected.</b> Forcing the two to be identical
           measurably worsens the match and opens the channel between them, which is the tension the mark depends on.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="ix">07</span>
+      <h2>Clear space and misuse</h2>
+      <span class="aside">the four rules that matter</span>
+    </div>
+    <p class="lede">
+      Keep a margin of at least one quarter of the mark's height clear on every side — of type, of image edges, of other
+      logos. The mark is already inset inside its own tile; this margin is measured from the tile.
+    </p>
+    <div class="clearspace">
+      <div class="plate">
+        <svg
+          viewBox="-34 -44 168 178"
+          role="img"
+          aria-label="Clear-space diagram: a margin of one quarter of the mark's height on every side"
+        >
+          <rect class="guide" x="-25" y="-25" width="150" height="150" />
+          <image
+            href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJQc3ljaFNpZnQiPjx0aXRsZT5Qc3ljaFNpZnQ8L3RpdGxlPjxkZXNjPlRoZSBQc3ljaFNpZnQgbWFyazogdHdvIGNvdW50ZXItdHVybmluZyBzdHJva2VzIGZvcm1pbmcgYW4gUywgd2l0aCBhIHNldHRsZWQgcG9pbnQuPC9kZXNjPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iOTYiIGZpbGw9IiMwRDFCMkEiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTEuMjg2NyA1MS4yKSBzY2FsZSg0LjA4MDQpIj48ZyBmaWxsPSIjRkZGRkZGIj48cGF0aCBkPSJNNDEuMzY3NSAyLjY1NTQgQTE3LjcyMzIgMTcuNzIzMiAwIDAgMCAyOS4wNjc5IDI4LjA0OTMgQTEzIDEzIDAgMCAxIDI4Ljg2NjcgNDAuMTk2MyBMMTguMDQzNCA1OS44NzkzIEE1NS4xMjM0IDU1LjEyMzQgMCAwIDEgMy45NzYxIDQzLjkxMTYgQTI5LjIwMDkgMjkuMjAwOSAwIDAgMSA0MS4zNjc1IDIuNjU1NCBaIi8+PHBhdGggZD0iTTQxLjM2NzUgMi42NTU0IEExNy43MjMyIDE3LjcyMzIgMCAwIDAgMjkuMDY3OSAyOC4wNDkzIEExMyAxMyAwIDAgMSAyOC44NjY3IDQwLjE5NjMgTDE4LjA0MzQgNTkuODc5MyBBNTUuMTIzNCA1NS4xMjM0IDAgMCAxIDMuOTc2MSA0My45MTE2IEEyOS4yMDA5IDI5LjIwMDkgMCAwIDEgNDEuMzY3NSAyLjY1NTQgWiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTUuMTAyOSAxMDAuMzgxMykgc2NhbGUoLTEuMDcpIi8+PGNpcmNsZSBjeD0iNjAuNDcxNiIgY3k9IjE3LjM1ODEiIHI9IjEwLjQ1ODYiLz48L2c+PC9nPjwvc3ZnPgo="
+            x="0"
+            y="0"
+            width="100"
+            height="100"
+          />
+          <line class="axis" x1="0" y1="-25" x2="0" y2="0" />
+          <line class="axis" x1="100" y1="-25" x2="100" y2="0" />
+          <line class="axis" x1="-25" y1="0" x2="0" y2="0" />
+          <line class="axis" x1="-25" y1="100" x2="0" y2="100" />
+          <text x="50" y="-32" text-anchor="middle" font-size="8.5">clear space = 1/4 of the height</text>
+          <text x="-13" y="53" text-anchor="middle" font-size="9" transform="rotate(-90 -13 53)">1/4</text>
+        </svg>
+      </div>
+      <div class="spec">
+        <table>
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Never re-space the two strokes</td>
+              <td class="role">
+                the gap is a constructed 4.2 units; widening it breaks the one relationship the mark is built on
+              </td>
+            </tr>
+            <tr>
+              <td>Never stretch it</td>
+              <td class="role">
+                every curve is a true circle; a non-uniform scale turns them into ellipses and the cut stops being
+                parallel
+              </td>
+            </tr>
+            <tr>
+              <td>Never add a shadow or gradient</td>
+              <td class="role">
+                the mark is one flat colour on one flat ground, and it has to survive being printed in black
+              </td>
+            </tr>
+            <tr>
+              <td>Never place the navy mark on a mid-tone</td>
+              <td class="role">
+                use <code>psychsift-mark-light.svg</code> on pale grounds and
+                <code>psychsift-lockup-horizontal-reverse.svg</code> on dark ones
+              </td>
+            </tr>
+            <tr>
+              <td>Never re-trace a PNG</td>
+              <td class="role">start from the SVG; the raster exports exist only for systems that refuse vectors</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="grid dont" style="margin-top: 26px">
+      <figure>
+        <div class="stage">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzBEMUIyQSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKC01OSAwKSBzY2FsZSgxLjMyIDEpIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTEuMjg2NyA1MS4yKSBzY2FsZSg0LjA4MDQpIj48ZyBmaWxsPSIjRkZGRkZGIj48cGF0aCBkPSJNNDEuMzY3NSAyLjY1NTQgQTE3LjcyMzIgMTcuNzIzMiAwIDAgMCAyOS4wNjc5IDI4LjA0OTMgQTEzIDEzIDAgMCAxIDI4Ljg2NjcgNDAuMTk2MyBMMTguMDQzNCA1OS44NzkzIEE1NS4xMjM0IDU1LjEyMzQgMCAwIDEgMy45NzYxIDQzLjkxMTYgQTI5LjIwMDkgMjkuMjAwOSAwIDAgMSA0MS4zNjc1IDIuNjU1NCBaIi8+PHBhdGggZD0iTTQxLjM2NzUgMi42NTU0IEExNy43MjMyIDE3LjcyMzIgMCAwIDAgMjkuMDY3OSAyOC4wNDkzIEExMyAxMyAwIDAgMSAyOC44NjY3IDQwLjE5NjMgTDE4LjA0MzQgNTkuODc5MyBBNTUuMTIzNCA1NS4xMjM0IDAgMCAxIDMuOTc2MSA0My45MTE2IEEyOS4yMDA5IDI5LjIwMDkgMCAwIDEgNDEuMzY3NSAyLjY1NTQgWiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTUuMTAyOSAxMDAuMzgxMykgc2NhbGUoLTEuMDcpIi8+PGNpcmNsZSBjeD0iNjAuNDcxNiIgY3k9IjE3LjM1ODEiIHI9IjEwLjQ1ODYiLz48L2c+PC9nPjwvZz48L3N2Zz4="
+            alt=""
+            style="width: 150px"
+          />
+        </div>
+        <figcaption>
+          <b>Do not stretch it</b><span>the circles become ellipses and the cut stops being parallel</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="stage">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PGRlZnM+PGZpbHRlciBpZD0iZCIgeD0iLTMwJSIgeT0iLTMwJSIgd2lkdGg9IjE3MCUiIGhlaWdodD0iMTcwJSI+PGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjE0IiBzdGREZXZpYXRpb249IjE2IiBmbG9vZC1vcGFjaXR5PSIwLjU1Ii8+PC9maWx0ZXI+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMkU1RkQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEQxQjJBIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0idXJsKCNnKSIvPjxnIGZpbHRlcj0idXJsKCNkKSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTExLjI4NjcgNTEuMikgc2NhbGUoNC4wODA0KSI+PGcgZmlsbD0iI0ZGRkZGRiI+PHBhdGggZD0iTTQxLjM2NzUgMi42NTU0IEExNy43MjMyIDE3LjcyMzIgMCAwIDAgMjkuMDY3OSAyOC4wNDkzIEExMyAxMyAwIDAgMSAyOC44NjY3IDQwLjE5NjMgTDE4LjA0MzQgNTkuODc5MyBBNTUuMTIzNCA1NS4xMjM0IDAgMCAxIDMuOTc2MSA0My45MTE2IEEyOS4yMDA5IDI5LjIwMDkgMCAwIDEgNDEuMzY3NSAyLjY1NTQgWiIvPjxwYXRoIGQ9Ik00MS4zNjc1IDIuNjU1NCBBMTcuNzIzMiAxNy43MjMyIDAgMCAwIDI5LjA2NzkgMjguMDQ5MyBBMTMgMTMgMCAwIDEgMjguODY2NyA0MC4xOTYzIEwxOC4wNDM0IDU5Ljg3OTMgQTU1LjEyMzQgNTUuMTIzNCAwIDAgMSAzLjk3NjEgNDMuOTExNiBBMjkuMjAwOSAyOS4yMDA5IDAgMCAxIDQxLjM2NzUgMi42NTU0IFoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDU1LjEwMjkgMTAwLjM4MTMpIHNjYWxlKC0xLjA3KSIvPjxjaXJjbGUgY3g9IjYwLjQ3MTYiIGN5PSIxNy4zNTgxIiByPSIxMC40NTg2Ii8+PC9nPjwvZz48L2c+PC9zdmc+"
+            alt=""
+            style="width: 150px"
+          />
+        </div>
+        <figcaption>
+          <b>Do not add a shadow or gradient</b><span>the mark is one flat colour on one flat ground</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="stage">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzBEMUIyQSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDExMS4yODY3IDUxLjIpIHNjYWxlKDQuMDgwNCkiPjxnIGZpbGw9IiNGRkZGRkYiPjxwYXRoIGQ9Ik00MS4zNjc1IDIuNjU1NCBBMTcuNzIzMiAxNy43MjMyIDAgMCAwIDI3LjY3ODkgMjQuMzI5MSBBMTMgMTMgMCAwIDEgMjYuNDU4NyAzMy43NDc0IEwxMy45ODA5IDU2LjQzOTEgQTU1LjEyMzQgNTUuMTIzNCAwIDAgMSAzLjk3NjEgNDMuOTExNiBBMjkuMjAwOSAyOS4yMDA5IDAgMCAxIDQxLjM2NzUgMi42NTU0IFoiLz48cGF0aCBkPSJNNDEuMzY3NSAyLjY1NTQgQTE3LjcyMzIgMTcuNzIzMiAwIDAgMCAyNy42Nzg5IDI0LjMyOTEgQTEzIDEzIDAgMCAxIDI2LjQ1ODcgMzMuNzQ3NCBMMTMuOTgwOSA1Ni40MzkxIEE1NS4xMjM0IDU1LjEyMzQgMCAwIDEgMy45NzYxIDQzLjkxMTYgQTI5LjIwMDkgMjkuMjAwOSAwIDAgMSA0MS4zNjc1IDIuNjU1NCBaIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NS4xMDI5IDEwMC4zODEzKSBzY2FsZSgtMS4wNykiLz48Y2lyY2xlIGN4PSI2MC40NzE2IiBjeT0iMTcuMzU4MSIgcj0iMTAuNDU4NiIvPjwvZz48L2c+PC9zdmc+"
+            alt=""
+            style="width: 150px"
+          />
+        </div>
+        <figcaption>
+          <b>Do not re-space the strokes</b><span>the 4.2-unit gap is the relationship the mark is built on</span>
+        </figcaption>
+      </figure>
+      <figure>
+        <div class="stage">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIGZpbGw9IiM1QjZCODAiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg1NiA1Nikgc2NhbGUoMC43ODEyNSkiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iOTYiIGZpbGw9IiMwRDFCMkEiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxMTEuMjg2NyA1MS4yKSBzY2FsZSg0LjA4MDQpIj48ZyBmaWxsPSIjRkZGRkZGIj48cGF0aCBkPSJNNDEuMzY3NSAyLjY1NTQgQTE3LjcyMzIgMTcuNzIzMiAwIDAgMCAyOS4wNjc5IDI4LjA0OTMgQTEzIDEzIDAgMCAxIDI4Ljg2NjcgNDAuMTk2MyBMMTguMDQzNCA1OS44NzkzIEE1NS4xMjM0IDU1LjEyMzQgMCAwIDEgMy45NzYxIDQzLjkxMTYgQTI5LjIwMDkgMjkuMjAwOSAwIDAgMSA0MS4zNjc1IDIuNjU1NCBaIi8+PHBhdGggZD0iTTQxLjM2NzUgMi42NTU0IEExNy43MjMyIDE3LjcyMzIgMCAwIDAgMjkuMDY3OSAyOC4wNDkzIEExMyAxMyAwIDAgMSAyOC44NjY3IDQwLjE5NjMgTDE4LjA0MzQgNTkuODc5MyBBNTUuMTIzNCA1NS4xMjM0IDAgMCAxIDMuOTc2MSA0My45MTE2IEEyOS4yMDA5IDI5LjIwMDkgMCAwIDEgNDEuMzY3NSAyLjY1NTQgWiIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNTUuMTAyOSAxMDAuMzgxMykgc2NhbGUoLTEuMDcpIi8+PGNpcmNsZSBjeD0iNjAuNDcxNiIgY3k9IjE3LjM1ODEiIHI9IjEwLjQ1ODYiLz48L2c+PC9nPjwvZz48L3N2Zz4="
+            alt=""
+            style="width: 150px"
+          />
+        </div>
+        <figcaption>
+          <b>Do not put it on a mid-tone</b><span>use the light file on pale grounds, the reverse on dark</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="ix">08</span>
+      <h2>The files</h2>
+      <span class="aside">13 SVG · 2 PNG · public/brand/</span>
+    </div>
+    <p class="lede">
+      Every file here is generated from the same geometry, so they cannot drift apart. If the mark ever changes, all
+      fifteen are rebuilt together.
+    </p>
+    <div class="spec filelist" style="margin-top: 22px">
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Use it for</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>psychsift-mark.svg</td>
+            <td class="role">the primary mark, navy tile — the default everywhere</td>
+          </tr>
+          <tr>
+            <td>psychsift-mark-blue.svg</td>
+            <td class="role">on brand blue</td>
+          </tr>
+          <tr>
+            <td>psychsift-mark-light.svg</td>
+            <td class="role">on a light tile, for pale backgrounds</td>
+          </tr>
+          <tr>
+            <td>psychsift-mark-maskable.svg</td>
+            <td class="role">full-bleed square for PWA install and Android adaptive icons</td>
+          </tr>
+          <tr>
+            <td>psychsift-favicon.svg</td>
+            <td class="role">browser tabs and anything under 32 px</td>
+          </tr>
+          <tr>
+            <td>psychsift-glyph-white.svg</td>
+            <td class="role">the glyph alone, white, no tile</td>
+          </tr>
+          <tr>
+            <td>psychsift-glyph-navy.svg</td>
+            <td class="role">the glyph alone, navy, no tile</td>
+          </tr>
+          <tr>
+            <td>psychsift-glyph-mono.svg</td>
+            <td class="role">the glyph in <code>currentColor</code>, for inlining</td>
+          </tr>
+          <tr>
+            <td>psychsift-lockup-horizontal.svg</td>
+            <td class="role">mark plus wordmark, light backgrounds</td>
+          </tr>
+          <tr>
+            <td>psychsift-lockup-horizontal-reverse.svg</td>
+            <td class="role">the same, dark backgrounds</td>
+          </tr>
+          <tr>
+            <td>psychsift-lockup-horizontal-tagline.svg</td>
+            <td class="role">with CLARITY. EVIDENCE. BETTER CARE.</td>
+          </tr>
+          <tr>
+            <td>psychsift-lockup-stacked.svg</td>
+            <td class="role">mark above wordmark, for narrow spaces</td>
+          </tr>
+          <tr>
+            <td>psychsift-wordmark.svg</td>
+            <td class="role">the wordmark alone</td>
+          </tr>
+          <tr>
+            <td>psychsift-mark-1024.png</td>
+            <td class="role">raster export, where SVG is refused</td>
+          </tr>
+          <tr>
+            <td>psychsift-mark-maskable-1024.png</td>
+            <td class="role">raster export of the maskable icon</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top: 22px">
+      The mark carries <code>role="img"</code> and a <code>&lt;title&gt;</code>, so a screen reader announces it as
+      "PsychSift" when it is inlined. Next to the word PsychSift, mark it <code>aria-hidden</code> instead, so the name
+      is not read twice.
+    </p>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="ix">09</span>
+      <h2>Still open</h2>
+      <span class="aside">decisions for the owner, not for the drawing</span>
+    </div>
+    <div class="notes">
+      <div class="note">
+        <span class="k">01</span>
+        <p>
+          <b>Two taglines.</b> The brand sheet gives "CLARITY. EVIDENCE. BETTER CARE." in its header and "Clinical
+          clarity. Evidence. Better care." in its footer. The lockup uses the first. One of them should be retired.
+        </p>
+      </div>
+      <div class="note">
+        <span class="k">02</span>
+        <p>
+          <b>Inter or Geist.</b> The sheet specifies Inter throughout; the running application sets its interface in
+          Geist. The wordmark here is outlined artwork so it is unaffected either way, but a wordmark set live in Geist
+          would not match it.
+        </p>
+      </div>
+      <div class="note">
+        <span class="k">03</span>
+        <p>
+          <b>The tail tips.</b> Both tails end in a clean angled cut at about 81°. A flatter tail hook would draw them
+          into finer points, closer to the blurry original, at the cost of some weight in both strokes. Tested and left
+          alone; it is a preference, not a defect.
         </p>
       </div>
     </div>
