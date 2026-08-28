@@ -153,7 +153,14 @@ describe("check-bundle-budget CLI exit", () => {
     return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
       const child = spawn(process.execPath, [script, ...args], {
         cwd: sandbox,
-        env: { ...process.env, NODE_OPTIONS: "", BUNDLE_BUDGET_ROOT: sandbox, ...envOverrides },
+        env: {
+          ...process.env,
+          NODE_OPTIONS: "",
+          BUNDLE_BUDGET_ROOT: sandbox,
+          BUNDLE_BUDGET_SOURCE_SHA: "",
+          GITHUB_SHA: "",
+          ...envOverrides,
+        },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let stdout = "";

@@ -448,14 +448,18 @@ function readCurrentGitHead() {
  * @param {() => string | null} [readHead]
  */
 export function resolveBaselineSource(environment = process.env, readHead = readCurrentGitHead) {
-  for (const candidate of [environment.BUNDLE_BUDGET_SOURCE_SHA, environment.GITHUB_SHA]) {
-    if (typeof candidate === "string" && /^[0-9a-f]{40}$/i.test(candidate.trim())) {
-      return candidate.trim().toLowerCase();
-    }
+  if (
+    typeof environment.BUNDLE_BUDGET_SOURCE_SHA === "string" &&
+    /^[0-9a-f]{40}$/i.test(environment.BUNDLE_BUDGET_SOURCE_SHA.trim())
+  ) {
+    return environment.BUNDLE_BUDGET_SOURCE_SHA.trim().toLowerCase();
   }
-  const candidate = readHead();
-  if (typeof candidate === "string" && /^[0-9a-f]{40}$/i.test(candidate.trim())) {
-    return candidate.trim().toLowerCase();
+  const localHead = readHead();
+  if (typeof localHead === "string" && /^[0-9a-f]{40}$/i.test(localHead.trim())) {
+    return localHead.trim().toLowerCase();
+  }
+  if (typeof environment.GITHUB_SHA === "string" && /^[0-9a-f]{40}$/i.test(environment.GITHUB_SHA.trim())) {
+    return environment.GITHUB_SHA.trim().toLowerCase();
   }
   return null;
 }
