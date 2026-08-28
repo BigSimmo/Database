@@ -340,9 +340,7 @@ describe("the seeded population", () => {
     const plans = await store.listPlans({ actor: coordinator });
 
     const dispatchedContacts = (
-      await Promise.all(
-        plans.map((record) => store.listContacts(toPlanId(record.plan.id), { actor: coordinator })),
-      )
+      await Promise.all(plans.map((record) => store.listContacts(toPlanId(record.plan.id), { actor: coordinator })))
     )
       .flat()
       .filter((entry) => DISPATCHED_CONTACT_STATES.includes(entry.contact.state));

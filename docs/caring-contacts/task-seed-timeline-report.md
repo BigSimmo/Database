@@ -21,13 +21,13 @@ Rowan's plan is now discharged **two calendar months** before "now"
 (`dischargeMonthsBeforeShared: 2`, replacing `dischargeDaysBeforeShared`). Checked against
 `buildApprovedSchedule` itself, not assumed:
 
-| Cadence   | Discharge offset  | Falls on (today = 2026-08-29) | Relation to today | Seeded state             |
-| --------- | ------------------ | ------------------------------ | ------------------ | ------------------------- |
-| Day 1     | discharge + 1 day  | 2026-06-30                     | before              | attempted, `delivered`    |
-| Week 1    | discharge + 7 days | 2026-07-06                     | before              | attempted, `delivered`    |
-| Month 1   | discharge + 1 month| 2026-07-29                     | before              | attempted, `notDelivered` |
-| Month 2   | discharge + 2 months| 2026-08-29 (**today**)        | equal               | left `scheduled`, due today |
-| Month 3-12| discharge + 3..12 months | 2026-09-29 .. 2027-06-29 | after               | left `scheduled`          |
+| Cadence    | Discharge offset         | Falls on (today = 2026-08-29) | Relation to today | Seeded state                |
+| ---------- | ------------------------ | ----------------------------- | ----------------- | --------------------------- |
+| Day 1      | discharge + 1 day        | 2026-06-30                    | before            | attempted, `delivered`      |
+| Week 1     | discharge + 7 days       | 2026-07-06                    | before            | attempted, `delivered`      |
+| Month 1    | discharge + 1 month      | 2026-07-29                    | before            | attempted, `notDelivered`   |
+| Month 2    | discharge + 2 months     | 2026-08-29 (**today**)        | equal             | left `scheduled`, due today |
+| Month 3-12 | discharge + 3..12 months | 2026-09-29 .. 2027-06-29      | after             | left `scheduled`            |
 
 This is the exact table printed by an ephemeral test that drove the real seeded store (written,
 run, and deleted -- see "Verification" below); it is not hand-computed. It preserves every property
@@ -50,7 +50,7 @@ new exported function:
 
 ```ts
 // src/lib/caring-contacts/schedule.ts
-export function calendarDayPlusMonths(calendarDay: string, months: number): string | null
+export function calendarDayPlusMonths(calendarDay: string, months: number): string | null;
 ```
 
 It parses an AWST calendar day, shifts it by whole calendar months (accepting a negative amount to
@@ -105,7 +105,7 @@ No guard was weakened, loosened, or bypassed anywhere in this change.
   - Removed the now-unused `MILLISECONDS_PER_DAY` constant and its AWST-day-arithmetic comment.
   - Rowan's plan: `dischargeDaysBeforeShared: 1` -> `dischargeMonthsBeforeShared: 2`; his
     `attemptedContacts` re-targeted from `["Week 1" fail, "Month 1", "Month 2"]` to `["Month 1"
-    fail, "Week 1", "Day 1"]` (all three now in the past; `Month 1` is the closest to today, so it
+fail, "Week 1", "Day 1"]` (all three now in the past; `Month 1` is the closest to today, so it
     carries the failure, per the existing "closest first" convention).
   - Added `shiftedPlanDischargeAt` helper and rewired the per-plan `planDischargeAt` computation to
     use it instead of millisecond subtraction.
@@ -127,7 +127,7 @@ No guard was weakened, loosened, or bypassed anywhere in this change.
   immediately above it in the same file.
 - **`docs/caring-contacts/task-seed-timeline-report.md`** -- this report.
 
-No existing test's *assertions* were changed -- only the module doc comments and seed data they
+No existing test's _assertions_ were changed -- only the module doc comments and seed data they
 describe. The renamed field (`dischargeDaysBeforeShared` -> `dischargeMonthsBeforeShared`) had no
 other reference anywhere in `src/` or `tests/` (checked with a repo-wide grep before renaming).
 
