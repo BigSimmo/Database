@@ -824,6 +824,12 @@ function bandGroup(band: string): HTMLElement {
   return screen.getByTestId(`ward-referral-match-band-group-${band}`);
 }
 
+/** The heading a coordinator reads for a group key, from the exported labels — never a second
+ *  spelling written out in this file. */
+function bandGroupHeading(band: string): string {
+  return band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[band as TravelBand];
+}
+
 describe("ReferralMatchView — travel bands are grouped, and every group is on the screen", () => {
   it("renders all five band headings, including the ones no unit sits in", () => {
     const emptyBandOf = (bands: (TravelBand | undefined)[]) => TRAVEL_BANDS.find((band) => !bands.includes(band));
@@ -888,6 +894,49 @@ describe("ReferralMatchView — travel bands are grouped, and every group is on 
       return running + units;
     }, 0);
     expect(total).toBe(allUnits().length);
+  });
+
+  it("puts the heading and both counts INSIDE the summary, the only part a shut group paints", () => {
+    // THE assertion the binding condition rests on, and the one that was missing. A closed
+    // `<details>` paints its `<summary>` and nothing else — but jsdom does not model that, so every
+    // other test in this file proves only that the counts are in the DOCUMENT. Move the counts span
+    // one line down, below `</summary>`, and all of them stay green while a coordinator on a phone
+    // sees five bare bars with no numbers at all: exactly the outcome the metro/rural toggle was
+    // declined to prevent. Containment in the summary is the structural fact that rules it out, and
+    // it is checkable where visibility is not.
+    const emptyBandOf = (bands: (TravelBand | undefined)[]) => TRAVEL_BANDS.find((band) => !bands.includes(band));
+    const homeRegion = regionWhere((bands) => emptyBandOf(bands) !== undefined);
+    expect(homeRegion, "no home region leaves a band empty — the empty-group case is untestable").not.toBeNull();
+    const emptyBand = emptyBandOf(bandsAcrossNetwork(homeRegion!))!;
+
+    renderMatch(bandReferral({ homeRegion: homeRegion! }), allUnits());
+
+    for (const band of BAND_GROUP_KEYS) {
+      const group = bandGroup(band);
+      expect(group).not.toHaveAttribute("open");
+      const summary = group.querySelector("summary");
+      expect(summary, `band group ${band} renders no summary — its heading would sit inside the fold`).not.toBeNull();
+      // The heading itself.
+      expect(summary!.textContent ?? "").toContain(bandGroupHeading(band));
+      // And BOTH counts, as an element genuinely contained by the summary — not merely somewhere
+      // inside the details.
+      const counts = screen.getByTestId(`ward-referral-match-band-counts-${band}`);
+      expect(summary).toContainElement(counts);
+      expect(counts.textContent ?? "").toContain("in this band");
+      expect(counts.textContent ?? "").toContain("this referral");
+    }
+
+    // Including the empty group, which is the case a coordinator most needs answered without
+    // opening anything: "there is nothing available within an hour".
+    const emptySummary = bandGroup(emptyBand).querySelector("summary");
+    expect(emptySummary!.textContent ?? "").toContain("0 units in this band");
+    expect(emptySummary!.textContent ?? "").toContain("0 accept this referral");
+
+    // No heading may ever assert temporality: "right now" is what made the earlier global
+    // accepting-count line an operational claim, and a band heading must never carry it.
+    for (const band of BAND_GROUP_KEYS) {
+      expect(bandGroup(band).querySelector("summary")!.textContent ?? "").not.toMatch(/right now/i);
+    }
   });
 
   it("opens the groups at desktop width and keeps every heading and count in place", () => {

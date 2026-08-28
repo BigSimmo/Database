@@ -50,10 +50,13 @@ const BAND_GROUPS_OPEN_MEDIA_QUERY = "(min-width: 40rem)";
 
 /**
  * Whether the band groups start open, tracked live so a rotation or a resize is honoured rather
- * than frozen at mount. The server (and jsdom, which omits `matchMedia` unless a test installs the
- * stub) answers `false` — the phone default — so nothing width-dependent is guessed where no width
- * is known, and a shut group is the conservative answer in any case: every heading and both counts
- * are on the screen either way.
+ * than frozen at mount. On the server there is no `matchMedia` at all and the answer is `false` —
+ * the phone default — so nothing width-dependent is guessed where no width is known. The `typeof`
+ * guards are for a browser-like environment that lacks the API rather than for jsdom, which this
+ * repository's `tests/setup/jsdom.setup.ts` always supplies with a stub (defaulting to "no match",
+ * so groups mount shut unless a test installs the matching stub itself). A shut group is the
+ * conservative answer in any case: every heading and both counts are inside the `<summary>`, which
+ * is the part a closed disclosure still paints.
  */
 const useBandGroupsOpenByDefault = createBrowserStore<boolean>(
   (onStoreChange) => {

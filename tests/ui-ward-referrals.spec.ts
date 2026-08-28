@@ -260,9 +260,28 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // so "there is nothing available within an hour" is answerable without expanding a thing.
     const bandGroups = page.getByTestId("ward-referral-match-list").locator("details");
     await expect(bandGroups).toHaveCount(BAND_GROUP_COUNT);
+    let unitsAcrossBands = 0;
     for (let index = 0; index < BAND_GROUP_COUNT; index += 1) {
-      await expect(bandGroups.nth(index).locator("summary")).toBeVisible();
+      const summary = bandGroups.nth(index).locator("summary");
+      await expect(summary).toBeVisible();
+      // Scoped to the SUMMARY and reading its TEXT, both deliberately. A closed `<details>` paints
+      // only its summary, so counts rendered one line below it would still be in the DOM, still
+      // pass a document-wide query, and still leave a coordinator on a phone looking at five bare
+      // bars. Asserting the box is visible does not catch that; asserting the numbers are inside
+      // that box does.
+      await expect(summary).toContainText(/[0-9]+ units? in this band/);
+      await expect(summary).toContainText(/[0-9]+ accepts? this referral/);
+      // A heading states composition, never operational temporality — "right now" belongs to the
+      // accepting-count line above and must never migrate into a band heading.
+      await expect(summary).not.toContainText(/right now/i);
+      const text = (await summary.textContent()) ?? "";
+      const units = Number(/([0-9]+) units? in this band/.exec(text)?.[1]);
+      expect(Number.isNaN(units), `band heading ${index} states no unit count: ${text}`).toBe(false);
+      unitsAcrossBands += units;
     }
+    // The five shut headings between them account for the whole network, so nothing is hidden by
+    // the fold: every bed is answered for before anything is opened.
+    expect(unitsAcrossBands).toBe(NETWORK_UNITS);
     // The invented-travel-times sentence is on this screen, once, wherever a band is shown.
     await expect(page.getByTestId("ward-referral-match-synthetic-notice")).toBeVisible();
     // A coordinator on a phone opens the groups to reach the rows. Every group is expanded here so
