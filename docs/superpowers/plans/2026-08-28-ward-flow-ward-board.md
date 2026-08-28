@@ -27,20 +27,32 @@ Copied verbatim from the spec and from `AGENTS.md`. **Every task's requirements 
 - **Every bed dimension is "does this bed accept this person", never an equality.** `bed.sexDesignation === referral.sex` excludes every undesignated bed — most of the network — and looks entirely reasonable in review.
 - **Owner's stay bands, verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
 - **Colour never carries a fact alone.** Every colour has the same fact beside it in words or numbers.
-- **Two owner-pending lists must not be invented** (D9, D15). See "Owner-pending" below.
+- **One owner-pending list must not be invented** (D15). D9's list was ANSWERED on 2026-08-28 — reuse `BED_RELEASE_BLOCKERS`, never define a second vocabulary for the same fact.
+- **The bed model is THREE stages plus a flag** — `predicted | confirmed | released`, with `blocked` a flag (`blocker` + `blockedBy`) sitting on a predicted or confirmed release. `blocked` is never a state. A blocked-but-confirmed bed KEEPS counting as confirmed.
+- **`BedRelease.confidence` no longer exists.** It is `waitingOn`, from `BED_RELEASE_WAITING_ON`.
+- **A bed carrying a preparation note is still available** — still offered, still in `availableNow`, still in every figure.
 - **Prefix every shell command with `cd /d/Worktrees/Database/pr-2390-fix &&`.** The working directory silently reverts otherwise.
 
 ## Hard gate before Task 1
 
-**Phase 7's build must be complete.** At the time of writing it is at Task 4 of ~8. Tasks 1–3 below modify `ward-model.ts`, `ward-flow-events.ts`, `ward-flow-reducer.ts`, `ward-flow-provider.tsx` and `ward-nav.ts` — the same five files Phase 7's remaining tasks own. The pre-commit hook inspects the **whole working tree**, not the staged set, so two implementers cannot commit independently even with disjoint files.
+**REVISED 2026-08-28.** Phase 7 is now COMPLETE. **Phase 8 is what is in flight**, in this same
+worktree, and the gate is unchanged in substance: no task may begin while another session is
+building here. The pre-commit hook inspects the **whole working tree**, not the staged set, so two
+implementers cannot commit independently even with disjoint files.
 
-Verify before starting: `git log --oneline -5` shows Phase 7's final task committed, and `git status --short` is clean.
+Verify before starting: `git status --short` is clean and no Phase 8 task is mid-flight.
+
+**Thirty commits landed between this plan being written and being revised.** Five changed things it
+depends on — the three-stage bed model, `waitingOn` replacing `confidence`, the owner-approved
+`BED_RELEASE_BLOCKERS`, the filled `BED_PREPARATION_NOTES`, and Phase 8's travel bands. Every one is
+reflected below. **Before writing code, re-read those four arrays in the source rather than trusting
+the quotations in this plan** — it has been overtaken once already and may have been again.
 
 ## Owner-pending — must not be filled in by an agent
 
 | Item | Spec | State |
 | ---- | ---- | ----- |
-| Blocked-discharge reason list | D9 | Draft written, correction outstanding. Ships as `DISCHARGE_BLOCK_REASONS_DRAFT` with a loud comment; the feature is built, the list is replaced on his reply |
+| ~~Blocked-discharge reason list~~ | D9 | **ANSWERED 2026-08-28.** The owner approved it separately; it shipped as the eight-entry `BED_RELEASE_BLOCKERS`. This board REUSES that list and defines none of its own |
 | Receiving-window options at the pull | D15 | Not drafted. **The field is not built** until he supplies them. Task 3 leaves the event shape ready; no UI |
 | `sex` on an admission | D5 | Flagged as a small governance widening with the fallback named. Silence read as acceptance |
 
@@ -102,7 +114,7 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 
 | File | Change |
 | ---- | ------ |
-| `ward-model.ts` | `Admission`, `ADMISSION_STATES`, `STAY_BANDS`, `LEAVING_DESTINATIONS`, `DISCHARGE_BLOCK_REASONS_DRAFT`, `PULL_RELEASE_REASONS`, plus `SEXES` and `URGENCY_LEVELS` (Phase 7 Task 4 flagged both as missing) |
+| `ward-model.ts` | `Admission`, `ADMISSION_STATES`, `STAY_BANDS`, `LEAVING_DESTINATIONS`, `BED_RELEASE_BLOCKERS`, `PULL_RELEASE_REASONS`, plus `SEXES` and `URGENCY_LEVELS` (Phase 7 Task 4 flagged both as missing) |
 | `ward-flow-events.ts` | Eight new events |
 | `ward-flow-reducer.ts` | Their handlers, and admission creation on `PATIENT_ARRIVED` |
 | `ward-flow-provider.tsx` | Expose `admissions` |
@@ -122,7 +134,7 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 - Test: `tests/ward-admission-model.test.ts`
 
 **Interfaces:**
-- Produces: `Admission`, `ADMISSION_STATES`, `AdmissionState`, `STAY_BANDS`, `StayBand`, `LEAVING_DESTINATIONS`, `LeavingDestination`, `DISCHARGE_BLOCK_REASONS_DRAFT`, `DischargeBlockReason`, `PULL_RELEASE_REASONS`, `PullReleaseReason`, `SEXES`, `URGENCY_LEVELS`; and from `ward-admissions.ts`: `stayBand(admission, now)`, `daysInBed(admission, now)`, `bedIsOccupied(admission)`, `isPastExpectedDischarge(admission, now)`, `admissionsForUnit(admissions, unitId)`.
+- Produces: `Admission`, `ADMISSION_STATES`, `AdmissionState`, `STAY_BANDS`, `StayBand`, `LEAVING_DESTINATIONS`, `LeavingDestination`, `BED_RELEASE_BLOCKERS`, `DischargeBlockReason`, `PULL_RELEASE_REASONS`, `PullReleaseReason`, `SEXES`, `URGENCY_LEVELS`; and from `ward-admissions.ts`: `stayBand(admission, now)`, `daysInBed(admission, now)`, `bedIsOccupied(admission)`, `isPastExpectedDischarge(admission, now)`, `admissionsForUnit(admissions, unitId)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -268,26 +280,16 @@ export const LEAVING_DESTINATIONS = [
 export type LeavingDestination = (typeof LEAVING_DESTINATIONS)[number]["id"];
 
 /**
- * DRAFT — NOT THE OWNER'S LIST. Spec D9. Put to the product owner on 2026-08-28 and NOT yet
- * corrected by him. Every entry names what the SYSTEM is waiting for, never anything about the
- * patient: "awaiting a supported accommodation place" is a fact about a service; "too difficult to
- * place" would be a judgement about a person and would be quoted back at someone. Keep that shape
- * whatever the final list says. Replace this array wholesale on his reply and rename it — do not
- * edit entries into it one at a time, and do not ship this to anyone as though it were his.
+ * NO NEW LIST HERE. Spec D9 originally proposed a ten-item draft; it is WITHDRAWN. The owner
+ * approved the blocked-discharge vocabulary separately on 2026-08-28 and it shipped as
+ * `BED_RELEASE_BLOCKERS` in `ward-change-reasons.ts` — eight entries, including the
+ * "Awaiting family or carer arrangement" addition that deliberately overturned a Phase 5 exclusion.
+ *
+ * Import it. Do not define a second vocabulary for the same fact: a ward and a coordinator naming
+ * the same obstacle two different ways is the defect class this repository produces most reliably,
+ * and it is exactly what the withdrawn draft would have caused.
  */
-export const DISCHARGE_BLOCK_REASONS_DRAFT = [
-  "no_accommodation_available",
-  "awaiting_supported_accommodation",
-  "awaiting_ndis_funding_or_plan",
-  "awaiting_residential_aged_care",
-  "awaiting_guardianship_or_administration_decision",
-  "awaiting_another_service_decision",
-  "awaiting_community_team_follow_up",
-  "carer_arrangements_not_in_place",
-  "awaiting_transport_home",
-  "awaiting_transfer_to_another_unit",
-] as const;
-export type DischargeBlockReason = (typeof DISCHARGE_BLOCK_REASONS_DRAFT)[number];
+// import { BED_RELEASE_BLOCKERS, type BedReleaseBlocker } from "@/components/ward-management/ward-change-reasons";
 
 /** Why a pull was released. Same discipline: about the network or the journey, never the person.
  *  A pull never expires on a timer — that would need an invented number, and a bed could reappear
@@ -551,7 +553,7 @@ Rules, each one load-bearing:
 2. **`PATIENT_ARRIVED`** (existing event) additionally sets the matching admission to `occupied` with `arrivedAt: now`. If no admission matches, do nothing and record a rejection — never create one silently.
 3. **`RELEASE_PULL`** refuses unless the admission is `pulled` and the reason is in `PULL_RELEASE_REASONS` by membership. Sets `left`, appends an `UnwindRecord`.
 4. **`SET_DISCHARGE_DATE`** increments `dischargeDateMoves` only when a date was already set and the new value differs.
-5. **`BLOCK_DISCHARGE`** refuses a reason outside `DISCHARGE_BLOCK_REASONS_DRAFT` by membership.
+5. **`BLOCK_DISCHARGE`** refuses a reason outside `BED_RELEASE_BLOCKERS` by membership.
 6. **`RECORD_LEAVING`** refuses a destination outside `LEAVING_DESTINATIONS` by membership; sets `left`, `leftAt: now`.
 7. **`CONFIRM_WARD_DAY`** refuses while any live admission in that unit has `expectedDischargeAt` in the past (spec D10 — the one deliberate friction). Otherwise stamps `wardDayConfirmedAt[unitId] = now`.
 8. **`REORDER_WAITLIST`** clamps `toIndex` into range rather than throwing.
@@ -685,14 +687,15 @@ Four new files, no shared edits. Dispatch all four at once.
 
 Required behaviours, each with its own test:
 
-- A date set → a `predicted` release at that instant, `confidence: "likely"`.
-- Confirmed as going → `confirmed`, `confidence: null` (the existing model's rule: a confirmed release has no confidence, because it is not a belief any more).
-- A blocked admission → `blocked` with the blocker, never dropped from the board.
+- A date set → a `predicted` release at that instant, carrying a `waitingOn` from `BED_RELEASE_WAITING_ON`. **There is no `confidence` field any more** — it was replaced on 2026-08-28 because two wards' "likely" do not mean the same thing, so a coordinator can neither compare nor add them.
+- Confirmed as going → `confirmed`, still carrying its `waitingOn`.
+- **A blocked admission keeps its stage and gains a `blocker` flag.** `blocked` is NOT a state. Assert both halves in one test: a confirmed release that gains a blocker is still counted as confirmed, AND it appears in the blocked cross-cut. This is the exact defect the three-stage rework closed — sorting by state left a blocked release counted nowhere, so a ward's figures improved at the moment it got stuck. Reintroducing it here is the single most likely way this task ships a silent regression.
+- The blocked figure is a **cross-cut, never a bucket subtracted** from confirmed or predicted.
 - No date set → **no release at all**, never a release at `now` and never a fallback instant.
 - **A transfer to another psychiatric ward frees the sending unit's bed but adds nothing to `statewideReleaseCount`** (spec D8). Assert both halves in one test — the sending ward's count rises AND the statewide count does not.
 - The output is fed to the existing `capacityBreakdown()`; this module computes **no bed arithmetic of its own**.
 
-Mutation-test the netting rule by making `countsAsStatewideRelease` always true; expect RED.
+Mutation-test TWO rules here, not one. (a) Make `countsAsStatewideRelease` always true; expect RED on the transfer-netting test. (b) Make the blocked cross-cut a subtraction — exclude blocked releases from the confirmed count; expect RED on the blocked-but-confirmed test. (b) is the more important of the two: it is a re-run of the exact defect the three-stage rework closed, and it went red in six tests across four files when the other session mutated it.
 
 Commit: `feat(ward-flow): derive bed releases from the ward's own discharge dates`
 
@@ -755,7 +758,9 @@ Three new files plus one shared stylesheet created in Task 8 and only appended t
 
 **Files:** Create `board/bed-grid.tsx`, `board/board.module.css`; Test `tests/ward-bed-grid.dom.test.tsx`
 
-Renders one tile per bed. Three signals on three channels (spec D7): fill = stay band, outline = past own date, number = days. Tile states: ready, occupied, pulled-but-empty (with its own "empty 3 hours" clock), on leave, blocked.
+Renders one tile per bed. Three signals on three channels (spec D7): fill = stay band, outline = past own date, number = days. Tile states: ready, occupied, pulled-but-empty (with its own "empty 3 hours" clock), on leave, and **being made ready**.
+
+**Two traps, both from changes that landed after this plan was written.** A bed carrying a `BED_PREPARATION_NOTES` entry ("Being cleaned", "Awaiting maintenance or repair") is **still available** — still offered, still in `availableNow`, still in every figure. The obvious implementation, a distinct state that reads as unavailable, silently removes beds from the state's supply; the note is a caption on a READY bed. And **blocked is not a tile state**: the person is still in the bed, so the tile shows occupied AND carries the blocker, never blocked instead of occupied. Write a test for each, and mutate both.
 
 Tests: the right number of tiles for a unit; a pulled bed renders as unavailable with its clock; **every colour has its fact in text** (assert the day number is present on every occupied tile, and that removing colour loses no information); an admission with no date renders "no date set".
 
@@ -777,7 +782,7 @@ Commit: `feat(ward-flow): the referrals and discharges column`
 
 **Files:** Create `board/board-patient-panel.tsx`; Test `tests/ward-board-patient-panel.dom.test.tsx`
 
-Discharge-focused: days in bed, expected date and how far past it, times moved, home region, community team, and the three actions — **going today · date changed · stuck**. No free text; the blocked reason is a picker driven by `DISCHARGE_BLOCK_REASONS_DRAFT`.
+Discharge-focused: days in bed, expected date and how far past it, times moved, home region, community team, and the three actions — **going today · date changed · stuck**. No free text; the blocked reason is a picker driven by `BED_RELEASE_BLOCKERS`.
 
 **Never blank.** With nothing selected it renders the next bed, when, and who is top of the waitlist.
 

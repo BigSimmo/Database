@@ -18,25 +18,40 @@ this comes first — an owner call recorded in "Open questions" below.
 
 ## Read this before anything below
 
-### 1. The foundation is still not validated
+### 1. The foundation is still not validated — and has already changed once
 
-`predicted → confirmed → blocked → released` — the four stages a bed passes through as it comes
-free — has still never been put to a ward clinician. `docs/ward-flow-clinician-check.md` is the
-one-page summary waiting to go out.
+`predicted → confirmed → released`, with **blocked as a flag rather than a stage** — the model of how
+a bed comes free — has still never been put to a ward clinician. `docs/ward-flow-clinician-check.md`
+is the one-page summary waiting to go out.
 
-**This design deliberately reduces the exposure.** D4 makes a date the ward itself sets the single
-primary fact, and derives the release stages from it. If the four-stage model turns out to be
-wrong, what breaks is the derivation in one module, not the board, not the daily sheet, and not the
-statistics. That is a design goal, not a side effect, and it must survive review.
+**It was four stages when this spec was first written.** The owner revised it on 2026-08-28, while
+this design was still on paper. That revision cost this design nothing, which is the design goal
+working exactly as intended: D4 makes a date the ward itself sets the single primary fact and derives
+the release stages from it, so a change to the stages breaks one derivation module and nothing else —
+not the board, not the daily sheet, not the statistics. It must survive review, because it has now
+been tested once for real.
 
-### 2. Phase 7 is still being built, in the same worktree
+### 2. REVISED 2026-08-28 — Phase 7 is finished; Phase 8 is what is in flight
 
-At the time of writing, Phase 7 has landed fix round B and the referral intake form. Its remaining
-tasks touch `ward-model.ts`, `ward-flow-reducer.ts`, `ward-flow-events.ts` and `ward-nav.ts` —
-which are the same four files this work extends first. **No task in this specification may begin
-until Phase 7's build is complete.** This is a hard sequencing constraint, not a preference: the
-repository's pre-commit hook inspects the whole working tree, so two agents cannot commit
-independently even with disjoint files.
+Phase 7 completed (its Chromium journey, the morning page's people-waiting figure) and Phase 8 began,
+all while this design sat waiting. **Thirty commits landed between this spec being written and being
+revised**, and five changed things it depends on:
+
+| Landed | Consequence here |
+| ------ | ---------------- |
+| The bed model became **three stages plus a flag** | D4 rewritten; `blocked` is never a state on this board |
+| `BedRelease.confidence` → **`waitingOn`** (`BED_RELEASE_WAITING_ON`) | Any `confidence` reference in this design is stale |
+| **`BED_RELEASE_BLOCKERS` owner-approved at eight entries** | D9's draft withdrawn; this board defines no list of its own |
+| **`BED_PREPARATION_NOTES` filled** | A new tile caption — and a trap, see D7 |
+| Phase 8's **travel bands, home region, out-of-area definition** | D12's arrows may carry a band, under Phase 8's rules |
+
+**The sequencing constraint has not gone away, it has moved.** No task may begin while another
+session is building in this worktree — the pre-commit hook inspects the whole working tree, so two
+agents cannot commit independently even with disjoint files. Phase 8 is that session now.
+
+**Re-read the model in the source before writing code against it.** This design has been overtaken
+once already. Check `BED_RELEASE_STATES`, `BED_RELEASE_WAITING_ON`, `BED_RELEASE_BLOCKERS` and
+`BED_PREPARATION_NOTES` directly rather than trusting the quotations here.
 
 ### 3. This extends Phase 7's referral, it does not fork it
 
@@ -71,7 +86,7 @@ That gap costs three things:
 | `Unit` — beds, empty, allocatable, held, blocked, `sexMix`, `speciallingCapacity`, four bed dimensions | The board renders from it. `sexMix` becomes derived rather than hand-maintained (D5)                     |
 | `Movement` — a person travelling to a ward, ending at `arrived`                | The movement's arrival is what creates an admission (D2)                                                          |
 | `Referral` (Phase 7) — the front door, five person-facts, three outcomes       | The left column's referral side. Extended with the ward waitlist (D3)                                             |
-| `BedRelease` — the four-stage model, `expectedAt`, confidence, blocker         | Derived from the discharge date (D4). Not written by hand any more                                                |
+| `BedRelease` — **three stages** (`predicted`/`confirmed`/`released`), `expectedAt`, `waitingOn`, and `blocker` as a FLAG | Derived from the discharge date (D4). Not written by hand any more |
 | `LeaveBed` — a bed whose occupant is on approved leave, usable or not          | A tile state on the board. Unchanged                                                                              |
 | `eligibility()` / matching (Phase 7)                                           | Powers "select a referral and the beds answer" (D13). No new matching logic                                       |
 | `WardFreshness` + refresh-requested                                            | The daily-confirm staleness signal (D10). Same mechanism, new trigger                                             |
@@ -159,17 +174,40 @@ forward-looking figures.
 Owner's decision, given the alternative of two facts side by side: one fact, entered once, so no two
 screens can show different dates and there is one thing to update.
 
-**How it maps onto the existing four stages,** which is what keeps this compatible with Phase 5:
+**How it maps onto the bed model — REVISED 2026-08-28, after this spec was first written.** The
+owner replaced the four-stage model with **three stages plus a flag** while this design sat waiting
+on Phase 7. This spec now targets the new model:
 
-| Ward says                    | Bed release becomes |
-| ---------------------------- | ------------------- |
-| a date is set                | `predicted`         |
-| confirmed as going           | `confirmed`         |
-| ready to leave, cannot (D9)  | `blocked`           |
-| gone                         | `released`          |
+| Ward says                   | Bed release becomes                                    |
+| --------------------------- | ------------------------------------------------------ |
+| a date is set               | `predicted`, carrying `waitingOn`                      |
+| confirmed as going          | `confirmed`, carrying `waitingOn`                      |
+| ready to leave, cannot (D9) | **a `blocker` flag on the predicted OR confirmed release** |
+| gone                        | `released`                                             |
 
-Nothing about the four stages is invented or changed here. They stop being typed and start being
-derived — which is exactly what makes the unvalidated model cheap to correct.
+**`blocked` is no longer a stage and must never be treated as one.** It is a flag
+(`blocker` + `blockedBy`, a role) sitting on a release that stays predicted or confirmed. The defect
+that forced this is exactly the one this board could reintroduce: `capacityBreakdown` sorted today's
+releases into confirmed or predicted *by state*, so a release in state `blocked` matched neither
+branch and was counted **nowhere** — marking a confirmed discharge blocked dropped the ward's
+confirmed count with nothing saying why, so the figures improved at the moment the ward got stuck.
+
+Two rules follow, and both are load-bearing on this board:
+
+1. **A blocked-but-confirmed bed keeps counting as confirmed.** Blocking never removes a bed from a
+   count.
+2. **The "ready to leave, cannot" headline (D9) is a cross-cut, never a bucket taken out of the
+   others.** It counts releases carrying a blocker, and those same releases are still counted in
+   confirmed or predicted. A board that subtracts it has reintroduced the defect.
+
+**`confidence` is gone.** A predicted release no longer says how *certain* the ward is; it says what
+it is **waiting on** — `BED_RELEASE_WAITING_ON`, a fact rather than a judgement, because two wards'
+"likely" do not mean the same thing and a coordinator can neither compare nor add them. Any code in
+this design referring to `confidence` is stale and must read `waitingOn`.
+
+Nothing about the stages is invented or changed by this board. They stop being typed and start being
+derived — which is exactly what makes the model cheap to correct, and it has now been corrected once
+while this design was still on paper, at a cost of zero to this design.
 
 **How many times a date has moved is counted and shown** ("moved 4 times"). It is a ward-level fact
 with nothing about the person in it, and it is the difference between a prediction a coordinator
@@ -233,8 +271,19 @@ Two rules that are not negotiable:
 2. **Colour never carries a fact alone.** Every colour has the same fact beside it in words or
    numbers. The day count on the tile is what makes the fill decorative rather than load-bearing.
 
-Tile states beyond occupied: ready, pulled-but-empty (with its clock, D2), on leave (existing
-`LeaveBed`, usable or not), blocked.
+Tile states beyond occupied: ready; pulled-but-empty (with its clock, D2); on leave (existing
+`LeaveBed`, usable or not); **being made ready**; and occupied-and-blocked.
+
+**Two traps here, both introduced by changes that landed after this spec was first written.**
+
+1. **A bed being made ready is still available.** `BED_PREPARATION_NOTES` ("Being cleaned",
+   "Awaiting maintenance or repair") is a note *on an available bed*: it is still offered, still
+   counts in `availableNow`, and still appears in every figure. The obvious implementation — a
+   distinct tile state that reads as unavailable — silently removes beds from the state's supply.
+   The note is a caption on a ready bed, not a state instead of ready.
+2. **Blocked is a flag, not a tile state of its own.** The person is still in the bed and the bed is
+   still occupied; the blocker sits on their pending release. A tile shows occupied *and* carries
+   the blocker; it never shows blocked instead of occupied.
 
 ### D8 — Leaving records where to, and only real departures free a bed statewide
 
@@ -252,25 +301,27 @@ Beds occupied by people who no longer need them is the number that changes conve
 psychiatric bed flow. It is a headline figure on every ward board and on the statewide page — not a
 footnote.
 
-**The reason list is owner-pending.** It is a fact about how Western Australian services actually
-operate, and inventing it is precisely what this project's rules forbid. The draft below was put to
-the owner on 2026-08-28 **and has not yet been corrected**. It is recorded here as a draft, is
-labelled as such in code, and must be replaced with his list before this feature is shown to anyone.
+**ANSWERED, 2026-08-28 — and the draft this spec first carried is withdrawn.** While this design
+waited on Phase 7, the owner approved the reason list directly, in a different conversation. It
+shipped as `BED_RELEASE_BLOCKERS` in `ward-change-reasons.ts` and now has eight entries:
 
-> Draft, uncorrected: no accommodation available · awaiting a supported accommodation place ·
-> awaiting NDIS funding or a plan · awaiting a residential aged care place · awaiting a guardianship
-> or administration decision · awaiting a decision from another service · awaiting a community team
-> to accept follow-up · family or carer arrangements not yet in place · awaiting transport home ·
-> awaiting transfer to another hospital or unit
+> Awaiting clean · Awaiting pharmacy · Awaiting placement confirmation · Awaiting service
+> coordination · Awaiting accommodation · Awaiting transport · Awaiting receiving-service acceptance
+> · **Awaiting family or carer arrangement**
 
-**The discipline every entry must hold to,** whatever the final list says: each reason names what the
-**system** is waiting for, never anything about the patient. "Awaiting a supported accommodation
-place" is a fact about a service. "Too difficult to place" is a judgement about a person and would be
-quoted back at someone. This is the same bar `REFERRAL_DECLINE_REASONS` and `BED_RELEASE_BLOCKERS`
-already meet.
+**This board uses that list and does not define its own.** The ten-item draft this spec originally
+proposed is superseded — a second, parallel vocabulary for the same fact is the exact defect class
+this project produces most reliably, and it would let a ward and a coordinator name the same
+obstacle two different ways.
 
-**Build sequencing consequence:** the list is a single fixed array with a membership check, and the
-feature that reads it is scheduled late, so replacing the draft costs one file.
+Two things about the eighth entry that must not be re-argued. It **deliberately overturns** a
+principled Phase 5 exclusion (family availability was barred as "describes the person, not the
+bed"). The owner's reasoning is recorded in the code and it is sound: excluding it never stopped the
+delay happening, it made the ward record "Awaiting service coordination" instead — and **a wrong
+reason is worse than a blunt one.** Guardianship and financial arrangements stay excluded.
+
+**The discipline every entry holds to,** and which any future addition must also meet: each reason
+names what the **system** is waiting for, never anything about the patient.
 
 ### D10 — One daily confirmation, and missing it makes the ward visibly stale
 
@@ -345,6 +396,17 @@ simple page stops being simple.
 An arrow appears once someone has a discharge date within roughly a week, and thickens as it nears.
 Typically three to six arrows on a 20-bed ward, not twenty. It reads as "this is where the next few
 beds are going", which is the question the right-hand side exists to answer.
+
+**Added 2026-08-28, after Phase 8 landed travel bands.** An arrow may now carry the travel band
+between this ward and that region, and a discharge counts as out of area at three hours or more, or
+air transport only. Three constraints travel with that, all of them Phase 8's own:
+
+- **The bands are invented placeholders** and are labelled as such on screen. They are built to be
+  trivially replaceable when real ones arrive.
+- **Distance groups the list; it never sorts it.** An arrow may be grouped or captioned by band. A
+  band must never order the beds, rank a discharge, or label one as better than another.
+- **No word implying proximity** — nearest, closest, local, far, best — unless a fact the system
+  actually holds backs it. This board holds a home region and a synthetic band, and nothing else.
 
 ### D13 — Select a referral and the beds answer
 
@@ -504,12 +566,18 @@ Local and offline only. No provider-backed command, ever.
 
 ## Open questions for the product owner
 
-1. **The blocked-discharge reason list (D9)** — draft written, correction outstanding. Nothing ships
-   until he replies.
-2. **The receiving-time options at the pull (D15)** — not drafted; the field is not built until he
-   supplies them.
+1. ~~The blocked-discharge reason list (D9)~~ — **ANSWERED 2026-08-28.** The owner approved it in a
+   separate conversation and it shipped as the eight-entry `BED_RELEASE_BLOCKERS`. This board uses
+   that list and defines none of its own. See D9.
+2. **The receiving-time options at the pull (D15)** — still outstanding, not drafted; the field is
+   not built until he supplies them.
 3. **`sex` on an admission (D5)** — flagged as a small widening with the fallback named. Silence is
    being read as acceptance; he may overrule at one module's cost.
-4. **The roadmap needs one line** placing this work between Phase 7 and Phase 8.
-5. **Still owed, and unchanged since Phase 5:** the four-stage bed model has never been checked by a
-   ward clinician. This design reduces the exposure but does not remove it.
+4. **The roadmap needs one line** placing this work relative to Phase 8. Phase 8 is now well under
+   way and has landed travel bands, the home-region decision and an out-of-area definition, so this
+   board is no longer "before Phase 8" as first written — it now runs **alongside or after** it and
+   consumes its bands rather than preceding them. The owner decides the order.
+5. **Still owed:** the bed model has never been checked by a ward clinician. It has now been revised
+   once (four stages to three plus a flag) on the owner's own decision, which is evidence the design
+   goal is working — the revision cost this design nothing, because it was still on paper. The
+   clinician check remains the cheapest, highest-value validation available.
