@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "0accbcf34020a5c106b59e0baa67ef9bfd3271b5",
-    "committed_at": "2026-08-28T05:07:47+08:00"
+    "sha": "57ba1c2d2c50a28d3d5021f6031c9fb6e30a9526",
+    "committed_at": "2026-08-29T02:45:52+08:00"
   },
   "routes": {
     "modes": [
@@ -141,6 +141,11 @@
       {
         "path": "/caring-contacts/schedule",
         "file": "src/app/caring-contacts/schedule/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/team",
+        "file": "src/app/caring-contacts/team/page.tsx",
         "area": "product"
       },
       {
@@ -1415,8 +1420,8 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 197,
-      "product_pages": 62,
+      "pages": 198,
+      "product_pages": 63,
       "mockup_pages": 135,
       "redirects": 17,
       "api": 60
@@ -2185,12 +2190,32 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-pr-body.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
         "section": "caring-contacts",
         "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2331,6 +2356,11 @@
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2501,6 +2531,16 @@
       },
       {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-timeline-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -3196,16 +3236,6 @@
       },
       {
         "path": "docs/samd-classification-medication-considerations.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/scripts-index.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/scripts-index.md",
         "section": "root",
         "catalogued": true
       },
@@ -4180,9 +4210,9 @@
       }
     ],
     "counts": {
-      "documents": 539,
-      "catalogued": 110,
-      "uncatalogued": 429,
+      "documents": 544,
+      "catalogued": 108,
+      "uncatalogued": 436,
       "sections": 19
     }
   },

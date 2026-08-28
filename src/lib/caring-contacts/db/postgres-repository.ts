@@ -497,14 +497,13 @@ export function createPostgresRepository(
   }
 
   /**
-   * Registers the team this transaction writes as, and INCIDENTALLY SERIALISES CONCURRENT WRITERS
-   * FROM THE SAME TEAM -- which is a load-bearing accident, so it is written down here.
+   * Registers the team this transaction writes as, and EXPLICITLY SERIALISES CONCURRENT WRITERS
+   * FROM THE SAME TEAM via transactional row locking.
    *
-   * Two transactions inserting the same team id contend on the primary key: the second blocks until
-   * the first commits or rolls back, even though `on conflict do nothing` means it will ultimately
-   * write nothing. Because this is the FIRST statement of every write, two same-team writers queue
-   * here and never overlap anywhere later in the write path. Nothing designed that; it falls out of
-   * the key, and every write in this store currently relies on it without saying so.
+   * An insert with `on conflict (id) do update set id = excluded.id` guarantees an exclusive row-level
+   * lock (`FOR UPDATE`) on the team row even when the row already exists. Because this is the FIRST
+   * statement of every write transaction, two same-team writers queue here and never overlap anywhere
+   * later in the write path.
    *
    * The cross-team case has no such queue -- two teams touch different rows and arrive together --
    * which is why the guarded singleton upsert in `stopService` exists, and why the test that proves
@@ -512,11 +511,13 @@ export function createPostgresRepository(
    *
    * SO: moving this insert later, making it conditional (an "only if absent" read first, a cache, a
    * one-time bootstrap), or optimising it away widens the concurrency surface of EVERY write in this
-   * store at once, silently and without a failing test. Treat any such change as a concurrency
-   * change, not a performance one.
+   * store at once. Treat any such change as a concurrency change, not a performance one.
    */
   async function ensureTeam(connection: SqlConnection, team: TeamId): Promise<void> {
-    await connection.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [team]);
+    await connection.query(
+      "insert into caring_contacts.teams (id) values ($1) on conflict (id) do update set id = excluded.id",
+      [team],
+    );
   }
 
   async function selectPlanForUpdate(

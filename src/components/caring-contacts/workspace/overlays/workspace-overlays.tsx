@@ -84,6 +84,23 @@ function noOverlayParam(): string | null {
   return null;
 }
 
+function subscribeToOnlineStatus(onStoreChange: () => void) {
+  window.addEventListener("online", onStoreChange);
+  window.addEventListener("offline", onStoreChange);
+  return () => {
+    window.removeEventListener("online", onStoreChange);
+    window.removeEventListener("offline", onStoreChange);
+  };
+}
+
+function readOnlineStatus(): boolean {
+  return typeof navigator !== "undefined" ? navigator.onLine : true;
+}
+
+function noOnlineStatus(): boolean {
+  return true;
+}
+
 /**
  * The address of a history entry this module writes.
  *
@@ -330,12 +347,19 @@ export function WorkspaceOverlays() {
     [entryCommitToken],
   );
 
+  const isOnline = useSyncExternalStore(subscribeToOnlineStatus, readOnlineStatus, noOnlineStatus);
+  const blockReason = !isOnline
+    ? "connection-unavailable"
+    : openOverlayId === "permission-unavailable"
+      ? "permission-unavailable"
+      : null;
+
   return (
     <OverlayHost
       openOverlayId={openOverlayId}
       onClose={close}
       onCommit={recordDecision}
-      blockReason={null}
+      blockReason={blockReason}
       commitRefusal={commitRefusal}
     />
   );

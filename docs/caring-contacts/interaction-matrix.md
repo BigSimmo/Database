@@ -35,5 +35,7 @@ The source of truth is `completionOverlayDefinitions` in `src/components/caring-
 - No change: state explicitly that no external or production action occurred.
 - Guard rejection: retain the surface, keep the action focusable with `aria-disabled`, provide the named reason, and do not mutate state.
 - Recovery: clear the scenario only after its recovery action succeeds.
+  - **Automated supervisor queues** (e.g. `offline-banner`): cleared automatically when background polling / connectivity supervisors confirm connection restoration.
+  - **Manual intervention triggers** (e.g. `session-expiry`): require explicit clinician / user intervention (such as re-authenticating credentials or clicking the dedicated recovery action) before the gate unblocks.
 - Modal close: restore focus to the originating action; overlay-only navigation must not move focus to the page heading.
 - Navigation: move natural focus to the new page heading and announce the destination.

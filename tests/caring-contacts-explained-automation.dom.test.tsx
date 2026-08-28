@@ -344,6 +344,12 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // `schedule-view.ts`, which would reach the repository and through it the service-state module;
   // the companion test below proves that for its whole module graph rather than for its own file.
   "contact-time-adjustment.tsx",
+  // Offline and network-drop fallback view. Takes only an optional `retry` callback function;
+  // passes zero patient or service-state props across the boundary.
+  "connection-unavailable.tsx",
+  // Permission and role denial fallback view. Takes only an optional `retry` callback function;
+  // passes zero patient or service-state props across the boundary.
+  "permission-unavailable.tsx",
 ];
 
 /**

@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 31,
+    "pending": 37,
     "resolved": 431
   },
   "queue": [
@@ -861,6 +861,18 @@
       "created_at": "2026-08-25"
     },
     {
+      "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
+      "action": "done",
+      "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
+      "action": "done",
+      "summary": "#WP76E6: Clarified automated supervisor queues vs manual intervention triggers in interaction-matrix.md and verified with caring-contacts-overlay-definitions.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
       "action": "add",
       "summary": "Caring Contacts: the workspace's first client boundary has no browser evidence that it hydrates",
@@ -888,6 +900,12 @@
       "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
       "action": "done",
       "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
+      "action": "done",
+      "summary": "#PDM6NG: Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
       "created_at": "2026-08-27"
     },
     {
@@ -939,10 +957,22 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
+      "action": "done",
+      "summary": "#1CYR4V: Reconciled and pinned 640-767px overlay-modality breakpoint band across Sheet and OverlayHost with dom and workspace spec tests",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "9b9b8f4f-7f0a-4f91-944e-c11837e69994",
       "action": "cancel",
       "summary": "Cancel request b60f9982-f48c-4a70-ae92-99d88313cab3: The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged.",
       "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",
+      "action": "done",
+      "summary": "#XEGPCD: Hardened ensureTeam with explicit row-level update lock on conflict (id) do update set id = excluded.id and pinned assertion in tests/caring-contacts-write-serialisation.test.ts",
+      "created_at": "2026-08-27"
     },
     {
       "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
@@ -1002,6 +1032,12 @@
       "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
       "action": "done",
       "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
+      "action": "done",
+      "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
       "created_at": "2026-08-27"
     },
     {
