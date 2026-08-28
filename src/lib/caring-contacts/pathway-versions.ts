@@ -59,7 +59,78 @@ export type PathwayVersion = {
 export type PathwayVersionSnapshot = Readonly<{
   cadenceLabels: readonly string[];
   messageTextByType: Readonly<Record<MessageType, string>>;
+  /**
+   * Present only on a version whose approvals were not given by people (Ruling [126], round 1 I2).
+   *
+   * WHY THE RECORD CARRIES THIS RATHER THAN THE SCREEN INFERRING IT. A version's approvals are
+   * rendered in plain words -- "Approved by the clinical programme lead and the lived-experience
+   * representative" -- and that sentence is a claim about provenance. A demonstration population
+   * produces a version whose approvals are structurally real (the transition below refused
+   * anything else) and whose governance is invented, and nothing in the resulting record
+   * distinguished the two. A screen cannot be asked to recognise a seed; the record has to say so.
+   *
+   * WHY IN THE SNAPSHOT. `savePathwayVersion` rebuilds every governance field server-side whatever
+   * the caller sends -- deliberately, so a version cannot arrive pre-approved -- and copies the
+   * snapshot verbatim. The snapshot is therefore the only channel an author may state anything
+   * through, and the only claim this field can make is a WEAKENING one: it can say an approval is
+   * synthetic, never that one is genuine. Absence asserts nothing.
+   */
+  provenance?: PathwayVersionProvenance;
 }>;
+
+/**
+ * What a version's provenance may say. One member today, and a union rather than a boolean so a
+ * second kind (a training copy, say) is added here rather than by overloading a flag.
+ */
+export type PathwayVersionProvenance = "syntheticDemonstration";
+
+/**
+ * Plain words for each provenance, beside the values they name -- the same reason
+ * `PATHWAY_APPROVAL_ROLE_WORDING` below lives here rather than in the component that renders it,
+ * and the same reason it must: the interface-vocabulary scan refuses `lead` as a whole word in a
+ * component, and this sentence sits directly beneath one that contains it.
+ *
+ * It says the approvals are invented. It does NOT say the pathway is invalid or unusable, because
+ * a demonstration that cannot show a governed pathway shows nothing.
+ */
+export const PATHWAY_VERSION_PROVENANCE_WORDING: Readonly<Record<PathwayVersionProvenance, string>> = Object.freeze({
+  syntheticDemonstration:
+    "Invented for demonstration: no person recorded either approval, and this version was never reviewed.",
+});
+
+/**
+ * The words a screen shows for a stored provenance, or `null` when the record claims nothing.
+ *
+ * WHY THIS IS A FUNCTION AND NOT A LOOKUP AT THE CALL SITE. The call site's obvious spelling is
+ * `provenance === undefined ? null : PATHWAY_VERSION_PROVENANCE_WORDING[provenance]`, and it fails
+ * in the UNSAFE direction. `provenance` is typed, but the Postgres store reads the snapshot back
+ * with an unchecked `as` cast, so an unrecognised string reaches this code with the type saying it
+ * cannot. The lookup then yields `undefined` -- not `null` -- and a caller testing `=== null` sees
+ * false, renders an empty qualifier, and leaves "Approved by ..." standing with nothing beside it.
+ * The one value that must never lose its qualifier would be the one that did.
+ *
+ * So the fallback is structural rather than a second equality check anybody could forget:
+ *
+ *   * absent -- `undefined` or `null` -- returns `null`. Nothing is claimed, which is the honest
+ *     answer for a version whose record says nothing about where its approvals came from;
+ *   * a RECOGNISED value returns its own wording;
+ *   * anything else returns the synthetic wording. An unrecognised provenance is a record making a
+ *     claim this build does not understand, and the safe reading of "I do not know what this says"
+ *     is not "it says nothing". Every value this field can hold is a WEAKENING claim -- that is the
+ *     invariant `PathwayVersionSnapshot.provenance` is documented with -- so failing toward the
+ *     weakening one keeps the invariant true for values that do not exist yet.
+ *
+ * `Object.hasOwn` rather than a truthiness test on the lookup, for the reason `permissions.ts`
+ * records at length: this is a frozen object literal, so `PATHWAY_VERSION_PROVENANCE_WORDING`
+ * inherits `constructor`, `toString` and the rest from `Object.prototype`, and a provenance string
+ * of `"constructor"` would otherwise resolve to a function and be rendered.
+ */
+export function pathwayVersionProvenanceWording(provenance: string | null | undefined): string | null {
+  if (provenance === undefined || provenance === null) return null;
+  return Object.hasOwn(PATHWAY_VERSION_PROVENANCE_WORDING, provenance)
+    ? PATHWAY_VERSION_PROVENANCE_WORDING[provenance as PathwayVersionProvenance]
+    : PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration;
+}
 
 export type PathwayVersionAction =
   | { type: "submitForReview" }
@@ -72,6 +143,19 @@ export type PathwayVersionAction =
  * this list -- or letting one person cover both entries -- converts a dual-approval governance
  * decision into one person's call, which is the specific failure this module exists to prevent.
  */
+/**
+ * Plain words for the two approval seats, for a screen stating a version's governance provenance.
+ *
+ * Here rather than in the component that renders it, for the reasons `permissions.ts`'s
+ * `CARING_CONTACT_ROLE_WORDING` records in full: the wording belongs beside the roles it names, and
+ * the interface-vocabulary scan refuses `lead` as a whole word in a component with no exemption for
+ * job titles.
+ */
+export const PATHWAY_APPROVAL_ROLE_WORDING: Readonly<Record<PathwayApprovalRole, string>> = Object.freeze({
+  clinicalProgrammeLead: "the clinical programme lead",
+  livedExperienceRepresentative: "the lived-experience representative",
+});
+
 export const REQUIRED_PATHWAY_APPROVAL_ROLES: readonly PathwayApprovalRole[] = Object.freeze([
   "clinicalProgrammeLead",
   "livedExperienceRepresentative",

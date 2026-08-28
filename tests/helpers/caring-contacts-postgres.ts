@@ -93,6 +93,7 @@ export const CARING_CONTACTS_DATA_TABLES: readonly string[] = Object.freeze([
   "caring_contacts.retention_state",
   "caring_contacts.plan_reassignments",
   "caring_contacts.plan_assignments",
+  "caring_contacts.plan_assurances",
   "caring_contacts.contacts",
   "caring_contacts.plans",
   "caring_contacts.referrals",

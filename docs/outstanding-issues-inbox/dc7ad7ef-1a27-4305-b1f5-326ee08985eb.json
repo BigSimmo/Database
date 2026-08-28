@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
+    "detail": "Task 5b made the Patients directory search match patient names, and the filter is a GET form (server-side filtering was mandated by the brief; Ruling 13 forbids client state; the approved design requires name search). So a search reaches the address bar, browser history, any Referer header and any server access log as ?q=<name>. Before Task 5b only synthetic identifiers went there. Judged NOT a defect by both the implementer's reviewer and the controller -- there was no compliant alternative under the standing constraints -- and recorded deliberately rather than fixed quietly, because it is exactly the kind of residual that gets carried into a real build unnoticed. Decide before any deployment carrying real patient names: POST-and-redirect, a client boundary accepted as an exception to Ruling 13, or an accepted risk with logging scrubbed.",
+    "source": "Task 5b review finding I-4, 2026-08-25",
+    "issueUlid": "01M0TJ72XCHDCF2BF229XZ0F5F"
+  }
+}

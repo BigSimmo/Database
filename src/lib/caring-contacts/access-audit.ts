@@ -46,6 +46,48 @@ export type AccessedObjectType =
   | "auditTrail"
   | "report"
   | "patientDirectory"
+  /**
+   * A read of patients' NAMES and nothing else -- `listPatientNames` (Ruling 91).
+   *
+   * Its own member rather than a reuse of `patientDirectory`, and the choice is forced rather than
+   * stylistic: the trail's query surface (`api/caring-contacts/access-trail`) filters on
+   * `objectType` and offers NO `objectId` filter, so a read recorded as `patientDirectory` with a
+   * distinguishing `objectId` can be picked out by eye but cannot be ASKED for. "Who read patients'
+   * names, and when" is precisely the question the separate read exists to make answerable, and
+   * `patientDirectory` already carries two referral reads -- so sharing it would have returned name
+   * reads mixed with referral searches and no way to separate them server-side. This is Ruling 46's
+   * own instruction followed: add a member rather than overload an existing one.
+   */
+  | "patientName"
+  /**
+   * A read of the team's SCHEDULE -- which contacts fall on which AWST days, and what each day's
+   * sending windows hold (Phase 2B Task 12).
+   *
+   * Its own member rather than a reuse of `plan`, on this type's own instruction above. The read is
+   * derived from `listPlans`, so recording it as `plan` would be defensible by provenance and wrong
+   * by meaning: `plan` already names the caseload read that every list screen performs, and the
+   * question a trail must answer is who looked at what, not which store call it went through. The
+   * two are asked about differently -- a caseload read is one clinician opening their patient list,
+   * a schedule read is one clinician looking at a particular set of days -- and with no `objectId`
+   * filter on the trail's query surface, a shared member would make them one undifferentiated
+   * stream.
+   */
+  | "contactSchedule"
+  /**
+   * A read of WHERE THE TEAM'S WORK SITS -- the roster behind the Team screen (Phase 2B Task 17):
+   * every plan's owner, the unclaimed group, and each coordinator's backlog, together.
+   *
+   * Its own member, decided against Ruling [134] rather than by Ruling [46]'s letter, because the
+   * two rulings pull opposite ways and the reasoning is the ruling. Ruling [134] collapsed the
+   * Templates library into `pathwayVersion` because that read was BYTE-IDENTICAL to one that
+   * already existed, so a second member would have named a screen rather than an object and split
+   * one askable question into two. This read is not identical to anything: no existing read joins
+   * `listPlans` to every plan's `getAssignment`, so recording it as `plan` would put "who looked at
+   * how work is distributed across the team" into the caseload's stream -- and with no `objectId`
+   * filter on the trail's query surface, it could then be picked out by eye and never asked for.
+   * That is Ruling [46]'s reason, and it reaches here.
+   */
+  | "teamWorkload"
   | "notificationPreferences"
   | "trainingRecord"
   | "pathwayVersion"

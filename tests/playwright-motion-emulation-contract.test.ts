@@ -20,6 +20,13 @@ const MOTION_SENSITIVE_SPECS = [
   "tests/answer-progress-ui-smoke.spec.ts",
   "tests/ui-accessibility.spec.ts",
   "tests/ui-formulation-result-cards.spec.ts",
+  // Phase 2B Task 21. The Caring Contacts workspace asserts BOTH sides of the
+  // preference, per screen, and it has to: the suite-wide baseline is already
+  // `reduce`, so a screen probed only at the default would be asserting the
+  // absence of motion on a page where motion had never been switched on. Naming
+  // the spec here is what stops that declaration being deleted later and leaving
+  // a block that still reads as a reduced-motion proof.
+  "tests/ui-caring-contacts-workspace.spec.ts",
 ] as const;
 
 describe("playwright motion emulation contract (#75JA0P)", () => {

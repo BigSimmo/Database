@@ -1,107 +1,147 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+// tests/caring-contacts-workspace-screens.test.ts
+//
+// Turns one piece of policy held by people into a gate.
+//
+// `docs/design-system/adoption-contract.json` names `tests/ui-caring-contacts-workspace.spec.ts`
+// as the SOLE evidence for all five proof categories of the `caring-contacts-workspace` surface.
+// That spec visits the screens listed in its own `WORKSPACE_SCREENS` array -- so a screen added to
+// the surface and not to that array is a SILENCED GATE: the five proofs still pass, because they
+// never visit the route. Nothing enforced the array's completeness; its own comment said so, and
+// the build record recorded it as a rule that people had to remember.
+//
+// This is the cheap way to make the omission fail rather than pass. It is offline, reads two
+// files, and runs in milliseconds: it resolves the route expressions in `WORKSPACE_SCREENS`
+// against the workspace's production page routes and fails when a route has no entry.
+//
+// WHY IT RESOLVES THE EXPRESSIONS RATHER THAN IMPORTING THE ARRAY. `WORKSPACE_SCREENS` is not
+// exported, and the spec that holds it imports `@playwright/test`, which a Vitest run must not
+// pull in. So the array is read as TEXT and its `${...}` interpolations are resolved from the
+// `const` declarations beside it. Every step of that parse throws rather than returning nothing:
+// a rename that this parser stops understanding fails loudly here instead of quietly covering
+// nothing, which is the same failure mode the check itself exists to close.
+//
+// WHAT IT DOES NOT CLAIM. Listing a route proves the spec CAN reach it, not that any proof
+// actually asserts anything about it -- the array is also used to type and index the screen
+// constants, and a test still has to be written against a screen for it to be proved. This check
+// closes the silent half: a route that no proof could even visit.
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-const WORKSPACE_APP_DIR = "src/app/caring-contacts";
-const WORKSPACE_SPEC_PATH = "tests/ui-caring-contacts-workspace.spec.ts";
+import { collectSiteMapData } from "../scripts/generate-site-map";
+
+const repoRoot = process.cwd();
+const SPEC_PATH = "tests/ui-caring-contacts-workspace.spec.ts";
+const specSource = readFileSync(path.join(repoRoot, SPEC_PATH), "utf8");
 
 /**
- * Discovers all page routes under `src/app/caring-contacts/` by scanning the filesystem.
+ * Every `const NAME = "…"` or `const NAME = \`…\`` in the spec, with template interpolations of
+ * OTHER such constants resolved. Two passes are enough for the shapes this file uses
+ * (`PATIENTS_ROUTE` builds on `WORKSPACE_ROUTE`, and the overview route builds on both), and an
+ * unresolved `${` at the end is an error rather than a value.
  */
-function discoverWorkspacePageRoutes(): string[] {
-  const rootDir = resolve(process.cwd(), WORKSPACE_APP_DIR);
-  if (!existsSync(rootDir)) return [];
-
-  const routes: string[] = [];
-  const entries = readdirSync(rootDir, { recursive: true, withFileTypes: true });
-
-  for (const entry of entries) {
-    if (!entry.isFile() || entry.name !== "page.tsx") continue;
-    const absPath = resolve(entry.parentPath, entry.name);
-    const relFromApp = relative(resolve(process.cwd(), "src/app"), absPath).split(sep).join("/");
-    // "caring-contacts/page.tsx" -> "/caring-contacts"
-    // "caring-contacts/patients/page.tsx" -> "/caring-contacts/patients"
-    const route = "/" + relFromApp.replace(/\/page\.tsx$/, "");
-    routes.push(route);
+function resolveStringConstants(source: string): Map<string, string> {
+  const declarations = [...source.matchAll(/^const (\w+)(?::\s*[^=]+)?\s*=\s*(?:"([^"]*)"|`([^`]*)`);$/gm)];
+  if (declarations.length === 0) {
+    throw new Error(`${SPEC_PATH}: parsed no string constants — update this parser to match the current source.`);
   }
 
-  return routes.sort();
+  const values = new Map<string, string>();
+  for (const [, name, quoted, templated] of declarations) {
+    values.set(name, quoted ?? templated ?? "");
+  }
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    for (const [name, value] of values) {
+      values.set(
+        name,
+        value.replace(/\$\{(\w+)\}/g, (whole, reference: string) => values.get(reference) ?? whole),
+      );
+    }
+  }
+  return values;
+}
+
+/** The `route:` value of every entry in `WORKSPACE_SCREENS`, fully resolved. */
+function workspaceScreenRoutes(): string[] {
+  const block = specSource.match(/const WORKSPACE_SCREENS = \[([\s\S]*?)\] as const;/);
+  if (!block) {
+    throw new Error(`${SPEC_PATH}: WORKSPACE_SCREENS could not be located — update this parser.`);
+  }
+
+  const constants = resolveStringConstants(specSource);
+  const expressions = [...block[1].matchAll(/route:\s*(?:"([^"]*)"|`([^`]*)`|(\w+))\s*,/g)];
+  if (expressions.length === 0) {
+    throw new Error(`${SPEC_PATH}: WORKSPACE_SCREENS parsed to no routes — update this parser.`);
+  }
+
+  return expressions.map(([whole, quoted, templated, identifier]) => {
+    const raw = quoted ?? templated ?? (identifier === undefined ? undefined : constants.get(identifier));
+    if (raw === undefined) {
+      throw new Error(`${SPEC_PATH}: could not resolve the route in \`${whole.trim()}\``);
+    }
+    const resolved = raw.replace(/\$\{(\w+)\}/g, (all, reference: string) => constants.get(reference) ?? all);
+    if (resolved.includes("${") || !resolved.startsWith("/")) {
+      throw new Error(`${SPEC_PATH}: the route in \`${whole.trim()}\` resolved to "${resolved}", which is not a path`);
+    }
+    return resolved;
+  });
+}
+
+/** Every production page route this workspace serves, static and dynamic alike. */
+function workspacePageRoutes(): string[] {
+  return collectSiteMapData()
+    .pageRoutes.map((entry) => entry.route)
+    .filter((route) => route === "/caring-contacts" || route.startsWith("/caring-contacts/"))
+    .filter((route) => !route.startsWith("/mockups"));
 }
 
 /**
- * Parses the registered route constants from `tests/ui-caring-contacts-workspace.spec.ts`.
+ * True when `visited` is an instance of `route`.
+ *
+ * A dynamic family is matched segment by segment with `[param]` accepting any single non-empty
+ * segment, because a browser cannot visit `[patientId]` — the spec has to name a concrete id, and
+ * that id is deliberately not pinned here. What is checked is that the spec visits SOMETHING in
+ * the family, which is the whole of what "the proofs can reach this route" means.
  */
-function parseRegisteredWorkspaceScreens(): { name: string; route: string }[] {
-  const specSource = readFileSync(resolve(process.cwd(), WORKSPACE_SPEC_PATH), "utf8");
-
-  const routeMap = new Map<string, string>();
-  const constMatches = [...specSource.matchAll(/const\s+([A-Z_]+_ROUTE)\s*=\s*([^;\n]+);/g)];
-  for (const match of constMatches) {
-    const varName = match[1];
-    let val = match[2].trim();
-    if (val.startsWith('"') || val.startsWith("'")) {
-      val = val.slice(1, -1);
-    } else if (val.startsWith("`")) {
-      val = val.slice(1, -1).replace(/\$\{([A-Z_]+_ROUTE)\}/g, (_, ref) => routeMap.get(ref) ?? "");
-    }
-    routeMap.set(varName, val);
-  }
-
-  const screensMatch = specSource.match(/const\s+WORKSPACE_SCREENS\s*=\s*\[([\s\S]*?)\]\s*as\s+const/);
-  if (!screensMatch) {
-    throw new Error(`${WORKSPACE_SPEC_PATH}: could not find WORKSPACE_SCREENS definition`);
-  }
-
-  const screenEntries: { name: string; route: string }[] = [];
-  const itemMatches = [
-    ...screensMatch[1].matchAll(/\{\s*name:\s*["']([^"']+)["'],\s*route:\s*([A-Za-z0-9_]+|["'`][^"'`]+["'`])/g),
-  ];
-
-  for (const match of itemMatches) {
-    const name = match[1];
-    let rawRoute = match[2].trim();
-    if (rawRoute.startsWith('"') || rawRoute.startsWith("'") || rawRoute.startsWith("`")) {
-      rawRoute = rawRoute.slice(1, -1);
-    } else if (routeMap.has(rawRoute)) {
-      rawRoute = routeMap.get(rawRoute)!;
-    }
-    screenEntries.push({ name, route: rawRoute });
-  }
-
-  return screenEntries;
+function matchesRoute(route: string, visited: string): boolean {
+  const expected = route.split("/");
+  const actual = visited.split("/");
+  if (expected.length !== actual.length) return false;
+  return expected.every((segment, index) =>
+    segment.startsWith("[") && segment.endsWith("]") ? actual[index].length > 0 : segment === actual[index],
+  );
 }
 
-describe("Caring Contacts workspace screen registration", () => {
-  it("discovers all filesystem page routes under src/app/caring-contacts", () => {
-    const routes = discoverWorkspacePageRoutes();
-    expect(routes).toContain("/caring-contacts");
-    expect(routes).toContain("/caring-contacts/patients");
-    expect(routes.length).toBeGreaterThanOrEqual(2);
+describe("the caring-contacts-workspace browser surface lists every screen it must prove", () => {
+  it("finds the workspace's production page routes at all", () => {
+    // Vacuous success is the failure this whole file exists to prevent, so the inputs are checked
+    // before the comparison that uses them.
+    expect(workspacePageRoutes().length, "no /caring-contacts page routes were found").toBeGreaterThan(0);
+    expect(workspaceScreenRoutes().length, `${SPEC_PATH} listed no screens`).toBeGreaterThan(0);
   });
 
-  it("asserts that all page routes under src/app/caring-contacts are registered in WORKSPACE_SCREENS", () => {
-    const discoveredRoutes = discoverWorkspacePageRoutes();
-    const registeredScreens = parseRegisteredWorkspaceScreens();
-    const registeredRoutes = registeredScreens.map((screen) => screen.route);
+  it("visits every production /caring-contacts page route", () => {
+    const visited = workspaceScreenRoutes();
+    const unvisited = workspacePageRoutes().filter((route) => !visited.some((entry) => matchesRoute(route, entry)));
 
-    for (const route of discoveredRoutes) {
-      expect(
-        registeredRoutes,
-        `Route "${route}" in ${WORKSPACE_APP_DIR} is missing from WORKSPACE_SCREENS in ${WORKSPACE_SPEC_PATH}. ` +
-          `Every production caring-contacts route must be tested across all review widths and accessibility modes.`,
-      ).toContain(route);
-    }
+    expect(
+      unvisited,
+      `${SPEC_PATH} never visits these production workspace routes, so its five proof categories ` +
+        "pass without inspecting them. Add each to WORKSPACE_SCREENS with the h1 it renders, and " +
+        `write at least one proof against it: ${unvisited.join(", ")}`,
+    ).toEqual([]);
   });
 
-  it("asserts that every WORKSPACE_SCREENS entry corresponds to an existing page.tsx file", () => {
-    const registeredScreens = parseRegisteredWorkspaceScreens();
-    for (const screen of registeredScreens) {
-      const relPath = screen.route.replace(/^\//, "");
-      const pagePath = resolve(process.cwd(), "src/app", relPath, "page.tsx");
-      expect(
-        existsSync(pagePath),
-        `WORKSPACE_SCREENS entry "${screen.name}" (${screen.route}) points to non-existent ${pagePath}`,
-      ).toBe(true);
-    }
+  it("lists no screen that is not a production page route", () => {
+    const routes = workspacePageRoutes();
+    const stale = workspaceScreenRoutes().filter((entry) => !routes.some((route) => matchesRoute(route, entry)));
+
+    expect(
+      stale,
+      `${SPEC_PATH} lists routes the workspace no longer serves, so those proofs are asserting ` +
+        `against a 404: ${stale.join(", ")}`,
+    ).toEqual([]);
   });
 });

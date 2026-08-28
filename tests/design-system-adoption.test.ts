@@ -1417,9 +1417,13 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 68 = 59 + 6 + 2 + 1: the 59 production pages that preceded both changes, the six
-    // `<mode>/search` routes home consolidation split out of the bare paths, and the Caring
-    // Contacts workspace's two screens plus `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
+    // 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
+    // `<mode>/search` routes home consolidation split out of the bare paths, the Caring
+    // Contacts workspace's ten screens (Today; the Patients caseload from Phase 2B Task 5;
+    // the per-patient overview from Task 6; the activation wizard from Task 7; the Schedule
+    // from Task 13; the Templates library from Task 15 and one version's detail from Task 16;
+    // Guidance and Reports from Task 19, and the Team roster from Task 18), plus
+    // `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
     // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
     // detail route, the Phase 4 shift handover, escalation board and patient search, and the
     // retired constellation redirect) that used to bring this to 82 left the production census
@@ -1428,7 +1432,7 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(68);
+    expect(manifest.routeCoverage.discovered).toHaveLength(76);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
