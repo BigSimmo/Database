@@ -38,6 +38,10 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
     dischargeDateSetBy: null,
+    // Nobody has confirmed anything by default — a plan is not a decision, so the base admission
+    // here is one the ward has planned for and never decided on.
+    dischargeConfirmedAt: null,
+    dischargeConfirmedBy: null,
     blockReason: null,
     leavingDestination: null,
     leftAt: null,
@@ -46,9 +50,8 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
 }
 
 describe("derivedBedReleases — predicted releases", () => {
-  /** Requirement 1: a date set on an occupied bed derives exactly one predicted release,
-   *  carrying a waitingOn value drawn from the real vocabulary. */
-  it("derives one predicted release from an admission with a discharge date set, carrying a waitingOn value", () => {
+  /** Requirement 1: a date set on an occupied bed derives exactly one predicted release. */
+  it("derives one predicted release from an admission with a discharge date set", () => {
     const admission = anAdmission({
       id: "ADM-PLAN",
       unitId: "rph-adult-open",
@@ -65,48 +68,130 @@ describe("derivedBedReleases — predicted releases", () => {
     expect(release.state).toBe("predicted");
     expect(release.unitId).toBe("rph-adult-open");
     expect(release.expectedAt).toBe(DAY_ZERO + 3 * MINUTES_PER_DAY);
-    expect(release.waitingOn).not.toBeNull();
-    expect(BED_RELEASE_WAITING_ON).toContain(release.waitingOn);
   });
 
   /**
-   * Requirement 2, AS WRITTEN IN THE BRIEF, is impossible to honour and this test documents why
-   * rather than forcing a fake implementation of it.
+   * RULING 2. **Silence and "Nothing outstanding" are different facts and this module may only
+   * produce the first of them.**
    *
-   * The brief asks for an admission "confirmed as going" to derive `state: "confirmed"`.
-   * `Admission` (`ward-admissions.ts`, read before writing this file) has no field recording that
-   * a ward has actively DECIDED a discharge is happening, as distinct from merely having set a
-   * planned date — `state`, `blockReason`, `dischargeDateSetAt/By` and `dischargeDateMoves` are
-   * the whole vocabulary, and none of them means "confirmed". In the live ward-flow model that
-   * decision is `CONFIRM_BED_RELEASE` (`ward-flow-reducer.ts`), recorded on a SEPARATE, real
-   * `BedRelease` the reducer tracks independently of any `Admission`. Inventing a proxy here (the
-   * date has arrived, or has been set a while, or has never moved) would render a ward decision
-   * that nobody made — exactly the class of fabricated fact this codebase treats as a defect
-   * (`AGENTS.md`'s "Never invent a figure... from the Mental Health Act" is the sharpest version
-   * of the same rule; this is the same discipline applied to a decision instead of a figure).
+   * A blank `waitingOn` means NOBODY HAS LOOKED at what is holding this discharge up.
+   * `"Nothing outstanding"` means a ward looked and found nothing in the way. This module derives
+   * from an `Admission`, which records no obstacle at all, so the only honest answer it can give
+   * is the blank one — and it must give it even for an admission with a date, a setter and a
+   * revision count, because none of those is somebody having examined the discharge.
    *
-   * So `derivedBedReleases` only ever emits `"predicted"` or `"released"` — asserted here as a
-   * structural fact over a set of admissions built to exercise every state field this module
-   * reads, so a future change that starts inventing a `"confirmed"` release trips this test
-   * rather than silently landing.
+   * The defect this replaces defaulted EVERY derived prediction to `"Nothing outstanding"`, which
+   * put the optimistic answer on the board for every discharge nobody had examined.
+   *
+   * Asserted as an EXPLICIT ABSENCE (`toBeNull`), never as `not.toBe("Nothing outstanding")` —
+   * the latter would pass just as happily if the derivation started asserting "Awaiting ward
+   * round" instead, which is a different invented claim and equally wrong.
    */
-  it("never derives a 'confirmed' release — Admission carries no fact distinguishing a decided departure from a merely-planned one", () => {
+  it("gives a predicted release NO waitingOn — nobody has spoken about this discharge", () => {
+    const nobodyHasLookedAtIt = anAdmission({
+      id: "ADM-SILENT",
+      state: "occupied",
+      expectedDischargeAt: DAY_ZERO + 3 * MINUTES_PER_DAY,
+      dischargeDateSetAt: DAY_ZERO,
+      dischargeDateSetBy: "Flow coordinator",
+      dischargeDateMoves: 2,
+    });
+
+    const releases = derivedBedReleases([nobodyHasLookedAtIt], DAY_ZERO);
+
+    expect(releases).toHaveLength(1);
+    expect(releases[0]!.state).toBe("predicted");
+    expect(releases[0]!.waitingOn).toBeNull();
+  });
+
+  /**
+   * RULING 2's other half, and a guard against a future tidy-up rather than against this module.
+   *
+   * The default was the defect; the VALUE is owner-approved and ships verbatim. A ward that has
+   * actually checked and found nothing in the way still needs to be able to say so, and
+   * `BED_RELEASE_WAITING_ON` is the one place that wording lives. Removing it because "nothing
+   * sets it any more" would delete a real answer a ward can give, so it is pinned here.
+   */
+  it("keeps 'Nothing outstanding' in BED_RELEASE_WAITING_ON — a ward may still choose it", () => {
+    expect(BED_RELEASE_WAITING_ON).toContain("Nothing outstanding");
+  });
+
+  /**
+   * RULING 3, and BOTH HALVES ARE IN ONE TEST SO NEITHER CAN PASS ALONE.
+   *
+   * A discharge date is a PLAN; confirming it is a DECISION. The earlier implementation of this
+   * module could reach only `"predicted"` because `Admission` recorded no decision, and it
+   * declined to invent a proxy — a date within some window, a move count of zero, a date set a
+   * while ago — because every one of those renders a decision nobody made. That refusal was
+   * correct; `dischargeConfirmedAt` is the fix, and it is now the ONLY thing that may produce a
+   * `"confirmed"` release.
+   *
+   * The two admissions below differ in exactly one field. A derivation that went back to reading
+   * a date window, a move count or an elapsed time would give both the same state, and one of the
+   * two assertions would fail whichever way it guessed.
+   */
+  it("derives 'confirmed' from dischargeConfirmedAt and 'predicted' without it, from otherwise identical admissions", () => {
+    const now = DAY_ZERO;
+    const planned = anAdmission({
+      id: "ADM-PLANNED",
+      state: "occupied",
+      expectedDischargeAt: DAY_ZERO + 2 * MINUTES_PER_DAY,
+      dischargeDateSetAt: DAY_ZERO - MINUTES_PER_DAY,
+      dischargeDateSetBy: "Flow coordinator",
+      dischargeConfirmedAt: null,
+      dischargeConfirmedBy: null,
+    });
+    const decided: Admission = {
+      ...planned,
+      id: "ADM-DECIDED",
+      dischargeConfirmedAt: DAY_ZERO - 60,
+      // A ROLE, never a personal name.
+      dischargeConfirmedBy: "Nurse unit manager",
+    };
+
+    const [plannedRelease] = derivedBedReleases([planned], now);
+    const [decidedRelease] = derivedBedReleases([decided], now);
+
+    expect(plannedRelease!.state).toBe("predicted");
+    expect(decidedRelease!.state).toBe("confirmed");
+    // The decision's own provenance travels with it — the confirming role, not the date-setter.
+    expect(decidedRelease!.confirmedAt).toBe(DAY_ZERO - 60);
+    expect(decidedRelease!.confirmedBy).toBe("Nurse unit manager");
+  });
+
+  /**
+   * The refusal that survives RULING 3: `dischargeConfirmedAt` is the ONLY route to `"confirmed"`.
+   *
+   * Every admission here is one a proxy would have been tempted by — its date has already passed,
+   * its date has never moved, its date was set long ago — and none of them has been confirmed.
+   * All three must stay `"predicted"`, so a re-introduced window or move-count heuristic fails
+   * here rather than quietly promoting discharges nobody decided on.
+   */
+  it("never reaches 'confirmed' from a date window, a move count or an elapsed setting time", () => {
+    const now = DAY_ZERO + 10 * MINUTES_PER_DAY;
     const admissions: Admission[] = [
-      anAdmission({ id: "ADM-A", state: "occupied", expectedDischargeAt: DAY_ZERO + MINUTES_PER_DAY }),
-      anAdmission({ id: "ADM-B", state: "pulled", arrivedAt: null, expectedDischargeAt: DAY_ZERO + 2 * MINUTES_PER_DAY }),
+      anAdmission({ id: "ADM-DATE-PASSED", state: "occupied", expectedDischargeAt: DAY_ZERO }),
       anAdmission({
-        id: "ADM-C",
+        id: "ADM-NEVER-MOVED",
         state: "occupied",
-        expectedDischargeAt: DAY_ZERO + MINUTES_PER_DAY,
+        expectedDischargeAt: now + MINUTES_PER_DAY,
+        dischargeDateMoves: 0,
+        dischargeDateSetAt: DAY_ZERO,
+      }),
+      anAdmission({
+        id: "ADM-BLOCKED",
+        state: "pulled",
+        arrivedAt: null,
+        expectedDischargeAt: now + 2 * MINUTES_PER_DAY,
         dischargeDateMoves: 4,
         blockReason: BED_RELEASE_BLOCKERS[0],
       }),
     ];
 
-    const releases = derivedBedReleases(admissions, DAY_ZERO);
+    const releases = derivedBedReleases(admissions, now);
 
-    expect(releases.length).toBeGreaterThan(0);
-    expect(releases.every((release) => release.state !== "confirmed")).toBe(true);
+    expect(releases).toHaveLength(3);
+    expect(releases.map((release) => release.state)).toEqual(["predicted", "predicted", "predicted"]);
   });
 
   /**
@@ -185,6 +270,55 @@ describe("blockedReleaseCount — the cross-cut, never a bucket subtraction", ()
     expect(predictedAfter).toBe(predictedBefore);
     // ...while the cross-cut rises by exactly the one release that changed.
     expect(blockedAfter).toBe(blockedBefore + 1);
+  });
+
+  /**
+   * THE SAME INVARIANT ON THE STAGE RULING 3 MADE REACHABLE, which is the stage the defect
+   * actually cost: a stuck CONFIRMED discharge is the one a ward most needs to see, and sorting
+   * releases by the presence of a blocker is what dropped it out of the confirmed count
+   * altogether. A blocked-but-confirmed release is still confirmed; blocked is a CROSS-CUT, never
+   * a bucket subtracted from a stage.
+   *
+   * The same admission before and after a blocker is added, so nothing but the blocker differs.
+   * The confirmed count is pinned to an ABSOLUTE 1 on both sides as well as to its own previous
+   * value: a derivation that returned no releases at all would be perfectly invariant and
+   * perfectly useless, and `toBe(confirmedBefore)` alone could not tell the difference.
+   */
+  it("adding a blocker to a CONFIRMED release leaves the confirmed count unchanged and raises the blocked count by exactly one", () => {
+    const now = DAY_ZERO;
+    const confirmedNotBlocked = anAdmission({
+      id: "ADM-CONFIRMED-BLOCK",
+      unitId: "rph-adult-open",
+      state: "occupied",
+      expectedDischargeAt: DAY_ZERO + 2 * MINUTES_PER_DAY,
+      dischargeDateSetAt: DAY_ZERO - MINUTES_PER_DAY,
+      dischargeDateSetBy: "Flow coordinator",
+      dischargeConfirmedAt: DAY_ZERO - 30,
+      dischargeConfirmedBy: "Nurse unit manager",
+      blockReason: null,
+    });
+
+    const confirmedBefore = derivedBedReleases([confirmedNotBlocked], now).filter(
+      (r) => r.state === "confirmed",
+    ).length;
+    const blockedBefore = blockedReleaseCount([confirmedNotBlocked], now);
+    expect(confirmedBefore).toBe(1);
+    expect(blockedBefore).toBe(0);
+
+    const confirmedAndBlocked: Admission = { ...confirmedNotBlocked, blockReason: BED_RELEASE_BLOCKERS[0] };
+
+    const confirmedAfter = derivedBedReleases([confirmedAndBlocked], now).filter(
+      (r) => r.state === "confirmed",
+    ).length;
+    const blockedAfter = blockedReleaseCount([confirmedAndBlocked], now);
+
+    // THE INVARIANT: the confirmed stage keeps its release...
+    expect(confirmedAfter).toBe(confirmedBefore);
+    // ...pinned to a real figure, so an empty derivation cannot satisfy the invariance vacuously.
+    expect(confirmedAfter).toBe(1);
+    // ...while the cross-cut rises by exactly the one release that changed.
+    expect(blockedAfter).toBe(blockedBefore + 1);
+    expect(blockedAfter).toBe(1);
   });
 });
 

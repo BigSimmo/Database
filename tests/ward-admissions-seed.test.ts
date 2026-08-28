@@ -13,10 +13,9 @@ import {
   WARD_ADMISSIONS_ANCHOR,
   wardAdmissions,
 } from "@/components/ward-management/ward-admissions-seed";
-import { derivedSexMix } from "@/components/ward-management/ward-board-derivations";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { OUT_OF_AREA_BANDS, travelBand } from "@/components/ward-management/ward-distance";
-import { HOME_REGIONS, SEXES, type Unit } from "@/components/ward-management/ward-model";
+import { HOME_REGIONS, SEXES, type Sex, type Unit } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
 
 /**
@@ -34,6 +33,18 @@ import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
  * the wall clock here would make band boundaries and overdue dates drift between runs.
  */
 const NOW = WARD_ADMISSIONS_ANCHOR;
+
+/**
+ * The roles a discharge may be confirmed by, written out HERE rather than imported from the seed.
+ *
+ * Importing the seed's own list would make the assertion below a check that cannot fail: the
+ * fixture would be measured against the thing the fixture is built from, and a personal name added
+ * to both would sail through. These two strings are quoted from `Admission.dischargeDateSetBy`'s
+ * own doc comment — the only place this vocabulary is written down, since the field is typed
+ * `string | null` with no fixed runtime array of its own. If the seed ever needs a third role, this
+ * copy is edited deliberately in the same change; that visible edit IS the guard.
+ */
+const CONFIRMING_ROLES = ["Flow coordinator", "Nurse unit manager"];
 
 const units: Unit[] = allUnits();
 const unitById = new Map<string, Unit>(units.map((unit) => [unit.id, unit]));
@@ -54,6 +65,28 @@ function isOutOfArea(admission: Admission): boolean {
   if (unit === undefined) return false;
   const band = travelBand(admission.homeRegion, unit.siteCode);
   return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
+}
+
+/**
+ * Deliberately computed HERE rather than imported from `ward-board-derivations`.
+ *
+ * This assertion is a claim about the FIXTURE — that the people it seeds into each unit add up to
+ * what `ward-sites.ts` already records — so it must not depend on the board layer that happens to
+ * expose the same sum. Importing `derivedSexMix` dragged `ward-board-derivations` in, and with it
+ * `capacityBreakdown`, which is a forbidden identifier inside the sister phase's matching firewall.
+ * That made the seed unusable there: cherry-picking it took a test file whose import could not
+ * resolve, so the whole file silently never loaded — including this file's anchor-drift guard,
+ * which everyone then believed was protecting a copied constant it had never once run against.
+ *
+ * The counting rule is `bedIsOccupied`, not `state === "occupied"`: a PULLED admission holds a bed
+ * before anyone has arrived, and a unit's recorded `sexMix` counts the beds that are gone.
+ */
+function seededSexMix(unitId: string): Record<Sex, number> {
+  const here = wardAdmissions.filter((admission) => admission.unitId === unitId && bedIsOccupied(admission));
+  return {
+    Female: here.filter((admission) => admission.sex === "Female").length,
+    Male: here.filter((admission) => admission.sex === "Male").length,
+  };
 }
 
 describe("the seeded admissions are a fixture that can fail", () => {
@@ -144,6 +177,29 @@ describe("seeded admissions — integrity", () => {
   });
 
   /**
+   * The confirmation pair, over the WHOLE set. Two things it holds:
+   *
+   *   - Both fields are DECLARED on every record, `null` where nothing was confirmed. An absent
+   *     field reads back as `undefined`, which passes a `!== null` test as though a ward had
+   *     confirmed something — so a builder that forgets the pair would otherwise seed phantom
+   *     confirmations into every downstream count.
+   *   - The instant and the role travel TOGETHER. A confirmation with no role recorded cannot be
+   *     acted on, and a role left behind on a discharge nobody confirmed is a decision attributed
+   *     to a ward that never made it; neither is caught by checking the two fields separately.
+   */
+  it("declares both confirmation fields on every admission, and keeps the instant and the role together", () => {
+    const wrong: string[] = [];
+    for (const admission of wardAdmissions) {
+      const at = admission.dischargeConfirmedAt;
+      const by = admission.dischargeConfirmedBy;
+      if (at !== null && typeof at !== "number") wrong.push(`${admission.id}: dischargeConfirmedAt is not declared`);
+      if (by !== null && typeof by !== "string") wrong.push(`${admission.id}: dischargeConfirmedBy is not declared`);
+      if ((at === null) !== (by === null)) wrong.push(`${admission.id}: confirmed instant and role disagree`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  /**
    * The consistency test the whole fixture is shaped around, and the hardest constraint in it.
    *
    * `Unit.sexMix` is a hand-maintained count that nothing derives and nothing can check. This
@@ -157,7 +213,7 @@ describe("seeded admissions — integrity", () => {
       .map((unit) => ({
         unitId: unit.id,
         recorded: unit.sexMix,
-        derived: derivedSexMix(wardAdmissions, unit.id),
+        derived: seededSexMix(unit.id),
       }))
       .filter((row) => SEXES.some((sex) => row.derived[sex] !== row.recorded[sex]));
     expect(mismatched).toEqual([]);
@@ -193,6 +249,45 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
 
   it("contains a bed that is blocked from being released", () => {
     expect(wardAdmissions.some((admission) => admission.blockReason !== null)).toBe(true);
+  });
+
+  /**
+   * A discharge the ward has actually DECIDED on, not merely planned a date for. Without a seeded
+   * case, the `"confirmed"` stage of the derived bed-release view has no data behind it anywhere
+   * in this fixture, and every downstream board test would pass while showing a stage no seeded
+   * ward ever reaches. The confirming value must be a ROLE — the same bar `dischargeDateSetBy`
+   * holds — so a personal name creeping in fails here rather than reaching a screen.
+   */
+  it("contains a discharge the ward has confirmed, recorded against a role", () => {
+    // `typeof === "number"`, not `!== null`: a record that never declared the field at all reads
+    // back as `undefined`, which is `!== null` and would count as a confirmation nobody made. The
+    // integrity test above is what makes a missing field fail rather than pass quietly here.
+    const confirmed = wardAdmissions.filter((admission) => typeof admission.dischargeConfirmedAt === "number");
+    expect(confirmed.length).toBeGreaterThan(0);
+    for (const admission of confirmed) {
+      expect(admission.dischargeConfirmedBy, `${admission.id} confirmed by nobody`).not.toBeNull();
+      expect(CONFIRMING_ROLES, `${admission.id} confirmed by a non-role`).toContain(
+        admission.dischargeConfirmedBy,
+      );
+      // A confirmed discharge still needs the ward's own date: the derived release has nowhere
+      // else to get a real `expectedAt` from, and one must never be fabricated.
+      expect(admission.expectedDischargeAt, `${admission.id} confirmed with no expected date`).not.toBeNull();
+    }
+  });
+
+  /**
+   * CONFIRMED **AND** BLOCKED — the single most important seeded case for the bed model, and the
+   * one the three-stage rework exists for: a stuck confirmed discharge must still count as
+   * confirmed, because blocked is a cross-cut and never a bucket subtracted from a stage. A
+   * derivation that quietly sorted blocked releases out of the confirmed count would pass every
+   * fixture-driven test in this repository if this case were missing from the seed.
+   */
+  it("contains a discharge that is confirmed AND blocked at the same time", () => {
+    expect(
+      wardAdmissions.some(
+        (admission) => typeof admission.dischargeConfirmedAt === "number" && admission.blockReason !== null,
+      ),
+    ).toBe(true);
   });
 
   it("contains somebody with no expected discharge date at all", () => {

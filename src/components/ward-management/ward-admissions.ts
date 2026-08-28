@@ -229,6 +229,35 @@ export type Admission = {
    *  date has been set. */
   dischargeDateSetBy: string | null;
   /**
+   * When the ward CONFIRMED this discharge is happening — a decision, not a plan.
+   *
+   * **A DELIBERATE, OWNER-RULED WIDENING of this record's field set (2026-08-29), the second one
+   * it has taken.** It is here because the two facts are genuinely different and the record could
+   * previously express only one of them: `expectedDischargeAt` is what the ward EXPECTS, revisable
+   * at will; this is the ward saying it has DECIDED. An earlier implementer building
+   * `derivedBedReleases` (`ward-discharge-dates.ts`) found the `"confirmed"` stage unreachable for
+   * exactly that reason — nothing on this record distinguished a decided departure from a planned
+   * one — and declined to invent a proxy for it (a date falling within some window, a revision
+   * count of zero, a date set long enough ago). That refusal was correct: every one of those
+   * proxies renders a ward decision that nobody made, on a screen a coordinator reads as fact.
+   * These two fields are the fix, and they are the ONLY route to `"confirmed"`.
+   *
+   * This is not a widening of what this record holds about a PERSON. It is a fact about the ward's
+   * own act, in exactly the category `dischargeDateSetAt` already occupies. Rule 3 at the top of
+   * this file is untouched: still no name, date of birth, record number, address, diagnosis or
+   * free text, ever.
+   *
+   * `null` — the ordinary state — means nobody has confirmed anything, which must never be read as
+   * a refusal or as a discharge that will not happen. It means the decision has not been taken.
+   */
+  dischargeConfirmedAt: Instant | null;
+  /** WHO confirmed it, as a ROLE and NEVER a personal name — the same bar `dischargeDateSetBy`
+   *  above holds to, and for the same reason: this record names wards and jobs, never people.
+   *  Kept separate from `dischargeDateSetBy` because setting a date and deciding a discharge is
+   *  happening are two different acts, and the ward that did one may not be who did the other.
+   *  `null` when nothing has been confirmed. */
+  dischargeConfirmedBy: string | null;
+  /**
    * What is holding the bed up, drawn from `BED_RELEASE_BLOCKERS` — the owner-approved list of
    * eight, reused rather than restated. A second blocked-reason vocabulary for this one fact is
    * the defect class this repository produces most reliably: two lists for one fact is how a
@@ -264,6 +293,8 @@ const ADMISSION_FIELD_PRESENCE: Record<keyof Admission, true> = {
   dischargeDateMoves: true,
   dischargeDateSetAt: true,
   dischargeDateSetBy: true,
+  dischargeConfirmedAt: true,
+  dischargeConfirmedBy: true,
   blockReason: true,
   leavingDestination: true,
   leftAt: true,

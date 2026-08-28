@@ -66,6 +66,8 @@ function admission(overrides: Partial<Admission> = {}): Admission {
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
     dischargeDateSetBy: null,
+    dischargeConfirmedAt: null,
+    dischargeConfirmedBy: null,
     blockReason: null,
     leavingDestination: null,
     leftAt: null,

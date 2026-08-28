@@ -5,7 +5,7 @@ import {
   type LeavingDestination,
 } from "@/components/ward-management/ward-admissions";
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_RELEASE_WAITING_ON, type BedRelease } from "@/components/ward-management/ward-model";
+import type { BedRelease } from "@/components/ward-management/ward-model";
 
 /**
  * Task 4 (Ward Board plan): the ward sets ONE expected discharge date per occupancy
@@ -16,41 +16,39 @@ import { BED_RELEASE_WAITING_ON, type BedRelease } from "@/components/ward-manag
  * predicted/confirmed/blocked. Re-deriving any of THAT here would be exactly the drift this
  * module exists to prevent — if a count needs computing, `capacityBreakdown` is where it belongs.
  *
- * **A gap in this task's own brief, found while implementing, stated here because a later reader
- * will hit it too.** The brief asks for an admission "confirmed as going" to derive a
- * `state: "confirmed"` release. `Admission` (`ward-admissions.ts`) carries no such fact — nothing
- * on it distinguishes a merely-expected departure from one the ward has actively decided on. In
- * the live ward-flow model that decision is `CONFIRM_BED_RELEASE` (`ward-flow-reducer.ts`), a
- * discrete action recorded on a *separately tracked* `BedRelease`, not a derivable property of an
- * `Admission`. Inventing a proxy (e.g. "the date has arrived" or "it's been set a while") would
- * render a ward decision that was never actually made — the exact kind of fabricated fact this
- * codebase treats as a defect, not a convenience. So `derivedBedReleases` below only ever emits
- * `"predicted"` or `"released"`, never `"confirmed"`; the type still allows `"confirmed"` because
- * it is a legitimate state for a *real* `BedRelease` elsewhere, just not one this derivation can
- * honestly produce from an `Admission` alone. See `tests/ward-discharge-dates.test.ts` for how the
- * blocked-cross-cut invariant is tested against the state this module actually reaches.
+ * **A `"confirmed"` release comes from `Admission.dischargeConfirmedAt` and from NOTHING ELSE
+ * (owner ruling, 2026-08-29).** A discharge date is a PLAN; confirming it is a DECISION. The first
+ * implementation of this module could reach only `"predicted"`, because `Admission` recorded no
+ * decision at all, and it declined to invent a proxy for one — "the date has arrived", "the date
+ * has been set a while", "the date has never moved". That refusal was right: each of those renders
+ * a ward decision that nobody made, on a screen a coordinator reads as fact, which is the same
+ * class of fabricated claim as an invented statutory figure. `dischargeConfirmedAt` is the fix, and
+ * it is the ONLY route to `"confirmed"` here. A date window or a move count must never become one
+ * again, however reasonable it looks in review.
  *
- * **`waitingOn` is set to `"Nothing outstanding"` on every derived prediction, for the same
- * reason.** `Admission` has no field naming which specific obstacle (ward round, family
- * agreement, accommodation, community team) a discharge is waiting on — only that a date has been
- * set. `"Nothing outstanding"` is the one value in `BED_RELEASE_WAITING_ON` that does not assert a
- * specific obstacle nobody told us about; its own doc comment in `ward-model.ts` makes the same
- * argument for a ward that hasn't named one. Picking any other member here would invent a reason.
+ * A confirmed release still needs a real `expectedAt`, so an admission confirmed with no
+ * `expectedDischargeAt` yields NO release rather than a release at a fabricated instant — rule 3
+ * below applies to a decided discharge exactly as it applies to a planned one.
+ *
+ * **`waitingOn` is BLANK on every derived release (owner ruling, 2026-08-29), and blank is a
+ * different fact from `"Nothing outstanding"`.** Silence means NOBODY HAS LOOKED at what is
+ * holding this discharge up. `"Nothing outstanding"` means a ward looked and found nothing in the
+ * way. `Admission` has no field naming an obstacle and no field recording that anybody examined
+ * one, so silence is the only fact this module has — and it must say so by leaving `waitingOn`
+ * null. The previous implementation defaulted every derived prediction to `"Nothing outstanding"`,
+ * which collapsed those two facts into the optimistic one and put it on the board for every
+ * discharge nobody had examined.
+ *
+ * That was a defect in the DEFAULT, never in the value. `"Nothing outstanding"` stays in
+ * `BED_RELEASE_WAITING_ON` verbatim: a ward that has actually checked still needs to be able to
+ * say so, and `tests/ward-discharge-dates.test.ts` pins its membership so a tidy-up cannot remove
+ * it on the grounds that nothing sets it any more.
  */
 
-/** The one `BED_RELEASE_WAITING_ON` member that asserts no specific obstacle — see the module
- *  doc comment above for why this is the only honest value this module can produce. */
-const NO_OBSTACLE_RECORDED: (typeof BED_RELEASE_WAITING_ON)[number] = "Nothing outstanding";
-const NO_OBSTACLE_INDEX = BED_RELEASE_WAITING_ON.indexOf(NO_OBSTACLE_RECORDED);
-if (NO_OBSTACLE_INDEX === -1) {
-  // Degrades loudly rather than silently asserting an obstacle that no longer exists in the
-  // owner-approved list — see the module doc comment on why this module may never invent one.
-  throw new Error('ward-discharge-dates: "Nothing outstanding" is no longer a member of BED_RELEASE_WAITING_ON');
-}
-
-/** A role is required wherever `BedRelease` requires one (`confirmedBy`, `blockedBy`) but
- *  `Admission` records none — never a personal name, and never a guess at which real role acted;
- *  a stated absence, the same discipline `"Nothing outstanding"` holds for `waitingOn`. */
+/** A role is required wherever `BedRelease` requires one (`confirmedBy`, `blockedBy`) but the
+ *  `Admission` records none — never a personal name, and never a guess at which real role acted.
+ *  A STATED absence, which is the right shape here precisely because the field cannot be left
+ *  blank: where a field CAN be blank, blank is the honest answer (see `waitingOn` above). */
 const ROLE_NOT_RECORDED = "Not recorded";
 
 const STATEWIDE_RELEASE_BY_DESTINATION: ReadonlyMap<LeavingDestination, boolean> = new Map(
@@ -58,7 +56,9 @@ const STATEWIDE_RELEASE_BY_DESTINATION: ReadonlyMap<LeavingDestination, boolean>
 );
 
 /**
- * One admission's forward-looking prediction, or `null` when there is nothing to predict.
+ * One admission's forward-looking release — `"confirmed"` when the ward has decided it is
+ * happening, `"predicted"` when it has only planned a date — or `null` when there is nothing to
+ * derive.
  *
  * **Rule 3 lives here, and it is absolute: no `expectedDischargeAt` (or a non-finite one) means NO
  * release, never a release at `now` and never a release at a fallback instant.** An absent date
@@ -67,22 +67,37 @@ const STATEWIDE_RELEASE_BY_DESTINATION: ReadonlyMap<LeavingDestination, boolean>
  * `now` "so the board has something to show" would make every undated admission look like it is
  * discharging THIS INSTANT, which is the opposite of what an absent plan means.
  *
- * Only a bed genuinely occupied (`bedIsOccupied`) can have a future release predicted — a
+ * Only a bed genuinely occupied (`bedIsOccupied`) can have a future release derived — a
  * waitlisted admission holds no bed yet, so a date recorded on one (incoherent input) still
  * yields no release rather than claiming a bed release nobody can point to.
+ *
+ * **The stage is read from `dischargeConfirmedAt` alone.** Set means the ward decided;
+ * unset means it only planned. Nothing else on the record — not how close the date is, not how
+ * many times it moved, not how long ago it was set — may ever be consulted to promote a release
+ * to `"confirmed"`; see the module doc comment for why each of those looks reasonable and is a
+ * fabricated decision. A blocker does NOT change the stage either: a blocked confirmed discharge
+ * is still confirmed, and blocked is counted alongside it as a cross-cut (`blockedReleaseCount`).
  */
-function derivePredictedRelease(admission: Admission): BedRelease | null {
+function deriveForwardRelease(admission: Admission): BedRelease | null {
   if (!bedIsOccupied(admission)) return null;
   const expectedAt = admission.expectedDischargeAt;
   if (expectedAt === null || !Number.isFinite(expectedAt)) return null;
 
   const blocker = admission.blockReason;
+  // A non-finite confirmation instant is exactly as absent as a null one: broken data is never a
+  // decision, so it degrades to `"predicted"` rather than claiming a confirmation at `NaN`.
+  const decidedAt =
+    admission.dischargeConfirmedAt !== null && Number.isFinite(admission.dischargeConfirmedAt)
+      ? admission.dischargeConfirmedAt
+      : null;
   return {
-    id: `derived-predicted-${admission.id}`,
+    id: `derived-${decidedAt !== null ? "confirmed" : "predicted"}-${admission.id}`,
     unitId: admission.unitId,
-    state: "predicted",
+    state: decidedAt !== null ? "confirmed" : "predicted",
     expectedAt,
-    waitingOn: NO_OBSTACLE_RECORDED,
+    // BLANK, never `"Nothing outstanding"` — nobody has looked, and saying nothing is outstanding
+    // would be a ward's finding rather than this module's silence. See the module doc comment.
+    waitingOn: null,
     blocker,
     // Moves WITH the blocker in both directions — see `ward-bed-availability-model.test.ts`'s
     // own invariant for `blockedBy`/`blocker`: never one without the other.
@@ -91,8 +106,14 @@ function derivePredictedRelease(admission: Admission): BedRelease | null {
     // that a preparation note is never guessed).
     preparing: false,
     preparationNote: null,
-    confirmedAt: admission.dischargeDateSetAt ?? expectedAt,
-    confirmedBy: admission.dischargeDateSetBy ?? ROLE_NOT_RECORDED,
+    // The decision's own provenance where there was a decision, the date-setting's otherwise:
+    // `BedRelease.confirmedAt`/`confirmedBy` record who last reported this release's stage, and
+    // for a confirmed release that is the ward that confirmed it, not the one that set the date.
+    confirmedAt: decidedAt !== null ? decidedAt : (admission.dischargeDateSetAt ?? expectedAt),
+    confirmedBy:
+      decidedAt !== null
+        ? (admission.dischargeConfirmedBy ?? ROLE_NOT_RECORDED)
+        : (admission.dischargeDateSetBy ?? ROLE_NOT_RECORDED),
   };
 }
 
@@ -139,10 +160,10 @@ function deriveReleasedRelease(admission: Admission, now: Instant): BedRelease |
 }
 
 /**
- * Every `BedRelease` this module can honestly derive from a list of admissions: one `"predicted"`
- * entry per occupied bed carrying a real expected discharge date, and one `"released"` entry per
- * admission that has actually left as of `now`. Never `"confirmed"` — see the module's own doc
- * comment for why.
+ * Every `BedRelease` this module can honestly derive from a list of admissions: one forward entry
+ * per occupied bed carrying a real expected discharge date — `"confirmed"` when the ward has
+ * confirmed the discharge (`Admission.dischargeConfirmedAt`) and `"predicted"` when it has not —
+ * and one `"released"` entry per admission that has actually left as of `now`.
  *
  * This is the whole surface other code should read for a derived view. `capacityBreakdown`
  * (`ward-bed-availability.ts`) is the existing consumer that turns this list into today/
@@ -151,9 +172,9 @@ function deriveReleasedRelease(admission: Admission, now: Instant): BedRelease |
 export function derivedBedReleases(admissions: Admission[], now: Instant): BedRelease[] {
   const releases: BedRelease[] = [];
   for (const admission of admissions) {
-    const predicted = derivePredictedRelease(admission);
-    if (predicted !== null) {
-      releases.push(predicted);
+    const forward = deriveForwardRelease(admission);
+    if (forward !== null) {
+      releases.push(forward);
       continue;
     }
     const released = deriveReleasedRelease(admission, now);

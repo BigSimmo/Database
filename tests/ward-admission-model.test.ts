@@ -44,6 +44,10 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
     dischargeDateSetBy: null,
+    // A plan is not a decision: the base admission here has neither been confirmed nor refused,
+    // only planned for.
+    dischargeConfirmedAt: null,
+    dischargeConfirmedBy: null,
     blockReason: null,
     leavingDestination: null,
     leftAt: null,
@@ -314,6 +318,19 @@ describe("admissionsForUnit", () => {
  * Stated plainly, because a guard that overstates its reach is this repository's most repeated
  * failure: a field added to `Admission` AND to neither the record nor the literal is caught by
  * `tsc` alone, not by this file.
+ *
+ * **THE LIST BELOW WAS WIDENED ON PURPOSE ON 2026-08-29, from fifteen fields to seventeen.**
+ * `dischargeConfirmedAt` and `dischargeConfirmedBy` were added by an owner ruling, and the
+ * widening is recorded here rather than absorbed silently — the same discipline `Referral` held to
+ * when it went from three fields to five. An allowlist that grows without anybody saying so is not
+ * an allowlist.
+ *
+ * What makes this widening permissible is WHAT the two fields are about. A discharge date is a
+ * PLAN; confirming it is the ward's own DECISION, and both new fields record the ward's act — when
+ * it decided, and which ROLE decided — in exactly the category `dischargeDateSetAt` and
+ * `dischargeDateSetBy` already occupy. Neither is a fact about the person in the bed, so this is
+ * not a widening of what this record holds about anybody, and the forbidden-field test below is
+ * unchanged and still binding.
  */
 describe("Admission privacy — structural", () => {
   const ALLOWED_ADMISSION_FIELDS = [
@@ -329,6 +346,10 @@ describe("Admission privacy — structural", () => {
     "dischargeDateMoves",
     "dischargeDateSetAt",
     "dischargeDateSetBy",
+    // WIDENED ON PURPOSE, 2026-08-29 — see this describe block's own doc comment. Two fields, and
+    // they are facts about the WARD'S OWN DECISION, not about a person.
+    "dischargeConfirmedAt",
+    "dischargeConfirmedBy",
     "blockReason",
     "leavingDestination",
     "leftAt",
@@ -353,6 +374,9 @@ describe("Admission privacy — structural", () => {
       dischargeDateSetAt: DAY_ZERO + 2 * MINUTES_PER_DAY,
       // A ROLE, never a personal name.
       dischargeDateSetBy: "Flow coordinator",
+      dischargeConfirmedAt: DAY_ZERO + 3 * MINUTES_PER_DAY,
+      // A ROLE too, and held to exactly the same bar as `dischargeDateSetBy` above.
+      dischargeConfirmedBy: "Nurse unit manager",
       blockReason: "Awaiting transport",
       leavingDestination: "discharged-to-the-community",
       leftAt: DAY_ZERO + 30 * MINUTES_PER_DAY,
