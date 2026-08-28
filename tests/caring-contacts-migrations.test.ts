@@ -285,23 +285,17 @@ describe("caring-contact migrations", () => {
     expect(column[0].is_nullable).toBe("YES");
     expect(column[0].column_default).toBeNull();
 
-    const { rows: constraints } = await pool.query<{ conname: string }>(
-      `select c.conname from pg_catalog.pg_constraint c
+    const { rows: constraints } = await pool.query<{ conname: string; definition: string }>(
+      `select c.conname, pg_catalog.pg_get_constraintdef(c.oid) as definition from pg_catalog.pg_constraint c
          join pg_catalog.pg_class t on t.oid = c.conrelid
          join pg_catalog.pg_namespace n on n.oid = t.relnamespace
         where n.nspname = 'caring_contacts' and t.relname = 'idempotency_records' and c.contype = 'f'`,
     );
-    // The positive control for that emptiness: the SAME query shape over `plan_reassignments`, a
-    // table 0003 deliberately gave a composite foreign key, returns one. So an empty list here is
-    // this table having no reference rather than the query finding none anywhere.
-    const { rows: reassignmentKeys } = await pool.query<{ conname: string }>(
-      `select c.conname from pg_catalog.pg_constraint c
-         join pg_catalog.pg_class t on t.oid = c.conrelid
-         join pg_catalog.pg_namespace n on n.oid = t.relnamespace
-        where n.nspname = 'caring_contacts' and t.relname = 'plan_reassignments' and c.contype = 'f'`,
-    );
-    expect(reassignmentKeys.map((row) => row.conname)).toContain("plan_reassignments_plan_fk");
-    expect(constraints).toEqual([]);
+    // The positive control lives inside the same query rather than beside it: this table DOES carry
+    // a foreign key, on `team_id` since 0001. So the empty filter below is `plan_id` specifically
+    // having no reference, not the query failing to find this table's keys at all.
+    expect(constraints.map((row) => row.conname)).toContain("idempotency_records_team_id_fkey");
+    expect(constraints.filter((row) => row.definition.includes("plan_id"))).toEqual([]);
 
     const { rows: indexes } = await pool.query<{ indexdef: string }>(
       `select indexdef from pg_catalog.pg_indexes
@@ -313,8 +307,17 @@ describe("caring-contact migrations", () => {
     // And a record naming a plan that does not exist is ACCEPTED, which is what a refused
     // `createPlan` produces. The insert runs as the application role inside a team session, so it
     // is subject to the same policy the store writes under rather than to the migration role's
-    // bypass.
+    // bypass. The team is registered first, because `team_id` IS a foreign key -- which is the
+    // distinction this case is about: one column on this table references, the other does not.
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-REPLAY", patientId: "PATIENT-REPLAY" });
     await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+      // The team row itself, which every other test here gets as a side effect of `seedPlan`. This
+      // test deliberately seeds NO plan -- that is its whole subject -- so it must create the team
+      // on its own or `idempotency_records_team_id_fkey` refuses the insert before `plan_id` is
+      // ever reached, and the orphan-plan assertion below would never run.
+      await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [
+        TEAM_NORTH,
+      ]);
       await client.query(
         `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result, plan_id)
          values ($1, $2, $3, $4::jsonb, $5)`,
