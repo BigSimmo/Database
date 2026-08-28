@@ -507,6 +507,67 @@ describe("matching stays independent of the bed-release model", () => {
     return visited;
   }
 
+  /**
+   * Pins THIS FILE'S OWN comment stripper, added fix round 4 on the coordinator's ruling.
+   *
+   * The copy of this test in `tests/ward-travel-grouping.test.ts` protects that file's stripper,
+   * not this one. Without this test the contract below carries a stripper that nothing tests — so
+   * anyone later simplifying it, tidying it, or "fixing" what looks like an over-complicated regex
+   * would narrow this contract silently while it still reported green. That is exactly the failure
+   * that was demonstrated when the old extractor passed 33 of 33 with a genuine bed-release import
+   * sitting in the graph, one level up. A guard that is itself unguarded is the shape this phase
+   * keeps finding.
+   *
+   * Deliberately asserted against `importsMention` and the REAL `BED_RELEASE_IDENTIFIER` rather
+   * than against `withoutComments` alone, so it pins the behaviour the contract depends on rather
+   * than an implementation detail of the helper.
+   */
+  it("sees an import that a comment would otherwise hide from this contract", () => {
+    const hiddenByLineComment = [
+      "import {",
+      "  // note; hidden from a naive matcher",
+      "  BedRelease,",
+      '} from "./ward-model";',
+    ].join("\n");
+    const hiddenByBlockComment = 'import { /* note; hidden */ BedRelease } from "./ward-model";';
+
+    // The extractor this replaced is non-greedy and stops at the semicolon INSIDE the comment, so
+    // it never reaches the imported name. Asserted here so the reason this stripper exists cannot
+    // be lost — if this ever stops holding, the stripper is no longer load-bearing.
+    for (const sample of [hiddenByLineComment, hiddenByBlockComment]) {
+      expect(sample.match(/import\s+[\s\S]*?;/)?.[0]).not.toMatch(BED_RELEASE_IDENTIFIER);
+    }
+
+    // What the contract actually relies on: the release model is found through the comment.
+    expect(
+      importsMention(hiddenByLineComment, BED_RELEASE_IDENTIFIER),
+      "a LINE comment hid a bed-release import from this contract",
+    ).toBe(true);
+    expect(
+      importsMention(hiddenByBlockComment, BED_RELEASE_IDENTIFIER),
+      "a BLOCK comment hid a bed-release import from this contract",
+    ).toBe(true);
+
+    // A stripper that simply deleted everything would satisfy the two lines above by finding
+    // nothing to disagree with, so both directions are pinned on plain, comment-free imports.
+    expect(
+      importsMention('import { BedRelease } from "./ward-model";', BED_RELEASE_IDENTIFIER),
+      "a PLAIN bed-release import was not seen — the stripper may be discarding real code",
+    ).toBe(true);
+    expect(
+      importsMention('import { Referral } from "./ward-model";', BED_RELEASE_IDENTIFIER),
+      "a PLAIN unrelated import matched the release model — the identifier check is too broad",
+    ).toBe(false);
+
+    // And a string literal that merely LOOKS like a comment must survive untouched, or the
+    // stripper would corrupt module specifiers rather than clean them — which would break the
+    // traversal in the opposite direction, silently dropping files from the graph.
+    expect(withoutComments('const url = "https://example.test/a"; // trailing')).toBe(
+      'const url = "https://example.test/a"; ',
+    );
+    expect(withoutComments("const a = 1; /* block */ const b = 2;")).toBe("const a = 1;  const b = 2;");
+  });
+
   it("no file reachable from referral matching's own imports mentions the release model", () => {
     // KNOWN LIMIT, named rather than left implicit (review finding I2, second residual), in the
     // style the legal-figure guard already uses: these two entry points are hand-maintained.
