@@ -3926,3 +3926,52 @@ the thing, against the real modules, at a time of day that mattered, is what fou
 
 **Phase 2B is complete.** Fourteen screens, all four owner groups, every gate green, nothing pushed, no
 pull request, nothing on `main`.
+
+### Ruling [156] — the owner confirmed the crisis numbers a second time, after the wording had landed
+
+**2026-08-28.** Asked to confirm Lifeline `13 11 14` and 13YARN `13 92 76` once more against a current
+official source before the branch became public, the owner replied **"Ok I confirm the support number."**
+
+**Recorded because it is the one string in this system that cannot be checked from inside it.** Ruling
+[144] took his first confirmation before the wording was written; this is the second, taken after the
+sentence was in the tree and after he had been shown the exact message a discharged patient would read.
+**A number that reaches a person in crisis is worth confirming twice**, and neither confirmation was
+something this programme could have produced for itself — the repository can measure the message's
+length to the septet and cannot tell whether a phone number connects to anybody.
+
+The branch was pushed the same day at the owner's explicit instruction — **branch only, no pull request,
+nothing on `main`** — after 497 commits had accumulated on one machine, in a worktree, in a repository
+where worktrees have been deleted mid-session more than once.
+
+### Ruling [157] — the demonstration population is being extended so the workspace reads as a working system
+
+The owner asked for example data "to show how it works as a wireframe". **Measured first, by running the
+app rather than reading the seed** — `npm run ensure`, then walking the screens:
+
+**Already populated, and reading correctly:** the Patients caseload (three patients, plans Active, Paused
+and Withdrawn, ten contacts each), the Schedule's day strip, Templates, Guidance and Reports. The seed is
+**on by default in an ordinary dev process** — `demoSeedRequested()` excludes only the isolated Playwright
+server — so no flag was needed and none was suggested.
+
+**Three gaps stop it reading as a system rather than as a set of screens:**
+
+1. **The Team roster says "Nobody is carrying work."** Nothing in the seed claims a plan, so the screen
+   built to show who is carrying what shows nobody. It correctly reports two unclaimed plans; the roster
+   itself is empty of its own subject. This is Task 11b's finding — _"nothing claims a plan, so every plan
+   is unclaimed"_ — surfacing on the one screen where it is most visible.
+2. **Today is empty on the Schedule.** The contacts fall on a later day. A screen whose whole question is
+   "what is due" opens on nothing due.
+3. **No contact has ever been attempted.** Everything sits at `scheduled`, so nothing is sent, nothing has
+   failed, and nothing needs review — which is why Task 20 found `delivery-detail`,
+   `resolve-failed-delivery` and `template-changed-retired` reachable only by address. **Three built
+   surfaces have nothing to show, because the state they exist for cannot be reached.**
+
+**The extension is deliberately of the SEED and not of the screens.** Every one of those three gaps is a
+missing _state_, not a missing feature, and the screens already handle the populated case — Task 21 proved
+them on empty states precisely because the states could not be produced. **Producing the state is the fix;
+loosening a condition to reach a surface would be the defect.**
+
+**The Playwright server stays empty.** `emptyStateColours` throws when the empty state is absent, and the
+browser suite pins that an empty caseload is served as a page rather than as a missing resource. Seeding
+that server would trade a proven contract for an unproven one, which four separate handover notes have now
+warned against.
