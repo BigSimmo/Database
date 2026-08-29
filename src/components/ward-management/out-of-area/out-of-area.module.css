@@ -163,9 +163,27 @@
   overflow-x: auto;
 }
 
+/*
+ * `min-width` was 38rem (608px) and that was wider than the space this screen actually leaves the
+ * table just above the 40rem card/table swap. Measured at a 641px viewport in Phase 8 Task 10: the
+ * shell takes 142px, leaving `.tableScroll` a 499px client box, so the table overflowed by 109px
+ * and `Since arrival` — this ledger's second headline fact — sat entirely outside the scroller,
+ * its right edge at 715px against the scroller's 606px. The column was in the document throughout,
+ * which is why every DOM assertion stayed green; it was simply never on the screen, and the only
+ * way to reach it was to scroll sideways inside a table that showed no sign of having more.
+ *
+ * 30rem (480px) fits that 499px box, so all four columns are on screen at every width the table is
+ * used at, verified from 641px to 1440px. `overflow-wrap: anywhere` on the cells does the rest —
+ * a band or a region wraps onto a second line rather than pushing a column off the edge. The
+ * scroller above is kept as the backstop it always was, not as the thing a reader has to find.
+ *
+ * Guarded in a REAL BROWSER by tests/ui-ward-referrals.spec.ts, which asserts no cell's right edge
+ * escapes the scroller at 641px. jsdom has no layout, so no Vitest suite can see this class of
+ * defect at all.
+ */
 .table {
   width: 100%;
-  min-width: 38rem;
+  min-width: 30rem;
   border-collapse: collapse;
   font-size: var(--text-xs);
 }

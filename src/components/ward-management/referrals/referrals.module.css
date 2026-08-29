@@ -877,13 +877,23 @@
   /*
    * Every bordered, background-carrying card container across all three screens — the intake
    * form's field cards, the board's queued/decided sections and card-list items, the match
-   * panel, and the match view's per-unit rows. `break-inside: avoid` keeps each card from
-   * splitting across a page boundary, matching `morning.module.css`'s identical group.
+   * panel, the match view's band groups, and its per-unit rows. `break-inside: avoid` keeps each
+   * card from splitting across a page boundary, matching `morning.module.css`'s identical group.
+   *
+   * `.bandGroup` joined this list in Phase 8 Task 10, having been added to the screen by Task 4
+   * AFTER this print block was written. It carries `background: var(--surface-raised)`, which the
+   * dark theme resolves to `rgb(28, 33, 38)`, so it was the one card left un-reset — and because
+   * `color-scheme: light` above makes `CanvasText` resolve to BLACK, every unit name, verdict and
+   * "Accepts this referral" label inside it printed black on a near-black island: 47 of the match
+   * view's 147 painted leaves at a contrast of 1.29:1, measured rather than read off this
+   * selector list. Exactly the trap the header comment above describes, hit again by a container
+   * that did not exist when the comment was written.
    */
   .fieldCard,
   .section,
   .card,
   .matchPanel,
+  .bandGroup,
   .matchRowAccepts,
   .matchRowDeclines {
     border-color: CanvasText;
@@ -985,6 +995,21 @@
   .matchReasonText,
   .matchUnitName,
   .acceptsLabel,
+  /*
+   * Phase 8's own text, added to this group in Task 10 for the same reason every name above it is
+   * here: each uses `--text-heading` or `--text-muted`, which stay pale grey/blue custom-property
+   * values in the dark theme whatever `color-scheme` says, so each would print as pale ink on the
+   * white sheet the print reset forces once `.bandGroup`'s dark background is reset above. The two
+   * defects had to be fixed together — resetting the background alone would have turned 47
+   * black-on-dark leaves into legible ones while leaving the band headings, counts, per-row band
+   * and both governance sentences pale on white.
+   */
+  .bandLabel,
+  .bandCounts,
+  .bandEmpty,
+  .matchBand,
+  .syntheticNotice,
+  .allNotRecorded,
   .matchPanel > p {
     color: CanvasText;
   }

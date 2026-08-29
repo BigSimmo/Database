@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "playwright/test";
 
-import type { UrgencyLevel } from "@/components/ward-management/ward-model";
+import {
+  INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
+  OUT_OF_AREA_BANDS,
+  travelBand,
+} from "@/components/ward-management/ward-distance";
+import { HOME_REGIONS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { allUnits, unitById } from "@/components/ward-management/ward-sites";
 
@@ -80,6 +85,40 @@ const SEEDED_DECIDED = 6;
  *  hardcoded number honest — if the network changes, this fails at the assumption, by name. */
 const NETWORK_UNITS = 23;
 const ACCEPTING_UNITS = 13;
+
+/** The seeded queued ids, so a referral this spec raises can be told apart from them without
+ *  depending on how the reducer mints an id. */
+const SEEDED_QUEUED_IDS = new Set(["RF-001", "RF-005"]);
+
+/**
+ * Phase 8, Task 10. A (home region, unit) pair the synthetic table puts OUT OF AREA, searched out
+ * of the fixture rather than named.
+ *
+ * Naming one would be a test asserting that a particular real hospital is a particular distance
+ * from a particular real region — the exact thing D8-8 rule 2 forbids, because every value in
+ * `SYNTHETIC_TRAVEL_BANDS` is an invented placeholder chosen mechanically by list position and the
+ * owner must be able to replace them without a test going red. Searching means this either keeps
+ * working across that replacement or fails loudly, by name, at the assertion in the journey.
+ *
+ * Forensic beds, sex-designated beds and wards with nothing allocatable are skipped, because each
+ * would decline the referral for a reason that has nothing to do with distance. Everything past
+ * that is read off the SCREEN rather than predicted here: the journey takes whichever accept
+ * control the far group actually offers and names the unit from that control's own label, so the
+ * matching rules under test are never used to compute the expectation they are being checked
+ * against. All this search fixes is which home region and age band get typed into the form.
+ */
+const FAR_PLACEMENT = (() => {
+  for (const homeRegion of HOME_REGIONS) {
+    for (const unit of allUnits()) {
+      const band = travelBand(homeRegion, unit.siteCode);
+      if (!band || !OUT_OF_AREA_BANDS.includes(band)) continue;
+      if (unit.forensic || unit.sexDesignation !== "Undesignated") continue;
+      if (unit.allocatable.value <= 0) continue;
+      return { homeRegion, unit, band };
+    }
+  }
+  return undefined;
+})();
 
 const SENTINEL = "ward-flow-task-7-journey";
 
@@ -340,5 +379,158 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await expect(page.getByTestId("ward-referral-board-decided-note")).toContainText("no movement is created");
 
     await expectNoReloadSince(page, "the whole journey");
+  });
+
+  /**
+   * Phase 8, Task 10. The one Chromium journey for the distance work, added to this spec rather
+   * than to a new `ui-ward-*.spec.ts` file: a new ward spec has to be added by name to BOTH
+   * hand-maintained alternations in `playwright.config.ts` AND to `scripts/ci-change-scope.mjs`,
+   * and a spec absent from any of them silently never runs.
+   *
+   * WHERE THIS DEPARTS FROM THE BRIEF, and why. The brief asked for "accept at a far unit, record
+   * its arrival, and see it on the out-of-area ledger". The middle and last steps are impossible
+   * BY DESIGN, and asking for them predates the screens: `ACCEPT_REFERRAL` creates no `Movement`
+   * and no `Admission` (the board says exactly that in its own words, asserted in the journey
+   * above), and `OutOfAreaBoard` reads `wardAdmissions` — a seed no `WardFlowEvent` writes to. So
+   * there is no arrival to record for a referral, and nothing done on these screens can add anyone
+   * to that ledger. Rather than skip the step or fake it, this journey PINS that: the referral it
+   * accepts at a far unit must NOT appear on the ledger afterwards, and the ledger must say why in
+   * its own provenance sentence. An impossible step becomes a guarded property (D8-9).
+   *
+   * NOTHING HERE PINS A BAND TO A PLACE. D8-8 rule 2 forbids a test asserting that some named
+   * hospital is three hours from some named region: every value in `SYNTHETIC_TRAVEL_BANDS` is an
+   * invented placeholder, and a test pinning one would turn the owner's future correction into a
+   * test failure. The far region and the far unit are therefore SEARCHED out of the fixture at
+   * module scope and named nowhere. That search is SETUP, not assertion — the assertions it feeds
+   * are absolute — and if the fixture ever holds no such pair this fails loudly by name instead of
+   * quietly testing a near unit.
+   */
+  test("a referral accepted at a unit the fixture puts out of area does not reach the out-of-area ledger, which says why", async ({
+    page,
+  }) => {
+    expect(
+      FAR_PLACEMENT,
+      "fixture assumption: no (home region, acceptable unit) pair in the synthetic table is out of area, so this journey cannot test a far acceptance at all",
+    ).toBeDefined();
+    const { homeRegion, unit, band } = FAR_PLACEMENT!;
+    expect(OUT_OF_AREA_BANDS, `fixture assumption: ${band} is one of this prototype's out-of-area bands`).toContain(
+      band,
+    );
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
+    await expect(
+      page.locator('div[hidden][id^="S:"]'),
+      "React's streamed content is still staged, so the whole screen is duplicated in the document",
+    ).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId("ward-referral-board-screen")).toBeVisible({ timeout: 15_000 });
+    await plantSentinel(page);
+
+    // Raise a referral from the far home region, through the board's own "New referral" link.
+    await page.getByTestId("ward-referral-board-new").click();
+    await expect(page.getByTestId("ward-referral-intake-screen")).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("ward-referral-intake-ageBand").selectOption(unit.cohort);
+    await page.getByTestId("ward-referral-intake-homeRegion").selectOption(homeRegion);
+    await page.getByTestId("ward-referral-intake-submit").click();
+    await expect(page.getByTestId("ward-referral-intake-confirmation")).toBeVisible();
+    await expect(page.getByTestId("ward-referral-intake-rejection")).toHaveCount(0);
+
+    await goToBoardViaPhoneRail(page);
+    await expectNoReloadSince(page, "back to the board after raising the far referral");
+
+    const raisedId = (await queuedCardIds(page)).find((id) => !SEEDED_QUEUED_IDS.has(id));
+    expect(raisedId, "the referral raised on the intake form never reached the board").toBeDefined();
+    await page.getByTestId(`ward-referral-board-card-select-${raisedId}`).click();
+
+    // The five groups, and the sentence saying the times are invented, on the screen where the
+    // acceptance is actually taken.
+    await expect(page.getByTestId("ward-referral-match-list").locator("details")).toHaveCount(BAND_GROUP_COUNT);
+    await expect(page.getByTestId("ward-referral-match-synthetic-notice")).toBeVisible();
+
+    // Open the far group by CLICK, the way a coordinator does. At 375px the groups mount shut, so
+    // the accept control really is behind the disclosure here rather than already on screen — which
+    // is the whole reason this step is worth doing in a browser. Its counts are visible while it is
+    // still shut, which jsdom cannot show, because jsdom does not hide closed disclosure content.
+    const farGroup = page.getByTestId(`ward-referral-match-band-group-${band}`);
+    await expect(farGroup).toHaveJSProperty("open", false);
+    await expect(page.getByTestId(`ward-referral-match-band-counts-${band}`)).toBeVisible();
+    await farGroup.locator("summary").click();
+    await expect(farGroup).toHaveJSProperty("open", true);
+
+    // The accept control is taken from INSIDE the far group, so "far" is a property of where the
+    // button was found rather than a claim this test makes about a named hospital. The unit's name
+    // then comes off that control's own label, so the acceptance message below is checked against
+    // what the screen offered rather than against anything recomputed here.
+    const farAccept = farGroup.locator("[data-testid^='ward-referral-match-accept-']").first();
+    await expect(
+      farAccept,
+      `the ${band} group offers no unit that accepts this referral, so there is no far acceptance to make`,
+    ).toBeVisible();
+    const acceptLabel = ((await farAccept.textContent()) ?? "").trim();
+    expect(acceptLabel, "the accept control's label no longer names the unit").toMatch(/^Accept at .+/);
+    const acceptedUnitName = acceptLabel.replace(/^Accept at /, "");
+
+    await farAccept.click();
+    await expect(page.getByTestId("ward-referral-match-rejection")).toHaveCount(0);
+    await expect(page.getByTestId("ward-referral-match-decided")).toHaveText(`Accepted at ${acceptedUnitName}.`);
+    await expectNoReloadSince(page, "accepting at the far unit");
+
+    // On to the ledger, through the coordinator's own rail rather than a typed URL.
+    await page.getByRole("button", { name: "Open Ward Flow menu" }).click();
+    const drawer = page.getByRole("dialog");
+    await expect(drawer).toBeVisible();
+    await drawer.getByRole("link", { name: "Out of area", exact: true }).click();
+    await expect(page.getByTestId("ward-out-of-area-board")).toBeVisible({ timeout: 15_000 });
+    await expectNoReloadSince(page, "navigating to the out-of-area ledger");
+
+    // The invented-threshold sentence, WHOLE and on screen — not truncated, not behind a tooltip,
+    // not a fragment. Compared against the exported constant rather than a retyped copy, so a
+    // reworded notice cannot pass here by matching a stale substring.
+    const threshold = page.getByTestId("ward-out-of-area-threshold-notice");
+    await expect(threshold).toBeVisible();
+    await expect(threshold).toHaveText(INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE);
+
+    // D8-9, and the reason the brief's "record its arrival" step does not exist: nothing done on
+    // these screens reaches this ledger, and the ledger says so in its own words.
+    await expect(page.getByTestId(`ward-out-of-area-row-${raisedId}`)).toHaveCount(0);
+    await expect(page.getByTestId(`ward-out-of-area-card-${raisedId}`)).toHaveCount(0);
+    await expect(page.getByTestId("ward-out-of-area-provenance")).toContainText(
+      "Nothing done on these screens adds anyone to this list or takes anyone off it",
+    );
+
+    /*
+     * Phase 8, Task 10. The ledger's table, at the narrowest width it is ever used at.
+     *
+     * Found by looking, and invisible to every other check on this branch. Just above the 40rem
+     * card/table swap, the table's own `min-width` was wider than the space the shell leaves it,
+     * so `Since arrival` — this screen's second headline fact, and the one Task 5 reformatted from
+     * an unreadable `5041h 30m` into days — sat entirely outside its `overflow-x: auto` scroller
+     * with nothing on screen saying so. Measured before the fix at a 641px viewport: scroller
+     * client width 499px against a table 608px wide, the last column's right edge at 715px against
+     * the scroller's at 606px. Every DOM assertion passed throughout, because the cell was in the
+     * document the whole time; it was simply not on the screen.
+     *
+     * A real browser is the only place this can be checked — jsdom has no layout, so no Vitest
+     * suite here can tell a column that is off-screen from one that is not. Asserted as geometric
+     * containment rather than as a stylesheet value, so it goes on holding whatever the table's
+     * widths, the shell's padding or the icon rail become.
+     */
+    await page.setViewportSize({ width: 641, height: 900 });
+    const tableScroll = page.getByTestId("ward-out-of-area-table");
+    await expect(tableScroll, "the ledger is not showing its table at 641px").toBeVisible();
+    const clipped = await tableScroll.evaluate((scroll) => {
+      const right = scroll.getBoundingClientRect().right;
+      return [...scroll.querySelectorAll("thead th, tbody tr:first-child td")]
+        .filter((cell) => cell.getBoundingClientRect().right > right + 1)
+        .map(
+          (cell) =>
+            `${(cell.textContent ?? "").trim()} (right edge ${Math.round(cell.getBoundingClientRect().right)} vs scroller ${Math.round(right)})`,
+        );
+    });
+    expect(
+      clipped,
+      "column(s) of the out-of-area table are off the screen at 641px, reachable only by scrolling sideways inside the table",
+    ).toEqual([]);
   });
 });
