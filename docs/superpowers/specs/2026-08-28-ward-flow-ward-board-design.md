@@ -828,3 +828,40 @@ more specific and to gain or lose entries. **"Leave as is for now."**
 The verbatim rule is **unchanged**: no agent may tidy, shorten, reorder or remove an entry. This
 records only that a revision is anticipated — consistent with the predicted-discharge list already
 being flagged as the one most needing a clinician's own words.
+
+### DB-10 — The printed morning sheet is current at the moment it is printed (OWNER, 2026-08-29)
+
+**Printing takes the live picture and leads with the time it was taken.** The on-screen fixed view
+stays frozen at the 08:00 handover, because that is what a handover meeting wants.
+
+**This narrows Phase 6's D3 rather than reversing it.** D3 settled that the morning page is "fixed at
+the morning handover, with a live view one click away", and the reasoning was that a page which holds
+still can be printed, pinned up and argued over. Both views already exist (`MorningView = "fixed" |
+"live"`). What changes is only which one the **print path** takes.
+
+**The original reasoning survives, because a printed sheet still holds still — it is paper.** Nothing
+moves once it leaves the printer. The oddity being removed is that a sheet printed at 15:00 currently
+shows the morning's numbers, which is a stale artefact rather than a stable one.
+
+**What is genuinely lost, and the safeguard that covers it.** Today everyone who prints gets the
+*same* sheet. Under this change, someone printing at 08:14 and someone printing at 15:22 hold sheets
+with different figures and could disagree without knowing why — which is precisely the failure D3
+existed to prevent.
+
+**The timestamp is that safeguard, and it only works if it is prominent.** It goes in the **heading**,
+not the footer, and it is read as part of the title rather than as provenance small print. Two sheets
+saying `08:14` and `15:22` are then visibly two moments rather than two competing claims. **A
+small-print timestamp does not discharge this requirement** — if it can be missed, the safeguard is
+not present and D3's concern returns in full.
+
+**It supersedes the change notice DB-7 required.** DB-7 asked for a line on the page explaining that
+the 24-hour window had widened, so a jumped figure would not read as wards discharging better. With
+every sheet stamped with its own moment, a sheet from before and a sheet from after are visibly
+different snapshots and the widening shows as what it is. **Build DB-10 and the notice is not needed;
+build DB-7 alone and it still is.**
+
+**Sequencing: at the fold, together with DB-7, and looked at once.** Both touch the same page —
+`morning-page.tsx` and `ward-bed-availability.ts` — which is owned by the Phase 8 branch, so neither
+can be built before the merge. Doing them as one piece of work with a single visual pass is cheaper
+than twice, and this is a change whose whole risk is what a person reads off a sheet rather than what
+a test asserts.
