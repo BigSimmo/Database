@@ -839,7 +839,7 @@ being flagged as the one most needing a clinician's own words.
 **Printing takes the live picture and leads with the time it was taken.** The on-screen fixed view
 stays frozen at the 08:00 handover, because that is what a handover meeting wants.
 
-**This narrows Phase 6's D3 rather than reversing it.** D3 settled that the morning page is "fixed at
+**This narrows Phase 6's D5 and D6 rather than reversing them.** D3 settled that the morning page is "fixed at
 the morning handover, with a live view one click away", and the reasoning was that a page which holds
 still can be printed, pinned up and argued over. Both views already exist (`MorningView = "fixed" |
 "live"`). What changes is only which one the **print path** takes.
@@ -857,14 +857,14 @@ existed to prevent.
 not the footer, and it is read as part of the title rather than as provenance small print. Two sheets
 saying `08:14` and `15:22` are then visibly two moments rather than two competing claims. **A
 small-print timestamp does not discharge this requirement** — if it can be missed, the safeguard is
-not present and D3's concern returns in full.
+not present and P6-D6's concern returns in full.
 
 **It must carry the DATE as well as the time, and the reason is this decision's own argument turned
 back on it.** The case for printing live is that a printed sheet still holds still, because it is
 paper. Paper also **persists past the day it was printed**. A sheet stamped `15:22` and pinned to a
 wall is read again at 09:00 the next morning, and at that moment the stamp distinguishes nothing — it
 reads as "today at 15:22", which has not happened yet. Two sheets an hour apart are visibly two
-moments; two sheets a day apart, stamped with time only, are indistinguishable. That is D3's failure
+moments; two sheets a day apart, stamped with time only, are indistinguishable. That is P6-D5's failure
 returning through the single door a time-only stamp leaves open. **Date and time, both in the
 heading.**
 
@@ -882,7 +882,7 @@ a test asserts.
 
 ### DB-11 — The frozen view is dropped. Everything is live, on screen and on paper (OWNER, 2026-08-29)
 
-**This reverses Phase 6's D3 outright, and it was chosen with the cost stated.** Not narrowed, not
+**This reverses Phase 6's D5 and D6 outright, and it was chosen with the cost stated.** Not narrowed, not
 qualified — the fixed 08:00 view goes, and the page is live everywhere.
 
 **What D3 was protecting, so nobody restores it later believing it was lost by accident:** a page that
@@ -986,3 +986,60 @@ column reads **"not yet recorded"** — never blank, and never implying the ward
 
 **This closes the last owner-pending item on the ward board.** The two remaining open items are the
 clinician check (held at his instruction until this phase closes) and the roadmap's ordering line.
+
+---
+
+### CORRECTION, 2026-08-29 — DB-10 and DB-11 cited the wrong decision, and the error was dangerous
+
+**DB-10 and DB-11 said they narrowed and then reversed "Phase 6's D3". They do not touch D3 at all.**
+Corrected above. Found by a third session reading all three; verified here against the Phase 6 spec
+before accepting.
+
+**What D3 actually says, quoted:**
+
+> ### D3 — Five figures, one vocabulary, and the exclusion count stated aloud
+>
+> **Available now · Confirmed today · Predicted today · Held · Leave (usable)**
+> Never summed, never combined, never relabelled.
+
+**That is a clinical-safety rule about not misrepresenting bed availability, and DB-11 said it was
+reversed outright.** An implementer following DB-11 literally would have been authorised to sum,
+combine or relabel the bed figures — the precise misrepresentation this prototype exists to prevent.
+Nothing had been built from it yet; the damage was potential.
+
+**What the two decisions actually reach:**
+
+- **P6-D5** — _"Fixed at the morning handover" means frozen to a named instant, not frozen to
+  page-open._ Chosen so that "everyone who opens it that day sees the identical page." **DB-11
+  reverses this.**
+- **P6-D6** — _The live view is one click away, and cannot be mistaken for the fixed one_, and it
+  "never prints without saying which view it is." **DB-11 removes the two-view control; DB-10's
+  print stamp is the surviving descendant of D6's last clause** and must be read as inheriting it.
+
+**D3 is untouched and stays in force.** The five figures, their order, their words, never summed,
+never combined, never relabelled — at service, hospital and unit level.
+
+**How the error happened, because it will otherwise recur.** I cited from a memory of what a decision
+was _about_ rather than from its text, and never opened the Phase 6 spec while writing three
+decisions that claimed to modify it. The reader's rule catches this at zero cost:
+
+> **Quote the prior decision's own words when reversing one. If those words are not in the decision
+> you cited, you cited the wrong one.**
+
+Every ward-flow spec numbers its decisions `D1…Dn` independently, so `D4` through `D9` each name five
+different decisions across the phases. **Cite by namespaced id — `P6-D5`, never a bare `D3`.**
+
+### DB-10's on-screen half is SUPERSEDED by DB-11
+
+DB-10 opens by saying the on-screen fixed view stays frozen at 08:00. **DB-11 then removes the frozen
+view entirely.** DB-10 carried no superseded marker, and DB-11 mentioned it only in a sequencing line.
+
+**Someone implementing the print work reads DB-10 first**, because it is the one with "printed sheet"
+in its title, and would build a frozen view DB-11 deletes.
+
+**Live half of DB-10 — still in force:** printing takes the live picture; the stamp carries **date and
+time** in the **heading**, not the footer; a small-print stamp does not discharge the requirement; and
+per DB-12 the stamp reads the same instant the figures read, never the wall clock.
+
+**Superseded by DB-11:** every sentence about an on-screen fixed view, a 08:00 freeze, or a two-view
+control. There is one view and it is live.
