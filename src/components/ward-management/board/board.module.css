@@ -225,9 +225,16 @@
   text-transform: uppercase;
 }
 
+/* `--danger-solid`, NOT `--danger` — found by rendering the dark theme and looking. `--danger`
+   resolves to `--danger-text`, which in dark is a LIGHT pink (#ff9ca4) intended as ink on a dark
+   surface; filling a badge with it and printing `--danger-solid-contrast` (white) on top gave
+   white on pale pink, and the words "Past date" were barely readable on the one tile a
+   coordinator most needs to notice. `--danger-solid`/`--danger-solid-contrast` are the paired
+   fill/ink tokens for exactly this, and they hold in both themes. The OUTLINE below keeps
+   `--danger`, which is correct: an outline is ink on the page, not a fill. */
 .pastMark {
   border-radius: var(--radius-xs);
-  background: var(--danger);
+  background: var(--danger-solid);
   padding: 0 var(--wb-space-4);
   color: var(--danger-solid-contrast);
   font-size: var(--text-3xs);
