@@ -358,6 +358,43 @@ row is untouched by definition.
 
 ### D11 — The layout, and one number at the top
 
+> **PARTLY SUPERSEDED, 2026-08-29 — two thirds stand, the third changes, and the stated REASON
+> lapses.** The owner redesigned this layout tonight. His words, verbatim:
+>
+> > "Have a system like the home page where the beds take up 2/3 page on the left with the right
+> > being 1/3 and it having all the information show up for that bed. Then have a triage bar
+> > somewhere also showing important information or daily discharges maybe on the left."
+>
+> and then, refining it:
+>
+> > "Wards in middle, left showing the incoming and outgoing patients and right showing patient
+> > info when bed is clicked on as a slide out"
+>
+> **What survives:** beds in the middle, and the list of incoming and outgoing on the left.
+> **What changes:** detail moves from a persistent right-hand column to a SLIDE-OUT, opened by
+> clicking a bed. A slide-out is a different thing on a phone, where a third column cannot exist at
+> all, and a different thing for someone reading over a shoulder.
+>
+> **And D11's own justification lapses with it.** Its stated reason is that the page MIRRORS the
+> coordinator's home page. A board with a slide-out no longer mirrors it, so this decision keeps its
+> conclusion for two thirds and loses its reason for the whole. The replacement reason, which is the
+> one the rebuild is being built to: **the page should read left to right as the journey — arriving,
+> in a bed, leaving — because that is the project's stated foundation.** The geometry is a
+> consequence of that, not the point of it.
+>
+> **A triage bar is also added**, carrying the home page's six capacity figures scoped to this ward,
+> from the same exported labels so the board cannot drift from the home page's vocabulary.
+>
+> **No decision number yet, deliberately.** Decision identity belongs to the ledger session and it
+> has not seen the owner state this; numbering it here is how a register acquires an entry nobody
+> made. The owner's wording above is what it will be numbered from.
+>
+> Marked because this is the decision someone reaches when they want to know where things sit on
+> this page — and an implementer reading it unmarked would build a right-hand column. That is
+> exactly the shape that produced the DB-10 / DB-11 tangle earlier the same day: a new decision
+> taking part of an old one without saying so.
+
+
 The page mirrors the coordinator's home page — list on the left, picture in the middle, detail on the
 right — with the flow running left-to-right **out** of the ward instead of **in**.
 
