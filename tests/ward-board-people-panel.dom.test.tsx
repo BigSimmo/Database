@@ -425,6 +425,30 @@ describe("a person who is away at an emergency department", () => {
     }
   });
 
+  it("marks the BED TILE, not only the person panel — the grid is what a ward scans", () => {
+    /*
+     * ADDED AFTER LOOKING AT THE RENDERED BOARD, 2026-08-30, and the reason is the whole value of
+     * this test.
+     *
+     * The marker shipped in the person panel only. Every assertion above passed. On a real screen
+     * at 1440px the panel holding it is `display: none` — so the marker existed, the tests were
+     * green, and a charge nurse scanning the ward grid saw nothing. Exactly the defect the marker
+     * was written to fix.
+     *
+     * jsdom applies no stylesheet, so a DOM query finds an element CSS has hidden. That makes
+     * "is it in the document" the wrong question for anything whose value is being SEEN. The right
+     * question is which surface carries it, and this asserts the tile — the one a reader scans
+     * without clicking anything.
+     */
+    const unitId = awayAdmissions[0].unitId;
+    const view = renderWardBoard(unitId);
+
+    const tileMarks = view.getAllByTestId(/^ward-board-bed-\d+-away$/u);
+    const expected = awayAdmissions.filter((admission) => admission.unitId === unitId).length;
+    expect(tileMarks, "no bed tile carries the away marker").toHaveLength(expected);
+    for (const mark of tileMarks) expect(mark.textContent).toMatch(/at ed/i);
+  });
+
   it("changes NO bed figure — the ward is holding the bed", () => {
     /*
      * The safety property, and the reason this field is not a state, a leaving destination or a
@@ -440,9 +464,8 @@ describe("a person who is away at an emergency department", () => {
 
     const occupantsDrawn = view.getAllByTestId(/^ward-board-person-/u).length;
     expect(occupantsDrawn, "an away person stopped being drawn as an occupant").toBeGreaterThan(0);
-    expect(
-      occupiedHere,
-      "the away people are no longer counted in this unit's occupied beds",
-    ).toBeGreaterThanOrEqual(awayAdmissions.filter((a) => a.unitId === unitId).length);
+    expect(occupiedHere, "the away people are no longer counted in this unit's occupied beds").toBeGreaterThanOrEqual(
+      awayAdmissions.filter((a) => a.unitId === unitId).length,
+    );
   });
 });

@@ -75,7 +75,25 @@ const BAND_CLASS: Record<StayBandId, string> = {
 };
 
 type Tile =
-  | { kind: "occupied"; key: string; days: number; bandId: StayBandId | null; bandLabel: string; pastDate: boolean }
+  | {
+      kind: "occupied";
+      key: string;
+      days: number;
+      bandId: StayBandId | null;
+      bandLabel: string;
+      pastDate: boolean;
+      /**
+       * Whether this person is currently at an emergency department. **On the TILE, not only in
+       * the person panel** — added 2026-08-30 after looking at the rendered board, where the panel
+       * carrying this marker is `display: none` at desktop width. The marker existed, every
+       * assertion passed, and a charge nurse scanning the grid saw nothing: jsdom applies no
+       * stylesheet, so a DOM query finds an element CSS has hidden.
+       *
+       * The grid is what a ward reads. A fact that only appears once somebody clicks the right
+       * bed is not on the board.
+       */
+      awayAtEd: boolean;
+    }
   | { kind: "waiting"; key: string }
   | { kind: "blocked"; key: string }
   | { kind: "held"; key: string }
@@ -158,6 +176,7 @@ function buildTiles(
       bandId: band?.id ?? null,
       bandLabel: band?.label ?? "Stay not banded",
       pastDate: isPastExpectedDischarge(admission, now),
+      awayAtEd: admission.awayAtEmergencyDepartmentSince !== null,
     };
   });
 
@@ -859,8 +878,8 @@ export function WardBoard({ unitId }: { unitId: string }) {
            * site — and this note comes out in the same commit.
            */}
           <p className={styles.asAtFixed} data-testid="ward-board-fixed-note">
-            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live
-            clock, so the times will differ.
+            This board is a fixed snapshot and does not advance while you watch. Other screens follow the live clock, so
+            the times will differ.
           </p>
         </div>
 
@@ -1175,6 +1194,15 @@ export function WardBoard({ unitId }: { unitId: string }) {
                           {tile.pastDate && (
                             <span className={styles.pastMark} data-testid={`ward-board-bed-${index + 1}-past`}>
                               Past date
+                            </span>
+                          )}
+                          {/* Words, never a fill or a colour — the same rule the past-date badge
+                            above follows, and for the same reader: greyscale, forced-colors, or
+                            paper. The short form is what fits a 390px tile; the full sentence,
+                            including that the bed is still theirs, is in the person panel. */}
+                          {tile.awayAtEd && (
+                            <span className={styles.awayMark} data-testid={`ward-board-bed-${index + 1}-away`}>
+                              At ED
                             </span>
                           )}
                         </>

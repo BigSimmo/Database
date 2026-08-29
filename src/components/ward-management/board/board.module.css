@@ -649,6 +649,33 @@
   text-transform: uppercase;
 }
 
+/*
+ * "At ED" on the tile — the same SHAPE as `.pastMark` above and deliberately not the same colour.
+ *
+ * Same shape because they are the same kind of fact: a short word-badge qualifying the day count
+ * beside it, and a reader who has learned to read one should not have to learn another.
+ *
+ * NOT the danger fill, which is what copying `.pastMark` wholesale gave it at first. A passed
+ * discharge date is a problem; being at an emergency department is a STATUS, and a ward is
+ * usually holding the bed because the person is coming back. A red badge would have every board
+ * with an ED trip on it reading as a board in trouble, and a marker that over-alarms is ignored
+ * within a week — which costs more than the marker was worth.
+ *
+ * Bordered rather than filled, so it is still legible in forced-colors and on paper, and the word
+ * carries the whole meaning if no colour is perceived at all.
+ */
+.awayMark {
+  border-radius: var(--radius-xs);
+  border: var(--wb-hairline) solid var(--border-strong);
+  background: var(--surface-inset);
+  padding: 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
 .waiting,
 .blockedLabel,
 .emptyLabel,
