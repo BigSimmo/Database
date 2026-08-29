@@ -71,6 +71,7 @@ export type WardNavGroup = "role" | "board";
  * two days on guards that turned out not to guard does not trade a real check for a newer one.
  */
 export type WardNavId =
+  | "wards"
   | "ward"
   | "board"
   | "officer"
@@ -101,12 +102,24 @@ export type WardNavItem = {
  * (`ward/[unitId]`, `ed/[edId]`); the rail can only ever link to one concrete instance of each,
  * so both carry `exampleOnly: true` (D10) — the navigation must present them as an example entry
  * point into that role screen, never as though they were a section of the app in their own
- * right. **Do not delete either** — they are currently the only way to reach those two role
- * screens.
+ * right. **Do not delete either.** `ed` is still the only way to reach the emergency department
+ * role screen at all. `ward` is no longer the only way to reach a ward — `wards` above is the ward
+ * index, which links every unit in the network — but it remains the ONE concrete `ward/[unitId]`
+ * href in the source, and `tests/ward-nav.test.ts` measures that route's recorded coverage from
+ * exactly that: delete it and the figure falls to nought, having made nothing more reachable.
+ *
+ * `wards` is a section rather than an example, so it carries no `exampleOnly` flag: it is the
+ * index of every ward, not one ward standing in for the rest.
  *
  * `board` — the specialist boards that sit outside the eight views.
  */
 export const WARD_NAV: readonly WardNavItem[] = [
+  {
+    id: "wards",
+    href: "/mockups/ward-flow/wards",
+    label: "All wards",
+    group: "role",
+  },
   {
     id: "ward",
     href: "/mockups/ward-flow/ward/rph-adult-secure",

@@ -476,7 +476,23 @@ it) from clinical discovery entirely.
   `ward-distance.ts` and rendered whole, above the entries. The only ward screen that reads the
   admission seed, and it does so as a default parameter: `Admission` is not in reducer state and no
   event creates or ends one, so the screen states in its own words that the list is seeded and is
-  not a live count)
+  not a live count),
+  `wards/ward-index.tsx` (Phase 8: the ward index — `/mockups/ward-flow/wards`, a `role` entry in
+  `WARD_NAV` above the single seeded ward example. One page listing every ward in the network,
+  grouped under its health service in `wardServiceOrder` and linking each ward to
+  `/mockups/ward-flow/ward/[unitId]`. It exists because that dynamic route served 23 wards while
+  exactly one — `ward-nav.ts`'s `rph-adult-secure` example — was named by a concrete href anywhere
+  in the source, so 22 ward screens could be reached only by typing an address. Enumerated from the
+  provider's live `units`, never a hand-written list and never `allUnits()` directly
+  (`UNITS_FIXTURE_ALLOWLIST` in `tests/ward-flow-single-source.test.ts`); the service is derived per
+  unit via `siteByCode`, and a unit whose site code resolves to nothing renders in an explicit
+  "Not placed in a health service" group rather than being dropped from every group. Deliberately
+  carries NO bed figure, count, availability or occupancy — an owner decision, guarded by test: an
+  index that grew a bed column would be a second surface answering the capacity board's question in
+  wording that can drift. Nothing sorts, ranks or truncates. The 23-of-23 coverage claim is
+  established in `tests/ward-nav.test.ts` by rendering the page and comparing the links inside its
+  `<main>` against `allUnits()` by set equality — not by that file's source scan, which counts
+  concrete hrefs only and deliberately refuses to read a `.map()` builder as coverage)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)

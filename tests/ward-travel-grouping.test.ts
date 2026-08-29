@@ -400,6 +400,12 @@ describe("the out-of-area ledger", () => {
       dischargeDateMoves: 0,
       dischargeDateSetAt: null,
       dischargeDateSetBy: null,
+      // Nobody has decided a discharge for anyone in this ledger. `null` is the ordinary state of
+      // both fields and must never read as a refusal or as a discharge that will not happen; it
+      // means the decision has not been taken. This suite is about people occupying beds now, so
+      // that is the right default. A test needing a decided departure overrides both together.
+      dischargeConfirmedAt: null,
+      dischargeConfirmedBy: null,
       blockReason: null,
       leavingDestination: null,
       leftAt: null,

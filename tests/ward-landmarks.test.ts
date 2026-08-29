@@ -48,6 +48,7 @@ import { PatientSearchPage } from "@/components/ward-management/search/patient-s
 import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
 import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
+import { WardIndex } from "@/components/ward-management/wards/ward-index";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { WardBoard } from "@/components/ward-management/board/ward-board";
@@ -145,10 +146,11 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
   { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
   { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
+  { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 22 measured at the fold (21 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 23 (22 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
     // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
@@ -157,8 +159,11 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     // 22 at the fold, not 21: the ward board branch added `/board/[unitId]` while Phase 8 added
     // `/out-of-area`, and each branch had moved this number to 21 for its own route. Both entries
     // are present in RENDERABLE_ROUTES below and both routes are rail-linked, verified before this
-    // number moved. 21 renderable + 1 redirect-only (`/constellation`) = 22.
-    expect(wardFlowRoutes.length).toBe(22);
+    // number moved.
+    // 23, not 22: Phase 8 added `/wards` (`WardIndex`), the ward index — the page that gives the
+    // other 22 of `ward/[unitId]`'s 23 wards a way in. 22 renderable + 1 redirect-only
+    // (`/constellation`) = 23.
+    expect(wardFlowRoutes.length).toBe(23);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -170,9 +175,10 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 21 entries, one per live route", () => {
+  it("RENDERABLE_ROUTES has exactly 22 entries, one per live route", () => {
     // 21 at the fold: both branches added one renderable route each, and both entries merged in.
-    expect(RENDERABLE_ROUTES.length).toBe(21);
+    // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
+    expect(RENDERABLE_ROUTES.length).toBe(22);
   });
 });
 

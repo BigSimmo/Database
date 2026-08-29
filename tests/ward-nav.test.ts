@@ -44,6 +44,9 @@ import { ReferralIntakeForm } from "@/components/ward-management/referrals/refer
 import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
+import { WardIndex } from "@/components/ward-management/wards/ward-index";
+import { wardServiceOrder } from "@/components/ward-management/ward-derivations";
+import type { Unit } from "@/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 
@@ -118,7 +121,11 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     // A silently broken scan (e.g. resolving the wrong directory) would collapse this to 0 or a
     // handful, and every assertion below would then vacuously pass — so this is checked before
     // trusting any of them.
-    expect(wardFlowRoutes.length).toBe(22);
+    // 23, not 22: Phase 8 added `/wards` (`WardIndex`), the ward index — one page listing every
+    // ward in the network, grouped by health service, each linking to its own ward screen. It is
+    // the answer to the `Owner decision pending on where a full ward index belongs` line that
+    // WARD_DYNAMIC_ROUTE_ORPHANS carried for `ward/[unitId]`.
+    expect(wardFlowRoutes.length).toBe(23);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -128,6 +135,7 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals/new`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/referrals`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/out-of-area`);
+    expect(staticRoutes).toContain(`${ROUTE_PREFIX}/wards`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/transport/officer`);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ward/rph-adult-secure`))).toBe(true);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ed/peel-ed`))).toBe(true);
@@ -262,11 +270,27 @@ const WARD_DYNAMIC_ROUTE_INSTANCES: ReadonlyMap<string, () => number> = new Map(
 const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
   [
     "/mockups/ward-flow/ward/[unitId]",
+    // REWRITTEN when /wards landed, and the number in it did NOT move — read this before
+    // changing it. The scan measures CONCRETE hrefs: literal quoted paths. The ward index builds
+    // its hrefs (`/mockups/ward-flow/ward/${unit.id}`) inside a map, so the scan classifies it as
+    // a BUILT site and counts nought new instances from it. That is this scan working exactly as
+    // its own header demands — it says, in full, that a link built inside a `.map()` may iterate
+    // the whole collection or a context-derived subset of three and the two are textually
+    // identical, so reading a builder as reachability would be the same defect class as the
+    // orphan the guard was written to catch. Teaching it to count this one would be loosening it.
+    //
+    // So the shortfall this figure records is now a limit on what a SOURCE SCAN can establish,
+    // not a gap in the navigation. What the index actually covers is established by rendering it
+    // and reading the links back out of the markup — the `Ward index` describe block below, which
+    // pins the linked set against `allUnits()` exactly and fails on a single missing ward.
     "1 of 23 instances reachable without state — ward-nav.ts's one seeded example (rph-adult-secure), " +
-      "carried as exampleOnly. ward-role-switcher.tsx builds the rest, but only over `wardCandidates`: " +
-      "empty with no movement focused, otherwise the focused movement's accepted unit or its referred " +
-      "units, so nought to three more and only after a selection. The other 22 wards have no route in. " +
-      "Owner decision pending on where a full ward index belongs.",
+      "carried as exampleOnly, is still the only CONCRETE ward href in the source, and this scan counts " +
+      "concrete hrefs only. The navigation itself no longer orphans anything: /mockups/ward-flow/wards " +
+      "(WardIndex) lists every ward in the network, grouped by health service, and links each one — 23 " +
+      "of 23, established by rendering that page and counting its links rather than by this scan, in " +
+      "the 'Ward index' describe block in this file. ward-role-switcher.tsx also builds ward hrefs, but " +
+      "only over `wardCandidates`: empty with no movement focused, otherwise the focused movement's " +
+      "accepted unit or its referred units, so nought to three and only after a selection.",
   ],
   [
     "/mockups/ward-flow/board/[unitId]",
@@ -327,7 +351,14 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
     expect([...(board?.concreteInstances ?? [])]).toEqual(["rph-adult-secure"]);
     expect(board?.builtSites).toEqual([]);
     const ward = dynamicRouteScans.get("/mockups/ward-flow/ward/[unitId]");
-    expect(ward?.builtSites).toEqual(["src/components/ward-management/ward-role-switcher.tsx"]);
+    // Two builders now, and the list stays exact rather than becoming a `toContain`: the ward
+    // index (Phase 8) builds one href per unit over the whole network, the role switcher builds
+    // nought to three over a selection. Which is which is the entire subject of the coverage
+    // record above, so a third builder appearing here should cost somebody a decision.
+    expect([...(ward?.builtSites ?? [])].sort()).toEqual([
+      "src/components/ward-management/ward-role-switcher.tsx",
+      "src/components/ward-management/wards/ward-index.tsx",
+    ]);
 
     // NEGATIVE pin, and the reason this query is narrow enough to mean anything at all.
     // `ward-flow-events.ts` and `ward-flow-reducer.ts` both mention `/mockups/ward-flow/ward/[unitId]`
@@ -665,6 +696,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
   { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
   { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
+  { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
 ];
 
 describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on the map)", () => {
@@ -680,7 +712,8 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     // declares its own, with the same name and a near-identical route list. Two hand-maintained maps
     // sharing a name across two files is how one gets updated and the other silently does not; both
     // were moved together here, and a future route must move both.
-    expect(RENDERABLE_ROUTES.length).toBe(21);
+    // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
+    expect(RENDERABLE_ROUTES.length).toBe(22);
   });
 });
 
@@ -701,4 +734,139 @@ describe("Every Ward Flow route carries the 'Ward Flow views' in-page nav (D8)",
       ).toBe(1);
     });
   }
+});
+/* ------------------------------------------------------------------------------------------ *
+ * The ward index (`/mockups/ward-flow/wards`).
+ *
+ * This is where the 23-of-23 claim is actually established. The source scan above cannot make it:
+ * the index builds its hrefs inside a `.map()`, and that scan deliberately refuses to read a
+ * builder as coverage — see its own header, and the rewritten WARD_DYNAMIC_ROUTE_ORPHANS entry for
+ * `ward/[unitId]`. So the page is RENDERED and the links are read back out of the markup, which is
+ * the only way to know what the map actually produced rather than what it was meant to.
+ *
+ * The linked set is compared to `allUnits()` by EQUALITY, not by count and not by a floor. A count
+ * survives one ward being linked twice and another not at all; equality does not. Seed a
+ * twenty-fourth ward and this goes red until the page reaches it.
+ * ------------------------------------------------------------------------------------------ */
+
+/**
+ * Every ward href the INDEX ITSELF renders, in document order, duplicates kept.
+ *
+ * Scoped twice over, and the first version of this helper was scoped neither way — it matched every
+ * ward href anywhere in the markup and went red on `rph-adult-secure` appearing twice, because the
+ * `ClinicalRail` mounted on this page carries `ward-nav.ts`'s own seeded ward link. A helper that
+ * had been written a shade more loosely would have counted the rail's example as the index's
+ * twenty-third ward and reported full coverage while the page missed one. So:
+ *
+ *   1. The search is confined to `<main id="main-content">` — the region the index owns. The rail
+ *      is outside it, structurally, not merely by name.
+ *   2. Inside that region only anchors carrying the index's own `data-testid` count.
+ *
+ * `linkCountIn` below is the companion floor: it counts the testid on its own, so a pattern that
+ * silently stopped matching anchors reads as a mismatch rather than as a shorter list.
+ *
+ * Built with `new RegExp` from `ROUTE_PREFIX` rather than written as a literal, the convention this
+ * file already uses above: an escape that survives review can still arrive as a different byte.
+ */
+function wardHrefsIn(markup: string): string[] {
+  const main = mainRegionOf(markup);
+  const pattern = new RegExp('<a[^>]*href="' + ROUTE_PREFIX + '/ward/([^"/]+)"[^>]*data-testid="ward-index-link"', "g");
+  const found: string[] = [];
+  for (let match = pattern.exec(main); match !== null; match = pattern.exec(main)) found.push(match[1]);
+  return found;
+}
+
+/** How many index ward links the main region holds, counted from the testid alone — independent of
+ *  the href pattern above, so the two disagreeing is itself the failure. */
+function linkCountIn(markup: string): number {
+  return (mainRegionOf(markup).match(/data-testid="ward-index-link"/g) ?? []).length;
+}
+
+/** The `<main id="main-content">` slice. Asserted rather than assumed: a slice taken from an index
+ *  of -1 silently returns the whole document, which would undo the scoping above without failing. */
+function mainRegionOf(markup: string): string {
+  const start = markup.indexOf('<main id="main-content"');
+  expect(start, 'the rendered page has no <main id="main-content"> to scope the link scan to').toBeGreaterThan(-1);
+  return markup.slice(start);
+}
+
+function renderWardIndex(units?: Unit[]): string {
+  // `units` passed explicitly as possibly-undefined rather than as a conditional object: the union
+  // `{ units: Unit[] } | {}` matches no `createElement` overload, and `undefined` here is exactly
+  // what the component treats as "use the provider's live units".
+  const children = createElement(WardIndex, { units });
+  // eslint-disable-next-line react/no-children-prop -- WardFlowProviderProps requires `children`
+  const element = createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children });
+  return renderToStaticMarkup(element);
+}
+
+describe("Ward index — every ward in the network has a way in", () => {
+  const markup = renderWardIndex();
+  const linked = wardHrefsIn(markup);
+
+  it("links every unit the fixture holds, exactly once each — counted from the rendered links", () => {
+    const expected = allUnits().map((unit) => unit.id);
+
+    // Non-vacuity floor first. Equality between two empty sets passes, and a page that rendered
+    // nothing at all would satisfy every assertion below it.
+    expect(expected.length, "the unit fixture is empty — nothing below this line proves anything").toBeGreaterThan(1);
+    expect(linked.length, "the ward index rendered no ward links at all").toBeGreaterThan(0);
+
+    // Equality, not containment and not a count: a count survives one ward linked twice while
+    // another is missed, and containment survives a page that links every ward plus a unit that
+    // does not exist.
+    expect([...linked].sort()).toEqual([...expected].sort());
+    expect(new Set(linked).size, "a ward is linked more than once").toBe(linked.length);
+
+    // The two independent counts must agree, or the href pattern above has stopped seeing anchors
+    // the page is still rendering.
+    expect(linkCountIn(markup), "the href scan and the testid count disagree").toBe(linked.length);
+  });
+
+  it("groups the wards under the health services in wardServiceOrder, in that order", () => {
+    // The headings, read out of the markup in the order they render. `wardServiceOrder` is the one
+    // canonical order and this page must not carry a second copy of it.
+    const headings = [...markup.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((match) => match[1]);
+    for (const service of wardServiceOrder) {
+      expect(headings, `no heading for the health service ${service}`).toContain(service);
+    }
+    const positions = wardServiceOrder.map((service) => headings.indexOf(service));
+    expect(positions, "the service headings do not render in wardServiceOrder").toEqual(
+      [...positions].sort((a, b) => a - b),
+    );
+  });
+
+  it("renders a ward whose site cannot be resolved in an explicit 'not placed' group rather than dropping it", () => {
+    // The seeded network has no broken site code, so this state cannot be reached through the live
+    // fixture — which is exactly why it is worth a test: a silent drop is invisible until the day it
+    // happens. A real unit, given a site code no site carries.
+    const units = allUnits();
+    const orphaned = { ...units[0], id: "wi-test-unplaced", siteCode: "no-such-site" };
+    const withOrphan = renderWardIndex([...units, orphaned]);
+
+    expect(withOrphan).toContain('data-testid="ward-index-unplaced"');
+    expect(withOrphan).toContain("Not placed in a health service");
+    // The point of the group: the ward is still on the page AND still has its link.
+    expect(wardHrefsIn(withOrphan)).toContain("wi-test-unplaced");
+
+    // And it appears exactly once — listed in the not-placed group, never also guessed into a
+    // service group.
+    expect(wardHrefsIn(withOrphan).filter((id) => id === "wi-test-unplaced").length).toBe(1);
+
+    // The group is absent when nothing is unplaced, so its presence above means something.
+    expect(markup).not.toContain('data-testid="ward-index-unplaced"');
+  });
+
+  it("is an index and not a second bed board — it states no capacity, availability or occupancy", () => {
+    // The owner's restraint decision, given a shape that can fail. Two surfaces answering one
+    // question in wording that can drift is this project's most reliable defect; the index answers
+    // "what is this ward and how do I get to it", and nothing else.
+    const forbidden = ["Beds", "beds", "Available", "available", "Occupied", "occupied", "Allocatable", "Empty beds"];
+    const present = forbidden.filter((word) => markup.includes(word));
+    expect(present, `the ward index has grown capacity wording: ${present.join(", ")}`).toEqual([]);
+
+    // Non-vacuity: the words it SHOULD carry are there, so this is not passing on an empty page.
+    expect(markup).toContain("All wards");
+    expect(markup).toContain("no bed numbers");
+  });
 });

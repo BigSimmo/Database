@@ -3,6 +3,7 @@ import {
   BedSingle,
   Building2,
   CircleAlert,
+  Hospital,
   ClipboardList,
   Inbox,
   LayoutGrid,
@@ -54,6 +55,10 @@ export const WARD_VIEW_ICONS: Record<WardMode, LucideIcon> = {
  * point.
  */
 export const WARD_NAV_ICONS: Record<WardNavId, LucideIcon> = {
+  // The ward index: every ward in the network. `Hospital` rather than a second `Building2`, which
+  // the single seeded ward example beside it already uses — two destinations sharing an icon in an
+  // icon-only rail are two destinations a reader cannot tell apart.
+  wards: Hospital,
   board: LayoutGrid,
   ward: Building2,
   officer: Ambulance,
