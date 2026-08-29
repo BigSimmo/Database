@@ -397,7 +397,11 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
-    expect(RENDERABLE_ROUTES.length).toBe(20);
+    // 21 at the fold. NOTE: this is the SECOND map named RENDERABLE_ROUTES — tests/ward-landmarks.test.ts
+    // declares its own, with the same name and a near-identical route list. Two hand-maintained maps
+    // sharing a name across two files is how one gets updated and the other silently does not; both
+    // were moved together here, and a future route must move both.
+    expect(RENDERABLE_ROUTES.length).toBe(21);
   });
 });
 

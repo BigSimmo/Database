@@ -467,3 +467,20 @@
     padding: 0;
   }
 }
+
+/*
+ * Reserve the fixed phone bar's height, the same way every other Ward Flow shell does
+ * (`ward-management.module.css`, `ward-management-modes.module.css`, and the rest).
+ *
+ * Added at the ward board fold, 2026-08-29. This file and the phone contract that requires it were
+ * built on different branches and had never met: the board screen shipped with no phone media query
+ * at all, so on a phone its first row would have sat underneath the fixed bar. Nothing on the board
+ * branch could have caught it, because the contract lived on the other one — which is the fold
+ * doing its job rather than the fold breaking something.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    /* Reserve the fixed phone bar (ward-sidebar.module.css). */
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}

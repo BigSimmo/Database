@@ -148,13 +148,17 @@ const RENDERABLE_ROUTES: RouteRender[] = [
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 21 measured on this branch (20 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 22 measured at the fold (21 renderable + 1 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
     // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
     // added `/mockups/ward-flow/out-of-area` (`OutOfAreaBoard`) — see RENDERABLE_ROUTES's own doc
     // comment.
-    expect(wardFlowRoutes.length).toBe(21);
+    // 22 at the fold, not 21: the ward board branch added `/board/[unitId]` while Phase 8 added
+    // `/out-of-area`, and each branch had moved this number to 21 for its own route. Both entries
+    // are present in RENDERABLE_ROUTES below and both routes are rail-linked, verified before this
+    // number moved. 21 renderable + 1 redirect-only (`/constellation`) = 22.
+    expect(wardFlowRoutes.length).toBe(22);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -166,8 +170,9 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 20 entries, one per live route", () => {
-    expect(RENDERABLE_ROUTES.length).toBe(20);
+  it("RENDERABLE_ROUTES has exactly 21 entries, one per live route", () => {
+    // 21 at the fold: both branches added one renderable route each, and both entries merged in.
+    expect(RENDERABLE_ROUTES.length).toBe(21);
   });
 });
 

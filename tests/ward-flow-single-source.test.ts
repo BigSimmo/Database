@@ -57,6 +57,20 @@ const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pres
 const ADMISSION_SEED_ALLOWLIST = new Set([
   "src/components/ward-management/ward-admissions-seed.ts",
   "src/components/ward-management/out-of-area/out-of-area-board.tsx",
+  // Added at the ward board fold, 2026-08-29, following this constant's own instruction that a
+  // second entry is not a paperwork step — the provenance paragraph was read and assessed rather
+  // than waved through. The sentence it protects is "the list is seeded, no event in this prototype
+  // adds to it or removes from it, and it is not a live count of anything." `ward-board.tsx` reads
+  // the seed as `const admissions = wardAdmissions` and contains no `dispatch`, no `useState`, no
+  // `useWardFlow` and no `useReducer` — verified by grep before the entry was added. A read-only
+  // consumer emits no events, so it cannot make that sentence false. The comment's fear — that a
+  // second reader is usually the change that falsifies it — is a good prior and does not hold here.
+  //
+  // The guarantee is now carried by the companion assertion below rather than by this list being
+  // short: no file reading the admission seed may also dispatch a Ward Flow event. That is the
+  // property the prose actually promises, and it keeps biting if this board later gains the
+  // discharge-confirmation handler its own DB-2 work points at.
+  "src/components/ward-management/board/ward-board.tsx",
 ]);
 
 /**
@@ -485,6 +499,34 @@ describe("one source of truth", () => {
       `file(s) reading the admission seed outside ADMISSION_SEED_ALLOWLIST: ${offenders.join(", ")}. ` +
         "Read that constant's comment before adding one — the out-of-area board states in its own words " +
         "that this list is seeded and not live, and a second reader is usually the change that makes that false.",
+    ).toEqual([]);
+  });
+
+  it("lets no admission-seed reader dispatch a Ward Flow event, which is what that sentence promises", () => {
+    /*
+     * The companion to `ADMISSION_SEED_ALLOWLIST`, added at the fold when the ward board became its
+     * third entry. A bare allowlist entry would weaken the guard permanently: the rule would then
+     * be "these three files are trusted" rather than "nothing that reads this list can change it".
+     *
+     * This asserts the property the provenance paragraph actually promises — no event adds to or
+     * removes from the list — against every reader including the allowed ones. A reader that later
+     * grows a dispatch fails here even though it is on the list above, which is precisely the change
+     * the original comment was worried about and the one a longer allowlist would have stopped
+     * catching.
+     */
+    const offenders = srcDirFiles()
+      .filter(({ source }) => /from "[^"]*ward-admissions-seed"/.test(source))
+      // `dispatch(` only, deliberately narrow. The first draft of this rule also matched
+      // `useWardFlow(` and immediately fired on `out-of-area-board.tsx` — which calls that hook to
+      // READ `{ units, now }` and dispatches nothing. Reading the provider cannot falsify the
+      // sentence; only emitting an event can. A check that fires is a question, not a verdict.
+      .filter(({ source }) => /\bdispatch\s*\(/.test(source))
+      .map(({ normalizedFile }) => normalizedFile);
+    expect(
+      offenders,
+      `file(s) reading the admission seed AND dispatching a Ward Flow event: ${offenders.join(", ")}. ` +
+        "The ledger's provenance paragraph promises that no event adds to or removes from this list. " +
+        "A reader that dispatches can falsify it, whether or not it is on ADMISSION_SEED_ALLOWLIST.",
     ).toEqual([]);
   });
 

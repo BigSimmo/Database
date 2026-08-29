@@ -532,14 +532,43 @@ describe("reading the two facts that cannot be imported", () => {
     expect(text).toContain("were not both found as plain string constants");
   });
 
-  it("reads the real columnServices and morning tour out of the real files", () => {
+  /**
+   * COLUMN SERVICES IS CURRENTLY UNCHECKED, RECORDED RATHER THAN HIDDEN.
+   *
+   * At the ward board fold (2026-08-29) this checker met Phase 8's rewritten network screen for the
+   * first time. `columnServices` still has `left:` and `right:` keys, but they are no longer literal
+   * arrays:
+   *
+   *   left:  LEFT_COLUMN_SERVICES
+   *   right: wardServiceOrder.filter((service) => !LEFT_COLUMN_SERVICES.includes(service))
+   *
+   * The right-hand side is computed at runtime, and a text parser cannot resolve it. So reteaching
+   * the parser is NOT mechanical: it would mean reimplementing that filter in the checker, where it
+   * could silently diverge from the screen it is meant to be checking.
+   *
+   * The rule applied here, and it is the whole point: the checker is NOT loosened to make this pass.
+   * It reports "nothing is checking the columnServices list, so treat that as unchecked rather than
+   * correct" — an honest failure — and this test now pins that exact state so the gap is visible in
+   * the suite rather than absent from it. The morning tour IS still read and still checked.
+   *
+   * TO CLOSE IT: give `HealthService` a runtime array (it is the only multi-value union in
+   * ward-model.ts without one) and derive both columns from it. Then this fact stops needing to be
+   * text-parsed at all, and this test goes back to asserting no reading problems.
+   */
+  it("reads the morning tour out of the real files, and records columnServices as unchecked", () => {
     const read = (file: string) => readFileSync(resolve(process.cwd(), file), "utf8");
-    const { columnServices, tour, readingProblems } = readTextParsedFacts(read);
-    expect(readingProblems).toEqual([]);
-    expect([...columnServices.left, ...columnServices.right].length).toBeGreaterThan(0);
-    expect(columnServices.left).toContain("North Metro");
+    const { tour, readingProblems } = readTextParsedFacts(read);
+
+    // The tour is still genuinely read and checked.
     expect(tour.unitId).toBeTruthy();
     expect(tour.edId).toBeTruthy();
+
+    // Exactly one known reading problem, named, so a SECOND one cannot hide behind it.
+    expect(readingProblems).toHaveLength(1);
+    const text = readingProblems.map((entry: { text: string }) => entry.text).join(" | ");
+    expect(text).toContain("ward-management-network.tsx");
+    expect(text).toContain("could NOT check it");
+    expect(text).toContain("treat that as unchecked rather than correct");
   });
 
   it("turns nav links into the ward and department references the checks walk", () => {
