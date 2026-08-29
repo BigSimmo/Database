@@ -855,54 +855,28 @@
   line-height: var(--net-leading-body);
 }
 
-/* A band group folds; it does not hide. The heading and both counts live in `.bandSummary`, which a
-   `<details>` paints open or shut alike — including for an empty group — so "there is nothing within
-   an hour" is answerable without opening anything. */
+/* A band group never folds. The owner ruled that out on 2026-08-29: the decision that permitted a
+   fold was taken about the bed list, where folding only shortens a scroll, and on a picture a folded
+   group makes wards disappear. So the disclosure rules that lived here — the marker reset, the drawn
+   triangle, its `[open]` rotation and the summary's focus ring — are gone with the `<details>` they
+   served, rather than left behind to match nothing. What survives is a group that always shows its
+   heading, both counts and its nodes, including when it holds none. */
 .bandGroup {
   border: 0.0625rem solid var(--net-border);
   border-radius: var(--radius-md);
   background: var(--net-canvas);
 }
 
-/* `min-height: 3rem` is the 48px production tap target this repository holds to, the same figure
-   `.serviceCard` above uses. Never lowered to 2.75rem. */
-.bandSummary {
+/* A heading bar, not a control: nothing here is tappable, so this deliberately carries no tap-target
+   minimum, no pointer cursor and no focus ring. The unit nodes inside the group are the controls, and
+   `.serviceCard` keeps the 48px minimum for them. */
+.bandHeader {
   display: flex;
-  min-height: 3rem;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--net-space-8);
   padding: var(--net-space-6) var(--net-space-10);
-  cursor: pointer;
-  /* `display: flex` suppresses the browser's own disclosure triangle, so the affordance is replaced
-     explicitly below rather than lost. A group a coordinator cannot see is openable is a group whose
-     nodes they will not find. */
-  list-style: none;
-}
-
-.bandSummary::-webkit-details-marker {
-  display: none;
-}
-
-/* Drawn rather than written, so it adds no text to the heading: a glyph in the summary would become
-   part of every count and label assertion and could drift into wording. */
-.bandSummary::after {
-  width: 0;
-  height: 0;
-  border-top: 0.3125rem solid transparent;
-  border-bottom: 0.3125rem solid transparent;
-  border-left: 0.375rem solid var(--net-muted);
-  content: "";
-}
-
-.bandGroup[open] > .bandSummary::after {
-  transform: rotate(90deg);
-}
-
-.bandSummary:focus-visible {
-  outline: 0.125rem solid var(--focus);
-  outline-offset: -0.125rem;
 }
 
 .bandLabel {

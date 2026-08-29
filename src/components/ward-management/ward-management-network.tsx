@@ -48,7 +48,6 @@ import {
   type TravelBandGroupCounts,
 } from "@/components/ward-management/ward-referrals";
 import { siteByCode } from "@/components/ward-management/ward-sites";
-import { createBrowserStore } from "@/lib/client-store-factory";
 
 import styles from "./ward-management-network.module.css";
 
@@ -102,39 +101,6 @@ export const BAND_ARRANGEMENT_LIMITATION_NOTICE =
   "to have. The reason is a missing fact rather than a preference: nobody has checked where any of " +
   "these hospitals is. When real travel times are checked, this same arrangement becomes as " +
   "geographic as the checked data allows, with no change to how it is built.";
-
-/**
- * The width at which the band groups start open: deliberately the same phone line the match view's
- * band groups use (`referral-match.tsx`), because it is the same owner decision about the same
- * groups and a coordinator crossing between the two screens should not meet two different
- * behaviours. Nothing in this module's CSS keys off this width — the collapse default is the only
- * thing that depends on it — so there is no stylesheet value here for it to drift from.
- *
- * Owner decision, 2026-08-29: shut by default at phone width, open at desktop width. The binding
- * condition on that decision is why folding these groups is safe, and it is a condition on the
- * markup below rather than on this constant: every heading and BOTH of its counts render whether
- * the group is open or shut, including for an empty group, so "there is nothing within an hour" is
- * answerable without opening anything. Collapsing folds; it does not hide.
- */
-const BAND_GROUPS_OPEN_MEDIA_QUERY = "(min-width: 40rem)";
-
-/**
- * Whether the band groups start open, tracked live so a rotation or a resize is honoured rather than
- * frozen at mount. On the server there is no `matchMedia` at all and the answer is `false` — the
- * phone default — so nothing width-dependent is guessed where no width is known. A shut group is the
- * conservative answer in any case: the heading and both counts are inside the `<summary>`, which is
- * the part a closed disclosure still paints.
- */
-const useBandGroupsOpenByDefault = createBrowserStore<boolean>(
-  (onStoreChange) => {
-    if (typeof window.matchMedia !== "function") return () => {};
-    const media = window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY);
-    media.addEventListener("change", onStoreChange);
-    return () => media.removeEventListener("change", onStoreChange);
-  },
-  () => (typeof window.matchMedia === "function" ? window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY).matches : false),
-  false,
-);
 
 type Connector = { id: string; path: string; kind: "demand" | "route" };
 type Candidate = { unit: Unit; rank: number; etaLabel: string; verdict: ReturnType<typeof eligibility> };
@@ -312,18 +278,22 @@ function ServiceCard({
  * twice is a band that can disagree with itself, and the heading and its nodes would be the two
  * places.
  *
- * `<details>`/`<summary>` rather than a hand-built disclosure, for the same reason the match view
- * uses one: the summary — heading and BOTH counts — is painted whether the group is open or shut,
- * and it is painted for an empty group exactly as for a populated one. That is the binding condition
- * the owner attached to collapsing at all (2026-08-29). Nothing is omitted, nothing is reordered,
- * and the open/shut state depends only on viewport width — never on which band this is, and never on
- * either count. Making an empty group non-collapsible would be exactly that forbidden dependency, so
- * every group behaves the same.
+ * **It does not fold, and it deliberately no longer can.** This screen briefly used
+ * `<details>`/`<summary>` here, mirroring the match view's band groups. The owner ruled that out on
+ * 2026-08-29: the decision permitting a fold was taken about the bed LIST, where folding only
+ * shortens a scroll, and on a picture a folded group makes wards disappear — far closer to the
+ * metro/rural filter that was declined for hiding beds than to folding a list. So every group is
+ * always open, and the match view's own collapse is unaffected. The two screens now behave
+ * differently on purpose.
+ *
+ * What survives the ruling, because neither depended on it: the heading carries BOTH counts, and an
+ * EMPTY group still renders with its heading and both counts rather than vanishing. "There is
+ * nothing within an hour" is the answer a coordinator came for, and a group that disappears when it
+ * is empty cannot give it.
  */
 function NetworkBandGroup({
   group,
   counts,
-  openByDefault,
   bedReleases,
   leaveBeds,
   now,
@@ -333,7 +303,6 @@ function NetworkBandGroup({
 }: {
   group: TravelBandGroup;
   counts: TravelBandGroupCounts;
-  openByDefault: boolean;
   bedReleases: BedRelease[];
   leaveBeds: LeaveBed[];
   now: Instant;
@@ -341,20 +310,17 @@ function NetworkBandGroup({
   onSelectUnit: (unitId: string) => void;
   registerRef: (id: string, node: HTMLButtonElement | null) => void;
 }) {
-  /* Seeded from the width default and then owned by the coordinator's own toggling. The parent
-   * REMOUNTS this component when that default changes (see its `key`), which is what re-seeds every
-   * group on a rotation or resize — deliberately, rather than by setting state from an effect. */
-  const [open, setOpen] = useState(openByDefault);
-
+  const headingId = `ward-network-band-heading-${group.band}`;
   return (
-    <details
+    <section
       className={styles.bandGroup}
       data-testid={`ward-network-band-group-${group.band}`}
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      aria-labelledby={headingId}
     >
-      <summary className={styles.bandSummary} data-testid={`ward-network-band-summary-${group.band}`}>
-        <span className={styles.bandLabel}>{travelBandGroupLabel(group.band)}</span>
+      <header className={styles.bandHeader} data-testid={`ward-network-band-header-${group.band}`}>
+        <span className={styles.bandLabel} id={headingId}>
+          {travelBandGroupLabel(group.band)}
+        </span>
         {/* Two present facts about the beds in this band, from `travelBandGroupCounts` — which counts
          *  the very candidates rendered below, so a heading cannot disagree with its own nodes.
          *  Neither figure counts what is missing. The sentence is the match view's own, shared so the
@@ -362,7 +328,7 @@ function NetworkBandGroup({
         <span className={styles.bandCounts} data-testid={`ward-network-band-counts-${group.band}`}>
           {travelBandGroupCountsSentence(counts)}
         </span>
-      </summary>
+      </header>
       {group.candidates.length === 0 ? (
         <p className={styles.bandEmpty} data-testid={`ward-network-band-empty-${group.band}`}>
           {TRAVEL_BAND_GROUP_EMPTY_SENTENCE}
@@ -387,7 +353,7 @@ function NetworkBandGroup({
           ))}
         </div>
       )}
-    </details>
+    </section>
   );
 }
 
@@ -516,11 +482,6 @@ export function WardNetworkWorkspace() {
     [bandSubject, placements],
   );
   const bandGroupCounts = useMemo(() => bandGroups.map(travelBandGroupCounts), [bandGroups]);
-
-  /* Shut on a phone, open at desktop width — read through the repository's own SSR-safe external
-   * store rather than by setting state in an effect, so the value is already correct on the first
-   * client render. */
-  const bandGroupsOpenByDefault = useBandGroupsOpenByDefault();
 
   /* The movement shortlist's route lines and highlighted cards belong to the movement view, so
    * they stand down while a referral is the subject. `candidates` itself is untouched — nothing is
@@ -797,14 +758,9 @@ export function WardNetworkWorkspace() {
                 </p>
                 {bandGroups.map((group, index) => (
                   <NetworkBandGroup
-                    /* Includes the width default, so crossing the breakpoint re-seeds every group's
-                     * open/shut state by remount. The key never depends on the band or on either
-                     * count — the collapse state must not vary with which band this is or with what
-                     * is in it. */
-                    key={`${group.band}-${bandGroupsOpenByDefault}`}
+                    key={group.band}
                     group={group}
                     counts={bandGroupCounts[index]}
-                    openByDefault={bandGroupsOpenByDefault}
                     bedReleases={bedReleases}
                     leaveBeds={leaveBeds}
                     now={now}
@@ -880,8 +836,10 @@ export function WardNetworkWorkspace() {
              *  referral is the subject — the band arrangement has no route and no demand trunk. A
              *  legend key for a line that is not on the canvas invites a reader to look for one.
              *  The bed-state entries above are unconditional because those chips are on every node in
-             *  either picture. */}
-            {selectedReferral ? null : (
+             *  either picture. Gated on `bandSubject`, the same expression the canvas branches on —
+             *  the legend describes the canvas, so one decision is read in one spelling rather than
+             *  two that happen to agree today. */}
+            {bandSubject ? null : (
               <>
                 <span className={styles.legendItem}>
                   <i className={styles.legendRoute} aria-hidden="true" />

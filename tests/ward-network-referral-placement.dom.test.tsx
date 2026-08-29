@@ -437,9 +437,12 @@ describe("network diagram, the travel-band arrangement", () => {
    * The grouping a screen actually rendered: each group in DOM order, with the unit ids inside it in
    * DOM order.
    *
-   * Read with `querySelectorAll` rather than a role query on purpose — the groups are `<details>`,
-   * and jsdom's stubbed `matchMedia` reports no match, so they mount SHUT. A role query would
-   * quietly return nothing for a shut group and turn a completeness assertion into a vacuous one.
+   * Read with `querySelectorAll` rather than a role query on purpose. This runs over BOTH screens,
+   * and the match view's groups are still `<details>` that mount SHUT here (jsdom's stubbed
+   * `matchMedia` reports no match); a role query would quietly return nothing for those and turn a
+   * completeness assertion into a vacuous one on exactly one side of the comparison. The diagram's
+   * own groups no longer fold at all — see `NetworkBandGroup` — but the two sides must be read the
+   * same way for their equality to mean anything.
    */
   function groupingIn(root: HTMLElement, groupPrefix: string, itemPrefix: string) {
     return Array.from(root.querySelectorAll(`[data-testid^="${groupPrefix}"]`)).map((group) => ({
@@ -594,19 +597,24 @@ describe("network diagram, the travel-band arrangement", () => {
   });
 
   /*
-   * MUTATION that must redden this test: move the `.bandCounts` span out of the `<summary>` in
+   * MUTATION that must redden this test: move the `.bandCounts` span out of the `<header>` in
    * `NetworkBandGroup`, leaving it as the group's first body element.
    *
-   * That mutation is invisible to a document-wide query, which is the point. jsdom hides nothing, so
-   * "the counts are in the document" stays true for a collapsed group whose bar a coordinator sees
-   * blank. The assertion is therefore STRUCTURAL — the counts are inside the `<summary>`, the part a
-   * closed disclosure still paints — because that containment is the binding condition the owner
-   * attached to letting these groups collapse at all (2026-08-29).
+   * These groups no longer fold — the owner ruled that out on 2026-08-29 — so this is no longer a
+   * claim about what a shut disclosure still paints. It is now the plainer claim that every band's
+   * heading and BOTH its counts sit in the group's own header rather than loose among the unit
+   * nodes, which is what keeps "there is nothing within an hour" answerable at a glance. It stays
+   * STRUCTURAL rather than a document-wide query for the same reason as before: "the counts are
+   * somewhere in the document" would pass with them moved anywhere at all.
+   *
+   * The removed assertion this replaces counted groups whose `open` property was falsy. Once the
+   * element stopped being a `<details>` that property reads `undefined` on every group, so the count
+   * would still have been five and the assertion would have gone on passing while proving nothing.
    */
-  it("keeps every band heading and both its counts in the part a shut group still paints", () => {
+  it("keeps every band heading and both its counts in the group's own header", () => {
     // Deliberately NOT `SUBJECT`: every band is populated for both queued referrals, so neither can
-    // exercise the empty-group half of the owner's binding condition — and "including for an empty
-    // group" is the half that makes collapsing these groups permissible at all.
+    // exercise the empty-group case — and an empty group still carrying its heading and both counts
+    // is the half of the owner's counts decision that a populated screen cannot demonstrate.
     expect(
       REGION_WITH_AN_EMPTY_BAND,
       "no home region leaves a travel band empty, so the empty-group case cannot be exercised here",
@@ -625,24 +633,25 @@ describe("network diagram, the travel-band arrangement", () => {
     const groups = within(container).getAllByTestId(/^ward-network-band-group-/);
     expect(groups).toHaveLength(EXPECTED_BAND_GROUP_COUNT);
 
-    // The groups mount shut here (the suite's `matchMedia` stub reports no match), so this is the
-    // collapsed case and not the open one.
-    const shut = groups.filter((group) => !(group as HTMLDetailsElement).open);
-    expect(shut, "no group was collapsed, so this proves nothing about a collapsed group").toHaveLength(
-      EXPECTED_BAND_GROUP_COUNT,
-    );
+    // Nothing on this screen is a disclosure any more, and that is asserted rather than assumed —
+    // a `<details>` left behind here would take these groups back to folding wards away.
+    expect(
+      container.querySelectorAll("details, summary"),
+      "a disclosure element is back on the diagram, so a band group can fold wards out of the picture",
+    ).toHaveLength(0);
 
     let emptyGroups = 0;
     for (const group of groups) {
       const band = (group.getAttribute("data-testid") ?? "").replace("ward-network-band-group-", "");
-      const summary = group.querySelector("summary");
-      expect(summary, `band group ${band} has no summary`).not.toBeNull();
+      // The group's own header, resolved by its test id rather than by tag, so this cannot silently
+      // start matching some other element the group happens to contain.
+      const header = within(group).getByTestId(`ward-network-band-header-${band}`);
 
-      // Scoped `within(summary)`, never `within(group)` and never document-wide: the whole claim is
+      // Scoped `within(header)`, never `within(group)` and never document-wide: the whole claim is
       // about which part of the group they sit in.
-      const counts = within(summary as HTMLElement).getByTestId(`ward-network-band-counts-${band}`);
+      const counts = within(header).getByTestId(`ward-network-band-counts-${band}`);
       expect(counts.textContent ?? "").toMatch(/in this band/);
-      expect(within(summary as HTMLElement).getByText(bandHeadingFor(band))).toBeInTheDocument();
+      expect(within(header).getByText(bandHeadingFor(band))).toBeInTheDocument();
 
       if (within(group).queryByTestId(`ward-network-band-empty-${band}`)) emptyGroups += 1;
     }
@@ -669,8 +678,11 @@ describe("network diagram, the travel-band arrangement", () => {
     expect(notices[0].textContent).toBe(SYNTHETIC_TRAVEL_TIMES_NOTICE);
 
     const arrangement = within(container).getByTestId("ward-network-band-arrangement");
-    const occurrences = (arrangement.textContent ?? "").split(SYNTHETIC_TRAVEL_TIMES_NOTICE).length - 1;
-    expect(occurrences, "the invented-travel-times sentence was repeated inside the arrangement").toBe(1);
+    // Counted over the WHOLE rendered screen, not just the arrangement: "once" is a property of the
+    // screen a coordinator reads, and a second copy placed in the aside or the legend would be
+    // invisible to a sweep scoped to the groups.
+    const occurrences = (container.textContent ?? "").split(SYNTHETIC_TRAVEL_TIMES_NOTICE).length - 1;
+    expect(occurrences, "the invented-travel-times sentence does not appear exactly once on this screen").toBe(1);
 
     // The screen says what this picture is not, and that it is less than it was meant to be.
     const limitation = within(container).getByTestId("ward-network-band-limitation");
@@ -678,13 +690,25 @@ describe("network diagram, the travel-band arrangement", () => {
     expect(limitation.textContent ?? "").toMatch(/not a map/);
     expect(limitation.textContent ?? "").toMatch(/less than/);
 
-    // No comparative proximity word anywhere in the arrangement — not in a heading, not in a count,
-    // not in either notice. Air transport only is a statement about how you get there, never about
-    // how long it takes.
+    // No comparative proximity word anywhere on the SCREEN — not in a heading, not in a count, not in
+    // either notice, and not in the panels around them. The standing rule covers the whole screen,
+    // and a sweep scoped to the arrangement was narrower than the rule it claimed to enforce. Air
+    // transport only is a statement about how you get there, never about how long it takes.
     const comparative = /nearest|closest|furthest|most remote|hardest to reach|best|optimal|recommend|preferred/i;
     // Positive control, so a regex that had stopped matching anything could not read as a clean
     // sweep.
     expect("the nearest bed is best", "the comparative-word pattern no longer matches one").toMatch(comparative);
     expect(arrangement.textContent ?? "").not.toMatch(comparative);
+    expect(container.textContent ?? "", "a comparative proximity word is on this screen").not.toMatch(comparative);
+
+    // And the same screen with the referral deselected, so the sweep covers the movement view's own
+    // panels — the compare table, its labels and the connector legend keys — rather than only the
+    // half of the screen this task built. Both halves are clean today; `tests/ward-management.test.ts`
+    // separately pins the two `originServiceFit` labels, one of which read "Best" until Task 6.
+    fireEvent.click(within(container).getByTestId(`ward-network-referral-${SUBJECT.id}`));
+    expect(
+      container.textContent ?? "",
+      "a comparative proximity word is on the movement view of this screen",
+    ).not.toMatch(comparative);
   });
 });
