@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { cardSelected, cardSurface } from "@/components/card-recipes";
 import { cn, searchShellInput } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 import { CALCULATOR_DOMAIN_ACCENT } from "@/lib/category-identity";
 
 import {
@@ -53,10 +54,18 @@ function ExpandedCalculator({
             <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
               Score
             </p>
-            <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
-              {state.started ? state.score : "—"}
-              <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-            </p>
+            {/* Unstarted is not a missing score: no score exists yet, so the fraction has no numerator. The scale's own
+                endpoints stay visible in the ScoreBandBar directly below. */}
+            {state.started ? (
+              <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
+                {state.score}
+                <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+              </p>
+            ) : (
+              <p>
+                <MissingValue reason="not_yet_calculated" />
+              </p>
+            )}
           </div>
           <SeverityPill tone={state.result.tone} label={state.started ? state.result.label : "Not started"} />
         </div>

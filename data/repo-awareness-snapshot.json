@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
-    "committed_at": "2026-08-29T09:39:53+08:00"
+    "sha": "f340cd0b9052459a438ab8ae8d52de19c88dd55e",
+    "committed_at": "2026-08-29T12:26:43+08:00"
   },
   "routes": {
     "modes": [
@@ -2750,6 +2750,46 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/sweep-2026-08-29-structure.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-2026-08-29-unenforced-rules.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-2026-08-29-visual.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-duration-display.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-missing-values-round-2.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-missing-values.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-tap-floors-round-2.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/design-system/sweep-fix-tap-floors.md",
+        "section": "design-system",
+        "catalogued": false
+      },
+      {
         "path": "docs/design-system/TOKENS.md",
         "section": "design-system",
         "catalogued": true
@@ -4223,9 +4263,9 @@
       }
     ],
     "counts": {
-      "documents": 546,
+      "documents": 554,
       "catalogued": 109,
-      "uncatalogued": 437,
+      "uncatalogued": 445,
       "sections": 20
     }
   },
@@ -4238,6 +4278,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-29",
+        "ref": "PR-2454",
+        "head": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
+        "scope": "CI triage and unresolved review findings",
+        "outcome": "Confirmed PR-specific repo-awareness drift and two P2 documentation findings; corrected the generated snapshot, Windows LCP delta, and Linux-only qualification. Main coverage/browser failures did not reproduce on the PR head.",
+        "checks": "PR/base Actions logs; repo-awareness check; outstanding-issues check; docs links; targeted Prettier; arithmetic verification"
+      },
       {
         "date": "2026-08-27",
         "ref": "2398",
@@ -25408,8 +25456,8 @@
       }
     ],
     "counts": {
-      "records": 2646,
-      "refs": 1614
+      "records": 2647,
+      "refs": 1615
     }
   }
 }

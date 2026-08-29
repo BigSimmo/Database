@@ -3186,12 +3186,18 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
 
     const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureButtonBox = await sourceOnlyButton.boundingBox();
     const disclosureBox = await sourceOnlyDisclosure.boundingBox();
     const railBox = await sourceOnlyRail.boundingBox();
     expect(proseBox).not.toBeNull();
+    expect(disclosureButtonBox).not.toBeNull();
     expect(disclosureBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    // The compact disclosure now deliberately carries the 40px compact-meta
+    // interaction floor. Its bordered container is 42px high in Chromium, so
+    // preserve both the usable target and the compact one-row layout.
+    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+    expect(disclosureBox!.height).toBeLessThanOrEqual(42);
     expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
     expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
 
@@ -3215,6 +3221,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
       await expect(sourceOnlyDisclosure).toBeVisible();
+      const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
+      expect(responsiveDisclosureButtonBox).not.toBeNull();
+      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
       await expectNoPageHorizontalOverflow(page);
     }
 
