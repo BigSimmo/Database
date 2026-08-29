@@ -20,6 +20,7 @@
 import type { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
 import {
@@ -31,14 +32,17 @@ import {
   referralId,
   teamId,
 } from "@/lib/caring-contacts/ids";
-import type { Actor } from "@/lib/caring-contacts/permissions";
+import type { Actor, CaringContactActor, SystemActor } from "@/lib/caring-contacts/permissions";
 
 import { describeCaringContactRepositoryContract } from "./helpers/caring-contacts-repository-contract";
 import {
   applyCaringContactsMigrations,
   createCaringContactsTestPool,
   dropCaringContactsSchema,
+  insertAuditEvent,
+  nextAuditToken,
   poolAsSqlConnectionPool,
+  runInTeamSession,
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
@@ -155,8 +159,11 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
   const PATIENT_MOBILE = "+61 491 570 156";
   const PATIENT_IDENTIFIER = "UR-00219384";
   const CULTURAL_IDENTITY = "Noongar";
+  // Not a substring of `PATIENT_NAME`, deliberately: the preferred name is asked for rather than
+  // split off the stored one, so an absence check on it must be able to fail independently.
+  const PREFERRED_NAME = "Jordy";
 
-  it("stores no row containing the patient's name, mobile number, identifiers or cultural identity", async () => {
+  it("stores no row containing the patient's name, preferred name, mobile number, identifiers or cultural identity", async () => {
     const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
     const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
 
@@ -189,6 +196,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     const created = await store.createPlan(
       {
         planId: planId("IDEM-PLAN"),
+        assurances: PLAN_ASSURANCE_VALUES,
         referralId: referralId("IDEM-REFERRAL"),
         patientId: patientId("IDEM-PATIENT"),
         pathwayVersionId: pathwayVersionId("IDEM-PATHWAY"),
@@ -199,6 +207,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
           patientMobileNumber: PATIENT_MOBILE,
           patientIdentifiers: [PATIENT_IDENTIFIER],
           culturalIdentity: CULTURAL_IDENTITY,
+          preferredName: PREFERRED_NAME,
         },
       },
       context("idem-create"),
@@ -211,6 +220,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     const episode = await store.getEpisode(planId("IDEM-PLAN"), { actor: COORDINATOR });
     expect(episode?.patientName).toBe(PATIENT_NAME);
     expect(episode?.culturalIdentity).toBe(CULTURAL_IDENTITY);
+    expect(episode?.preferredName).toBe(PREFERRED_NAME);
 
     const rows = await pool.query(
       "select fingerprint, result::text as result from caring_contacts.idempotency_records",
@@ -226,6 +236,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
       "491 570 156",
       PATIENT_IDENTIFIER,
       CULTURAL_IDENTITY,
+      PREFERRED_NAME,
     ]) {
       expect(stored).not.toContain(secret);
     }
@@ -248,6 +259,94 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     for (const secret of ["Jordan", "Nguyen", "570 156", "09:12"]) {
       expect(fingerprints).not.toContain(secret);
     }
+  });
+
+  it("reads a null preferred name back as null, never as the cleared empty string", async () => {
+    // FOUND BY MUTATION, AND IT WAS UNPROVEN. Collapsing `null` onto `""` in this projection left
+    // every suite green: no test anywhere builds a plan row without a preferred name, because every
+    // route into this store supplies one. The row that has none is a plan created BEFORE migration
+    // 0007, which the migration deliberately did not backfill -- so it exists in the live database
+    // and nowhere in any fixture.
+    //
+    // The two are different facts. `""` is what `markRetentionCleared` writes, and a screen says so
+    // ("removed when this episode was de-identified"); `null` means no preferred name was ever held.
+    // Collapsing them reports a name retention removed as a name nobody ever gave.
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string) => ({ actor: COORDINATOR, idempotencyKey: idempotencyKey(key) });
+
+    const referral = await store.createReferral(
+      { referralId: referralId("NULLNAME-REFERRAL"), patientId: patientId("NULLNAME-PATIENT") },
+      context("nullname-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("NULLNAME-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("nullname-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: planId("NULLNAME-PLAN"),
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("NULLNAME-REFERRAL"),
+        patientId: patientId("NULLNAME-PATIENT"),
+        pathwayVersionId: pathwayVersionId("NULLNAME-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: PATIENT_NAME,
+          patientMobileNumber: PATIENT_MOBILE,
+          patientIdentifiers: [PATIENT_IDENTIFIER],
+          culturalIdentity: null,
+          preferredName: PREFERRED_NAME,
+        },
+      },
+      context("nullname-create"),
+    );
+    expect(created.ok).toBe(true);
+
+    // Positive control: the store really does read a recorded name back, so the null below is this
+    // projection preserving null rather than the read never returning anything.
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBe(
+      PREFERRED_NAME,
+    );
+
+    // The pre-0007 shape, made directly because no route into this store can produce it -- and made
+    // INSIDE AN AUDITED TEAM SESSION, because the schema refuses a bare `update` on this table
+    // outside one (`caring-contacts-audit-required`). A first draft used `pool.query` and failed on
+    // exactly that trigger; the failure looked like the assertion below and was not, which is why
+    // this note is here rather than only the fix.
+    await runInTeamSession(pool, { teamId: COORDINATOR.teamId, auditToken: nextAuditToken() }, async (client) => {
+      await insertAuditEvent(client, {
+        teamId: COORDINATOR.teamId,
+        actorId: COORDINATOR.id,
+        actorRoles: ["coordinator"],
+        action: "createPlan",
+        objectType: "plan",
+        objectId: "NULLNAME-PLAN",
+        outcome: "allowed",
+        idempotencyKey: "nullname-strip",
+      });
+      await client.query("update caring_contacts.plans set preferred_name = null where id = $1", ["NULLNAME-PLAN"]);
+    });
+
+    expect((await store.getEpisode(planId("NULLNAME-PLAN"), { actor: COORDINATOR }))?.preferredName).toBeNull();
   });
 });
 
@@ -309,6 +408,211 @@ describe("a cross-team restart approval stores no incident note (postgres only)"
 
     const stored = JSON.stringify(southRows.rows);
     for (const secret of ["Rowan", "Delacroix", "491 570 156", NOTE]) {
+      expect(stored).not.toContain(secret);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retention clearance reaches the free text that lives OUTSIDE the plan row (postgres only).
+//
+// The shared contract already holds both stores to clearing the handover note and to redacting the
+// replay answer, because both are reachable through reads either store implements. TWO THINGS ARE
+// ONLY PROVABLE HERE:
+//
+//   * `contact_dispatches.discrepancy_note` has no home in the in-memory store at all --
+//     `DispatchRecord` carries no note, so that store drops it and there is nothing for a contract
+//     test to assert. The column exists here, and this is the only place the clearance can be
+//     measured against it.
+//   * The replay record is REDACTED RATHER THAN DELETED. The contract proves the consequence -- a
+//     replay is refused and the write does not run twice -- and this proves the mechanism, by
+//     reading the row and finding it still present under the same key and the same fingerprint.
+//
+// Read as the migration role deliberately, for the same reason the block above is: whether a column
+// still holds the prose is a question about the table rather than about a scoped view of it.
+// ---------------------------------------------------------------------------
+describe("a retention clearance reaches every store of free text about the patient (postgres only)", () => {
+  /** 2026-03-02 11:00 AWST, the instant the shared contract fixes its own clock to. */
+  const NOW = "2026-03-02T03:00:00.000Z";
+
+  const COORDINATOR: Actor = {
+    id: actorId("CLEAR-ACTOR"),
+    teamId: teamId("CLEAR-TEAM"),
+    roles: ["coordinator"],
+  };
+  const LEAD: Actor = {
+    id: actorId("CLEAR-LEAD"),
+    teamId: teamId("CLEAR-TEAM"),
+    roles: ["teamLead"],
+  };
+  const DISPATCHER: SystemActor = {
+    id: actorId("SYSTEM-DISPATCHER"),
+    teamId: teamId("CLEAR-TEAM"),
+    systemRole: "contactDispatcher",
+  };
+
+  const HANDOVER = "Handing this to the lead: his brother in Kalgoorlie is the one answering the phone.";
+  const DISCREPANCY = "Rang Rowan Delacroix on 491 570 156; the message never arrived.";
+
+  it("clears the handover note, the discrepancy note and the replay answer, and keeps the replay row", async () => {
+    const store = createPostgresRepository(poolAsSqlConnectionPool(pool), fixedClock(NOW));
+    const context = (key: string, actor: CaringContactActor = COORDINATOR) => ({
+      actor,
+      idempotencyKey: idempotencyKey(key),
+    });
+    const PLAN = planId("CLEAR-PLAN");
+
+    const referral = await store.createReferral(
+      { referralId: referralId("CLEAR-REFERRAL"), patientId: patientId("CLEAR-PATIENT") },
+      context("clear-referral"),
+    );
+    expect(referral.ok).toBe(true);
+    const pathway = await store.savePathwayVersion(
+      {
+        version: {
+          id: pathwayVersionId("CLEAR-PATHWAY"),
+          teamId: COORDINATOR.teamId,
+          state: "draft",
+          authorId: COORDINATOR.id,
+          approvals: [],
+          publishedAt: null,
+          retiredAt: null,
+          retirementUrgency: null,
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "Last one." },
+          },
+        },
+      },
+      context("clear-pathway"),
+    );
+    expect(pathway.ok).toBe(true);
+
+    const created = await store.createPlan(
+      {
+        planId: PLAN,
+        assurances: PLAN_ASSURANCE_VALUES,
+        referralId: referralId("CLEAR-REFERRAL"),
+        patientId: patientId("CLEAR-PATIENT"),
+        pathwayVersionId: pathwayVersionId("CLEAR-PATHWAY"),
+        dischargeAt: new Date("2026-03-02T02:00:00.000Z"),
+        sendingPreference: "morning",
+        patientDetail: {
+          patientName: "Rowan Delacroix",
+          patientMobileNumber: "+61 491 570 156",
+          patientIdentifiers: ["UR-00219384"],
+          culturalIdentity: null,
+          preferredName: "Rowan",
+        },
+      },
+      context("clear-create"),
+    );
+    if (!created.ok) throw new Error(`createPlan refused: ${created.reason}`);
+
+    const activated = await store.activatePlan(
+      { planId: PLAN, expectedVersion: created.value.plan.version },
+      context("clear-activate"),
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+
+    // The handover note, written through the real assignment path.
+    const claimed = await store.applyAssignment(
+      { planId: PLAN, action: { type: "claim", actorId: COORDINATOR.id } },
+      context("clear-claim"),
+    );
+    expect(claimed.ok).toBe(true);
+    const reassigned = await store.applyAssignment(
+      { planId: PLAN, action: { type: "reassign", toActorId: LEAD.id, reason: HANDOVER } },
+      context("clear-reassign", LEAD),
+    );
+    expect(reassigned.ok).toBe(true);
+
+    // The discrepancy note, written through the real reconciliation path.
+    const contact = (await store.listSendableContacts(PLAN, { actor: COORDINATOR }))[0];
+    const dispatched = await store.startContactDispatch(
+      { planId: PLAN, contactId: contact.contact.id, expectedContactVersion: contact.contact.version },
+      context("clear-dispatch", DISPATCHER),
+    );
+    expect(dispatched.ok).toBe(true);
+    const resolved = await store.resolveDispatchDiscrepancy(
+      { contactId: contact.contact.id, attempt: 1, resolution: "unresolvedNoResend", note: DISCREPANCY },
+      context("clear-resolve"),
+    );
+    expect(resolved.ok).toBe(true);
+
+    // THE POSITIVE CONTROLS. Every value the clearance must remove is read out of the table it
+    // lives in BEFORE the clearance runs, so each absence below is this write acting rather than a
+    // fixture that never stored the prose.
+    const reasonBefore = await pool.query<{ reason: string }>(
+      "select reason from caring_contacts.plan_reassignments where plan_id = $1",
+      [PLAN],
+    );
+    expect(reasonBefore.rows.map((row) => row.reason)).toEqual([HANDOVER]);
+
+    const noteBefore = await pool.query<{ discrepancy_note: string | null }>(
+      `select d.discrepancy_note from caring_contacts.contact_dispatches d
+         join caring_contacts.contacts c on c.id = d.contact_id
+        where c.plan_id = $1`,
+      [PLAN],
+    );
+    expect(noteBefore.rows.map((row) => row.discrepancy_note)).toEqual([DISCREPANCY]);
+
+    const replayBefore = await pool.query<{ fingerprint: string; result: string }>(
+      `select fingerprint, result::text as result
+         from caring_contacts.idempotency_records where plan_id = $1 and idempotency_key = $2`,
+      [PLAN, "clear-reassign"],
+    );
+    expect(replayBefore.rows).toHaveLength(1);
+    expect(replayBefore.rows[0].result).toContain("Kalgoorlie");
+
+    const withdrawn = await store.withdrawPlan(
+      { planId: PLAN, expectedVersion: activated.value.plan.version, origin: "patient" },
+      context("clear-withdraw"),
+    );
+    if (!withdrawn.ok) throw new Error(`withdrawPlan refused: ${withdrawn.reason}`);
+
+    const cleared = await store.markRetentionCleared({ planId: PLAN }, context("clear-retention"));
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    // 1. The handover note is gone; the handover itself is not.
+    const reasonAfter = await pool.query<{ reason: string; from_actor_id: string; to_actor_id: string }>(
+      "select reason, from_actor_id, to_actor_id from caring_contacts.plan_reassignments where plan_id = $1",
+      [PLAN],
+    );
+    expect(reasonAfter.rows).toHaveLength(1);
+    expect(reasonAfter.rows[0].reason).toBe("");
+    expect(reasonAfter.rows[0].from_actor_id).toBe(COORDINATOR.id);
+    expect(reasonAfter.rows[0].to_actor_id).toBe(LEAD.id);
+
+    // 2. The discrepancy note is gone; its resolution, which holds no patient content, is not.
+    const noteAfter = await pool.query<{ discrepancy_note: string | null; discrepancy_resolution: string | null }>(
+      `select d.discrepancy_note, d.discrepancy_resolution from caring_contacts.contact_dispatches d
+         join caring_contacts.contacts c on c.id = d.contact_id
+        where c.plan_id = $1`,
+      [PLAN],
+    );
+    expect(noteAfter.rows).toHaveLength(1);
+    expect(noteAfter.rows[0].discrepancy_note).toBe("");
+    expect(noteAfter.rows[0].discrepancy_resolution).toBe("unresolvedNoResend");
+
+    // 3. The replay row still EXISTS, under the same key and the same fingerprint, so the key stays
+    //    consumed and no retry can execute that write a second time. Only its answer changed.
+    const replayAfter = await pool.query<{ fingerprint: string; result: string }>(
+      `select fingerprint, result::text as result
+         from caring_contacts.idempotency_records where plan_id = $1 and idempotency_key = $2`,
+      [PLAN, "clear-reassign"],
+    );
+    expect(replayAfter.rows).toHaveLength(1);
+    expect(replayAfter.rows[0].fingerprint).toBe(replayBefore.rows[0].fingerprint);
+    expect(replayAfter.rows[0].result).not.toContain("Kalgoorlie");
+    expect(replayAfter.rows[0].result).toContain("idempotent-result-cleared-by-retention");
+
+    // 4. And no replay record anywhere in the schema still holds either note or the patient's name.
+    const everyResult = await pool.query<{ result: string }>(
+      "select result::text as result from caring_contacts.idempotency_records",
+    );
+    const stored = JSON.stringify(everyResult.rows);
+    for (const secret of ["Kalgoorlie", "Delacroix", "491 570 156", "Rowan"]) {
       expect(stored).not.toContain(secret);
     }
   });

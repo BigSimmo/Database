@@ -21,7 +21,10 @@ const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const keyFactsSource = read(`${therapyPath}/record/key-facts.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
+const recommendFieldsSource = read(`${therapyPath}/recommend-scenario-fields.tsx`);
 const pathwaysSource = read(`${therapyPath}/screens/pathways-screen.tsx`);
+const pathwayStepStackSource = read(`${therapyPath}/pathway-step-stack.tsx`);
+const pathwayPickerSource = read(`${therapyPath}/pathway-picker-sheet.tsx`);
 const briefSource = read(`${therapyPath}/screens/brief-screen.tsx`);
 const sheetsSource = read(`${therapyPath}/screens/sheets-screen.tsx`);
 const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
@@ -180,9 +183,17 @@ describe("Therapy Compass responsive contract", () => {
     expect(compareSource).toContain("md:block");
     expect(compareSource).toContain('data-testid="therapy-compare-stack"');
     expect(compareSource).toContain("md:hidden");
-    expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(1);
+    expect(responsiveStackCount(recommendSource) + responsiveStackCount(recommendFieldsSource)).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
-    expect(pathwaysSource).toContain("therapy-pathway-list");
+    expect(pathwayPickerSource).toContain("therapy-pathway-list");
+    expect(pathwayPickerSource).toContain('data-testid="therapy-pathway-picker"');
+    expect(pathwayStepStackSource).toContain('data-testid="therapy-pathway-steps"');
+    expect(pathwaysSource).toContain('data-testid="therapy-pathway-caution"');
+    expect(pathwayPickerSource).toContain("sm:hidden");
+    expect(pathwayPickerSource).toContain("hidden border-r");
+    expect(pathwaysSource).not.toContain("overflow-hidden");
     expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(sheetsSource)).toBeGreaterThanOrEqual(1);
     expect(sheetsSource).toContain("max-sm:static");
@@ -261,7 +272,10 @@ describe("Therapy Compass responsive contract", () => {
     // the stronger condition: it proves the element really is that component
     // AND carries the labelling attribute, and unlike a raw substring it
     // cannot be satisfied by matching prose elsewhere in the file.
+    expect(briefSource).toContain("const BRIEF_DURATION");
+    expect(briefSource).not.toMatch(/briefTab === "15min" \? "15-minute"/);
     expect(openingTagWith(briefSource, "Tabs", ['label="Brief intervention duration"'])).toBeTruthy();
+
     expect(openingTagWith(compareSource, "Tabs", ['label="Comparison fields"'])).toBeTruthy();
     expect(openingTagWith(compareSource, "SegmentedControl", ['label="Comparison density"'])).toBeTruthy();
     expect(openingTagWith(sheetsSource, "SegmentedControl", ['label="Reading level and tone"'])).toBeTruthy();
@@ -319,6 +333,20 @@ describe("clinical accent contrast contract", () => {
     );
     expect(pathwaysSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
     expect(briefSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
+  });
+
+  it("maps sweep-touched Lucide size={16} onto size-icon-md", () => {
+    for (const [name, source] of [
+      ["brief", briefSource],
+      ["compare", compareSource],
+      ["recommend", recommendSource],
+      ["sheets", sheetsSource],
+    ] as const) {
+      expect(source, `${name} screen`).not.toMatch(/\bsize=\{16\}/);
+    }
+    expect(briefSource).toContain("size-icon-md");
+    expect(compareSource).toContain("size-icon-md");
+    expect(sheetsSource).toContain("size-icon-md");
   });
 
   it("keeps the current dark accent/foreground token pair above text contrast", () => {

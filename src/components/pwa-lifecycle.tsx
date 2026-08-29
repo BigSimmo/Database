@@ -201,7 +201,7 @@ function InstallBenefits() {
 
 function InstallManualSteps() {
   return (
-    <ol className="pwa-install-steps" aria-label="Add Clinical KB to your Home Screen">
+    <ol className="pwa-install-steps" aria-label="Add PsychSift to your Home Screen">
       <li>
         <span>1. Tap Share</span>
         <Share className="h-icon-md w-icon-md" aria-hidden="true" />
@@ -510,7 +510,7 @@ export function PwaLifecycle() {
         registrationCleanups.add(() => registration.removeEventListener("updatefound", handleUpdateFound));
         lastUpdateCheckRef.current = Date.now();
       } catch (error) {
-        if (process.env.NODE_ENV === "development") console.warn("Clinical KB PWA registration failed", error);
+        if (process.env.NODE_ENV === "development") console.warn("PsychSift PWA registration failed", error);
       }
     };
 
@@ -713,7 +713,7 @@ export function PwaLifecycle() {
         >
           <InstallSheetGrip />
           <InstallHeader
-            title="Install Clinical KB"
+            title="Install PsychSift"
             titleId="pwa-ios-install-title"
             dismissLabel="Dismiss install hint"
             onDismiss={dismissIosHint}
@@ -741,7 +741,7 @@ export function PwaLifecycle() {
         >
           <InstallSheetGrip />
           <InstallHeader
-            title="Install Clinical KB"
+            title="Install PsychSift"
             titleId="pwa-install-title"
             dismissLabel="Dismiss install prompt"
             onDismiss={dismissInstall}

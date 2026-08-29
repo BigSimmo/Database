@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { Database } from "@/lib/supabase/database.types";
 import type { MedicationRecord } from "@/lib/medications";
 
@@ -22,21 +24,55 @@ export function medicationValidationStatus(value: string | null | undefined): Me
   return validationStatuses.find((status) => status === value) ?? "unverified";
 }
 
-export function deriveGovernanceFromSections(record: MedicationRecord): {
+const REVIEW_INTERVAL_DAYS = 365;
+
+export function parseSourceDate(text: string): Date | null {
+  if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(text)) {
+    return null;
+  }
+  const match = text.match(/\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/);
+  if (!match) return null;
+  const parsed = new Date(`${match[0]}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  // The Date constructor silently normalizes impossible calendar dates (e.g. 2026-02-29
+  // in a non-leap year rolls forward to March 1) instead of rejecting them. Confirm the
+  // parsed UTC components exactly match what was matched before trusting the result.
+  const [, yearText, monthText, dayText] = match;
+  if (
+    parsed.getUTCFullYear() !== Number(yearText) ||
+    parsed.getUTCMonth() + 1 !== Number(monthText) ||
+    parsed.getUTCDate() !== Number(dayText)
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+export function evaluateSourceStatus(
+  checkedDate: Date | null,
+  referenceDate: Date = new Date(),
+  reviewIntervalDays: number = REVIEW_INTERVAL_DAYS,
+): MedicationSourceStatus {
+  if (!checkedDate) return "unknown";
+  const diffMs = referenceDate.getTime() - checkedDate.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays <= reviewIntervalDays) {
+    return "current";
+  }
+  return "review_due";
+}
+
+export function deriveGovernanceFromSections(
+  record: MedicationRecord,
+  referenceDate: Date = new Date(),
+): {
   source_status: MedicationSourceStatus;
   validation_status: MedicationValidationStatus;
 } {
   const sourceSection = record.sections.find((section) => section.type === "src");
-  const sourceText =
-    sourceSection?.rows
-      .map((row) => row.val)
-      .join(" ")
-      .toLowerCase() ?? "";
-  const sourceStatus: MedicationSourceStatus = sourceText.includes("checked")
-    ? "current"
-    : sourceText.includes("review")
-      ? "review_due"
-      : "unknown";
+  const sourceText = sourceSection?.rows.map((row) => row.val).join(" ") ?? "";
+  const parsedDate = parseSourceDate(sourceText);
+  const sourceStatus: MedicationSourceStatus = evaluateSourceStatus(parsedDate, referenceDate);
   return {
     source_status: sourceStatus,
     // Derived records carry no evidence of clinical review, so they must not claim it.
@@ -70,6 +106,50 @@ export function recordToRow(record: MedicationRecord, ownerId: string): Medicati
   };
 }
 
+const medicationStatSchema = z.looseObject({
+  label: z.string(),
+  value: z.string(),
+  cls: z.string().optional(),
+  flag: z.string().optional(),
+});
+
+const medicationPatientSchema = z
+  .looseObject({
+    factors: z.array(z.string()).optional(),
+    action: z.string().optional(),
+    severity: z.string().optional(),
+    match: z.record(z.string(), z.unknown()).optional(),
+    note: z.string().optional(),
+  })
+  .nullable();
+
+const medicationSectionRowSchema = z.looseObject({
+  key: z.string(),
+  val: z.string(),
+  tags: z.array(z.string()).optional(),
+  patient: medicationPatientSchema.optional(),
+});
+
+const medicationSectionSchema = z.looseObject({
+  title: z.string(),
+  type: z.string(),
+  rows: z.array(medicationSectionRowSchema),
+});
+
+const medicationQuickRowSchema = z.looseObject({
+  label: z.string(),
+  value: z.string(),
+});
+
+const medicationStatsSchema = z.array(medicationStatSchema);
+const medicationSectionsSchema = z.array(medicationSectionSchema);
+const medicationQuickSchema = z.array(medicationQuickRowSchema);
+
+function parseMedicationJsonbArray<T>(schema: z.ZodType<T[]>, value: unknown): T[] {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
 export function rowToMedicationRecord(row: MedicationRecordRow): MedicationRecord {
   return {
     slug: row.slug,
@@ -77,12 +157,14 @@ export function rowToMedicationRecord(row: MedicationRecordRow): MedicationRecor
     class: row.class ?? "",
     subclass: row.subclass ?? "",
     category: row.category ?? "",
+    // Per-record user colour (Postgres medications.accent default). Stored as a
+    // hex swatch for inline styles; not --clinical-accent (app chrome).
     accent: row.accent ?? "#0f766e",
     tag: row.tag ?? "",
     schedule: row.schedule ?? "",
-    stats: (row.stats ?? []) as MedicationRecord["stats"],
-    sections: (row.sections ?? []) as MedicationRecord["sections"],
-    quick: (row.quick ?? []) as MedicationRecord["quick"],
+    stats: parseMedicationJsonbArray(medicationStatsSchema, row.stats),
+    sections: parseMedicationJsonbArray(medicationSectionsSchema, row.sections),
+    quick: parseMedicationJsonbArray(medicationQuickSchema, row.quick),
   };
 }
 

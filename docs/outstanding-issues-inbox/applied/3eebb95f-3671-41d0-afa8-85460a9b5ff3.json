@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3eebb95f-3671-41d0-afa8-85460a9b5ff3",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#321",
+    "outcome": "Standardized control focus rings and ARIA descriptors across modal and drawer surfaces.",
+    "baseRowFingerprint": "1dc0a6b312ed2e9b531d27f314da50d55c21c44e044a2f4d03e0562e3ba6cb59"
+  }
+}

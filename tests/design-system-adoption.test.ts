@@ -1316,6 +1316,13 @@ describe("design-system adoption manifest", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
     expect(manifest.schemaVersion).toBe(7);
+    // DS-P2-21 barrel: componentSrcMap stays on ui-primitives.tsx; `export *`
+    // from primitive-recipes still counts as a declared-source export.
+    for (const name of ["AsyncButton", "EmptyState", "IconButton", "ToggleSwitch"]) {
+      const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
+      expect(component.source, `${name} source map`).toBe("src/components/ui-primitives.tsx");
+      expect(component.sourceExported, `${name} barrel re-export`).toBe(true);
+    }
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",
@@ -1410,9 +1417,13 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 68 = 59 + 6 + 2 + 1: the 59 production pages that preceded both changes, the six
-    // `<mode>/search` routes home consolidation split out of the bare paths, and the Caring
-    // Contacts workspace's two screens plus `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
+    // 76 = 59 + 6 + 10 + 1: the 59 production pages that preceded both changes, the six
+    // `<mode>/search` routes home consolidation split out of the bare paths, the Caring
+    // Contacts workspace's ten screens (Today; the Patients caseload from Phase 2B Task 5;
+    // the per-patient overview from Task 6; the activation wizard from Task 7; the Schedule
+    // from Task 13; the Templates library from Task 15 and one version's detail from Task 16;
+    // Guidance and Reports from Task 19, and the Team roster from Task 18), plus
+    // `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
     // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
     // detail route, the Phase 4 shift handover, escalation board and patient search, and the
     // retired constellation redirect) that used to bring this to 82 left the production census
@@ -1421,7 +1432,7 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(68);
+    expect(manifest.routeCoverage.discovered).toHaveLength(76);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
@@ -1481,5 +1492,31 @@ describe("design-system adoption manifest", () => {
     expect(components).toMatch(/already composed inside `AnswerFooter`, `DateDisplay`, and\s+`AccessibleTable`/);
     expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
     expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
+  });
+
+  it("does not re-teach per-step type companions in SPEC, conventions, or GATES §4", () => {
+    const spec = read("docs/design-system/SPEC.md");
+    const conventions = read(".design-sync/conventions.md");
+    const gates = read("docs/design-system/GATES.md");
+    const typeSection = spec.split("### 4.5 Type")[1]?.split("### 4.6")[0] ?? "";
+    const evidenceSection = gates.split("## 4 · Recorded verification evidence")[1]?.split("###")[0] ?? "";
+
+    expect(spec).not.toContain("each with its own line-height");
+    expect(spec).not.toContain(":194-204");
+    expect(typeSection).toContain("--leading-prose");
+    expect(typeSection).toContain("--text-hero--line-height");
+    expect(conventions).not.toMatch(/per-step\s+line-height\s+and\s+tracking/);
+    expect(evidenceSection).toMatch(/raw colours 0\b/);
+    expect(evidenceSection).not.toMatch(/not re-run for this document set/);
+
+    for (const doc of [typeSection, conventions]) {
+      for (const step of ["xs", "sm", "body", "md", "lg", "xl"] as const) {
+        expect(doc, `${step} -lh companion`).not.toContain(`--text-${step}-lh`);
+        expect(doc, `${step} -tr companion`).not.toContain(`--text-${step}-tr`);
+        expect(doc, `${step} --line-height companion`).not.toContain(`--text-${step}--line-height`);
+      }
+      expect(doc).toContain("--text-hero--line-height");
+      expect(doc).toContain("--text-hero-tr");
+    }
   });
 });

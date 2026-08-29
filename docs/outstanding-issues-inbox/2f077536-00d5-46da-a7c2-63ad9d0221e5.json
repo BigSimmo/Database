@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#76GGRG",
+    "outcome": "Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
+    "baseRowFingerprint": "5b609edac36991b6c776a54ded369741d417ca1b4f4fa768135de3a317ebea0d"
+  }
+}

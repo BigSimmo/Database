@@ -27,6 +27,7 @@ import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
 import { awstCalendarDay } from "./clock";
 import type { HospitalStatusEvent, WithdrawalOrigin } from "./hospital-events";
+import { PLAN_ASSURANCE_VALUES } from "./assurances";
 import { idempotencyKey } from "./ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
 import type { ProviderStatus, SendingPreference, TransitionResult } from "./model";
@@ -193,6 +194,11 @@ export async function driveTwelveMonthSimulation(input: SimulationInput): Promis
       firstContactDate: input.plan.firstContactDate,
       firstContactReason: input.plan.firstContactReason,
       patientDetail: input.plan.patientDetail,
+      // A simulation walks a synthetic plan through its whole life, so it attests what a real
+      // sign-up attests: `createPlan` refuses a plan carrying no attestation, and a simulation that
+      // sent one confirmation would be rehearsing a path the wizard cannot produce -- stage 1 will
+      // not advance until every confirmation is made.
+      assurances: PLAN_ASSURANCE_VALUES,
     },
     asCoordinator("create"),
   );

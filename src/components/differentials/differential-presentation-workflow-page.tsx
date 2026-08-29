@@ -211,7 +211,7 @@ function DesktopComparisonTable({
 
       <div
         data-testid="differential-comparison-scroll"
-        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         <table
           aria-label="Differential comparison"
@@ -671,7 +671,7 @@ export function DifferentialPresentationWorkflowPage({
       />
       <main
         data-testid="differential-presentation-page"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:grow sm:px-5 md:pb-8 xl:px-7 xl:pt-6"
       >
         <div className="mx-auto grid w-full max-w-[94rem] gap-5 xl:grid-cols-[minmax(0,1fr)_23.5rem]">
           <div className="min-w-0">

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { documentSourceRedirectTarget } from "@/lib/document-source-redirect";
 
-export const metadata: Metadata = { title: "Document Source - Clinical KB" };
+export const metadata: Metadata = { title: "Document Source - PsychSift" };
 
 // Backstop only: src/proxy.ts resolves these fallbacks as a plain HTTP 307
 // before rendering (issue #024 — the streamed server-redirect path raised

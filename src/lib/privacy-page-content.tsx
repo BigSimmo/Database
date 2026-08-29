@@ -22,7 +22,7 @@ export const PRIVACY_DRAFT_DISCLAIMER =
  * "describes configured behaviour as of …" — deliberately not "reviewed", which
  * would imply a governance sign-off that PIA-5 records as still outstanding.
  */
-export const PRIVACY_CONTENT_AS_OF = "2026-08-19";
+export const PRIVACY_CONTENT_AS_OF = "2026-08-27";
 
 export const PRIVACY_IMPORTANT_SHORT =
   "Do not enter identifiable patient details. Processing may include Singapore and the OpenAI API.";
@@ -63,7 +63,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     gist: "Clinical reference KB — not a patient-record system",
     body: [
       <>
-        Clinical KB is a knowledge base over clinical reference material. It is{" "}
+        PsychSift is a knowledge base over clinical reference material. It is{" "}
         <strong>not a patient-record system</strong> and its provider-backed features do not ask for patient
         identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately
         omits a patient-identifier field.
@@ -77,7 +77,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     short: "Collected",
     gist: "Questions, docs, telemetry — safety-plan work stays in-tab",
     body: [
-      "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
+      "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by PsychSift.",
       "Clinical Ask accepts a typed or dictated question and non-identifying Case Context. It cannot guarantee that text is de-identified: identifier-shaped input is blocked as a warning aid, not transformed or certified. Review the transcript and remove identifiable details before asking.",
       "Signing in creates an account record held by the authentication provider. Saved favourites and display preferences are stored against that account so they follow you between devices; they describe how you use the app, not who your patients are.",
     ],
@@ -143,7 +143,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     body: [
       "Some things never reach the application service because they stay on this device. Your sign-in session, the light or dark theme, display preferences, and saved-item shortcuts are held by this browser. Recent searches use per-tab session storage and disappear when the tab closes. Completed answer threads are kept for up to 12 hours so a recent answer reappears quickly.",
       "Safety-plan working content is stricter again: it exists only in the page's memory while the generator is open, and is discarded when you clear it or close the tab.",
-      "Clinical Ask audio is held only long enough to record, upload for transcription, or offer an in-memory retry. The browser recording and retry copy are disposed after transcription, cancellation, clear case, account change, or unmount. Audio is not put into URLs, browser storage, feedback, or telemetry by Clinical KB.",
+      "Clinical Ask audio is held only long enough to record, upload for transcription, or offer an in-memory retry. The browser recording and retry copy are disposed after transcription, cancellation, clear case, account change, or unmount. Audio is not put into URLs, browser storage, feedback, or telemetry by PsychSift.",
       "You can clear this from inside the app. Settings, under Privacy and security, clears recent searches and saved items; New chat clears the current answer thread; signing out clears the thread and the session; clearing site data in your browser removes the rest. None of that affects documents or logs already stored on the server.",
     ],
   },
@@ -153,7 +153,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     short: "Retention",
     gist: "30-day queries · 90-day logs · hourly cache purge",
     body: [
-      "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Completed answer threads in the current browser tab expire no later than 12 hours after the most recent answer and are also cleared by New chat, sign-out, or an account change. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+      "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Completed answer threads in the current browser tab expire no later than 12 hours after the most recent answer and are also cleared by New chat, sign-out, or an account change. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
       "Memory-only Clinical Ask handling is not a zero-retention promise for providers or network infrastructure. Provider retention, regional processing, the separately deployable feedback migration, staging evidence, clinical evaluation, and production readiness must each be verified by the responsible operator before launch.",
       "Audit records are the deliberate exception: they are append-only and retained indefinitely by design, because an access trail that expires cannot answer a later question about who reached what.",
     ],
@@ -164,7 +164,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     short: "Third parties",
     gist: "Supabase · Railway · OpenAI · optional error monitoring",
     body: [
-      "Clinical KB is assembled from three providers, each holding a different part of the system. Supabase hosts the database, the private file storage, and authentication, in its Sydney region. Railway runs the application and the ingestion worker in Singapore. OpenAI, in the United States, creates retrieval embeddings and, when model-backed synthesis is used, generates the answer text.",
+      "PsychSift is assembled from three providers, each holding a different part of the system. Supabase hosts the database, the private file storage, and authentication, in its Sydney region. Railway runs the application and the ingestion worker in Singapore. OpenAI, in the United States, creates retrieval embeddings and, when model-backed synthesis is used, generates the answer text.",
       "A fourth is optional. When the operator configures server-side error monitoring, error and performance events are sent to that service with request URLs, headers, bodies, account data, and exception messages stripped before they leave the application; browser session replay is not enabled.",
       "Provider regions, sub-processors, retention terms, and contractual cover are operator responsibilities. This section describes which providers the application is configured to use, not what has been agreed with each of them.",
     ],

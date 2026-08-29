@@ -3,6 +3,8 @@ import { ArrowRight, Check, GitCompareArrows, ListChecks, Search, X } from "luci
 
 import type { CompareCatalogItem, CompareStarterChip } from "@/components/compare";
 import { DifferentialComparePickerControl } from "@/components/differentials/differential-compare-picker-control";
+import { InformationPageHeader } from "@/components/information-page-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { differentialCompareSearchHref, differentialRouteWithQuery } from "@/lib/differentials-navigation";
 
 export type DifferentialCompareQueueItem = {
@@ -35,25 +37,18 @@ export function DifferentialCompareQueuePage({
     return (
       <main
         data-testid="differential-compare-empty"
-        className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8"
+        className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:min-h-0 sm:grow sm:px-6 lg:px-8"
       >
         <div className="mx-auto grid w-full max-w-4xl gap-6">
           <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
             <div className="h-1 bg-[color:var(--clinical-accent)]" aria-hidden />
             <div className="p-5 sm:p-8">
-              <div className="grid h-12 w-12 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                <GitCompareArrows className="h-5 w-5" aria-hidden />
-              </div>
-              <p className="mt-5 text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
-                Compare differentials
-              </p>
-              <h1 className="mt-2 max-w-2xl text-3xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                Choose diagnoses to compare
-              </h1>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
-                Search the diagnosis catalogue on this page, or tick diagnoses on Search and return here. Then open the
-                comparison workspace.
-              </p>
+              <InformationPageHeader
+                icon={GitCompareArrows}
+                eyebrow="Compare differentials"
+                title="Choose diagnoses to compare"
+                subtitle="Search the diagnosis catalogue on this page, or tick diagnoses on Search and return here. Then open the comparison workspace."
+              />
               <DifferentialComparePickerControl
                 catalog={catalog}
                 selectedIds={selectedIds}
@@ -65,7 +60,7 @@ export function DifferentialCompareQueuePage({
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={differentialCompareSearchHref(trimmedQuery)}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
                 >
                   <Search className="h-4 w-4" aria-hidden />
                   {trimmedQuery ? "Back to Search results" : "Open Search"}
@@ -73,7 +68,7 @@ export function DifferentialCompareQueuePage({
                 </Link>
                 <Link
                   href="/differentials/diagnoses"
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
                 >
                   Browse diagnoses
                 </Link>
@@ -88,26 +83,24 @@ export function DifferentialCompareQueuePage({
   return (
     <main
       data-testid="differential-compare-queue"
-      className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-8 text-[color:var(--text)] sm:px-6 sm:py-10 lg:px-8"
+      className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-8 text-[color:var(--text)] sm:min-h-0 sm:grow sm:px-6 sm:py-10 lg:px-8"
     >
       <div className="mx-auto grid w-full max-w-4xl gap-5 sm:gap-6">
         <section className="overflow-hidden rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
           <div className="h-1 bg-[color:var(--clinical-accent)]" aria-hidden />
-          <div className="flex items-center gap-4 p-5 sm:gap-5 sm:p-8">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-              <ListChecks className="h-5 w-5" aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-3xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                {items.length} {items.length === 1 ? "diagnosis" : "diagnoses"} selected
-              </h1>
-              {trimmedQuery ? (
-                <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]">
-                  <Search className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="truncate">{trimmedQuery}</span>
-                </p>
-              ) : null}
-            </div>
+          <div className="p-5 sm:p-8">
+            <PageHeader
+              icon={ListChecks}
+              title={`${items.length} ${items.length === 1 ? "diagnosis" : "diagnoses"} selected`}
+              meta={
+                trimmedQuery ? (
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]">
+                    <Search className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="truncate">{trimmedQuery}</span>
+                  </p>
+                ) : null
+              }
+            />
           </div>
         </section>
 
@@ -136,7 +129,7 @@ export function DifferentialCompareQueuePage({
                   </span>
                   <Link
                     href={`/differentials/diagnoses/${item.slug}`}
-                    className="min-w-0 flex-1 rounded-sm text-sm font-bold text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-base"
+                    className="min-w-0 flex-1 rounded-sm text-sm font-semibold text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-base"
                   >
                     <span className="line-clamp-2">{item.title}</span>
                   </Link>
@@ -173,7 +166,7 @@ export function DifferentialCompareQueuePage({
             <Link
               href={openComparisonHref}
               data-testid="differential-compare-open"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] transition hover:bg-[color:var(--primary-strong)]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] transition hover:bg-[color:var(--primary-strong)]"
             >
               <GitCompareArrows className="h-4 w-4" aria-hidden />
               Open comparison
@@ -186,7 +179,7 @@ export function DifferentialCompareQueuePage({
               starters={starters}
               buttonLabel="Edit selection"
               buttonTestId="differential-compare-edit-selection"
-              buttonClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+              buttonClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
             />
           </div>
         </section>

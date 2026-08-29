@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { PLAN_ASSURANCES } from "@/lib/caring-contacts/assurances";
 import { pathwayVersionId, patientId, planId, referralId } from "@/lib/caring-contacts/ids";
 
 export const runtime = "nodejs";
@@ -36,8 +37,31 @@ const createPlanSchema = z
         patientMobileNumber: z.string().min(1),
         patientIdentifiers: z.array(z.string().min(1)),
         culturalIdentity: z.string().min(1).nullable(),
+        /**
+         * What the patient asked to be called in the messages they receive. ASKED FOR by the
+         * clinician, never derived from `patientName` -- see `Episode.preferredName`.
+         *
+         * `min(1)` because `""` is what a RETENTION CLEARANCE writes, and the clearance must stay
+         * the only thing that can write it: a request carrying `""` would create a plan already
+         * shaped like a de-identified one. `nullable` because a caller may legitimately hold no
+         * preferred name -- the same fact every plan created before the column existed carries --
+         * and the message resolver then refuses BY NAME rather than sending an unpersonalised
+         * greeting nobody has authored.
+         */
+        preferredName: z.string().min(1).nullable(),
       })
       .strict(),
+    /**
+     * What the coordinator attests to having confirmed. The enum is built FROM `PLAN_ASSURANCES`
+     * rather than restated here, so the wire vocabulary, the screen and the database check
+     * constraint cannot drift apart.
+     *
+     * `.min(1)` is the schema half of the domain's `plan-assurances-required` refusal, not a
+     * replacement for it: a body that reaches `createPlan` another way is still refused there, by
+     * name. Only the assurances travel -- who attested and when are stamped by the store from the
+     * session and the domain clock, so a request cannot claim someone else made the check.
+     */
+    assurances: z.array(z.enum(PLAN_ASSURANCES)).min(1),
     idempotencyKey: auditableIdentifier,
   })
   .strict();
@@ -63,6 +87,7 @@ export const POST = writeHandler({
         firstContactDate: body.firstContactDate,
         firstContactReason: body.firstContactReason,
         patientDetail: body.patientDetail,
+        assurances: body.assurances,
       },
       writeContextFor(actor, body.idempotencyKey),
     ),

@@ -1,4 +1,5 @@
 .networkPage {
+  composes: descendantKill from "./ward-reduced-motion.module.css";
   --net-canvas: var(--surface);
   --net-subtle: var(--surface-subtle);
   --net-chrome: var(--surface-chrome);
@@ -748,12 +749,6 @@
 
   .connectorLayer {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .networkPage * {
-    transition: none !important;
   }
 }
 

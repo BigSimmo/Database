@@ -36,15 +36,20 @@ function supabaseOrigin() {
 }
 
 const geistSans = localFont({
-  src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
+  src: "../fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
   display: "swap",
+  // next/font/local only emits font-weight when this is set. The vendored
+  // WOFF2s are variable (wght 100–900); without the range, @font-face has no
+  // font-weight and browsers faux-bold headings.
+  weight: "100 900",
 });
 
 const geistMono = localFont({
-  src: "../../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2",
+  src: "../fonts/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
   display: "swap",
+  weight: "100 900",
   // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
   // never in initial/LCP text, so don't preload it on every route — it competes
   // for the critical-path connection. It still loads on-demand via `swap` when
@@ -53,13 +58,13 @@ const geistMono = localFont({
 });
 
 const baseMetadata: Metadata = {
-  applicationName: "Clinical KB",
-  title: "Clinical KB",
+  applicationName: "PsychSift",
+  title: "PsychSift",
   description: "Private medical guideline RAG knowledge base",
   robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
-    title: "Clinical KB",
+    title: "PsychSift",
     statusBarStyle: "black-translucent",
   },
 };

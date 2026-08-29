@@ -408,8 +408,9 @@ outside the Gate B authorisation, and they are the cap this section exists to st
 2. **Queue health** — `npm run reindex:health` (provider access; approve it explicitly).
    `jobs_pending` must keep draining exactly as it did before the change. This is the signal
    that matters most in the first hours.
-3. **The aggregate record**, `documents.metadata->'shadow_extraction'`. There is no script for
-   this; read it in the Supabase SQL editor (read-only, provider access, approve each time):
+3. **The aggregate record**, `documents.metadata->'shadow_extraction'`. Query and
+   summarize using `npx tsx scripts/inspect-shadow-extraction.ts` (or read in the Supabase SQL
+   editor with read-only provider access, approved each time):
 
    ```sql
    select
@@ -461,9 +462,10 @@ survived contact with the real corpus. Read them first.
 
 4. Every cohort record shows `runtime_unavailable` — the image is wrong, and shadow mode is
    producing nothing while still costing a process spawn per cohort document.
-5. Sustained `timeout` outcomes. **Proposed operating rule, not a measured threshold:** more
-   than 10 % of cohort runs timing out over the window. Nothing in the repository fixes this
-   number; agree it with the owner or replace it.
+5. Sustained `timeout` outcomes (**>10% timeout rollback threshold rule**): More than 10 % of
+   cohort shadow runs timing out over the 24-hour evaluation window (or sustained over a batch).
+   This operating rule is ratified and codified in `scripts/inspect-shadow-extraction.ts` to
+   trigger a `ROLLBACK_RECOMMENDED` alert.
 6. `peak_rss_bytes` sustained above the headroom confirmed in §3.2.
 
 **The two-step rollback.** On the Railway `worker` service, set:

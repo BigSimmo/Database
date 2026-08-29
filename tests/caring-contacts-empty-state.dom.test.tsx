@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ListEmptyState } from "@/components/caring-contacts/workspace/list-empty-state";
+import Link from "next/link";
 
 describe("ListEmptyState — no-data", () => {
   it("renders the heading and the explanation, and no Why/What-changes-it pair", () => {
@@ -29,7 +30,7 @@ describe("ListEmptyState — no-data", () => {
         kind="no-data"
         heading="No patients yet"
         explanation="Add the first patient to get started."
-        action={<a href="/caring-contacts/patients/new">Add a patient</a>}
+        action={<Link href="/caring-contacts/patients/new">Add a patient</Link>}
       />,
     );
     const action = screen.getByRole("link", { name: "Add a patient" });
@@ -90,7 +91,7 @@ describe("ListEmptyState — filtered", () => {
         heading="No patients match"
         because="The status filter is set to Discharged this week."
         changedBy="Clear the status filter to see the rest of the caseload."
-        action={<a href="/caring-contacts/patients">Clear filter</a>}
+        action={<Link href="/caring-contacts/patients">Clear filter</Link>}
       />,
     );
     const action = screen.getByRole("link", { name: "Clear filter" });

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 import { FactsheetsSearchPage } from "@/components/factsheets/factsheets-search-page";
 
-export const metadata: Metadata = { title: "Search Patient Information | Clinical KB" };
+export const metadata: Metadata = { title: "Search Patient Information | PsychSift" };
 
 // App Router hands repeated query params (?q=a&q=b) through as string[]; collapse to
 // the first value the way the DSM/Services search routes do, so a malformed link

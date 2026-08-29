@@ -96,10 +96,11 @@ describe("PageSecondaryNavigation", () => {
     expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
     expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/specifiers/search");
     // Registry order is load-bearing: only the first two slots survive the
-    // narrowest band, so Find and Build must be the ones that stay.
+    // narrowest band, so Search and Build must be the ones that stay.
     expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
-      "Find",
+      "Search",
       "Build",
       "Compare",
       "Map",

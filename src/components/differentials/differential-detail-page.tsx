@@ -32,6 +32,7 @@ import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentia
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -53,6 +54,7 @@ import {
   type DifferentialSafetyFact,
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { useAccountData } from "@/components/account-data-provider";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
@@ -476,7 +478,7 @@ function SafetySnapshot({
           type="button"
           data-testid="differential-safety-cta"
           onClick={onReviewMustNotMiss}
-          className="mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:mt-2.5 sm:w-auto sm:justify-start"
+          className="mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] sm:mt-2.5 sm:w-auto sm:justify-start"
         >
           <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
           Review must-not-miss causes
@@ -603,7 +605,7 @@ function ComparePanel({
     ? `/differentials/presentations/${detailContext.comparePresentation.slug}`
     : "/differentials/compare";
   const rowClassName =
-    "flex min-h-12 items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]";
+    "flex min-h-12 items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)]";
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -675,7 +677,7 @@ function ComparePanel({
       <Link
         data-testid="differential-compare-open"
         href={compareHref}
-        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)]"
+        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Open comparison workspace
@@ -768,7 +770,7 @@ function TopActions({
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+        className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
@@ -804,11 +806,11 @@ function MobilePrimaryActions({
   onCompare: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] lg:hidden">
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare ({record.related.length + 1})
@@ -836,16 +838,8 @@ function MobilePrimaryActions({
   );
 }
 
-function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
-  return (
-    <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)]">
-      {record.slug === "delirium" ? (
-        <BrainCircuit className="h-12 w-12 stroke-[1.7]" aria-hidden />
-      ) : (
-        <Stethoscope className="h-12 w-12 stroke-[1.7]" aria-hidden />
-      )}
-    </span>
-  );
+function IconForDiagnosis(record: DifferentialRecord): LucideIcon {
+  return record.slug === "delirium" ? BrainCircuit : Stethoscope;
 }
 
 /**
@@ -1060,8 +1054,7 @@ export function DifferentialDetailPage({
     ? () => {
         setSectionOpen("must-not-miss", true);
         const target = document.getElementById("differential-section-must-not-miss");
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        target?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+        target?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
       }
     : null;
   const openCompareTab = () => changeTab("compare");
@@ -1099,43 +1092,27 @@ export function DifferentialDetailPage({
         )}
       />
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <nav aria-label="Differential breadcrumbs" className="mb-3 flex items-center gap-2 text-xs font-semibold">
-              <Link href="/differentials" className="text-[color:var(--clinical-accent)]">
-                Differentials
-              </Link>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-              <Link href="/differentials/diagnoses" className="text-[color:var(--clinical-accent)]">
-                Diagnosis
-              </Link>
-              <ChevronRight className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-              <span className="text-[color:var(--text-muted)]">{record.title}</span>
-            </nav>
-            <div className="flex items-start gap-3 sm:gap-4">
-              <IconForDiagnosis record={record} />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                    {record.title}
-                  </h1>
-                  <span
-                    className={cn(
-                      "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
-                      statusToneClass[record.status],
-                    )}
-                  >
-                    {differentialStatusLabel(record.status)}
-                  </span>
-                </div>
-                <p className="mt-1.5 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:mt-2 sm:text-base">
-                  {record.subtitle}
-                </p>
-              </div>
-            </div>
-          </div>
-          <TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
-        </div>
+        <PageHeader
+          breadcrumb={[
+            { label: "Differentials", href: "/differentials" },
+            { label: "Diagnosis", href: "/differentials/diagnoses" },
+            { label: record.title },
+          ]}
+          title={record.title}
+          description={record.subtitle}
+          icon={IconForDiagnosis(record)}
+          meta={
+            <span
+              className={cn(
+                "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
+                statusToneClass[record.status],
+              )}
+            >
+              {differentialStatusLabel(record.status)}
+            </span>
+          }
+          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
+        />
 
         {saveNotice ? (
           <p role="status" aria-live="polite" className="text-sm text-[color:var(--text-muted)]">
@@ -1171,7 +1148,7 @@ export function DifferentialDetailPage({
                       type="button"
                       data-testid="differential-expand-all"
                       onClick={toggleAllSections}
-                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
                     >
                       {allOpen ? (
                         <ChevronsDownUp className="h-4 w-4" aria-hidden />

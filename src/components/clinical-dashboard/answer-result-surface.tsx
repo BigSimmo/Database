@@ -97,6 +97,7 @@ function StagedAnswerResultSurfaceImpl({
     sources.length ||
     answer.sources?.length ||
     answer.citations.length;
+  const sourceOnly = answer.answerQualityTier === "source_only";
   const centralTables = renderModel.tables;
   /**
    * The one cited-source list. The rail under the answer lists these rows and the
@@ -191,15 +192,20 @@ function StagedAnswerResultSurfaceImpl({
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
     // it (#228).
-    attribution: (answer.answerQualityTier === "source_only" ? "extractive" : "model") as "extractive" | "model",
+    attribution: (sourceOnly ? "extractive" : "model") as "extractive" | "model",
     sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
+    // The compact governed instruction moves into the Source-only disclosure on
+    // screen. Print keeps the complete notice in the card header because a
+    // collapsed interactive disclosure is not part of the printed record.
+    className: sourceOnly ? "hidden print:flex" : undefined,
   };
   const answerProse = (
     <NaturalLanguageAnswer
       text={answer.answer}
       query={query}
       preformatted={isPreformattedGroundedAnswer(answer)}
-      sourceOnly={answer.answerQualityTier === "source_only"}
+      sourceOnly={sourceOnly}
+      sourceOnlyVerificationState={answerState.kind}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
@@ -236,11 +242,12 @@ function StagedAnswerResultSurfaceImpl({
             owns the query echo in every layout. */}
         <div data-testid="table-specific-answer-layout" data-desktop-table-aside="false" className="space-y-3">
           <div className="min-w-0 space-y-3">
-            {/* PR 13 answer adoption. System-owned verification wording above the
-                prose, in document order, on screen and on print alike — the call
-                site chooses the state, never the words. The degraded banner sits
-                directly under it and carries the one-click route back to the
-                cited page, so a caution is never raised with nowhere to go. */}
+            {/* PR 13 answer adoption. System-owned verification wording sits above
+                ordinary prose. A source-only answer folds the compact wording into
+                its disclosure on screen, while print keeps the complete notice in
+                document order. The call site chooses the state, never the words.
+                The degraded banner carries the one-click route back to the cited
+                page, so a caution is never raised with nowhere to go. */}
             {/* One count, not two. The notice and the banner are the two
                 governance statements on this surface and they sit adjacent, so
                 reading "Based on 3 cited sources." directly above "2 of 7
@@ -372,7 +379,14 @@ function StagedAnswerResultSurfaceImpl({
             titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            // No `flex flex-col` here. The Sheet body is the scrollport, and as a flex
+            // column its single child (the findings card) became a shrinkable flex
+            // item: it was compressed from its natural height to whatever was left,
+            // and because that card is `overflow-hidden` the findings below the fold
+            // were clipped rather than scrolled. The body then had nothing to scroll,
+            // so the gesture went to the page behind the sheet. A plain block
+            // scrollport keeps the list at its natural height and scrolls it.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />

@@ -370,7 +370,12 @@ export function useReserveTransitionMarker(hidden: boolean, resetKey?: unknown) 
  * without remounting.
  */
 export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false, resetKey?: unknown) {
-  const [hidden, setHidden] = useState(false);
+  const [visibility, setVisibility] = useState(() => ({ hidden: false, resetKey }));
+  // Route changes can commit before the reset effect below runs. Derive the
+  // visible state from the key that produced it so a hidden header from the
+  // previous route cannot paint over a newly opened document (the overlay
+  // keeps its measured reserve, which otherwise appears as a blank top band).
+  const hidden = Object.is(visibility.resetKey, resetKey) ? visibility.hidden : false;
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
   const lastMaxOffsetRef = useRef<number | undefined>(undefined);
@@ -380,6 +385,16 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const scrollSourceRef = useRef<EventTarget | null>(null);
   const hasScrollSourceRef = useRef(false);
   const active = useScrollHideActive(disabled, allowAllBreakpoints);
+  const commitHidden = useCallback(
+    (nextHidden: boolean) => {
+      setVisibility((current) =>
+        current.hidden === nextHidden && Object.is(current.resetKey, resetKey)
+          ? current
+          : { hidden: nextHidden, resetKey },
+      );
+    },
+    [resetKey],
+  );
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
@@ -449,9 +464,9 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
       hiddenRef.current = update.hidden;
       directionRef.current = update.direction;
       directionTravelRef.current = update.directionTravel;
-      setHidden(update.hidden);
+      commitHidden(update.hidden);
     },
-    [active],
+    [active, commitHidden],
   );
 
   useEffect(() => {
@@ -464,9 +479,9 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
     hasScrollSourceRef.current = false;
-    const frame = window.requestAnimationFrame(() => setHidden(false));
+    const frame = window.requestAnimationFrame(() => commitHidden(false));
     return () => window.cancelAnimationFrame(frame);
-  }, [active]);
+  }, [active, commitHidden]);
 
   // A geometry switch under the reporter (e.g. ClinicalDashboard toggling answer
   // mode, where <main> gains/loses its header reserve) would otherwise carry a
@@ -482,9 +497,9 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
     hasScrollSourceRef.current = false;
-    const frame = window.requestAnimationFrame(() => setHidden(false));
+    const frame = window.requestAnimationFrame(() => commitHidden(false));
     return () => window.cancelAnimationFrame(frame);
-  }, [allowAllBreakpoints, resetKey]);
+  }, [allowAllBreakpoints, commitHidden, resetKey]);
 
   // Shared shell keeps this reporter across namespaced mode homes. Without an
   // explicit reset, a scrolled/collapsed phone surface carries scrollTop +
@@ -498,8 +513,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
     hasScrollSourceRef.current = false;
-    setHidden(false);
-  }, []);
+    commitHidden(false);
+  }, [commitHidden]);
 
   return { hidden: active && hidden, reportScroll, reset };
 }

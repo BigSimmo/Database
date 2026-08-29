@@ -391,7 +391,7 @@ function CommandDropdown({
             className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin text-[color:var(--decoration-soft)]" aria-hidden />
-            Searching across Clinical KB…
+            Searching across PsychSift…
           </div>
         ) : null}
         {!hasItems && !universalPending ? (
@@ -752,7 +752,7 @@ export function UniversalSearchCommandSurface({
       });
     }
 
-    // Cross-entity typeahead ("Across Clinical KB"): live grouped matches from the universal
+    // Cross-entity typeahead ("Across PsychSift"): live grouped matches from the universal
     // search endpoint across every domain (including the active mode's own), rendered in the
     // server's intent-aware order. Selecting an item navigates straight to the record; each group
     // ends with a cross-mode "view all" that re-runs the query in the owning mode. Enter with

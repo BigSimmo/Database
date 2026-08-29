@@ -37,7 +37,7 @@ describe("local project guard", () => {
     const payload = localProjectIdentityPayload(managedUrl);
 
     expect(payload).toMatchObject({
-      appName: "Clinical KB",
+      appName: "PsychSift",
       identityPath: "/api/local-project-id",
       localServer: {
         currentUrl: `http://localhost:${projectPortStart}`,
@@ -145,7 +145,7 @@ describe("local project guard", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("X-Clinical-KB-Local-Guard")).toBe("unsafe-local-origin");
     expect(body.run).toBe("npm run ensure");
-    expect(body.error).toContain("ensured Clinical KB local URL");
+    expect(body.error).toContain("ensured PsychSift local URL");
     expect(body.identity.projectId).toBe(error.payload.projectId);
 
     const direct = unsafeLocalProjectResponse(error.payload);

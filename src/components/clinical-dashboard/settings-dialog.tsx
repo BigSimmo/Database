@@ -438,13 +438,13 @@ export function SettingsDialog({
                         mode="create"
                         active={accountEntryMode === "create"}
                         onSelect={openSettingsEmailEntry}
-                        className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                        className="whitespace-nowrap px-3 text-sm leading-none"
                       />
                       <AccountEntryModeButton
                         mode="sign-in"
                         active={accountEntryMode === "sign-in"}
                         onSelect={openSettingsEmailEntry}
-                        className="min-h-10 whitespace-nowrap px-3 text-sm leading-none"
+                        className="whitespace-nowrap px-3 text-sm leading-none"
                       />
                     </div>
                   ) : (
@@ -462,13 +462,13 @@ export function SettingsDialog({
                         mode="create"
                         active={accountEntryMode === "create"}
                         onSelect={openSettingsEmailEntry}
-                        className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                        className="whitespace-nowrap px-2.5 text-sm leading-none"
                       />
                       <AccountEntryModeButton
                         mode="sign-in"
                         active={accountEntryMode === "sign-in"}
                         onSelect={openSettingsEmailEntry}
-                        className="min-h-10 whitespace-nowrap px-2.5 text-sm leading-none"
+                        className="whitespace-nowrap px-2.5 text-sm leading-none"
                       />
                     </div>
 
@@ -566,7 +566,7 @@ export function SettingsDialog({
                     }}
                     className={cn(
                       floatingControl,
-                      "mt-3 min-h-10 w-full justify-center gap-2 rounded-lg text-sm md:w-auto md:px-4",
+                      "mt-3 w-full justify-center gap-2 rounded-lg text-sm md:w-auto md:px-4",
                     )}
                   >
                     <LogOut aria-hidden="true" className="h-4 w-4" />
@@ -850,7 +850,7 @@ export function SettingsDialog({
                   }}
                   onPointerEnter={onPrefetchGuide}
                   onFocus={onPrefetchGuide}
-                  className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                  className={cn(floatingControl, "mt-3 w-full gap-2 text-sm")}
                   data-testid="settings-row-guide-help"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
@@ -873,7 +873,7 @@ export function SettingsDialog({
                 <Link
                   href="/mockups/development"
                   onClick={onClose}
-                  className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                  className={cn(floatingControl, "mt-3 w-full gap-2 text-sm")}
                   data-testid="settings-row-development-page"
                 >
                   <FlaskConical aria-hidden="true" className="h-4 w-4" />
@@ -981,7 +981,7 @@ function SettingsCard({ rowId, padded = false, children }: { rowId: string; padd
     <div
       data-testid={`${rowId}-card`}
       className={cn(
-        "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
+        "overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2),var(--shadow-inset)] md:bg-[color:var(--surface)] md:shadow-[var(--shadow-inset)]",
         padded && "p-4",
       )}
     >

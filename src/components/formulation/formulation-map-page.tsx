@@ -11,6 +11,7 @@ import {
   formulationCard,
 } from "@/components/formulation/formulation-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { InformationPageHeader } from "@/components/information-page-shell";
 import { findFormulationMechanism, formulationDomainGroups, formulationMechanisms } from "@/lib/formulation";
 
 export function FormulationMapPage({ initialId }: { initialId?: string }) {
@@ -21,16 +22,12 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
 
   return (
     <FormulationPageShell>
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>Formulation architecture</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-          Mechanism map
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Browse mechanisms by the part of the formulation they help explain. This map groups shared domains; it does
-          not assert causation or replace a case-specific sequence.
-        </p>
-      </header>
+      <InformationPageHeader
+        className="border-b border-[color:var(--border)] pb-5"
+        eyebrow="Formulation architecture"
+        title="Mechanism map"
+        subtitle="Browse mechanisms by the part of the formulation they help explain. This map groups shared domains; it does not assert causation or replace a case-specific sequence."
+      />
 
       <section
         aria-label="Formulation reasoning pathway"
@@ -128,7 +125,7 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
         </section>
 
         <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+          <section className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
             <div className="border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3">
               <p className={cn(eyebrowText, "!text-[color:var(--clinical-accent)]")}>Selected mechanism</p>
               <h2 className="mt-1 text-xl font-extrabold text-[color:var(--text-heading)]">{selected.name}</h2>
@@ -151,21 +148,21 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
               <div className="grid gap-2">
                 <Link
                   href={`/formulation/${selected.id}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)]"
                 >
                   Open full guide
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
                 <Link
                   href={`/formulation/compare?a=${selected.id}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
                 >
                   <GitCompareArrows className="h-4 w-4" aria-hidden />
                   Compare
                 </Link>
                 <Link
                   href={`/formulation/builder?mechanism=${selected.id}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
                 >
                   Use in formulation
                 </Link>

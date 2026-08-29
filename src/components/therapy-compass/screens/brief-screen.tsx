@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cn } from "@/components/ui-primitives";
-import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
+import { therapyRecordHref, type TherapyBriefDuration } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
 import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
+import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 import { TherapyCompareAction } from "../record/compare-action";
@@ -28,6 +29,20 @@ const CHECKLIST = [
   "Review contraindications",
   "Confirm patient-facing language",
 ];
+
+const BRIEF_DURATION: Record<TherapyBriefDuration, { label: string; text: (therapy: Therapy) => string | null }> = {
+  "5min": { label: "5-minute", text: (therapy) => therapy.briefVersion },
+  "15min": {
+    label: "15-minute",
+    text: (therapy) => therapy.fifteenMinuteVersion || therapy.fullSessionVersion || therapy.briefVersion,
+  },
+  ground: {
+    label: "Grounding",
+    text: (therapy) =>
+      therapy.clinicianScripts.find((script) => /ground|relax|distress/i.test(`${script.scriptType} ${script.title}`))
+        ?.body || therapy.briefVersion,
+  },
+};
 
 export function BriefScreen() {
   const b = useTcBindings();
@@ -47,14 +62,9 @@ export function BriefScreen() {
   const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
 
-  const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
-  const durationText =
-    b.briefTab === "15min"
-      ? t.fifteenMinuteVersion || t.fullSessionVersion || t.briefVersion
-      : b.briefTab === "ground"
-        ? t.clinicianScripts.find((c) => /ground|relax|distress/i.test(`${c.scriptType} ${c.title}`))?.body ||
-          t.briefVersion
-        : t.briefVersion;
+  const duration = BRIEF_DURATION[b.briefTab as TherapyBriefDuration] ?? BRIEF_DURATION["5min"];
+  const durationLabel = duration.label;
+  const durationText = duration.text(t);
   const steps = parseSteps(durationText, 6);
   const interventionText = [
     `${t.name} — ${durationLabel} intervention`,
@@ -135,9 +145,8 @@ export function BriefScreen() {
                 <label className="relative flex items-center mb-3">
                   <Search
                     aria-hidden="true"
-                    size={16}
                     strokeWidth={1.8}
-                    className="absolute left-[12px] text-[color:var(--decoration-soft)]"
+                    className="absolute left-[12px] size-icon-md text-[color:var(--decoration-soft)]"
                   />
                   <input
                     value={filter}
@@ -162,12 +171,11 @@ export function BriefScreen() {
                         </span>
                         <TriangleAlert
                           aria-hidden="true"
-                          size={15}
                           strokeWidth={1.8}
                           className={
                             x.reviewStatus === "reviewed"
-                              ? "flex-none text-[color:var(--success-text)]"
-                              : "flex-none text-[color:var(--warning-text)]"
+                              ? "size-icon-sm flex-none text-[color:var(--success-text)]"
+                              : "size-icon-sm flex-none text-[color:var(--warning-text)]"
                           }
                         />
                       </InteractiveRow>
@@ -184,14 +192,14 @@ export function BriefScreen() {
                 className="flex flex-col gap-4 min-w-0"
                 provenance={`Source: ${t.name} Therapy record · ${durationLabel} intervention · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
               >
-                <div className={cn(cardSurface, "py-[22px] px-6")}>
-                  <div className="flex items-center justify-between gap-3 mb-[18px] flex-wrap">
+                <div className={cn(cardSurface, "py-5.5 px-6")}>
+                  <div className="flex items-center justify-between gap-3 mb-4.5 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="m-0 text-lg font-semibold text-[color:var(--text-heading)]">{t.name}</h2>
-                      <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">
+                      <span className="text-2xs font-semibold py-0.5 px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">
                         {durationLabel} mode
                       </span>
-                      <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] border border-[color:var(--warning-border)]">
+                      <span className="text-2xs font-semibold py-0.5 px-2.5 rounded-sm bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] border border-[color:var(--warning-border)]">
                         {t.reviewStatus === "reviewed" ? "Reviewed" : "Clinician review required"}
                       </span>
                     </div>
@@ -207,7 +215,7 @@ export function BriefScreen() {
                       </Button>
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
                     <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
                     <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
                     <MetaCell
@@ -223,7 +231,7 @@ export function BriefScreen() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-[1.6fr_1fr] gap-4 items-start">
-                  <div className={cn(cardSurface, "py-5 px-[22px] min-w-0")}>
+                  <div className={cn(cardSurface, "py-5 px-5.5 min-w-0")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
                       {durationLabel} delivery
                     </div>
@@ -272,7 +280,7 @@ export function BriefScreen() {
                         {t.clinicianScripts.slice(0, 2).map((c, i) => (
                           <div key={i} className="mb-3">
                             {c.scriptType ? (
-                              <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-[3px]">
+                              <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-0.5">
                                 {c.scriptType}
                               </div>
                             ) : null}
@@ -283,27 +291,24 @@ export function BriefScreen() {
                     ) : null}
                   </div>
 
-                  <div className={cn(cardSurface, "py-5 px-[22px]")}>
+                  <div className={cn(cardSurface, "py-5 px-5.5")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
                       Before use
                     </div>
-                    <div className="flex flex-col gap-[13px] mb-4">
+                    <div className="flex flex-col gap-3.5 mb-4">
                       {CHECKLIST.map((item) => (
-                        <span
-                          key={item}
-                          className="flex items-center gap-[11px] text-sm-minus text-[color:var(--text)]"
-                        >
+                        <span key={item} className="flex items-center gap-3 text-sm-minus text-[color:var(--text)]">
                           <span className="w-[19px] h-[19px] border-[1.5px] border-[color:var(--border-strong)] rounded-xs flex-none" />
                           {item}
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-start gap-[9px] py-[13px] px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
+                    <div className="flex items-start gap-2.5 py-3.5 px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
                       <TriangleAlert
                         aria-hidden="true"
                         size={17}
                         strokeWidth={1.8}
-                        className="text-[color:var(--warning-text)] flex-none mt-[1px]"
+                        className="text-[color:var(--warning-text)] flex-none mt-px"
                       />
                       <span className="text-xs font-semibold leading-normal text-[color:var(--warning-text)]">
                         Clinical review is required before saving or sharing.

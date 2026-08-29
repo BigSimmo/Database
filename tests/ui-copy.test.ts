@@ -184,7 +184,7 @@ describe("ui-copy", () => {
       expect(copyButton.copied).toBe("Copied");
       expect(answerLoading.ariaLabel).toBe("Loading answer");
       expect(privacyCopy.pageEyebrow).toBe("Privacy");
-      expect(privacyCopy.pageTitle).toBe("How Clinical KB handles your data");
+      expect(privacyCopy.pageTitle).toBe("How PsychSift handles your data");
       expect(errorCopy.searchSetupNotReady).toBeTruthy();
       expect(errorCopy.clipboardCopyFailed).toBeTruthy();
       expect(emptyStates.topSource.title).toBeTruthy();

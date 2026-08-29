@@ -7,8 +7,8 @@ import type { MetadataRoute } from "next";
 // so light/dark can update without a static PWA manifest colour lock.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Clinical KB",
-    short_name: "Clinical KB",
+    name: "PsychSift",
+    short_name: "PsychSift",
     description: "Private medical guideline RAG knowledge base",
     id: "/",
     start_url: "/",
@@ -35,7 +35,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Ask Clinical KB",
+        name: "Ask PsychSift",
         short_name: "Ask",
         description: "Open a source-backed clinical question",
         url: "/?mode=answer&focus=1",

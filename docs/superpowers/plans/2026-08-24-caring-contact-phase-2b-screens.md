@@ -67,6 +67,19 @@ Every task's requirements implicitly include this section.
 
 ### Patient-visible copy is FROZEN until the owner answers
 
+**SUPERSEDED 2026-08-27 — the freeze was lifted on 2026-08-24 and this section was never updated.**
+The owner approved all thirteen decisions that day, and `875c8b604` removed the contradicting freeze
+line from the decision record itself. Patient-visible strings are **no longer frozen**; each change
+must cite the decision-item number it implements. Two items remain unexecutable: **A9** (adding
+Lifeline) is approved in principle and blocked on a real crisis number and on there being no
+unallocated room in the message, and **A4** (the closing message) is approved as a **deferral**, its
+wording to be written later with a lived-experience representative.
+
+**What still binds, unchanged and absolutely:** no implementer, reviewer or controller may AUTHOR
+patient-visible message wording, and every such string lives only in the sealed domain's
+`message-copy` module. A screen that hardcodes one is still a defect. Read the paragraph below with
+that substitution — **a lifted freeze is not permission to write the words.**
+
 `docs/caring-contacts/copy-decisions-recommended.md` carries thirteen open decisions — nine clinical
 or policy, four engineering. **No task in this plan may change a patient-visible string.** Screens
 render patient-visible copy by reading the sealed domain's `message-copy` module; a screen that
@@ -248,9 +261,12 @@ carries its own covering test.**
 **A9 is deliberately NOT in this task** — approved in principle, blocked on a real crisis number
 existing. See Ruling 77. Do not add Lifeline by deleting some other sentence.
 
-**The length ceiling is the trap here.** Message A is 252 characters — two SMS segments, roughly nine
-characters from rejection. A2 and A3 both change the reply message (Message B, 218 characters), which
-has more room, but any edit must re-run the segment count and assert it, not assume it.
+**The length ceiling is the trap here.** Message A is 252 septets against a **306-septet** two-segment
+ceiling. ~~roughly nine characters from rejection~~ — **CORRECTED 2026-08-27**: it is 54 septets from
+rejection, and all 54 are allocated to the preferred-name slot, so the room for new fixed wording is
+zero. A2 and A3 both change the reply message (Message B), which has more room, but any edit must
+re-run the segment count and assert it, not assume it — which is exactly what the wrong figure above
+was produced by not doing.
 
 ---
 

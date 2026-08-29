@@ -79,7 +79,7 @@ export function DocumentBadge({
         className,
       )}
     >
-      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+      {Icon ? <Icon aria-hidden="true" className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
   );
@@ -113,7 +113,7 @@ export function DocumentMetaRow({
 }
 
 export const documentActionClass =
-  "inline-flex min-h-10 items-center justify-center gap-1.5 text-xs font-semibold transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center gap-1.5 text-xs font-semibold transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 export function DocumentActionLink({
   href,
@@ -129,7 +129,7 @@ export function DocumentActionLink({
 } & Omit<ComponentProps<typeof Link>, "href" | "children" | "className">) {
   return (
     <Link href={href} className={cn(documentActionClass, className)} {...props}>
-      <Icon className="h-4 w-4" />
+      <Icon aria-hidden="true" className="h-4 w-4" />
       {children}
     </Link>
   );
@@ -146,7 +146,7 @@ export function DocumentActionAnchor({
 }) {
   return (
     <a className={cn(documentActionClass, className)} {...props}>
-      <Icon className="h-4 w-4" />
+      <Icon aria-hidden="true" className="h-4 w-4" />
       {children}
     </a>
   );
@@ -163,7 +163,7 @@ export function DocumentActionButton({
 }) {
   return (
     <button {...props} type="button" className={cn(documentActionClass, className)}>
-      <Icon className="h-4 w-4" />
+      <Icon aria-hidden="true" className="h-4 w-4" />
       {children}
     </button>
   );

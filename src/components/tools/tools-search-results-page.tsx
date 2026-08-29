@@ -295,7 +295,7 @@ function DetailActions({ tool }: { tool: ToolCatalogRecord }) {
         href={tool.href}
         className={cn(
           controlBase,
-          "min-h-10 w-full bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+          "w-full bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
         )}
       >
         View example

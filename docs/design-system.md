@@ -77,9 +77,12 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
-`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
-16 from Tailwind) · `text-sm-minus` 13px · `text-base-minus` 15px · (`text-lg` 18 / `text-xl`
-20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
+`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-base` 16 from Tailwind) ·
+`text-sm` / `text-sm-minus` 13px (v2 `--text-sm` equals `@theme --text-sm-minus` at
+`0.8125rem`; Tailwind's default `text-sm` 14px is overridden app-wide because `ckb-v2` is
+mounted on `<html>`. Pinned in `tests/ckb-v2-token-contract.test.ts`; do not restore 14px
+and do not alias the two files at each other) · `text-base-minus` 15px · (`text-lg` 18 /
+`text-xl` 20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
 
 - **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
   density in a clinical product. Do not reintroduce a sub-10px step.
@@ -246,12 +249,41 @@ image"}` — never a possibly-empty variable alone.
   noindexed (robots.ts + layout metadata), and exempt from token/type-scale rules — but
   **promoting a mockup to production means bringing it onto the token system first** (see the
   legacy-hex table above).
-- **Brand mark** is single-sourced in `src/lib/brand-mark.ts` (geometry + SVG builders).
-  `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
+- **Brand mark** is the PsychSift S, single-sourced in `src/lib/brand-mark.ts` (geometry + SVG
+  builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
   `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
   change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
   `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
   binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
+  Do not re-draw the paths by hand: they are the exact output of the construction recorded in
+  `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
+  are one path plus its point reflection — which is the only reason the cut between them stays
+  parallel. `app/icon.svg` and `favicon.ico` deliberately use the mark's **small-size set**, because
+  they are the files browsers render at 16–32 px: the widened cut (`BRAND_STROKE_PATH_SMALL`), the
+  point slid out of its cradle (`BRAND_POINT_SMALL`), and the centring that the wider ink box needs
+  (`BRAND_GLYPH_TRANSFORM_SMALL`). Those three travel together — mixing one with the other
+  variant's placement puts the glyph off-centre in the tile — and `brandMarkInner(colors, true)`
+  selects all three from the single `small` flag so a caller cannot pick them apart.
+- **The brand sheet is mirrored into `public/`.** `docs/brand/preview.html` is the generated
+  construction record; `public/brand/preview.html` is a byte-identical copy so the Developer Hub's
+  "Brand and design" card can link to it as a static file (`/brand/preview.html`). It is the one
+  hub panel that is not an app route, so `HubPanel.external` marks it, `PanelCard` renders it as a
+  real anchor rather than a `<Link>` (the client router has no entry for a file), and
+  `tests/developer-hub-panels.test.ts` both excludes it from the route-existence check and holds
+  the two copies identical by hash — a stale copy would show a retired mark to the one reader most
+  likely to trust it. Regenerate the doc, then copy it over the served one.
+- **In the app the mark has no tile.** `BrandMark` draws the symbol alone, filled
+  `--clinical-accent`, standing directly on the page ground — so on a white page it reads as a
+  mark rather than an app-store tile pasted into the chrome. It uses
+  `BRAND_GLYPH_TRANSFORM_BARE`, which scales the glyph to fill its box, so it occupies the same
+  slot the tiled version did. The tiled form survives only where the format has no transparency
+  to fall back on: `favicon.ico`, `apple-icon`, and the PWA raster icons.
+- **The tile is the ground, the ink is the brand.** `BRAND_*.ink` is pinned to `--clinical-accent`
+  and `BRAND_*.tile` to `--surface-raised`, per theme, by `tests/design-token-contract.test.ts`.
+  So the symbol rides the application's accent and the tile only ever matches the surface behind
+  it. The brand sheet's Deep Navy tile lives on in `public/brand/psychsift-mark.svg` for use off
+  the app; putting the in-app mark on navy would mean moving the accent, which is an
+  application-wide decision, not a brand-asset one.
 
 ## 11. What NOT to do
 

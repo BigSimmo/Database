@@ -139,7 +139,6 @@ test("merges search and browse into one catalogue with a measured phone header",
   });
   await expect(page).toHaveURL(/\/dictionary\/search\?view=abbreviations/);
 
-  await gotoDictionary(page, "/dictionary/search", "dictionary-catalogue-main");
   // The phone chrome stack is position:fixed and mounts collapsed, so every
   // offset below it is wrong until it settles (#XPY409, docs/testing.md).
   await page.waitForTimeout(1200);
@@ -157,7 +156,7 @@ test("merges search and browse into one catalogue with a measured phone header",
   const toggle = page.getByTestId("dictionary-scope-toggle");
   await expect(ribbon).toBeVisible();
   await expect(toggle).toBeVisible();
-  await expect(toggle.getByRole("button", { name: /Abbreviations/ })).toBeVisible();
+  await expect(toggle.getByRole("radio", { name: /Abbreviations/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
   // The joined toggle remains compact in width but keeps the shared 48px tap target.
   expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
@@ -176,6 +175,15 @@ test("merges search and browse into one catalogue with a measured phone header",
   // below the results, not above the Filter band.
   const browseGeometry = await page.evaluate(() => {
     const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+    const ribbon = document.querySelector<HTMLElement>('[data-testid="search-query-ribbon"]');
+    const ribbonParent = ribbon?.parentElement?.getBoundingClientRect() ?? null;
+    const toggle = document.querySelector<HTMLElement>('[data-testid="dictionary-scope-toggle"]');
+    const letter = document.querySelector<HTMLElement>('[data-testid="dictionary-letter-chip"]');
+    const controlRow = toggle?.parentElement?.getBoundingClientRect() ?? null;
+    const toggleBox = toggle?.getBoundingClientRect() ?? null;
+    const letterBox = letter?.getBoundingClientRect() ?? null;
+    const controlsLeft = Math.min(toggleBox?.left ?? 0, letterBox?.left ?? 0);
+    const controlsRight = Math.max(toggleBox?.right ?? 0, letterBox?.right ?? 0);
     return {
       dockTop: box("form.answer-footer-search-dock")?.top ?? -1,
       ribbonTop: box('[data-testid="search-query-ribbon"]')?.top ?? -1,
@@ -183,14 +191,39 @@ test("merges search and browse into one catalogue with a measured phone header",
       filterTop: box('[data-testid="dictionary-filter-trigger-phone"]')?.top ?? -1,
       toggleTop: box('[data-testid="dictionary-scope-toggle"]')?.top ?? -1,
       letterTop: box('[data-testid="dictionary-letter-chip"]')?.top ?? -1,
+      ribbonTopInset: ribbon && ribbonParent ? ribbon.getBoundingClientRect().top - ribbonParent.top : -1,
+      controlsLeftInset: controlRow ? controlsLeft - controlRow.left : -1,
+      controlsRightInset: controlRow ? controlRow.right - controlsRight : -1,
     };
   });
   expect(browseGeometry.ribbonTop).toBeGreaterThan(0);
   expect(browseGeometry.ribbonBottom).toBeGreaterThan(0);
+  expect(browseGeometry.ribbonTopInset).toBeGreaterThanOrEqual(12);
   expect(browseGeometry.toggleTop).toBeGreaterThanOrEqual(browseGeometry.ribbonBottom);
   expect(Math.abs(browseGeometry.toggleTop - browseGeometry.letterTop)).toBeLessThanOrEqual(2);
+  expect(Math.abs(browseGeometry.controlsLeftInset - browseGeometry.controlsRightInset)).toBeLessThanOrEqual(2);
   expect(browseGeometry.filterTop).toBeLessThan(browseGeometry.toggleTop);
   expect(browseGeometry.dockTop).toBeGreaterThan(browseGeometry.toggleTop);
+
+  const scopeSegments = await toggle
+    .getByRole("radio")
+    .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().width));
+  expect(scopeSegments).toHaveLength(2);
+  expect(Math.abs(scopeSegments[0] - scopeSegments[1])).toBeLessThanOrEqual(1);
+  const abbreviationsRadio = toggle.getByRole("radio", { name: /Abbreviations/ });
+  const expectAbbreviationsLabelToFit = async () => {
+    const dimensions = await abbreviationsRadio.getByText("Abbreviations", { exact: true }).evaluate((label) => ({
+      clientWidth: label.clientWidth,
+      scrollWidth: label.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  };
+  await expectAbbreviationsLabelToFit();
+  await expect(abbreviationsRadio).toBeChecked();
+  await abbreviationsRadio.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(toggle.getByRole("radio", { name: /Terms/ })).toBeChecked();
+  await expect(page).not.toHaveURL(/view=abbreviations/);
 
   await page.setViewportSize({ width: 320, height: 760 });
   await page.waitForTimeout(400);
@@ -206,6 +239,10 @@ test("merges search and browse into one catalogue with a measured phone header",
   expect(narrowRow.toggleTop).toBeGreaterThanOrEqual(narrowRow.ribbonBottom);
   expect(narrowRow.toggleWidth).toBeGreaterThan(120);
   expect(narrowRow.overflow).toBeLessThanOrEqual(2);
+
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.waitForTimeout(400);
+  await expectAbbreviationsLabelToFit();
   await page.setViewportSize({ width: 390, height: 844 });
 
   await gotoDictionary(page, "/dictionary/search?q=tardive+dyskinesia", "dictionary-catalogue-main");
@@ -220,7 +257,7 @@ test("merges search and browse into one catalogue with a measured phone header",
   ).toBeVisible();
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
 
-  for (const scopeButton of await page.getByTestId("dictionary-scope-toggle").getByRole("button").all()) {
+  for (const scopeButton of await page.getByTestId("dictionary-scope-toggle").getByRole("radio").all()) {
     expect((await scopeButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
   }
   expect((await page.getByTestId("dictionary-letter-chip").boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
