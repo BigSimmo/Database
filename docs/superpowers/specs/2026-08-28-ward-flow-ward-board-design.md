@@ -1208,3 +1208,68 @@ themselves.
   This is precisely the class of defect that only rendering finds — 390, 820 and 1440, plus print.
 - A test asserting the rail is **absent** from these three is worth more than one asserting the back
   control is present: the rail returning by accident is the regression, and it would return silently.
+
+### DB-17 — Where a person's care goes next, distinct from where their body goes (OWNER-APPROVED, 2026-08-29)
+
+**Recorded out of sequence, deliberately.** DB-18 landed in this spec before DB-17 did, and a
+skipped number in a written sequence reads as a deleted decision rather than an unwritten one.
+It is written here now so the gap closes; the fuller reasoning is owed by the settings session.
+
+A discharge records **two different facts** and the model must not collapse them.
+`LEAVING_DESTINATION` already records where somebody physically goes — home, another psychiatric
+ward, and so on. DB-17 adds **whose care they pass into**, which is a different question with a
+different answer: a person can go home to no follow-up at all.
+
+**The approved list, verbatim, as at 2026-08-29:**
+
+- the community mental health team *(links to the per-region record in `ward-teams.ts`)*
+- general practitioner
+- private psychiatrist
+- the existing treating team continues
+- **no follow-up arranged**
+
+**Two protections travel with it and are not optional.**
+
+**"No follow-up arranged" is the POINT of the field, not an incidental option.** The owner was told
+plainly that it reads as an accusation on a ward's own board, and approved it knowing that. A field
+that can only record good outcomes measures nothing. If it is ever softened, the ONLY permitted
+wording is **"follow-up not yet arranged"** — a moment rather than a verdict. Any other softening
+is a change to what the field means and needs the owner, not an editor.
+
+**Widening the record is a deliberate act, not a side effect.** The structural privacy test pinning
+`Admission`'s exact field set must be widened the way `dischargeConfirmedAt` was — in the same
+change, with the reason stated. That test is the guard against a future `notes` or `diagnosis`
+field, so a field added without touching it has bypassed the guard rather than passed it.
+
+### DB-19 — The board screen may read the admission seed (OWNER, 2026-08-29)
+
+Previously only the ledger screen was permitted to read it. Confirmed **not because reading is
+harmless, but because the exemption is BOUNDED**: the board reads and dispatches nothing, so the
+ledger's "no event adds to it or removes from it" stays true, and the fold shipped it with a
+companion assertion that fires if the board ever gains a dispatch. An exemption with no edge is how
+a rule dies quietly; this one has an edge that enforces itself.
+
+**If a THIRD screen asks for the same exemption, revisit the rule rather than granting a third
+exception.** Two readers is a judgement call; three is a rule that has stopped being true.
+
+### PROC-6 — This spec names who takes it next (2026-08-29)
+
+**Handover: this spec is owned by the session building the ward board. At the time of writing that
+is the session on `claude/ward-flow-print-fixes`, in the worktree
+`.claude/worktrees/nostalgic-vaughan-7ee231`. Everyone else sends changes to that session rather
+than editing here. Whoever takes the board next takes this line and rewrites it.**
+
+**Why the line lives in the spec and not in a registry.** PROC-2 named the owner by session AND by
+branch — `claude/ward-flow-ward-board`. That branch is now 40 commits behind and fully absorbed;
+the work moved to a branch named after an earlier, smaller task that grew. So **the record of who
+owned this document was wrong within hours, and the owning session never stopped working.** A name
+can go stale while the thing it names is still alive, which is the case no registry catches: the
+usual failure is a row outliving its session, not a row outliving its session's *branch*.
+
+This spec is the only artefact that outlives every session, worktree and branch involved. That is
+why the handover belongs here — and why the line above names a **role first** and the branch only
+as today's address.
+
+**And do not trust the address.** Ask the worktree what it is on:
+`git -C <worktree> rev-parse --abbrev-ref HEAD`. Four sessions spent a day carrying a branch name
+that had been true and quietly stopped being so.
