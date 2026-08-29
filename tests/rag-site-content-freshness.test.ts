@@ -97,17 +97,26 @@ function frozenSnapshot(snapshot: RagContextSnapshot): RagContextSnapshot {
   });
 }
 
-function installDeferredCacheHarness(options: { deferDocuments?: boolean; deferSharedDelete?: boolean } = {}) {
+function installDeferredCacheHarness(
+  options: { deferDocuments?: boolean; deferSharedDelete?: boolean; deferSharedInsert?: boolean } = {},
+) {
   const documentGate = deferred<void>();
   const documentReadStarted = deferred<void>();
   const sharedDeleteGate = deferred<void>();
   const sharedDeleteStarted = deferred<void>();
+  const sharedInsertGate = deferred<void>();
+  const sharedInsertStarted = deferred<void>();
   const inserts: Array<Record<string, unknown>> = [];
-  const deletes: Array<Array<{ method: "eq" | "is"; column: string; value: unknown }>> = [];
+  const activeRows: Array<Record<string, unknown>> = [];
+  const deletes: Array<Array<{ method: "eq" | "is" | "in"; column: string; value: unknown }>> = [];
+  const deleteSignals: Array<AbortSignal | undefined> = [];
+  const insertSignals: Array<AbortSignal | undefined> = [];
   let documentReads = 0;
+  let completedDeletes = 0;
 
   if (!options.deferDocuments) documentGate.resolve();
   if (!options.deferSharedDelete) sharedDeleteGate.resolve();
+  if (!options.deferSharedInsert) sharedInsertGate.resolve();
 
   const documentBuilder = {
     select: () => documentBuilder,
@@ -131,7 +140,8 @@ function installDeferredCacheHarness(options: { deferDocuments?: boolean; deferS
 
   const responseBuilder = {
     delete: () => {
-      const selectors: Array<{ method: "eq" | "is"; column: string; value: unknown }> = [];
+      const selectors: Array<{ method: "eq" | "is" | "in"; column: string; value: unknown }> = [];
+      let deleteSignal: AbortSignal | undefined;
       const deleteBuilder = {
         eq: (column: string, value: unknown) => {
           selectors.push({ method: "eq" as const, column, value });
@@ -141,22 +151,47 @@ function installDeferredCacheHarness(options: { deferDocuments?: boolean; deferS
           selectors.push({ method: "is" as const, column, value });
           return deleteBuilder;
         },
-        in: () => deleteBuilder,
-        abortSignal: () => deleteBuilder,
+        in: (column: string, value: unknown) => {
+          selectors.push({ method: "in" as const, column, value });
+          return deleteBuilder;
+        },
+        abortSignal: (signal: AbortSignal) => {
+          deleteSignal = signal;
+          return deleteBuilder;
+        },
         then: (resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) => {
           deletes.push(selectors);
+          deleteSignals.push(deleteSignal);
           sharedDeleteStarted.resolve();
-          return sharedDeleteGate.promise.then(() => ({ data: null, error: null })).then(resolve, reject);
+          return sharedDeleteGate.promise
+            .then(() => {
+              activeRows.length = 0;
+              completedDeletes += 1;
+              return { data: null, error: null } as const;
+            })
+            .then(resolve, reject);
         },
       };
       return deleteBuilder;
     },
     insert: (value: Record<string, unknown>) => {
       inserts.push(value);
+      let insertSignal: AbortSignal | undefined;
       const insertBuilder = {
-        abortSignal: () => insertBuilder,
-        then: (resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) =>
-          Promise.resolve({ data: null, error: null }).then(resolve, reject),
+        abortSignal: (signal: AbortSignal) => {
+          insertSignal = signal;
+          return insertBuilder;
+        },
+        then: (resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) => {
+          insertSignals.push(insertSignal);
+          sharedInsertStarted.resolve();
+          return sharedInsertGate.promise
+            .then(() => {
+              activeRows.push(value);
+              return { data: null, error: null } as const;
+            })
+            .then(resolve, reject);
+        },
       };
       return insertBuilder;
     },
@@ -193,10 +228,18 @@ function installDeferredCacheHarness(options: { deferDocuments?: boolean; deferS
     documentReadStarted,
     sharedDeleteGate,
     sharedDeleteStarted,
+    sharedInsertGate,
+    sharedInsertStarted,
     inserts,
+    activeRows,
     deletes,
+    deleteSignals,
+    insertSignals,
     get documentReads() {
       return documentReads;
+    },
+    get completedDeletes() {
+      return completedDeletes;
     },
   };
 }
@@ -1406,6 +1449,70 @@ describe("site-aware RAG cache isolation", () => {
 
     expect(harness.deletes).toHaveLength(1);
     expect(harness.inserts).toHaveLength(0);
+  });
+
+  it("cleans up a deferred answer insert after invalidation even when the captured caller signal aborts", async () => {
+    const harness = installDeferredCacheHarness({ deferSharedInsert: true });
+    const { withRagRequestContext } = await loadSnapshotModule();
+    const cache = await import("../src/lib/rag/rag-cache");
+    const originalAbort = new AbortController();
+    const ownerId = "late-answer-owner";
+    const request = withRagRequestContext({
+      query: "late answer invalidation",
+      ownerId,
+      accessScope: { includePublic: true },
+      signal: originalAbort.signal,
+      ragContextSnapshotInput: currentInput,
+    });
+    const answer: RagAnswer = {
+      answer: "Late bounded answer.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [structuredClone(selectedResult)],
+      routingMode: "fast",
+      routingReason: "test",
+      modelUsed: "test-model",
+    };
+    const proof = cache.createRagPublicCacheWriteProof({
+      cacheKind: "answer",
+      requestContext: request.ragRequestContext,
+      accessScope: request.accessScope,
+      selectedEvidence: answer.sources,
+      allSelectedEvidencePublic: true,
+      pendingExclusion: "not_required",
+    });
+
+    await cache.setCachedAnswer(request, answer, { publicCacheWriteProof: proof });
+    await harness.sharedInsertStarted.promise;
+    expect(harness.completedDeletes).toBe(1);
+
+    cache.invalidateRagCachesForOwner(ownerId);
+    await vi.waitFor(() => expect(harness.completedDeletes).toBe(2));
+    originalAbort.abort(new Error("caller stopped after invalidation"));
+    harness.sharedInsertGate.resolve();
+
+    await vi.waitFor(() => expect(harness.completedDeletes).toBe(3), { timeout: 500 });
+    const identityColumns = new Set([
+      "owner_id",
+      "cache_kind",
+      "scope_key",
+      "normalized_query",
+      "indexing_version",
+      "dependency_version",
+    ]);
+    const identityFrom = (selectors: (typeof harness.deletes)[number]) =>
+      Object.fromEntries(
+        selectors
+          .filter((selector) => identityColumns.has(selector.column))
+          .map((selector) => [selector.column, selector.method === "is" ? null : selector.value]),
+      );
+
+    expect(harness.insertSignals).toEqual([originalAbort.signal]);
+    expect(harness.deleteSignals[0]).toBe(originalAbort.signal);
+    expect(harness.deleteSignals[2]).toBeUndefined();
+    expect(identityFrom(harness.deletes[2]!)).toEqual(identityFrom(harness.deletes[0]!));
+    expect(harness.activeRows).toHaveLength(0);
   });
 
   it("keeps missing-proof site-aware writes on the no-read and no-clone fast exit", async () => {

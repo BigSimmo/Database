@@ -529,7 +529,7 @@ export async function setCachedAnswer(
       await setSharedSiteAwareCachedAnswer(descriptor, rowIdentity, capturedAnswer, proof);
       if (!invalidationEpochChanged(descriptor.invalidationOwnerId, invalidationEpochAtStart)) return;
       answerCache.delete(descriptor.localCacheKey);
-      await deleteSharedCacheRowByIdentity(rowIdentity, descriptor.signal);
+      await deleteSharedCacheRowByIdentity(rowIdentity);
     })().catch(() => undefined);
     return;
   }
@@ -1205,9 +1205,8 @@ async function setSharedSiteAwareCachedAnswer(
   await replaceSharedCacheRow(rowIdentity, payload, env.RAG_ANSWER_CACHE_TTL_MS, descriptor.signal);
 }
 
-async function deleteSharedCacheRowByIdentity(identity: SharedCacheRowIdentity, signal?: AbortSignal) {
+async function deleteSharedCacheRowByIdentity(identity: SharedCacheRowIdentity) {
   try {
-    if (signal?.aborted) return;
     let deleteQuery = createAdminClient()
       .from("rag_response_cache")
       .delete()
@@ -1217,7 +1216,6 @@ async function deleteSharedCacheRowByIdentity(identity: SharedCacheRowIdentity, 
       .eq("indexing_version", identity.indexingVersion)
       .eq("dependency_version", identity.dependencyVersion);
     deleteQuery = identity.ownerId ? deleteQuery.eq("owner_id", identity.ownerId) : deleteQuery.is("owner_id", null);
-    if (signal) deleteQuery = deleteQuery.abortSignal(signal);
     await deleteQuery;
   } catch (error) {
     console.warn("Shared answer cache post-invalidation cleanup failed:", error);
