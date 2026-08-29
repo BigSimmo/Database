@@ -9,10 +9,10 @@ import {
   isPastExpectedDischarge,
   stayBand,
   STAY_BANDS,
-  tentativeDiagnosisPhrase,
   type Admission,
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
+import { tentativeDiagnosisPhrase } from "@/components/ward-management/ward-diagnosis";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { capacityBreakdown, releaseBand, type ReleaseBand } from "@/components/ward-management/ward-bed-availability";
 import {
@@ -30,6 +30,8 @@ import type { BedRelease, HomeRegion, Sex, Site, Unit } from "@/components/ward-
 import { CAPACITY_FIGURE_LABELS } from "@/components/ward-management/ward-morning-rollup";
 import { wardSites } from "@/components/ward-management/ward-sites";
 import { teamForRegion } from "@/components/ward-management/ward-teams";
+
+import { asAtStamp, WardDailySheet } from "./ward-daily-sheet";
 
 import styles from "./board.module.css";
 
@@ -715,6 +717,10 @@ export function WardBoard({ unitId }: { unitId: string }) {
     now,
   );
 
+  /* Taken from the SAME `now` every figure above was derived from, which is the whole of DB-12 —
+     see the stamp's own comment in the heading below. */
+  const stamp = asAtStamp(now);
+
   const selectedTile = selectedKey === null ? null : (tiles.find((tile) => tile.key === selectedKey) ?? null);
   const selectedOccupant =
     selectedTile === null || (selectedTile.kind !== "occupied" && selectedTile.kind !== "waiting")
@@ -759,7 +765,64 @@ export function WardBoard({ unitId }: { unitId: string }) {
               {constraint}
             </p>
           )}
+          {/*
+           * THE "AS AT" STAMP — spec DB-10, DB-11 and DB-12, and it is load-bearing rather than
+           * provenance.
+           *
+           * DB-11 dropped the frozen 08:00 view outright: this board and its printed sheet are one
+           * LIVE picture, and the owner was shown the cost of that and took it. What was traded for
+           * the freeze is exactly this line. Two sheets taken an hour apart are then visibly two
+           * moments rather than two competing claims — so DB-10 puts the stamp in the HEADING, read
+           * as part of the title, and says in terms that small print at the foot of the page does
+           * not discharge the requirement.
+           *
+           * **It reads `now` — the same variable every figure on this page reads (DB-12).** Never
+           * `wallClockNow()`. Ward Flow screens take their `now` from a shared value a demo control
+           * can move, so a stamp on the wall clock beside figures from a moved clock would assert a
+           * moment that is not the moment being shown. A stamp that can lie is worse than no stamp,
+           * because the freeze was removed on the strength of it. That is invisible to any test
+           * that does not move the clock, which is why `tests/ward-daily-sheet.dom.test.tsx`
+           * renders this board at two different instants and asserts the stamp AND the figures both
+           * moved.
+           *
+           * The DATE that DB-10 also asks for is absent and says so: an `Instant` is minutes since
+           * midnight on one synthetic operating day and this model holds no calendar at all, so a
+           * printed date would be invented on the one element the decision made load-bearing.
+           */}
+          <p className={styles.asAt} data-testid="ward-board-as-at">
+            {stamp.time === null ? (
+              "As at — the moment shown is not recorded."
+            ) : (
+              <>
+                <span className={styles.asAtValue}>As at {stamp.time}</span>
+                <span className={styles.asAtNote}>{stamp.dayNote}</span>
+              </>
+            )}
+          </p>
         </div>
+
+        {/*
+         * THE DAILY SHEET — D19's handover sheet, and page one of anything printed from this board.
+         *
+         * Rendered here, directly under the heading block, because on paper the two are one page: the
+         * heading carries the ward, the hospital, the headline figure, the sentence that qualifies it
+         * and the stamp, and the sheet carries D19's four groups beneath them. That page is what a
+         * charge nurse takes into the morning meeting.
+         *
+         * **Every value handed down is one the board already computed.** Not one of them is derived a
+         * second time here or inside the sheet — see that component's own doc comment. A sheet with
+         * its own copy of the available figure, the since-yesterday counts or the overdue set would be
+         * a second answer to a question somebody is asking out loud with the screen in front of them.
+         */}
+        <WardDailySheet
+          movement={movement}
+          incomingPulled={incoming.filter((person) => person.state === "pulled").length}
+          incomingWaitlisted={incoming.filter((person) => person.state === "waitlisted").length}
+          outgoingCount={outgoing.length}
+          outgoingBasisLabel={OUTGOING_BASIS_LABEL[outgoingBasis]}
+          destinations={targets}
+          people={occupants}
+        />
 
         {/*
          * THE TRIAGE BAR — the day's six figures for this one ward, in the home page's own words.

@@ -1,8 +1,5 @@
-import type {
-  Admission,
-  LeavingDestination,
-  TentativeDiagnosisBlock,
-} from "@/components/ward-management/ward-admissions";
+import type { Admission, LeavingDestination } from "@/components/ward-management/ward-admissions";
+import type { TentativeDiagnosisBlock } from "@/components/ward-management/ward-diagnosis";
 import type { BedReleaseBlocker } from "@/components/ward-management/ward-change-reasons";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";

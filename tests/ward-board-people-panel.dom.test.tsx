@@ -7,9 +7,9 @@ import {
   bedIsOccupied,
   daysInBed,
   isPastExpectedDischarge,
-  TENTATIVE_DIAGNOSIS_BLOCKS,
   type Admission,
 } from "@/components/ward-management/ward-admissions";
+import { TENTATIVE_DIAGNOSIS_BLOCKS } from "@/components/ward-management/ward-diagnosis";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import type { Unit } from "@/components/ward-management/ward-model";

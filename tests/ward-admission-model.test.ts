@@ -7,16 +7,18 @@ import {
   LEAVING_DESTINATIONS,
   PULL_RELEASE_REASONS,
   STAY_BANDS,
-  TENTATIVE_DIAGNOSIS_BLOCKS,
   admissionsForUnit,
   bedIsOccupied,
   daysInBed,
   isPastExpectedDischarge,
-  isTentativeDiagnosisBlock,
   stayBand,
-  tentativeDiagnosisPhrase,
   type Admission,
 } from "../src/components/ward-management/ward-admissions";
+import {
+  TENTATIVE_DIAGNOSIS_BLOCKS,
+  isTentativeDiagnosisBlock,
+  tentativeDiagnosisPhrase,
+} from "../src/components/ward-management/ward-diagnosis";
 import { BED_RELEASE_BLOCKERS } from "../src/components/ward-management/ward-change-reasons";
 import { MINUTES_PER_DAY } from "../src/components/ward-management/ward-clock";
 

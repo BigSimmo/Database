@@ -3,14 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   LEAVING_DESTINATIONS,
   STAY_BANDS,
-  TENTATIVE_DIAGNOSIS_BLOCKS,
   bedIsOccupied,
   isPastExpectedDischarge,
-  isTentativeDiagnosisBlock,
   stayBand,
   type Admission,
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
+import {
+  TENTATIVE_DIAGNOSIS_BLOCKS,
+  isTentativeDiagnosisBlock,
+} from "@/components/ward-management/ward-diagnosis";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { OUT_OF_AREA_BANDS, travelBand } from "@/components/ward-management/ward-distance";
