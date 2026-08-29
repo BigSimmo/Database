@@ -77,9 +77,12 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
-`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
-16 from Tailwind) · `text-sm-minus` 13px · `text-base-minus` 15px · (`text-lg` 18 / `text-xl`
-20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
+`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-base` 16 from Tailwind) ·
+`text-sm` / `text-sm-minus` 13px (v2 `--text-sm` equals `@theme --text-sm-minus` at
+`0.8125rem`; Tailwind's default `text-sm` 14px is overridden app-wide because `ckb-v2` is
+mounted on `<html>`. Pinned in `tests/ckb-v2-token-contract.test.ts`; do not restore 14px
+and do not alias the two files at each other) · `text-base-minus` 15px · (`text-lg` 18 /
+`text-xl` 20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
 
 - **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
   density in a clinical product. Do not reintroduce a sub-10px step.
@@ -246,12 +249,21 @@ image"}` — never a possibly-empty variable alone.
   noindexed (robots.ts + layout metadata), and exempt from token/type-scale rules — but
   **promoting a mockup to production means bringing it onto the token system first** (see the
   legacy-hex table above).
-- **Brand mark** is single-sourced in `src/lib/brand-mark.ts` (geometry + SVG builders).
-  `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
+- **Brand mark** is the PsychSift S, single-sourced in `src/lib/brand-mark.ts` (geometry + SVG
+  builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
   `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
   change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
   `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
   binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
+  Do not re-draw the paths by hand: they are the exact output of the construction recorded in
+  `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
+  are one path plus its point reflection — which is the only reason the cut between them stays
+  parallel. `app/icon.svg` deliberately uses the mark's small-size cut (a wider gap), because that
+  is the file browsers render at 16–32 px.
+- **The tile colour is not the brand's.** `BRAND_LIGHT.tile` / `BRAND_DARK.tile` are pinned to
+  `--clinical-accent` per theme by `tests/design-token-contract.test.ts`, so the mark rides the
+  application's accent rather than the brand sheet's Deep Navy. Putting the mark on navy means
+  moving that accent, which is an application-wide decision — not a brand-asset one.
 
 ## 11. What NOT to do
 

@@ -66,6 +66,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
   const isAnswerChatPerfectedMockup =
     pathname === "/mockups/answer-chat-perfected" || pathname === "/mockups/answer-chat-perfected-v2";
+  // The loading study draws its own top bar, transcript and composer inside every
+  // phone and desktop frame, and its whole subject is what occupies the answer
+  // column before the answer. Shared chrome above those frames would read as a
+  // second real header and a second real search bar over the study.
+  const isAnswerLoadingRedesignMockup = pathname === "/mockups/answer-loading-redesign";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -111,10 +116,16 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // `[data-testid="ward-coordinator"]:visible` resolving to zero elements, while that element was
   // plainly present in the served markup. Added when Ward Flow moved under `/mockups/ward-flow`.
   const isWardFlowMockup = pathname === "/mockups/ward-flow" || pathname.startsWith("/mockups/ward-flow/");
+  const isDevelopmentMockup = pathname === "/mockups/development" || pathname.startsWith("/mockups/development/");
 
   /*
-   * Ward Flow is not wrapped at all — it BYPASSES the shell rather than rendering inside it with
-   * the chrome switched off, which is what every other entry above does.
+   * Ward Flow and Developer Hub are not wrapped at all — they BYPASS the shell rather than rendering inside
+   * it with the chrome switched off, which is what every other entry above does.
+   *
+   * Developer Hub owns its own administrator gate (`DeveloperAreaGate`), its own header
+   * (`DeveloperHubNavHeader`), and each page owns its own semantic `<main>` (`PanelPageShell`).
+   * Nesting it inside `GlobalMockupSearchShell` injects a duplicate `<main id="main-content">` landmark
+   * and causes double-rendering in the dev browser (#ZW43ZT).
    *
    * `GlobalMockupSearchShell` is a re-export of `GlobalSearchShell`, the clinical application's
    * own shell. Hiding its chrome hides the header and composer but still nests the prototype
@@ -129,13 +140,20 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
    * via the developer page, otherwise standalone app". A standalone app does not render inside
    * the shell of the application it stands apart from.
    */
-  if (isWardFlowMockup) {
+  if (isWardFlowMockup || isDevelopmentMockup) {
     return <>{children}</>;
   }
 
   // Draws its own phone frames with ModeNav Search | Topics and a docked composer,
   // so shared chrome would read as a second real header and a second search bar.
   const isFactsheetsTopicsPhoneMockup = pathname === "/mockups/factsheets-topics-phone";
+
+  // Every frame draws the universal phone header, the page header and the
+  // docked composer inside itself, because measuring the chrome budget is the
+  // whole argument of the study. The `favourites-` prefix above already hides
+  // the shared composer; the shared header still has to go or it reads as a
+  // second real header above nine phone frames that each have their own.
+  const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
   return (
     <GlobalMockupSearchShell
@@ -177,6 +195,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
+        !isAnswerLoadingRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -188,7 +207,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
-        !isFactsheetsTopicsPhoneMockup
+        !isFactsheetsTopicsPhoneMockup &&
+        !isFavouritesPhonePerfectedMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -208,6 +228,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
+        !isAnswerLoadingRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -219,7 +240,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
-        !isFactsheetsTopicsPhoneMockup
+        !isFactsheetsTopicsPhoneMockup &&
+        !isFavouritesPhonePerfectedMockup
       }
     >
       {children}

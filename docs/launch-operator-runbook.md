@@ -189,7 +189,7 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 4. **Cron Job Schedule Registration:** Verify pg_cron extensions and scheduled maintenance jobs (cache retention, query log sweeps) are active.
 5. **Storage Bucket Policies:** Confirm private document storage buckets (`documents`, `document-images`) have active RLS policies preventing unauthenticated public reads.
 
-## 8. Operational notes & diagnostics (#248, #305, #315, #102, #6SMMB4)
+## 8. Operational notes & diagnostics (#248, #305, #315, #102, #6SMMB4, #9X40BT)
 
 - **Search-Health Indexes (#248):** Ensure migration `20260705180000_reconcile_search_health_indexes.sql` is active on live and `search_schema_health()` reports `ok: true` with no `missing` entries (`npm run check:indexing`) — treat its `required_indexes` list as the recovery criterion, not a fixed count, since later migrations extend it.
 - **Concurrent Document Index Recipe (#102):** When applying additive document index optimizations on a busy database (`documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx`, and `documents_status_id_idx`), pre-create indexes concurrently (`CREATE INDEX CONCURRENTLY IF NOT EXISTS`) before applying the committed migration and registering in `search_schema_health()` to avoid write lock contention. Validate each index with `pg_index.indisvalid`. Note that bare-column trigrams and composite `(status, id)` indexes on the RAG path are canary-gated due to unordered `LIMIT 12` selection in candidate retrieval ([operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md)).
@@ -201,6 +201,7 @@ Following a Supabase database restore or disaster recovery failover, verify all 
   fsutil devdrv query D:
   ```
   Non-elevated prompts return `Error 5: Access is denied`. For fallback or non-elevated registry diagnostics, probe `Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue` or verify `(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`. Confirming or trusting the cache on the volume exempts package extractions from Defender real-time scan overhead during multi-worktree operations.
+- **Supabase Preview Branch Compute Cap Policy (#9X40BT):** Branching Compute is not covered by the organisation's Spend Cap in the Supabase Dashboard. Preview databases scale uncapped with open PRs touching `supabase/**`. In **Supabase Dashboard -> Project Settings -> Integrations -> GitHub**, set the Automatic Branching limit to **1** (or disabled) to prevent unconstrained compute charges. CI's Migration replay job (`db-reset-verify`, `supabase migration up --local`) independently replays and tests the full migration chain on every PR touching `supabase/**`, ensuring full verification safety even with preview branches capped at 1 or disabled.
 
 ## 9. Ledger queue derivation & credential discipline (#327, #042)
 

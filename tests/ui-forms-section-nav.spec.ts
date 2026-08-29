@@ -60,13 +60,17 @@ test.describe("Forms section navigation", () => {
 
     await expect(trigger).toBeVisible({ timeout: 20_000 });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger).toHaveAttribute("data-state", "collapsed");
     await expect(trigger.getByText(preview)).toBeVisible();
     await trigger.click();
 
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(trigger).toHaveAttribute("data-state", "expanded");
     const panelId = await trigger.getAttribute("aria-controls");
     if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
-    const panel = page.locator(`#${panelId}`);
+    const panel = page.locator(`[id="${panelId}"]`);
+    await expect(panel).toHaveAttribute("data-state", "expanded");
+    await expect(section.locator('[data-testid="disclosure"][data-state="expanded"]')).toBeVisible();
     await expect(trigger.getByText(preview)).toHaveCount(0);
     await expect(panel.getByText(preview)).toBeVisible();
     await expect(panel).not.toHaveClass(/border-t/);
@@ -84,7 +88,7 @@ test.describe("Forms section navigation", () => {
     const panelId = await trigger.getAttribute("aria-controls");
     if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
 
-    const panel = page.locator(`#${panelId}`);
+    const panel = page.locator(`[id="${panelId}"]`);
     const disclosure = panel.locator("xpath=..");
     const triggerPreview = disclosure.locator('button span[aria-hidden="true"]').filter({ hasText: preview });
 

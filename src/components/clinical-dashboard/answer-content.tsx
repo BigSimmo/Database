@@ -5,6 +5,7 @@ import { CircleAlert, ChevronDown, Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
+import { compactVerificationWordingFor, type VerificationState } from "@/components/ui/verification-notice";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -367,6 +368,7 @@ export {
  * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
  * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
+ * @param sourceOnlyVerificationState - The governed verification instruction folded into that notice.
  * @param bestSource - The highest-priority source recommendation, when available.
  * @param sources - Search results used to build the source preview.
  * @param sourceLinks - Source links and snippets associated with the answer.
@@ -381,6 +383,7 @@ export function NaturalLanguageAnswer({
   query,
   preformatted = false,
   sourceOnly,
+  sourceOnlyVerificationState = "source_only",
   bestSource,
   sources,
   sourceLinks,
@@ -398,6 +401,7 @@ export function NaturalLanguageAnswer({
   query?: string;
   preformatted?: boolean;
   sourceOnly: boolean;
+  sourceOnlyVerificationState?: VerificationState;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
   sourceLinks: SourceLink[];
@@ -466,8 +470,9 @@ export function NaturalLanguageAnswer({
          line of a clinical answer on a 390px phone. There are two speakers on
          this surface, the person's turn is already a right-aligned bubble, and
          the answer is the one element here that wants the full measure. What
-         identifies the turn instead is the verification line above it, which is
-         information rather than decoration. Approved by the owner 2026-08-26
+         identifies the turn instead is the answer's verification/support
+         framing and, for extractive answers, the Source-only disclosure. Those
+         are information rather than decoration. Approved by the owner 2026-08-26
          against /mockups/answer-chat-perfected-v2; see §12.6 of
          docs/answer-page-redesign-handover.md. */
       className="relative rounded-lg bg-transparent py-0.5 text-[color:var(--text-heading)]"
@@ -494,13 +499,13 @@ export function NaturalLanguageAnswer({
         {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
             heading used to carry a top border — the two collided and drew a rule
             straight through the Source-only pill. */}
-        <div className="space-y-1">
+        <div className={cn("space-y-1", sourceOnly && "py-1")}>
           {sourceOnly ? (
             <section
               data-testid="source-only-disclosure"
               role="note"
               className={cn(
-                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-[var(--duration-quick)]",
+                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)] print:hidden",
                 sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                 textMuted,
               )}
@@ -508,16 +513,17 @@ export function NaturalLanguageAnswer({
               <button
                 type="button"
                 onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                // Compact-meta disclosure (not a primary CTA). Copy below already uses tap.
+                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"
               >
-                <CircleAlert className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <CircleAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-                <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
+                <span className="shrink-0 text-[color:var(--text-muted)]">· verify passages</span>
                 <ChevronDown
                   className={cn(
-                    "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
+                    "ml-auto h-3 w-3 shrink-0 text-[color:var(--text-muted)] transition-transform",
                     sourceOnlyNoticeOpen && "rotate-180",
                   )}
                   aria-hidden
@@ -526,13 +532,9 @@ export function NaturalLanguageAnswer({
               {sourceOnlyNoticeOpen ? (
                 <div
                   id="source-only-disclosure-detail"
-                  className="border-t border-[color:var(--warning)]/15 px-3 py-2 text-2xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
                 >
-                  <p>
-                    This answer was assembled from your documents without the AI model, so it may be less complete.
-                    Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages
-                    below.
-                  </p>
+                  <p>{compactVerificationWordingFor(sourceOnlyVerificationState, "extractive")}</p>
                 </div>
               ) : null}
             </section>

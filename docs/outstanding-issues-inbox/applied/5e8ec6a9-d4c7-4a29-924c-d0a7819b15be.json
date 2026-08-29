@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5e8ec6a9-d4c7-4a29-924c-d0a7819b15be",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#BR2217",
+    "outcome": "FIXED. scripts/generate-outstanding-issues-snapshot.mjs now resolves ledger_revision monotonically: it refuses only a move it can PROVE is backwards, keeping the committed revision, and falls through to the previous behaviour whenever either timestamp is missing or unparseable so an unprovable comparison never changes behaviour. Pinned by tests/outstanding-issues-revision-monotonic.test.ts, which includes the exact ca376969b shape (2026-08-25 -> 2026-08-22) and a case proving the comparison is by instant rather than string, so +00:00 and Z are treated as the same moment. Mutation-tested: reverting the guard turns the backwards case red.",
+    "baseRowFingerprint": "6e40ec4daae4e1b27a248df7e895b9a7598227bda92c347e344dd5aafe23ec08"
+  }
+}

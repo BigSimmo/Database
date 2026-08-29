@@ -98,6 +98,35 @@ const ACTION_REGISTRY: Record<CaringContactAction, true> = {
   coverCoordinator: true,
 };
 
+/**
+ * Plain words for each role, for a screen that has to name the role someone is acting in.
+ *
+ * WHY THIS LIVES IN THE SEALED DOMAIN rather than in the component that renders it. Two reasons,
+ * and the second is the one that forced it:
+ *
+ *   * the roles are declared here, so their wording belongs here too -- `service-state.ts` already
+ *     holds `APPROVAL_ROLE_WORDING` for exactly this purpose, in exactly these words, and a second
+ *     copy in a component is how "the clinical programme lead" comes to mean two different things;
+ *   * the interface-vocabulary scan (`tests/caring-contacts-interface-vocabulary.test.ts`) refuses
+ *     `lead` as a whole word anywhere under `src/components/caring-contacts/workspace` or
+ *     `src/app/caring-contacts`, to catch the SALES sense. It has no exemption for job titles.
+ *     `message-rules.ts` already worked the same problem out for outgoing messages and records the
+ *     answer at length -- refuse `lead` by default, exempt only the closed set of job titles this
+ *     domain's own wording uses -- but that override governs message text, not interface copy.
+ *     Until the interface scan grows the same treatment, a job title containing "lead" cannot be
+ *     written in a component at all. See the Task 7 round 1 report.
+ *
+ * A `Record` over the union, so a role added and left unlabelled stops this module compiling rather
+ * than reaching a clinician as `livedExperienceRepresentative`.
+ */
+export const CARING_CONTACT_ROLE_WORDING: Readonly<Record<CaringContactRole, string>> = Object.freeze({
+  coordinator: "coordinator",
+  teamLead: "team lead",
+  auditor: "auditor",
+  clinicalProgrammeLead: "clinical programme lead",
+  livedExperienceRepresentative: "lived-experience representative",
+});
+
 export const ALL_ACTIONS: readonly CaringContactAction[] = Object.freeze(
   Object.keys(ACTION_REGISTRY) as CaringContactAction[],
 );

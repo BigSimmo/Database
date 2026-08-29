@@ -36,3 +36,21 @@
 ## Browser evidence boundary
 
 Focused Chromium evidence covers keyboard, focus, responsive geometry, dark, forced-colour, reduced-motion and zoom-reflow contracts. It does not constitute physical iPhone Safari or installed-PWA acceptance; those remain separate device checks.
+
+## Physical iPhone & iOS PWA Motion Acceptance Matrix
+
+Ledger `#S4K1GA`.
+
+Physical testing on iOS devices (Safari mobile browser and Standalone Installed PWA) must satisfy the following acceptance criteria across system motion preferences:
+
+| Setting / Mode                                                                                                   | Environment                 | Component / Element                              | Required Visual & Animation State                                                                                                                 | Verification Method                                                  |
+| :--------------------------------------------------------------------------------------------------------------- | :-------------------------- | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------- |
+| **Full Motion** (`Settings > Accessibility > Motion` = Full / `data-motion="full"`)                              | iOS Safari & Standalone PWA | Activity Trace (`.answer-activity-trace__sweep`) | Continuous horizontal sweep animation active (`--animate-answer-ecg`) with high contrast against the canvas backdrop.                             | Visual sweep cadence inspection on physical device.                  |
+| **Full Motion**                                                                                                  | iOS Safari & Standalone PWA | Step Status Spinners (`.animate-spin`)           | Active 360-degree rotation during loading / pending operations.                                                                                   | Visual rotation verification.                                        |
+| **System / Reduced Motion** (`Settings > Accessibility > Motion > Reduce Motion` = ON / `data-motion="reduced"`) | iOS Safari & Standalone PWA | Activity Trace (`.answer-activity-trace__sweep`) | Animation halted (`animation: none`). Trace remains **statically visible** (`opacity: 0.55`); MUST NOT disappear or render as an empty blank box. | Inspect ECG line opacity and confirm lack of horizontal translation. |
+| **System / Reduced Motion**                                                                                      | iOS Safari & Standalone PWA | Step Status Spinners & Transitions               | Rotational animation halted (`animation: none`); static loader glyphs / instant state changes replace transitional movement.                      | Verify instant state switch without jarring shifts or blank states.  |
+
+### Acceptance Invariants:
+
+1. **Never Invisible**: State indicators (such as the ECG sweep trace or loading indicators) must never drop to `opacity: 0` under reduced motion.
+2. **Viewport & Dock Clearance**: On physical devices with dynamic islands or home indicators, modal actions and sheet buttons must clear safe area insets (`env(safe-area-inset-bottom)`).

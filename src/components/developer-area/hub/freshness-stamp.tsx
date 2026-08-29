@@ -25,6 +25,7 @@ function formatDate(iso: string): string | null {
 export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Freshness; label?: string }) {
   const contentAt = freshness.contentAt === null ? null : formatDate(freshness.contentAt);
   const viewedAt = formatDate(freshness.viewedAt);
+  const isLive = freshness.mode === "live";
 
   return (
     <p
@@ -32,7 +33,20 @@ export function FreshnessStamp({ freshness, label = "Ledger" }: { freshness: Fre
       className="flex flex-wrap items-center gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
     >
       <Clock aria-hidden="true" className="size-icon-sm" />
-      {contentAt ? (
+      {isLive ? (
+        <span>
+          {contentAt ? (
+            <>
+              {label} read live · last updated {contentAt}
+              {viewedAt ? ` · viewed ${viewedAt}` : ""}
+            </>
+          ) : (
+            <>
+              {label} read live on demand{viewedAt ? ` · viewed ${viewedAt}` : ""}
+            </>
+          )}
+        </span>
+      ) : contentAt ? (
         <span>
           {/*
            * Both timestamps are labelled. An unlabelled second date beside

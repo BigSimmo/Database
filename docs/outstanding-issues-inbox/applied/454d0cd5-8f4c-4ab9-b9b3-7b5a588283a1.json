@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "454d0cd5-8f4c-4ab9-b9b3-7b5a588283a1",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "76744c9f-6e7f-4390-a202-756e50be0cd1",
+    "reason": "Superseded by a539a411-4648-4f71-8b40-90d49646e8a4 on #243HCC"
+  }
+}

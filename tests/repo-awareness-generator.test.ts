@@ -15,6 +15,7 @@ import {
   generate,
   listDocumentPaths,
   readCapturedRevision,
+  readCommittedRevision,
   readFlakeLedger,
   readReviewRecordRows,
   SNAPSHOT_VERSION,
@@ -111,6 +112,23 @@ describe("listDocumentPaths", () => {
 
       expect(listDocumentPaths(repoRoot)).toEqual(["docs/tracked.md"]);
     });
+  });
+
+  it("falls back to scanning the filesystem when git is unavailable", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-docs-nogit-"));
+    try {
+      mkdirSync(path.join(dir, "docs", "sub"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "doc1.md"), "# Doc 1\n");
+      writeFileSync(path.join(dir, "docs", "sub", "doc2.md"), "# Doc 2\n");
+      mkdirSync(path.join(dir, "docs", "branch-review-records"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "branch-review-records", "rec.record.md"), "# Rec\n");
+      mkdirSync(path.join(dir, "docs", "outstanding-issues-inbox"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "outstanding-issues-inbox", "req.json"), "{}\n");
+
+      expect(listDocumentPaths(dir)).toEqual(["docs/doc1.md", "docs/sub/doc2.md"]);
+    } finally {
+      removePathSync(dir, { recursive: true });
+    }
   });
 });
 
@@ -367,6 +385,18 @@ describe("buildReviewStateSection", () => {
       removePathSync(dir, { recursive: true });
     }
   });
+
+  it("falls back to scanning the filesystem when git is unavailable", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-nogit-"));
+    try {
+      writeFileSync(path.join(dir, "ggg.record.md"), ROW_A.line + "\n", "utf8");
+      const rows = readReviewRecordRows(dir);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].line).toBe(ROW_A.line);
+    } finally {
+      removePathSync(dir, { recursive: true });
+    }
+  });
 });
 
 describe("the real review record corpus", () => {
@@ -443,21 +473,45 @@ describe("generate", () => {
       expect(headSha).not.toBe(inputSha);
 
       const revision = readCapturedRevision({ cwd: dir });
-      expect(revision.sha).toBe(inputSha);
-      expect(revision.sha).not.toBe(headSha);
+      expect(revision?.sha).toBe(inputSha);
+      expect(revision?.sha).not.toBe(headSha);
     } finally {
       removePathSync(dir, { recursive: true });
     }
   });
 
-  it("fails loudly outside a git repository instead of writing a null revision", () => {
-    // Spec §8.2 asks for a no-git proof. Ruling R5 changed what the right
-    // behaviour IS — this generator runs only from `npm run docs:update`, so a
-    // git-less environment is a broken invocation, not a case to degrade for.
-    // Phase 1's silent `null` is exactly what this must not do.
+  it("keeps the committed revision when git is unavailable", () => {
     const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
     try {
-      expect(() => readCapturedRevision({ cwd: outside })).toThrow(/Could not read the repository revision from git/);
+      mkdirSync(path.join(outside, "data"), { recursive: true });
+      const fakeRevision = { sha: "b".repeat(40), committed_at: "2026-08-28T00:00:00Z" };
+      writeFileSync(
+        path.join(outside, "data", "repo-awareness-snapshot.json"),
+        JSON.stringify({ captured_revision: fakeRevision }),
+        "utf8",
+      );
+      const revision = readCapturedRevision({ cwd: outside, snapshotPath: "data/repo-awareness-snapshot.json" });
+      expect(revision).toEqual(fakeRevision);
+    } finally {
+      removePathSync(outside, { recursive: true });
+    }
+  });
+
+  it("records null when outside git and there is no committed snapshot to preserve from", () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      expect(readCapturedRevision({ cwd: outside, snapshotPath: "missing.json" })).toBeNull();
+    } finally {
+      removePathSync(outside, { recursive: true });
+    }
+  });
+
+  it("refuses a malformed committed revision instead of carrying it forward", () => {
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      const snap = path.join(outside, "snap.json");
+      writeFileSync(snap, JSON.stringify({ captured_revision: { sha: 123 } }), "utf8");
+      expect(readCommittedRevision(snap)).toBeNull();
     } finally {
       removePathSync(outside, { recursive: true });
     }

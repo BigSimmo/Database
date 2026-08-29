@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "06402493-54b3-4718-997e-74f72566ae5f",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
+    "detail": "Found in Phase 2B Task 7, 2026-08-25, and sharpened by its re-review. Two joined defects. FIRST, the scan is inverted. `tests/caring-contacts-interface-vocabulary.test.ts` refuses \"lead\" as a whole word anywhere under `src/components/caring-contacts/workspace/**` and `src/app/caring-contacts/**`, with no notion of a job title. So the raw role identifiers `clinicalProgrammeLead` and `livedExperienceRepresentative` PASS — only because there is no word boundary inside `ProgrammeLead` — while the correct plain-words labels a clinician should read FAIL. The scan currently rewards leaving developer gibberish on a clinical screen. SECOND, and larger: the workaround pushes that copy into `src/lib/caring-contacts/**`, which is outside EVERY prohibited-language scan in this repository. Only the interface scan and the overlay definition tests use `CARING_CONTACTS_PROHIBITED_LANGUAGE`, and neither reaches `src/lib`. So role wording now lives where no vocabulary check watches it — not merely exempt from the \"lead\" rule, unwatched entirely. That hole pre-dates Task 7 (`service-state.ts` already had it) and correctly did not block the fix. THE FIX IS SMALLER THAN IT LOOKS: `src/lib/caring-contacts/message-rules.ts` line 81's `COMMERCIAL_LEAD_PATTERN` is an already-written, already-tested negative lookbehind for `incident|programme|clinical|team|service` that would exempt every one of these offences unchanged, and that file records why an allowlist of commercial modifiers was itself a defect. Reusing it in the interface scan is a one-line change; extending a scan to cover the sealed domain's user-facing string constants is the separable second half. Deliberately not done in Task 7: the implementer had already narrowed one safety guard that round, and widening a second to admit a word it had just introduced is the wrong direction to argue from.",
+    "issueUlid": "01M0VR9XRYZ5P2BW2GHVKFHDKJ"
+  }
+}

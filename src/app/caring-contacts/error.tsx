@@ -1,5 +1,7 @@
 "use client";
 
+import { ConnectionUnavailable } from "@/components/caring-contacts/workspace/connection-unavailable";
+import { PermissionUnavailable } from "@/components/caring-contacts/workspace/permission-unavailable";
 import { SyntheticMarker } from "@/components/caring-contacts/workspace/synthetic-marker";
 import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
@@ -24,6 +26,33 @@ export default function CaringContactsErrorBoundary({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  const msg = (error?.message ?? "").toLowerCase();
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  const isConnectionUnavailable =
+    isOffline ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("connection-unavailable") ||
+    msg.includes("offline");
+
+  if (isConnectionUnavailable) {
+    return <ConnectionUnavailable retry={retry} />;
+  }
+
+  const isPermissionUnavailable =
+    msg.includes("403") ||
+    msg.includes("forbidden") ||
+    msg.includes("permission") ||
+    msg.includes("unassigned") ||
+    msg.includes("cross-team-denied") ||
+    msg.includes("action-not-granted") ||
+    msg.includes("no-roles") ||
+    msg.includes("permission-unavailable");
+
+  if (isPermissionUnavailable) {
+    return <PermissionUnavailable retry={retry} />;
+  }
+
   return (
     <>
       {/* Carried here too: a printout or screenshot of a failed workspace screen

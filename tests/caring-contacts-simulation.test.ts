@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { assertAuditEventFreeOfPatientData, type AuditEvent } from "@/lib/caring-contacts/audit";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import {
   actorId,
@@ -50,6 +51,7 @@ const PATIENT_DETAIL: EpisodePatientDetail = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Jordy",
 };
 
 /** Discharge at 2026-03-02 10:00 AWST. Every date below is derived from this one day. */
@@ -485,6 +487,7 @@ describe("scenario 6: a readmission never auto-resumes and never rebases", () =>
     const second = await run.store.createPlan(
       {
         planId: planId("PLAN-SIM-2"),
+        assurances: PLAN_ASSURANCE_VALUES,
         referralId: referralId("REFERRAL-SIM-2"),
         patientId: patientId("PATIENT-SIM"),
         pathwayVersionId: pathwayVersionId("PATHWAY-SIM"),

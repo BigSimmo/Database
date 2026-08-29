@@ -25,7 +25,8 @@ import {
   formulationCard,
 } from "@/components/formulation/formulation-ui";
 import { CatalogueToolbar } from "@/components/ui/catalogue-toolbar";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { InformationPageHeader } from "@/components/information-page-shell";
+import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 
 import {
   findFormulationMechanism,
@@ -112,7 +113,7 @@ function BuilderThread({
 }) {
   return (
     <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-      <section className="overflow-hidden rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <section className="overflow-hidden rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--e2)]">
         <div className="flex items-center gap-3 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3.5">
           <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
             <Waypoints className="h-5 w-5" aria-hidden />
@@ -279,16 +280,12 @@ export function FormulationBuilderPage({
 
   return (
     <FormulationPageShell>
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
-        <p className={eyebrowText}>Formulation builder</p>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-          Build a formulation that can be tested
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Select candidate mechanisms, structure them with a clinical framework, challenge the hypothesis, then edit a
-          de-identified draft.
-        </p>
-      </header>
+      <InformationPageHeader
+        className="border-b border-[color:var(--border)] pb-5"
+        eyebrow="Formulation builder"
+        title="Build a formulation that can be tested"
+        subtitle="Select candidate mechanisms, structure them with a clinical framework, challenge the hypothesis, then edit a de-identified draft."
+      />
 
       <StepProgress active={activeStep} onChange={setActiveStep} />
 
@@ -316,7 +313,7 @@ export function FormulationBuilderPage({
                       <button
                         type="button"
                         onClick={clearMechanisms}
-                        className="inline-flex min-h-tap items-center gap-2 rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
+                        className="inline-flex min-h-tap items-center gap-2 rounded-lg px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
                       >
                         <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                         Clear
@@ -329,7 +326,7 @@ export function FormulationBuilderPage({
                           type="button"
                           onClick={() => toggleMechanism(mechanism.id)}
                           aria-label={`Remove ${mechanism.name}`}
-                          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
+                          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)]"
                         >
                           <Check className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
                           {mechanism.name}
@@ -518,7 +515,7 @@ export function FormulationBuilderPage({
                             <button
                               type="button"
                               onClick={() => applySuggestions(section.id)}
-                              className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]"
+                              className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]"
                             >
                               <Sparkles className="h-3.5 w-3.5" aria-hidden />
                               Use suggestions
@@ -531,7 +528,7 @@ export function FormulationBuilderPage({
                           rows={3}
                           aria-label={section.label}
                           placeholder="Add de-identified case evidence..."
-                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                          className={cn(fieldControlPlain, "mt-3 h-auto min-h-24 resize-y p-3 font-medium leading-6")}
                         />
                         {suggestions.length ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -593,7 +590,7 @@ export function FormulationBuilderPage({
                         rows={4}
                         aria-label={prompt.label}
                         placeholder="Record a concise review note..."
-                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                        className={cn(fieldControlPlain, "mt-3 h-auto min-h-28 resize-y p-3 font-medium leading-6")}
                       />
                       {starter.length ? (
                         <div className="mt-2 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">
@@ -636,7 +633,7 @@ export function FormulationBuilderPage({
                     <button
                       type="button"
                       onClick={() => setEditedDraft(generatedDraft)}
-                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)]"
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                       Regenerate
@@ -644,7 +641,7 @@ export function FormulationBuilderPage({
                     <button
                       type="button"
                       onClick={copyDraft}
-                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md bg-[color:var(--command)] px-3 text-xs font-semibold text-[color:var(--command-contrast)]"
                     >
                       <Clipboard className="h-3.5 w-3.5" aria-hidden />
                       {copied ? "Copied" : "Copy draft"}
@@ -656,7 +653,7 @@ export function FormulationBuilderPage({
                   onChange={(event) => setEditedDraft(event.target.value)}
                   rows={22}
                   aria-label="Formulation draft"
-                  className="min-h-[32rem] w-full resize-y rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-4 font-mono text-sm leading-6 text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                  className={cn(fieldControlPlain, "h-auto min-h-[32rem] resize-y rounded-xl p-4 font-mono leading-6")}
                 />
                 <div className="rounded-xl border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] p-4 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                   <p className="font-extrabold text-[color:var(--text-heading)]">Review before clinical use</p>
@@ -674,7 +671,7 @@ export function FormulationBuilderPage({
               type="button"
               onClick={() => move(-1)}
               disabled={activeIndex === 0}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Previous
@@ -684,7 +681,7 @@ export function FormulationBuilderPage({
                 type="button"
                 onClick={() => move(1)}
                 disabled={activeStep === "select" && selectedMechanisms.length === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--e1)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
               >
                 {activeStep === "select"
                   ? "Continue to framework"
@@ -696,7 +693,7 @@ export function FormulationBuilderPage({
             ) : (
               <Link
                 href="/formulation"
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)]"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)]"
               >
                 Search another mechanism
                 <Search className="h-4 w-4" aria-hidden />

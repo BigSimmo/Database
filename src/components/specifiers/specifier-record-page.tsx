@@ -22,9 +22,10 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { compareRecordsHref, GuidanceSection, RecordFact } from "@/components/clinical-record-panels";
+import { InformationPageHeader } from "@/components/information-page-shell";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { SpecifierNavHeader } from "@/components/specifiers/specifier-nav-header";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
 import { relatedSpecifiers, type SpecifierRecord } from "@/lib/specifiers";
 
 export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
@@ -56,26 +57,18 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
           id="specifier-overview"
           className={cn(inPageAnchor, "grid gap-5 border-b border-[color:var(--border)] pb-5")}
         >
-          <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
-            <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-              <Tags className="h-7 w-7" aria-hidden />
-            </span>
-            <div className="grid gap-2">
-              <div>
-                <p className={eyebrowText}>Psychiatric specifier</p>
-                <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-                  {record.name}
-                </h1>
-              </div>
-              <p className="max-w-3xl text-base font-medium leading-7 text-[color:var(--text-muted)]">
-                {record.summary}
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
+          <InformationPageHeader
+            eyebrow="Psychiatric specifier"
+            title={record.name}
+            subtitle={record.summary}
+            icon={Tags}
+            badges={
+              <>
                 <SpecifierFamilyBadge record={record} />
                 <DiagnosisChips values={record.appliesTo} />
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         </section>
 
         <section aria-labelledby="what-matters-now" className={cn(specifierCard, "overflow-hidden")}>
@@ -150,10 +143,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
             <section id="specifier-wording" className={cn(specifierCard, inPageAnchor, "p-4")}>
               <p className={eyebrowText}>Example wording</p>
               <p className="mt-2 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{record.wording}</p>
-              <Link
-                href={`/specifiers/builder?specifier=${record.slug}`}
-                className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]"
-              >
+              <Link href={`/specifiers/builder?specifier=${record.slug}`} className={cn(primaryControl, "mt-3 w-full")}>
                 Use in builder
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
@@ -169,7 +159,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
                     <Link
                       key={item.slug}
                       href={compareRecordsHref("/specifiers/compare", record.slug, item.slug)}
-                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
                     >
                       {item.shortName}
                       <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />

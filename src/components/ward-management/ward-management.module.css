@@ -250,6 +250,14 @@
   gap: var(--ward-space-6);
 }
 
+.railLink {
+  composes: namedKill from "./ward-reduced-motion.module.css";
+}
+
+.railLinkActive {
+  composes: namedKill from "./ward-reduced-motion.module.css";
+}
+
 .railLink,
 .railLinkActive {
   display: grid;
@@ -880,13 +888,6 @@
 
   .workspaceGrid > section:last-child {
     grid-column: auto;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .railLink,
-  .railLinkActive {
-    transition: none;
   }
 }
 

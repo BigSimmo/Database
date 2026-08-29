@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
-import { overlayDefinition } from "./definitions";
+import { overlayDefinition, type WorkspaceOverlayId } from "./definitions";
 import type { WorkspaceOverlayCommit } from "./overlay-commits";
 import { openWorkspaceOverlayWithCommit } from "./workspace-overlays";
 
@@ -44,9 +44,42 @@ import { openWorkspaceOverlayWithCommit } from "./workspace-overlays";
  * are not interchangeable: a screen with no overlay to raise at all should render
  * `UnavailableDestination`, not this.
  */
+/**
+ * The default surface both of the workspace's triggers wear, in ONE place.
+ *
+ * `min-h-tap` is the design system's ONE tap knob (`--spacing-tap`, 3rem = 48px). Never a copy of
+ * the number, and never the 44px step: production tap targets are 48px here, and reducing them to
+ * satisfy generic WCAG 2.5.5 guidance reintroduces a known `ui-smoke` sub-pixel flake.
+ *
+ * A DEFAULT SURFACE, not only geometry (fix round 1, M-3). The first version shipped no colour or
+ * background at all, so a caller that passed no `className` -- the shape every usage example takes
+ * -- got an effectively unstyled control. These are the same tokens the shell's own secondary
+ * controls use, so a trigger looks like it belongs before anyone styles it, and
+ * `forced-colors:border` keeps it visible where the tokens are replaced. `className` is appended,
+ * so a caller can add to this; a caller wanting a different surface should say so with its own
+ * utilities.
+ *
+ * Shared rather than copied, and EXPORTED for that reason. `ExitOnlyOverlayTrigger` in
+ * `exit-only-overlay-trigger.tsx` is the same control with a different opening route, and two
+ * copies of this string would drift into two visibly different controls doing visibly similar
+ * things. A second copy of it did exist, in a second implementation of that component that lived
+ * below this one until the two were collapsed into one module; the surface is the only part of
+ * this file that component still needs.
+ */
+export const OVERLAY_TRIGGER_CLASS =
+  "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] transition-colors hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none forced-colors:border";
+
 export type WorkspaceOverlayTriggerProps = {
-  /** An id from the frozen 24-row table. An id that names no row throws at render. */
-  overlayId: string;
+  /**
+   * An id from the frozen 24-row table.
+   *
+   * RULING [130]: a LITERAL UNION, so an id no row carries is a compile error. The
+   * runtime throw below stays as belt-and-braces rather than as the only guard —
+   * a cast, an `any`, or a value read from somewhere untyped all reach this
+   * component past the type, and an overlay that opens nothing must fail loudly
+   * however it was asked for.
+   */
+  overlayId: WorkspaceOverlayId;
   /** What confirming the overlay's decision does. REQUIRED — see above. */
   commit: WorkspaceOverlayCommit;
   /** The control's visible label, and therefore its accessible name. */
@@ -56,7 +89,11 @@ export type WorkspaceOverlayTriggerProps = {
 
 export function WorkspaceOverlayTrigger({ overlayId, commit, children, className }: WorkspaceOverlayTriggerProps) {
   /**
-   * An unknown id fails here, loudly, in every environment.
+   * An unknown id fails here, loudly, in every environment. BELT-AND-BRACES SINCE
+   * RULING [130], never the only guard: `overlayId` is now a literal union, so the
+   * ordinary way of getting this wrong — a typo, a stale id after a matrix change —
+   * is a compile error. What still reaches here is a cast, an `any`, or a value
+   * that entered the program untyped, and for those the throw is the whole of it.
    *
    * The alternative is worse than an error page: `overlayDefinition` returns null
    * for an id no row carries, the host renders nothing for it, and the control
@@ -85,23 +122,7 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
       data-testid="workspace-overlay-trigger"
       data-overlay-trigger={overlayId}
       onClick={() => openWorkspaceOverlayWithCommit(overlayId, commit)}
-      className={cn(
-        // `min-h-tap` is the design system's ONE tap knob (`--spacing-tap`, 3rem
-        // = 48px). Never a copy of the number, and never the 44px step: production
-        // tap targets are 48px here, and reducing them to satisfy generic WCAG
-        // 2.5.5 guidance reintroduces a known `ui-smoke` sub-pixel flake.
-        //
-        // A DEFAULT SURFACE, not only geometry (fix round 1, M-3). The first
-        // version shipped no colour or background at all, so a caller that passed
-        // no `className` — the shape every usage example takes — got an
-        // effectively unstyled control. These are the same tokens the shell's own
-        // secondary controls use, so a trigger looks like it belongs before anyone
-        // styles it, and `forced-colors:border` keeps it visible where the tokens
-        // are replaced. `className` is appended, so a caller can add to this; a
-        // caller wanting a different surface should say so with its own utilities.
-        "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] transition-colors hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none forced-colors:border",
-        className,
-      )}
+      className={cn(OVERLAY_TRIGGER_CLASS, className)}
     >
       {children}
     </button>

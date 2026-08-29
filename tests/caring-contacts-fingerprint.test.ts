@@ -22,6 +22,7 @@ const PATIENT_DETAIL = {
   patientMobileNumber: "+61 491 570 156",
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
+  preferredName: "Jordy",
 };
 
 describe("fingerprintOf", () => {
