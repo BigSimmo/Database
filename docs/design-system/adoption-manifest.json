@@ -1793,7 +1793,7 @@
         "tests/print-output-capabilities.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
-        "tests/settings-search.dom.test.tsx",
+        "tests/settings-surface.dom.test.tsx",
         "tests/sheet-focus-stress.dom.test.tsx",
         "tests/sheet-focus.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
