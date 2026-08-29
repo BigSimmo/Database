@@ -1986,6 +1986,27 @@
     overflow: visible !important;
   }
 
+  /*
+   * THE PAGE GROUND, flattened — the missing half of the four ink rules below, and only visible
+   * with "Background graphics" ticked in the print dialog.
+   *
+   * `.screen` paints `var(--surface)` and `.body` paints `var(--surface-subtle)`, so the global
+   * print reset's white `body` background is repainted over by this component before any
+   * region is reached. Each inked region below then turns its own text black against a ground
+   * that is still dark in the dark theme — measured on the priority queue, which has shipped in
+   * that state: black type on a near-black card. This is the exact shape of the mistake the
+   * diagram's `color-scheme` note records for `color`, on the other property.
+   *
+   * The regions already declare their own backgrounds transparent; this lets the reset's white
+   * through to sit behind them, so ink-on-paper holds with background graphics on OR off, in both
+   * themes. (The rail's own dark strip is painted by a different stylesheet and still prints —
+   * it is workspace chrome, not part of any region, and is left alone here.)
+   */
+  .screen,
+  .body {
+    background: transparent !important;
+  }
+
   /* 1. The nodes themselves, restored. `.diagramUnit` (0,1,0) outranks the reset's `button`
      (0,0,1), so this wins without touching the global list. A ward split by a page break is a
      ward whose figures are on two sheets. */
@@ -2264,5 +2285,141 @@
   .queueRowSelected .queueLegalBreach {
     border-inline-start: 0.125rem solid currentColor;
     padding-inline-start: var(--co-space-6);
+  }
+
+  /* ----------------------------------------------------------------------
+   * THE EXPLAINABLE SHORTLIST.
+   *
+   * This region printed its CONCLUSION while deleting both its SUBJECT and its OPTIONS. With a
+   * movement selected — the state a coordinator prints from — the global `header, nav, button`
+   * reset removed nine blocks from this panel. FIVE ARE GENUINE ACTIONS and stay removed, for
+   * the same reason `Clear filter` stays removed from the queue above: Change urgency, Change
+   * legal status, Update escalation, Refer and Override are controls, and a control on paper is
+   * a control a reader cannot press. THE OTHER FOUR ARE CONTENT.
+   *
+   * `.shortlistHeader` is a `<header>`, so the entire subject block went with them — the movement
+   * id, its tier, its cohort and security, "Currently at PEEL — Peel Health Campus Emergency
+   * Department", the legal status with the time already waited, and the destination line. What
+   * still printed was a full eight-gate table headed "Eligibility checks for RPH Adult Secure",
+   * an answer about a person the sheet never named.
+   *
+   * The three candidates are `<button>`s, so the list under "Candidates — Units matching this
+   * movement's cohort, listed eligible first" printed EMPTY while three units existed. That is
+   * the priority queue's defect again, in the one region whose whole purpose is to show the
+   * working: an empty list under that sentence asserts that nothing was considered. Three units
+   * were considered, and each carries the reason it was rejected as text on its own row
+   * ("Already declined this movement", "Open ward does not meet a secure requirement"), so a
+   * reader who has the rows can check the conclusion instead of taking it.
+   *
+   * "No eligible destination found yet." is part of the subject block and prints with it. It is
+   * the honest answer whenever it is true, and it is what stops a reader inferring from a short
+   * candidate list that the search itself was narrow.
+   * ---------------------------------------------------------------------- */
+
+  /* 1. The subject. `.shortlistHeader` (0,1,0) outranks the reset's `header` (0,0,1), so this
+     wins without touching the global list. Kept whole: an id on one sheet and the legal status
+     it belongs to on the next is worse than either alone. */
+  .shortlistHeader {
+    display: grid !important;
+    break-inside: avoid;
+  }
+
+  /* 2. The options. Each row carries a ward name, its bed figures and its verdict; split across
+     a page break, the figures and the reason for rejection land on different sheets. */
+  .shortlistCandidateRow {
+    display: grid !important;
+    break-inside: avoid;
+  }
+
+  /*
+   * Ink, on the same terms as the diagram, the pressure strip and the queue above, and NOT
+   * optional here: measured with background graphics enabled, a dark-themed print of this region
+   * was near-black paper — the restored subject block would have been ink on ink. `CanvasText`
+   * under a pinned light colour scheme resolves to black in BOTH themes without this file naming
+   * a colour of its own, and `.screen`'s `color: var(--text)` no longer reaches through.
+   *
+   * Nothing in this region was carried by colour alone, which is why it survives: every gate
+   * prints "Met"/"Not met" beside a differently shaped icon and keeps its dashed border when it
+   * fails, every candidate prints its own verdict sentence, and the two restriction levels carry
+   * different words ("Voluntary patient on a locked ward — review legal status before admission"
+   * versus "More restrictive than this movement requires") rather than differing only in tone.
+   * Border and outline STYLE are untouched, so a dashed ineligible row still reads as ineligible
+   * once both borders are black.
+   */
+  .shortlistRegion {
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .shortlistRegion * {
+    background: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /* Elevation is a screen depth cue with no meaning on paper, and one of these shadows is doing
+     real work on screen: `--shadow-inset` is half of how the currently-shown candidate is marked.
+     See the selection note below for why that mark does not print. */
+  .shortlistRegion,
+  .shortlistRegion * {
+    box-shadow: none !important;
+  }
+
+  /*
+   * SELECTION ON A CANDIDATE ROW PRINTS AS NOTHING AT ALL — deliberately not as the weight the
+   * queue rows, ward nodes and department cards use, and the difference is in what the state
+   * means rather than in how it looks.
+   *
+   * `data-showing` is not a decision a reader made. It marks whichever candidate's gates the
+   * panel is displaying, and that INCLUDES the default: with nothing explicitly selected the
+   * panel falls back to `shortlist[0]`, so on a freshly opened movement the first row carries the
+   * accent fill without anyone having chosen it. Printed as a fill it reads as a destination this
+   * sheet has picked; printed as a heavier edge it reads as emphasis this sheet has placed. It is
+   * neither. The accent background, the danger background on the ineligible variant, and the
+   * inset shadow are all stripped above, and no weight replaces them.
+   *
+   * Nothing is lost by that, because the fact is already a sentence on the page: the gate table
+   * immediately below is headed "Eligibility checks for RPH Adult Secure", and every candidate
+   * row prints its ward name. A reader matches them by name, which is the same thing the fill was
+   * doing and the only one of the two that survives a printer with backgrounds turned off.
+   *
+   * `aria-pressed` (the real, explicit referral multi-select) deliberately gets no print rule
+   * either: it has no style of its own on screen, and a channel that appears only on paper would
+   * show a reader something the screen never showed them.
+   */
+
+  /*
+   * The breached-deadline line keeps a second channel once its danger tone is inked away — the
+   * same solid rule `.queueLegalBreach` and `.pressureBreach` already use for the same fact, a
+   * passed statutory deadline on the one line in this header a coordinator must not miss.
+   *
+   * NOT EXERCISED BY TODAY'S FIXTURE: no open movement carries a form with a past `dueAt`, so
+   * `legalBreached` is false on every movement this panel can be opened on and this rule renders
+   * nowhere in the captures taken for it. Verified by applying the class to the live header in
+   * the browser, not by inference.
+   */
+  .shortlistHeader .shortlistLegalBreach {
+    border-inline-start: 0.125rem solid currentColor;
+    padding-inline-start: var(--co-space-6);
+  }
+
+  /*
+   * The two fill-only badges, flattened onto the header's own left edge — the same correction
+   * `.queueTier` needed above. `.shortlistAcceptedBadge` and `.shortlistReferredBadge` are pills
+   * whose entire box is a background colour, so once that is inked away all that survives is the
+   * horizontal padding, which prints as an indent that makes the destination line read as
+   * subordinate to the legal-status line above it. Measured on WF-006 ("Accepted destination:
+   * RGH Adult Secure") and WF-017 ("Parallel referral: BTY Adult Secure").
+   *
+   * `.shortlistSuggestedBadge` and `.shortlistUnresolvedBadge` are deliberately left alone: both
+   * carry a dashed border of their own, which survives inking, so their padding is still the
+   * inside of a visible box rather than a phantom indent — visible on WF-009's "No eligible
+   * destination found yet." and WF-315's suggestion.
+   */
+  .shortlistHeader .shortlistAcceptedBadge,
+  .shortlistHeader .shortlistReferredBadge {
+    padding-inline: 0;
   }
 }
