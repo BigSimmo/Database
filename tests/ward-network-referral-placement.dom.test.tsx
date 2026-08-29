@@ -32,7 +32,7 @@ import { WardModeWorkspace } from "@/components/ward-management/ward-management-
 import { HOME_REGIONS, type HomeRegion, type Referral } from "@/components/ward-management/ward-model";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
-import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allUnits, NOW_ANCHOR, siteByCode } from "@/components/ward-management/ward-sites";
 
 import { parseModuleSource } from "./helpers/module-graph";
 
@@ -771,6 +771,19 @@ describe("network diagram, the whole-network overview", () => {
    *
    * A picture narrowed to the wards something happened to route to looks tidier and says something
    * false: every ward it dropped is a real bed, and its absence reads as there being none.
+   *
+   * SECOND MUTATION, for the order pin below — sort each cluster by free beds:
+   *
+   *     {units
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *   → {units
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *       .slice()
+   *       .sort((a, b) => b.allocatable.value - a.allocatable.value)
+   *
+   * Nothing is hidden, every ward is still drawn, and the arrangement is the SAME for every
+   * movement — so the completeness assertion and the movement-to-movement invariance test both go
+   * on passing. It is a ranking all the same, and the pin below is the only thing that sees it.
    */
   it("renders every unit in the network, not only the ones a route is drawn to", () => {
     const units = allUnits();
@@ -793,6 +806,38 @@ describe("network diagram, the whole-network overview", () => {
       sortedUnitIds(),
     );
     expect(rendered, "a unit is drawn on the overview more than once").toHaveLength(units.length);
+
+    /*
+     * The ABSOLUTE PIN the two guards around this one need.
+     *
+     * Membership and invariance between them still leave the overview free to be arranged any way
+     * at all, as long as it is arranged that way consistently: sort it by free beds and the set
+     * equality above is untouched, the movement-to-movement invariance below is untouched, and
+     * every other test on this branch passes while the top of each cluster silently reads as the
+     * answer to a question nobody asked here. Uniformly wrong is still uniform.
+     *
+     * So this pins the one thing those two cannot: the order on the screen IS the model's own
+     * order, column by column. The columns are written out here rather than imported from the
+     * component — an expectation computed from the very constant the screen renders from would
+     * move with it, and a layout change should be a decision somebody takes in a test rather than
+     * one a test agrees with silently.
+     */
+    const OVERVIEW_COLUMNS: readonly (readonly string[])[] = [
+      ["North Metro", "WACHS"],
+      ["East Metro", "South Metro", "Private"],
+    ];
+    const modelOrder = OVERVIEW_COLUMNS.flatMap((column) =>
+      column.flatMap((service) =>
+        units.filter((unit) => siteByCode(unit.siteCode)?.service === service).map((unit) => unit.id),
+      ),
+    );
+    // The pin itself must not be able to go vacuous: a column list that had fallen behind the model
+    // would quietly stop covering some units, and comparing two short lists that agree proves
+    // nothing about the ones neither of them holds.
+    expect(modelOrder, "the pinned column layout no longer covers every unit in the network").toHaveLength(
+      units.length,
+    );
+    expect(rendered, "the overview's units are not in the model's own order, column by column").toEqual(modelOrder);
 
     // The routed split is populated on BOTH sides. Without this the mutation above could not bite:
     // if every unit were routed, dropping the unrouted ones would change nothing and this test would
@@ -937,7 +982,7 @@ describe("network diagram, the whole-network overview", () => {
     // behavioural one because a second clock that happened to agree today would be invisible on the
     // screen and would drift the moment the shared one moved. The character class is deliberate:
     // this file has had a backslash escape turn into a literal control byte three times this phase.
-    const secondClock = /ADVANCE_CLOCK|RESET_SCENARIO|SET_SCENARIO|Date[.]now|new Date/;
+    const secondClock = /ADVANCE_CLOCK|RESET_SCENARIO|SET_SCENARIO|Date[.]now|new Date|wallClockNow/;
     // Positive control, so a pattern that had stopped matching anything could not read as clean.
     expect("const ownClock = Date.now();", "the second-clock pattern no longer matches one").toMatch(secondClock);
     expect(

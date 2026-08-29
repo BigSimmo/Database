@@ -88,6 +88,13 @@ const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
  * to `allUnits()` in `tests/ward-network-referral-placement.dom.test.tsx`.
  *
  * Today's picture is unchanged: the filter yields East Metro, South Metro, Private, in that order.
+ *
+ * One property of the list this now depends on, written down rather than assumed: `wardServiceOrder`
+ * is exported as a mutable `HealthService[]`, so a caller that reordered or spliced it in place
+ * would silently move or drop a whole column here. Nothing mutates it today — this is a note for
+ * whoever is tempted to, not a defect being reported. The order on screen is pinned against the
+ * model in `tests/ward-network-referral-placement.dom.test.tsx`, so such a mutation fails a test
+ * rather than quietly changing the picture.
  */
 const LEFT_COLUMN_SERVICES: readonly HealthService[] = ["North Metro", "WACHS"];
 
