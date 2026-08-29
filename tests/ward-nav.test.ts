@@ -364,7 +364,18 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
     const board = dynamicRouteScans.get("/mockups/ward-flow/board/[unitId]");
     expect(board?.concreteSites).toEqual(["src/components/ward-management/ward-nav.ts"]);
     expect([...(board?.concreteInstances ?? [])]).toEqual(["rph-adult-secure"]);
-    expect(board?.builtSites).toEqual([]);
+    // ONE builder as of the convergence fast-forward, 2026-08-29: the ward screen now offers
+    // "See every bed on this ward" per unit. This assertion was `toEqual([])` on both parents and
+    // correct on each — the builder existed on neither line alone. It is a fact about the union,
+    // which is why it moves in the fold rather than before it.
+    //
+    // Exact list, never `toContain` and never a count, for the reason stated three lines below for
+    // the ward route: which builder is which is the entire subject of the coverage record, so a
+    // second builder appearing here should cost somebody a decision rather than pass silently.
+    //
+    // It went red because the world improved — the board stopped being reachable only through one
+    // seeded rail example. That is the failure mode a ratchet is supposed to have.
+    expect(board?.builtSites).toEqual(["src/components/ward-management/ward/ward-screen.tsx"]);
     const ward = dynamicRouteScans.get("/mockups/ward-flow/ward/[unitId]");
     // Two builders now, and the list stays exact rather than becoming a `toContain`: the ward
     // index (Phase 8) builds one href per unit over the whole network, the role switcher builds
