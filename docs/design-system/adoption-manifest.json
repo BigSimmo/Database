@@ -1182,11 +1182,16 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/answer/AnswerFooter.tsx",
-        "src/components/ui/date-display.tsx"
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
+        "src/components/ui/date-display.tsx",
+        "src/components/ward-management/discharges/discharge-board.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
         "src/components/ui/date-display.tsx"
       ],
       "designSync": {
