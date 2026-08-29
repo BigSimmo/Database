@@ -166,7 +166,7 @@ export function FlowDiagram({
   );
   const originEdId = movement?.originEdId;
 
-  // Grouped by health service in `wardServiceOrder`, one lookup per unit (22 units -- cheap).
+  // Grouped by health service in `wardServiceOrder`, one lookup per unit (23 units -- cheap).
   // `siteByCode` returning `undefined` for a broken site code excludes that unit from every
   // group rather than guessing one -- conservative failure, not a crash. `unplacedUnits` below
   // catches exactly that case so the unit still renders (as an explicit anomaly) rather than
@@ -284,7 +284,7 @@ export function FlowDiagram({
   }, [measure]);
 
   return (
-    // The diagram can carry substantially more content (22 units) than the region grid's own
+    // The diagram can carry substantially more content (23 units) than the region grid's own
     // squeeze-to-fit sizing gives it room for at moderate viewport heights -- the outer grid's
     // `auto` row is compressed to fit `.body`'s available space, which at 1280x900 left this
     // region 208px tall for ~1080px of content (Controller finding 8). `.diagramScroll` owns its

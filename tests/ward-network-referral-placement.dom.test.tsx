@@ -985,6 +985,63 @@ describe("network diagram, the whole-network overview", () => {
     const secondClock = /ADVANCE_CLOCK|RESET_SCENARIO|SET_SCENARIO|Date[.]now|new Date|wallClockNow/;
     // Positive control, so a pattern that had stopped matching anything could not read as clean.
     expect("const ownClock = Date.now();", "the second-clock pattern no longer matches one").toMatch(secondClock);
+
+    /*
+     * ONE CONTROL PER ARM — Phase 8, Task 10, item 17.
+     *
+     * The single control above exercises exactly ONE of the six alternatives in `secondClock`. A
+     * typo in any of the other five would leave that arm silently inert while both the control and
+     * the guard stayed green: a check reporting a clean result having tested a sixth of what it
+     * claims. That is the fifth check-that-cannot-fail found in this phase and the only one caught
+     * before it bit, so it is closed by STRENGTHENING — nothing above is removed, nothing loosened.
+     *
+     * Each entry pairs one arm with a snippet of the way that clock would plausibly be written into
+     * this component. The snippet is matched against ITS OWN arm rather than against the composite,
+     * deliberately: "RESET_SCENARIO" contains "SET_SCENARIO" as a substring, so a RESET_SCENARIO
+     * control checked against the composite would be satisfied through the SET_SCENARIO arm and
+     * would prove nothing about its own. A control another arm can satisfy is exactly the fake this
+     * item exists to remove.
+     *
+     * The second assertion then pins each arm INTO the composite the guard actually uses. Its two
+     * sides are separate literals — this list, and the regex a few lines above — so it goes red when
+     * one is edited without the other, which is the only way an arm can quietly leave the guard.
+     */
+    const SECOND_CLOCK_ARMS = [
+      { arm: /ADVANCE_CLOCK/, control: 'dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes: 60 });' },
+      { arm: /RESET_SCENARIO/, control: 'dispatch({ type: "RESET_SCENARIO", role: "demo", now });' },
+      { arm: /SET_SCENARIO/, control: 'dispatch({ type: "SET_SCENARIO", role: "demo", now, scenario: "calm" });' },
+      { arm: /Date[.]now/, control: "const ownClock = Date.now();" },
+      { arm: /new Date/, control: "const ownClock = new Date().getTime();" },
+      { arm: /wallClockNow/, control: "const ownClock = wallClockNow();" },
+    ] as const;
+    // A floor on the sweep itself: a list that lost entries would otherwise control fewer arms while
+    // every remaining assertion still passed.
+    expect(SECOND_CLOCK_ARMS, "the per-arm control list no longer covers every arm").toHaveLength(6);
+    for (const { arm, control } of SECOND_CLOCK_ARMS) {
+      expect(control, `the second-clock pattern's ${arm.source} arm matches nothing`).toMatch(arm);
+    }
+    /*
+     * And the composite the guard actually uses carries EXACTLY these arms, in this order.
+     *
+     * An exact pin rather than a `toContain` per arm, because containment survives the commonest
+     * corruption there is: an arm that merely GAINS characters still contains its own name, so
+     * `wallClockNow` becoming `wallClockNowXX` leaves a containment assertion green while that arm
+     * matches nothing real. Not hypothetical — that was the first mutation tried against this
+     * strengthening in Task 10, it did not bite, and this assertion is the rework. Equality catches
+     * an arm renamed, dropped, added, reordered OR extended, and its two sides are separate literals
+     * a few lines apart, so it can genuinely fail.
+     */
+    const guardArms = secondClock.source.split("|");
+    const controlledArms = SECOND_CLOCK_ARMS.map(({ arm }) => arm.source);
+    /* The message names both lists rather than saying only that they differ. Two different arms
+     * corrupted must not produce the same failure line: byte-identical failures across different
+     * mutations are indistinguishable from a contaminated run, which is a rule this project already
+     * has because it has already been caught out by one. */
+    expect(
+      guardArms,
+      `the second-clock guard's arms are no longer exactly the arms controlled above, so one of them is unguarded or uncontrolled — guard carries [${guardArms.join(", ")}], controls cover [${controlledArms.join(", ")}]`,
+    ).toEqual(controlledArms);
+
     expect(
       readFileSync(NETWORK_COMPONENT, "utf8"),
       "the network diagram has a clock of its own, so two screens can disagree about the same moment",
