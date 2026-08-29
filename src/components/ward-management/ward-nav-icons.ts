@@ -3,6 +3,7 @@ import {
   BedSingle,
   Building2,
   CircleAlert,
+  Hospital,
   ClipboardList,
   Inbox,
   LayoutGrid,
@@ -21,7 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import type { WardMode } from "./ward-nav";
+import type { WardMode, WardNavId } from "./ward-nav";
 
 /**
  * One icon per destination, keyed by the ids in `ward-nav.ts`. Kept out of `ward-nav.ts` so that
@@ -42,7 +43,22 @@ export const WARD_VIEW_ICONS: Record<WardMode, LucideIcon> = {
   governance: ShieldCheck,
 };
 
-export const WARD_NAV_ICONS: Record<string, LucideIcon> = {
+/**
+ * Keyed by `WardNavId`, not `string`, so this map is guarded exactly the way `WARD_VIEW_ICONS`
+ * above always has been: a `WARD_NAV` id with no icon here is a compile error, and an icon here
+ * for an id `WARD_NAV` no longer carries is a compile error too. It was `Record<string, …>`, which
+ * accepted every key and therefore checked nothing, while both the rail and the drawer render the
+ * looked-up value directly as a component.
+ *
+ * This is a STRENGTHENING, not a hole being closed. `tests/ward-nav.test.ts` already asserted the
+ * same property and stays — compile-time and test-time fail differently, and keeping both is the
+ * point.
+ */
+export const WARD_NAV_ICONS: Record<WardNavId, LucideIcon> = {
+  // The ward index: every ward in the network. `Hospital` rather than a second `Building2`, which
+  // the single seeded ward example beside it already uses — two destinations sharing an icon in an
+  // icon-only rail are two destinations a reader cannot tell apart.
+  wards: Hospital,
   board: LayoutGrid,
   ward: Building2,
   officer: Ambulance,

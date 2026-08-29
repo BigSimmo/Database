@@ -85,7 +85,24 @@ export function stageSummaries(movements: Movement[]) {
   }));
 }
 
-export const wardServiceOrder: HealthService[] = ["North Metro", "East Metro", "South Metro", "WACHS", "Private"];
+/**
+ * The one canonical order of the health services, and the list every screen that groups by service
+ * iterates — the ED ward table, the coordinator flow diagram, the network map's two columns and the
+ * ward index.
+ *
+ * `readonly`, so a duplicate entry is a compile error rather than a runtime possibility. Every
+ * consumer groups by mapping over this list, so a service appearing in it twice renders its wards
+ * twice — and the ordering test reads `headings.indexOf(service)`, first occurrence, so it would
+ * not see the second. Nothing needs to mutate the array: every consumer only maps, flat-maps,
+ * filters or iterates it.
+ */
+export const wardServiceOrder: readonly HealthService[] = [
+  "North Metro",
+  "East Metro",
+  "South Metro",
+  "WACHS",
+  "Private",
+];
 
 export const roleLabels: Record<WardRole, string> = {
   flow: "Flow coordinator",

@@ -293,6 +293,22 @@ reintroduce the superseded set out of a document that had been "fixed". Those sa
 **deliberately not rewritten** — back-dating a plan's code to match a later decision destroys the
 provenance that made this findable — and the header now states that the code is the authority.
 
+### 3e. Check for the ABSENCE of the superseded value, not only the presence of the current one
+
+A presence check cannot see a wrong thing sitting alongside a right one. `under-2-weeks` returning 5
+proves the owner's bands arrived; it does not prove the superseded ones left. Only the pair rules out
+a mixed resolution:
+
+```bash
+grep -c under-2-weeks src/components/ward-management/ward-admissions.ts   # >= 1   the current set arrived
+grep -c under-1-week  src/components/ward-management/ward-admissions.ts   # == 0   the superseded set left
+```
+
+Contributed by the ward board session, which ran the absence half at the fold **without being asked
+for it** — nothing in this procedure required it. It generalises past stay bands to any supersession:
+whenever a value replaces another, assert both that the new one is there and that the old one is
+gone, or a resolution that kept both passes every check you wrote.
+
 **Cheap belt-and-braces before taking the board's copy of `ward-admissions-seed.ts`:** compare its
 blob id against the known-good `f56fe635671e4325d0b3f70891d35e3a497cf389` at `3ca0bb676`. One command,
 no test run, and it closes the window in which a mutated seed could be committed and taken wholesale.
@@ -329,6 +345,19 @@ Carried, not owned by the fold:
 6. **The network diagram has no `@media print` block** and prints zero unit nodes in both modes.
    Pre-existing, not a fold regression — recorded in the issue inbox before the fold precisely so it
    is not later attributed to the merge.
+
+### Still owed after the fold — deliberately not done in it
+
+**The per-unit board link.** `ward-nav.ts` links ONE seeded example of the ward board; every other
+ward's board is reachable only by typing its address. The obvious home is a second group in
+`ward-role-switcher.tsx` mirroring the existing "Ward" group — but that adds a second full list of 23
+units to a menu that already carries one, and the better design may be a link on each ward's own
+screen ("open this ward's board") rather than doubling the switcher.
+
+That is a product judgement about a screen, not a mechanical fix, and **this project's entire
+screen-defect history was found by rendering and looking** — never by a static test. So it is left
+undone rather than guessed at, with both candidate shapes recorded. It needs someone to look at the
+menu at three widths and decide, which is the owner's kind of call.
 
 ---
 
@@ -607,3 +636,60 @@ pushed, so that is the whole of it.
 **Blocked on one physical thing, not a procedural one:** the merge target branch is checked out in
 the Phase 8 worktree, and git will not allow a second checkout of it. That session has been asked to
 stand down explicitly — in words, not by going quiet.
+
+---
+
+## 12. The SECOND fold — `claude/ward-flow-print-fixes` back to the line
+
+Prepared before it is called, so it can run when the board session reaches its natural stopping
+point rather than being designed under time pressure. **The owner approved convergence; the board
+session picks the moment.**
+
+**Measured, and it is a different animal from the first fold:**
+
+```
+print-fixes ahead                   4
+behind                              5
+files differing                     8
+files changed on BOTH sides         0     <- the number that matters
+merge-tree                          NO CONFLICTS
+```
+
+**Zero files changed on both sides means there is no resolution to get wrong.** The first fold's
+danger was three files where the wrong answer was green because the guard sat inside the conflict
+set. That hazard is absent here, so applying the seven conditions unchanged would be **ceremony
+rather than caution** — and a condition kept out of reflex teaches the next reader that conditions
+are ritual.
+
+### What to keep, and why each earns its place
+
+1. **A fresh backup at the moment of merging**, not earlier. A backup of a superseded state
+   satisfies this on paper only.
+2. **Both worktrees confirmed clean, and `merge-tree` re-run against committed tips at that moment.**
+   This is the one the first fold actually needed: it predicted three conflicts and there were four,
+   because an uncommitted edit was structurally invisible to it and nothing in its output said so.
+   **A clean prediction over a dirty tree is not a clean merge.**
+3. **Afterwards: the ward suite AND `typecheck`.** Both. This exact branch pair already produced a
+   tree that passed 1053 tests and did not compile — Vitest does not typecheck, so a whole class of
+   breakage sits outside "the suite is green". **"It was green" is not a complete claim; name which
+   green.**
+4. **Read the total against the previous total, not the ratio.** A test file that fails to parse
+   subtracts its tests from the denominator and the pass fraction stays perfect. Pin the baseline to
+   a SHA — one taken two commits earlier mis-calibrates the only check that sees vanished tests.
+
+### What to drop, deliberately
+
+The wholesale-resolution rule, the four name greps, the value check and the band greps were built for
+a specific hazard in specific files. **None of those files is changed on both sides here.** Carrying
+them would assert a danger that is not present.
+
+**But re-derive that, do not assume it.** If the both-sides count is non-zero when the moment comes,
+the hazard is back and so are the conditions. That number is the trigger, and it is knowable before
+the merge rather than during it.
+
+### One thing this fold releases
+
+**WB-DB-18 is recorded and deliberately unbuilt**, because it needs `ward-screen.tsx` and the board
+branch has changed that file. Its own note says one shared back control or the third screen drifts,
+so building two of three would guarantee the outcome the note exists to prevent. **The fold is what
+unblocks it** — worth saying in the fold's record so nobody later reads that hold as unexplained.

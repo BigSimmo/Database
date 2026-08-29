@@ -28,14 +28,21 @@ describe("escalationBoard", () => {
     }
   });
 
-  // Measured directly against the real fixture at NOW_ANCHOR (2026-08-25), counting
-  // `eligibility(...).eligible` across all 22 units for every open movement (never the
-  // truncated length of `eligibleCandidatesAmong(...)`'s default 3-candidate shortlist, which
-  // is a same-cohort count, not an eligibility count): 41 open movements, 337 eligible
-  // movement/unit pairs, and exactly two movements — WF-009 and WF-308 — already have nowhere
-  // eligible on the standard night. Both are the fixture as authored. Pinned by id and by exact
-  // count so a regression that strands more (or fewer) patients is caught here, not only on
-  // screen. See tests/ward-scenarios.test.ts's own comment for the same measurement.
+  // RE-MEASURED on 2026-08-29 at NOW_ANCHOR against this file's own basis — `seedWardFlowState()`'s
+  // `movements` and `units`, not another file's fixture read — counting `eligibility(...).eligible`
+  // for every open movement (never the truncated length of `eligibleCandidatesAmong(...)`'s default
+  // 3-candidate shortlist, which is a same-cohort count, not an eligibility count): 23 units,
+  // 41 open movements, 342 eligible movement/unit pairs, distribution
+  // {0:2, 4:11, 5:3, 6:4, 7:2, 11:1, 12:9, 14:9}, and exactly two movements — WF-009 and WF-308 —
+  // already have nowhere eligible on the standard night. Both are the fixture as authored. Pinned
+  // by id so a regression that strands more (or fewer) patients is caught here, not only on screen.
+  //
+  // It replaces a 2026-08-25 record of 337 pairs over 22 units. Do not read the change as the 23rd
+  // unit arriving: recomputing without `bty-youth` still gives 342, and no open movement is
+  // eligible for it at all. The five extra pairs are the gates and the fixture moving across
+  // Phase 5 to Phase 8. tests/ward-scenarios.test.ts carries the same measurement, taken on ITS
+  // basis (`scenarioUnits("standard")` and `wardMovements`) and agreeing figure for figure — the
+  // two were measured separately rather than copied, because they are not the same read.
   it("on the standard night, exactly WF-009 and WF-308 have nowhere eligible", () => {
     const board = escalationBoard(movements, units, NOW_ANCHOR);
     expect(board.nowhereEligible.map((movement) => movement.id).sort()).toEqual(["WF-009", "WF-308"]);

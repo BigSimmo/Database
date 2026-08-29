@@ -1154,3 +1154,57 @@ five turn out to be too few, the answer is a sixth entry he supplies, never a te
   `src/components/ward-management/**` — its exemption covers four patterns and that is not one of
   them. An earlier claim that Ward Flow was exempt was wrong, checked against `eslint.config.mjs`
   rather than the documentation. **Do not spend visual-pass time auditing what lint already covers.**
+
+
+### DB-18 — A role screen is the whole screen. The hub rail comes off all three (OWNER, 2026-08-29)
+
+**`officer-screen.tsx`, `ed-screen.tsx` and `ward-screen.tsx` stop rendering `<ClinicalRail />`.**
+Each gains exactly one navigation control: a way back to the hub. No rail, no eight-item menu, no
+reduced rail.
+
+**The defect, measured at `e06427196` before it was raised.** All three role screens render the same
+full `ClinicalRail` as every other page. The rail has no reduced variant — its only prop, `activeMode`,
+selects which item to highlight, and `officer-screen.tsx` does not even set that. So a transport
+officer on a phone is shown the bed coordinator's entire application — Command, Network, Priority
+queue, Capacity, Movements, Exceptions, Transport, Governance — with nothing marking where they are.
+
+**This is not a new rule. It is the architecture's own rule, applied to the screens.** `ward-nav.ts`
+already records that role entries are doors into a role screen, "never as though they were a section
+of the app in their own right", and that they exist only because they are the sole way to reach those
+screens. The navigation already believed this. The screens did not.
+
+**Owner's words, 2026-08-29:** *"a screen made simple for transport officers etc rather than
+cluttering the main nav."*
+
+**Why exactly one control rather than none.** In a real deployment a transport officer never leaves
+this screen — there is nowhere else they are entitled to be, and a rail would be offering doors that
+should be locked. But this is a prototype that gets opened, shown, and navigated away from. With no
+control at all, whoever opens it is trapped and has to edit the address bar in front of an audience.
+One door out; not two, and not a menu.
+
+**Why this matters more to the demonstration than to the product, which is the actual argument.**
+Shown to a colleague as "here is what the transport officer sees", the screen contradicts the
+sentence while it is being said. The first question back is why a driver can see the escalation
+board, and the honest answer — *they cannot really, it is just the prototype* — is an explanation
+that should never have to be given. It costs more than the question: an audience that has been told
+once that a screen does not mean what it shows will discount the next screen too.
+
+**What is NOT changed.** The rail stays exactly as it is on every non-role screen. `activeMode`
+behaviour is untouched. No route moves, no nav entry is deleted — the three role entries in
+`ward-nav.ts` remain, because they are still the only way to reach these screens, and deleting them
+would strand all three (`tests/ward-nav.test.ts` would catch that, which is the guard working).
+
+**Supersedes:** nothing. **Applies:** `ward-nav.ts`'s existing role-entry rule to the screens
+themselves.
+
+**Build notes.**
+
+- Three files, one change each. The back control should be one shared component rather than three
+  hand-rolled links, or the third one will drift.
+- **This is a deletion.** `npm run check:dead-code-candidate` applies to anything it orphans. Per
+  WB-DB-13, the honest route if it refuses is a recorded decision, not a gate change.
+- **Look at all three on a phone.** The rail is currently doing layout work as well as navigation;
+  removing it may leave a gap, a stranded header row, or content that no longer has a left margin.
+  This is precisely the class of defect that only rendering finds — 390, 820 and 1440, plus print.
+- A test asserting the rail is **absent** from these three is worth more than one asserting the back
+  control is present: the rail returning by accident is the regression, and it would return silently.

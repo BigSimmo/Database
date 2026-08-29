@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "899917421f2bf5ac42a5b820cc075fbd7ef05963",
-    "committed_at": "2026-08-29T16:08:49+08:00"
+    "sha": "e5fb7e9909414014187ba0fbbb30531af06e80d9",
+    "committed_at": "2026-08-29T20:40:59+08:00"
   },
   "routes": {
     "modes": [
@@ -994,6 +994,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/wards",
+        "file": "src/app/mockups/ward-flow/wards/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/warning-consolidation",
         "file": "src/app/mockups/warning-consolidation/page.tsx",
         "area": "mockup"
@@ -1422,9 +1427,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 200,
+      "pages": 201,
       "product_pages": 55,
-      "mockup_pages": 145,
+      "mockup_pages": 146,
       "redirects": 17,
       "api": 58
     }
@@ -3552,6 +3557,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-fold-procedure.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-handover-2026-08-28.md",
         "section": "root",
         "catalogued": false
@@ -3977,9 +3987,9 @@
       }
     ],
     "counts": {
-      "documents": 497,
+      "documents": 498,
       "catalogued": 106,
-      "uncatalogued": 391,
+      "uncatalogued": 392,
       "sections": 19
     }
   },
