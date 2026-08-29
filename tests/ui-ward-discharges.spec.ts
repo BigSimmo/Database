@@ -29,9 +29,21 @@ const UNIT_ID = "rph-adult-secure";
 const UNIT_NAME = "RPH Adult Secure";
 
 async function gotoWard(page: Page) {
-  await page.goto(`/mockups/ward-flow/ward/${UNIT_ID}`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
+  await page.goto(`/mockups/ward-flow/ward/${UNIT_ID}`, { waitUntil: "load" });
   await page.waitForLoadState("networkidle");
+  // The same streamed-content guard the containment test below already uses, and that
+  // `tests/ui-ward-referrals.spec.ts` uses twice, applied here for the identical reason: React's
+  // streaming leaves a hidden staging copy of the whole screen in the document for a moment, so
+  // `ward-unit-screen` resolves to two elements and a strict-mode locator throws. This helper was
+  // left behind when the containment test got the wait, so the journey below failed on its very
+  // first navigation. Waiting the staging subtree out is the fix rather than relaxing the locator
+  // to `.first()`, which would leave the journey asserting against whichever copy came first —
+  // possibly the inert server-rendered one, which no click ever reaches.
+  await expect(
+    page.locator('div[hidden][id^="S:"]'),
+    "React's streamed content is still staged, so the whole screen is duplicated in the document",
+  ).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
 }
 
 async function goToCapacityBoard(page: Page) {
