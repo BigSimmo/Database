@@ -80,6 +80,10 @@ async function answerEveryIntakeQuestion(
   await page.getByTestId("ward-referral-intake-originSiteCode").selectOption(wardSites[0].code);
   await page.getByTestId("ward-referral-intake-secureBedNeeded-no").check();
   await page.getByTestId("ward-referral-intake-involuntaryBedNeeded-no").check();
+  // The ninth question, on the owner's 2026-08-30 ruling ("Take all recommendations"): transport
+  // is a yes/no group that starts unanswered, not a checkbox that starts at `false`. A journey
+  // that skips it never gets an available Send, so it belongs here with the other eight.
+  await page.getByTestId("ward-referral-intake-transportNeeded-no").check();
   // Send only becomes available once the last question is answered, so this is both a wait and an
   // assertion: a journey that had missed one would fail here rather than time out on a click.
   await expect(page.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled", "true");
@@ -262,7 +266,7 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await expect(page.getByTestId("ward-referral-intake-submit")).toHaveAttribute("aria-disabled", "true");
     await expect(page.getByTestId("ward-referral-intake-unavailable")).toBeVisible();
     await answerEveryIntakeQuestion(page, RAISED);
-    await page.getByTestId("ward-referral-intake-transportNeeded").check();
+    await page.getByTestId("ward-referral-intake-transportNeeded-yes").check();
 
     await page.getByTestId("ward-referral-intake-submit").click();
     await expect(page.getByTestId("ward-referral-intake-confirmation")).toBeVisible();

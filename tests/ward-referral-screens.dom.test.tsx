@@ -216,13 +216,14 @@ const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () 
   { name: "Origin site", answer: () => selectAnswer("originSiteCode", wardSites[0].code) },
   { name: "Secure bed needed", answer: () => chooseNeed("secureBedNeeded", "no") },
   { name: "Involuntary bed needed", answer: () => chooseNeed("involuntaryBedNeeded", "no") },
+  { name: "Transport needed", answer: () => chooseNeed("transportNeeded", "no") },
 ];
 
 function selectAnswer(field: string, value: string) {
   fireEvent.change(screen.getByTestId(`ward-referral-intake-${field}`), { target: { value } });
 }
 
-function chooseNeed(field: "secureBedNeeded" | "involuntaryBedNeeded", answer: "yes" | "no") {
+function chooseNeed(field: "secureBedNeeded" | "involuntaryBedNeeded" | "transportNeeded", answer: "yes" | "no") {
   fireEvent.click(screen.getByTestId(`ward-referral-intake-${field}-${answer}`));
 }
 
@@ -364,7 +365,7 @@ describe("ReferralIntakeForm", () => {
      * same inputs, but this test's own title says "renders exactly one control for every field",
      * and for two fields it had stopped checking that. Pin the real radios.
      */
-    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded", "transportNeeded"]) {
       const group = screen.getByTestId(`ward-referral-intake-${field}`);
       for (const answer of ["yes", "no"]) {
         const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`);
@@ -614,7 +615,11 @@ describe("ReferralIntakeForm", () => {
     // The two need questions were checkboxes, and an untouched checkbox is not an open question:
     // it sent `false`, the definite clinical claim that this person needs neither a secure bed
     // nor a bed that can hold them involuntarily.
-    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+    //
+    // `transportNeeded` joined them on the owner's 2026-08-30 ruling ("Take all recommendations").
+    // It was the last checkbox on this form, and an untouched one sent `false` — which a ward
+    // reads as "no transport needed" and plans around.
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded", "transportNeeded"]) {
       for (const answer of ["yes", "no"]) {
         const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`) as HTMLInputElement;
         expect(radio.checked, `${field} arrives already answered "${answer}" — nobody chose that`).toBe(false);
@@ -651,7 +656,7 @@ describe("ReferralIntakeForm", () => {
    * so a ninth question, a removed one, a renamed one or a reordered one is a decision somebody
    * takes here rather than something a diff reveals later.
    */
-  it("waits on exactly these eight questions, named in the order the form asks them", () => {
+  it("waits on exactly these nine questions, named in the order the form asks them", () => {
     expect([...REQUIRED_FIELD_NAMES]).toEqual([
       "Age band",
       "Sex",
@@ -661,6 +666,11 @@ describe("ReferralIntakeForm", () => {
       "Origin site",
       "Secure bed needed",
       "Involuntary bed needed",
+      // Ninth on the owner's 2026-08-30 ruling ("Take all recommendations"), and last because
+      // that is where the form asks it. Written out here like its eight siblings: a tenth
+      // question, or this one quietly dropped back to a default, is a decision somebody takes in
+      // this test rather than something a diff reveals later.
+      "Transport needed",
     ]);
     expect(REQUIRED_QUESTIONS.map((question) => question.name)).toEqual([...REQUIRED_FIELD_NAMES]);
   });
@@ -674,7 +684,7 @@ describe("ReferralIntakeForm", () => {
     const note = screen.getByTestId("ward-referral-intake-unavailable");
     expect(note.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "Not yet answered: Age band, Sex, Home region, Referral source, Urgency, Origin site, Secure bed needed, " +
-        "Involuntary bed needed. Send stays unavailable until each has an answer.",
+        "Involuntary bed needed, Transport needed. Send stays unavailable until each has an answer.",
     );
 
     // Below the button, never above it: the note appears and disappears as questions are answered,
@@ -854,7 +864,7 @@ describe("ReferralIntakeForm", () => {
     answerEveryQuestion();
     chooseNeed("secureBedNeeded", "yes");
     chooseNeed("involuntaryBedNeeded", "yes");
-    fireEvent.click(screen.getByTestId("ward-referral-intake-transportNeeded"));
+    chooseNeed("transportNeeded", "yes");
     fireEvent.click(submitButton());
     expect(
       screen.getByTestId("ward-referral-intake-confirmation"),
@@ -865,14 +875,12 @@ describe("ReferralIntakeForm", () => {
       const select = screen.getByTestId(`ward-referral-intake-${field}`) as HTMLSelectElement;
       expect(select.value, `${field} still holds the previous patient's answer`).toBe(UNANSWERED_VALUE);
     }
-    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded", "transportNeeded"]) {
       for (const answer of ["yes", "no"]) {
         const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`) as HTMLInputElement;
         expect(radio.checked, `${field} still holds the previous patient's "${answer}"`).toBe(false);
       }
     }
-    const transport = screen.getByTestId("ward-referral-intake-transportNeeded") as HTMLInputElement;
-    expect(transport.checked, "transport needed still holds the previous request's answer").toBe(false);
 
     // And it is genuinely unanswered rather than merely blank-looking: Send is unavailable again,
     // names the questions it is waiting on, and a bare second tap raises nothing.
@@ -889,6 +897,46 @@ describe("ReferralIntakeForm", () => {
       "a second tap on Send raised a duplicate referral carrying the previous patient's facts",
     ).toBe(referralsBeforeSecondTap);
     expect(screen.getByTestId("rejection-count")).toHaveTextContent("0");
+  });
+
+  /**
+   * Owner ruling 2026-08-30: **keep it.** After a successful send the "Referral sent"
+   * confirmation stays on screen above the freshly blank form and its "not yet answered" note.
+   *
+   * WHAT THIS TEST ADDS, AND ONLY THIS. The confirmation's PRESENCE after a send is already
+   * pinned three times over — "submits a well-formed referral with no rejection", "makes Send
+   * available, and sends, once the last question is answered", and the reset test directly above,
+   * which already pairs that presence with a form that has reset. Not one of them says anything
+   * about WHERE it sits. The ORDERING is the half of the ruling nothing pins, so the ordering is
+   * the whole of what this test claims.
+   *
+   * Why the ordering is the ruling and not a detail: clearing the confirmation removes the only
+   * evidence the send happened, and a clinician who looks away mid-task then either sends twice
+   * or believes a referral went when it did not. A confirmation that has slipped BELOW the note
+   * saying nine questions are unanswered reads as belonging to the blank form underneath it,
+   * which is the same failure wearing a different hat.
+   *
+   * Stated exactly, so nothing here is overclaimed: the confirmation sits above the "not yet
+   * answered" note. It does not sit above the pickers — they are higher up the form still — so
+   * "above the freshly blank form" in the ruling is about that note, and this test says no more.
+   */
+  it("leaves the confirmation above the freshly blank form's outstanding-questions note", () => {
+    renderForm();
+
+    answerEveryQuestion();
+    fireEvent.click(submitButton());
+
+    const confirmation = screen.getByTestId("ward-referral-intake-confirmation");
+    // Non-vacuity, both ways. The confirmation only exists because the send succeeded, and the
+    // note only exists because the form then reset itself — so if either half of the pairing had
+    // broken, this test fails on a missing element rather than passing on an ordering nobody can
+    // see.
+    const note = screen.getByTestId("ward-referral-intake-unavailable");
+
+    expect(
+      confirmation.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING,
+      "the sent confirmation no longer precedes the blank form's outstanding-questions note — it now reads as belonging to the empty form beneath it",
+    ).toBeTruthy();
   });
 
   /**

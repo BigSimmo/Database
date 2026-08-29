@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
+import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import {
   HOME_REGIONS,
@@ -270,6 +271,171 @@ describe("front-door contract — fixed lists", () => {
       "Pilbara",
       "Kimberley",
     ]);
+  });
+});
+
+/**
+ * Owner ruling 2026-08-30: **only close to all.** An emergency department may close to all
+ * admissions; it may never refuse a named patient. Refusing a named person means recording a
+ * judgement about that individual; closing to everyone is a fact about the department.
+ *
+ * Today that ruling holds by ABSENCE — no event, no reducer path and no decline reason lets a
+ * department refuse one named individual on grounds that are about that individual. An absence is
+ * not a guarantee: nothing fails if somebody adds one. This is the guard, built in the same shape
+ * as `REFERRAL_DECLINE_REASONS contains no entry describing a person` above.
+ *
+ * WHAT IT ENUMERATES, and why it can fail on a path nobody here anticipated:
+ *
+ *   - **Every event type**, taken from `Object.keys(EVENT_ROLE)` rather than written out.
+ *     `EVENT_ROLE` is typed `Record<WardFlowEvent["type"], …>`, so the compiler forces a NEW
+ *     event variant to be added there, and it therefore turns up in this sweep whether or not
+ *     anyone remembered this file. The table below must classify every one of them by name, and
+ *     the key-set assertion fails on any type the table does not carry — so adding an event is a
+ *     decision somebody takes here rather than something a later diff reveals. That is the part
+ *     that fails on TOMORROW's path, not only on the ones listed today.
+ *   - **Every referral decline reason**, taken from `REFERRAL_DECLINE_REASONS` itself, each of
+ *     which must be listed below against the department-level or network-level fact it states.
+ *
+ * Reducer paths need no third sweep, and this guard does not pretend to perform one:
+ * `wardFlowReducer` switches on `event.type` over this same discriminated union, so a `case`
+ * label that is not an event type does not compile. That is the compiler's guarantee, restated
+ * here — not this test's.
+ *
+ * WHAT IT DOES NOT COVER — stated plainly rather than left to be inferred:
+ *
+ *   - It cannot tell whether a classification somebody writes into the table is HONEST. An author
+ *     who adds an individual-refusing event and marks it `false` walks straight past this guard.
+ *     What it catches is adding one SILENTLY.
+ *   - It says nothing about the movement-side `DECLINE`, which is one unit declining one
+ *     patient's placement and which carries an optional free-text `note`. That is a different
+ *     surface from the referral front door this ruling is about, and that free-text field is a
+ *     finding to raise, not something this guard closes.
+ *   - It reads the model only, never a screen. A refusal expressed in UI copy alone, or through
+ *     data (a unit configured so that exactly one referral fails the eligibility gate), is
+ *     outside its reach entirely.
+ *   - The reason-membership half is not this guard's own proof:
+ *     `tests/ward-referral-reducer.test.ts` already refuses an off-list `DECLINE_REFERRAL` reason
+ *     at runtime, by membership rather than truthiness, and this file does not duplicate it.
+ */
+describe("front-door contract — an ED may close to all admissions, never refuse a named patient", () => {
+  /**
+   * Every event in the model, and whether it can record the refusal of ONE named referral or
+   * placement. Written out by name so a new event is classified deliberately; the assertion below
+   * is what makes leaving it out impossible.
+   */
+  const EVENT_REFUSES_ONE_NAMED_SUBJECT: Record<WardFlowEvent["type"], boolean> = {
+    RAISE_REFERRAL: false,
+    RECORD_EXAMINATION: false,
+    REFER_TO_UNITS: false,
+    ACCEPT_IN_PRINCIPLE: false,
+    HOLD_BED: false,
+    // One unit declining one patient's placement, with a reason from `DECLINE_REASONS`.
+    DECLINE: true,
+    HANDOVER_READY: false,
+    TRANSPORT_ACCEPTED: false,
+    TRANSPORT_EN_ROUTE: false,
+    PATIENT_COLLECTED: false,
+    PATIENT_ARRIVED: false,
+    CONFIRM_CAPACITY: false,
+    RECORD_ESCALATION: false,
+    ADVANCE_CLOCK: false,
+    RESET_SCENARIO: false,
+    SET_SCENARIO: false,
+    ADD_PATIENT: false,
+    CHANGE_URGENCY: false,
+    CHANGE_LEGAL_STATUS: false,
+    RELEASE_HOLD: false,
+    CANCEL_TRANSPORT: false,
+    FLAG_BED_RELEASE: false,
+    CONFIRM_BED_RELEASE: false,
+    REVERT_BED_RELEASE: false,
+    BLOCK_BED_RELEASE: false,
+    CLEAR_BED_RELEASE_BLOCK: false,
+    SET_BED_PREPARATION: false,
+    RELEASE_BED: false,
+    RECORD_LEAVE_BED: false,
+    END_LEAVE_BED: false,
+    REQUEST_CAPACITY_REFRESH: false,
+    RECEIVE_REFERRAL: false,
+    ACCEPT_REFERRAL: false,
+    RECORD_LOCAL_BED_SOUGHT: false,
+    // The referral front door's own refusal, with a reason from `REFERRAL_DECLINE_REASONS`.
+    DECLINE_REFERRAL: true,
+  };
+
+  /**
+   * The events above that CAN refuse one named subject, written out separately from the table.
+   * The table says what each event is; this says how many of them there are, so a third cannot
+   * arrive by flipping one `false` in a long list nobody reads twice.
+   */
+  const REFUSES_ONE_NAMED_SUBJECT = ["DECLINE", "DECLINE_REFERRAL"];
+
+  it("classifies every event in the model, so a new refusal path cannot arrive unclassified", () => {
+    // Non-vacuity: the role table really was read, or every assertion below compares two empties.
+    expect(Object.keys(EVENT_ROLE).length).toBeGreaterThan(0);
+
+    expect(
+      Object.keys(EVENT_REFUSES_ONE_NAMED_SUBJECT).sort(),
+      "an event exists that nobody has weighed against the close-to-all ruling — classify it here",
+    ).toEqual(Object.keys(EVENT_ROLE).sort());
+
+    expect(
+      Object.entries(EVENT_REFUSES_ONE_NAMED_SUBJECT)
+        .filter(([, refuses]) => refuses)
+        .map(([type]) => type)
+        .sort(),
+      "another event can now refuse one named subject — the ruling permits closing to everyone, never refusing a person",
+    ).toEqual([...REFUSES_ONE_NAMED_SUBJECT].sort());
+  });
+
+  /**
+   * A denylist over event NAMES, in the same shape as the person-describing check on the decline
+   * reasons above and with the same acknowledged limit: it catches only a wording somebody
+   * anticipated. It earns its place because the words an individual-refusal event would reach for
+   * are exactly the ones the classification table's own author would nod through, and because the
+   * name is the part a reviewer skims.
+   */
+  it("names no event after refusing a person", () => {
+    for (const type of Object.keys(EVENT_ROLE)) {
+      const words = type.toLowerCase().replace(/_/g, " ");
+      for (const fragment of ["refuse", "reject", "unsuitable", "not appropriate", "unacceptable", "barred"]) {
+        expect(words, `${type} is named after refusing somebody`).not.toContain(fragment);
+      }
+    }
+  });
+
+  /**
+   * The half of the ruling that carries its meaning: a refusal at the front door must state a
+   * fact about the DEPARTMENT or the NETWORK — something that would be just as true of the next
+   * referral through the door — never a judgement about the person named on this one. Each reason
+   * is written out here against the subject it is a fact about.
+   *
+   * This overlaps the exact-array pin above, deliberately: that pin catches a new reason, and
+   * this catches what it cannot, where the author who adds a reason also updates the obvious list
+   * and never asks whose fact the new reason states.
+   */
+  it("states every decline reason as a fact about the department or the network, never about the person", () => {
+    const PERMITTED_SUBJECTS = ["the network", "this department", "the request"];
+    const SUBJECT_OF_EACH_REASON: Record<string, string> = {
+      no_suitable_bed: "the network",
+      age_band_not_provided_here: "this department",
+      sex_designation_unavailable: "the network",
+      secure_bed_unavailable: "the network",
+      belongs_to_another_service: "the request",
+      referred_elsewhere: "the request",
+    };
+
+    expect(
+      Object.keys(SUBJECT_OF_EACH_REASON).sort(),
+      "a decline reason exists whose subject nobody has stated — say whose fact it is, and it must not be the person's",
+    ).toEqual([...REFERRAL_DECLINE_REASONS].sort());
+
+    for (const reason of REFERRAL_DECLINE_REASONS) {
+      expect(
+        PERMITTED_SUBJECTS,
+        `${reason} is a fact about the person referred, which is the one thing a refusal may never be`,
+      ).toContain(SUBJECT_OF_EACH_REASON[reason]);
+    }
   });
 });
 

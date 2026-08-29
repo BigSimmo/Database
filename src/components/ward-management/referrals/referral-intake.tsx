@@ -121,7 +121,11 @@ type ReferralDraft = {
   /** Already a `string`, so the sentinel needs no widening here — but see `UNANSWERED_VALUE`'s
    *  own comment for why that sentinel must not be `""`. */
   originSiteCode: string;
-  transportNeeded: boolean;
+  /** Widened exactly as the two need questions above were, and for the same reason: a bare
+   *  `boolean` has no room for "nobody has answered this yet", so the type itself would go on
+   *  forcing an answer nobody gave. See `REQUIRED_FIELDS` below for the ruling that authorised
+   *  the extra tap. */
+  transportNeeded: boolean | typeof UNANSWERED_VALUE;
 };
 
 /** The nine fields exactly as `RECEIVE_REFERRAL` takes them, once every question has an answer. */
@@ -141,10 +145,20 @@ type AnsweredDraft = {
  * Every question Send waits on, in the order the form asks them, with the name the unavailability
  * note calls each one.
  *
- * `transportNeeded` is deliberately absent. It is a fact about the REFERRAL rather than about the
- * person; an unticked box there reads as "no transport arranged" rather than as a clinical claim
- * about someone, and making it a third yes/no group would cost a tap this work is not authorised
- * to spend. Recorded as a residual rather than quietly folded in here.
+ * `transportNeeded` used to be deliberately absent, and this paragraph used to say why: it is a
+ * fact about the REFERRAL rather than about the person, an unticked box there reads as "no
+ * transport arranged" rather than as a clinical claim about someone, and making it a third yes/no
+ * group would cost a tap the work was "not authorised to spend". It was recorded as a residual
+ * rather than quietly folded in.
+ *
+ * SUPERSEDED, owner ruling 2026-08-30: **"Take all recommendations"** — including that transport
+ * should start unanswered. The authorisation the paragraph above was waiting on now exists, so
+ * the residual is closed and `transportNeeded` is the ninth question Send waits on. The reasoning
+ * is kept rather than deleted because it is still true about the SIZE of the cost (one more tap
+ * on a phone form a police officer fills in standing up); what changed is that the owner decided
+ * the cost was worth paying. An untouched checkbox sent `false`, and a ward reads `false` as "no
+ * transport needed" and plans around it — an answer nobody chose, which is the same defect R2.1
+ * removed everywhere else on this form.
  *
  * The two need questions are named by short field names rather than by their full on-screen
  * wording on purpose: that wording ("Needs a secure bed" …) is a clinical rule with its own test,
@@ -159,6 +173,7 @@ const REQUIRED_FIELDS: readonly { readonly key: keyof ReferralDraft; readonly na
   { key: "originSiteCode", name: "Origin site" },
   { key: "secureBedNeeded", name: "Secure bed needed" },
   { key: "involuntaryBedNeeded", name: "Involuntary bed needed" },
+  { key: "transportNeeded", name: "Transport needed" },
 ];
 
 /** The same names, in the same order, for the suite that pins what the note may say. */
@@ -178,12 +193,26 @@ function unansweredFieldNames(draft: ReferralDraft): string[] {
  * which is a definite clinical answer nobody gave.
  */
 function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
-  const { ageBand, sex, homeRegion, secureBedNeeded, involuntaryBedNeeded, source, urgency, originSiteCode } = draft;
+  const {
+    ageBand,
+    sex,
+    homeRegion,
+    secureBedNeeded,
+    involuntaryBedNeeded,
+    source,
+    urgency,
+    originSiteCode,
+    transportNeeded,
+  } = draft;
   if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
   if (source === UNANSWERED_VALUE || urgency === UNANSWERED_VALUE || originSiteCode === UNANSWERED_VALUE) {
     return undefined;
   }
   if (secureBedNeeded === UNANSWERED_VALUE || involuntaryBedNeeded === UNANSWERED_VALUE) return undefined;
+  // Owner ruling 2026-08-30 ("Take all recommendations"). The narrowing is what stops the
+  // sentinel escaping: `transportNeeded` was read straight off `draft` here and passed through
+  // untouched, which is exactly how a value nobody chose used to reach `RECEIVE_REFERRAL`.
+  if (transportNeeded === UNANSWERED_VALUE) return undefined;
   return {
     ageBand,
     sex,
@@ -193,7 +222,7 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     source,
     urgency,
     originSiteCode,
-    transportNeeded: draft.transportNeeded,
+    transportNeeded,
   };
 }
 
@@ -225,7 +254,10 @@ function initialDraft(): ReferralDraft {
     source: UNANSWERED_VALUE,
     urgency: UNANSWERED_VALUE,
     originSiteCode: UNANSWERED_VALUE,
-    transportNeeded: false,
+    // Owner ruling 2026-08-30 ("Take all recommendations"): transport starts unanswered too. It
+    // was the last control on this form still sending an answer nobody chose — an untouched form
+    // asserted "no transport needed", and a ward reads that and plans around it.
+    transportNeeded: UNANSWERED_VALUE,
   };
 }
 
@@ -600,15 +632,46 @@ export function ReferralIntakeForm() {
             </div>
           </fieldset>
 
-          <label className={styles.toggleCard}>
-            <input
-              type="checkbox"
-              data-testid="ward-referral-intake-transportNeeded"
-              checked={draft.transportNeeded}
-              onChange={(event) => setDraft((current) => ({ ...current, transportNeeded: event.target.checked }))}
-            />
-            Transport needed
-          </label>
+          {/*
+           * Owner ruling 2026-08-30: **"Take all recommendations"** — including that transport
+           * should start unanswered.
+           *
+           * This was a checkbox until that ruling, and an untouched checkbox is not an open
+           * question: it sent `false`, which a ward reads as the definite statement that this
+           * request needs no transport and plans around. It is now the same yes/no group as the
+           * two need questions above — the same `.choiceCard` fieldset, the same radio pair, the
+           * same "neither answer selected until a clinician picks one" — because a control with
+           * two states cannot express three, and the third state is the whole point.
+           *
+           * The legend is unchanged from the old checkbox's label. It already described the
+           * REQUEST rather than the person, which is why this field needed no rewording when the
+           * two above did.
+           */}
+          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-transportNeeded">
+            <legend className={styles.fieldLegend}>Transport needed</legend>
+            <div className={styles.choiceRow}>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-transportNeeded"
+                  data-testid="ward-referral-intake-transportNeeded-yes"
+                  checked={draft.transportNeeded === true}
+                  onChange={() => setDraft((current) => ({ ...current, transportNeeded: true }))}
+                />
+                Yes
+              </label>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-transportNeeded"
+                  data-testid="ward-referral-intake-transportNeeded-no"
+                  checked={draft.transportNeeded === false}
+                  onChange={() => setDraft((current) => ({ ...current, transportNeeded: false }))}
+                />
+                No
+              </label>
+            </div>
+          </fieldset>
 
           {lastRejection ? (
             <p className={styles.rejection} data-testid="ward-referral-intake-rejection" role="alert">
