@@ -756,3 +756,75 @@ person standing next to a vehicle.
 **Dependency:** the drop-off window requires D15's receiving-time list, still owner-pending. Until it
 arrives the screen can be built showing pickup only, with the drop-off column stated as not yet
 recorded — never blank, and never implying the ward has said "any time".
+
+### DB-7 — A rolling 24 hours, not "before tonight" (OWNER, 2026-08-29)
+
+> "you operate on 24 hour 24/7 clock as patients can be moved at any time."
+
+The horizon for "is this discharge near enough to count" becomes **a rolling 24 hours from now**,
+replacing the fixed end-of-evening cutoff.
+
+**The original reasoning survives:** beyond roughly a day a discharge prediction is a guess, so a
+horizon is right. What was wrong was its shape. A cutoff at a fixed time of day **shrinks as the day
+goes on** — fourteen hours at the 08:00 handover, two hours at 22:00 — which is an artefact of the
+clock rather than a statement about how far ahead anyone can predict. Patients move at 3am.
+
+**The excluded count stays.** It is the safety valve that shows when the horizon is too short, and it
+is more useful under a rolling window, not less.
+
+**WHERE THIS ACTUALLY LANDS, checked rather than assumed.** It was relayed as a change to the ward
+board. It is not. Neither `ward-discharge-dates.ts` nor `ward-board-derivations.ts` carries an
+end-of-day cutoff — the arrow horizon is already rolling, and the discharge-date module explicitly
+defers all bucketing rather than repeating it. The shrinking window is **one comparison in
+`ward-bed-availability.ts`** (`release.expectedAt > EVENING_SHIFT_END_MINUTES`), a shared,
+pre-existing file that predates both current branches.
+
+**So this is not a tidy-up. `capacityBreakdown` feeds the morning page**, and the morning page is
+fixed, printable, and the artefact the whole programme exists to put in front of colleagues. Widening
+the window **raises its predicted-discharge figure** — not because any ward improved, but because the
+window grew.
+
+**The owner was told that explicitly and confirmed: one clock everywhere, and the morning page moves
+with it.** Two screens counting the same thing differently is the failure he has refused at every
+other decision point, and it is not worth avoiding here.
+
+**Required with it:** the change and its date are stated on the morning page the first time it shows
+the new figures, so nobody reads a widened window as a service that suddenly got better at
+discharging. A figure that jumps with no explanation is how a number gets quoted in a meeting and
+then disbelieved.
+
+**Sequencing:** do this at the fold, deliberately, with the morning page's figures re-derived and
+looked at — not squeezed into either branch mid-phase. It touches a shared file and a printed page.
+
+### DB-8 — The leave-bed usable flag is multi-role, and an override is recorded (OWNER, 2026-08-29)
+
+> "the wards decide if leave bed is usable but also can be overridden by coordinator or treatment
+> team as well, all have control."
+
+Whether a bed whose occupant is on leave can be filled is set by the ward, and **the coordinator and
+the treatment team may override it**. All three roles have control.
+
+**This modifies one previously settled rule and leaves the rest standing.** "Only the ward may move a
+bed between stages; the coordinator sees and does not change" **still holds for the stages**. It is
+the leave-bed usable flag alone that becomes multi-role.
+
+**An override is RECORDED as an override** — the current answer, plus the fact that it was overridden,
+by which **role** (never a person) and when. Owner's decision, put to him rather than assumed.
+
+The reason, and it is the same one this design has applied everywhere: **two roles disagreeing about
+whether a bed someone is returning to can be filled is a real clinical fact**, and a silent
+replacement destroys it. A ward that opens its own board and finds a decision it did not make, with
+nothing saying who made it, is a ward that stops maintaining the board — which costs more than the
+override was worth.
+
+**Unchanged and no longer open:** a role and a timestamp are enough provenance to trust a figure; and
+leave beds stay counted separately and are **never** mixed into the available figure.
+
+### DB-9 — The three approved lists are liable to change (OWNER, 2026-08-29)
+
+Recorded, not acted on. The owner has agreed the three lists as they stand but expects them to become
+more specific and to gain or lose entries. **"Leave as is for now."**
+
+The verbatim rule is **unchanged**: no agent may tidy, shorten, reorder or remove an entry. This
+records only that a revision is anticipated — consistent with the predicted-discharge list already
+being flagged as the one most needing a clinician's own words.
