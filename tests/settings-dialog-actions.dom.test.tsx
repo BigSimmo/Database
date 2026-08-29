@@ -98,9 +98,8 @@ afterEach(async () => {
 
 describe("SettingsDialog — destructive and account actions", () => {
   // A Development section carries the in-progress surfaces while they are being
-  // built. It is gated to development builds, matching `mockupsEnabled()`, and the
-  // rail must not advertise a section the body does not render. The route is a
-  // mockup, so the entry navigates through <Link> and closes the sheet behind it.
+  // built. The route is a mockup, so the entry navigates through <Link> and
+  // closes the sheet behind it.
   it("opens the Development page from a gated Development section", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
@@ -114,14 +113,7 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
-    // The desktop rail lists exactly the sections that render.
-    const railLabels = [...document.querySelectorAll("[data-settings-nav-target]")].map((el) =>
-      el.getAttribute("data-settings-nav-target"),
-    );
-    const renderedIds = [...document.querySelectorAll("[data-settings-section]")].map((el) =>
-      el.getAttribute("data-settings-section"),
-    );
-    expect(railLabels).toEqual(renderedIds);
+    expect(document.querySelector("[data-settings-nav-target]")).toBeNull();
   });
 
   it("clears recent searches through the privacy action", () => {
