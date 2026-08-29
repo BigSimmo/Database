@@ -293,6 +293,22 @@ reintroduce the superseded set out of a document that had been "fixed". Those sa
 **deliberately not rewritten** — back-dating a plan's code to match a later decision destroys the
 provenance that made this findable — and the header now states that the code is the authority.
 
+### 3e. Check for the ABSENCE of the superseded value, not only the presence of the current one
+
+A presence check cannot see a wrong thing sitting alongside a right one. `under-2-weeks` returning 5
+proves the owner's bands arrived; it does not prove the superseded ones left. Only the pair rules out
+a mixed resolution:
+
+```bash
+grep -c under-2-weeks src/components/ward-management/ward-admissions.ts   # >= 1   the current set arrived
+grep -c under-1-week  src/components/ward-management/ward-admissions.ts   # == 0   the superseded set left
+```
+
+Contributed by the ward board session, which ran the absence half at the fold **without being asked
+for it** — nothing in this procedure required it. It generalises past stay bands to any supersession:
+whenever a value replaces another, assert both that the new one is there and that the old one is
+gone, or a resolution that kept both passes every check you wrote.
+
 **Cheap belt-and-braces before taking the board's copy of `ward-admissions-seed.ts`:** compare its
 blob id against the known-good `f56fe635671e4325d0b3f70891d35e3a497cf389` at `3ca0bb676`. One command,
 no test run, and it closes the window in which a mutated seed could be committed and taken wholesale.
@@ -329,6 +345,19 @@ Carried, not owned by the fold:
 6. **The network diagram has no `@media print` block** and prints zero unit nodes in both modes.
    Pre-existing, not a fold regression — recorded in the issue inbox before the fold precisely so it
    is not later attributed to the merge.
+
+### Still owed after the fold — deliberately not done in it
+
+**The per-unit board link.** `ward-nav.ts` links ONE seeded example of the ward board; every other
+ward's board is reachable only by typing its address. The obvious home is a second group in
+`ward-role-switcher.tsx` mirroring the existing "Ward" group — but that adds a second full list of 23
+units to a menu that already carries one, and the better design may be a link on each ward's own
+screen ("open this ward's board") rather than doubling the switcher.
+
+That is a product judgement about a screen, not a mechanical fix, and **this project's entire
+screen-defect history was found by rendering and looking** — never by a static test. So it is left
+undone rather than guessed at, with both candidate shapes recorded. It needs someone to look at the
+menu at three widths and decide, which is the owner's kind of call.
 
 ---
 
