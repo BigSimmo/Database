@@ -37,13 +37,13 @@ Phase 7 completed (its Chromium journey, the morning page's people-waiting figur
 all while this design sat waiting. **Thirty commits landed between this spec being written and being
 revised**, and five changed things it depends on:
 
-| Landed | Consequence here |
-| ------ | ---------------- |
-| The bed model became **three stages plus a flag** | D4 rewritten; `blocked` is never a state on this board |
-| `BedRelease.confidence` → **`waitingOn`** (`BED_RELEASE_WAITING_ON`) | Any `confidence` reference in this design is stale |
-| **`BED_RELEASE_BLOCKERS` owner-approved at eight entries** | D9's draft withdrawn; this board defines no list of its own |
-| **`BED_PREPARATION_NOTES` filled** | A new tile caption — and a trap, see D7 |
-| Phase 8's **travel bands, home region, out-of-area definition** | D12's arrows may carry a band, under Phase 8's rules |
+| Landed                                                               | Consequence here                                            |
+| -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| The bed model became **three stages plus a flag**                    | D4 rewritten; `blocked` is never a state on this board      |
+| `BedRelease.confidence` → **`waitingOn`** (`BED_RELEASE_WAITING_ON`) | Any `confidence` reference in this design is stale          |
+| **`BED_RELEASE_BLOCKERS` owner-approved at eight entries**           | D9's draft withdrawn; this board defines no list of its own |
+| **`BED_PREPARATION_NOTES` filled**                                   | A new tile caption — and a trap, see D7                     |
+| Phase 8's **travel bands, home region, out-of-area definition**      | D12's arrows may carry a band, under Phase 8's rules        |
 
 **The sequencing constraint has not gone away, it has moved.** No task may begin while another
 session is building in this worktree — the pre-commit hook inspects the whole working tree, so two
@@ -81,17 +81,17 @@ That gap costs three things:
 
 ## What already exists — extend it, do not build beside it
 
-| Exists                                                                       | How this work uses it                                                                                              |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `Unit` — beds, empty, allocatable, held, blocked, `sexMix`, `speciallingCapacity`, four bed dimensions | The board renders from it. `sexMix` becomes derived rather than hand-maintained (D5)                     |
-| `Movement` — a person travelling to a ward, ending at `arrived`                | The movement's arrival is what creates an admission (D2)                                                          |
-| `Referral` (Phase 7) — the front door, five person-facts, three outcomes       | The left column's referral side. Extended with the ward waitlist (D3)                                             |
-| `BedRelease` — **three stages** (`predicted`/`confirmed`/`released`), `expectedAt`, `waitingOn`, and `blocker` as a FLAG | Derived from the discharge date (D4). Not written by hand any more |
-| `LeaveBed` — a bed whose occupant is on approved leave, usable or not          | A tile state on the board. Unchanged                                                                              |
-| `eligibility()` / matching (Phase 7)                                           | Powers "select a referral and the beds answer" (D13). No new matching logic                                       |
-| `WardFreshness` + refresh-requested                                            | The daily-confirm staleness signal (D10). Same mechanism, new trigger                                             |
-| `UnwindRecord`                                                                 | Undo (D17). Same discipline                                                                                        |
-| `capacityBreakdown()` / `ward-morning-rollup.ts`                               | Untouched arithmetic. The board must never compute a bed figure of its own                                        |
+| Exists                                                                                                                   | How this work uses it                                                                |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `Unit` — beds, empty, allocatable, held, blocked, `sexMix`, `speciallingCapacity`, four bed dimensions                   | The board renders from it. `sexMix` becomes derived rather than hand-maintained (D5) |
+| `Movement` — a person travelling to a ward, ending at `arrived`                                                          | The movement's arrival is what creates an admission (D2)                             |
+| `Referral` (Phase 7) — the front door, five person-facts, three outcomes                                                 | The left column's referral side. Extended with the ward waitlist (D3)                |
+| `BedRelease` — **three stages** (`predicted`/`confirmed`/`released`), `expectedAt`, `waitingOn`, and `blocker` as a FLAG | Derived from the discharge date (D4). Not written by hand any more                   |
+| `LeaveBed` — a bed whose occupant is on approved leave, usable or not                                                    | A tile state on the board. Unchanged                                                 |
+| `eligibility()` / matching (Phase 7)                                                                                     | Powers "select a referral and the beds answer" (D13). No new matching logic          |
+| `WardFreshness` + refresh-requested                                                                                      | The daily-confirm staleness signal (D10). Same mechanism, new trigger                |
+| `UnwindRecord`                                                                                                           | Undo (D17). Same discipline                                                          |
+| `capacityBreakdown()` / `ward-morning-rollup.ts`                                                                         | Untouched arithmetic. The board must never compute a bed figure of its own           |
 
 ---
 
@@ -127,12 +127,12 @@ Answered by the owner on 2026-08-28, and it corrected the assumption in the firs
 > waitlisted. When they are pulled, even if onsite awaiting transport, this is when they count as
 > bed lost as this is when the bed is essentially given away."
 
-| State           | The bed is | The person is                      |
-| --------------- | ---------- | ---------------------------------- |
-| `waitlisted`    | free       | accepted by this ward, elsewhere   |
-| `pulled`        | **gone**   | still elsewhere, awaiting transport |
-| `occupied`      | gone       | in the bed                          |
-| `left`          | free       | gone                               |
+| State        | The bed is | The person is                       |
+| ------------ | ---------- | ----------------------------------- |
+| `waitlisted` | free       | accepted by this ward, elsewhere    |
+| `pulled`     | **gone**   | still elsewhere, awaiting transport |
+| `occupied`   | gone       | in the bed                          |
+| `left`       | free       | gone                                |
 
 **The rule this makes:** a ward's available-bed count drops at the pull. Verified against the
 existing model — `held` is already excluded from `availableNow`, so this stays consistent with the
@@ -178,17 +178,17 @@ screens can show different dates and there is one thing to update.
 owner replaced the four-stage model with **three stages plus a flag** while this design sat waiting
 on Phase 7. This spec now targets the new model:
 
-| Ward says                   | Bed release becomes                                    |
-| --------------------------- | ------------------------------------------------------ |
-| a date is set               | `predicted`, carrying `waitingOn`                      |
-| confirmed as going          | `confirmed`, carrying `waitingOn`                      |
+| Ward says                   | Bed release becomes                                        |
+| --------------------------- | ---------------------------------------------------------- |
+| a date is set               | `predicted`, carrying `waitingOn`                          |
+| confirmed as going          | `confirmed`, carrying `waitingOn`                          |
 | ready to leave, cannot (D9) | **a `blocker` flag on the predicted OR confirmed release** |
-| gone                        | `released`                                             |
+| gone                        | `released`                                                 |
 
 **`blocked` is no longer a stage and must never be treated as one.** It is a flag
 (`blocker` + `blockedBy`, a role) sitting on a release that stays predicted or confirmed. The defect
 that forced this is exactly the one this board could reintroduce: `capacityBreakdown` sorted today's
-releases into confirmed or predicted *by state*, so a release in state `blocked` matched neither
+releases into confirmed or predicted _by state_, so a release in state `blocked` matched neither
 branch and was counted **nowhere** — marking a confirmed discharge blocked dropped the ward's
 confirmed count with nothing saying why, so the figures improved at the moment the ward got stuck.
 
@@ -200,7 +200,7 @@ Two rules follow, and both are load-bearing on this board:
    others.** It counts releases carrying a blocker, and those same releases are still counted in
    confirmed or predicted. A board that subtracts it has reintroduced the defect.
 
-**`confidence` is gone.** A predicted release no longer says how *certain* the ward is; it says what
+**`confidence` is gone.** A predicted release no longer says how _certain_ the ward is; it says what
 it is **waiting on** — `BED_RELEASE_WAITING_ON`, a fact rather than a judgement, because two wards'
 "likely" do not mean the same thing and a coordinator can neither compare nor add them. Any code in
 this design referring to `confidence` is stale and must read `waitingOn`.
@@ -255,11 +255,11 @@ is, or about sides of a ward.
 
 ### D7 — The tile carries three signals, on three different channels
 
-| Channel     | Fact                                                                      |
-| ----------- | ------------------------------------------------------------------------- |
-| **Fill**    | how long the person has been there, in the owner's four bands             |
-| **Outline** | past their own expected discharge date                                    |
-| **Number**  | days, written out                                                         |
+| Channel     | Fact                                                          |
+| ----------- | ------------------------------------------------------------- |
+| **Fill**    | how long the person has been there, in the owner's four bands |
+| **Outline** | past their own expected discharge date                        |
+| **Number**  | days, written out                                             |
 
 **The owner's stay bands, used verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
 These are his, not derived from anything, and the page must label them as bands he set.
@@ -277,12 +277,12 @@ Tile states beyond occupied: ready; pulled-but-empty (with its clock, D2); on le
 **Two traps here, both introduced by changes that landed after this spec was first written.**
 
 1. **A bed being made ready is still available.** `BED_PREPARATION_NOTES` ("Being cleaned",
-   "Awaiting maintenance or repair") is a note *on an available bed*: it is still offered, still
+   "Awaiting maintenance or repair") is a note _on an available bed_: it is still offered, still
    counts in `availableNow`, and still appears in every figure. The obvious implementation — a
    distinct tile state that reads as unavailable — silently removes beds from the state's supply.
    The note is a caption on a ready bed, not a state instead of ready.
 2. **Blocked is a flag, not a tile state of its own.** The person is still in the bed and the bed is
-   still occupied; the blocker sits on their pending release. A tile shows occupied *and* carries
+   still occupied; the blocker sits on their pending release. A tile shows occupied _and_ carries
    the blocker; it never shows blocked instead of occupied.
 
 ### D8 — Leaving records where to, and only real departures free a bed statewide
@@ -335,7 +335,7 @@ asserting freshness. This is the only mechanism that reliably keeps a shared boa
 prototype already has exactly this machinery for bed counts (`WardFreshness`, `staleAfterMinutes`,
 refresh-requested). The coordinator may additionally mark a ward refresh-requested, as today.
 
-**The one place friction is added deliberately:** *nothing has changed* cannot be pressed over a date
+**The one place friction is added deliberately:** _nothing has changed_ cannot be pressed over a date
 that has already passed. Without this rule a ward presses that button for three weeks while every
 date sits quietly in the past and the board becomes fiction. Stale rows must be touched; every other
 row is untouched by definition.
@@ -377,7 +377,7 @@ right — with the flow running left-to-right **out** of the ward instead of **i
 
 **One headline number, then the sentence that qualifies it.** Five figures across the top is what the
 morning page uses for the whole state and it is too much for one ward. "3 beds you can fill today"
-followed by *"only 1 will take a man, only 1 can be watched one-to-one"* is the single most valuable
+followed by _"only 1 will take a man, only 1 can be watched one-to-one"_ is the single most valuable
 line on the page: sex designation and observation capacity are the commonest reasons a bed is not a
 bed, and both are already in the model.
 
@@ -442,14 +442,14 @@ Ward strip (at the foot of its own board) and a new statewide page comparing war
 figures. The ward sees itself; the coordinator sees everyone; and a ward that produces the numbers
 gets something back for producing them.
 
-| Figure                        | Derived from                              |
-| ----------------------------- | ----------------------------------------- |
-| Average length of stay        | `arrivedAt` to leaving                    |
-| Empty-bed time                | `pulledAt` to `arrivedAt` (D2) — new     |
-| Discharge dates met           | date moved count and outcome (D4)         |
-| Waitlist wait                 | accepted to pulled (D3)                   |
-| Ready to leave, cannot        | blocked admissions (D9)                   |
-| Long stays                    | occupancies over 3 months (D7)            |
+| Figure                 | Derived from                         |
+| ---------------------- | ------------------------------------ |
+| Average length of stay | `arrivedAt` to leaving               |
+| Empty-bed time         | `pulledAt` to `arrivedAt` (D2) — new |
+| Discharge dates met    | date moved count and outcome (D4)    |
+| Waitlist wait          | accepted to pulled (D3)              |
+| Ready to leave, cannot | blocked admissions (D9)              |
+| Long stays             | occupancies over 3 months (D7)       |
 
 All are ward-level. None carries anything about a person. **Empty-bed time is a number nobody
 currently has** and is the transport delay, measured.
@@ -484,14 +484,14 @@ switcher makes this cheap.
 
 **What is refused, permanently, and why — so a later session does not reopen it:**
 
-| Refused                                        | Why                                                                                     |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Any free-text field                            | One becomes the whole product within a month, and it is the rule keeping real data out    |
-| Risk or acuity scores                          | Invented numbers that look clinical                                                       |
+| Refused                                          | Why                                                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Any free-text field                              | One becomes the whole product within a month, and it is the rule keeping real data out              |
+| Risk or acuity scores                            | Invented numbers that look clinical                                                                 |
 | Predicting length of stay, suggesting discharges | The ward sets a date; the system never guesses one. Showing and recommending are different products |
-| Target lengths of stay per ward                | A threshold nobody agreed to, used to judge people                                        |
-| Alerts that chase                              | Things go stale visibly. Nothing sends, nothing nags (roadmap 9)                          |
-| Configurable layouts                            | Two wards arranging it differently quote different numbers at each other (roadmap 13)     |
+| Target lengths of stay per ward                  | A threshold nobody agreed to, used to judge people                                                  |
+| Alerts that chase                                | Things go stale visibly. Nothing sends, nothing nags (roadmap 9)                                    |
+| Configurable layouts                             | Two wards arranging it differently quote different numbers at each other (roadmap 13)               |
 
 ---
 
@@ -543,26 +543,26 @@ Local and offline only. No provider-backed command, ever.
 
 ## Risks
 
-| Risk                                                                  | Mitigation                                                                            |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Replacing today's ward screen loses a control someone relied on        | Enumerate every existing control and where it went, before deleting anything            |
-| The board becomes busy — three signals, arrows, statistics, a toggle   | One headline number; two colours; statistics at the foot; arrows only near discharge     |
-| Sex on an admission is a governance widening                           | Flagged in D5 with the fallback named; owner may overrule at one module's cost           |
-| The owner-pending lists (D9, D15) get filled in by an agent            | Both scheduled late; drafts labelled as drafts; no invented list may ship                |
-| Deriving releases from a date breaks Phase 5's arithmetic              | The board computes no bed figure of its own; every figure comes from `capacityBreakdown` |
-| Phase 7 and this work collide in the same four files                   | Hard sequencing constraint, stated at the top                                            |
+| Risk                                                                 | Mitigation                                                                               |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Replacing today's ward screen loses a control someone relied on      | Enumerate every existing control and where it went, before deleting anything             |
+| The board becomes busy — three signals, arrows, statistics, a toggle | One headline number; two colours; statistics at the foot; arrows only near discharge     |
+| Sex on an admission is a governance widening                         | Flagged in D5 with the fallback named; owner may overrule at one module's cost           |
+| The owner-pending lists (D9, D15) get filled in by an agent          | Both scheduled late; drafts labelled as drafts; no invented list may ship                |
+| Deriving releases from a date breaks Phase 5's arithmetic            | The board computes no bed figure of its own; every figure comes from `capacityBreakdown` |
+| Phase 7 and this work collide in the same four files                 | Hard sequencing constraint, stated at the top                                            |
 
 ## Assumptions, and what each would cost to reverse
 
-| Assumption                                                     | If wrong                                                        |
-| -------------------------------------------------------------- | ---------------------------------------------------------------- |
-| The bed is lost at the pull, not the arrival                    | Owner-supplied on 2026-08-28. Reversal: one predicate            |
-| A ward controls its own waitlist order                          | Reversal: replace a manual order with a sort. One module          |
-| One discharge date is enough; wards do not need two             | Reversal: a second field and a second column. Moderate            |
-| The four stay bands are the right ones                          | Owner-supplied. Reversal: four numbers                            |
-| Anonymous tiles are sufficient                                  | Reversal: add bed identity. Moderate — touches placement          |
-| Invented community team names are acceptable                    | Reversal: swap the table. Under an hour                           |
-| Diagnosis stays out                                             | Reversal: one field, by owner decision only                       |
+| Assumption                                          | If wrong                                                 |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| The bed is lost at the pull, not the arrival        | Owner-supplied on 2026-08-28. Reversal: one predicate    |
+| A ward controls its own waitlist order              | Reversal: replace a manual order with a sort. One module |
+| One discharge date is enough; wards do not need two | Reversal: a second field and a second column. Moderate   |
+| The four stay bands are the right ones              | Owner-supplied. Reversal: four numbers                   |
+| Anonymous tiles are sufficient                      | Reversal: add bed identity. Moderate — touches placement |
+| Invented community team names are acceptable        | Reversal: swap the table. Under an hour                  |
+| Diagnosis stays out                                 | Reversal: one field, by owner decision only              |
 
 ## Open questions for the product owner
 
@@ -637,8 +637,8 @@ field and from nothing else.
 **D11's headline sentence was specified against a model that cannot produce it, and building it proved
 so.** The spec's example reads "Only 1 will take a man". `Unit.sexDesignation` is a single value for
 the **whole unit**, so sex acceptance is all-or-nothing and the only reachable output was "**None**
-will take a man". The situation the line existed to surface — *three beds free, but they are all in
-the male bay* — was not expressible at all.
+will take a man". The situation the line existed to surface — _three beds free, but they are all in
+the male bay_ — was not expressible at all.
 
 Three options were put to the owner: a ward-stated daily number, per-bed designations, or leaving the
 whole-ward property alone. **He chose the ward-stated number.**
@@ -732,9 +732,9 @@ start.
 
 Two windows govern every job, and they come from opposite ends:
 
-| Window | Stated by | Meaning |
-| ------ | --------- | ------- |
-| **Pickup** | the origin (emergency department or site) | when the person can be collected |
+| Window       | Stated by                                            | Meaning                           |
+| ------------ | ---------------------------------------------------- | --------------------------------- |
+| **Pickup**   | the origin (emergency department or site)            | when the person can be collected  |
 | **Drop-off** | the receiving ward, **at the moment it pulls** (D15) | when the ward can take a handover |
 
 **A job is startable when both windows are open.** That derived fact is the screen's entire content,
@@ -844,7 +844,7 @@ moves once it leaves the printer. The oddity being removed is that a sheet print
 shows the morning's numbers, which is a stale artefact rather than a stable one.
 
 **What is genuinely lost, and the safeguard that covers it.** Today everyone who prints gets the
-*same* sheet. Under this change, someone printing at 08:14 and someone printing at 15:22 hold sheets
+_same_ sheet. Under this change, someone printing at 08:14 and someone printing at 15:22 hold sheets
 with different figures and could disagree without knowing why — which is precisely the failure D3
 existed to prevent.
 
@@ -946,6 +946,6 @@ lines on a "nothing imports it" basis and was walked back seven times; four surv
 importers and were all alive.
 
 **Do not tune the threshold or the refusal list to make this diff pass.** The honest route when it
-refuses is a recorded decision — *this symbol is deliberately dead because the owner reversed D3 on
-2026-08-29* — not a gate change. Run it **early**, not at the end, and `git fetch --deepen=2000`
+refuses is a recorded decision — _this symbol is deliberately dead because the owner reversed D3 on
+2026-08-29_ — not a gate change. Run it **early**, not at the end, and `git fetch --deepen=2000`
 first: on a shallow clone it can date nothing and its judgement is weaker than it looks.

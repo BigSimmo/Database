@@ -20,12 +20,12 @@ understanding of what such a system would have to do — something to put in fro
 
 ## 2. Where the work lives — TWO branches, deliberately
 
-|                  | **Phase 8 — distance and the state**                | **The ward board**                                              |
-| ---------------- | ---------------------------------------------------- | ---------------------------------------------------------------- |
-| **Worktree**     | `D:\Worktrees\Database\pr-2390-fix`                  | `D:\Repos\Database\.claude\worktrees\nostalgic-vaughan-7ee231`   |
-| **Branch**       | `claude/ward-flow-phases-6-7-design`                 | `claude/ward-flow-ward-board`                                    |
-| **`cd` prefix**  | `cd /d/Worktrees/Database/pr-2390-fix &&`            | `cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 &&` |
-| **Holds**        | Phases 1–7 complete, Phase 8 in progress            | The ward board's calculation layer only — no screens yet         |
+|                 | **Phase 8 — distance and the state**      | **The ward board**                                                   |
+| --------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| **Worktree**    | `D:\Worktrees\Database\pr-2390-fix`       | `D:\Repos\Database\.claude\worktrees\nostalgic-vaughan-7ee231`       |
+| **Branch**      | `claude/ward-flow-phases-6-7-design`      | `claude/ward-flow-ward-board`                                        |
+| **`cd` prefix** | `cd /d/Worktrees/Database/pr-2390-fix &&` | `cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 &&` |
+| **Holds**       | Phases 1–7 complete, Phase 8 in progress  | The ward board's calculation layer only — no screens yet             |
 
 **Prefix every shell command with the `cd` for the branch you are on.** The working directory does
 not reliably persist and silently reverts to a different checkout. An implementer lost an hour to
@@ -49,14 +49,14 @@ step, the final visual pass, and a whole-branch review.
 **The ward board — CALCULATION LAYER COMPLETE, no screens.** Nine commits, 116 tests, all green
 together. Built to run safely beside Phase 8 by touching no file that exists on its branch.
 
-| Module | What it holds |
-| ------ | ------------- |
-| `ward-admissions.ts` | The `Admission` record — the first person *inside* a bed, not travelling toward one |
-| `ward-admissions-seed.ts` | 267 synthetic occupancies across 23 units |
-| `ward-discharge-dates.ts` | The ward's date drives the bed release |
-| `ward-board-derivations.ts` | The headline figure and the constraint sentence under it |
-| `ward-statistics.ts` | Six ward-level flow figures |
-| `ward-teams.ts` | A synthetic community team per WA region |
+| Module                      | What it holds                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `ward-admissions.ts`        | The `Admission` record — the first person _inside_ a bed, not travelling toward one |
+| `ward-admissions-seed.ts`   | 267 synthetic occupancies across 23 units                                           |
+| `ward-discharge-dates.ts`   | The ward's date drives the bed release                                              |
+| `ward-board-derivations.ts` | The headline figure and the constraint sentence under it                            |
+| `ward-statistics.ts`        | Six ward-level flow figures                                                         |
+| `ward-teams.ts`             | A synthetic community team per WA region                                            |
 
 **Nothing renders. There is no screen, no page, no picture.** Every remaining task touches files
 Phase 8 owns, so the screens wait for the fold.
@@ -66,7 +66,7 @@ Phase 8 owns, so the screens wait for the fold.
 1. **This file.**
 2. `docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md` — the ward board's binding
    specification. Numbered decisions with their reasoning, plus **DB-1 to DB-9**, the decisions taken
-   *during* the build, each recording what an implementer refused to invent.
+   _during_ the build, each recording what an implementer refused to invent.
 3. `docs/superpowers/plans/2026-08-28-ward-flow-ward-board.md` — the task plan, its parallel-execution
    addendum, and the speed model.
 4. `docs/ward-flow-roadmap.md` — direction and the refusals already settled, **with their reasons**. A
@@ -142,9 +142,9 @@ always red is one people learn to ignore).
 porcelain listing looks identical. Back new files up out-of-tree and restore by copy.
 
 **A mutation that fails to bite is a question, not an answer.** Three readings, not two: the test is
-fake, the test is fine, or *the probe never exercised the property*. The third looks like both.
+fake, the test is fine, or _the probe never exercised the property_. The third looks like both.
 
-**An invariance test needs a companion that pins an absolute** in a case where the answers *should*
+**An invariance test needs a companion that pins an absolute** in a case where the answers _should_
 differ. "This number must not change" proves nothing when everything collapses to one value — a
 function refusing everyone is perfectly invariant, and so is one accepting everyone.
 
@@ -160,7 +160,7 @@ across every worktree on this machine. Run them once, at the end.
 
 **The pre-commit hook refuses a commit whenever other unstaged or untracked files exist under
 `src/components/` or `tests/`.** That is the real mechanism behind "one implementer per worktree":
-concurrent agents can *write*, but only the controller can *commit*.
+concurrent agents can _write_, but only the controller can _commit_.
 
 **Look at the rendered page.** Every defect that actually reached the screen in this project was found
 by rendering and looking — never by a test. Three widths (390/820/1440) plus print.
