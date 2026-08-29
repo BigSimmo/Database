@@ -8,6 +8,7 @@ import { queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
+import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import {
@@ -77,7 +78,9 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 function requestSnapshotCacheKey(args: Pick<SearchChunksArgs, "ragRequestContext">) {
-  return args.ragRequestContext?.snapshotCacheKey ?? "";
+  if (!args.ragRequestContext) return "";
+  assertRagRequestContextIntegrity(args.ragRequestContext);
+  return args.ragRequestContext.snapshotCacheKey;
 }
 
 function siteAwareAnswerOwnerToken(ownerId: string) {
@@ -86,7 +89,11 @@ function siteAwareAnswerOwnerToken(ownerId: string) {
 }
 
 export function isRagCacheAccessAllowed(args: Pick<SearchChunksArgs, "ownerId" | "accessScope" | "ragRequestContext">) {
-  if (!requestSnapshotCacheKey(args)) return true;
+  try {
+    if (!requestSnapshotCacheKey(args)) return true;
+  } catch {
+    return false;
+  }
   const scope = retrievalAccessScopeForArgs(args);
   return scope.includePublic === true && !scope.ownerId;
 }
@@ -249,13 +256,7 @@ export function createRagPublicCacheWriteProof(input: {
   allSelectedEvidencePublic: true;
   pendingExclusion: "not_required" | "proven";
 }): RagPublicCacheWriteProof {
-  if (
-    !Object.isFrozen(input.requestContext) ||
-    !Object.isFrozen(input.requestContext.snapshot) ||
-    !Object.isFrozen(input.requestContext.snapshot.publicSiteContent)
-  ) {
-    throw new Error("Public cache proof requires the frozen request snapshot.");
-  }
+  assertRagRequestContextIntegrity(input.requestContext);
   if (!(["search", "answer"] as const).includes(input.cacheKind)) {
     throw new Error("Public cache proof requires a supported cache kind.");
   }
@@ -851,6 +852,7 @@ async function replaceSharedCacheRow(
   if (ttlMs <= 0) return;
   try {
     if (args.signal?.aborted) return;
+    const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
     const supabase = createAdminClient();
     let deleteQuery = supabase
       .from("rag_response_cache")
@@ -860,11 +862,10 @@ async function replaceSharedCacheRow(
       .eq("normalized_query", normalizedQuery)
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
-    deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
+    deleteQuery = ownerId ? deleteQuery.eq("owner_id", ownerId) : deleteQuery.is("owner_id", null);
     if (args.signal) deleteQuery = deleteQuery.abortSignal(args.signal);
     await deleteQuery;
     if (args.signal?.aborted) return;
-    const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
     let insertQuery = supabase.from("rag_response_cache").insert({
       owner_id: ownerId ?? null,
       cache_kind: kind,

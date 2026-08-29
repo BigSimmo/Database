@@ -128,6 +128,14 @@ describe("RAG request site-content snapshot", () => {
       query: "second",
       ragContextSnapshotInput: { ...currentInput, publicSiteChangeEpoch: "8" },
     });
+    const updating = withRagRequestContext({
+      query: "updating",
+      ragContextSnapshotInput: { ...currentInput, publicSiteChangeEpoch: "8", pendingPublicSiteChangeCount: 1 },
+    });
+    const nestedUpdating = withRagRequestContext({
+      query: "nested updating",
+      ragRequestContext: updating.ragRequestContext,
+    });
 
     expect(Object.isFrozen(first.ragRequestContext)).toBe(true);
     expect(Object.isFrozen(first.ragRequestContext.snapshot)).toBe(true);
@@ -137,6 +145,89 @@ describe("RAG request site-content snapshot", () => {
     expect(first.ragRequestContext.snapshot.publicSiteContent.releaseDigest).toBe(RELEASE_DIGEST);
     expect(first.ragRequestContext.snapshot.publicSiteContent.changeEpoch).toBe("7");
     expect(second.ragRequestContext.snapshot).not.toBe(first.ragRequestContext.snapshot);
+    expect(nestedUpdating.ragRequestContext).toBe(updating.ragRequestContext);
+  });
+
+  it("rejects forged snapshot keys and every mutable request-context layer", async () => {
+    const { ragContextSnapshotCacheKey, withRagRequestContext } = await loadSnapshotModule();
+    const current = withRagRequestContext({
+      query: "current",
+      accessScope: { includePublic: true },
+      ragContextSnapshotInput: currentInput,
+    });
+    const next = withRagRequestContext({
+      query: "next",
+      accessScope: { includePublic: true },
+      ragContextSnapshotInput: { ...currentInput, publicSiteChangeEpoch: "8" },
+    });
+    const forgedEmptyKey = Object.freeze({
+      snapshot: current.ragRequestContext.snapshot,
+      snapshotCacheKey: "",
+    });
+    const forgedCrossSnapshotKey = Object.freeze({
+      snapshot: next.ragRequestContext.snapshot,
+      snapshotCacheKey: current.ragRequestContext.snapshotCacheKey,
+    });
+    const mutableContext = {
+      snapshot: current.ragRequestContext.snapshot,
+      snapshotCacheKey: current.ragRequestContext.snapshotCacheKey,
+    };
+    const mutableSnapshot = {
+      ...current.ragRequestContext.snapshot,
+      publicSiteContent: current.ragRequestContext.snapshot.publicSiteContent,
+    };
+    const mutableSnapshotContext = Object.freeze({
+      snapshot: mutableSnapshot,
+      snapshotCacheKey: ragContextSnapshotCacheKey(mutableSnapshot),
+    });
+    const mutablePartition = { ...current.ragRequestContext.snapshot.publicSiteContent };
+    const mutablePartitionSnapshot = Object.freeze({
+      ...current.ragRequestContext.snapshot,
+      publicSiteContent: mutablePartition,
+    });
+    const mutablePartitionContext = Object.freeze({
+      snapshot: mutablePartitionSnapshot,
+      snapshotCacheKey: ragContextSnapshotCacheKey(mutablePartitionSnapshot),
+    });
+
+    for (const ragRequestContext of [
+      forgedEmptyKey,
+      forgedCrossSnapshotKey,
+      mutableContext,
+      mutableSnapshotContext,
+      mutablePartitionContext,
+    ]) {
+      expect(() => withRagRequestContext({ query: "forged", ragRequestContext })).toThrow(
+        "Invalid RAG request context.",
+      );
+    }
+
+    expect(() =>
+      ragCacheModule.scopedAnswerCacheKey({
+        query: "forged",
+        ownerId: "owner-a",
+        accessScope: { includePublic: true },
+        ragRequestContext: forgedEmptyKey,
+      }),
+    ).toThrow("Invalid RAG request context.");
+    expect(
+      ragCacheModule.isRagCacheAccessAllowed({
+        accessScope: { includePublic: true },
+        ragRequestContext: forgedEmptyKey,
+      }),
+    ).toBe(false);
+    for (const requestContext of [forgedEmptyKey, forgedCrossSnapshotKey]) {
+      expect(() =>
+        ragCacheModule.createRagPublicCacheWriteProof({
+          cacheKind: "search",
+          requestContext,
+          accessScope: { includePublic: true },
+          selectedEvidence: [selectedResult],
+          allSelectedEvidencePublic: true,
+          pendingExclusion: "not_required",
+        }),
+      ).toThrow("Invalid RAG request context.");
+    }
   });
 
   it("resolves once at the search boundary without attaching snapshot facts to telemetry or results", async () => {
@@ -560,6 +651,16 @@ describe("site-aware RAG cache isolation", () => {
       ragContextSnapshotInput: { ...currentInput, publicSiteChangeEpoch: "8" },
     });
     await cache.setCachedSearch(nextRequest, [selectedResult], telemetry, [], { publicCacheWriteProof: proof });
+    expect(adminClients).toBe(clientsAfterValidWrite);
+
+    const forgedNextRequest = {
+      ...nextRequest,
+      ragRequestContext: Object.freeze({
+        snapshot: nextRequest.ragRequestContext.snapshot,
+        snapshotCacheKey: request.ragRequestContext.snapshotCacheKey,
+      }),
+    };
+    await cache.setCachedSearch(forgedNextRequest, [selectedResult], telemetry, [], { publicCacheWriteProof: proof });
     expect(adminClients).toBe(clientsAfterValidWrite);
 
     const answerRequest = { ...request, ownerId: "owner-answer-canary" };

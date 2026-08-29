@@ -60,6 +60,134 @@ function createSharedCacheBuilder(payload: {
 }
 
 describe("shared RAG search cache", () => {
+  it("replaces authenticated site-aware search rows under the null owner on every write", async () => {
+    vi.resetModules();
+    const deleteOwnerSelectors: Array<Array<{ method: "eq" | "is"; value: unknown }>> = [];
+    const insertedOwnerIds: unknown[] = [];
+    const documentBuilder = {
+      select: () => documentBuilder,
+      eq: () => documentBuilder,
+      is: () => documentBuilder,
+      or: () => documentBuilder,
+      in: () => documentBuilder,
+      order: () => documentBuilder,
+      limit: () => documentBuilder,
+      then: (resolve: (value: { data: unknown[]; error: null }) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve({
+          data: [{ id: "document-1", updated_at: "2026-08-29T00:00:00.000Z", metadata: {} }],
+          error: null,
+        }).then(resolve, reject),
+    };
+    const responseBuilder = {
+      delete: () => {
+        const ownerSelectors: Array<{ method: "eq" | "is"; value: unknown }> = [];
+        const deleteBuilder = {
+          eq: (column: string, value: unknown) => {
+            if (column === "owner_id") ownerSelectors.push({ method: "eq", value });
+            return deleteBuilder;
+          },
+          is: (column: string, value: unknown) => {
+            if (column === "owner_id") ownerSelectors.push({ method: "is", value });
+            return deleteBuilder;
+          },
+          then: (resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) => {
+            deleteOwnerSelectors.push(ownerSelectors);
+            return Promise.resolve({ data: null, error: null }).then(resolve, reject);
+          },
+        };
+        return deleteBuilder;
+      },
+      insert: (value: { owner_id?: unknown }) => {
+        insertedOwnerIds.push(value.owner_id);
+        return Promise.resolve({ data: null, error: null });
+      },
+    };
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        RAG_SEARCH_CACHE_TTL_MS: 60_000,
+        RAG_SEARCH_CACHE_SIZE: 200,
+        RAG_ANSWER_CACHE_TTL_MS: 60_000,
+        RAG_ANSWER_CACHE_SIZE: 200,
+        RAG_PERSIST_RAW_QUERY_TEXT: false,
+        RAG_QUERY_HASH_SECRET: "test-query-hash-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/deep-memory", () => ({ ragDeepMemoryVersion: "test-rag-version" }));
+    vi.doMock("@/lib/clinical-search", () => ({ buildClinicalTextSearchQuery: (query: string) => query.trim() }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: (table: string) => (table === "documents" ? documentBuilder : responseBuilder),
+      }),
+    }));
+
+    const { withRagRequestContext } = await import("../src/lib/rag/rag-context-snapshot");
+    const { createRagPublicCacheWriteProof, setCachedSearch } = await import("../src/lib/rag/rag-cache");
+    const request = withRagRequestContext({
+      query: "public monitoring",
+      ownerId,
+      accessScope: { includePublic: true as const },
+      ragContextSnapshotInput: {
+        expectedSiteStaticManifestDigest: "a".repeat(64),
+        activePublicSiteRelease: {
+          version: "clinical-kb-site-release-v1" as const,
+          releaseId: "11111111-1111-5111-8111-111111111111",
+          registryVersion: "site-content-registry-v1",
+          staticManifestDigest: "a".repeat(64),
+          dynamicStateDigest: "b".repeat(64),
+          releaseDigest: "c".repeat(64),
+          state: "active" as const,
+          activatedAt: "2026-08-29T00:00:00.000Z",
+        },
+        publicSiteChangeEpoch: "1",
+        pendingPublicSiteChangeCount: 0,
+        documentIndexGeneration: "generation-v1",
+        sourcePolicyVersion: "source-policy-v1",
+        rolloutVersion: "rollout-v1",
+      },
+    });
+    const result = {
+      id: "chunk-1",
+      document_id: "document-1",
+      title: "Public source",
+      file_name: "public-source.pdf",
+      page_number: 1,
+      chunk_index: 0,
+      section_heading: null,
+      content: "Bounded public evidence.",
+      image_ids: [],
+      images: [],
+      similarity: 0.9,
+    };
+    const proof = createRagPublicCacheWriteProof({
+      cacheKind: "search",
+      requestContext: request.ragRequestContext,
+      accessScope: request.accessScope,
+      selectedEvidence: [result],
+      allSelectedEvidencePublic: true,
+      pendingExclusion: "not_required",
+    });
+    const telemetry = {
+      search_cache_hit: false,
+      text_fast_path_latency_ms: 0,
+      embedding_skipped: true,
+      embedding_latency_ms: 0,
+      embedding_cache_hit: false,
+      supabase_rpc_latency_ms: 0,
+      rerank_latency_ms: 0,
+      query_class: "table_threshold" as const,
+    };
+
+    await setCachedSearch(request, [result], telemetry, [], { publicCacheWriteProof: proof });
+    await vi.waitFor(() => expect(insertedOwnerIds).toHaveLength(1));
+    await setCachedSearch(request, [result], telemetry, [], { publicCacheWriteProof: proof });
+    await vi.waitFor(() => expect(insertedOwnerIds).toHaveLength(2));
+
+    expect(deleteOwnerSelectors).toEqual([[{ method: "is", value: null }], [{ method: "is", value: null }]]);
+    expect(insertedOwnerIds).toEqual([null, null]);
+  });
+
   it("shares site-aware search rows by snapshot while retaining exact answer owner selectors", async () => {
     vi.resetModules();
     const selectors: Array<{ method: "eq" | "is"; column: string; value: unknown }> = [];

@@ -89,10 +89,33 @@ export function ragContextSnapshotCacheKey(snapshot: RagContextSnapshot): string
   return createHash("sha256").update(JSON.stringify(identity)).digest("hex");
 }
 
+export function assertRagRequestContextIntegrity(context: RagRequestContext): asserts context is RagRequestContext {
+  let valid = false;
+  try {
+    valid =
+      typeof context === "object" &&
+      context !== null &&
+      typeof context.snapshot === "object" &&
+      context.snapshot !== null &&
+      typeof context.snapshot.publicSiteContent === "object" &&
+      context.snapshot.publicSiteContent !== null &&
+      Object.isFrozen(context) &&
+      Object.isFrozen(context.snapshot) &&
+      Object.isFrozen(context.snapshot.publicSiteContent) &&
+      ragContextSnapshotCacheKey(context.snapshot) === context.snapshotCacheKey;
+  } catch {
+    valid = false;
+  }
+  if (!valid) throw new Error("Invalid RAG request context.");
+}
+
 export function withRagRequestContext<
   T extends { ragRequestContext?: RagRequestContext; ragContextSnapshotInput?: RagContextSnapshotInput },
 >(args: T): T & { ragRequestContext: RagRequestContext } {
-  if (args.ragRequestContext) return args as T & { ragRequestContext: RagRequestContext };
+  if (args.ragRequestContext) {
+    assertRagRequestContextIntegrity(args.ragRequestContext);
+    return args as T & { ragRequestContext: RagRequestContext };
+  }
   const snapshot = resolveRagContextSnapshot(args.ragContextSnapshotInput ?? legacySnapshotInput);
   return {
     ...args,
