@@ -6,7 +6,29 @@ import type {
   UrgencyChangeReason,
 } from "@/components/ward-management/ward-change-reasons";
 
-export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACHS" | "Private";
+/**
+ * The health services, as a runtime array with the type derived from it — the same shape as
+ * `COHORTS`, `SEXES`, `SEX_DESIGNATIONS`, `MOVEMENT_STAGES`, `DECLINE_REASONS`,
+ * `BED_RELEASE_STATES` and `BED_RELEASE_WAITING_ON` below.
+ *
+ * WHY THIS CHANGED, 2026-08-29. It was a bare type union — the only multi-value union in this file
+ * without a companion array — and that made a real hole rather than an inconsistency. The five
+ * services were re-typed by hand in two more places (`wardServiceOrder` in `ward-derivations.ts`,
+ * `columnServices` in `ward-management-network.tsx`), nothing checked those copies for
+ * completeness, and `ward-management-network.tsx` tests membership through a `readonly string[]`
+ * cast, so the compiler could not catch it either.
+ *
+ * The consequence, in the owner's own terms: he intends to replace this invented network with real
+ * WA figures and to "build another hospital" later. A hospital in a SIXTH service would compile
+ * clean and then be absent from the network map and the ED screen's unit table — no error, no
+ * failing test, the service simply not there. This file's own `COHORTS` comment records the same
+ * defect having happened once already with `Cohort`.
+ *
+ * A runtime array does not by itself close that. It makes the completeness of the other two lists
+ * CHECKABLE, which `tests/ward-flow-service-coverage.test.ts` then checks.
+ */
+export const HEALTH_SERVICES = ["North Metro", "South Metro", "East Metro", "WACHS", "Private"] as const;
+export type HealthService = (typeof HEALTH_SERVICES)[number];
 /**
  * Widened for Phase 7 (spec "The front door"): a referral can arrive for a young person, and
  * without a `"Youth"` cohort every youth referral would fail the cohort gate in
