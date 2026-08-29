@@ -14,6 +14,7 @@ import {
 
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { absoluteWallClockMinutes, demoDayZero, wallClockNow } from "@/components/ward-management/ward-clock";
+import type { Admission } from "@/components/ward-management/ward-admissions";
 import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
@@ -64,6 +65,10 @@ type WardFlowContextValue = {
   /** Task 3, spec D12: every `REQUEST_CAPACITY_REFRESH` a coordinator has raised, live from
    *  reducer state. Records that somebody asked — nothing here ever changes a bed figure. */
   refreshRequests: { unitId: string; at: Instant; byRole: string }[];
+  /** The people in the beds - seeded occupants plus anyone who has ARRIVED during this session.
+   *  Task 17, 2026-08-30: before this, arrival closed the movement and created no person, so a
+   *  patient who reached a ward disappeared from every surface that filters to open movements. */
+  admissions: Admission[];
   now: Instant;
   /** The calendar day that `Instant` 0 falls on - local midnight of the day this session opened.
    *  An instant plus this is a real moment; an instant alone is only an offset. Screens that must
@@ -153,6 +158,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       bedReleases: state.bedReleases,
       leaveBeds: state.leaveBeds,
       refreshRequests: state.refreshRequests,
+      admissions: state.admissions,
       now,
       dayZero,
       scenario: state.scenario,

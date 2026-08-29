@@ -128,10 +128,11 @@ export function OutOfAreaBoard({ admissions = wardAdmissions }: { admissions?: A
          * this prototype adds to it or removes from it, and it is not a live count of anything.
          */}
         <p className={styles.provenance} data-testid="ward-out-of-area-provenance">
-          Everyone here comes from this prototype&apos;s own seeded records. Somebody who has left their bed is not on
-          this list, and neither is anybody who has not yet arrived. Nothing done on these screens adds anyone to this
-          list or takes anyone off it — this prototype does not record admissions as they happen, so only the elapsed
-          times move as the demo clock runs. This is not a live statewide count.
+          Everyone here starts from this prototype&apos;s own seeded records. Somebody who has left their bed is not on
+          this list, and neither is anybody who has not yet arrived. Nothing on these screens takes anyone off it. Since
+          30 August 2026 a patient who ARRIVES during this session is added, because arrival now records a person in a
+          bed — but they appear only once a home region is recorded for them, and the emergency-department pathway does
+          not yet record one, so today an arrival adds nobody here. This is not a live statewide count.
         </p>
 
         <section className={styles.section} data-testid="ward-out-of-area-entries">

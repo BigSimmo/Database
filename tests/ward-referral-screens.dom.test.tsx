@@ -1798,6 +1798,10 @@ function unclassifiableAdmissions(): Admission[] {
   return wardAdmissions.filter((admission) => {
     if (admission.state !== "occupied" || admission.arrivedAt === null) return false;
     const unit = units.find((candidate) => candidate.id === admission.unitId);
+    // // Task 17 (2026-08-30) allowed `homeRegion` to be null for an admission created by an ED
+    // arrival. Every admission this test reaches is a SEEDED one, which always carries a region,
+    // so the guard states that promise rather than reaching past the type with a `!`.
+    if (admission.homeRegion === null) return false;
     return unit !== undefined && travelBand(admission.homeRegion, unit.siteCode) === undefined;
   });
 }
@@ -1808,7 +1812,7 @@ function outOfAreaAdmissions(): Admission[] {
   return wardAdmissions.filter((admission) => {
     if (admission.state !== "occupied" || admission.arrivedAt === null) return false;
     const unit = units.find((candidate) => candidate.id === admission.unitId);
-    if (unit === undefined) return false;
+    if (unit === undefined || admission.homeRegion === null) return false;
     const band = travelBand(admission.homeRegion, unit.siteCode);
     return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
   });
@@ -1927,7 +1931,19 @@ describe("OutOfAreaBoard — what the screen says it is", () => {
     renderLedger();
     const provenance = screen.getByTestId("ward-out-of-area-provenance");
     expect(provenance).toHaveTextContent("This is not a live statewide count.");
-    expect(provenance).toHaveTextContent("this prototype does not record admissions as they happen");
+    /*
+     * CHANGED 2026-08-30 (Task 17). This asserted "this prototype does not record admissions as
+     * they happen", and that sentence STOPPED BEING TRUE the moment arrival started creating a
+     * person in a bed - which it had to, because until then a patient who reached a ward vanished
+     * from ten surfaces.
+     *
+     * The claim the screen must still make is the honest one underneath it: the list starts seeded,
+     * an arrival during the session is added, nothing takes anyone off, and it is still not a live
+     * statewide count. Asserted on that substance rather than on the old wording, and the "not a
+     * live statewide count" line above is deliberately kept - the seed is still a seed.
+     */
+    expect(provenance).toHaveTextContent("starts from this prototype");
+    expect(provenance).toHaveTextContent("ARRIVES during this session is added");
   });
 
   it("never claims that nobody leaves this ledger", () => {
@@ -1964,9 +1980,11 @@ describe("OutOfAreaBoard — the entries", () => {
     for (const admission of expected) {
       const row = screen.getByTestId(`ward-out-of-area-row-${admission.id}`);
       const unit = units.find((candidate) => candidate.id === admission.unitId)!;
-      expect(row).toHaveTextContent(admission.homeRegion);
+      const region = admission.homeRegion;
+      expect(region, `${admission.id} is a seeded admission and must carry a home region`).not.toBeNull();
+      expect(row).toHaveTextContent(region!);
       expect(row).toHaveTextContent(unit.name);
-      expect(row).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(admission.homeRegion, unit.siteCode)!]);
+      expect(row).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(region!, unit.siteCode)!]);
     }
   });
 
@@ -2026,9 +2044,11 @@ describe("OutOfAreaBoard — the entries", () => {
     const unit = allUnits().find((candidate) => candidate.id === subject.unitId)!;
     const card = screen.getByTestId(`ward-out-of-area-card-${subject.id}`);
 
-    expect(card).toHaveTextContent(subject.homeRegion);
+    const subjectRegion = subject.homeRegion;
+    expect(subjectRegion, "the seeded out-of-area subject must carry a home region").not.toBeNull();
+    expect(card).toHaveTextContent(subjectRegion!);
     expect(card).toHaveTextContent(unit.name);
-    expect(card).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(subject.homeRegion, unit.siteCode)!]);
+    expect(card).toHaveTextContent(TRAVEL_BAND_LABELS[travelBand(subjectRegion!, unit.siteCode)!]);
     expect(card.textContent ?? "").toMatch(/\d+ days? since arrival|Under a day since arrival/);
   });
 

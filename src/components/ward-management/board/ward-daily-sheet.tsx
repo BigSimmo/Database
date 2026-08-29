@@ -37,7 +37,9 @@ export type DailySheetPerson = {
   bandLabel: string | null;
   pastDate: boolean;
   sex: string;
-  homeRegion: string;
+  /** `null` for an admission created by an ED arrival - Task 17, 2026-08-30. The sheet says so in
+   *  words; it never omits the person and never guesses a region. */
+  homeRegion: string | null;
   /** Already phrased by `tentativeDiagnosisPhrase`, never a bare block code. */
   tentativeDiagnosis: string | null;
   expectedDays: number | null;
@@ -136,7 +138,7 @@ function SheetPerson({ person, testId }: { person: DailySheetPerson; testId: str
         {person.bandLabel !== null && <span className={styles.sheetRowBand}>{person.bandLabel}</span>}
       </p>
       <p className={styles.sheetRowLine}>
-        {person.sex}, from {person.homeRegion}
+        {person.sex}, {person.homeRegion === null ? "home region not recorded" : `from ${person.homeRegion}`}
       </p>
       {/* "Tentative" leads the line, as it does on the board's own panel and for the same reason: a
         reader scanning a column takes the first words of each row, so a qualification at the end is

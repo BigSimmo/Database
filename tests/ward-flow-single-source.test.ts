@@ -55,6 +55,17 @@ const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pres
  *     true.
  */
 const ADMISSION_SEED_ALLOWLIST = new Set([
+  // Task 17, 2026-08-30, and the reason is a decision rather than a formality. Arrival now records
+  // a PERSON IN A BED: before it, `PATIENT_ARRIVED` closed the movement and created nobody, and
+  // `isOpen` then removed the closed movement from ten surfaces - so a patient who reached a ward
+  // vanished from the whole application at the moment it had succeeded in placing them. The reducer
+  // seeds `state.admissions` from this file so the beds start occupied by the same people the board
+  // already renders, and an arrival APPENDS a record of the same shape rather than introducing a
+  // second kind of occupant.
+  //
+  // This entry makes the out-of-area board's provenance paragraph the thing to check, which is why
+  // the assertion below now pins that paragraph instead of forbidding the state key.
+  "src/components/ward-management/ward-flow-reducer.ts",
   "src/components/ward-management/ward-admissions-seed.ts",
   "src/components/ward-management/out-of-area/out-of-area-board.tsx",
   // Added at the ward board fold, 2026-08-29, following this constant's own instruction that a
@@ -554,16 +565,37 @@ describe("one source of truth", () => {
      * `wardAdmissions` and `admissionsById` are all caught: this is a tripwire meant to fire on the
      * shape of the change, not a list of names someone has to remember to extend.
      */
+    /*
+     * REWRITTEN 2026-08-30 (Task 17), and deliberately not deleted. This used to assert that
+     * `WardFlowState` carried NO admissions key at all, because admissions in reducer state was
+     * what made the out-of-area board's provenance paragraph false while every test pinning that
+     * paragraph stayed green - they pin its PRESENCE and cannot pin its TRUTH.
+     *
+     * The state now carries admissions, because arrival has to record a person or the patient
+     * vanishes from ten surfaces. So the coupling this test exists to hold is unchanged and its
+     * direction is reversed: if the state can gain admissions during a session, the paragraph must
+     * SAY so. The guard now reads the sentence rather than forbidding the capability.
+     */
     const stateKeys = Object.keys(seedWardFlowState());
-    // A seeded state that came back empty would make the filter below vacuous.
+    // A seeded state that came back empty would make everything below vacuous.
     expect(stateKeys.length).toBeGreaterThan(0);
     const admissionKeys = stateKeys.filter((key) => key.toLowerCase().includes("admission"));
+    expect(admissionKeys.length, "the state must still carry admissions, or Task 17 has been undone").toBeGreaterThan(
+      0,
+    );
+
+    const provenance = readFileSync("src/components/ward-management/out-of-area/out-of-area-board.tsx", "utf8");
     expect(
-      admissionKeys,
-      `WardFlowState now carries ${admissionKeys.join(", ")}. Before removing this assertion, re-read the ` +
-        "out-of-area board's provenance paragraph (out-of-area-board.tsx): it tells the reader this list is " +
-        "seeded and not live, and admissions in reducer state is what makes that false.",
-    ).toEqual([]);
+      provenance,
+      "WardFlowState carries admissions, so a patient who arrives during a session is recorded - and " +
+        "the out-of-area board's provenance paragraph must say so. It previously told the reader that " +
+        "nothing on these screens adds anyone to this list, which stopped being true the moment " +
+        "arrival started creating a person. Update the paragraph rather than this assertion.",
+    ).toMatch(/ARRIVES during this session is added/);
+    expect(
+      provenance,
+      "the paragraph must still say this is not a live statewide count - the seed is still a seed",
+    ).toMatch(/not a live statewide count/);
   });
 
   it("keeps every ADMISSION_SEED_ALLOWLIST entry pointing at a file that exists", () => {

@@ -452,7 +452,11 @@ describe("the out-of-area ledger", () => {
     expect(OUT_OF_AREA_BANDS).toContain(entries[0].band);
     // The band is looked up from the ADMISSION's home region and the unit's own site, never
     // stored on the record and never guessed.
-    expect(entries[0].band).toBe(travelBand(subject.homeRegion, entries[0].unit.siteCode));
+    // Task 17 (2026-08-30) made `homeRegion` nullable for an ED-arrival admission. Every admission
+    // this test reaches is seeded and always carries one, so the promise is asserted rather than
+    // narrowed past with a `!`.
+    expect(subject.homeRegion, "a seeded admission must carry a home region").not.toBeNull();
+    expect(entries[0].band).toBe(travelBand(subject.homeRegion!, entries[0].unit.siteCode));
   });
 
   /**
@@ -1031,7 +1035,8 @@ describe("the out-of-area ledger over the seeded wards", () => {
       expect(typeof entry.admission.arrivedAt).toBe("number");
       expect(OUT_OF_AREA_BANDS).toContain(entry.band);
       // Looked up, never stored, and never taken from anywhere but the occupied unit's own site.
-      expect(entry.band).toBe(travelBand(entry.admission.homeRegion, entry.unit.siteCode));
+      expect(entry.admission.homeRegion, `${entry.admission.id} must carry a home region`).not.toBeNull();
+      expect(entry.band).toBe(travelBand(entry.admission.homeRegion!, entry.unit.siteCode));
     }
     // The seed author's own named examples. These ARE coupled to the placeholder band table, and
     // that coupling is declared rather than hidden: when somebody replaces those invented values
@@ -1048,7 +1053,8 @@ describe("the out-of-area ledger over the seeded wards", () => {
       const admission = admissionById(id);
       expect(admission, `${id} is missing from the seed`).toBeDefined();
       const unit = units.find((candidate) => candidate.id === admission!.unitId)!;
-      expect(travelBand(admission!.homeRegion, unit.siteCode)).toBeUndefined();
+      expect(admission!.homeRegion, `${id} must carry a home region`).not.toBeNull();
+      expect(travelBand(admission!.homeRegion!, unit.siteCode)).toBeUndefined();
       expect(entryIds, `${id} has no recorded band and must never be counted as out of area`).not.toContain(id);
     }
   });

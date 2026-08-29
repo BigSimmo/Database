@@ -204,9 +204,16 @@ export type Admission = {
    *  (`state: "left"`, `leavingDestination: "transferred-to-another-psychiatric-ward"`) and
    *  begins a new one, which is what keeps each ward's own occupancy honest. */
   unitId: string;
-  /** The referral this admission came from — the join back to the front door, and the only place
-   *  the person's referral facts live. They are not copied onto this record. */
-  referralId: string;
+  /**
+   * The referral this admission came from - the join back to the front door.
+   *
+   * `null` from 2026-08-30 (Task 17), and it is a real state rather than missing data: an
+   * admission created when a patient ARRIVES from an emergency department came from a `Movement`,
+   * not from a `Referral`, and movements carry no referral. Saying so is honest; minting a
+   * referral id that points at nothing would not be. Nothing reads this field today - it is
+   * written by the seed and consumed nowhere - so widening it costs no consumer a branch.
+   */
+  referralId: string | null;
   /**
    * A DELIBERATE, OWNER-CONFIRMED WIDENING of what this feature holds about a person, and the
    * only one this record makes.
@@ -222,11 +229,29 @@ export type Admission = {
    * carried here so occupancy figures can be computed from beds rather than from referrals.
    */
   sex: Sex;
-  /** The broad area this person is from — a region, never an address; membership-checked, never
-   *  free text. Carries no distance or ordering by proximity of its own: `ward-distance.ts` is
-   *  the single entry point for how far a bed is from a home region, and no band is ever stored
-   *  on this record. */
-  homeRegion: HomeRegion;
+  /**
+   * The broad area this person is from - a region, never an address; membership-checked, never
+   * free text. Carries no distance or ordering by proximity of its own: `ward-distance.ts` is the
+   * single entry point for how far a bed is from a home region, and no band is ever stored here.
+   *
+   * `null` from 2026-08-30 (Task 17), AND IT IS A SEAM RATHER THAN A DESIGN. A patient arriving
+   * through the emergency-department pathway carries no home region anywhere in the model: it
+   * exists on `Referral` alone, sites hold no region, and deriving one from the origin ED would be
+   * inventing it - where somebody was admitted from is not where they live.
+   *
+   * The owner has an open ruling on which fact is actually recorded. Real catchment in WA is by
+   * SUBURB - roughly a thousand of them mapping to approved hospitals and follow-up clinics - and
+   * the ten broad `HOME_REGIONS` cannot carry that: every Perth suburb is "Perth Metropolitan"
+   * while Armadale and Joondalup sit at opposite ends of the city with different services. If
+   * suburb becomes the recorded fact and region is derived from it, this field's authority moves,
+   * and writing a region here first would give one fact two homes - the thing the changeable-data
+   * rule exists to forbid.
+   *
+   * So an ED-pathway admission records no region until he rules, and every consumer says so in
+   * words rather than guessing or omitting the person. Not a permanent state: when the ruling
+   * lands, this becomes non-null again and the seam closes in one place.
+   */
+  homeRegion: HomeRegion | null;
   /**
    * THE BROAD BLOCK A REFERRAL TENTATIVELY PLACED THIS PERSON IN — and the word tentative is load
    * bearing in the field name, in the vocabulary's name, on every screen that shows it, and here.

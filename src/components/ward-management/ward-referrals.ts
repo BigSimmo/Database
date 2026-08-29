@@ -430,6 +430,15 @@ export function outOfAreaLedger(
     const unit = units.find((candidate) => candidate.id === admission.unitId);
     if (!unit) continue;
 
+    // Task 17, 2026-08-30: an arrival through the emergency-department pathway records no home
+    // region yet, and a distance from an unknown home is not a distance. It counts as not banded,
+    // which is the same honest bucket an unknown region has always fallen into - the figure is
+    // reported rather than the person being dropped from the tally.
+    if (admission.homeRegion === null) {
+      notBanded += 1;
+      continue;
+    }
+
     const band = travelBand(admission.homeRegion, unit.siteCode);
     if (band === undefined) {
       notBanded += 1;

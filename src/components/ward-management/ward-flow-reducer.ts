@@ -25,6 +25,8 @@ import { bedReleases, leaveBeds, referrals, wardMovements } from "@/components/w
 import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 import { shiftInstants } from "@/components/ward-management/ward-reanchor";
+import type { Admission } from "@/components/ward-management/ward-admissions";
+import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
@@ -117,6 +119,30 @@ export type WardFlowState = {
    * distinct name costs nothing and keeps the two things as separate as they actually are.
    */
   frontDoorReferralSequence: number;
+  /**
+   * The people in the beds. Task 17.
+   *
+   * WHY THIS IS HERE AT ALL. Until 2026-08-30 this reducer contained the word "admission" zero
+   * times. `PATIENT_ARRIVED` closed the movement, decremented the unit's empty count and bumped its
+   * sex mix - and created no record of the person. So a patient who reached a ward became a CLOSED
+   * MOVEMENT and nothing else, and `isOpen` (`!closure && stage !== "arrived"`) removes closed
+   * movements from ten surfaces: the queue, the coordinator inbox, handover, placement, patient
+   * search, the pressure strip, the live tracker and the ED screen among them.
+   *
+   * The consequence is the owner's own foundation failing at its last step. A person gets from an
+   * emergency department to a ward - the thing this prototype exists to show - and the
+   * demonstration immediately stops being able to see them. Arrival was modelled as an ENDING with
+   * nothing on the other side of it.
+   *
+   * Seeded from `ward-admissions-seed.ts` so the beds start occupied by the same people the board
+   * already renders, and so an arrival appends a record OF THE SAME SHAPE rather than a second
+   * kind of occupant that every consumer would have to learn about.
+   */
+  admissions: Admission[];
+  /** Monotonic id source for admissions created by arrival, holding the same discipline as
+   *  `leaveBedSequence` and `frontDoorReferralSequence`: only ever increases, and never derived
+   *  from `state.admissions.length`, which the seed already makes non-zero. */
+  admissionSequence: number;
 };
 
 /**
@@ -139,6 +165,8 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     refreshRequests: [],
     referrals: structuredClone(referrals),
     frontDoorReferralSequence: 0,
+    admissions: structuredClone(wardAdmissions),
+    admissionSequence: 0,
   };
 }
 
@@ -530,8 +558,62 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         stage: "bed_held",
         bedHeldUntil: event.now + 60,
       };
+      /**
+       * TASK 17. The patient becomes a person in a bed, and this is the line whose absence made
+       * them vanish.
+       *
+       * Before this, arrival closed the movement and moved two numbers on the unit. `isOpen` then
+       * removed the closed movement from ten surfaces, so the demonstration lost sight of somebody
+       * at the exact moment it had succeeded in placing them. The bed count changed and the person
+       * did not exist anywhere.
+       *
+       * Built in the SAME SHAPE the seed builds, so every consumer that already renders an occupant
+       * renders this one too, with no second kind of occupant to learn about.
+       *
+       * Two fields are `null` and each says something true rather than missing:
+       *
+       *   `referralId`  - this admission came from a `Movement`, not a `Referral`. Movements carry
+       *                   no referral, and minting an id pointing at nothing would be worse than
+       *                   saying so.
+       *   `homeRegion`  - the fact does not exist on a movement anywhere in the model, and the
+       *                   owner has an open ruling on whether SUBURB or region is the thing
+       *                   recorded. Deriving it from the origin emergency department would be
+       *                   inventing it: where somebody was admitted from is not where they live.
+       *                   Every consumer says "home region not recorded" rather than guessing, and
+       *                   the out-of-area figures skip them rather than counting them wrongly.
+       *
+       * `pulledAt` is the transport's own collection instant rather than a fresh stamp - the ward
+       * pulled this person when transport collected them, and re-stamping it here would quietly
+       * shorten every wait that figure feeds.
+       */
+      const admission: Admission = {
+        id: `AD-ARR-${String(state.admissionSequence + 1).padStart(2, "0")}`,
+        unitId: unit.id,
+        referralId: null,
+        sex: movement.sex,
+        homeRegion: null,
+        tentativeDiagnosis: null,
+        state: "occupied",
+        pulledAt: movement.transport?.collectedAt ?? null,
+        arrivedAt: event.now,
+        expectedDischargeAt: null,
+        dischargeDateMoves: 0,
+        dischargeDateSetAt: null,
+        dischargeDateSetBy: null,
+        dischargeConfirmedAt: null,
+        dischargeConfirmedBy: null,
+        blockReason: null,
+        leavingDestination: null,
+        leftAt: null,
+      };
+
       const withUnit = replaceUnit(state, unit.id, updatedUnit);
-      return replaceMovement(withUnit, movement.id, updatedMovement);
+      const withPerson: WardFlowState = {
+        ...withUnit,
+        admissions: [...withUnit.admissions, admission],
+        admissionSequence: withUnit.admissionSequence + 1,
+      };
+      return replaceMovement(withPerson, movement.id, updatedMovement);
     }
 
     case "DECLINE": {

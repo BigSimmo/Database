@@ -207,7 +207,10 @@ type Occupant = {
   bandLabel: string | null;
   pastDate: boolean;
   sex: Sex;
-  homeRegion: HomeRegion;
+  /** `null` for an admission created by an ED arrival: Task 17, 2026-08-30. The fact does not
+   *  exist on a movement and the owner has an open ruling on whether suburb or region is recorded,
+   *  so the board says so rather than guessing or hiding the person. */
+  homeRegion: HomeRegion | null;
   /**
    * The tentative diagnosis AS IT READS — words and block code together, from
    * `tentativeDiagnosisPhrase` — or `null` where the record holds none.
@@ -422,7 +425,8 @@ type Incoming = {
   key: string;
   state: "pulled" | "waitlisted";
   sex: Sex;
-  homeRegion: HomeRegion;
+  /** `null` for an admission created by an ED arrival - see `Occupant.homeRegion`. */
+  homeRegion: HomeRegion | null;
   /** Whole hours since the ward gave the bed away, or `null` for a waitlisted person and for a
    *  pull with no usable instant. Never a guess at when anybody will arrive. */
   bedGoneHours: number | null;
@@ -513,7 +517,7 @@ function PersonEntry({ occupant, idPrefix }: { occupant: Occupant; idPrefix: str
         {occupant.pastDate && <span className={styles.pastMark}>Past date</span>}
       </p>
       <p className={styles.personWho}>
-        {occupant.sex}, from {occupant.homeRegion}
+        {occupant.sex}, {occupant.homeRegion === null ? "home region not recorded" : `from ${occupant.homeRegion}`}
       </p>
       {/*
        * THE TENTATIVE DIAGNOSIS, and the word "tentative" leads the line rather than trailing it.
@@ -939,7 +943,8 @@ export function WardBoard({ unitId }: { unitId: string }) {
                         {person.state === "pulled" ? "Bed already given away" : "Waiting — no bed given"}
                       </p>
                       <p className={styles.flowRowLine}>
-                        {person.sex}, from {person.homeRegion}
+                        {person.sex},{" "}
+                        {person.homeRegion === null ? "home region not recorded" : `from ${person.homeRegion}`}
                       </p>
                       {person.state === "pulled" && (
                         <p className={styles.flowRowLine}>{bedGonePhrase(person.bedGoneHours)}</p>

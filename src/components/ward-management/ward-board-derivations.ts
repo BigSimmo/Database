@@ -341,6 +341,17 @@ export function arrowTargets(admissions: readonly Admission[], now: Instant): Ar
     const days = Math.max(0, Math.floor((expected - now) / MINUTES_PER_DAY));
     if (days > ARROW_HORIZON_DAYS) continue;
 
+    // Task 17, 2026-08-30: an admission created by an ARRIVAL through the emergency-department
+    // pathway records no home region yet - the fact does not exist on a movement, and the owner has
+    // an open ruling on whether suburb or region is the thing actually recorded. Skipping it here
+    // is the honest reading: this map answers "how many people are in a bed far from a named home
+    // region", and somebody with no recorded region is not evidence for or against any region.
+    //
+    // It is a SKIP, not a silent drop. Nothing here invents a region, and the arrivals still appear
+    // on the ward's own board as occupants; they are absent only from a figure that is about
+    // regions. When the ruling lands this branch goes.
+    if (admission.homeRegion === null) continue;
+
     const bucket = buckets.get(admission.homeRegion);
     if (bucket === undefined) buckets.set(admission.homeRegion, { count: 1, nearestDays: days });
     else {

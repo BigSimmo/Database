@@ -9,10 +9,7 @@ import {
   type Admission,
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
-import {
-  TENTATIVE_DIAGNOSIS_BLOCKS,
-  isTentativeDiagnosisBlock,
-} from "@/components/ward-management/ward-diagnosis";
+import { TENTATIVE_DIAGNOSIS_BLOCKS, isTentativeDiagnosisBlock } from "@/components/ward-management/ward-diagnosis";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { OUT_OF_AREA_BANDS, travelBand } from "@/components/ward-management/ward-distance";
@@ -64,6 +61,10 @@ function unitFor(admission: Admission): Unit | undefined {
 function isOutOfArea(admission: Admission): boolean {
   const unit = unitFor(admission);
   if (unit === undefined) return false;
+  // Every SEEDED admission carries a home region; only an ED arrival may lack one (Task 17,
+  // 2026-08-30). Asserting that here rather than reaching past the type keeps the seed's own
+  // promise checkable instead of silently narrowed.
+  if (admission.homeRegion === null) return false;
   const band = travelBand(admission.homeRegion, unit.siteCode);
   return band !== undefined && OUT_OF_AREA_BANDS.includes(band);
 }
@@ -122,7 +123,10 @@ describe("seeded admissions — integrity", () => {
 
   it("draws every home region and every blocker from its own fixed list", () => {
     const badRegions = wardAdmissions
-      .filter((admission) => !(HOME_REGIONS as readonly string[]).includes(admission.homeRegion))
+      .filter(
+        (admission) =>
+          admission.homeRegion === null || !(HOME_REGIONS as readonly string[]).includes(admission.homeRegion),
+      )
       .map((admission) => `${admission.id}: ${admission.homeRegion}`);
     expect(badRegions).toEqual([]);
 
@@ -405,6 +409,7 @@ describe("seeded admissions — what the out-of-area ledger needs", () => {
         return (
           unit !== undefined &&
           bedIsOccupied(admission) &&
+          admission.homeRegion !== null &&
           travelBand(admission.homeRegion, unit.siteCode) === undefined
         );
       }),

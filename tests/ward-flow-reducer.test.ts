@@ -208,6 +208,74 @@ describe("arrival", () => {
     const after = state.units.find((unit) => unit.id === "rph-adult-secure")!;
     expect(after.allocatable.value).toBeLessThan(before);
   });
+
+  it("creates a person in the bed on arrival, so the patient does not vanish when the movement closes", () => {
+    /*
+     * THE DEFECT THIS PINS. Until 2026-08-30 this reducer contained the word "admission" zero times.
+     * Arrival closed the movement, decremented the unit's empty count and bumped its sex mix - and
+     * created no record of the person. `isOpen` is `!closure && stage !== "arrived"`, and it gates
+     * ten surfaces: the queue, the coordinator inbox, handover, placement, patient search, the
+     * pressure strip, the live tracker and the ED screen among them.
+     *
+     * So a patient who reached a ward became a closed movement and nothing else, and the
+     * demonstration lost sight of them at the exact moment it had succeeded in placing them. The
+     * bed count moved and the person did not exist.
+     *
+     * Nothing was red. Every assertion about arrival was about the MOVEMENT and the UNIT - both
+     * still correct - and no test anywhere asked what happened to the human being.
+     */
+    const before = seeded();
+    let state = before;
+    for (const event of [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HANDOVER_READY", role: "ed" },
+      { type: "TRANSPORT_ACCEPTED", role: "officer" },
+      { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+      { type: "PATIENT_COLLECTED", role: "officer" },
+      { type: "PATIENT_ARRIVED", role: "officer" },
+    ] as const) {
+      state = wardFlowReducer(state, { ...event, now: NOW, movementId: "WF-009" } as never);
+    }
+    expect(state.rejections, "the walk itself must succeed, or this test proves nothing").toEqual([]);
+
+    // The movement still closes - that behaviour is unchanged and correct. The point is what now
+    // exists alongside it.
+    expect(movement(state, "WF-009").stage).toBe("arrived");
+
+    expect(
+      state.admissions.length,
+      "arrival must create exactly one person in a bed - no more, and above all no fewer",
+    ).toBe(before.admissions.length + 1);
+
+    const arrival = state.admissions[state.admissions.length - 1];
+    expect(arrival.state, "the person is in the bed, not waitlisted or departed").toBe("occupied");
+    expect(arrival.arrivedAt, "arrival is stamped at the instant the event carried").toBe(NOW);
+    expect(arrival.unitId, "the person is in the unit that accepted them").toBe(
+      movement(state, "WF-009").acceptedUnitId,
+    );
+    expect(arrival.sex, "the sex mix is derived from the people in the beds, so this must carry it").toBe(
+      movement(state, "WF-009").sex,
+    );
+
+    // Both nulls are STATEMENTS rather than gaps, and asserting them stops either being quietly
+    // filled with a guess later.
+    expect(
+      arrival.referralId,
+      "an admission created by an arrival came from a movement, not a referral - inventing a " +
+        "referral id would point at nothing",
+    ).toBeNull();
+    expect(
+      arrival.homeRegion,
+      "a movement carries no home region anywhere in the model, and deriving one from the origin " +
+        "emergency department would be inventing it: where somebody was admitted from is not where " +
+        "they live. Awaiting the owner's ruling on whether suburb or region is the recorded fact.",
+    ).toBeNull();
+
+    // The seeded occupants are untouched: this appends a person, it does not rebuild the ward.
+    expect(state.admissions.slice(0, before.admissions.length)).toEqual(before.admissions);
+  });
 });
 
 describe("new referrals", () => {
