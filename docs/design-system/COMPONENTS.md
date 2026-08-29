@@ -1028,7 +1028,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
