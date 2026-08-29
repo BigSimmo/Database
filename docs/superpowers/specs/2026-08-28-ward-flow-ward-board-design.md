@@ -1044,3 +1044,53 @@ per DB-12 the stamp reads the same instant the figures read, never the wall cloc
 
 **Superseded by DB-11:** every sentence about an on-screen fixed view, a 08:00 freeze, or a two-view
 control. There is one view and it is live.
+
+### DB-15 — The override free-text box goes, and four reasons replace it
+
+**Two things, and only the first is urgent.**
+
+**1. Remove the free-text box. It is making a false claim.** `shortlist-panel.tsx` holds the
+coordinator's override reason in component state (`useState("")`), passes it to `setOverrideRecord`
+— also component state — and **never to any dispatch**. It is discarded when another patient is
+selected. Meanwhile `ward-management-modes.tsx:859` tells the reader:
+
+> "Users can select an alternative, **record an override reason** and see which gate changed the
+> ordering."
+
+**It is not recorded.** The contrast that settles it as an omission rather than a design choice:
+`RELEASE_HOLD` and `CANCEL_TRANSPORT`, on the same screen, both pass their `reason` through to the
+reducer. Only the override does not. So a governance-facing description asserts the system keeps
+something it throws away — and it is simultaneously the last free-text field on a referral surface.
+
+**2. Four reasons replace it, not five.** Two sessions independently proposed a fixed list; one
+named five. **Each was tested against the model rather than accepted:**
+
+| Reason                                              | Backed by                                |
+| --------------------------------------------------- | ---------------------------------------- |
+| An agreed mismatch — more restrictive than required | `restrictionNotice`                      |
+| Clinical urgency                                    | `URGENCY_LEVELS`                         |
+| Out-of-date bed information                         | capacity freshness (`staleAfterMinutes`) |
+| Closer to home                                      | `homeRegion`, and Phase 8's travel bands |
+| ~~Continuity with a previous admission~~            | **NOTHING.** Dropped                     |
+
+**Why the fifth is dropped rather than kept as a human's stated reason.** It is real practice and it
+is not invented clinical vocabulary — but the model holds **no concept of a previous admission at
+all**: `Admission` links to the referral that produced it and to nothing before it, and no
+readmission, prior-stay or admission-history field exists anywhere in `ward-management`.
+
+The precedent is this project's own and it is decisive: **a bed could be declined "out of catchment"
+while the system held no catchment for anybody**, and that was treated as a defect worth closing
+rather than an acceptable human-stated reason. A reason nobody can check, display, or count is the
+same shape. Offering it would mean a coordinator recording something the prototype can never show
+back.
+
+**It is cheap to add later, and the owner may want it.** Give `Admission` a link to a prior
+occupancy and the reason becomes backed; the list is a fixed array and gains one entry. Recorded as
+a gap rather than a refusal.
+
+**What is kept either way:** who overrode, as a **role**, and when. Per DB-8 and P5-D8 that is
+sufficient provenance, and no optional note is added alongside the picker — an optional free-text
+field is the same field with a softer name.
+
+**Scope:** `shortlist-panel.tsx` and `ward-management-modes.tsx` both belong to the other branch.
+This decision is recorded here and implemented at the fold, not by this session.
