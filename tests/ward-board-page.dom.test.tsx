@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { WardBoard } from "@/components/ward-management/board/ward-board";
@@ -208,7 +208,17 @@ describe("ward board page — held beds", () => {
 
     expect(container.querySelectorAll('[data-bed-kind="held"]')).toHaveLength(capacity.held);
     // Said in WORDS on every one of them, not by the dot pattern alone.
-    expect(screen.getAllByText("Held")).toHaveLength(capacity.held);
+    //
+    // **Scoped to the grid, and the reason is a real collision rather than a tidy-up.** The triage
+    // bar added by the three-zone rebuild prints `CAPACITY_FIGURE_LABELS.held`, which is the same
+    // word — so a page-wide `getAllByText("Held")` now finds two elements and this assertion went
+    // red. The two are not a contradiction: the bar's figure and the tiles are the same held count
+    // seen twice, which is exactly what the next assertion below now proves rather than assumes.
+    expect(within(screen.getByTestId("ward-board-beds")).getAllByText("Held")).toHaveLength(capacity.held);
+    // The triage bar's own Held figure, against the tiles drawn for it. Two surfaces on one page
+    // showing one fact is only safe while they agree, and this is what makes the agreement fail
+    // loudly instead of quietly.
+    expect(screen.getByTestId("ward-board-figure-held").textContent).toContain(`${capacity.held}`);
 
     // The plain "Empty" tiles are only the FILLABLE subset now — `available`, not the unit's raw
     // `empty.value` (which also includes the held bed). Held and available must add back up to

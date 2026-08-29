@@ -118,7 +118,14 @@ describe("ward board people panel — the figure has to be possible, not merely 
 
     // The sentence is the reason this defect is catchable by eye at all, so it is pinned as text
     // rather than trusted to be built from the same variables.
-    const intro = within(panelIn(container)).getByTestId("ward-board-people-count");
+    //
+    // **Resolved from the whole board rather than from the panel, because the sentence MOVED and
+    // the claim did not.** The three-zone rebuild turned the always-visible people list into a
+    // printed sheet plus a per-selection slide-out, and this arithmetic — the check that catches a
+    // panel fed the wrong collection — belongs where a reader can always see it, so it now sits
+    // under the bed grid. It still names the rendered row count and the ward's own bed count, and
+    // this assertion still compares it against the rows actually drawn.
+    const intro = within(container).getByTestId("ward-board-people-count");
     expect(intro.textContent).toContain(`${rows} of this ward's ${unit.beds} beds are taken`);
   });
 });
@@ -272,9 +279,17 @@ describe("ward board people panel — what each person's entry states", () => {
  */
 describe("ward board people panel — no diagnosis, and no placeholder for one", () => {
   it("mentions diagnosis exactly once, to say the record does not hold one", () => {
-    const panel = panelIn(renderWardBoard(UNIT_ID).container);
+    // **Widened from the panel to the whole board, which STRENGTHENS this rather than relaxing it.**
+    // The line moved out of the people panel in the three-zone rebuild — it now sits under the bed
+    // grid so it is on screen whether or not anybody has selected a tile, and so it prints — and a
+    // panel-scoped search would find nothing there and pass on an empty set of paragraphs. Scoped
+    // to the board it holds the same claim over strictly more of the page: exactly one mention, and
+    // it is this sentence.
+    const { container } = renderWardBoard(UNIT_ID);
+    const board = container.querySelector<HTMLElement>('[data-testid="ward-board"]');
+    if (board === null) throw new Error("The ward board did not render.");
 
-    const mentions = [...panel.querySelectorAll("p")].filter((p) => /diagnos/i.test(p.textContent ?? ""));
+    const mentions = [...board.querySelectorAll("p")].filter((p) => /diagnos/i.test(p.textContent ?? ""));
     expect(mentions).toHaveLength(1);
     expect(mentions[0]?.textContent).toBe("No diagnosis is shown: this record does not hold one.");
   });

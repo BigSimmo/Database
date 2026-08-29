@@ -231,8 +231,19 @@
   list-style: none;
 }
 
+/*
+ * THE TILE, which is now a `<button>` and no longer an `<li>`.
+ *
+ * The UA's own control styling is reset here rather than inherited — a button carries a font stack
+ * and a centre alignment of its own, and a tile that quietly changed typeface when it became
+ * interactive would be a visual regression nothing tests. `width: 100%` makes the whole face of
+ * the tile the target rather than a control sitting inside a decorated box, and the min-height
+ * floor is this repository's production tap target (`--spacing-tap`, 3rem/48px) — never the 44px a
+ * generic checklist asks for, which reintroduces a known `ui-smoke` sub-pixel flake.
+ */
 .bed {
   display: flex;
+  width: 100%;
   min-height: max(var(--wb-tile-height), var(--wb-tap));
   flex-direction: column;
   align-items: center;
@@ -241,7 +252,18 @@
   border: var(--wb-hairline) solid var(--border-strong);
   border-radius: var(--radius-md);
   padding: var(--wb-space-8);
+  color: inherit;
+  font-family: inherit;
   text-align: center;
+  cursor: pointer;
+}
+
+/* A real focus style, and a heavy one: these tiles are 5rem squares in a grid of twenty, and a
+   hairline ring is not findable among them by somebody moving through with a keyboard. Offset
+   outwards so it is never confused with `.bedPast`'s inset outline. */
+.bed:focus-visible {
+  outline: var(--wb-outline-heavy) solid var(--focus-ring, var(--primary));
+  outline-offset: 0.125rem;
 }
 
 .bedOccupied {
@@ -405,52 +427,443 @@
 }
 
 /*
- * The board body: the bed grid and the destinations panel side by side on a wide screen, stacked
- * on a phone. `minmax(0, 1fr)` on the grid track rather than `1fr` — without the zero minimum a
- * grid child refuses to shrink below its content and the panel gets pushed off the viewport
- * instead of the tiles reflowing.
+ * ============================================================================================
+ * THE THREE ZONES — incoming/outgoing left, beds middle, the selected bed's panel right.
+ * ============================================================================================
+ *
+ * `.body` above is retained for nothing and has been replaced by `.zones`; the old two- and
+ * three-panel media queries went with it. The reading this arrangement is for is left to right:
+ * in → in a bed → out.
+ *
+ * The right track EXISTS ONLY WHEN SOMETHING IS SELECTED (`.zonesOpen`), which is what makes this
+ * a slide-out rather than a third column: an unselected board spends none of its width on a panel
+ * nobody has asked for. The middle track is `minmax(0, 1fr)` so it SHRINKS to make room rather
+ * than the panel being pushed off the viewport — the beds stay visible beside the panel that
+ * describes them, because a reader who has just chosen a tile wants to compare it with the others.
  */
-.body {
+.zones {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--wd-space-16, 1rem);
+  gap: var(--wb-space-16);
   align-items: start;
 }
 
 /*
- * Two tiers, not one, because there are now three columns' worth of content and only two of them
- * fit at 960px.
+ * ON A PHONE THE BEDS COME FIRST, and this is a defect found by rendering at 390 and scrolling.
  *
- * At 60rem the grid takes the left column and BOTH panels stack in the right one — `.beds` is
- * pinned across two rows so the destinations panel and the people panel fall underneath each
- * other rather than the second wrapping back under the tiles. It still works with only one panel
- * present (the destinations panel is not rendered when no occupant has a date inside the horizon):
- * the remaining panel simply occupies row 1 of that column.
+ * DOM order is flow → grid → slide-out, which is the correct left-to-right reading on a wide
+ * screen. Stacked into one column it put four panels — including the eight-region destinations
+ * list — above the grid, so a phone reader scrolled past roughly a screen and a half of context
+ * before reaching the thing the page is for. The `order` values put the beds first, the panel for
+ * whichever bed was chosen immediately under them, and the flow context after; DOM order is left
+ * alone so the wide layout and the printed sheet are unaffected, and the ordering is reset
+ * explicitly at 60rem rather than left to leak upwards.
+ */
+.flowColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  order: 3;
+  gap: var(--wb-space-12);
+}
+
+.gridColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  order: 1;
+  gap: var(--wb-space-12);
+}
+
+.detail {
+  order: 2;
+}
+
+/*
+ * Two tiers. At 60rem the flow column takes its own track beside the beds; the slide-out, when
+ * open, wraps under the beds rather than squeezing three columns into a tablet width — better a
+ * panel below the grid than a grid too narrow to read.
  *
- * At 78rem there is room for the people panel to sit where it was asked for — the far right — so
- * the pin is released and the three columns lay out in DOM order. The tile grid keeps its own
- * `max-width` cap either way, so widening the window never turns the ward back into the
- * sixteen-wide strip that cap exists to prevent.
+ * At 84rem all three sit side by side. The tile grid keeps its own `max-width` cap either way, so
+ * widening the window never turns the ward back into the sixteen-wide strip that cap prevents.
  */
 @media (min-width: 60rem) {
-  .body {
-    grid-template-columns: minmax(0, 1fr) 18rem;
+  .zones {
+    grid-template-columns: 17rem minmax(0, 1fr);
   }
 
-  .beds {
-    grid-row: 1 / span 2;
+  /* The phone's beds-first ordering is reset here and the columns placed explicitly, so the wide
+     layout depends on grid placement rather than on `order` leaking up from the stacked case. */
+  .flowColumn {
+    order: 0;
     grid-column: 1;
+  }
+
+  .gridColumn {
+    order: 0;
+    grid-column: 2;
+  }
+
+  /* At tablet width a third column would leave the grid too narrow to read, so the panel wraps
+     underneath both instead of squeezing them. It still never covers the beds. */
+  .zonesOpen .detail {
+    order: 0;
+    grid-column: 1 / -1;
   }
 }
 
-@media (min-width: 78rem) {
-  .body {
-    grid-template-columns: minmax(0, 1fr) 17rem 18rem;
+@media (min-width: 84rem) {
+  .zonesOpen {
+    grid-template-columns: 17rem minmax(0, 1fr) 21rem;
   }
 
-  .beds {
-    grid-row: 1;
+  .zonesOpen .detail {
+    grid-column: 3;
   }
+}
+
+/*
+ * THE TRIAGE BAR — the day's six figures, full width above the zones.
+ *
+ * Full width rather than inside the left column on purpose: six figures in a row read as a BAR,
+ * which is what was asked for, and in a 17rem column they would stack into a list and stop being
+ * one. They are also ward-level rather than incoming- or outgoing-specific, so they belong above
+ * all three zones rather than inside one of them.
+ */
+.triage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--wb-space-8) var(--wb-space-16);
+  border: var(--wb-hairline) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-chrome);
+  padding: var(--wb-space-12);
+}
+
+.triageHeading {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.triageFigures {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: var(--wb-space-8) var(--wb-space-12);
+  margin: 0;
+}
+
+/*
+ * One figure. The emphasised one takes a heavier LEFT RULE and bolder ink — a weight, never a
+ * fill, for the same reason the selected tile does: a fill on a figure a reader has not chosen
+ * reads as an alert, and a printer would drop it anyway. The words "shown in Going out" beneath it
+ * are what actually carry the emphasis; the rule only makes it quick to find.
+ */
+.triageFigure {
+  min-width: 0;
+  border-left: var(--wb-hairline) solid var(--border);
+  padding-left: var(--wb-space-8);
+}
+
+.triageFigureLed {
+  border-left-width: var(--wb-outline-heavy);
+  border-left-color: var(--border-strong);
+}
+
+.triageLabel {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.triageValue {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-2xl, 1.5rem);
+  font-weight: 700;
+  line-height: var(--wb-leading-figure);
+}
+
+.triageFigureLed .triageValue {
+  text-decoration: underline;
+  text-underline-offset: 0.1875rem;
+}
+
+.triageLedNote {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+}
+
+.triageToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wb-space-8);
+}
+
+.triageToggleLabel {
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* A real tap target at the production floor of 3rem — never the 44px a generic checklist asks
+   for; this repository uses 48px because 44 hit a sub-pixel rounding flake in `ui-smoke`. */
+.triageToggleButton {
+  min-height: var(--wb-tap);
+  border: var(--wb-hairline) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 0 var(--wb-space-12);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The pressed state is a heavier EDGE plus bolder ink, not a fill — same rule as everywhere else
+   on this board, and `aria-pressed` is what states it to a screen reader. */
+.triageToggleButtonOn {
+  border-width: var(--wb-outline-heavy);
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.triageToggleButton:focus-visible {
+  outline: var(--wb-outline-heavy) solid var(--focus-ring, var(--primary));
+  outline-offset: 0.125rem;
+}
+
+/*
+ * THE FLOW PANELS — coming in, going out, since yesterday. Same chrome as `.destinations` below,
+ * deliberately: they are readings of the same ward and a reader should recognise them as the same
+ * KIND of thing. What separates them is what is inside, not a second box style.
+ */
+.flowPanel {
+  min-width: 0;
+  border: var(--wb-hairline) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-chrome);
+  padding: var(--wb-space-12);
+}
+
+.flowHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.flowIntro {
+  margin: var(--wb-space-4) 0 var(--wb-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+.flowList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A left rule rather than a fill — patterns and lines survive greyscale, a stripped-background
+   print and forced-colors, which a background tint does not. Same reasoning as `.destination`. */
+.flowRow {
+  border-left: var(--wb-outline-heavy) solid var(--border-strong, var(--border));
+  padding-left: var(--wb-space-8);
+}
+
+.flowRowLead {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--wb-leading-body);
+}
+
+.flowRowLine {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text);
+  font-size: var(--text-2xs);
+  line-height: var(--wb-leading-body);
+}
+
+/* The one line saying why a bed is not coming free. Ordinary ink and bold, no tint and no colour
+   coding — the words "Held up by" are what carry it. */
+.flowRowBlocker {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: var(--wb-leading-body);
+}
+
+/* The standing note about what the record does NOT hold. Set apart by a rule rather than a tint,
+   so it survives a stripped background exactly as everything else on this board does. */
+.flowNote {
+  margin: var(--wb-space-8) 0 0;
+  border-top: var(--wb-hairline) solid var(--border);
+  padding-top: var(--wb-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--wb-leading-body);
+}
+
+.sinceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-4);
+  margin: var(--wb-space-8) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sinceItem {
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+.sinceValue {
+  color: var(--text-heading);
+  font-size: var(--text-base, 1rem);
+  font-weight: 700;
+}
+
+/*
+ * THE BED TILES ARE NOW BUTTONS. `.bedSlot` is the grid item and `.bed` is the control that fills
+ * it, so the tile's whole face is the target rather than a control sitting inside a decorated box.
+ */
+.bedSlot {
+  display: flex;
+  min-width: 0;
+}
+
+/*
+ * Selection is a heavier EDGE and nothing else — never a fill.
+ *
+ * A fill would do two wrong things at once: on a printed sheet that has recorded no decision a
+ * filled element reads as a decision made, and on screen it would collide with the four band
+ * shades so a selected band-2 tile would stop being readable as band 2. The border STYLE is left
+ * alone deliberately (dashed for empty, dotted for held), so widening it thickens whichever edge
+ * that tile kind already carries rather than replacing the shape channel that distinguishes it.
+ * The word "Selected" on the tile face is the channel that survives greyscale and print.
+ */
+.bedSelected {
+  border-width: var(--wb-outline-heavy);
+  border-color: var(--text-heading);
+  font-weight: 700;
+}
+
+.selectedMark {
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/*
+ * The occupancy arithmetic under the grid — the check a ward can do in its head, and the one that
+ * catches a panel fed the wrong collection. Ordinary ink rather than muted: it is a figure, not an
+ * aside.
+ */
+.occupancy {
+  margin: 0;
+  max-width: var(--container-reading);
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+/* The empty-selection state, said in words under the grid rather than as a blank panel beside it.
+   Dashed rule above it so it reads as an instruction rather than as a finding about the ward. */
+.selectHint {
+  margin: 0;
+  border-top: var(--wb-hairline) dashed var(--border);
+  padding-top: var(--wb-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+/*
+ * THE SLIDE-OUT. Same panel chrome as the flow panels and the destinations panel — one box style
+ * for every reading of this ward — with a heavier edge, because this one is the answer to
+ * something the reader asked for and the others are standing content.
+ */
+.detail {
+  min-width: 0;
+  border: var(--wb-outline-heavy) solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-chrome);
+  padding: var(--wb-space-12);
+}
+
+.detailBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wb-space-8);
+  margin-bottom: var(--wb-space-8);
+}
+
+.detailHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.detailClose {
+  min-height: var(--wb-tap);
+  flex: none;
+  border: var(--wb-hairline) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 0 var(--wb-space-12);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detailClose:focus-visible {
+  outline: var(--wb-outline-heavy) solid var(--focus-ring, var(--primary));
+  outline-offset: 0.125rem;
+}
+
+.detailLead {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--wb-leading-body);
+}
+
+/* The line that keeps selection honest. A rule above it, ordinary ink, no tint — it is a standing
+   statement about the record rather than a warning about this ward. */
+.detailNotLocation {
+  margin: var(--wb-space-8) 0 0;
+  border-top: var(--wb-hairline) solid var(--border);
+  padding-top: var(--wb-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--wb-leading-body);
 }
 
 .destinations {
@@ -525,7 +938,16 @@
  * once on paper: a truncated list that looks complete is worse than no list, because nobody
  * reading it can tell that anything is missing.
  */
+/*
+ * Hidden on screen and restored in the print block below — the ONE piece of hidden content on this
+ * board, and hidden in the direction that ADDS to the sheet rather than removing from it. See the
+ * component's own comment on this element: the owner replaced the always-visible list with a
+ * per-selection slide-out, and a printed sheet carrying only whoever was last clicked would be a
+ * page whose content depends on an interaction that left no mark on it. So the screen shows one
+ * person on request and the paper shows all of them.
+ */
 .people {
+  display: none;
   min-width: 0;
   border: var(--wb-hairline) solid var(--border);
   border-radius: var(--radius-lg);
@@ -657,6 +1079,16 @@
   .screen {
     min-height: auto;
     background: transparent;
+    /*
+     * **`color-scheme: light`, and it is what makes the `CanvasText` rules below actually work.**
+     * `CanvasText` is a SYSTEM colour: it resolves against the element's own colour scheme, and the
+     * app's `.dark` class sets that scheme to dark — so on a dark-themed sheet `CanvasText` resolved
+     * to WHITE and the first attempt at this fix left the ward name exactly as invisible as before.
+     * Measured, not assumed: `getComputedStyle(h1).color` came back `rgb(251, 252, 253)` on a white
+     * page both times. Paper is a light medium whatever the screen was set to, so the sheet declares
+     * itself light and every system colour under it resolves for paper.
+     */
+    color-scheme: light;
   }
 
   /*
@@ -736,7 +1168,19 @@
    */
   .pastMark {
     border: var(--wb-hairline) solid CanvasText;
-    background: transparent;
+    /*
+     * `Canvas` — the page's own ground — rather than `transparent`, and this is a correction found
+     * by printing the DARK theme and looking at the sheet.
+     *
+     * `transparent` was right while the badge only ever sat on the page itself. It now also appears
+     * inside the printed occupant list, and in the dark theme that panel keeps its own dark
+     * `--surface-chrome` fill on paper — so a transparent badge with `CanvasText` ink (black, now
+     * that `.screen` declares `color-scheme: light` above) became black on a dark panel: invisible
+     * again, in the mirror image of the defect the ink rule just fixed. A `Canvas` plate makes the
+     * badge carry its own light ground wherever it lands, and it degrades correctly if a printer
+     * strips fills: everything around it loses its fill at the same time, leaving black on white.
+     */
+    background: Canvas;
     color: CanvasText;
   }
 
@@ -745,6 +1189,102 @@
      at. Kept whole, the same way `.bed` already is. */
   .person {
     break-inside: avoid;
+  }
+
+  /*
+   * THE PRINT RESTORE FOR THE TILE BUTTONS, and it is not optional.
+   *
+   * The global reset in `globals.css` carries `header, nav, button { display: none !important }`
+   * to strip workspace chrome off a sheet. The tiles became buttons when the board gained
+   * selection, so without this rule every tile vanishes and the printed board is an empty grid
+   * under a ward name — the exact defect this branch spent a day fixing on four other surfaces.
+   * A class selector (0,1,0) outranks the reset's bare element selector (0,0,1), so `!important`
+   * here wins against `!important` there without touching the global rule.
+   */
+  .bed {
+    display: flex !important;
+    border: var(--wb-hairline) solid var(--border-strong);
+    break-inside: avoid;
+  }
+
+  /*
+   * THE DARK-THEME SHEET, and a defect found by printing this page with `.dark` set and LOOKING at
+   * it — not by any check that reads computed styles, because the computed colour is correct on
+   * screen and only wrong against paper.
+   *
+   * The global print reset forces `body { background: #fff; color: #000 }`, but every rule in this
+   * file that sets its own `color` overrides that inherited black. In the dark theme
+   * `--text-heading` resolves to a near-white (measured `rgb(251, 252, 253)`), so on a white sheet
+   * the WARD NAME, the headline figure and the footnote came out white on white — the printed board
+   * became a page of anonymous numbered boxes that could have come from any ward in the state,
+   * which is precisely the failure the `<div>`-instead-of-`<header>` note above already records
+   * fighting once.
+   *
+   * **This is not a regression from the three-zone rebuild — it is pre-existing.** The same capture
+   * taken against this branch's HEAD loses the ward name identically. It is repaired here because
+   * these are this file's own rules and a sheet that cannot say which ward it is is not a sheet.
+   *
+   * `CanvasText` follows the print medium's own ink rather than resolving a theme token chosen for
+   * a dark screen, which is the mechanism `.pastMark` below already uses and which was verified off
+   * a real 400dpi sheet. Only elements sitting on the PAGE GROUND are listed: everything inside a
+   * panel keeps its own painted background and the ink that goes with it.
+   */
+  .unitName,
+  .siteName,
+  .headlineValue,
+  .headlineLabel,
+  .constraint,
+  .legend,
+  .occupancy,
+  .peopleAbsence,
+  .footnote {
+    color: CanvasText;
+  }
+
+  /*
+   * The rest of the board's buttons are genuinely chrome and stay hidden: the triage toggle and
+   * the slide-out's Close cannot be operated on paper, and the basis they select is printed in
+   * words on the "Going out today" panel instead, so nothing is lost by their absence.
+   *
+   * The slide-out itself goes too. It is one person chosen by an interaction that leaves no mark
+   * on the sheet, and the full list below carries that person along with everyone else — with the
+   * selected entry marked in words and weight, so a reader can still see which one was open.
+   *
+   * `.triageToggle` goes as a WHOLE GROUP, not just its buttons — found by printing the page and
+   * looking at it. The global reset removes the two buttons but not the `<span>` labelling them,
+   * so the sheet carried a heading reading "GOING OUT SHOWS" with nothing whatever underneath it:
+   * a label for a control the reader cannot see, which reads as content that failed to render. The
+   * basis it selects is printed in words on the "Going out today" panel instead, so nothing is
+   * lost by removing the group entirely.
+   */
+  .detail,
+  .selectHint,
+  .triageToggle {
+    display: none !important;
+  }
+
+  /*
+   * WHO IS IN THESE BEDS, restored: every occupant and their discharge plan. This is the deliverable
+   * from 281bdf83f, kept whole on paper after the screen moved to one-at-a-time selection.
+   */
+  .people {
+    display: block;
+    break-before: page;
+  }
+
+  /* Selection on paper is WEIGHT and a word, never a fill — a filled entry on a sheet that has
+     recorded no decision reads as a decision made. */
+  .personSelected {
+    border-left: var(--wb-outline-heavy) solid CanvasText;
+    padding-left: var(--wb-space-8);
+  }
+
+  .personSelectedMark {
+    margin: 0 0 var(--wb-space-4);
+    font-size: var(--text-3xs);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
   }
 }
 
@@ -763,4 +1303,22 @@
     /* Reserve the fixed phone bar (ward-sidebar.module.css). */
     padding-top: var(--spacing-ward-phone-bar);
   }
+}
+
+/* The printed list's "Selected on screen" marker. Defined on the base selector as well as in the
+   print block so the class is never defined only inside a media query — the same discipline the
+   band ramp holds to. The panel itself is `display: none` on screen, so these are only ever seen
+   on paper; they are declared here so nothing about them is conditional. */
+.personSelected {
+  border-left: var(--wb-outline-heavy) solid var(--text-heading);
+  padding-left: var(--wb-space-8);
+}
+
+.personSelectedMark {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
