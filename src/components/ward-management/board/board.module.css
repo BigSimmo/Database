@@ -12,6 +12,23 @@
  * are four ordered steps of one hue against the page, which is the requirement — and the day
  * count printed on every tile is what actually carries the fact, so nothing is lost if a reader
  * cannot separate two of them at all.
+ *
+ * **THERE IS DELIBERATELY NO SEPARATE DARK RAMP, and that is a measured finding rather than an
+ * assumption.** The pass that widened these steps expected to need one. The rendered backgrounds
+ * of all four shades were sampled in both themes and compared as contrast ratios between
+ * neighbours, and the old ramp's weakest step turned out to be the SAME step in both themes — the
+ * page to the palest band, 1.12 in light and 1.12 in dark — while the dark ramp's three upper
+ * steps (1.31 / 1.38 / 1.48) were already wider than light's. Dark was not collapsed at the
+ * bottom of a dark surface; both themes were pinched in exactly one place, the first step. So the
+ * one fix below repairs both: 16/32/48/64 gives light 1.24 / 1.26 / 1.29 / 1.31 and dark
+ * 1.29 / 1.41 / 1.50 / 1.47, every step in either theme at or above what light's WIDEST step used
+ * to be.
+ *
+ * A second ramp would have been two orderings to keep in step instead of one, drifting the first
+ * time anybody retuned a value — and, on this evidence, it would have been solving a problem the
+ * shared ramp did not have. `--wb-band-base` exists as the single seam where a future dark
+ * override would go IF measurement ever shows one is needed; it is `--surface` in both themes
+ * today, and it should not be split on a hunch.
  */
 .screen {
   --wb-space-4: 0.25rem;
@@ -35,10 +52,33 @@
   /* Six tiles wide at the minimum tile size — see `.beds`. */
   --wb-grid-max: 42rem;
 
-  --wb-band-1: color-mix(in oklab, var(--primary) 8%, var(--surface));
-  --wb-band-2: color-mix(in oklab, var(--primary) 22%, var(--surface));
-  --wb-band-3: color-mix(in oklab, var(--primary) 36%, var(--surface));
-  --wb-band-4: color-mix(in oklab, var(--primary) 52%, var(--surface));
+  /*
+   * The four stay-band fills: ONE hue, four deepening steps, mixed in `oklab` so the steps are
+   * perceptually even rather than evenly numbered.
+   *
+   * **The percentages are the LIGHT ramp and are declared here on the base selector**, so the
+   * light theme is never defined only inside a conditional block — `.dark` below redefines these
+   * four and nothing else. The mix partner is `--wb-band-base` rather than `--surface` directly,
+   * which is what lets the dark override change the ground the steps are mixed into without
+   * restating the four percentages twice.
+   *
+   * **The first step was 8% and is now 16% — the change asked for in this pass.** The old ramp's
+   * first step was the smallest gap on the board (empty to band 1 was about half the size of every
+   * later step), which put the least separation exactly where it mattered most: between a bed that
+   * is free and a bed that is taken. With the owner's wider first band that tile is also now the
+   * most common one on the ward, so a shade barely distinguishable from an empty tile would have
+   * been the shade most of the board was drawn in. 16/32/48/64 is four even steps with the same
+   * gap between the page and the first as between any two bands.
+   */
+  --wb-band-base: var(--surface);
+  --wb-band-1: color-mix(in oklab, var(--primary) 16%, var(--wb-band-base));
+  --wb-band-2: color-mix(in oklab, var(--primary) 32%, var(--wb-band-base));
+  --wb-band-3: color-mix(in oklab, var(--primary) 48%, var(--wb-band-base));
+  --wb-band-4: color-mix(in oklab, var(--primary) 64%, var(--wb-band-base));
+
+  /* The out-of-service hatch. A PATTERN, not a colour — see `.bedBlocked`. */
+  --wb-hatch-line: var(--border-strong);
+  --wb-hatch-gap: var(--surface-inset);
 
   display: flex;
   min-height: 100dvh;
