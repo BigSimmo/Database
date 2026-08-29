@@ -27,6 +27,7 @@ import {
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import { SpecifierNavHeader } from "@/components/specifiers/specifier-nav-header";
+import { MissingValue } from "@/components/ui/missing-value";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   curatedEnrichmentFor,
@@ -249,12 +250,31 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                 <p className={eyebrowText}>Review status</p>
               </div>
               <dl className="divide-y divide-[color:var(--border)]">
-                {[
-                  ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
-                  ["Clinician review", "Pending qualified review"],
-                  ["Source family", item.definition?.sourceFamily ?? item.review.sourceFamily ?? "—"],
-                  ["Content hash", item.review.contentHash],
-                ].map(([label, body]) => (
+                {/* SPEC §11: no source family means one of two different things, and a dash said
+                    neither. All 20 of the 585 catalogue items that reach this fallback today carry
+                    `source-not-applicable` — the specifier has no source family to name —
+                    so the phrase is driven off that status rather than assumed, and an item that
+                    ever lacks a family for any other reason reads as an omission, which it is. */}
+                {(
+                  [
+                    ["Source", sourceStatusLabel[item.review.sourceVerificationStatus]],
+                    ["Clinician review", "Pending qualified review"],
+                    [
+                      "Source family",
+                      item.definition?.sourceFamily ?? item.review.sourceFamily ?? (
+                        <MissingValue
+                          reason={
+                            item.review.sourceVerificationStatus === "source-not-applicable"
+                              ? "not_applicable"
+                              : "not_recorded"
+                          }
+                          density="cell"
+                        />
+                      ),
+                    ],
+                    ["Content hash", item.review.contentHash],
+                  ] satisfies Array<[string, ReactNode]>
+                ).map(([label, body]) => (
                   <div key={label} className="px-4 py-3">
                     <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>
                     <dd className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</dd>

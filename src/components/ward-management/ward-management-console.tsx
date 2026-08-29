@@ -18,6 +18,7 @@ import {
 import { useState } from "react";
 
 import { ContextualBackLink } from "@/components/contextual-back-link";
+import { MissingValue } from "@/components/ui/missing-value";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
@@ -220,7 +221,13 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
           </div>
           <div className={styles.workspaceScore}>
             <span>Eligibility</span>
-            <strong>{verdict ? candidateReason(verdict) : "—"}</strong>
+            {/*
+              `verdict` is undefined only while no destination is selected (line above),
+              so eligibility has not been computed — it is not inapplicable, and nothing
+              is missing from the record. The heading beside it already reads
+              "No destination selected".
+            */}
+            <strong>{verdict ? candidateReason(verdict) : <MissingValue reason="not_yet_calculated" />}</strong>
             <small>Tier {patient.urgency} leads</small>
           </div>
           <button
