@@ -70,6 +70,32 @@ The only seeded occupant that is **both confirmed and blocked**. Phase 8's row l
 ancestor_. Losing it removes a test **case**, not a test — **nothing goes red**, and a derivation that
 dropped blocked releases from the confirmed count would then pass every test in this repository.
 
+**RUNNING THE TESTS AFTER THIS MERGE VERIFIES NOTHING. Read this before resolving.**
+
+`tests/ward-admission-model.test.ts` is one of the three conflicting files, and it holds the
+**structural privacy allowlist** — the exact-equality assertion on the record's field set, the guard
+that makes a future `notes`, `diagnosis`, `name` or `dob` field fail rather than be discouraged.
+**So the guard that would catch a wrong resolution is itself inside the conflict.**
+
+| Resolution                    | Record fields | Allowlist | Suite                                                                                                            |
+| ----------------------------- | ------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| All three from the ward board | 28            | 28        | **green, and right**                                                                                             |
+| All three from Phase 8        | 26            | 26        | **GREEN, AND WRONG** — `dischargeConfirmedAt` silently gone, and with it the only route to a `confirmed` release |
+| Mixed                         | 28            | 26        | red                                                                                                              |
+
+**The fully-wrong resolution passes. Only the half-wrong one fails.** A green suite after this merge
+is consistent with the worst available outcome, because the allowlist shrinks in step with the record
+it guards.
+
+**So the check is a grep, not a test run.** After resolving, assert directly against something the
+resolution cannot delete:
+
+```bash
+git show HEAD:src/components/ward-management/ward-admissions.ts | grep -c dischargeConfirmed   # must be 4, not 0
+```
+
+This is the general shape worth carrying: **a test cannot verify a merge that can delete the test.**
+
 **This resolution has an expiry.** It is correct only while Phase 8 has not touched those three files.
 **Re-run `git merge-tree --write-tree` immediately before folding** and confirm the conflict set is
 still exactly these three. If Phase 8 has since edited any of them, "take ours wholesale" silently
