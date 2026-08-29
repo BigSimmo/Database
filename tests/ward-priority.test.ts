@@ -267,7 +267,16 @@ describe("queue order", () => {
     // jumps back to row 2, breaking this.
     const ordered = queueOrder(wardMovements, NOW_ANCHOR);
     const tierOneIds = ordered.filter((movement) => movement.urgency === 1).map((movement) => movement.id);
-    expect(tierOneIds.slice(0, 5)).toEqual(["WF-009", "WF-315", "WF-006", "WF-014", "WF-017"]);
+    expect(
+      tierOneIds.slice(0, 5),
+      "The leading order of tier 1 has changed. Tier 1 is the most urgent queue on the board, so " +
+        "this is the order a coordinator would work down. The five scores behind it are 53, 50, 43, " +
+        "42 and 41 - all distinct, so this is a real ordering claim and not sort stability. Check " +
+        "WF-017 first: it sits at 41 only because the 25-point 'Bed need confirmed' factor was " +
+        "deleted on 2026-08-24, so if it has jumped back toward row 2 that factor has returned, " +
+        "which is the specific regression this line exists to catch. Re-derive the scores from the " +
+        "code before changing any id here.",
+    ).toEqual(["WF-009", "WF-315", "WF-006", "WF-014", "WF-017"]);
 
     // WF-003 was row 3 and is now behind WF-303, which it used to outrank. Asserted by id
     // because that pair is the clearest single consequence of the removal.

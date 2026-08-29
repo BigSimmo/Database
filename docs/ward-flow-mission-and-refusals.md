@@ -106,7 +106,7 @@ the design, not as prototype limitations.
 | **Nothing predicts, scores, ranks or recommends a person** | The moment a screen ranks patients, the ranking becomes the decision and the clinician becomes its auditor | Reversible only as an explicit product decision, with a named accountable clinician |
 | **Escalation tiers are declared by a human, never triggered by a threshold** | A system that declares a statewide surge on an invented number gets quoted in a meeting and then disbelieved | Firmly held. Would need real, sourced indicators first |
 | **An owner is always a role, never a person** | Survives shift changes with no reassignment, and keeps staff names out of the system entirely | Firmly held. Accountability comes from the role carrying a visible clock |
-| **No diagnosis** | Not needed for bed flow, and its presence changes what the record is | Owner decision. Costs one field; needs a recorded decision, not a drift |
+| **No diagnosis about a person** — AMENDED `FD-7`, see below. One ICD-10 F-chapter **block range** is now permitted, saying what kind of bed is needed. Never a specific diagnosis, never free text | A block is a bed requirement; a diagnosis is a clinical record about a person | Reversed by the owner 2026-08-29 for the block level only. The specific-diagnosis and free-text refusals stand |
 | **Cohort is a requirement on the request, never a fact stored about a person** | "This request needs an adolescent bed" is operational. The same word attached to a patient is not | Firmly held |
 | **Sex is the only permitted patient attribute** | Data minimisation. It is load-bearing for bed matching; nothing else is | Held, and already tested at the boundary once |
 | **No free text anywhere** | Free text is unbounded clinical data by another name, and it is where identifiable information arrives | Held as a principle. A real system would need a governed alternative, not a textarea |
@@ -197,4 +197,193 @@ evidence of it.
 **Practical test for any new surface:** construct an item the surface cannot handle — a unit in no
 health service, a referral matching no unit, a bed with no ward. **If it disappears, the surface is
 wrong**, however correct its computation is for everything else.
+
+## AMENDED — "No diagnosis" becomes "no diagnosis ABOUT A PERSON" (`FD-7`)
+
+**In force.** The owner, asked directly about this rule: *"Yes I want you to update this rule since
+it is required for referral."* Recorded as `FD-7` in the ledger at `685955cae`.
+
+**Provenance, stated because this refusal's own condition demands it** (*"needs a recorded decision,
+not a drift"*): he said it to the ledger session, which asked the direct question and recorded his
+words verbatim. **That is a recorded decision, not a drift** — the register of record holds it with
+its wording. It did not reach me directly, and it is amended here on the ledger's authority rather
+than mine. **If that is not what he meant, this is the entry to correct.**
+
+**What is now permitted, and it is narrower than "diagnosis":** a single **ICD-10 F-chapter block
+range** — `F20–F29 Schizophrenia, schizotypal and delusional disorders`, `F30–F39 Mood (affective)
+disorders`. **A block says what KIND of bed is needed. It is not a diagnosis about a person**, and
+that distinction is the whole reason this is defensible rather than merely permitted.
+
+**Most of it already exists**, found by running the owner's own check before writing this:
+`TENTATIVE_DIAGNOSIS_BLOCKS` is live at `ward-admissions.ts:212`, eleven blocks, referenced across
+eight files — and it was built to this standard already, its own comment reading *"a single value
+picked from `TENTATIVE_DIAGNOSIS_BLOCKS`, never typed, never a specific condition, never anybody's
+words"*, with the structural test *"widened in the SAME change as this field, by name, so the guard
+bound on it rather than being stepped around."* **Whoever chose block level over specific diagnoses
+solved the hard part.**
+
+**So the remaining work is EXTEND, not BUILD.** The referral record still forbids it —
+`tests/ward-referral-model.test.ts:215` names `"diagnosis"` in its forbidden set.
+
+### Four constraints, none of which may be dropped
+
+1. **REUSE the existing block list. Never invent a second.** A second vocabulary for one fact is this
+   project's named defect class, and a hand-written diagnosis list is the version it punishes hardest.
+2. **Block level only.** A specific diagnosis is a clinical record about a person and is **not** what
+   was approved.
+3. **The referral's structural privacy allowlist is widened DELIBERATELY, by exactly one entry, in
+   the same change.** That guard names `diagnosis` explicitly and exists to stop this field. It is
+   authorised for this one and **must keep failing for every other — widened, never loosened.**
+4. **Never free text, under any circumstances.** That breaches two rules at once and is not covered
+   by this reversal.
+
+### The seam — my judgement, since it is a plan question
+
+**The referral carries the block at intake**, because the owner said *"required for referral"* and
+because the referrer is the person who has actually assessed the patient. **The admission inherits it
+from the referral rather than asking again** — one place per fact, per
+`docs/ward-flow-changeable-data-rule.md`. The existing seed authoring its own values is fine; that is
+fixture data, not a live journey.
+
+**But if the ward can revise it, that is NOT an edit — it is a second authored fact.** The referrer
+thought `F30–F39`; the ward, having seen the person, thinks `F20–F29`. **Those are two assessments by
+two people at two times, not one fact recorded twice**, and overwriting the first destroys the
+referrer's account of what they were referring for. If revision is wanted, it is a new entry with its
+own author and timestamp, and both stay visible. **Not decided — flagged, because the tempting
+implementation is an editable field, and that is the one that silently loses evidence.**
+
+### Still open, and he has not answered it
+
+A referral in practice says *"first-episode psychosis"* or *"relapse of bipolar"* — a presentation,
+not a chapter heading. If that is what he wants, the list should be shorter and more clinical than
+the coding standard. **The likeliest revision, and open.**
+
+### The original condition, kept for the record
+
+*"Owner decision. Costs one field; needs a recorded decision, not a drift."*
+
+**The vocabulary’s footing:** published ICD-10 F-chapter block ranges, carried with their codes, sit
+in the **authored-elsewhere** category of `docs/ward-flow-changeable-data-rule.md` — real,
+attributable, and not invented here.
+
+## The referral record rule — replaces "exactly five person-facts" (owner, 2026-08-30)
+
+**Owner:** *"Overhaul the five facts rule… that was an old early rule. Update it to ensure it aligns
+with current referral requirement which will likely have future additions added."*
+
+### Why the old rule broke, and it is the reusable part
+
+**"A referral carries exactly five person-facts. Nothing else, ever."** That rule **counted**. A count
+is checkable and it is brittle: the moment the thing legitimately grows, the rule is either broken or
+abandoned, and there is no third option. It broke tonight against a sheet the owner himself asked
+for.
+
+**The replacement TYPES rather than counts.** It constrains what **kind** of field may exist, not how
+many. **A count breaks when the thing grows; a type survives growth** — which is exactly what he
+asked for, since more fields are expected.
+
+### The rule
+
+1. **Every field is a chosen option from a fixed list.** No typed values, no numbers entered by hand,
+   no dates. This is the property that makes the privacy claim **checkable rather than promised**, and
+   it is why a longer list of fields costs nothing.
+2. **Exactly one story field.** Clearly labelled, optional, and last. **It never feeds eligibility,
+   matching, ranking or ordering** — enforced across the transitive import graph, the way
+   `ward-referrals.ts` is already forbidden from importing `ward-derivations`, not by a comment
+   asking nicely.
+3. **Never, in any field:** a name, a date of birth, an address, a record number, or any free-typed
+   value outside the story field.
+4. **Fields may determine which beds are ELIGIBLE. Nothing on the sheet may rank a person or
+   recommend one.** See the correction below — this is the clause I got wrong once.
+5. **A new field is allowed when it satisfies 1–4 and is recorded as a decision.** Growth is expected
+   and is not a breach. **Adding a field silently is.**
+
+   **Clause 5 is the only clause with no mechanical enforcement, which makes it the one that decays
+   first** — the build session’s observation, and it is right. **Half of it is already enforced and
+   half is not:** the structural privacy test pins the exact field set, so an added field turns it
+   red and the addition cannot be silent in the code. **Nothing whatsoever catches the missing
+   decision record.**
+
+   **The cheap enforcement: every entry in that allowlist carries the decision id that authorised
+   it.** `"tentativeDiagnosisBlock", // FD-7`. Then a bare entry is **visibly wrong at the point of
+   change**, to a reader and to a check, and "record the decision" stops being a discipline someone
+   has to remember at the moment they are busy widening a guard. **It also makes the guard readable
+   backwards** — every field on the record can be traced to the decision that put it there, which is
+   the property the ledger exists to provide and currently cannot for fields.
+
+   **And the id must be CHECKED TO RESOLVE, or the mechanism is this project's own defect class
+   installed at the site built to prevent it.** An unchecked id beside an entry is a comment: the
+   next person widening a guard — at the worst possible moment, which is exactly when this happens —
+   writes `// FD-9` because it looks like the others, and **every assertion stays green.** Five of
+   this branch's thirteen instances of that class were found at precisely such a mechanism.
+
+   **So the check asserts every id in the allowlist resolves to a real decision record, and it is
+   mutation-proved** — put an invented id in, watch it go red, restore. **An id that is only a
+   comment is a promise wearing the costume of a reference.**
+
+   **This is also what gives clause 5 a way to fail.** As written, *"adding one silently is the
+   breach"* describes a breach nothing can detect. With the ids checked, **silent addition stops
+   being a discipline anyone has to remember and becomes impossible to commit.**
+
+### The correction I owe, because he approved my wording
+
+I told him the replacement should mean *"nothing on the sheet ever influencing which bed a patient
+gets"*, and **he said yes to it. That sentence is wrong**, and building to it would break the system.
+
+**Age band, secure-bed-needed, involuntary-bed-needed and the rest exist precisely to determine which
+beds can take this person.** That is eligibility, it is the point of the sheet, and it already works.
+
+**The real distinction is between eligibility and judgement.** Eligibility is a fact about beds —
+*this unit can hold someone involuntarily, that one cannot*. A ranking is a claim about a person.
+**The refusal has always been on the second**, and clause 4 now says so in those terms. **The story
+field is separately barred from both**, because prose cannot be checked at all.
+
+**Recorded rather than quietly fixed: he approved a sentence of mine that was wrong, and an approved
+error is harder to catch than an unapproved one** — nobody re-reads a settled question.
+
+### What is unchanged
+
+**No free-typed value outside the story field. No name, no date of birth, no address. No figure,
+timeframe or threshold from the Mental Health Act, anywhere, including in a hint or a placeholder.
+Nothing that predicts, scores or ranks a person.** The story field is an addition to what a referral
+may carry, **not a loosening of any of those.**
+
+## The real hospital names stay, and the figures beside them carry the warning
+
+**Owner decision, 2026-08-30.** Cited by name rather than numbered, because it is a statement about
+what this demonstration IS rather than a decision that could be reversed without changing that.
+
+**Recognition is the point.** A clinician in Western Australia reads the network instantly because
+they know those hospitals. **Invented names would make it a diagram of nowhere** — a demonstration
+that cannot be checked against the reader's own knowledge, which is most of what makes it persuasive
+to the people who would have to adopt it.
+
+**The risk was never the name. It is somebody believing the FIGURES beside it.** Every bed count,
+every travel time, every occupancy on this system is invented. **A real hospital name lends those
+numbers a credibility they have not earned**, and that is the actual hazard.
+
+**So the marker goes in the HEADING of any screen showing site-level figures, never in a footer.**
+A footer is read after the number has already been believed. **The precedent already exists in the
+guided tour, where every beat says it is synthetic** — that is the standard to match, not a single
+badge somewhere on the page.
+
+**The test:** a reader who looks only at the top of the screen and one number must still know the
+number is invented. If the marker only reaches someone who reads to the bottom, it is decoration.
+
+## `FD-10` — a ward may add its own tentative diagnosis block, and never overwrites the referrer's
+
+**Owner decision, 2026-08-30**, confirming the seam recorded above.
+
+**Both stay visible, each with its own role and time.** The referrer thought one thing; the ward,
+having seen the person, may think another. **Those are two assessments by two clinicians at two
+moments, not one fact recorded twice** — and overwriting the first erases what the referral was
+actually for, which on this system is evidence rather than housekeeping.
+
+**It is a CORRECTION, not a task.** No prompt, nothing daily, nothing on anybody's list. The friction
+constraint applies directly: a system that asks a ward to confirm a diagnosis every day has invented
+work, and invented work is what makes people stop reading the screen.
+
+**The warning stays in the row, because the tempting implementation is the wrong one:** an editable
+field is the obvious build and it is **the one that silently loses the earlier record.** Nothing goes
+red when it does.
 

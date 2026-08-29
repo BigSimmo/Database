@@ -96,7 +96,24 @@ describe("handoverSnapshot", () => {
   // the escalation, or adds a second stranded movement, is caught here rather than only in a
   // screenshot.
   it("matches the measured fixture: WF-009 escalated, nothing else stranded", () => {
-    expect(snapshot.placementGoneWrong.map((entry) => entry.movement.id)).toEqual(["WF-009"]);
-    expect(snapshot.placementGoneWrong[0]?.kind).toBe("escalated");
+    expect(
+      snapshot.placementGoneWrong.map((entry) => entry.movement.id),
+      "The handover's placement-gone-wrong list has changed. This is what one clinician hands the " +
+        "next at shift change: the patients whose placement failed. An ADDITION means a movement " +
+        "became stranded or lost its escalation record and fell through to declined-by-all - find " +
+        "which before editing this. An EMPTY list is the worse failure, because the handover would " +
+        "then look clean while a stranded patient exists, and nothing else in this file would be " +
+        "red. Note the comment above still carries a 2026-08-25 basis date; this assertion passing " +
+        "today confirms the claim, but the surrounding measurement has not been re-taken since.",
+    ).toEqual(["WF-009"]);
+    expect(
+      snapshot.placementGoneWrong[0]?.kind,
+      "WF-009 is still in the handover but for a different reason, and this is the assertion that " +
+        "notices. 'escalated' means somebody rang round and recorded which units they tried; " +
+        "'declined_by_all' means the network simply refused it and no one is recorded as having " +
+        "acted. Both put the patient on the list, so the id assertion above stays green while the " +
+        "clinical meaning changes underneath it - proven by mutation on 2026-08-30, where deleting " +
+        "the escalation record left the list identical and only this line went red.",
+    ).toBe("escalated");
   });
 });

@@ -128,7 +128,12 @@ describe("WardFlowProvider", () => {
           <Probe />
         </WardFlowProvider>,
       );
-      expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR));
+      // CHANGED 2026-08-30 by Task 1, and this assertion is now the clearest evidence the
+      // clock re-anchors at all: an unpinned provider mounting while the wall clock reads
+      // 10:00 shows 10:00, where it used to show the fixture's authored 10:42 whatever the
+      // real time was. Expressed against `startMinute`, the mock this test already controls,
+      // rather than re-baselined to whatever the new code happens to print.
+      expect(screen.getByTestId("now")).toHaveTextContent(String(startMinute));
 
       for (let tick = 1; tick <= ticks; tick += 1) {
         const reading = (startMinute + tick * stepMinutes) % MINUTES_PER_DAY;
@@ -138,7 +143,10 @@ describe("WardFlowProvider", () => {
         });
       }
 
-      expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR + ticks * stepMinutes));
+      // The property under test is unchanged - elapsed minutes keep accumulating past a full
+      // day rather than resetting at the exact-24h reading. Only the anchor they accumulate
+      // FROM has moved, from the authored NOW_ANCHOR to the wall clock at mount.
+      expect(screen.getByTestId("now")).toHaveTextContent(String(startMinute + ticks * stepMinutes));
     });
   });
 });

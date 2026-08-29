@@ -45,25 +45,43 @@ describe("escalationBoard", () => {
   // two were measured separately rather than copied, because they are not the same read.
   it("on the standard night, exactly WF-009 and WF-308 have nowhere eligible", () => {
     const board = escalationBoard(movements, units, NOW_ANCHOR);
-    expect(board.nowhereEligible.map((movement) => movement.id).sort()).toEqual(["WF-009", "WF-308"]);
+    expect(
+      board.nowhereEligible.map((movement) => movement.id).sort(),
+      "The set of patients with nowhere to go on an ORDINARY night has changed. This is a clinical " +
+        "fact about the demonstration, not a test detail: every id here is a movement the network " +
+        "cannot place at all, and the escalation board exists to show exactly these. A LONGER list " +
+        "means a gate or the fixture now strands someone it used to place - investigate the gate " +
+        "before touching this line. A SHORTER list is not automatically good either; it can mean a " +
+        "gate stopped rejecting something it should reject. Re-measure and re-date the comment " +
+        "above rather than editing these ids to match what the code now does.",
+    ).toEqual(["WF-009", "WF-308"]);
   });
 
   it("on the scarce night, nowhereEligible grows to the measured nine-movement set", () => {
     const scarceUnits = scenarioUnits("scarce");
     const board = escalationBoard(movements, scarceUnits, NOW_ANCHOR);
-    // Measured directly against the real fixture at NOW_ANCHOR under scenarioUnits("scarce"):
-    // 123 eligible movement/unit pairs, 9 movements stranded. Pinned exactly.
-    expect(board.nowhereEligible.map((movement) => movement.id).sort()).toEqual([
-      "WF-002",
-      "WF-009",
-      "WF-011",
-      "WF-012",
-      "WF-014",
-      "WF-015",
-      "WF-017",
-      "WF-308",
-      "WF-319",
-    ]);
+    // RE-MEASURED 2026-08-30 on this file's own basis (`seedWardFlowState()` movements against
+    // `scenarioUnits("scarce")`, counting `eligibility(...).eligible`): 41 open movements, 23 units,
+    // 98 eligible movement/unit pairs, 9 movements stranded. Pinned exactly.
+    //
+    // The pair count previously read 123, and that was WRONG rather than stale. Every other figure
+    // re-measures unchanged - 342 standard pairs, 9 stranded, 23 units, 41 open - and a fixture
+    // that had drifted enough to move the scarce total by 25 could not have left the other four
+    // identical. So this reads as an error at the moment it was written rather than the fixture
+    // moving underneath it. Recorded rather than quietly renumbered, because "adjust the number and
+    // keep the date" is exactly how the 2026-08-25 record in this file went stale in substance.
+    //
+    // Nothing was ever red: no assertion reads the pair count, so a comment can carry a wrong
+    // figure here indefinitely. tests/ward-scenarios.test.ts measures 98 independently on ITS basis.
+    expect(
+      board.nowhereEligible.map((movement) => movement.id).sort(),
+      "The scarce night's stranded set has changed. The scarce scenario exists to produce the hard " +
+        "case - patients the network genuinely cannot place - so this list IS the scenario's reason " +
+        "for existing. It must stay a strict superset of the standard night's two, WF-009 and " +
+        "WF-308, which the assertion below checks separately: the scarce night is the standard " +
+        "night with fewer beds, never a different night. If this list shrank, the scenario has " +
+        "stopped demonstrating the thing the escalation and out-of-area screens answer.",
+    ).toEqual(["WF-002", "WF-009", "WF-011", "WF-012", "WF-014", "WF-015", "WF-017", "WF-308", "WF-319"]);
     // The honest empty state does not exist on either measured night — the scarce night is
     // strictly a superset of the standard night's two, never a disjoint or smaller set. This
     // guards against a scenario change that shrinks the scarce list back toward the standard

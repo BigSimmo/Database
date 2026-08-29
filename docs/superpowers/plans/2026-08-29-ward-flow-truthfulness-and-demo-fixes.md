@@ -1,5 +1,45 @@
 # Ward Flow — truthfulness, live data, and the day's story
 
+## Status, audited against the code 2026-08-29
+
+**Audited on `claude/ward-flow-print-fixes` by three independent read-only passes, one per batch.
+Verdicts are from the code, never from a plan, comment, doc or commit message.** Re-audit rather than
+trust this block if it is more than a few days old — it is a **record of what was true then**, not a
+fact about now (see the fact-versus-record rule in `docs/ward-flow-changeable-data-rule.md`).
+
+| Task | Verdict |
+| --- | --- |
+| 1 clock stuck at 10:42 | NOT STARTED — `NOW_ANCHOR = 10 * 60 + 42` unchanged; the clock still *starts* there |
+| 2 ED panels read live state | NOT STARTED — `edPressure(now, movements = wardMovements)` default intact |
+| 3 the freezes | **BOTH OPEN** — and this plan's own correction was wrong; see the task |
+| 4 every control works, and says demo | NOT STARTED — no `DemoActionNote`; the confirm buttons still only `setConfirmed(true)` |
+| 5 override reason stops being free text | NOT STARTED — the `<textarea>` is still there, and governance still claims reasons are recorded |
+| 6 remaining demo defects | **PARTIAL** — 6.3 DONE and done correctly; 6.1, 6.2, 6.4 not started |
+| 7 audit timeline carries the journey | NOT STARTED — `movementTimeline` still emits only the old event set |
+| 8 named scenarios | NOT STARTED — still `"standard" \| "scarce"` |
+| 9 refusal register | NOT STARTED — no such surface |
+| 10 staleness headline | NOT STARTED — six headline cards, none of them staleness |
+| 11 print the day | NOT STARTED — no route; the branch's print work is repair of existing sheets |
+| 12 one assembled handover | NOT STARTED — the material is still scattered across three documents |
+| 13 why-can-this-person-not-get-a-bed sheet | NOT STARTED — `window.print()` exists on two pages, neither a referral |
+| 14 guided tour per role | NOT STARTED — "tour" does not occur in `ward-screen.tsx` or `ed-screen.tsx` |
+| 15 roles become real | NOT STARTED — the role changes copy and sort order; **no control is gated on it** |
+| 16 every network screen says synthetic | **PARTIAL** — the full notice on 3 surfaces; the rest carry only a "Synthetic prototype" badge |
+| 17 the pipeline reaches its end | NOT STARTED — **and confirmed: a patient who reaches a ward still vanishes from every live surface** |
+
+**6.3 is the one piece of finished work and it was done in the harder, correct way** —
+`tests/ward-scenarios.test.ts` was **re-measured**, not renumbered: *"RE-MEASURED on 2026-08-29 …
+across all 23 units … 342 eligible movement/unit pairs … the 23rd unit accounts for none of the
+difference."* That is the rule from `docs/ward-flow-changeable-data-rule.md` honoured exactly, by
+someone who could have typed 23 and moved on.
+
+**Task 17 is the finding that matters.** `isOpen` is `!movement.closure && movement.stage !==
+"arrived"`, and it gates the queue, the coordinator inbox, handover, placement, patient search, the
+ED pressure strip, the live tracker and the ED screen. The reducer has **no knowledge of admissions
+at all** — `git grep admission ward-flow-reducer.ts` returns nothing. So the demonstration can show
+one person moving once, and then that person is gone. **Nothing else on this list is worth doing
+first.**
+
 ## The foundation — read this before deciding what any task is for
 
 **Owner, 2026-08-29, and it governs every task below:**
@@ -230,15 +270,28 @@ naming the disagreement. If none does, the guard does not exist yet — write it
 **This task was half wrong when written. Corrected after the ward board chat challenged it and both
 claims were verified against git rather than accepted.**
 
-**The morning page's frozen view is ALREADY GONE and this is NOT open.** Commit `e43f3f8f8`, 09:21
-today: *"Ward board: the frozen morning view is dropped, everything is live (WB-DB-11)"*. Its own message
-records it as reversing P6-D3 outright, with the cost stated to the owner first — numbers moving
-while a handover discusses them, which is exactly what freezing was for — and the owner took it
-knowingly. It is written up as a deliberate reversal precisely so nobody restores the freeze later
-believing it was lost by accident.
+**CORRECTED AGAIN 2026-08-29, and the first correction was worse than the original.** I wrote that
+the morning page's frozen view was "ALREADY GONE and NOT open", citing commit `e43f3f8f8` — *"Ward
+board: the frozen morning view is dropped, everything is live (WB-DB-11)"*.
 
-**Do not treat the morning page as open, and do not restore its freeze.** Three spec entries (WB-DB-10,
-WB-DB-11, WB-DB-12) now depend on it.
+**That commit changed one design document and no code.** `git show --stat e43f3f8f8` → 37 insertions
+in `docs/superpowers/specs/2026-08-28-ward-flow-ward-board-design.md`, one file. **The decision was
+recorded. The code was never changed.** On `claude/ward-flow-print-fixes` the morning page still
+holds `const [frozen] = useState<FrozenMorning>(...)` with `useState<MorningView>("fixed")` — **the
+freeze is present and is still the default view.**
+
+**So the morning page IS open**, and the task's original claim was right. Found by auditing the plan
+against the code rather than by anyone challenging it.
+
+> **The trap, and it is the sharpest instance of this project's recurring failure.** A commit that
+> *records a decision* has the same message shape as one that *implements it*. `e43f3f8f8`'s message
+> is entirely truthful about its own subject — a decision was taken to drop the freeze — and I read
+> it as a statement about the code. **`git log` proves a decision was made; only `git show --stat`
+> or the file itself proves anything shipped.** A commit message is a claim like any other.
+
+**Both freezes are open.** The morning page (`morning/morning-page.tsx`), where a decision to remove
+the freeze exists and was never implemented — so implementing it needs no new owner decision, only
+the work. And the shift handover page, below, which has never been put to the owner at all.
 
 **STILL GENUINELY OPEN: the shift handover page** (`handover/handover-page.tsx`), which freezes its
 snapshot at page open via a `useState` initialiser. That is a **separate surface and a separate

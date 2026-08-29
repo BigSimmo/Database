@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MINUTES_PER_DAY,
   clockState,
+  dayOf,
+  daysBetween,
   elapsedMinutesSinceMount,
   formatElapsed,
   formatInstant,
   formatRemaining,
+  minuteOfDay,
   minutesUntil,
-  MINUTES_PER_DAY,
+  splitDuration,
 } from "../src/components/ward-management/ward-clock";
 
 const NOW = 10 * 60 + 42; // 10:42 on the synthetic day
@@ -78,5 +82,57 @@ describe("ward clock", () => {
     // minute of the day before rolling over, is the whole day minus one minute — no wrap
     // needed since `current` is still greater than `mountedAt`.
     expect(elapsedMinutesSinceMount(0, MINUTES_PER_DAY - 1)).toBe(MINUTES_PER_DAY - 1);
+  });
+});
+
+describe("an instant carries a day as well as a clock face", () => {
+  /*
+   * WHY THESE EXIST. `Instant` was documented as a bare number and used as two different things:
+   * `ward-admissions-seed.ts` writes `ANCHOR - stayDays * MINUTES_PER_DAY` for someone admitted days
+   * ago, while `formatInstant` and `wallClockNow` treated every value as a minute of one day. The
+   * two meanings never visibly collided, and that is the defect's mechanism rather than luck - a
+   * WRAPPING formatter cannot fail on an out-of-range value, it silently produces an in-range one.
+   * There is no reading of that system that shows a problem, which is why no test caught it and no
+   * screen ever looked wrong.
+   */
+  it("splits an instant into the day it falls on and the time it shows", () => {
+    expect(dayOf(10 * 60 + 42), "642 is 10:42 on the opening day").toBe(0);
+    expect(dayOf(10 * 60 + 42 + MINUTES_PER_DAY), "the same clock face, the next day").toBe(1);
+    expect(dayOf(10 * 60 + 42 - MINUTES_PER_DAY), "the same clock face, the day before").toBe(-1);
+    expect(minuteOfDay(10 * 60 + 42 + 3 * MINUTES_PER_DAY), "three days on, still 10:42").toBe(10 * 60 + 42);
+    expect(minuteOfDay(-798), "a negative instant is a real time on an earlier day, not a broken one").toBe(
+      10 * 60 + 42,
+    );
+  });
+
+  it("counts whole days between two instants, across any number of them", () => {
+    const arrived = 642 - 4 * MINUTES_PER_DAY;
+    expect(daysBetween(arrived, 642), "four days in a bed is four days, not 96 hours").toBe(4);
+    expect(daysBetween(642, 642 + 209 * MINUTES_PER_DAY), "a long stay must not overflow into nonsense").toBe(209);
+    expect(daysBetween(642, 642 + MINUTES_PER_DAY - 1), "part of a day is not a day").toBe(0);
+  });
+
+  it("says a long wait in days, because nobody reads a wait in hundreds of hours", () => {
+    // The measured defect, not a hypothetical: seeded out-of-area stays of one to two hundred days
+    // rendered through this function as `25h 30m` through `5041h 30m`. Every number correct, every
+    // number unreadable, and the suite entirely green because no assertion was about the format.
+    expect(splitDuration(45), "under an hour stays in minutes").toBe("45m");
+    expect(splitDuration(185), "under a day stays in hours and minutes").toBe("3h 05m");
+    expect(splitDuration(MINUTES_PER_DAY), "exactly one day is a day, not 24h 00m").toBe("1d");
+    expect(splitDuration(MINUTES_PER_DAY + 90), "a day and a half").toBe("1d 1h");
+    expect(splitDuration(30 * 60), "the 30-hour wait that used to read as six hours").toBe("1d 6h");
+    expect(splitDuration(5041 * 60 + 30), "the measured 5041h 30m becomes readable").toBe("210d 1h");
+  });
+
+  it("leaves every duration below a day exactly as it was", () => {
+    // The change must be invisible to the screens that never exceed a day - access targets, bed
+    // holds, decision times. A formatter that quietly re-rendered short durations too would move
+    // figures on screens nobody asked to change.
+    for (const minutes of [0, 1, 59, 60, 61, 239, 240, MINUTES_PER_DAY - 1]) {
+      const hours = Math.floor(minutes / 60);
+      const remainder = minutes % 60;
+      const expected = hours > 0 ? `${hours}h ${String(remainder).padStart(2, "0")}m` : `${remainder}m`;
+      expect(splitDuration(minutes), `${minutes} minutes must render unchanged`).toBe(expected);
+    }
   });
 });
