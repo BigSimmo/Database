@@ -575,6 +575,45 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     await page.setViewportSize({ width: 641, height: 900 });
     const tableScroll = page.getByTestId("ward-out-of-area-table");
     await expect(tableScroll, "the ledger is not showing its table at 641px").toBeVisible();
+
+    /*
+     * PRESENCE BEFORE CONTAINMENT — whole-branch review, W1.
+     *
+     * The geometric check below measures whether a column ESCAPES its scroller. It says nothing
+     * about whether the column is there at all, and two ways of removing one pass it silently:
+     * delete the `th`/`td` pair and there is simply less to measure, or set `display: none` on it
+     * and the cell keeps a zero-sized rect whose `right` is 0, which can never exceed the
+     * scroller's. `Since arrival` — this screen's second headline fact — was pinned nowhere in the
+     * repository; a grep returned only the component and comments about it. F3's band-subset check
+     * further up reads `row.children[2]`, which incidentally pins the first three columns'
+     * positions, so column four was the unpinned one.
+     *
+     * `toHaveText` with an array pins the count, the order and the spelling in a single assertion.
+     * It does NOT close the hiding case, and the per-header `toBeVisible` loop below is not
+     * decoration: the review that raised this expected `toHaveText` to read only visible text, and
+     * it does not — Playwright compares `textContent` unless told otherwise, so a `th` carrying
+     * `display: none` still supplies its text. MEASURED, not assumed: with
+     * `style={{ display: "none" }}` on a header of the sibling discharges table, the array
+     * assertion alone passed. `toBeVisible` is the matcher that fails for `display: none`,
+     * `visibility: hidden` and a zero-size box alike, which is the whole class the geometric check
+     * below cannot see.
+     *
+     * Nothing below is relaxed to make room for these — together they close deletion, reordering,
+     * renaming and hiding, and neither adds a matcher that could later be loosened.
+     */
+    const LEDGER_COLUMNS = ["Home region", "Unit", "Travel time", "Since arrival"];
+    const ledgerHeaders = tableScroll.locator("thead th");
+    await expect(
+      ledgerHeaders,
+      "the out-of-area ledger's table no longer carries exactly these four columns, in this order",
+    ).toHaveText(LEDGER_COLUMNS);
+    for (const [index, column] of LEDGER_COLUMNS.entries()) {
+      await expect(
+        ledgerHeaders.nth(index),
+        `the out-of-area ledger's \`${column}\` column is in the document but not on the screen`,
+      ).toBeVisible();
+    }
+
     const clipped = await tableScroll.evaluate((scroll) => {
       const right = scroll.getBoundingClientRect().right;
       return [...scroll.querySelectorAll("thead th, tbody tr:first-child td")]

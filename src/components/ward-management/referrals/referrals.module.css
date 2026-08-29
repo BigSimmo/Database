@@ -884,10 +884,26 @@
    * AFTER this print block was written. It carries `background: var(--surface-raised)`, which the
    * dark theme resolves to `rgb(28, 33, 38)`, so it was the one card left un-reset — and because
    * `color-scheme: light` above makes `CanvasText` resolve to BLACK, every unit name, verdict and
-   * "Accepts this referral" label inside it printed black on a near-black island: 47 of the match
-   * view's 147 painted leaves at a contrast of 1.29:1, measured rather than read off this
-   * selector list. Exactly the trap the header comment above describes, hit again by a container
-   * that did not exist when the comment was written.
+   * "Accepts this referral" label inside it would print black on a near-black island. Exactly the
+   * trap the header comment above describes, hit again by a container that did not exist when the
+   * comment was written.
+   *
+   * ON THE SEVERITY FIGURE, qualified by the whole-branch review (W4). This comment previously read
+   * "47 of the match view's 147 painted leaves at a contrast of 1.29:1, measured rather than read
+   * off this selector list". That figure is the output of Task 10's DOM-walking ink probe, which
+   * computed contrast by walking up from each text node to the nearest ancestor carrying a
+   * background and dividing the ink against it. Task 10's own fix round then withdrew that probe,
+   * having demonstrated with real print output that Chrome does not paint an element's background
+   * onto the sheet unless the reader ticks "Background graphics" — so for a container carrying its
+   * own background, which is precisely this case, the probe divides the ink by a colour that is not
+   * on the paper. The 1.29:1 therefore describes the probe's model, not the printed page, and
+   * nothing on this branch re-measured the pre-fix match view by the pixel method that replaced it.
+   * Treat the number as withdrawn; the count of affected leaves is unverified alongside it.
+   *
+   * THE RESET ITSELF STAYS, and is not in question. A reader who prints WITH background graphics
+   * does get the dark island, and black ink on it is genuinely unreadable; resetting the background
+   * is the right defensive fix whether or not the withdrawn probe measured its severity correctly.
+   * What was withdrawn was the method, not the defect.
    */
   .fieldCard,
   .section,

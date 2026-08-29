@@ -700,6 +700,62 @@ describe("network diagram, the travel-band arrangement", () => {
     // Positive control, so a regex that had stopped matching anything could not read as a clean
     // sweep.
     expect("the nearest bed is best", "the comparative-word pattern no longer matches one").toMatch(comparative);
+
+    /*
+     * ONE CONTROL PER ARM — Phase 8, whole-branch review, W2.
+     *
+     * The single control above exercises exactly TWO of the nine alternatives in `comparative`
+     * (`nearest` and `best`). A typo in any of the other seven would leave that arm silently inert
+     * while the control and both sweeps below stayed green: a check reporting a clean result having
+     * tested two ninths of what it claims. This is structurally the SAME defect item 17 closed on
+     * the six-arm second-clock guard further down this same file, and the stakes are higher here —
+     * the no-comparative-word rule is a standing clinical constraint on what a bed-finding screen
+     * may say, and the two whole-screen sweeps below are its only automated enforcement on this
+     * screen. Closed the same way item 17 closed that one: by STRENGTHENING. Nothing above is
+     * removed and nothing is loosened.
+     *
+     * Each entry pairs one arm with a snippet of the way that word would plausibly reach this
+     * screen. The snippet is matched against ITS OWN arm rather than against the composite,
+     * deliberately: a control another arm can satisfy proves nothing about its own, which is
+     * exactly the fake this item exists to remove. The `i` flag lives on the composite, so each
+     * per-arm regex is written without one and every control is lower-case, which also keeps
+     * `arm.source` byte-identical to the composite's own alternative for the equality pin below.
+     */
+    const COMPARATIVE_ARMS = [
+      { arm: /nearest/, control: "the nearest bed" },
+      { arm: /closest/, control: "the closest unit" },
+      { arm: /furthest/, control: "the furthest ward from home" },
+      { arm: /most remote/, control: "the most remote option" },
+      { arm: /hardest to reach/, control: "the hardest to reach unit" },
+      { arm: /best/, control: "the best available bed" },
+      { arm: /optimal/, control: "the optimal placement" },
+      { arm: /recommend/, control: "we recommend this unit" },
+      { arm: /preferred/, control: "the preferred destination" },
+    ] as const;
+    // A floor on the sweep itself: a list that lost entries would otherwise control fewer arms
+    // while every remaining assertion still passed.
+    expect(COMPARATIVE_ARMS, "the comparative control list no longer covers every arm").toHaveLength(9);
+    for (const { arm, control } of COMPARATIVE_ARMS) {
+      expect(control, `the comparative-word pattern's ${arm.source} arm matches nothing`).toMatch(arm);
+    }
+    /*
+     * And the composite the sweeps actually use carries EXACTLY these arms, in this order.
+     *
+     * An exact pin rather than a `toContain` per arm, because containment survives the commonest
+     * corruption there is: an arm that merely GAINS characters still contains its own name, so
+     * `optimal` becoming `optimalXX` would leave a containment assertion green while that arm
+     * matches nothing real. Equality catches an arm renamed, dropped, added, reordered OR extended,
+     * and its two sides are separate literals a few lines apart, so it can genuinely fail. The
+     * message names both lists rather than saying only that they differ, so two different corrupted
+     * arms cannot produce a byte-identical failure line.
+     */
+    const comparativeGuardArms = comparative.source.split("|");
+    const comparativeControlledArms = COMPARATIVE_ARMS.map(({ arm }) => arm.source);
+    expect(
+      comparativeGuardArms,
+      `the comparative-word guard's arms are no longer exactly the arms controlled above, so one of them is unguarded or uncontrolled — guard carries [${comparativeGuardArms.join(", ")}], controls cover [${comparativeControlledArms.join(", ")}]`,
+    ).toEqual(comparativeControlledArms);
+
     expect(arrangement.textContent ?? "").not.toMatch(comparative);
     expect(container.textContent ?? "", "a comparative proximity word is on this screen").not.toMatch(comparative);
 

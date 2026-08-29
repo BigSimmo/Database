@@ -230,6 +230,43 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
       "the discharges board renders no table under `ward-discharge-table-`, so the containment assertion below would pass having measured nothing",
     ).toBeGreaterThan(0);
 
+    /*
+     * PRESENCE BEFORE CONTAINMENT — whole-branch review, W1.
+     *
+     * The geometric loop below measures whether a column ESCAPES its scroller. It says nothing
+     * about whether the column is there at all, and two ways of removing one pass it silently:
+     * delete the `th`/`td` pair and there is simply less to measure, or set `display: none` on it
+     * and the cell keeps a zero-sized rect whose `right` is 0, which can never exceed the
+     * scroller's. The `cells > 0` floor further down does not close either — five columns satisfy
+     * it as happily as six. `Freshness` — who confirmed this discharge and when, and the very
+     * column the containment check was built for — appeared in no assertion anywhere in `tests/`.
+     *
+     * `toHaveText` with an array pins the count, the order and the spelling in a single assertion.
+     * It does NOT close the hiding case, and the per-header `toBeVisible` loop below is not
+     * decoration: the review that raised this expected `toHaveText` to read only visible text, and
+     * it does not — Playwright compares `textContent` unless told otherwise, so a `th` carrying
+     * `display: none` still supplies its text. MEASURED, not assumed: with
+     * `style={{ display: "none" }}` on this table's `Freshness` header, the array assertion alone
+     * passed. `toBeVisible` is the matcher that fails for `display: none`, `visibility: hidden` and
+     * a zero-size box alike, which is the whole class the geometric loop cannot see.
+     *
+     * Pinned on the first table rather than all four: every group renders the same `<thead>` from
+     * one component, so one is the header contract and four would be the same assertion written
+     * four times. Nothing below is relaxed to make room for these.
+     */
+    const DISCHARGE_COLUMNS = ["Unit", "Health service", "Expected", "Stage", "Blocker", "Freshness"];
+    const dischargeHeaders = scrollers.first().locator("thead th");
+    await expect(
+      dischargeHeaders,
+      "the discharges board's table no longer carries exactly these six columns, in this order",
+    ).toHaveText(DISCHARGE_COLUMNS);
+    for (const [index, column] of DISCHARGE_COLUMNS.entries()) {
+      await expect(
+        dischargeHeaders.nth(index),
+        `the discharges board's \`${column}\` column is in the document but not on the screen`,
+      ).toBeVisible();
+    }
+
     for (const width of [641, 700, 760, 820]) {
       await page.setViewportSize({ width, height: 900 });
       const measured = await scrollers.evaluateAll((nodes) =>

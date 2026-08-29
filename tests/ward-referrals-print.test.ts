@@ -117,11 +117,17 @@ describe("Ward referrals — every card container resets its dark-theme backgrou
     // Every one of these carries its own explicit `background: var(--surface-subtle)` /
     // `var(--surface-raised)` on screen, which would otherwise survive a `.screen`-only reset as
     // a near-black island on the printed sheet.
+    // `.bandGroup` is the match view's band-group container. It was added to the screen by Phase 8
+    // Task 4 — AFTER this guard's arrays were written — and reset in the print block by Task 10,
+    // which measured it printing as a near-black island. It carries its own
+    // `background: var(--surface-raised)`, so it belongs in this group for exactly the reason every
+    // name beside it does; until now nothing pinned it and deleting the reset stayed green.
     for (const selector of [
       ".fieldCard",
       ".section",
       ".card",
       ".matchPanel",
+      ".bandGroup",
       ".matchRowAccepts",
       ".matchRowDeclines",
       ".toggleCard",
@@ -188,6 +194,18 @@ describe("Ward referrals — every muted or themed text selector gets CanvasText
       ".matchUnitName",
       ".acceptsLabel",
       ".matchPanel > p",
+      // Phase 8's own text on the match view, added to the print block by Task 10 and pinned here
+      // by the whole-branch review's W3: the band-group heading label, its two counts, the empty
+      // band's note, the per-row band, and the two governance sentences. Each uses `--text-heading`
+      // or `--text-muted`, which stay pale grey/blue in the dark theme whatever `color-scheme` says.
+      // Until now this file's own title — "names every selector this fix was measured against" —
+      // was false about all six of them, and deleting any one of them from the CSS stayed green.
+      ".bandLabel",
+      ".bandCounts",
+      ".bandEmpty",
+      ".matchBand",
+      ".syntheticNotice",
+      ".allNotRecorded",
       ".toggleCard",
       ".rejection",
       ".confirmation",
