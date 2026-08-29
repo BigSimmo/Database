@@ -1,5949 +1,1647 @@
-import AxeBuilder from "@axe-core/playwright";
-import type { Route } from "playwright-core";
-import { expect, test, type Locator, type Page } from "playwright/test";
-import { stubZeroTouchPoints } from "./helpers/zero-touch";
-import {
-  appendPrimaryScrollSpacer,
-  readMobileComposerReservePx,
-  readPrimaryScrollAndDomGeometry,
-  readPrimaryScrollGeometry,
-  scrollPrimarySurface,
-} from "./playwright-scroll";
-import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
-import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
-import { documentSummaryQuestion } from "../src/lib/answer-contract";
-import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
-import { formRecords } from "../src/lib/forms";
-import { deriveGovernanceFromSections } from "../src/lib/medication-records";
-import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
-import { searchMedicationCatalog } from "../src/lib/medication-query";
-import { medicationToSearchResult, type MedicationRecord } from "../src/lib/medications";
-import { serviceRecords } from "../src/lib/services";
-import { recentQueryStorageKey } from "../src/lib/recent-query-storage";
-
-const dashboardViewports = [
-  // Representative owners only: one phone (<640), tablet (â‰¤768), laptop, and
-  // landscape. Extra phone widths (375/414) duplicated the same overflow + Ask
-  // asserts without a distinct layout branch.
-  { name: "small-mobile", width: 320, height: 720 },
-  { name: "tablet", width: 768, height: 900 },
-  { name: "laptop", width: 1280, height: 900 },
-  { name: "mobile-landscape", width: 667, height: 375 },
-] as const;
-const uiAssertionTimeoutMs = 30_000;
-const demoAnswerThreadOwnerId = "local-demo-session";
-const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
-const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
-
-async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
-  // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
-  // then trips strict mode with 2 matches (seen under mobile-composer-reserve-pad).
-  const surround = visibleByTestId(page, "document-frame-surround");
-  const content = visibleByTestId(page, "document-frame-content");
-  await expect(surround).toBeVisible();
-  await expect(content).toBeVisible();
-  await expect(owner).toBeVisible();
-
-  await expect
-    .poll(async () => {
-      const [surroundGeometry, contentBox, ownerBox] = await Promise.all([
-        surround.evaluate((element) => {
-          const style = window.getComputedStyle(element);
-          return {
-            clientWidth: element.clientWidth,
-            paddingLeft: Number.parseFloat(style.paddingLeft),
-            paddingRight: Number.parseFloat(style.paddingRight),
-          };
-        }),
-        content.boundingBox(),
-        owner.boundingBox(),
-      ]);
-      if (!contentBox || !ownerBox) return Number.POSITIVE_INFINITY;
-      const availableWidth =
-        surroundGeometry.clientWidth - surroundGeometry.paddingLeft - surroundGeometry.paddingRight;
-      return Math.max(Math.abs(contentBox.width - availableWidth), Math.abs(ownerBox.width - availableWidth));
-    })
-    .toBeLessThanOrEqual(2);
-}
-
-async function revealPhoneHeaderControl(page: Page, control: Locator) {
-  const { scrollTop } = await readPrimaryScrollGeometry(page);
-  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
-  await expect(control).toBeInViewport();
-}
-
-async function installClipboardMock(page: Page) {
-  await page.addInitScript(() => {
-    let clipboardText = "";
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        readText: async () => clipboardText,
-        writeText: async (value: string) => {
-          clipboardText = value;
-        },
-      },
-    });
-  });
-}
-
-async function gotoApp(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-}
-
-async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onScroll" | "onSubmit") {
-  await expect
-    .poll(
-      async () =>
-        locator.evaluate((element, reactEventName) => {
-          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
-          if (!propsKey) return false;
-          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
-          return typeof props?.[reactEventName] === "function";
-        }, eventName),
-      { timeout: 15_000 },
-    )
-    .toBe(true);
-}
-
-async function activateFocusedControl(page: Page, control: Locator) {
-  await control.focus();
-  await expect(control).toBeFocused();
-  await page.keyboard.press("Enter");
-}
-
-async function expectSingleMedicationPage(page: Page) {
-  // The medication route renders inside GlobalMockupSearchShell, whose Suspense
-  // fallback and resolved client subtree both render `children`. During a
-  // navigation/hydration overlap the shared data-testid can transiently resolve
-  // to two <main> elements and trip Playwright strict mode. Wait for it to settle
-  // to exactly one before asserting visibility â€” a genuine permanent double-render
-  // still fails toHaveCount(1), so this does not mask a real regression.
-  const medicationPage = page.getByTestId("medication-page-acamprosate");
-  if ((await medicationPage.count()) !== 1) {
-    await Promise.race([
-      page.waitForResponse((response) => response.url().includes("/api/medications/acamprosate") && response.ok(), {
-        timeout: 30_000,
-      }),
-      expect(medicationPage).toHaveCount(1, { timeout: 30_000 }),
-    ]).catch(() => undefined);
-  }
-  await expect(medicationPage).toHaveCount(1, { timeout: 30_000 });
-  await expect(medicationPage).toBeVisible({ timeout: 30_000 });
-}
-
-function visibleQuestionInput(page: Page) {
-  return page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
-}
-
-function visibleAnswerSubmitButton(page: Page) {
-  return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
-}
-
-async function submitDocumentSearch(page: Page) {
-  const submit = page.getByRole("button", { name: "Find matching documents" });
-  await expect(submit).toBeEnabled();
-  await waitForReactEventHandler(submit.locator("xpath=ancestor::form[1]"), "onSubmit");
-  const response = page.waitForResponse(
-    (candidate) => new URL(candidate.url()).pathname === "/api/search" && candidate.ok(),
-    { timeout: 30_000 },
-  );
-  await Promise.all([response, submit.click()]);
-  await expect(page.getByRole("heading", { name: "Finding matching documents" })).toHaveCount(0, {
-    timeout: 30_000,
-  });
-}
-
-function visibleAnswerFollowUpSuggestions(page: Page) {
-  return page
-    .locator(
-      '[data-testid="answer-follow-up-suggestions"]:visible, [data-testid="answer-composer-follow-up-suggestions"]:visible',
-    )
-    .first();
-}
-
-async function isVisibleWithoutThrow(locator: Locator) {
-  return locator.isVisible().catch(() => false);
-}
-
-async function fillVisibleQuestionInput(page: Page, value: string) {
-  const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
-  const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
-
-  // Production HTML can be visible before React owns the controlled input.
-  // Filling during that gap is immediately overwritten by hydration and leaves
-  // the submit button disabled, so establish the live handler boundary first.
-  await waitForReactEventHandler(questionInput, "onChange");
-  await expect(async () => {
-    // A production navigation can briefly overlap or replace the server-rendered
-    // composer. Require one settled React owner before filling so the new client
-    // tree cannot discard the value and leave submit disabled.
-    await expect(questionInput).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(submitAnswer).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await waitForReactEventHandler(questionInput, "onChange");
-    await waitForReactEventHandler(questionInput.locator("xpath=ancestor::form[1]"), "onSubmit");
-    await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
-      timeout: uiAssertionTimeoutMs,
-    });
-    await expect(questionInput).toBeEditable({ timeout: uiAssertionTimeoutMs });
-    await questionInput.fill(value);
-    await expect(questionInput).toHaveValue(value, { timeout: uiAssertionTimeoutMs });
-    await expect(submitAnswer).toBeEnabled({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: uiAssertionTimeoutMs });
-
-  return questionInput;
-}
-
-const readySetupChecks = [
-  { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
-  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
-  { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
-  { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
-  { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
-  { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
-];
-
-async function mockLocalProjectIdentity(page: Page) {
-  await page.route(/\/api\/local-project-id$/, async (route) => {
-    await route.fulfill({
-      json: {
-        appName: "PsychSift",
-        projectId: "test-project",
-        identityPath: "/api/local-project-id",
-        localServer: {
-          currentUrl: "http://localhost:4298",
-          currentPort: 4298,
-          projectPortStart: 4298,
-          projectPortEnd: 53210,
-          safeLocalOrigin: true,
-          requestOrigin: null,
-          requestReferer: null,
-          unsafeLocalCaller: null,
-        },
-      },
-    });
-  });
-}
-
-async function mockPrivateUnauthenticatedApi(page: Page) {
-  await mockLocalProjectIdentity(page);
-  await page.route("**/api/setup-status**", async (route) => {
-    await route.fulfill({
-      json: { demoMode: false, checks: readySetupChecks },
-    });
-  });
-  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      documentId?: string;
-      documentIds?: string[];
-    };
-    await fulfillAnswerResponse(
-      route,
-      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds),
-    );
-  });
-}
-
-function answerStreamBody(payload: unknown) {
-  return [
-    `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
-    `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "Selecting governed sources." })}`,
-    `event: progress\ndata: ${JSON.stringify({ stage: "complete", message: "Answer ready.", elapsedMs: 1250 })}`,
-    `event: final\ndata: ${JSON.stringify(payload)}`,
-    "",
-  ].join("\n\n");
-}
-
-async function fulfillAnswerResponse(route: Route, payload: unknown) {
-  const pathname = new URL(route.request().url()).pathname;
-  if (pathname.endsWith("/stream")) {
-    await route.fulfill({
-      body: answerStreamBody(payload),
-      contentType: "text/event-stream; charset=utf-8",
-      headers: { "Cache-Control": "no-cache, no-transform" },
-    });
-    return;
-  }
-
-  await route.fulfill({ json: payload });
-}
-
-type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
-type MockDemoApiOptions = {
-  answerOverride?: DemoAnswerOverride;
-  answerDelayMs?: number;
-  onAnswerRequest?: (
-    query: string,
-    scope: { documentId?: string; documentIds?: string[]; summaryMode?: boolean },
-  ) => void;
-};
-
-async function blockExternalRequests(page: Page) {
-  await page.route("**/*", async (route) => {
-    const url = new URL(route.request().url());
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
-    ) {
-      await route.abort("blockedbyclient");
-      return;
-    }
-    await route.fallback();
-  });
-}
-
-function medicationIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
-  return records.map((record) => {
-    const brandRows = record.sections
-      .filter((section) => section.type === "form")
-      .flatMap((section) => section.rows)
-      .filter((row) => /brand\s*names?/i.test(row.key));
-    return {
-      slug: record.slug,
-      name: record.name,
-      class: record.class,
-      subclass: record.subclass,
-      category: record.category,
-      accent: record.accent,
-      tag: record.tag,
-      schedule: record.schedule,
-      stats: [],
-      sections: brandRows.length
-        ? [{ title: "Formulation & Access", type: "form", rows: brandRows.map((row) => ({ ...row })) }]
-        : [],
-      quick: [],
-    };
-  });
-}
-
-async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
-  await blockExternalRequests(page);
-  await mockLocalProjectIdentity(page);
-  await page.route("**/api/setup-status**", async (route) => {
-    await route.fulfill({
-      json: { demoMode: true, checks: readySetupChecks },
-    });
-  });
-  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
-    await route.fulfill({
-      json: {
-        documents: demoDocuments,
-        demoMode: true,
-        pagination: {
-          limit: 150,
-          offset: 0,
-          total: demoDocuments.length,
-          nextOffset: demoDocuments.length,
-          hasMore: false,
-        },
-      },
-    });
-  });
-  await page.route(/\/api\/medications(?:\/([^/?]+))?(?:\?.*)?$/, async (route) => {
-    const url = new URL(route.request().url());
-    const slug = url.pathname.match(/\/api\/medications\/([^/]+)$/)?.[1];
-    if (slug) {
-      const record = getMedicationRecord(decodeURIComponent(slug));
-      if (!record) {
-        await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
-        return;
-      }
-      const governance = deriveGovernanceFromSections(record);
-      await route.fulfill({
-        json: {
-          record,
-          governance: {
-            sourceStatus: governance.source_status,
-            validationStatus: governance.validation_status,
-          },
-          demoMode: true,
-        },
-      });
-      return;
-    }
-
-    const query = url.searchParams.get("q")?.trim() || undefined;
-    const limit = Number(url.searchParams.get("limit") ?? "50");
-    const fullRecords = loadMedicationSnapshot();
-    const records = url.searchParams.get("fields") === "index" ? medicationIndexRecords(fullRecords) : fullRecords;
-    const ranked = query ? searchMedicationCatalog(fullRecords, query, limit) : undefined;
-    await route.fulfill({
-      json: {
-        records,
-        matches: ranked?.matches.map((match) => ({
-          medication: match.medication,
-          result: medicationToSearchResult(match),
-          score: match.score,
-          reasons: match.reasons,
-        })),
-        interpretation: ranked
-          ? {
-              correctedQuery:
-                ranked.analysis.corrections.length && ranked.analysis.correctedQuery !== ranked.analysis.originalQuery
-                  ? ranked.analysis.correctedQuery
-                  : undefined,
-              corrections: ranked.analysis.corrections.length ? ranked.analysis.corrections : undefined,
-              appliedExpansions: ranked.analysis.expansions.length ? ranked.analysis.expansions : undefined,
-            }
-          : undefined,
-        total: records.length,
-        governance: {},
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const url = new URL(route.request().url());
-    const kind = url.searchParams.get("kind");
-    const view = url.searchParams.get("view") ?? "full";
-    const records = kind === "form" ? formRecords : serviceRecords;
-    await route.fulfill({
-      json: {
-        records,
-        total: records.length,
-        verifiedCount: 0,
-        ...(view === "full" ? { governance: {} } : {}),
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
-    await route.fulfill({ json: { jobs: [], demoMode: true } });
-  });
-  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
-    await route.fulfill({ json: { batches: [], demoMode: true } });
-  });
-  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
-    await route.fulfill({ json: { items: [], demoMode: true } });
-  });
-  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      documentId?: string;
-      documentIds?: string[];
-      summaryMode?: boolean;
-    };
-    const query = typeof body.query === "string" ? body.query.trim() : "";
-    if (!query || query.length > 2000) {
-      await route.fulfill({ status: 400, json: { error: "A query between 1 and 2000 characters is required." } });
-      return;
-    }
-    options.onAnswerRequest?.(query, {
-      documentId: body.documentId,
-      documentIds: body.documentIds,
-      summaryMode: body.summaryMode,
-    });
-    if (options.answerDelayMs) {
-      await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
-    }
-    const answer =
-      options.answerOverride?.(query, body.documentId, body.documentIds) ??
-      (body.summaryMode && body.documentId
-        ? demoSummary(body.documentId)
-        : demoAnswer(query, body.documentId, body.documentIds));
-    await fulfillAnswerResponse(route, {
-      ...answer,
-      demoMode: true,
-    });
-  });
-  await page.route(/\/api\/search$/, async (route) => {
-    const body = route.request().postDataJSON() as { query?: string; mode?: string };
-    const query = body.query?.toLowerCase() ?? "";
-    if (query.includes("coffee machine")) {
-      await route.fulfill({
-        json: {
-          results: [],
-          visualEvidence: [],
-          relatedDocuments: [],
-          documentMatches: [],
-          relevance: { verdict: "none", score: 0, directSourceCount: 0, weakSourceCount: 0 },
-          smartPanel: {},
-          telemetry: {
-            query_class: "unsupported_or_general",
-            retrieval_strategy: "unsupported_short_circuit",
-            embedding_skipped: true,
-          },
-          demoMode: true,
-        },
-      });
-      return;
-    }
-    const isSafetyPlan = query.includes("patient safety plan");
-    await route.fulfill({
-      json: {
-        results: [
-          {
-            id: isSafetyPlan ? "55555555-5555-4555-8555-555555555555" : "44444444-4444-4444-8444-444444444442",
-            document_id: "11111111-1111-4111-8111-111111111111",
-            title: isSafetyPlan ? "Synthetic patient safety plan" : "Synthetic lithium monitoring protocol",
-            file_name: isSafetyPlan ? "patient-safety-plan.pdf" : "lithium-monitoring.pdf",
-            page_number: 1,
-            chunk_index: 0,
-            section_heading: isSafetyPlan ? "Safety plan contents" : "Monitoring",
-            content: isSafetyPlan
-              ? "Patient safety plan should include warning signs, supports, coping strategies, means restriction, and crisis contacts."
-              : "Lithium monitoring and toxicity safety-net source passage.",
-            image_ids: [],
-            similarity: 0.9,
-            hybrid_score: 0.92,
-            images: [],
-          },
-        ],
-        visualEvidence: [],
-        relatedDocuments: [],
-        documentMatches: [
-          {
-            document_id: "11111111-1111-4111-8111-111111111111",
-            title: isSafetyPlan ? "Synthetic patient safety plan" : "Synthetic lithium monitoring protocol",
-            file_name: isSafetyPlan ? "patient-safety-plan.pdf" : "lithium-monitoring.pdf",
-            labels: [
-              {
-                label: isSafetyPlan ? "patient safety plan" : "lithium",
-                label_type: isSafetyPlan ? "document" : "medication",
-                source: "generated",
-                confidence: 0.94,
-              },
-            ],
-            summarySnippet: isSafetyPlan
-              ? "Patient safety plan contents and crisis supports."
-              : "Lithium monitoring and toxicity safety-net reminders.",
-            bestPages: [1],
-            bestChunkIds: [
-              isSafetyPlan ? "55555555-5555-4555-8555-555555555555" : "44444444-4444-4444-8444-444444444442",
-            ],
-            imageCount: 1,
-            tableCount: 1,
-            matchReason: "Matched indexed passage",
-            score: 0.92,
-          },
-        ],
-        smartPanel: {},
-        telemetry: {
-          query_class: isSafetyPlan ? "document_lookup" : "medication_dose_risk",
-          retrieval_strategy: "text_fast_path",
-          embedding_skipped: true,
-        },
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
-    const query = new URL(route.request().url()).searchParams.get("q")?.trim() ?? "";
-    await route.fulfill({
-      json: {
-        query,
-        groups: [],
-        tookMs: 0,
-        domainOrder: [],
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/documents\/[^/]+\/search(?:\?.*)?$/, async (route) => {
-    await route.fulfill({
-      json: {
-        query: new URL(route.request().url()).searchParams.get("q") ?? "",
-        results: [
-          {
-            id: "55555555-5555-4555-8555-555555555555",
-            page_number: 1,
-            chunk_index: 2,
-            section_heading: "Safety plan contents",
-            snippet:
-              "Patient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.",
-            matched_terms: ["safety", "plan", "include"],
-            image_ids: [],
-            score: 2.4,
-          },
-          {
-            id: "44444444-4444-4444-8444-444444444442",
-            page_number: 1,
-            chunk_index: 0,
-            section_heading: "Monitoring",
-            snippet: "Lithium monitoring and toxicity safety-net source passage.",
-            matched_terms: ["monitoring"],
-            image_ids: [],
-            score: 1.2,
-          },
-        ],
-        pageHits: [1],
-        hitCount: 2,
-        strategy: "full_text_trigram_rpc",
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
-    const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "";
-    const document = getDemoDocument(id);
-    if (!document) {
-      await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
-      return;
-    }
-    await route.fulfill({
-      json: { url: document.storage_path, fileType: document.file_type, demoMode: true },
-    });
-  });
-  await page.route(/\/api\/documents\/[^/]+\/summarize$/, async (route) => {
-    await route.fulfill({
-      json: {
-        answer:
-          "Key practical points: **clozapine** monitoring requires regular FBC/ANC checks and review of constipation, myocarditis symptoms, metabolic risk, and missed-dose restart rules.",
-        grounded: true,
-        confidence: "high",
-        citations: [],
-        sources: [],
-        demoMode: true,
-      },
-    });
-  });
-  await page.route(/\/api\/documents\/([^/]+)(?:\?.*)?$/, async (route) => {
-    const url = new URL(route.request().url());
-    const id = url.pathname.split("/").at(-1) ?? "";
-    const selectedChunkId = url.searchParams.get("chunk");
-    const payload = getDemoDocumentPayload(id, selectedChunkId);
-    if (!payload) {
-      await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
-      return;
-    }
-    if (selectedChunkId === "55555555-5555-4555-8555-555555555555") {
-      await route.fulfill({
-        json: {
-          ...payload,
-          document: {
-            ...payload.document,
-            title: "Synthetic patient safety plan",
-            file_name: "patient-safety-plan.pdf",
-          },
-          pages: payload.pages.map((page) => ({
-            ...page,
-            text: `${page.text}\n\nPatient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.`,
-          })),
-          chunks: [
-            {
-              id: "55555555-5555-4555-8555-555555555555",
-              document_id: id,
-              page_number: 1,
-              chunk_index: 2,
-              section_heading: "Safety plan contents",
-              content:
-                "Patient safety plan should include warning signs, coping strategies, supports, crisis contacts, and means restriction.",
-              image_ids: [],
-            },
-          ],
-          demoMode: true,
-        },
-      });
-      return;
-    }
-    const longSelectedPassage = selectedChunkId
-      ? {
-          ...payload,
-          chunks: payload.chunks.map((chunk) =>
-            chunk.id === selectedChunkId ? { ...chunk, content: Array(8).fill(chunk.content).join(" ") } : chunk,
-          ),
-        }
-      : payload;
-    await route.fulfill({ json: { ...longSelectedPassage, demoMode: true } });
-  });
-}
-
-async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mobileFabReady?: boolean } = {}) {
-  const audit = await page.evaluate(() => {
-    const duplicateIds = [...document.querySelectorAll("[id]")]
-      .map((element) => element.id)
-      .filter((id, index, all) => id && all.indexOf(id) !== index);
-    const brokenAriaRefs: Array<{ attr: string; id: string }> = [];
-
-    for (const element of [...document.querySelectorAll("[aria-labelledby],[aria-describedby],[aria-controls]")]) {
-      for (const attr of ["aria-labelledby", "aria-describedby", "aria-controls"]) {
-        const value = element.getAttribute(attr);
-        if (!value) continue;
-        for (const id of value.split(/\s+/).filter(Boolean)) {
-          if (!document.getElementById(id)) brokenAriaRefs.push({ attr, id });
-        }
-      }
-    }
-
-    return {
-      h1Count: document.querySelectorAll("h1,[role='heading'][aria-level='1']").length,
-      duplicateIds: [...new Set(duplicateIds)],
-      brokenAriaRefs,
-      hasFrameworkOverlay: /Unhandled Runtime Error|Build Error|Application error|Next\.js/.test(
-        document.body.innerText,
-      ),
-    };
-  });
-
-  expect(audit.h1Count).toBe(1);
-  expect(audit.duplicateIds).toEqual([]);
-  expect(audit.brokenAriaRefs).toEqual([]);
-  expect(audit.hasFrameworkOverlay).toBe(false);
-
-  if (options.mobileNav) {
-    await expect(page.getByRole("navigation", { name: "Answer sections" })).toHaveCount(0);
-    if (options.mobileFabReady) {
-      await expect(page.getByTestId("mobile-section-fab-button")).toBeVisible();
-      await expect(page.getByTestId("mobile-section-fab-menu")).toBeHidden();
-    } else {
-      await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
-      await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
-    }
-  }
-}
-
-// Scope opens from the command surface after answer submit and from the "+" menu on mode homes.
-async function openScopeControl(page: Page) {
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("listbox", { name: /search suggestions/i })
-    .waitFor({ state: "hidden", timeout: 5_000 })
-    .catch(() => undefined);
-
-  const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
-  const bottomDock = page.locator("form.answer-footer-search-dock");
-  if (await bottomDock.isVisible().catch(() => false)) {
-    // Prior sheet/scroll interactions can leave the phone dock translated off-screen.
-    // Restore it before opening scope so the click lands in the viewport.
-    await scrollPrimarySurface(page, 0);
-    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
-  }
-
-  // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
-  await scrollPrimarySurface(page, 0);
-
-  await composer.click();
-  const scopeOption = page.getByRole("option", { name: /Scope sources/i });
-  if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await scopeOption.click();
-  } else {
-    const actionMenu = page.getByRole("button", { name: "Open answer options" });
-    await expect(actionMenu).toBeVisible();
-    await waitForReactEventHandler(actionMenu, "onClick");
-    await actionMenu.click();
-    const actionsMenu = page.getByTestId("daily-actions-menu");
-    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("button", { name: /^Scope\b/ }).click();
-  }
-  await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-}
-
-async function expectMinTouchTarget(locator: Locator, minSize = 44) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  const measurementTolerance = 2;
-  expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
-  expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
-}
-
-async function tapOutsideActiveSurface(page: Page) {
-  const viewport = page.viewportSize() ?? { width: 390, height: 820 };
-  await page.mouse.click(Math.max(1, viewport.width - 8), 8);
-}
-
-async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: Locator) {
-  await clinicalTable.scrollIntoViewIfNeeded();
-  await page.evaluate(() => {
-    const expand = document.querySelector('[data-testid="table-expand-button"]');
-    const main = document.querySelector<HTMLElement>("main#main-content");
-    const footer = document.querySelector(
-      ".answer-footer-search-dock, .dashboard-composer-edge.answer-footer-search-edge",
-    );
-    if (!expand || !main) return;
-    const mainOverflowY = window.getComputedStyle(main).overflowY;
-    const mainOwnsScroll =
-      ["auto", "scroll", "overlay"].includes(mainOverflowY) && main.scrollHeight > main.clientHeight;
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const expandRect = expand.getBoundingClientRect();
-      const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
-      const currentOverlap = expandRect.bottom - footerTop + 24;
-      if (currentOverlap <= 0) break;
-      if (mainOwnsScroll) main.scrollTop += currentOverlap;
-      else window.scrollBy({ top: currentOverlap, behavior: "auto" });
-    }
-  });
-}
-
-async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
-  await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-  const expandButton = clinicalTable.getByTestId("table-expand-button");
-  const tableDialog = page.getByTestId("table-fullscreen-dialog");
-  await expect(expandButton).toBeVisible();
-  await waitForReactEventHandler(expandButton, "onClick");
-  await expandButton.click();
-  await expect(tableDialog).toBeVisible({ timeout: 15_000 });
-  return tableDialog;
-}
-
-async function openMobileClinicalGuideMenu(page: Page) {
-  const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
-  await expect(trigger).toBeVisible();
-  await waitForReactEventHandler(trigger, "onClick");
-  await trigger.click();
-
-  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
-  await expect(menu).toBeVisible();
-  const menuBox = await menu.boundingBox();
-  expect(menuBox).not.toBeNull();
-  expect(menuBox!.x).toBeGreaterThanOrEqual(0);
-  await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Search Clinical Guide" })).toBeVisible();
-  await expect(menu.getByText("Recent chats", { exact: true })).toHaveCount(0);
-  await expect(menu.getByText("Shortcuts", { exact: true })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Edit" })).toBeVisible();
-  const navigation = menu.getByRole("navigation", { name: "Pinned shortcuts" });
-  await expect(navigation).toBeVisible();
-  expect(
-    await navigation
-      .getByRole("link")
-      .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
-  ).toEqual([
-    { name: "Answer", href: "/?mode=answer" },
-    // Owner decision 2026-08-27: Documents joins the other consolidated modes and
-    // links at the shared home. `/documents` still exists and still paints its
-    // browse/recent workspace, but it is a second landing page â€” same subtitle,
-    // different title â€” and reaching it from the sidebar read as the wrong screen.
-    // It keeps its route and its inbound link from the Tools directory.
-    // Medication is not consolidated: /medications is the prescribing workspace,
-    // not a 307 onto /?mode=prescribing.
-    { name: "Documents", href: "/?mode=documents" },
-    { name: "Services", href: "/?mode=services" },
-    { name: "Medication", href: "/medications" },
-    { name: "Factsheets", href: "/?mode=factsheets" },
-    { name: "Tools", href: "/tools" },
-  ]);
-  await expect(navigation.getByRole("button", { name: "More modes" })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Guide & help", exact: true })).toHaveCount(0);
-  await expect(menu.getByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toHaveCount(0);
-  await expect(menu.getByRole("button", { name: /Appearance Auto/ })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
-  await expect(menu.getByText("Guest")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
-  await expectNoPageHorizontalOverflow(page);
-  return menu;
-}
-
-async function waitForDemoDashboardReady(page: Page) {
-  await expect(visibleQuestionInput(page)).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
-}
-
-async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
-  await expect
-    .poll(async () =>
-      page.evaluate((storageKey) => {
-        try {
-          const raw = window.sessionStorage.getItem(storageKey);
-          if (!raw) return 0;
-          const parsed = JSON.parse(raw) as { priorTurns?: unknown[] };
-          return Array.isArray(parsed.priorTurns) ? parsed.priorTurns.length : 0;
-        } catch {
-          return 0;
-        }
-      }, demoAnswerThreadStorageKey),
-    )
-    .toBeGreaterThanOrEqual(minPriorTurns);
-}
-
-async function openGuide(page: Page) {
-  const dialog = page.getByRole("dialog", { name: "PsychSift guide" });
-  const settings = accountSettingsDialog(page);
-  const viewport = page.viewportSize();
-
-  // Guide now lives inside Settings. If Settings is already open (e.g. after
-  // closing Guide restores it), skip the reopen click that would hit the overlay.
-  if (!(await settings.isVisible().catch(() => false))) {
-    // A Settings trigger becomes visible before React attaches its handler, so a
-    // single click is silently swallowed and the dialog never opens. Retry the
-    // click together with the dialog it should produce, rather than asserting
-    // visibility once â€” the same shape used for the composer and mode menu.
-    await expect(async () => {
-      // Idempotent by construction. If the dialog opened just after the inner
-      // assertion's own deadline expired, `toPass` still schedules another
-      // attempt; without this the attempt clicks a trigger the modal is already
-      // covering (or reopens the phone menu on top of it) and the helper times
-      // out under exactly the load it exists to tolerate.
-      if (await settings.isVisible().catch(() => false)) return;
-      if (viewport && viewport.width < 768) {
-        // The swallowed click leaves the phone menu OPEN, so a retry that always
-        // reopens would toggle it shut and then fail to find Settings inside it.
-        // Reuse the open menu; only summon one when there is none.
-        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
-        const menu = (await openMenu.isVisible().catch(() => false))
-          ? openMenu
-          : await openMobileClinicalGuideMenu(page);
-        await menu.getByRole("button", { name: "Settings", exact: true }).click();
-      } else if (viewport && viewport.width < 1024) {
-        const rail = page.getByLabel("Clinical Guide collapsed sidebar");
-        const railSettings = rail.getByRole("button", { name: "Settings", exact: true });
-        await expect(railSettings).toBeVisible();
-        await railSettings.click();
-      } else {
-        const sidebar = page.locator("#clinical-tools-sidebar");
-        const settingsTrigger = (await sidebar.isVisible().catch(() => false))
-          ? sidebar.getByRole("button", { name: "Settings", exact: true })
-          : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
-        await expect(settingsTrigger).toBeVisible();
-        await settingsTrigger.click();
-      }
-      await expect(settings).toBeVisible({ timeout: 3_000 });
-    }).toPass({ timeout: uiAssertionTimeoutMs });
-  }
-
-  await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading", { name: "How to verify an answer" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Verify an answer" })).toBeVisible();
-  await expectNoPageHorizontalOverflow(page);
-  return dialog;
-}
-
-function accountSettingsDialog(page: Page) {
-  return page.getByRole("dialog", { name: "Account & app" });
-}
-
-function accountSetupDialog(page: Page) {
-  return page.getByRole("dialog", { name: "Account setup" });
-}
-
-async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator[]) {
-  const safeAreaTop = await page.evaluate(() =>
-    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top")),
-  );
-  expect(safeAreaTop).toBeGreaterThan(0);
-
-  for (const control of controls) {
-    const bounds = await control.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.y).toBeGreaterThanOrEqual(safeAreaTop);
-  }
-}
-
-async function expectAccountSettingsSurface(settings: Locator) {
-  await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
-  await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
-  await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
-  await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
-  await expect(settings.getByTestId("settings-account-card")).toBeVisible();
-  await expect(settings.getByTestId("settings-row-profile")).toHaveCount(0);
-  await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
-  await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
-  await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
-  await expect(settings.getByText("Saved on this device; not yet used in answers.")).toHaveCount(1);
-  await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
-}
-
-async function expectMobileSettingsLayout(settings: Locator) {
-  const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
-  // The row carries two labels for one control, deliberately. The visible row
-  // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
-  // `Select` keeps its own `sr-only` label because a field without one is not a
-  // field; `aria-labelledby` points at the visible one, so the accessible name
-  // is those words once rather than the two concatenated. This layout assertion
-  // is about where the *visible* label sits, so it addresses that one by id
-  // instead of by text.
-  const label = jurisdictionRow.locator("#settings-jurisdiction-label");
-  const control = jurisdictionRow.getByRole("combobox");
-  const [rowBox, labelBox, controlBox] = await Promise.all([
-    jurisdictionRow.boundingBox(),
-    label.boundingBox(),
-    control.boundingBox(),
-  ]);
-
-  expect(rowBox).not.toBeNull();
-  expect(labelBox).not.toBeNull();
-  expect(controlBox).not.toBeNull();
-  expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
-  expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
-  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
-
-  // "Motion" joined this list on 2026-08-17: it became a three-option segmented
-  // control (System / Reduced / Full) so an OS Reduce Motion request can be
-  // explicitly overridden in-app, replacing the old boolean switch.
-  for (const groupLabel of ["Answer style", "Appearance", "Interface density", "Default landing view", "Motion"]) {
-    const row = settings.getByTestId(`settings-row-${groupLabel.toLowerCase().replaceAll(" ", "-")}`);
-    const radios = row.getByRole("radiogroup", { name: groupLabel }).getByRole("radio");
-    const radioBoxes = await radios.evaluateAll((elements) =>
-      elements.map((element) => {
-        const box = element.getBoundingClientRect();
-        const text = element.querySelector("span");
-        return {
-          x: box.x,
-          y: box.y,
-          width: box.width,
-          height: box.height,
-          textFits: text ? text.scrollWidth <= text.clientWidth + 1 : true,
-        };
-      }),
-    );
-
-    expect(radioBoxes).toHaveLength(3);
-    expect(
-      Math.max(...radioBoxes.map((box) => box.y)) - Math.min(...radioBoxes.map((box) => box.y)),
-    ).toBeLessThanOrEqual(1);
-    expect(radioBoxes.every((box) => box.height >= 48)).toBe(true);
-    expect(radioBoxes.every((box) => box.textFits)).toBe(true);
-    expect(radioBoxes[0].x + radioBoxes[0].width).toBeLessThanOrEqual(radioBoxes[1].x);
-    expect(radioBoxes[1].x + radioBoxes[1].width).toBeLessThanOrEqual(radioBoxes[2].x);
-  }
-
-  // A switch row still has to hold the 48px tap target; "Recent searches on home"
-  // is the nearest remaining boolean now that Motion is a segmented control.
-  const switchBox = await settings
-    .getByTestId("settings-row-recent-searches-on-home")
-    .getByRole("switch")
-    .boundingBox();
-  expect(switchBox).not.toBeNull();
-  expect(switchBox!.width).toBeGreaterThanOrEqual(48);
-  expect(switchBox!.height).toBeGreaterThanOrEqual(48);
-  await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
-  await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
-}
-
-async function expectAccountSetupSurface(setup: Locator) {
-  await expect(setup.getByRole("heading", { name: "Continue to your workspace" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
-  await expect(setup.getByLabel("Work email")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue securely" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
-  await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
-  await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
-  await expect(setup.getByText(/Apple sign-in is not available/i)).toHaveCount(0);
-  const accountSetupViewportWidth = await setup.evaluate(() => window.innerWidth);
-  if (accountSetupViewportWidth >= 1024) {
-    await expect(setup.getByText("Save favourites", { exact: true })).toBeVisible();
-    await expect(setup.getByText(/Reopen trusted resources on any device/i)).toBeVisible();
-    await expect(setup.getByText("Keep your clinical defaults", { exact: true })).toBeVisible();
-    await expect(setup.getByText(/Your jurisdiction and answer style follow you/i)).toBeVisible();
-    await expect(setup.getByText("Recent searches stay here", { exact: true })).toBeVisible();
-    await expect(setup.getByText(/Browser activity does not sync to your account/i)).toBeVisible();
-  } else {
-    await expect(setup.getByText("Favourites sync", { exact: true })).toBeVisible();
-    await expect(setup.getByText("Preferences sync", { exact: true })).toBeVisible();
-    await expect(setup.getByText("Searches stay here", { exact: true })).toBeVisible();
-  }
-  const privacyLink = setup.getByRole("link", { name: "Privacy and data processing" });
-  await expect(privacyLink).toBeVisible();
-  await expect(privacyLink).toHaveAttribute("href", "/privacy");
-  await expect(privacyLink.locator("xpath=..")).toContainText("Do not enter patient-identifiable information.");
-}
-
-async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stack") {
-  const providers = ["Apple", "Google", "Microsoft"].map((provider) =>
-    setup.getByRole("button", { name: `Continue with ${provider}` }),
-  );
-  const boxes = await Promise.all(providers.map((provider) => provider.boundingBox()));
-  expect(boxes.every(Boolean)).toBe(true);
-  const [apple, google, microsoft] = boxes as NonNullable<(typeof boxes)[number]>[];
-
-  expect(boxes.every((box) => box!.height >= 48)).toBe(true);
-  if (layout === "row") {
-    expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
-    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
-    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x);
-    expect(
-      Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
-    ).toBeLessThanOrEqual(1);
-    return;
-  }
-
-  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y);
-  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y);
-  expect(
-    Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
-  ).toBeLessThanOrEqual(1);
-}
-
-async function expectDocumentUploadUnavailable(page: Page) {
-  const menu = await openDailyActions(page);
-  await expect(menu.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
-  await expect(page.locator('input[type="file"]')).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(menu).toBeHidden();
-}
-
-async function dismissOverlayByHeaderClick(page: Page) {
-  // Portaled integrated action menus cover the hero composer; avoid fixed viewport
-  // coordinates that can hit menu tiles (e.g. Clinical tools -> tools mode).
-  await page.locator("#search").click({ position: { x: 120, y: 28 } });
-}
-
-async function openDailyActions(page: Page, triggerName: string | RegExp = /^Open .+ options$/) {
-  const trigger = page.getByRole("button", { name: triggerName });
-  const menu = page.getByTestId("daily-actions-menu");
-
-  await expect(trigger).toBeVisible();
-  await expect(trigger).toBeEnabled();
-  await waitForReactEventHandler(trigger, "onClick");
-  await trigger.click();
-  await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-
-  return menu;
-}
-
-test.beforeEach(stubZeroTouchPoints);
-
-test.describe("PsychSift UI smoke coverage", () => {
-  test.describe.configure({ timeout: 60000 });
-
-  test("Supabase connection hints reach the document head without provider traffic", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-
-    const preconnect = page.locator('head link[rel="preconnect"][href="http://127.0.0.1:1"]');
-    const dnsPrefetch = page.locator('head link[rel="dns-prefetch"][href="http://127.0.0.1:1"]');
-
-    await expect(preconnect).toHaveCount(1);
-    await expect(preconnect).toHaveAttribute("crossorigin", "anonymous");
-    await expect(dnsPrefetch).toHaveCount(1);
-  });
-
-  for (const viewport of dashboardViewports) {
-    test(`dashboard loads without page overflow at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await mockPrivateUnauthenticatedApi(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
-      await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
-      await expect(visibleQuestionInput(page)).toBeVisible();
-      await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
-      const headerHeight = await page.locator("#search").evaluate((element) => element.getBoundingClientRect().height);
-      expect(headerHeight).toBeLessThanOrEqual(viewport.width >= 640 ? 185 : 180);
-      await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
-      await expect(page.getByTestId("scope-command-popover")).toBeHidden();
-      await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
-      await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
-      if (viewport.width <= 768) {
-        await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
-      }
-      if (viewport.width < 640) {
-        const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
-        const dailyActions = await openDailyActions(page);
-        const searchAction = dailyActions.getByRole("button", { name: "Search sources", exact: true });
-        await expect(searchAction).toBeVisible();
-        await expect(dailyActions.getByRole("button", { name: "View evidence" })).toBeVisible();
-        await expectMinTouchTarget(searchAction);
-        await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
-        await page.keyboard.press("Escape");
-        await expect(dailyActions).toBeHidden();
-        await expect(dailyActionsTrigger).toBeFocused();
-      }
-      await expectNoPageHorizontalOverflow(page);
-    });
-  }
-
-  test("anonymous user can see enabled live search without a forced sign-in gate @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
-    await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
-  });
-
-  test("anonymous mobile user can search without a forced sign-in gate", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
-    await expect(page.getByText("Service unavailable")).toHaveCount(0);
-    await expect(page.getByText("API unavailable")).toHaveCount(0);
-    await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
-  });
-
-  test("Medication shortcut opens the standalone Medication home", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("link", { name: "Medication" }).click();
-
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
-    await expect(page.getByTestId("medication-home").first()).toBeVisible();
-  });
-
-  test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/?mode=answer");
-    await waitForDemoDashboardReady(page);
-
-    const universalInput = visibleQuestionInput(page);
-    const restingPillBorder = await universalInput.evaluate((element) => {
-      const pill = element.closest(".answer-footer-search-pill");
-      return pill ? getComputedStyle(pill).borderColor : null;
-    });
-    await universalInput.focus();
-    const universalFocus = await universalInput.evaluate((element) => {
-      const inputStyle = getComputedStyle(element);
-      const pill = element.closest(".answer-footer-search-pill");
-      const pillStyle = pill ? getComputedStyle(pill) : null;
-      return {
-        inputOutline: inputStyle.outlineStyle,
-        inputShadow: inputStyle.boxShadow,
-        pillBorder: pillStyle?.borderColor ?? null,
-        pillShadow: pillStyle?.boxShadow ?? null,
-      };
-    });
-    expect(universalFocus.inputOutline).toBe("none");
-    expect(universalFocus.inputShadow).toBe("none");
-    expect(universalFocus.pillBorder).not.toBe(restingPillBorder);
-    expect(universalFocus.pillShadow).not.toBe("none");
-
-    const menu = await openMobileClinicalGuideMenu(page);
-    const closeMenu = menu.getByRole("button", { name: "Close Clinical Guide menu" });
-    const newChat = menu.getByRole("button", { name: "New chat" });
-    const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
-    await closeMenu.focus();
-    await page.keyboard.press("Tab");
-    // Firefox includes scrollable containers in the tab order; the sheet body
-    // (overflow-y-auto) sits between Close and "New chat" in DOM order and
-    // genuinely overflows at this viewport. Step over it when focused.
-    const onScrollableBody = await page.evaluate(() => {
-      const element = document.activeElement;
-      return element instanceof HTMLElement && element.classList.contains("overflow-y-auto");
-    });
-    if (onScrollableBody) await page.keyboard.press("Tab");
-    await expect(newChat).toBeFocused();
-    const buttonFocus = await newChat.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { outlineStyle: style.outlineStyle, boxShadow: style.boxShadow };
-    });
-    expect(buttonFocus.outlineStyle).toBe("solid");
-    expect(buttonFocus.boxShadow).toBe(restingButtonShadow);
-
-    const guideSearch = menu.getByRole("button", { name: "Search Clinical Guide" });
-    await guideSearch.focus();
-    const fieldFocus = await guideSearch.evaluate((element) => {
-      const style = getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      const outlineWidth = Number.parseFloat(style.outlineWidth);
-      const outlineOffset = Number.parseFloat(style.outlineOffset);
-      return {
-        outlineStyle: style.outlineStyle,
-        outlineWidth,
-        outlineOffset,
-        paintedTop: rect.top - outlineOffset - outlineWidth,
-        paintedRight: rect.right + outlineOffset + outlineWidth,
-        paintedBottom: rect.bottom + outlineOffset + outlineWidth,
-        paintedLeft: rect.left - outlineOffset - outlineWidth,
-        rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
-      };
-    });
-    expect(fieldFocus.outlineStyle).toBe("solid");
-    expect(fieldFocus.outlineWidth).toBeGreaterThanOrEqual(2);
-    expect(fieldFocus.outlineOffset).toBeLessThan(0);
-    expect(fieldFocus.paintedTop).toBeGreaterThanOrEqual(fieldFocus.rect.top);
-    expect(fieldFocus.paintedRight).toBeLessThanOrEqual(fieldFocus.rect.right);
-    expect(fieldFocus.paintedBottom).toBeLessThanOrEqual(fieldFocus.rect.bottom);
-    expect(fieldFocus.paintedLeft).toBeGreaterThanOrEqual(fieldFocus.rect.left);
-    await guideSearch.click();
-    await expect(menu).toHaveCount(0);
-    await expect(visibleQuestionInput(page)).toBeFocused();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("desktop sidebar defaults to the collapsed state for new users", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=answer");
-    await waitForDemoDashboardReady(page);
-
-    // No stored preference (PT-10): the collapsed icon rail is the default,
-    // so first-run desktop shows the collapsed rail, not the labelled panel;
-    // expanding is remembered. #clinical-tools-sidebar only mounts when
-    // expanded, so its absence (not just hidden) is the collapsed signal.
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
-    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
-  });
-
-  test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    // This journey starts from the collapsed rail (now the default for new
-    // users too) and exercises expanding/collapsing it.
-    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
-    await gotoApp(page, "/?mode=tools");
-
-    const sidebar = page.locator("#clinical-tools-sidebar");
-    const modeButton = page.getByRole("button", { name: "Mode Tools" });
-    await expect(modeButton).toBeVisible();
-    const selectedToolSheet = page.getByRole("dialog", { name: "Risk & Safety" });
-    if (await isVisibleWithoutThrow(selectedToolSheet)) {
-      await selectedToolSheet.getByRole("button", { name: "Close Risk & Safety" }).click();
-      await expect(selectedToolSheet).toBeHidden();
-    }
-    const expandSidebar = page.getByRole("button", { name: "Expand sidebar" });
-    await expect(expandSidebar).toBeVisible();
-    await expectMinTouchTarget(expandSidebar);
-    await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
-      /G Guest Not signed in\. Set up workspace/,
-    );
-    await expect(sidebar).toHaveCount(0);
-    await expandSidebar.click();
-    await expect(sidebar).toBeVisible();
-    await expect(sidebar.getByRole("link", { name: "View tools" })).toHaveCount(0);
-    await expect(sidebar.getByRole("link", { name: "Tools", exact: true })).toHaveAttribute("href", "/tools");
-    await expect(sidebar.getByTestId("sidebar-account-settings")).toHaveAccessibleName(
-      /G Guest Not signed in\. Set up workspace/,
-    );
-
-    const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
-    const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
-    await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
-    await guideSearch.click();
-    await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
-    await expect(visibleQuestionInput(page)).toBeFocused();
-    await collapseSidebar.focus();
-    await page.keyboard.press("Control+K");
-    await expect(visibleQuestionInput(page)).toBeFocused();
-
-    await expectMinTouchTarget(collapseSidebar);
-    await collapseSidebar.click();
-    await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
-      /G Guest Not signed in\. Set up workspace/,
-    );
-
-    await expandSidebar.click();
-    await sidebar.getByRole("link", { name: "Answer", exact: true }).click();
-    await expect(page).toHaveURL(/\/\?mode=answer$/);
-    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-    await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
-    await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
-  });
-
-  test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await mockDemoApi(page);
-    // Seed expanded preference so #clinical-tools-sidebar mounts. Without this
-    // seed the panel is absent (count 0) and toBeHidden() would pass vacuously;
-    // we need the remembered-expanded path where the panel exists but stays
-    // display:none below lg while tablet still only presents the icon rail.
-    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
-    await gotoApp(page, "/?mode=answer");
-    await waitForDemoDashboardReady(page);
-
-    await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
-
-    const rail = page.getByLabel("Clinical Guide collapsed sidebar");
-    const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
-    const navigation = rail.getByRole("navigation", { name: "Pinned shortcuts" });
-    const library = rail.getByRole("navigation", { name: "Your library" });
-    await expect(rail.getByRole("button", { name: "New chat" })).toBeVisible();
-    await expect(rail.getByRole("button", { name: "Settings" })).toBeVisible();
-    await expect(scrollRegion.getByRole("button", { name: "New chat" })).toHaveCount(0);
-    await expect(scrollRegion.getByRole("button", { name: "Settings" })).toHaveCount(0);
-    expect(
-      await navigation
-        .getByRole("link")
-        .evaluateAll((links) =>
-          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
-        ),
-    ).toEqual([
-      { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/?mode=documents" },
-      { name: "Services", href: "/?mode=services" },
-      { name: "Medication", href: "/medications" },
-      { name: "Factsheets", href: "/?mode=factsheets" },
-      { name: "Tools", href: "/tools" },
-    ]);
-    expect(
-      await library
-        .getByRole("link")
-        .evaluateAll((links) =>
-          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
-        ),
-    ).toEqual([{ name: "Favourites", href: "/favourites" }]);
-    // Specialist mode homes open from a single "More modes" control (sheet), not
-    // an always-visible six-link rail group â€” the mode pill only retargets the
-    // composer.
-    await expect(rail.getByTestId("sidebar-more-modes")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(1);
-    await rail.getByTestId("sidebar-more-modes").click();
-    const moreModesSheet = page.getByTestId("sidebar-more-modes-sheet");
-    await expect(moreModesSheet).toBeVisible();
-    await expect(moreModesSheet.getByRole("navigation", { name: "More modes" })).toBeVisible();
-    await expect(moreModesSheet.getByRole("link", { name: "Differentials", exact: true })).toBeVisible();
-    await expect(moreModesSheet.getByRole("link", { name: "Therapy", exact: true })).toBeVisible();
-    await moreModesSheet.getByRole("button", { name: "Pin Forms" }).click();
-    await moreModesSheet.getByRole("button", { name: "Move Forms up" }).click();
-    await moreModesSheet.getByRole("button", { name: "Close more modes" }).click();
-    expect(
-      await navigation.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("aria-label"))),
-    ).toEqual(["Answer", "Documents", "Services", "Medication", "Factsheets", "Forms", "Tools"]);
-    await expect(rail.getByTestId("sidebar-more-modes")).toBeVisible();
-    await expect(rail.getByTestId("sidebar-more-modes")).toBeFocused();
-
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("tablet rail highlights the active tool for key routes", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await mockDemoApi(page);
-
-    for (const route of [
-      { path: "/?mode=answer", label: "Answer" },
-      { path: "/documents", label: "Documents" },
-      { path: "/favourites", label: "Favourites" },
-      { path: "/medications", label: "Medication" },
-      { path: "/tools", label: "Tools" },
-    ] as const) {
-      await gotoApp(page, route.path);
-      if (route.path.includes("mode=answer")) {
-        await waitForDemoDashboardReady(page);
-      }
-
-      const activeLink = page.getByRole("link", { name: route.label, exact: true });
-      await expect(activeLink).toBeVisible();
-      await expect(activeLink).toHaveAttribute("aria-current", "page");
-    }
-  });
-
-  test("served response headers do not block cross-origin Supabase images", async ({ page }) => {
-    // Regression guard for the "all images fail to render" incident: document
-    // page images load cross-origin from Supabase Storage signed URLs. A
-    // Cross-Origin-Embedder-Policy: require-corp header (or a CSP that drops
-    // the *.supabase.co image origin) silently breaks every image
-    // while all other tests still pass. Assert the actual served headers.
-    const response = await page.request.get("/");
-    expect(response.status()).toBe(200);
-    const headers = response.headers();
-
-    expect(headers["cross-origin-embedder-policy"]).toBeUndefined();
-
-    const csp = headers["content-security-policy"] ?? "";
-    expect(csp).toContain("img-src");
-    const imgSrc = csp.split(";").find((directive) => directive.trim().startsWith("img-src"));
-    expect(imgSrc).toContain("https://*.supabase.co");
-    expect(imgSrc?.trim().split(/\s+/)).not.toContain("https:");
-    expect(csp).toContain("https://*.supabase.co");
-  });
-
-  test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
-    const llms = await page.request.get("/llms.txt");
-    expect(llms.status()).toBe(200);
-    const llmsText = await llms.text();
-    expect(llmsText).toContain("Clinical Guide");
-    expect(llmsText).toContain("rely on cited source evidence");
-
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    // The Documents workspace lives at its search route since consolidation, and
-    // the dashboard only mounts it for a submitted query; `/documents` itself
-    // redirects to the shared home.
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
-    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
-  });
-
-  test("account setup opens from desktop sidebar account affordances while settings stays separate", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    // Exercises both collapsed and expanded account affordances; seed collapsed
-    // explicitly (also the new-user default) so the journey starts on the rail.
-    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const settings = accountSettingsDialog(page);
-    const setup = accountSetupDialog(page);
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
-    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
-    await expectNoPageHorizontalOverflow(page);
-
-    await settings.getByRole("button", { name: "Close settings" }).click();
-    await expect(settings).toBeHidden();
-
-    await page.locator("#clinical-tools-sidebar").getByTestId("sidebar-account-settings").click();
-    await expect(setup).toBeVisible();
-    await expectAccountSetupSurface(setup);
-    await expectAccountProviderLayout(setup, "row");
-    await expectNoPageHorizontalOverflow(page);
-    await setup.getByRole("button", { name: "Close account setup" }).click();
-    await expect(setup).toBeHidden();
-
-    await page.getByRole("button", { name: "Collapse sidebar" }).click();
-    await page.getByTestId("collapsed-account-settings").click();
-    await expect(setup).toBeVisible();
-    await expectAccountSetupSurface(setup);
-  });
-
-  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
-    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
-    // auto row sized to the full content height, overflowed the capped grid and
-    // was clipped by `overflow-hidden`. The scroll column therefore never
-    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
-    // `scrollIntoView` scrolled the clipped grid instead â€” dragging the rail and
-    // the close control out of the dialog with no way to scroll them back.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    // Sidebar defaults to collapsed for new users; expand so the in-rail Settings
-    // control this journey asserts is reachable (same as the account-setup case).
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
-    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
-
-    const settings = accountSettingsDialog(page);
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-
-    const rail = settings.getByRole("navigation", { name: "Settings sections" });
-    const close = settings.getByRole("button", { name: "Close settings" });
-    await expect(rail).toBeVisible();
-
-    const port = settings.getByTestId("settings-scroll-port");
-
-    const scrollState = async () =>
-      port.evaluate((element) => {
-        const panel = element.parentElement;
-        return {
-          portScrollable: element.scrollHeight > element.clientHeight,
-          panelClipped: panel ? panel.scrollHeight > panel.clientHeight : true,
-        };
-      });
-
-    // The settings column owns the overflow; the two-column panel never does.
-    expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
-
-    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
-      await settings.getByRole("button", { name: section, exact: true }).click();
-      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
-        "aria-current",
-        "true",
-      );
-      // The rail and the only pointer-driven way out both stay inside the panel.
-      await expect(rail).toBeInViewport();
-      await expect(close).toBeInViewport();
-      expect((await scrollState()).panelClipped).toBe(false);
-    }
-
-    // A rail click holds its own highlight â€” the last sections are shorter than
-    // the scroll port and can never reach the marker line â€” but only until the
-    // reader scrolls somewhere else. Dragging the native scrollbar moves
-    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
-    // assign `scrollTop` directly to reproduce exactly that interaction. Force
-    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
-    // and a bare `scrollTop` write would otherwise animate.
-    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = 0;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-
-    await close.click();
-    await expect(settings).toBeHidden();
-
-    // The pin must not outlive the dialog: the Sheet unmounts its children, but
-    // the component stays mounted, so a stale pin would hold the spy inert. A
-    // coalesced spy rAF armed before close is cancelled on `open` flip (and
-    // dropped if its port is no longer the live ref), so reopen starts on
-    // Account rather than the previous section.
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = element.scrollHeight;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Developer", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-  });
-
-  test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const settings = accountSettingsDialog(page);
-    const setup = accountSetupDialog(page);
-    const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(menu).toHaveCount(0);
-    await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
-    const settingsBox = await settings.boundingBox();
-    const viewport = await page.evaluate(() => ({
-      width: window.visualViewport?.width ?? window.innerWidth,
-      height: window.visualViewport?.height ?? window.innerHeight,
-    }));
-    const fullscreenTolerance = 16;
-    expect(settingsBox).not.toBeNull();
-    expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
-    expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
-    expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
-    expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
-    await expectMobileSettingsLayout(settings);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 320, height: 820 });
-    await expectMobileSettingsLayout(settings);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 390, height: 820 });
-    await expectMobileSettingsLayout(settings);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 430, height: 820 });
-    await expectMobileSettingsLayout(settings);
-    await expectNoPageHorizontalOverflow(page);
-
-    await settings.getByRole("button", { name: "Close settings" }).click();
-    await expect(settings).toBeHidden();
-    await page.setViewportSize({ width: 390, height: 820 });
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-top", "59px");
-    });
-
-    const escapeMenu = await openMobileClinicalGuideMenu(page);
-    await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(settings).toBeHidden();
-
-    const accountMenu = await openMobileClinicalGuideMenu(page);
-    await accountMenu.getByTestId("sidebar-account-settings").click();
-    await expect(accountMenu).toHaveCount(0);
-    await expect(setup).toBeVisible();
-    await expectAccountSetupSurface(setup);
-    await expectAccountProviderLayout(setup, "stack");
-    await expect(setup.getByLabel("Work email")).toBeFocused();
-    const setupClose = setup.getByRole("button", { name: "Close account setup" });
-    const workspaceMark = setup.getByTestId("account-workspace-mark");
-    await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
-    const setupBox = await setup.boundingBox();
-    expect(setupBox).not.toBeNull();
-    expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
-    expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
-    await expectNoPageHorizontalOverflow(page);
-
-    for (const viewportSize of [
-      { width: 320, height: 700 },
-      { width: 430, height: 820 },
-      { width: 639, height: 820 },
-    ]) {
-      await page.setViewportSize(viewportSize);
-      await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
-      await expectNoPageHorizontalOverflow(page);
-    }
-
-    await page.setViewportSize({ width: 320, height: 700 });
-    const setupEmail = setup.getByLabel("Work email");
-    await setupEmail.scrollIntoViewIfNeeded();
-    await expect(setupEmail).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Continue securely" })).toBeInViewport();
-    await expect(setupClose).toBeInViewport();
-    await expectNoPageHorizontalOverflow(page);
-
-    const setupScrollPort = setup.locator(".polished-scroll");
-    await setupScrollPort.evaluate((element) => {
-      element.scrollTop = element.scrollHeight;
-    });
-    await expect(setup.getByRole("link", { name: "Privacy and data processing" })).toBeInViewport();
-    await expect(setupClose).toBeInViewport();
-
-    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-    expect(await setup.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
-    expect(
-      await setup.getByRole("button", { name: "Continue with Google" }).evaluate((element) => {
-        return getComputedStyle(element).borderStyle;
-      }),
-    ).not.toBe("none");
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
-    await page.evaluate(() => document.documentElement.classList.add("dark"));
-    await expect(setupClose).toBeInViewport();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("unsafe local caller disables the demo composer when private endpoints are mocked", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    const answerRequests: string[] = [];
-    const unsafeLocalProjectPayload = {
-      appName: "PsychSift",
-      projectId: "test-project",
-      identityPath: "/api/local-project-id",
-      localServer: {
-        currentUrl: "http://localhost:4298",
-        currentPort: 4298,
-        projectPortStart: 4298,
-        projectPortEnd: 53210,
-        safeLocalOrigin: false,
-        requestOrigin: null,
-        requestReferer: null,
-        unsafeLocalCaller: "http://localhost:3000",
-      },
-    };
-    await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/local-project-id$/, async (route) => {
-      await route.fulfill({ json: unsafeLocalProjectPayload });
-    });
-    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-      answerRequests.push(route.request().url());
-      await route.fulfill({ status: 401, json: { error: "Authentication required." } });
-    });
-    await gotoApp(page, "/");
-
-    const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
-    const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
-    await expect(questionInput).toBeDisabled();
-    await expect(submitAnswer).toBeDisabled();
-    await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
-    expect(answerRequests).toEqual([]);
-    await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
-    await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: false });
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("desktop mode options close when clicking outside or opening scope", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
-    const dailyActionsMenu = page.getByTestId("daily-actions-menu");
-    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
-
-    // Retry open-then-assert together: a click landing before React attaches the
-    // trigger's handler is swallowed silently, so asserting visibility once fails
-    // on an unhydrated first click rather than on a real regression.
-    await expect(async () => {
-      // The trigger TOGGLES, so this retry has to be idempotent. If the menu
-      // opened just after the inner assertion's deadline expired, a second
-      // unconditional click closes it again and the attempts oscillate â€” the
-      // retry would then fail a UI that is working.
-      if (await appModeMenu.isVisible().catch(() => false)) return;
-      await appModeTrigger.click();
-      await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
-    }).toPass({ timeout: uiAssertionTimeoutMs });
-    await page.mouse.click(640, 430);
-    await expect(appModeMenu).toBeHidden();
-
-    await appModeTrigger.click();
-    await expect(appModeMenu).toBeVisible();
-    await dailyActionsTrigger.click();
-    await expect(appModeMenu).toBeHidden();
-    await expect(dailyActionsMenu).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(dailyActionsMenu).toHaveCount(0);
-
-    // First open â€” use robust retry helper to handle async state update timing.
-    await openDailyActions(page, "Open answer options");
-    await dismissOverlayByHeaderClick(page);
-    await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-
-    // Second open - verify opening the mode menu closes the daily actions surface.
-    await openDailyActions(page, "Open answer options");
-    await appModeTrigger.click();
-
-    await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(appModeMenu).toBeVisible();
-    await page.mouse.click(640, 430);
-    await expect(appModeMenu).toBeHidden();
-    await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("phone mode menu groups the catalogue by clinical intent and keeps every mode reachable", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
-    await waitForReactEventHandler(appModeTrigger, "onClick");
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-top", "59px");
-    });
-    await appModeTrigger.click();
-
-    const modeSheet = page.getByTestId("app-mode-menu-sheet");
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
-    await expect(modeSheet).toBeVisible();
-    await expect(modeSheet).toHaveAttribute("role", "dialog");
-    await expect(appModeMenu).toBeVisible();
-    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
-    await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
-    await expectControlsBelowPhoneTopSafeArea(page, [
-      modeSheet.getByRole("heading", { name: "Choose mode" }),
-      modeSheet.getByRole("button", { name: "Close mode menu" }),
-    ]);
-
-    // The full catalogue remains in one radio menu, but the phone presentation
-    // now groups it into the three clinical jobs clinicians scan for first.
-    const modeOptions = appModeMenu.getByRole("menuitemradio");
-    const modeCount = await modeOptions.count();
-    expect(modeCount).toBeGreaterThanOrEqual(10);
-    await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
-    await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
-    await expect(modeOptions.first()).toBeInViewport();
-    await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
-    await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
-
-    // Icon tiles and glyphs use one optical scale even though the canonical
-    // Lucide drawings have different silhouettes.
-    const iconGeometry = await appModeMenu.locator("[data-mode-icon]").evaluateAll((icons) =>
-      icons.map((icon) => {
-        const tile = icon.getBoundingClientRect();
-        const glyph = icon.querySelector("svg")?.getBoundingClientRect();
-        return {
-          tile: [Math.round(tile.width), Math.round(tile.height)],
-          glyph: glyph ? [Math.round(glyph.width), Math.round(glyph.height)] : null,
-        };
-      }),
-    );
-    expect(iconGeometry).toHaveLength(modeCount);
-    expect(new Set(iconGeometry.map(({ tile }) => tile.join("x")))).toEqual(new Set(["40x40"]));
-    expect(new Set(iconGeometry.map(({ glyph }) => glyph?.join("x")))).toEqual(new Set(["20x20"]));
-
-    const closeButton = modeSheet.getByRole("button", { name: "Close mode menu" });
-    const closeGeometry = await closeButton.evaluate((button) => {
-      const bounds = button.getBoundingClientRect();
-      return {
-        width: Math.round(bounds.width),
-        height: Math.round(bounds.height),
-        radius: getComputedStyle(button).borderRadius,
-      };
-    });
-    expect(closeGeometry.width).toBeGreaterThanOrEqual(44);
-    expect(closeGeometry.height).toBeGreaterThanOrEqual(44);
-    expect(Number.parseFloat(closeGeometry.radius)).toBeGreaterThanOrEqual(22);
-
-    // A lower group remains reachable through the sheet's own scroll owner.
-    // Tools is browse-first, so selecting it opens the canonical directory.
-    const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
-    await toolsMode.scrollIntoViewIfNeeded();
-    await expect(toolsMode).toBeVisible();
-    await toolsMode.click();
-
-    await expect(modeSheet).toHaveCount(0);
-    await expect(appModeMenu).toHaveCount(0);
-    await expect(page).toHaveURL(/\/tools$/);
-    const toolsTrigger = page.getByRole("button", { name: "Mode Tools" });
-    await expect(toolsTrigger).toBeVisible();
-    await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-
-    // Reopening on a mode in a lower group must position that selected row in
-    // the sheet's own scrollport, without requiring a hunt from the top.
-    await toolsTrigger.click();
-    const reopenedToolsMode = page.getByRole("menu", { name: "Choose app mode" }).getByRole("menuitemradio", {
-      name: /^Tools\b/,
-    });
-    await expect(reopenedToolsMode).toHaveAttribute("aria-checked", "true");
-    await expect(reopenedToolsMode).toBeInViewport();
-    await expect(page.getByText("Currently Tools", { exact: true })).toBeVisible();
-  });
-
-  test("phone mode menu dismisses via backdrop and restores focus to the Mode button", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
-    await waitForReactEventHandler(appModeTrigger, "onClick");
-    await appModeTrigger.click();
-
-    const modeSheet = page.getByTestId("app-mode-menu-sheet");
-    await expect(modeSheet).toBeVisible();
-
-    // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await modeSheet.locator("..").click({ position: { x: 8, y: 8 } });
-    await expect(modeSheet).toHaveCount(0);
-    await expect(appModeTrigger).toBeFocused();
-    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
-  });
-
-  test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const trigger = page.getByRole("button", { name: "Open answer options" });
-    await trigger.evaluate((element) => {
-      const originalGetBoundingClientRect = element.getBoundingClientRect.bind(element);
-      element.dataset.placementReadCount = "0";
-      element.getBoundingClientRect = () => {
-        element.dataset.placementReadCount = String(Number(element.dataset.placementReadCount ?? "0") + 1);
-        return originalGetBoundingClientRect();
-      };
-    });
-
-    await openDailyActions(page, "Open answer options");
-    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
-    await trigger.evaluate((element) => {
-      element.dataset.placementReadCount = "0";
-    });
-
-    const placementReads = await page.evaluate(async () => {
-      for (let index = 0; index < 20; index += 1) {
-        window.dispatchEvent(new Event("scroll"));
-      }
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      const triggerElement = document.querySelector<HTMLElement>('button[aria-label="Open answer options"]');
-      return Number(triggerElement?.dataset.placementReadCount ?? "0");
-    });
-
-    expect(placementReads).toBeLessThanOrEqual(1);
-  });
-
-  test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const question = "What clozapine monitoring items are shown in the table image?";
-    const questionInput = await fillVisibleQuestionInput(page, question);
-    await expect(questionInput).toHaveValue(question);
-    await visibleAnswerSubmitButton(page).click();
-
-    await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
-    // The current turn's question is a chat bubble, the same shape every prior
-    // turn uses; it was a muted echo inside the answer card header until the
-    // answer surface became one conversation.
-    const questionEcho = page.getByTestId("user-question-bubble");
-    await expect(questionEcho).toBeVisible();
-    await expect(questionEcho).toContainText(question);
-
-    const plainAnswer = page.getByTestId("plain-answer-response");
-    await expect(plainAnswer).toBeVisible();
-    await expect(plainAnswer).toContainText("synthetic clozapine table image highlights");
-    await expect(plainAnswer.getByTestId("plain-answer-prose")).toBeVisible();
-    await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
-    await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
-    await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
-
-    // The numbered marks in the prose. They are the reason the whole surface
-    // exists, so this asserts the three things that make one trustworthy: it
-    // stays inside the line box, it opens the source it names, and the sentence
-    // it belongs to is still findable while the drawer covers the screen.
-    const marks = plainAnswer.getByTestId("answer-source-mark");
-    await expect(marks.first()).toBeVisible();
-    const markGeometry = await plainAnswer.getByTestId("plain-answer-prose").evaluate((prose) => {
-      const nodes = [...prose.querySelectorAll('[data-testid="answer-source-mark"]')];
-      const boxes = nodes.map((node) => node.getBoundingClientRect());
-      let minGap = Number.POSITIVE_INFINITY;
-      for (let index = 1; index < boxes.length; index += 1) {
-        const previous = boxes[index - 1];
-        const current = boxes[index];
-        if (Math.abs(previous.top - current.top) > 2) continue;
-        minGap = Math.min(minGap, current.left - previous.right);
-      }
-      return { count: boxes.length, minGap };
-    });
-    expect(markGeometry.count).toBeGreaterThan(0);
-    // Two marks in one cluster must not touch. An earlier shape painted the box
-    // from a pseudo-element wider than the control, so "2" and "3" overlapped.
-    if (markGeometry.count > 1) expect(markGeometry.minGap).toBeGreaterThan(0);
-
-    await marks.first().click();
-    const claimDrawer = page.getByTestId("answer-source-drawer");
-    await expect(claimDrawer).toBeVisible();
-    // Opened from a claim, so the drawer speaks about the claim â€” not the
-    // "opened from the source list" wording a rail card produces.
-    await expect(claimDrawer.getByTestId("answer-source-drawer-support")).toContainText(
-      /states the claim|part of the claim/,
-    );
-    await expect(page.getByTestId("answer-claim").first()).toHaveAttribute("data-claim-lit", "true");
-    await page.keyboard.press("Escape");
-    await expect(claimDrawer).toHaveCount(0);
-    await expect(marks.first()).toBeFocused();
-
-    // The source rail replaced the "Sources" capsule and its popover/sheet pair:
-    // the cited list is on the page rather than one tap behind a chip, and each
-    // card opens the per-source drawer. Cards scroll sideways so six sources cost
-    // one row of phone scroll rather than six.
-    const sourceRail = page.getByTestId("answer-source-rail");
-    await expect(sourceRail).toBeVisible();
-    const railRows = sourceRail.getByTestId("answer-source-rail-row");
-    await expect(railRows).toHaveCount(2);
-    const firstRailRow = railRows.first();
-    await expectMinTouchTarget(firstRailRow);
-    await expect(firstRailRow).toHaveAccessibleName(/^Source 1: /);
-    await firstRailRow.click();
-    const sourceDrawer = page.getByTestId("answer-source-drawer");
-    await expect(sourceDrawer).toBeVisible();
-    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toContainText("Opened from the source list");
-    await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    // Paging is the drawer's whole navigation model; at two sources it is numbered.
-    const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
-    await expect(pager).toHaveAttribute("data-pager-variant", "numbered");
-    await pager.getByRole("button", { name: /^Show source 2/ }).click();
-    await expect(sourceDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(sourceDrawer).toHaveCount(0);
-    // Focus returns to the row the drawer was showing, not the row it opened from.
-    await expect(railRows.nth(1)).toBeFocused();
-    if (browserName === "chromium") {
-      // The grant used to ride along with the removed "Copy passage" control; the
-      // clipboard read below still needs it.
-      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-        origin: new URL(page.url()).origin,
-      });
-      const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
-      await expect(copyWithSources).toBeVisible();
-      await expectMinTouchTarget(copyWithSources);
-      await copyWithSources.click();
-      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
-      expect(copiedText).toContain("Clinical answer draft");
-      expect(copiedText).toContain("Sources for review");
-      expect(copiedText).toContain("/documents/");
-    }
-    await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
-
-    // The support card is the answer-level strip now: priority/safety, evidence
-    // gaps, and feedback. Everything per-source moved to the rail and drawer, so
-    // the clinical-notes and evidence rows are gone rather than relocated.
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
-    await expect(supportCard).toContainText("Report a problem");
-    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
-    await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
-
-    // Safety findings are MANDATORY for this clozapine fixture â€” the answer is saturated
-    // with monitoring/FBC-ANC/metabolic/myocarditis language that extractSafetyFindings
-    // keys on. A regression that drops them (so the trigger never mounts â€” it only renders
-    // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
-    // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
-    // the trigger is visible unconditionally enforces "safety findings present".
-    const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
-    await expect(safetyFindingsTrigger).toBeVisible();
-    await expectMinTouchTarget(safetyFindingsTrigger);
-    await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
-    await expect(safetyFindingsSheet).toBeVisible();
-    await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
-    expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
-    await expect(safetyFindingsSheet).toHaveCount(0);
-    await expect(safetyFindingsTrigger).toBeFocused();
-
-    // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
-    // longer on the answer surface at all â€” reaching one goes through a rail row.
-    await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
-    // A table hangs off the source it was cited from, so open the row that has it
-    // rather than assuming it is the best match.
-    const tableDrawer = page.getByTestId("answer-source-drawer");
-    const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
-    let foundTable = false;
-    for (let index = 0; index < (await railRows.count()); index += 1) {
-      await railRows.nth(index).click();
-      await expect(tableDrawer).toBeVisible();
-      if (await clinicalTable.count()) {
-        foundTable = true;
-        break;
-      }
-      await page.keyboard.press("Escape");
-      await expect(tableDrawer).toHaveCount(0);
-    }
-    expect(foundTable).toBe(true);
-    await expect(clinicalTable).toBeVisible();
-    await expect(clinicalTable.getByRole("table")).toBeVisible();
-    await expect(clinicalTable).toContainText("FBC/ANC");
-    await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-    await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
-    await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
-    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-    // Full-screen table expansion from inside the drawer is covered on its own by
-    // the "clinical table mobile expansion" test below, which owns the nested
-    // dialog case rather than repeating it here.
-    await tableDrawer.getByRole("button", { name: "Close source detail" }).click();
-    await expect(tableDrawer).toHaveCount(0);
-    await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
-    await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
-    await expect(page.getByText("Source narrative")).toHaveCount(0);
-    await expect(page.getByText("Quality feedback")).toHaveCount(0);
-    await expect(page.getByTestId("smart-follow-up-chips")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Compare sources" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Limit to local/current sources" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Search this document only" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Show exact quotes" })).toHaveCount(0);
-    await expect(page.getByTestId("answer-top-source-chip")).toHaveCount(0);
-    await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
-    await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
-    await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Copy clinical draft" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
-    await expect(page.getByTestId("answer-safety-notice")).toHaveCount(0);
-    await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
-    await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
-    await expectDomIntegrity(page, { mobileNav: true });
-
-    // The clinical-notes sheet and the five-tab evidence sheet are both gone: the
-    // rail lists every cited document and the drawer carries that document's
-    // support, passage, tables and images. Their triggers must not come back.
-    await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
-    await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
-    await expect(page.getByTestId("clinical-notes-checklist")).toHaveCount(0);
-    await expect(page.getByTestId("mobile-evidence-tabs")).toHaveCount(0);
-    await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
-
-    // Document order on the answer surface: question, prose, the rail that cites
-    // it, then the answer-level support strip.
-    const hierarchy = await page.evaluate(() => {
-      const question = document.querySelector('[data-testid="user-question-bubble"]');
-      const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
-      const rail = document.querySelector('[data-testid="answer-source-rail"]');
-      const support = document.querySelector('[data-testid="answer-support-card"]');
-      return {
-        questionTop: question?.getBoundingClientRect().top ?? 9999,
-        plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
-        railTop: rail?.getBoundingClientRect().top ?? 9999,
-        supportTop: support?.getBoundingClientRect().top ?? 9999,
-      };
-    });
-    expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
-    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
-    expect(hierarchy.railTop).toBeLessThan(hierarchy.supportTop);
-
-    // Evidence gaps and feedback are answer-level, so they stayed on the card
-    // rather than following the per-source content into the drawer.
-    const feedbackTrigger = supportCard.getByTestId("answer-feedback-trigger");
-    await expect(feedbackTrigger).toBeVisible();
-    await expectMinTouchTarget(feedbackTrigger);
-    await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toBeVisible();
-    await feedbackTrigger.click();
-    await expect(supportCard.getByTestId("answer-review-panel")).toHaveCount(0);
-
-    await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
-    await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
-
-    await expect(page.getByText("Top source detail")).toHaveCount(0);
-    await expect(page.getByText("Retrieval details")).toHaveCount(0);
-    // Tapping the backdrop dismisses the source drawer and returns focus to the
-    // rail row that opened it.
-    await railRows.first().click();
-    const dismissDrawer = page.getByTestId("answer-source-drawer");
-    await expect(dismissDrawer).toBeVisible();
-    await tapOutsideActiveSurface(page);
-    await expect(dismissDrawer).toHaveCount(0);
-    await expect(railRows.first()).toBeFocused();
-
-    await openScopeControl(page);
-    const scopePopover = page.getByTestId("scope-command-popover");
-    await expect(scopePopover).toBeVisible();
-    const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
-    await expect(scopeFilter).toBeVisible();
-    await expect(scopeFilter).toBeFocused();
-    await scopeFilter.fill("lithium");
-    await expect(scopePopover).toContainText(/match(?:es)?|No documents match/);
-    await expect(scopePopover.getByRole("button", { name: "All documents" })).toBeVisible();
-    const popoverMetrics = await scopePopover.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      return {
-        height: element.getBoundingClientRect().height,
-        maxHeight: style.maxHeight,
-        overflowY: style.overflowY,
-        viewportHeight: window.innerHeight,
-      };
-    });
-    expect(popoverMetrics.overflowY).toBe("auto");
-    expect(popoverMetrics.maxHeight).not.toBe("none");
-    expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
-    await page.keyboard.press("Escape");
-    await expect(scopePopover).toBeHidden();
-    await expect(async () => {
-      await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
-    }).toPass({ timeout: 5_000 });
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  for (const viewport of [
-    { name: "desktop", width: 1280, height: 900 },
-    { name: "390x844 mobile", width: 390, height: 844 },
-  ] as const) {
-    test(`actual answer Copy control preserves ordinary prose at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      await mockDemoApi(page, {
-        answerOverride: (query, documentId, documentIds) => ({
-          ...demoAnswer(query, documentId, documentIds),
-          visualEvidence: [],
-        }),
-      });
-      await installClipboardMock(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
-      await visibleAnswerSubmitButton(page).click();
-      const answerSurface = page.getByTestId("plain-answer-response");
-      await expect(answerSurface).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
-
-      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
-      expect(copiedText).toContain("toxicity safety-net review");
-      expect(copiedText).toContain("Sources for review");
-      expect(copiedText).not.toContain("Clinical tables");
-    });
-
-    test(`actual answer Copy control matches the visible clinical table at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      await mockDemoApi(page, {
-        answerOverride: (query, documentId, documentIds) => {
-          const base = demoAnswer(query, documentId, documentIds);
-          const table = base.visualEvidence?.[0];
-          if (!table) return base;
-          const secondTable = {
-            ...table,
-            id: `${table.id}-second`,
-            image_id: `${table.image_id}-second`,
-            source_chunk_id: base.sources[1]?.id ?? table.source_chunk_id,
-            viewer_href: "/documents/second-table?page=7&chunk=second-table-chunk",
-            title: "Synthetic metabolic monitoring guideline",
-            page_number: 7,
-            tableTitle: "Metabolic monitoring",
-            tableColumns: ["Parameter", "Timing"],
-            tableRows: [["HbA1c", "At baseline and review"]],
-          };
-          return {
-            ...base,
-            sourceGovernanceWarnings: [
-              {
-                code: "review_due_source" as const,
-                severity: "warning" as const,
-                message: "One or more supporting sources are due for review.",
-              },
-            ],
-            visualEvidence: [
-              {
-                ...table,
-                tableTitle: "ANC actions",
-                tableColumns: ["ANC range", "", "Action"],
-                tableRows: [
-                  ["1.0â€“1.5 Ã— 10â¹/L", "", "Increase monitoring"],
-                  ["<1.0 Ã— 10â¹/L", "", "Withhold and seek specialist advice"],
-                ],
-              },
-              secondTable,
-            ],
-          };
-        },
-      });
-      await installClipboardMock(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
-      await visibleAnswerSubmitButton(page).click();
-      // Tables live in the source drawer now, one page at a time. The clipboard
-      // still carries every table, so each one must remain reachable â€” a copy that
-      // quotes a table nothing on screen can show is exactly the drift this test
-      // was written to catch.
-      const rail = page.getByTestId("answer-source-rail");
-      await expect(rail).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      const rows = rail.getByTestId("answer-source-rail-row");
-      const rowCount = await rows.count();
-      const seenTables: string[] = [];
-      let sawCaveat = false;
-      for (let index = 0; index < rowCount; index += 1) {
-        await rows.nth(index).click();
-        const drawer = page.getByTestId("answer-source-drawer");
-        await expect(drawer).toBeVisible();
-        for (const name of ["ANC actions", "Metabolic monitoring"]) {
-          const table = drawer.getByRole("table", { name });
-          if (await table.count()) {
-            await expect(table).toBeVisible();
-            if (name === "ANC actions") {
-              await expect(table).toContainText("1.0â€“1.5 Ã— 10â¹/L");
-              await expect(table).toContainText("Withhold and seek specialist advice");
-            } else {
-              await expect(table).toContainText("HbA1c");
-              await expect(table).toContainText("At baseline and review");
-            }
-            if (!seenTables.includes(name)) seenTables.push(name);
-          }
-        }
-        if (await drawer.getByTestId("canonical-table-caveat").count()) sawCaveat = true;
-        await page.keyboard.press("Escape");
-        await expect(drawer).toHaveCount(0);
-      }
-      expect(seenTables.sort()).toEqual(["ANC actions", "Metabolic monitoring"]);
-      expect(sawCaveat).toBe(true);
-
-      const answerSurface = page.getByTestId("plain-answer-response");
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
-      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
-      expect(copiedText).toContain("ANC range | [header missing] | Action");
-      expect(copiedText).toContain("1.0â€“1.5 Ã— 10â¹/L | [blank] | Increase monitoring");
-      expect(copiedText).toContain("<1.0 Ã— 10â¹/L | [blank] | Withhold and seek specialist advice");
-      expect(copiedText).toContain("Table headers are incomplete");
-      expect(copiedText).toContain("One or more supporting sources are due for review.");
-      expect(copiedText).toContain("Source: Synthetic clozapine monitoring protocol with image evidence, page 2");
-      expect(copiedText).toContain("Metabolic monitoring");
-      expect(copiedText).toContain("Parameter | Timing");
-      expect(copiedText).toContain("HbA1c | At baseline and review");
-    });
-  }
-
-  for (const viewport of [
-    { name: "mobile", width: 390, height: 844 },
-    { name: "200% zoom equivalent", width: 640, height: 450 },
-    { name: "tablet", width: 768, height: 1024 },
-    { name: "desktop", width: 1280, height: 900 },
-  ] as const) {
-    test(`privacy warnings and links are available before clinical input at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize(viewport);
-      await mockDemoApi(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      const composer = visibleQuestionInput(page);
-      const composerForm = composer.locator("xpath=ancestor::form[1]");
-      const composerWarning = composerForm.getByText("Do not enter patient-identifiable information.");
-      await expect(composerForm.getByRole("note")).toBeVisible();
-      const composerPrivacyLink = composerForm.getByRole("link", { name: "Privacy and data processing" });
-      await expect(composerWarning).toBeVisible();
-      await expect(composerPrivacyLink).toBeVisible();
-      await composerPrivacyLink.focus();
-      await expect(composerPrivacyLink).toBeFocused();
-
-      await page.goto("/privacy", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "How PsychSift handles your data" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "Before you use PsychSift" })).toBeVisible();
-      await expect(page.getByTestId("privacy-trust-brief")).toBeVisible();
-      await expect(page.getByTestId("privacy-draft-disclaimer")).toBeVisible();
-
-      const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
-      await safetyDisclosure.focus();
-      await expect(safetyDisclosure).toBeFocused();
-      await safetyDisclosure.click();
-      await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
-      await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
-
-      // The scannable answer layer and the print affordance are the two things a
-      // reader arriving from the composer notice needs without opening anything.
-      await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
-      const factColumns = await page.getByTestId("privacy-at-a-glance-grid").evaluate((element) => {
-        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
-      });
-      expect(factColumns).toBe(viewport.width >= 1024 ? 3 : viewport.width >= 640 ? 2 : 1);
-
-      const processingColumns = await page.getByTestId("privacy-processing-stages").evaluate((element) => {
-        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
-      });
-      expect(processingColumns).toBe(viewport.width >= 640 ? 3 : 1);
-      // The footer control, not the sm+ header one: the header print button is
-      // hidden on a phone, and this assertion runs at 320px too.
-      await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
-      await expectNoPageHorizontalOverflow(page);
-    });
-  }
-
-  test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
-
-    const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
-    await safetyDisclosure.focus();
-    await expect(safetyDisclosure).toBeFocused();
-    await expect
-      .poll(() => safetyDisclosure.locator("svg").evaluate((icon) => getComputedStyle(icon).transitionProperty))
-      .toBe("none");
-    await safetyDisclosure.click();
-    await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const answerRequests: string[] = [];
-    let answerMode: "error" | "ok" = "error";
-    await mockDemoApi(page);
-    // Override the answer route so the first attempt fails (non-retryable), then
-    // succeeds once the user taps Retry. Registered after mockDemoApi so it wins.
-    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-      const body = route.request().postDataJSON() as { query?: string; documentId?: string; documentIds?: string[] };
-      answerRequests.push(body.query ?? "");
-      if (answerMode === "error") {
-        await route.fulfill({
-          body: `event: error\ndata: ${JSON.stringify({ error: "Answer generation failed for this question.", status: 400 })}\n\n`,
-          contentType: "text/event-stream; charset=utf-8",
-          headers: { "Cache-Control": "no-cache, no-transform" },
-        });
-        return;
-      }
-      await fulfillAnswerResponse(route, {
-        ...demoAnswer(body.query ?? "", body.documentId, body.documentIds),
-        demoMode: true,
-      });
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
-    await visibleAnswerSubmitButton(page).click();
-
-    const retry = page.getByTestId("answer-error-retry");
-    await expect(retry).toBeVisible();
-    await expect(page.getByTestId("answer-error")).toContainText("Answer generation failed for this question.");
-    await expect(page.getByTestId("answer-error-search-documents")).toBeVisible();
-    const requestsBeforeRetry = answerRequests.length;
-
-    answerMode = "ok";
-    await retry.click();
-
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
-    await expect(page.getByTestId("answer-error-retry")).toHaveCount(0);
-    expect(answerRequests.length).toBeGreaterThan(requestsBeforeRetry);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("answer with no usable results shows a calm recovery panel, not an error alert", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page, {
-      // Empty answer text makes the payload unusable, which the executor surfaces
-      // as the "No usable results were found." 404 sentinel.
-      answerOverride: (query, documentId, documentIds) => ({
-        ...demoAnswer(query, documentId, documentIds),
-        answer: "",
-      }),
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "A question with no indexed match at all");
-    await visibleAnswerSubmitButton(page).click();
-
-    const panel = page.getByTestId("answer-no-results");
-    await expect(panel).toBeVisible();
-    await expect(panel).toContainText("No answer for that yet");
-    await expect(page.getByTestId("answer-no-results-rephrase")).toBeVisible();
-    await expect(page.getByTestId("answer-no-results-search-documents")).toBeVisible();
-    // A calm status panel, never the alarming red error banner.
-    await expect(page.getByTestId("answer-error")).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  // Regression for PR #563: on phones a rendered answer must be content-sized and
-  // top-aligned, NOT inherit the centred-home viewport-height floor. Otherwise a
-  // short answer stretches the section to ~full height and `main` scrolls down into
-  // the near-black shell; the fixed composer reserve must also hug the real dock.
-  test("phone short answer stays top-aligned with no phantom scroll into black", async ({ page }) => {
-    // Tall phone viewport so the deliberately short answer comfortably fits â€” that
-    // is the whole point: content shorter than the viewport must not scroll.
-    await page.setViewportSize({ width: 390, height: 900 });
-    await mockDemoApi(page, {
-      // Keep this a genuinely short answer as the shared answer contract grows:
-      // rich support, safety, and related-document fields are covered elsewhere.
-      answerOverride: (query, documentId, documentIds) => {
-        const base = demoAnswer(query, documentId, documentIds);
-        return {
-          ...base,
-          answer: "Verify the cited passages before using any clinical numbers.",
-          answerSections: [],
-          visualEvidence: [],
-          quoteCards: [],
-          documentBreakdown: [],
-          evidenceSummary: undefined,
-          sourceCoverage: undefined,
-          conflictsOrGaps: [],
-          bestSource: undefined,
-          smartPanel: undefined,
-          relatedDocuments: [],
-          sources: base.sources.map((source) => ({
-            ...source,
-            content: "This indexed passage directly supports the short answer.",
-          })),
-        };
-      },
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "lithium dosing");
-    await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    // Wait for streaming to finish (deterministic) so the geometry below reads the
-    // final, settled layout â€” replaces a fixed 400ms sleep.
-    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-
-    const scrollGeometry = await readPrimaryScrollGeometry(page);
-    const geo = await page.evaluate(() => {
-      const header = document.querySelector("header");
-      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
-      const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
-      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
-      const sourceRail = document.querySelector('[data-testid="answer-source-rail"]');
-      // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
-      // outside getBoundingClientRect().height and still consumes scroll budget.
-      let alsoMatchesHeight = 0;
-      if (alsoMatches instanceof HTMLElement) {
-        const box = alsoMatches.getBoundingClientRect();
-        const styles = window.getComputedStyle(alsoMatches);
-        alsoMatchesHeight = Math.ceil(
-          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-        );
-      }
-      // AnswerCard's required evidence-support label is real content the answer
-      // surface always renders, same as universal-also-matches above.
-      let supportLabelHeight = 0;
-      if (supportLabel instanceof HTMLElement) {
-        const box = supportLabel.getBoundingClientRect();
-        const styles = window.getComputedStyle(supportLabel);
-        supportLabelHeight = Math.ceil(
-          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-        );
-      }
-      // The source rail is real, always-rendered content in the same sense: it is
-      // the cited source list, which the old capsule hid behind a single chip.
-      let sourceRailHeight = 0;
-      if (sourceRail instanceof HTMLElement) {
-        const box = sourceRail.getBoundingClientRect();
-        const styles = window.getComputedStyle(sourceRail);
-        sourceRailHeight = Math.ceil(
-          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-        );
-      }
-      return {
-        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
-        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-        alsoMatchesHeight,
-        supportLabelHeight,
-        sourceRailHeight,
-      };
-    });
-    // Content-sized section => no unexplained phantom scroll. Submitted universal
-    // matches are real content below the answer, so their compact panel may account
-    // for the overflow; the old viewport floor created much more empty scroll.
-    // The responsive notice keeps its complete instruction while returning the
-    // unexplained-scroll allowance to the original 8px phone contract. Submitted
-    // universal matches are real content, so subtract their measured height
-    // before applying that phantom-overflow budget. That measured height already
-    // includes the section's phone bottom margin, so the 8px allowance stays put.
-    // AnswerCard's required support label is likewise real, always-rendered
-    // content (`support` became a required prop), so it is measured and added
-    // the same way rather than absorbed into the flat allowance.
-    // The rail is measured and added for the same reason the support label is:
-    // always-rendered content, not phantom scroll. The flat 8px unexplained-
-    // overflow allowance is deliberately unchanged â€” that is the part of this
-    // guard the redesign must not be allowed to spend.
-    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + geo.sourceRailHeight + 8;
-    expect(scrollGeometry.owner).toBe("document");
-    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
-    // Top-aligned: the answer sits just under the header, not pushed toward the dock
-    // (a bottom-anchor regression would push surfaceTop far down the viewport).
-    expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);
-    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("phone long answer stays scrollable and clear of the composer dock", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 760 });
-    const longBody = Array.from(
-      { length: 16 },
-      (_, index) =>
-        `Paragraph ${index + 1}: the lithium source supports baseline renal, thyroid, calcium, weight, blood pressure and interacting-medicine checks, plus escalation for vomiting, diarrhoea, dehydration, tremor, confusion or ataxia.`,
-    ).join("\n\n");
-    await mockDemoApi(page, {
-      answerOverride: (query, documentId, documentIds) => ({
-        ...demoAnswer(query, documentId, documentIds),
-        answer: longBody,
-      }),
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "lithium dosing");
-    await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    // Wait for streaming to finish (deterministic) so the geometry below reads the
-    // final, settled layout â€” replaces a fixed 400ms sleep.
-    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // Apply the Safari toolbar simulation after answer navigation has settled;
-    // the submit flow may update the URL and replace earlier document styles.
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
-    });
-    const main = page.locator("main#main-content");
-    const bottomDock = page.locator("form.answer-footer-search-dock");
-    // Start from the top so the assertions describe the resting, top-aligned
-    // view and the hide reporter has observed the restored position.
-    await scrollPrimarySurface(page, 0);
-    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect
-      .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
-      .toBeGreaterThan(200);
-
-    const scrollGeometry = await readPrimaryScrollGeometry(page);
-    const geo = await page.evaluate(() => {
-      const main = document.querySelector("main#main-content");
-      const header = document.querySelector("header");
-      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
-      return {
-        mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
-        mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
-        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
-        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-      };
-    });
-    // Browser phones intentionally scroll the document so Safari can minimize
-    // its browser chrome. The long answer still overflows that active owner and
-    // remains top-aligned under the overlaid header.
-    expect(scrollGeometry.owner).toBe("document");
-    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
-    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
-    // Content paddingâ€”not an outer marginâ€”keeps the answer endpoint clear of
-    // the visible composer and Safari toolbar at the active viewport edge.
-    const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
-      Math.round(el.getBoundingClientRect().top),
-    );
-    expect(geo.mainMarginBottom).toBe(0);
-    expect(scrollGeometry.viewportTop).toBe(0);
-    expect(Math.abs(scrollGeometry.viewportBottom - scrollGeometry.clientHeight)).toBeLessThanOrEqual(1);
-    expect(geo.mainPaddingBottom).toBeGreaterThan(112);
-    expect(geo.mainPaddingBottom + 4).toBeGreaterThanOrEqual(scrollGeometry.viewportBottom - composerInputTop);
-
-    // Once the fixed dock is actually hidden, release both the composer and
-    // Safari toolbar reserve. The scrollport dimensions stay stable while its
-    // bottom padding contracts; the bottom-clamp guard must keep the dock from
-    // immediately reappearing as a false upward gesture. Do not compare total
-    // scrollHeight here because universal matches can finish streaming while
-    // this test moves the scrollport.
-    const scrollGeometryBeforeHide = {
-      ...(await readPrimaryScrollGeometry(page)),
-      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
-    };
-    // WebKit retains focus on the submitted composer more aggressively than
-    // Chromium. Move focus to the scroll surface to model the user dismissing
-    // the composer before scrolling; focused composer chrome must stay visible.
-    await expect(async () => {
-      await main.focus();
-      await scrollPrimarySurface(page, 0);
-      await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
-      for (const offset of [120, 240, 360]) {
-        await scrollPrimarySurface(page, offset);
-      }
-      await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
-    }).toPass({ timeout: 15_000 });
-    await expect
-      .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
-      .toBeLessThanOrEqual(13);
-    const scrollGeometryAfterHide = {
-      ...(await readPrimaryScrollGeometry(page)),
-      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
-    };
-    expect(scrollGeometryBeforeHide.paddingBottom).toBeGreaterThan(200);
-    expect(scrollGeometryAfterHide.clientHeight).toBe(scrollGeometryBeforeHide.clientHeight);
-    expect(scrollGeometryAfterHide.scrollHeight).toBeGreaterThan(scrollGeometryAfterHide.clientHeight);
-    await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true");
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("phone answer result keeps the edge dock and shared chrome synchronized on a short runway", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=answer&focus=1");
-    await waitForDemoDashboardReady(page);
-
-    const input = await fillVisibleQuestionInput(page, "lithium dosing");
-    await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // The library matches are one collapsed line under the answer now (owner
-    // decision, 2026-08-26, "direction B"): the follow-up questions lead, and
-    // this opens on demand. Still asserted end to end rather than dropped â€”
-    // open it and the same two links are there, at full tap size.
-    const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
-    const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
-    await relatedTrigger.click();
-    const relatedItems = relatedRegion.getByRole("listitem");
-    await expect(relatedItems).toHaveCount(2);
-    await expect(relatedItems.last()).toBeVisible();
-    // Collapse it again before the geometry below. The rest of this test
-    // measures the answer's scroll runway in its resting state, and an expanded
-    // panel adds ~88px of content that the page does not carry by default.
-    await relatedTrigger.click();
-    await expect(relatedItems.last()).toBeHidden();
-
-    const main = page.locator("main#main-content");
-    const header = page.locator("header.universal-header");
-    const dock = page.locator("form.answer-footer-search-dock");
-    await expect(dock).toBeVisible();
-    // Measure the edge-to-edge contract from the revealed state. Expanding the
-    // disclosure above scrolls this short page to its end, which is a genuine
-    // downward gesture, so the dock may legitimately be scroll-hidden by the
-    // time the panel collapses again â€” hide-on-scroll working, not a defect
-    // (one upward drag brings it straight back). Whether that hide engages
-    // depends on the exact answer height, so asserting the resting transform
-    // here would pin content height rather than the geometry this test names.
-    // Return to the top first: the assertions below are about where a *visible*
-    // dock sits (flush bottom, full-bleed), and that is what must hold.
-    await scrollPrimarySurface(page, 0);
-    await expect
-      .poll(async () => await dock.evaluate((node) => window.getComputedStyle(node).transform))
-      .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
-    const edgeGeometry = await dock.evaluate((node) => {
-      const rect = node.getBoundingClientRect();
-      const style = window.getComputedStyle(node);
-      return {
-        bottom: style.bottom,
-        left: style.left,
-        right: style.right,
-        width: rect.width,
-        viewportWidth: window.innerWidth,
-        rectBottom: rect.bottom,
-        viewportHeight: window.innerHeight,
-      };
-    });
-    expect(edgeGeometry.bottom).toBe("0px");
-    expect(edgeGeometry.left).toBe("0px");
-    expect(edgeGeometry.right).toBe("0px");
-    expect(Math.abs(edgeGeometry.width - edgeGeometry.viewportWidth)).toBeLessThanOrEqual(1);
-    expect(Math.abs(edgeGeometry.rectBottom - edgeGeometry.viewportHeight)).toBeLessThanOrEqual(1);
-
-    // Submitting from the auto-focused home composer must not carry stale focus
-    // into the newly docked follow-up input. A focused dock is intentionally
-    // pinned for keyboard safety, so retaining focus here permanently disables
-    // the ordinary touch-scroll hide path.
-    await expect(input).not.toBeFocused();
-    const scrollGeometry = await readPrimaryScrollGeometry(page);
-    const collapseBudget = await main.evaluate((node) => {
-      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-      return (
-        (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
-      );
-    });
-    // AnswerCard's required evidence-support label is real, always-rendered
-    // content in this scroll container; account for its measured height the
-    // same way the geometry above accounts for chrome, rather than baking a
-    // stale pre-label constant into the post-collapse ceiling.
-    // Measured, not constant: the support label and the source rail are both
-    // always-rendered content whose height moves the scroll budget. The rail
-    // joined them when it replaced the single-chip capsule.
-    const measuredHeight = (selector: string) =>
-      page.evaluate((testId) => {
-        const element = document.querySelector(`[data-testid="${testId}"]`);
-        if (!(element instanceof HTMLElement)) return 0;
-        const box = element.getBoundingClientRect();
-        const styles = window.getComputedStyle(element);
-        return Math.ceil(
-          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-        );
-      }, selector);
-    const supportLabelHeight =
-      (await measuredHeight("answer-card-support")) + (await measuredHeight("answer-source-rail"));
-    const geometry = {
-      maxOffset: scrollGeometry.maxScrollTop,
-      collapseBudget,
-      postCollapseMaxOffset: Math.max(0, scrollGeometry.maxScrollTop - collapseBudget),
-    };
-    expect(scrollGeometry.owner).toBe("document");
-    // Short answers can straddle the 32px hide-intent threshold as text wraps
-    // across browsers and font renderers. Both geometries are safe: enough
-    // post-collapse range exercises synchronized hide/reveal; a shorter range
-    // must remain pinned by the near-bottom guard while still clearing the dock.
-    // Long-answer hide/reveal is covered independently above.
-    expect(geometry.maxOffset).toBeGreaterThan(100);
-    expect(geometry.maxOffset).toBeLessThan(200 + supportLabelHeight);
-    expect(geometry.collapseBudget).toBeGreaterThan(112);
-    expect(geometry.collapseBudget).toBeLessThan(128);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72 + supportLabelHeight);
-    // A jump straight onto the bottom edge (PageDown / full-page flick) lands
-    // past the post-collapse range; hiding there would clamp content under the
-    // finger, so the near-bottom guard keeps both chrome edges visible.
-    await scrollPrimarySurface(page, geometry.maxOffset);
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    await scrollPrimarySurface(page, 0);
-    if (geometry.postCollapseMaxOffset >= 32) {
-      // Deliberate downward travel that still fits the post-collapse range is
-      // the designed hide path: past the 8px top band plus 24px intent.
-      await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
-      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      // The reserve and both chrome edges animate for 240ms. The hidden state
-      // must survive the browser clamping scrollTop against the shrinking range.
-      await page.waitForTimeout(320);
-      await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-      await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
-      const settledHiddenGeometry = await page.evaluate(() => {
-        const headerNode = document.querySelector<HTMLElement>("header.universal-header");
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
-        const headerRect = headerNode.getBoundingClientRect();
-        const dockRect = dockNode.getBoundingClientRect();
-        return {
-          headerBottom: headerRect.bottom,
-          dockTop: dockRect.top,
-          viewportHeight: window.innerHeight,
-        };
-      });
-      expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
-      expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
-      await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
-
-      await scrollPrimarySurface(page, 20);
-      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    } else {
-      const liveEndpoint = (await readPrimaryScrollGeometry(page)).maxScrollTop;
-      await scrollPrimarySurface(page, liveEndpoint);
-      await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-      const endpoint = await relatedItems.last().evaluate((item) => {
-        const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
-        if (!dockNode) throw new Error("Expected phone answer dock");
-        return {
-          itemBottom: item.getBoundingClientRect().bottom,
-          dockTop: dockNode.getBoundingClientRect().top,
-        };
-      });
-      expect(endpoint.itemBottom).toBeLessThanOrEqual(endpoint.dockTop + 1);
-    }
-
-    await input.click();
-    await expect(input).toBeFocused();
-
-    await page.setViewportSize({ width: 320, height: 844 });
-    // Re-open the library line: the tap-target sweep below is about the links
-    // inside it, and the geometry block above needed it resting closed.
-    await relatedTrigger.click();
-    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
-    await expect(compactCrossModeRail).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
-    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
-    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
-    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
-    for (const control of await compactCrossModeLinks.all()) {
-      await expectMinTouchTarget(control, 48);
-    }
-    for (const control of await compactCrossModeActions.all()) {
-      await expectMinTouchTarget(control, 48);
-    }
-  });
-
-  test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const answerRequests: string[] = [];
-    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
-    const recent = "clozapine monitoring schedule";
-    // Seed the owner-scoped session history before the app loads.
-    await page.addInitScript(
-      ({ storageKey, value }) => {
-        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
-      },
-      { storageKey: demoRecentQueryStorageKey, value: recent },
-    );
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const recentChips = page.getByTestId("shared-home-recent-queries");
-    await expect(recentChips).toBeVisible();
-    await expect(recentChips).toContainText("Recent searches");
-    const chip = recentChips.getByRole("button", { name: recent });
-    await expect(chip).toBeVisible();
-    await chip.click();
-
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
-    expect(answerRequests).toContain(recent);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    const newChat = page.getByRole("button", { name: /new chat|new comparison/i });
-    await expect(newChat).toBeVisible();
-    await newChat.click();
-    await waitForDemoDashboardReady(page);
-
-    const homeRecentSearches = page.getByTestId("shared-home-recent-queries");
-    await homeRecentSearches.scrollIntoViewIfNeeded();
-    await expect(homeRecentSearches).toBeVisible();
-    const homeRecentDirection = await homeRecentSearches.evaluate((node) => getComputedStyle(node).flexDirection);
-    expect(homeRecentDirection, "home recent-searches should stack on phone width").toBe("column");
-
-    const chipsGroup = homeRecentSearches.locator(".answer-suggestion-chips");
-    const mobileJustify = await chipsGroup.evaluate((node) => getComputedStyle(node).justifyContent);
-    expect(mobileJustify, "phone home recent-search chips should align to flex-start").toBe("flex-start");
-  });
-
-  test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
-    // 2026-07-13 audit finding 4: a historical clinical query written by an
-    // older build into the unscoped localStorage key must not resurface for
-    // whoever uses the browser next, and must be deleted on load.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    const legacyQuery = "legacy cross-user clozapine query";
-    await page.addInitScript(
-      ({ storageKey, value }) => {
-        window.localStorage.setItem(storageKey, JSON.stringify([value]));
-        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
-      },
-      { storageKey: recentQueryStorageKey, value: legacyQuery },
-    );
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await expect(page.getByText(legacyQuery)).toHaveCount(0);
-    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), recentQueryStorageKey)).toBeNull();
-    await expect
-      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), recentQueryStorageKey))
-      .toBeNull();
-  });
-
-  test("answer search URL opens chat without the answer home copy", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    const answerRequests: string[] = [];
-    const question = "What clozapine monitoring items are shown in the table image?";
-    await mockDemoApi(page, {
-      answerDelayMs: 1500,
-      onAnswerRequest: (query) => answerRequests.push(query),
-    });
-
-    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&focus=1&run=1`, { waitUntil: "domcontentloaded" });
-
-    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
-    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
-    // Prefer :visible â€” a useSearchParams() Suspense ancestor can leave a persistent
-    // hidden S: clone (search-chrome invariant 17), which makes getByTestId strict-mode fail.
-    // AnswerProgress owns the in-flight state; AnswerSkeleton no longer renders its own
-    // "Loading answer" status line beside it, so the wait is asserted on the progress
-    // element's active state rather than the retired label.
-    await expect(page.locator('[data-testid="answer-progress"][data-progress-state="active"]:visible')).toBeVisible();
-    await expect.poll(() => answerRequests[0]).toBe(question);
-
-    const questionEcho = page.getByTestId("user-question-bubble");
-    await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(questionEcho).toContainText(question);
-    await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
-    await expect(visibleQuestionInput(page)).toHaveValue("");
-    await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
-    await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
-    expect(answerRequests).toEqual([question]);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("stopping generation exposes a stable rerun action without answer output", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page, { answerDelayMs: 1500 });
-    const question = "What monitoring is required for clozapine?";
-    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, { waitUntil: "domcontentloaded" });
-
-    const stop = page.getByTestId("stop-answer");
-    await expect(stop).toBeVisible();
-    await stop.focus();
-    await page.keyboard.press("Enter");
-
-    const cancelled = page.getByTestId("answer-cancelled");
-    await expect(cancelled).toContainText("Generation stopped");
-    await expect(cancelled.getByRole("button", { name: "Run again" })).toBeVisible();
-    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
-    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // Intentional fixed wait: this asserts a NEGATIVE (no answer streams in after
-    // Stop), so there is no event to await â€” we give a late async render time to
-    // (wrongly) appear, then confirm it did not.
-    await page.waitForTimeout(1700);
-    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
-  });
-
-  test("answer results surface cross-mode quick links", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const answerRequests: string[] = [];
-    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
-    const question = "What is the maximum dose of clozapine?";
-    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
-      waitUntil: "domcontentloaded",
-    });
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-
-    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
-    const strip = answerSurface.getByTestId("cross-mode-links");
-    await expect(strip).toBeVisible({ timeout: 15_000 });
-    await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    // One collapsed line under the answer, opened on demand (owner decision,
-    // 2026-08-26, "direction B"). Everything below still has to work through it,
-    // so the test opens it rather than dropping the coverage.
-    await strip.getByTestId("cross-mode-links-line-trigger").click();
-    const rail = strip.getByTestId("cross-mode-links-rail");
-    await expect(rail).toBeVisible();
-    await expect(rail).toHaveCSS("display", "flex");
-    await page.keyboard.press("Escape");
-    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
-    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
-    await expect(medicationSearch).toBeVisible();
-    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
-
-    const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
-    if (await followUps.isVisible()) {
-      const stripBox = await strip.boundingBox();
-      const followUpBox = await followUps.boundingBox();
-      expect(stripBox).toBeTruthy();
-      expect(followUpBox).toBeTruthy();
-      // Questions above matches, not below. Asking the next question is the
-      // clinical step; browsing the library is not.
-      expect(followUpBox!.y).toBeLessThan(stripBox!.y);
-    }
-
-    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
-    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
-    await expectMinTouchTarget(medicationLink, 48);
-    await expectMinTouchTarget(medicationSearch, 48);
-    await waitForReactEventHandler(medicationLink, "onClick");
-    await medicationLink.click();
-    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
-    // MedicationNavHeader portals above `medication-page-*`; InPageNavHeader's
-    // back control is always named via aria-label (`Back to ${label}`), which is
-    // the only stable accessible name across desktop (visible text) and phone
-    // (label hidden). See tests/in-page-nav-playwright-contract.test.ts.
-    await expect(page.getByTestId("medication-page-clozapine")).toBeVisible();
-    const medicationsBack = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
-    await expect(medicationsBack).toBeVisible();
-    await medicationsBack.click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === "/" &&
-        url.searchParams.get("mode") === "answer" &&
-        url.searchParams.get("q") === question &&
-        url.searchParams.get("run") === "1",
-      { timeout: 45_000 },
-    );
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    expect(answerRequests).toEqual([question]);
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    expect(answerRequests).toEqual([question]);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const firstQuestion = "lithium dosing";
-    await fillVisibleQuestionInput(page, firstQuestion);
-    await visibleAnswerSubmitButton(page).click();
-
-    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    // One chat: every question in the thread is a bubble, the newest included.
-    // The card no longer carries a muted echo of its own question.
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
-    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(0);
-    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
-
-    const composer = visibleQuestionInput(page);
-    await expect(composer).toHaveValue("");
-    await expect(composer).toHaveAttribute("placeholder", "Ask a follow-up...");
-
-    const followUp = "what about renal impairment?";
-    await fillVisibleQuestionInput(page, followUp);
-    await visibleAnswerSubmitButton(page).click();
-
-    const questionBubbles = page.getByTestId("user-question-bubble");
-    await expect(questionBubbles).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(questionBubbles.first()).toContainText(firstQuestion);
-    await expect(questionBubbles.last()).toContainText(followUp);
-    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
-    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
-    await expect(composer).toHaveValue("");
-    await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
-    await expectNoPageHorizontalOverflow(page);
-
-    await waitForPersistedAnswerThread(page, 1);
-    await page.reload();
-    await waitForDemoDashboardReady(page);
-    await expect(async () => {
-      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
-    }).toPass({ timeout: 15_000 });
-    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble").last()).toContainText(followUp);
-    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
-  });
-
-  test("answer follow-up suggestions run the next question", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "lithium dosing");
-    await visibleAnswerSubmitButton(page).click();
-    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible({ timeout: uiAssertionTimeoutMs });
-
-    const suggestion = visibleAnswerFollowUpSuggestions(page).getByRole("button").first();
-    const suggestionText = (await suggestion.textContent())?.trim();
-    expect(suggestionText).toBeTruthy();
-    await suggestion.click();
-
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble").last()).toContainText(suggestionText ?? "");
-  });
-
-  test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    const question = "What clozapine monitoring items are shown in the table image?";
-    await fillVisibleQuestionInput(page, question);
-    await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-
-    // The quote cards' follow-up action came across with the passage: it now lives
-    // in the source drawer, beneath the passage it asks about.
-    const followUpRail = page.getByTestId("answer-source-rail");
-    await expect(followUpRail).toBeVisible();
-    await followUpRail.getByTestId("answer-source-rail-row").first().click();
-
-    const followUpDrawer = page.getByTestId("answer-source-drawer");
-    await expect(followUpDrawer).toBeVisible();
-    await expect(followUpDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
-
-    const followUpButton = followUpDrawer.getByTestId("answer-source-drawer-follow-up");
-    await expect(followUpButton).toBeVisible();
-    await followUpButton.click();
-
-    const composer = visibleQuestionInput(page);
-    await expect(composer).toBeFocused();
-    await expect(composer).toHaveValue(/Using the quoted source from/i);
-    await expect(composer).toHaveValue(/Quote:/i);
-    await expect(visibleAnswerSubmitButton(page)).toBeEnabled();
-  });
-
-  test("source-only answer keeps support rows honest", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page, {
-      answerOverride: (query, documentId, documentIds) => {
-        const base = demoAnswer(query, documentId, documentIds);
-        return {
-          ...base,
-          answer:
-            "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the sources directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.",
-          grounded: false,
-          confidence: "low",
-          answerQualityTier: "source_only",
-          fallbackReason: "source_only_no_api",
-          citations: [],
-          answerSections: [],
-          quoteCards: [],
-          visualEvidence: [],
-        };
-      },
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "lithium");
-    await visibleAnswerSubmitButton(page).click();
-
-    // Source-only owns the one on-screen warning. The complete verification
-    // notice remains print-only, while its governed compact wording is folded
-    // into this disclosure instead of repeating above the prose.
-    await expect(page.getByTestId("verification-notice")).toBeHidden();
-    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
-    const sourceOnlyButton = sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ });
-    const sourceOnlyRail = page.getByTestId("answer-source-rail");
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyRail).toBeVisible();
-    await expect(sourceOnlyDisclosure).toContainText("Source-only");
-    await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
-
-    const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
-    const disclosureBox = await sourceOnlyDisclosure.boundingBox();
-    const railBox = await sourceOnlyRail.boundingBox();
-    expect(proseBox).not.toBeNull();
-    expect(disclosureBox).not.toBeNull();
-    expect(railBox).not.toBeNull();
-    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
-    expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
-    expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
-
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await sourceOnlyButton.focus();
-    await expect(sourceOnlyButton).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyDisclosure).toContainText(
-      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
-    );
-    await expect(page.locator("#source-only-disclosure-detail")).toHaveCSS("animation-name", "none");
-
-    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyButton).toBeFocused();
-    expect(await sourceOnlyDisclosure.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("solid");
-    await page.keyboard.press("Enter");
-    await expect(sourceOnlyButton).toHaveAttribute("aria-expanded", "false");
-    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
-
-    for (const width of [320, 390, 639, 768, 1440, 1920]) {
-      await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
-      await expect(sourceOnlyDisclosure).toBeVisible();
-      await expectNoPageHorizontalOverflow(page);
-    }
-
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText("Review source match");
-    await expect(supportCard).toContainText("Verify cited passages");
-    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
-
-    // A source-only answer still cites real documents, so the rail must list them
-    // and the drawer must open â€” the degraded path is exactly where a clinician
-    // most needs the route back to the page.
-    const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
-    await expect(sourceOnlyRow).toBeVisible();
-    await sourceOnlyRow.click();
-    const sourceOnlyDrawer = page.getByTestId("answer-source-drawer");
-    await expect(sourceOnlyDrawer).toBeVisible();
-    await expect(sourceOnlyDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sourceOnlyDrawer).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("review-due sources collapse into a compact expandable tab", async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page, {
-      answerOverride: (query, documentId, documentIds) => {
-        const base = demoAnswer(query, documentId, documentIds);
-        return {
-          ...base,
-          sources: base.sources.map((source, index) =>
-            index === 0
-              ? {
-                  ...source,
-                  source_metadata: {
-                    ...source.source_metadata!,
-                    document_status: "review_due" as const,
-                    review_date: "2025-11-01",
-                  },
-                }
-              : source,
-          ),
-        };
-      },
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
-    await visibleAnswerSubmitButton(page).click();
-
-    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
-    await expect(reviewDueTab).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect(reviewDueTab).toContainText("Review due");
-    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
-    const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
-    await expect(reviewDuePanel).toBeHidden();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toBeHidden();
-    await expectNoPageHorizontalOverflow(page);
-
-    await testInfo.attach("review-due-tab-phone", {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: "image/png",
-    });
-
-    await reviewDueTab.click();
-    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
-    await expect(reviewDuePanel).toBeVisible();
-    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
-    await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
-  });
-
-  for (const viewport of [
-    { name: "phone", width: 390, height: 820, sheet: true },
-    { name: "tablet", width: 768, height: 1024, sheet: true },
-    { name: "near sheet breakpoint", width: 1018, height: 900, sheet: true },
-    { name: "desktop", width: 1440, height: 900, sheet: false },
-  ] as const) {
-    test(`answer support popups adapt at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await mockDemoApi(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
-      await visibleAnswerSubmitButton(page).click();
-
-      const plainAnswer = page.getByTestId("plain-answer-response");
-      await expect(plainAnswer).toBeVisible();
-      const supportCard = page.getByTestId("answer-support-card");
-      await expect(supportCard).toBeVisible();
-      await expectNoPageHorizontalOverflow(page);
-
-      // One source surface at every breakpoint: the rail on the page, the drawer
-      // behind each row. There is no capsule, no popover/sheet split, and no
-      // separate clinical-notes or evidence sheet to reach.
-      const rail = page.getByTestId("answer-source-rail");
-      await expect(rail).toBeVisible();
-      const railRow = rail.getByTestId("answer-source-rail-row").first();
-      await expectMinTouchTarget(railRow);
-      // The card is one control that opens the drawer; the two routes to the PDF
-      // itself live in the drawer (its header link and "View original PDF"), so
-      // the card does not carry a second competing target at this width.
-      await expect(railRow).toHaveAccessibleName(/open source detail$/);
-      await railRow.click();
-      const drawer = page.getByTestId("answer-source-drawer");
-      await expect(drawer).toBeVisible();
-      await expect(drawer.getByTestId("answer-source-drawer-support")).toBeVisible();
-      await expectMinTouchTarget(drawer.getByRole("link", { name: "View original PDF" }));
-      const drawerPager = drawer.getByTestId("answer-source-drawer-pager");
-      if (await drawerPager.count()) {
-        await expectMinTouchTarget(drawerPager.getByRole("button", { name: "Next source" }));
-      }
-      await page.keyboard.press("Escape");
-      await expect(drawer).toHaveCount(0);
-      await expect(railRow).toBeFocused();
-
-      await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
-      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
-
-      await expectNoPageHorizontalOverflow(page);
-    });
-  }
-
-  for (const viewport of [
-    { name: "390px mobile", width: 390, height: 844, expands: true },
-    { name: "768px tablet", width: 768, height: 1024, expands: true },
-    { name: "1280px desktop", width: 1280, height: 800, expands: false },
-  ] as const) {
-    test(`clinical table mobile expansion at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await mockDemoApi(page);
-      await gotoApp(page, "/");
-      await waitForDemoDashboardReady(page);
-
-      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
-      const submitAnswer = visibleAnswerSubmitButton(page);
-      await submitAnswer.click();
-
-      // Decision 2 (2026-08-24): the wide-screen table column is gone at every
-      // breakpoint, so a table is only ever reached through the source drawer.
-      await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
-      await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
-        "data-desktop-table-aside",
-        "false",
-      );
-      const tableRail = page.getByTestId("answer-source-rail");
-      await expect(tableRail).toBeVisible();
-      // A table hangs off the source it was cited from, which is not necessarily
-      // the best match â€” open the row that actually has it.
-      const tableRows = tableRail.getByTestId("answer-source-rail-row");
-      const tableDrawer = page.getByTestId("answer-source-drawer");
-      const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
-      let openedTableRow = false;
-      for (let index = 0; index < (await tableRows.count()); index += 1) {
-        await tableRows.nth(index).click();
-        await expect(tableDrawer).toBeVisible();
-        if (await clinicalTable.count()) {
-          openedTableRow = true;
-          break;
-        }
-        await page.keyboard.press("Escape");
-        await expect(tableDrawer).toHaveCount(0);
-      }
-      expect(openedTableRow).toBe(true);
-      await expect(clinicalTable).toBeVisible();
-      await expect(clinicalTable).toContainText("FBC/ANC");
-      await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-
-      const expandButton = clinicalTable.getByTestId("table-expand-button");
-      const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
-      if (!viewport.expands) {
-        // Desktop reads the table in place inside the drawer rather than expanding it.
-        await expect(expandButton).toHaveCount(0);
-        await expect(tableSurface).toBeVisible();
-        await expectNoPageHorizontalOverflow(page);
-        return;
-      }
-
-      await expect(tableSurface).not.toHaveAttribute("role", "button");
-      await expect(tableSurface).not.toHaveAttribute("tabindex");
-      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
-      const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
-      await expect(expandButton).toHaveAttribute("aria-expanded", "true");
-      await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
-      await page.keyboard.press("Shift+Tab");
-      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await page.keyboard.press("Tab");
-      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await expect(surfaceDialog).toContainText("FBC/ANC");
-      await page.keyboard.press("Escape");
-      await expect(surfaceDialog).toBeHidden();
-      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
-
-      await expect(expandButton).toBeVisible();
-      const dialog = await openMobileTableFullscreen(page, clinicalTable);
-      await expect(dialog.getByRole("table")).toBeVisible();
-      await expect(dialog).toContainText("FBC/ANC");
-      await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-      // The full-screen table now opens from inside the source drawer, which is
-      // itself a dialog carrying the document's name â€” so a by-name lookup is
-      // ambiguous. `openMobileTableFullscreen` already hands back the right
-      // handle; the focus-trap assertions are unchanged.
-      await expect(dialog).toBeVisible();
-      await page.keyboard.press("Shift+Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await expectNoPageHorizontalOverflow(page);
-      await page.keyboard.press("Escape");
-      await expect(dialog).toBeHidden();
-      await expect(expandButton).toBeFocused();
-    });
-  }
-
-  test("dashboard favourites selection stays on the shared home; submitted links open Favourites", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    const redirectMeasureErrors: string[] = [];
-    page.on("pageerror", (error) => {
-      if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
-    });
-
-    // Bare /?mode= favourites is the shared home with Favourites preselected â€”
-    // not a redirect to /favourites (legacy proxy used to hop early).
-    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
-    await expect(page).toHaveURL(/\/\?mode=favourites&q=lithium(\+|%20)set&focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
-    expect(redirectMeasureErrors).toEqual([]);
-
-    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1&run=1");
-    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1&run=1$/);
-    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
-  });
-
-  test("dashboard differentials selection stays on the shared home; submitted links open Differentials", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-
-    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
-    await expect(page).toHaveURL(/\/\?mode=differentials&q=acute(\+|%20)confusion&focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-
-    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1&run=1");
-    await expect(page).toHaveURL(/\/differentials\/search\?q=acute\+confusion&focus=1&run=1\b/);
-    // Submitted differentials deep links resolve to the standalone results
-    // surface (`autoRunSearch`), not the mode-home template. Production
-    // hydration can briefly overlap the outgoing server tree and the settled
-    // client tree on this redirect; wait for one owner before strict locators.
-    await expectSingleSettledOwner(page.getByTestId("differentials-search-results"), {
-      message: "differentials redirect search results owner",
-    });
-    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "acute confusion" })).toBeVisible();
-  });
-
-  test("DSM diagnosis mode redirects into the local catalogue and opens a diagnosis", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=dsm&q=major+depressive&focus=1&run=1");
-
-    await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
-      timeout: 30_000,
-    });
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
-
-    const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
-    await expect(result).toBeVisible();
-    await expectMinTouchTarget(result.getByRole("button", { name: "Add Major depressive disorder to comparison" }));
-    await expectMinTouchTarget(result.getByRole("link", { name: "Open Major depressive disorder" }));
-
-    await result.getByRole("link", { name: "Open Major depressive disorder" }).click();
-    await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
-    await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
-    // The breadcrumb row went with the in-page header: its back control is the
-    // one route out to the DSM search catalogue, not the shared home composer.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("factsheet search keeps query and category filters in the ribbon with view controls above results", async ({
-    page,
-  }) => {
-    await mockDemoApi(page);
-
-    for (const viewport of [
-      { width: 390, height: 844 },
-      { width: 1440, height: 900 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await gotoApp(page, "/factsheets/search?q=sertraline");
-      const factsheetsPage = page.getByTestId("factsheets-search-page");
-      const queryRibbon = factsheetsPage.getByTestId("search-query-ribbon");
-      const viewToolbar = factsheetsPage.getByTestId("factsheets-view-toolbar");
-      await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
-      await expect(queryRibbon.getByRole("group", { name: "Result view" })).toHaveCount(0);
-      await expect(viewToolbar.getByRole("group", { name: "Result view" })).toBeVisible();
-      await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
-      // Phone gets the compact trigger; from `sm` up the ribbon shows the chip
-      // row instead and the trigger is not rendered at all.
-      const categoryTrigger = queryRibbon.getByTestId("factsheet-filter-trigger-phone");
-      if (viewport.width < 640) {
-        await expect(categoryTrigger).toBeVisible();
-        await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
-        await categoryTrigger.click();
-        const categoryGroup = page.getByRole("radiogroup", { name: "Category" });
-        await expect(categoryGroup.getByRole("radio", { name: "All" })).toBeChecked();
-        await page.getByTestId("factsheet-filter-panel-done").click();
-        await expect(categoryGroup).toBeHidden();
-      } else {
-        await expect(categoryTrigger).toBeHidden();
-      }
-      await expectNoPageHorizontalOverflow(page);
-    }
-  });
-
-  test("DSM category facets support keyboard selection and restore focus", async ({ page }) => {
-    await page.setViewportSize({ width: 1100, height: 850 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/dsm/search?q=depression");
-
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const trigger = page.getByTestId("dsm-category-filter-desktop");
-    await trigger.focus();
-    await page.keyboard.press("Enter");
-    const panel = page.getByTestId("dsm-category-filter-panel");
-    await expect(panel).toBeVisible();
-
-    const categoryGroup = panel.getByRole("group", { name: "Category" });
-    const category = categoryGroup.locator('button:not([aria-disabled="true"])').first();
-    await expect(category).toHaveAttribute("aria-pressed", "false");
-    await category.focus();
-    await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/[?&]category=/);
-    await expect(category).toHaveAttribute("aria-pressed", "true");
-
-    await page.keyboard.press("Escape");
-    await expect(panel).toHaveCount(0);
-    await expect(trigger).toBeFocused();
-  });
-
-  test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
-
-    // /?mode=specifiers â†’ /specifiers (Specifiers is its own mode, distinct from Formulation)
-    await expect(page).toHaveURL(/\/specifiers\/search\?q=anxious\+distress&focus=1&run=1\b/);
-    const queryRibbon = page.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
-  });
-
-  test("dashboard formulation mode param redirects to the standalone formulation route", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
-
-    await expect(page).toHaveURL(/\/formulation\/search\?q=I\+keep\+going\+over\+it&focus=1&run=1\b/);
-    const queryRibbon = page.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
-  });
-
-  test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/differentials?q=acute+confusion&focus=1&run=1");
-
-    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
-
-    const origin = new URL(page.url());
-    const presentationResult = visibleByTestId(page, "differentials-search-results")
-      .locator('a[href^="/differentials/presentations/"]')
-      .filter({ visible: true })
-      .first();
-    await expect(presentationResult).toBeVisible();
-    await presentationResult.click();
-    await expect(page).toHaveURL(/\/differentials\/presentations\//, { timeout: 30_000 });
-    // Presentation comparisons use the shared header navigation. It carries the
-    // submitted query (and any resolved selection) back to the search workspace.
-    await page.getByTestId("mode-nav").getByRole("link", { name: "Search" }).click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === origin.pathname &&
-        url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
-      { timeout: 30_000 },
-    );
-    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
-  });
-
-  test("document detail back arrow restores its originating search", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
-
-    const workspace = page.getByTestId("document-search-workspace");
-    const firstResult = workspace.getByTestId("document-result-card").first();
-    await expect(firstResult).toBeVisible({ timeout: 30_000 });
-    const origin = new URL(page.url());
-    await firstResult.getByRole("link", { name: /^Open / }).click();
-    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
-
-    await page.getByRole("link", { name: "Back to documents" }).click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === origin.pathname &&
-        url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run") &&
-        url.searchParams.get("mode") === origin.searchParams.get("mode"),
-      { timeout: 30_000 },
-    );
-    await expect(workspace).toBeVisible({ timeout: 30_000 });
-  });
-
-  test("document detail back arrow skips PDF page changes at phone and desktop", async ({ page }) => {
-    await mockDemoApi(page);
-    const documentId = "22222222-2222-4222-8222-222222222222";
-
-    for (const width of [390, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await gotoApp(page, "/documents/search?mode=documents&q=clozapine+monitoring&run=1");
-      const origin = new URL(page.url());
-      await page.goto(`/documents/${documentId}?page=1`, { waitUntil: "domcontentloaded" });
-      await expect(
-        page.getByRole("heading", { level: 1, name: /Synthetic clozapine monitoring protocol/i }),
-      ).toBeVisible({
-        timeout: 30_000,
-      });
-
-      const historyLength = await page.evaluate(() => window.history.length);
-      await page.getByLabel("Next page").first().click();
-      await expect(page).toHaveURL(
-        (url) => url.pathname === `/documents/${documentId}` && url.searchParams.get("page") === "2",
-      );
-      expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
-
-      await page.getByRole("link", { name: "Back to documents" }).click();
-      await expect(page).toHaveURL(
-        (url) =>
-          url.pathname === origin.pathname &&
-          url.searchParams.get("q") === origin.searchParams.get("q") &&
-          url.searchParams.get("run") === origin.searchParams.get("run") &&
-          url.searchParams.get("mode") === origin.searchParams.get("mode"),
-        { timeout: 30_000 },
-      );
-    }
-  });
-
-  test("opening a document reveals phone chrome hidden by the search route", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
-
-    const firstResult = page.getByTestId("document-result-card").first();
-    const openDocument = firstResult.getByRole("link", { name: /^Open / });
-    const collapse = page.getByTestId("universal-header-collapse");
-    await expect(openDocument).toBeVisible({ timeout: 30_000 });
-    await appendPrimaryScrollSpacer(page, { heightPx: 2_000 });
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
-
-    await page.evaluate(() => {
-      const state = window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean };
-      const detectStaleHeader = () => {
-        const onDocumentDetail =
-          window.location.pathname.startsWith("/documents/") && window.location.pathname !== "/documents/search";
-        const documentReady = Boolean(document.querySelector('[data-testid="document-viewer-content"]'));
-        const headerHidden =
-          document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
-          "true";
-        if (onDocumentDetail && documentReady && headerHidden) {
-          state.__documentRoutePaintedWithHiddenHeader = true;
-        }
-      };
-      new MutationObserver(detectStaleHeader).observe(document.documentElement, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-        attributeFilter: ["data-scroll-hidden"],
-      });
-    });
-
-    // Invoke the already-rendered link without Playwright scrolling it back
-    // into view first; the navigation must reset the genuinely hidden state.
-    await openDocument.evaluate((element) => (element as HTMLElement).click());
-    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
-    await expect(page.getByTestId("document-viewer-content")).toBeVisible({ timeout: 30_000 });
-    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
-    expect(
-      await page.evaluate(
-        () =>
-          (window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean })
-            .__documentRoutePaintedWithHiddenHeader ?? false,
-      ),
-    ).toBe(false);
-  });
-
-  test("newer routed differential context wins over an older response", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    let requestCount = 0;
-    let resolveCurrentResponse!: () => void;
-    const currentResponseDelivered = new Promise<void>((resolve) => {
-      resolveCurrentResponse = resolve;
-    });
-    await page.route(/\/api\/search$/, async (route) => {
-      requestCount += 1;
-      const currentRequest = requestCount;
-      if (currentRequest === 1) await new Promise((resolve) => setTimeout(resolve, 500));
-      const sourceCount = currentRequest === 1 ? 2 : 1;
-      try {
-        await route.fulfill({
-          json: {
-            documentMatches: Array.from({ length: sourceCount }, (_, index) => ({
-              document_id: `00000000-0000-4000-8000-00000000000${index}`,
-              title: `${currentRequest === 1 ? "Older" : "Current"} source ${index + 1}`,
-              file_name: `source-${index + 1}.pdf`,
-              score: 0.9 - index * 0.1,
-            })),
-          },
-        });
-        if (currentRequest > 1) resolveCurrentResponse();
-      } catch (error) {
-        if (currentRequest > 1) throw error;
-      }
-    });
-
-    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
-    await expect.poll(() => requestCount).toBeGreaterThanOrEqual(1);
-    const baselineRequestCount = requestCount;
-    await page.evaluate(() => {
-      window.history.pushState(null, "", "/differentials?q=acute+confusion&run=1&scope.sourceStatuses=outdated");
-    });
-
-    await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
-    await currentResponseDelivered;
-    const sourceStatus = page.getByTestId("differentials-source-status");
-    const singularSourceCount = sourceStatus.getByText("1 indexed source match", { exact: true });
-    await expect(singularSourceCount).toBeVisible();
-    await expect(sourceStatus).not.toContainText("2 indexed source matches");
-  });
-
-  test("submitted favourites searches stay on the command library route", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
-
-    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
-    await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
-  });
-
-  test("favourites route opens the favourites home", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites?q=lithium%20set");
-
-    const globalSearchInput = page.getByRole("combobox", { name: /Search saved favourites/ });
-    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
-    await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
-    await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
-    await expect(globalSearchInput).toHaveValue("lithium set");
-    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
-    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
-    await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
-
-    // Desktop hides the header New chat when the sidebar already owns it.
-    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
-    await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
-  });
-
-  test("favourites hub hydrates saved services from the registry", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    // Override the shared registry fixture with the saved-service scenario.
-    await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          records: [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }],
-          total: 1,
-          verifiedCount: 0,
-          demoMode: true,
-        },
-      });
-    });
-    await page.addInitScript(() => {
-      window.localStorage.setItem("clinical-kb-saved-services", JSON.stringify(["13yarn"]));
-    });
-    await gotoApp(page, "/favourites");
-
-    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
-      message: "favourites hub owner",
-    });
-    // The saved service slug is hydrated to its registry title in the hub.
-    await expect(hub.getByText("13YARN").first()).toBeVisible();
-  });
-
-  test("favourites command library exposes truthful item details and a keyboard-operable action dialog", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1536, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites");
-
-    await expect(page.getByRole("heading", { level: 1, name: "Favourites", exact: true })).toBeVisible();
-    await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
-
-    await visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
-    const workspace = page.getByTestId("favourites-item-workspace");
-    await expect(workspace).toBeVisible();
-    await expect(workspace.getByRole("heading", { name: "Lithium monitoring guideline", level: 3 })).toBeVisible();
-
-    await workspace.getByRole("button", { name: "Evidence" }).click();
-    await expect(workspace).not.toContainText("BNF - Acamprosate");
-    await workspace.getByRole("button", { name: "Notes" }).click();
-    await expect(workspace).toContainText("No personal note is saved for this item.");
-
-    const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
-    await moreActions.focus();
-    await page.keyboard.press("ArrowDown");
-    const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
-    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(moreActions).toBeFocused();
-  });
-
-  test("favourites disable item selection below xl while keeping navigation and actions", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites");
-
-    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
-      message: "favourites hub owner",
-    });
-    await expect(hub.locator('article[role="button"]')).toHaveCount(0);
-    const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
-    const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
-    const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
-
-    await expect(card).toBeVisible();
-    await expect(card.locator("button[aria-pressed]")).toHaveCount(0);
-    await expectMinTouchTarget(openItem);
-    await expectMinTouchTarget(moreActions);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 1180, height: 820 });
-    const row = page.getByTestId("favourite-row-acamprosate-renal-screen");
-    await expect(row).toBeVisible();
-    await expect(row.locator("button[aria-pressed]")).toBeHidden();
-    await expect(row.locator("td").first().getByRole("link")).toBeVisible();
-    await expect(row.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
-    await expect(row.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
-
-    await page.setViewportSize({ width: 1536, height: 900 });
-    const selectItem = row.locator("button[aria-pressed]");
-    await expect(selectItem).toBeVisible();
-    await selectItem.click();
-    await expect(page.getByTestId("favourites-item-workspace")).toBeVisible();
-
-    await page.setViewportSize({ width: 1180, height: 820 });
-    await expect(page.getByTestId("favourites-item-workspace")).toBeHidden();
-    await expect(selectItem).toBeHidden();
-    await expect(row).not.toHaveClass(/(^|\s)bg-\[/);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=answer");
-
-    const appModeButton = page.getByRole("button", { name: "Mode Answer" });
-    await waitForReactEventHandler(appModeButton, "onClick");
-    await appModeButton.click();
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
-    await expect(appModeMenu).toBeVisible();
-    const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
-    await answerMode.focus();
-    await expect(answerMode).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Evidence\b/ })).toHaveCount(0);
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Services\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Forms\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Formulation\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(appModeMenu).toBeHidden();
-    await expect(appModeButton).toBeFocused();
-
-    await appModeButton.click();
-    await expect(appModeMenu).toBeVisible();
-    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
-    await page.keyboard.press("Tab");
-    await expect(appModeMenu).toBeHidden();
-  });
-
-  test("prescribing workflow uses in-app medication routes @critical", async ({ page }) => {
-    test.setTimeout(120_000);
-    // Regression guard: navigating away from a mode home used to throw
-    // "Cannot read properties of null (reading 'parentNode')" because the header
-    // portaled its search composer straight into a page-owned slot that unmounts
-    // on navigation. Narrowly scoped to that error so it won't trip on unrelated
-    // console noise.
-    const parentNodeErrors: string[] = [];
-    page.on("pageerror", (error) => {
-      if (String(error).includes("parentNode")) parentNodeErrors.push(String(error));
-    });
-    page.on("console", (message) => {
-      if (message.type() === "error" && message.text().includes("parentNode")) parentNodeErrors.push(message.text());
-    });
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
-
-    const globalSearchInput = page.locator('[data-testid="global-search-input"]:visible').first();
-    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
-    await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medication dosing or safety...");
-    await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
-
-    const acamprosateResult = page.getByTestId("medication-result-acamprosate-desktop");
-    await expect(acamprosateResult).toHaveAttribute("href", "/medications/acamprosate");
-    await acamprosateResult.click();
-    await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
-    await expectSingleMedicationPage(page);
-    await expect(page.getByRole("link", { name: "Back to medications" }).filter({ visible: true })).toBeVisible();
-
-    // Desktop polish: the patient control belongs to the title row, with a
-    // deliberate breathing space before the elevated category rail below it.
-    const desktopPatientAction = page.getByTestId("medication-primary-action").filter({ visible: true });
-    const desktopMedicationRail = page.getByTestId("medication-section-rail");
-    const [patientBox, desktopRailBox] = await Promise.all([
-      desktopPatientAction.boundingBox(),
-      desktopMedicationRail.boundingBox(),
-    ]);
-    expect(patientBox).not.toBeNull();
-    expect(desktopRailBox).not.toBeNull();
-    expect(desktopRailBox!.y - (patientBox!.y + patientBox!.height)).toBeGreaterThanOrEqual(6);
-
-    const summaryCategory = desktopMedicationRail.getByRole("button", { name: /^Summary/ });
-    await summaryCategory.focus();
-    await expect(summaryCategory).toBeFocused();
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await expect
-      .poll(() => summaryCategory.evaluate((button) => Number.parseFloat(getComputedStyle(button).transitionDuration)))
-      .toBeLessThanOrEqual(0.001);
-    await page.emulateMedia({ forcedColors: "active", reducedMotion: "no-preference" });
-    await expect
-      .poll(() => desktopMedicationRail.evaluate((rail) => getComputedStyle(rail).borderTopStyle))
-      .not.toBe("none");
-    await page.emulateMedia({ forcedColors: "none" });
-
-    // Regression guard for #1802: medication sections use the same priority
-    // menu as the mode home, not the older horizontally scrolling tab strip.
-    await page.setViewportSize({ width: 390, height: 844 });
-    const medicationRail = page.getByTestId("medication-section-rail");
-    await expect(medicationRail.getByRole("button", { name: /^Summary/ })).toBeVisible();
-    await expect(medicationRail.getByRole("button", { name: /^Dosing/ })).toBeVisible();
-    await expect(medicationRail.getByRole("button", { name: /^Safety/ })).toBeHidden();
-    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
-    const railGeometry = await medicationRail.evaluate((rail) => ({
-      clientWidth: rail.clientWidth,
-      scrollWidth: rail.scrollWidth,
-      overflowX: getComputedStyle(rail).overflowX,
-    }));
-    expect(railGeometry.scrollWidth).toBeLessThanOrEqual(railGeometry.clientWidth + 1);
-    expect(railGeometry.overflowX).not.toMatch(/auto|scroll/);
-
-    // At the generic four-slot boundary the medication labels still need a
-    // little more room for their icons and count badges, so the tail remains
-    // folded instead of clipping every visible label.
-    await page.setViewportSize({ width: 552, height: 844 });
-    await expect(page.getByTestId("medication-section-overflow")).toBeVisible();
-    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeHidden();
-    const clippedLabelsAtBoundary = await medicationRail
-      .locator("button:visible .mode-nav__ink > span.truncate")
-      .evaluateAll((labels) =>
-        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
-      );
-    expect(clippedLabelsAtBoundary).toEqual([]);
-
-    await page.setViewportSize({ width: 736, height: 844 });
-    await expect(medicationRail.getByRole("button", { name: /^Additional/ })).toBeVisible();
-    await expect(page.getByTestId("medication-section-overflow")).toBeHidden();
-    const clippedLabelsAtWideBand = await medicationRail
-      .locator("button:visible .mode-nav__ink > span.truncate")
-      .evaluateAll((labels) =>
-        labels.filter((label) => label.scrollWidth > label.clientWidth + 1).map((label) => label.textContent),
-      );
-    expect(clippedLabelsAtWideBand).toEqual([]);
-
-    expect(parentNodeErrors).toEqual([]);
-  });
-
-  test("prescribing workflow shows full mobile action text without horizontal cutoff", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
-
-    const acamprosateCard = page.getByTestId("medication-result-acamprosate-phone");
-    await expect(acamprosateCard).toBeVisible({ timeout: 30_000 });
-    await expect(acamprosateCard).toContainText("Contraindicated in renal insufficiency");
-    await expect(acamprosateCard).toContainText("micromol/L");
-
-    const actionOverflow = await acamprosateCard.evaluate((card) => {
-      const action = Array.from(card.querySelectorAll("p")).find((node) =>
-        node.textContent?.includes("Contraindicated in renal insufficiency"),
-      );
-      if (!action) return { found: false, overflows: true };
-      return {
-        found: true,
-        overflows: action.scrollWidth > action.clientWidth + 1,
-        textOverflow: getComputedStyle(action).textOverflow,
-      };
-    });
-    expect(actionOverflow.found).toBe(true);
-    expect(actionOverflow.overflows).toBe(false);
-    expect(actionOverflow.textOverflow).not.toBe("ellipsis");
-
-    const origin = new URL(page.url());
-    await acamprosateCard.click();
-    await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
-    // InPageNavHeader always names the control `Back to ${label}` via aria-label;
-    // the visible "Medications" text is `hidden sm:inline` and absent on phone.
-    // Scope to the visible owner â€” phone portals the header into the collapse
-    // addon, and #093 streaming can leave a hidden twin under full-suite load.
-    const backLink = page.getByRole("link", { name: "Back to medications" }).filter({ visible: true });
-    await expect(backLink).toBeVisible();
-    await expectMinTouchTarget(backLink);
-    await backLink.click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === origin.pathname &&
-        url.searchParams.get("mode") === origin.searchParams.get("mode") &&
-        url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
-    );
-    await expect(page.getByTestId("medication-result-acamprosate-phone")).toBeVisible();
-  });
-
-  test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents");
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
-
-    const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
-      (buttons) =>
-        buttons.filter((button) => {
-          const rect = button.getBoundingClientRect();
-          const style = getComputedStyle(button);
-          return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
-        }).length,
-    );
-    expect(visibleNewChatCount).toBe(1);
-
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
-    await browseLibraryButton.click();
-    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toBeVisible();
-    await expect(sourcesDialog.getByText("Sources", { exact: true })).toHaveCount(1);
-
-    const documentLink = sourcesDialog.getByRole("link", { name: /Synthetic lithium monitoring protocol/i });
-    const addScope = sourcesDialog.getByRole("button", { name: "Add scope" }).first();
-    await expect(documentLink).toBeVisible();
-    await expect(addScope).toBeVisible();
-    const rowGeometry = await sourcesDialog.evaluate((dialog) => {
-      const link = Array.from(dialog.querySelectorAll<HTMLAnchorElement>("a")).find((candidate) =>
-        candidate.textContent?.toLowerCase().includes("synthetic lithium monitoring protocol"),
-      );
-      const scope = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).find(
-        (candidate) => candidate.textContent?.trim() === "Add scope",
-      );
-      if (!link || !scope) return null;
-      const linkRect = link.getBoundingClientRect();
-      const scopeRect = scope.getBoundingClientRect();
-      return {
-        linkWidth: linkRect.width,
-        linkBottom: linkRect.bottom,
-        scopeTop: scopeRect.top,
-        horizontalOverflow: dialog.scrollWidth > dialog.clientWidth + 1,
-      };
-    });
-    expect(rowGeometry).not.toBeNull();
-    expect(rowGeometry?.linkWidth ?? 0).toBeGreaterThanOrEqual(180);
-    expect(rowGeometry?.scopeTop ?? 0).toBeGreaterThanOrEqual((rowGeometry?.linkBottom ?? 0) + 8);
-    expect(rowGeometry?.horizontalOverflow).toBe(false);
-  });
-
-  test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    // `/` is the shared home for every mode now, so the Documents home lives at
-    // its own route â€” reached from the sidebar, like every other mode home.
-    await gotoApp(page, "/documents");
-
-    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
-    await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
-    await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
-    await expect(visibleQuestionInput(page)).toBeVisible();
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
-    const searchInputBox = await visibleQuestionInput(page).boundingBox();
-    const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
-    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
-    expect(searchInputBox).not.toBeNull();
-    expect(startHereBox).not.toBeNull();
-    expect(documentsHeadingBox).not.toBeNull();
-    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    // Phones keep the compact composer in the mode-home hero (above Start here),
-    // matching every other mode home â€” no fixed bottom dock on the empty home.
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
-    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
-    await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
-    const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
-    const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
-    await expect(recentDocumentsButton).toBeVisible();
-    await expect(browseLibraryButton).toBeVisible();
-    await expect(sourcePdfButton).toBeVisible();
-
-    await recentDocumentsButton.click();
-    const recentDocumentsDialog = page.getByRole("dialog", { name: "Recent documents" });
-    await expect(recentDocumentsDialog).toBeVisible();
-    await expect(recentDocumentsDialog.getByPlaceholder("Find a document")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(recentDocumentsDialog).toHaveCount(0);
-
-    await browseLibraryButton.click();
-    const sourceLibraryDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourceLibraryDialog).toBeVisible();
-    await expect(sourceLibraryDialog.getByPlaceholder("Find a document")).toBeFocused();
-    await expect(sourceLibraryDialog.getByRole("group", { name: "Refine sources" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sourceLibraryDialog).toHaveCount(0);
-    await expect(browseLibraryButton).toBeFocused();
-
-    await sourcePdfButton.click();
-    const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
-    await expect(sourcePdfDialog).toBeVisible();
-    await expect(sourcePdfDialog.getByPlaceholder("Find a source PDF")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(sourcePdfDialog).toHaveCount(0);
-    await expect(page.getByText("Source library workspace")).toHaveCount(0);
-    await expect(page.getByText("Document display")).toHaveCount(0);
-
-    // The mode switch above is covered independently. Submit from the canonical
-    // route so a dev-only cross-segment remount cannot abort the mocked POST.
-    await gotoApp(page, "/documents/search?mode=documents");
-    const questionInput = visibleQuestionInput(page);
-    await expect(questionInput).toBeVisible();
-    await waitForReactEventHandler(questionInput, "onChange");
-    await questionInput.fill("lithium monitoring");
-    await submitDocumentSearch(page);
-
-    await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
-    const documentWorkspace = page.getByTestId("document-search-workspace");
-    const queryRibbon = documentWorkspace.getByTestId("search-query-ribbon");
-    await expect(queryRibbon).toBeVisible();
-    // One filter surface, two slots: the ribbon's full-width row is suppressed
-    // below `sm` and the phone copy sits in the utility row. Both are in the
-    // DOM, which is why they carry distinct test ids.
-    await expect(queryRibbon.getByTestId("document-filter-trigger-wide")).toBeHidden();
-    // Sort is `sm`-and-up. Its two segments cost about half the band's one line
-    // on a phone, and relevance â€” the default, and what `?sort=` still carries
-    // in from a link â€” is the order a phone reader wants.
-    //
-    // Mounted-and-hidden, asserted as two facts, because `toBeHidden()` alone
-    // cannot tell them apart: it passes for a hidden node AND for a node that
-    // does not exist. So `includeHidden` (plain `getByRole` filters hidden nodes
-    // out and would resolve to nothing) plus a count, then the visibility. A
-    // deleted control fails the count; a control returned to the phone line
-    // fails the hidden check.
-    const phoneSort = queryRibbon.getByRole("group", { name: "Sort results", includeHidden: true });
-    await expect(phoneSort).toHaveCount(1);
-    await expect(phoneSort).toBeHidden();
-    const mobileFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-phone");
-    await expect(mobileFilterTrigger).toBeVisible();
-    await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
-    await expectMinTouchTarget(mobileFilterTrigger);
-    // The rail must not clip its own controls. #1615 collapsed this band to one
-    // line but left the inline utilities group `shrink`, so an over-subscribed
-    // line paid the shortfall out of the *controls* rather than out of the
-    // truncating query: the sort group was severed by the track's
-    // `overflow-x-auto` and its trailing option was then washed out by the 28px
-    // overflow mask.
-    //
-    // Swept, not asserted once. The band now keeps the phone controls on one
-    // line at every supported width, paying any shortfall out of the truncating
-    // query instead of the controls. The sweep crosses the retired 414px wrap
-    // boundary so that breakpoint cannot silently return. 540 is in
-    // the list because a longer query reproduced a 41.9px clip there: width alone
-    // never bounded this. Geometry, not a class name â€” the class that caused it
-    // read as correct, and `expectNoPageHorizontalOverflow` cannot see an
-    // internal scroller.
-    // Polled, because `useRailOverflow` remeasures through a ResizeObserver a
-    // frame after the viewport changes.
-    const utilityTrack = queryRibbon.getByTestId("search-query-ribbon-utility-track");
-    const utilitiesGroup = queryRibbon.getByTestId("search-query-ribbon-utilities");
-    for (const width of [320, 375, 390, 402, 414, 430, 440, 540]) {
-      await page.setViewportSize({ width, height: 820 });
-      await expect
-        .poll(
-          async () =>
-            utilityTrack.evaluate((track) => {
-              // The last *rendered* child, not a named control. Sort is
-              // `sm`-and-up, so below 640 it is `display:none` and every width
-              // in this sweep would measure a zero-sized node and report a
-              // dutiful 0 â€” the sweep would go blind while still passing.
-              const rendered = Array.from(track.children).filter((child) => child.getClientRects().length > 0);
-              const last = rendered[rendered.length - 1];
-              const clipped = last ? last.getBoundingClientRect().right - track.getBoundingClientRect().right : 0;
-              return {
-                overflow: Math.max(0, track.scrollWidth - track.clientWidth),
-                controlClipped: Math.max(0, Math.round(clipped)),
-                masked: track.getAttribute("data-overflowing") === "true",
-              };
-            }),
-          { message: `results-band utility rail clipped its own controls at ${width}px` },
-        )
-        .toEqual({ overflow: 0, controlClipped: 0, masked: false });
-      // Track overflow alone is blind to a group pushed off-screen by the
-      // band's `overflow-hidden`: both scrollWidth/clientWidth and the last
-      // rendered-child measurement can still report zero. Pin the complete
-      // utilities group inside the viewport at the former wrap widths too.
-      if (width < 414) {
-        const utilitiesBox = await utilitiesGroup.boundingBox();
-        expect(utilitiesBox, `utilities clipped off-screen at ${width}px`).not.toBeNull();
-        expect(utilitiesBox!.x).toBeGreaterThanOrEqual(0);
-        expect(utilitiesBox!.x + utilitiesBox!.width).toBeLessThanOrEqual(width + 1);
-      }
-    }
-    await page.setViewportSize({ width: 390, height: 820 });
-    // The panel is what the trigger exists to reach â€” the state that was
-    // unreachable before, because its only mount was gated on a selection that
-    // nothing could make.
-    await expect(page.getByTestId("document-filter-panel")).toHaveCount(0);
-    await mobileFilterTrigger.click();
-    const filterPanel = page.getByTestId("document-filter-panel");
-    await expect(filterPanel).toBeVisible();
-    await expect(filterPanel.getByRole("radiogroup", { name: "Source locality" })).toBeVisible();
-    await expect(filterPanel.getByRole("radiogroup", { name: "Result type" })).toBeVisible();
-    // Library lives in the sheet footer now, under a rule and below the commit
-    // action. It was first renamed from "Open source filters" â€” it browses, it
-    // does not refine, and the old name made it read as a duplicate of Filter â€”
-    // but renaming treated the symptom. It sat adjacent to Filter in the utility
-    // rail answering a different question and occupied the space the pinned Filter
-    // needs. It was once described here as "the sole reason the phone rail could
-    // overflow at all"; that was measured wrong. With Library gone the rail still
-    // overflowed at every common phone width, because the inline utilities group
-    // was `shrink` â€” see the rail-fit assertion above.
-    const libraryButton = filterPanel.getByRole("button", { name: /Browse all sources/ });
-    await expect(libraryButton).toBeVisible();
-    await expect(libraryButton).toHaveText(/Browse all sources/);
-    await expectMinTouchTarget(libraryButton);
-    await filterPanel.getByTestId("document-filter-panel-done").click();
-    await expect(filterPanel).toHaveCount(0);
-    await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
-    // Asserted as an absence, not merely tolerated: putting Library back on the
-    // rail re-creates the overflow it was moved to remove, and both of its new
-    // homes (this sheet, and the zero-result state) preserve the query the way
-    // the rail placement was protecting.
-    await expect(queryRibbon.getByRole("button", { name: "Open source library" })).toHaveCount(0);
-    await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
-    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
-    await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
-    await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
-
-    const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
-    await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("1 table");
-
-    // The three primary actions keep a symmetric 48px footer at every width.
-    // The page preview and inline rank must stay inside the card without forcing
-    // the title or the page itself to overflow.
-    for (const width of [320, 390, 639, 768, 1440, 1920]) {
-      await page.setViewportSize({ width, height: 900 });
-      await expectNoPageHorizontalOverflow(page);
-      const actionGeometry = await documentResults.getByTestId("document-result-actions").evaluate((rail) => {
-        const railStyle = getComputedStyle(rail);
-        const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
-        const firstActionStyle = getComputedStyle(rail.children[0]);
-        const typeProbe = document.createElement("span");
-        typeProbe.style.fontSize = "var(--text-sm)";
-        document.body.append(typeProbe);
-        const expectedActionFontSize = getComputedStyle(typeProbe).fontSize;
-        typeProbe.remove();
-        const card = rail.closest("article")?.getBoundingClientRect();
-        return {
-          display: railStyle.display,
-          widths,
-          actionFontSize: firstActionStyle.fontSize,
-          expectedActionFontSize,
-          actionFontWeight: firstActionStyle.fontWeight,
-          actionDirection: firstActionStyle.flexDirection,
-          cardLeft: card?.left ?? 0,
-          cardRight: card?.right ?? 0,
-          viewportWidth: window.innerWidth,
-        };
-      });
-      expect(actionGeometry.cardLeft).toBeGreaterThanOrEqual(0);
-      expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
-      expect(actionGeometry.display).toBe("grid");
-      expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-      expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
-      expect(actionGeometry.actionDirection).toBe("row");
-      // 600, not 800. The result cards spend hierarchy on size and space rather
-      // than weight (one accent per card), so the action rail reads at the same
-      // semibold as the title above it. Still pinned: an un-weighted action rail
-      // is what this assertion exists to catch.
-      expect(actionGeometry.actionFontWeight).toBe("600");
-      for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
-        await expectMinTouchTarget(action, 48);
-      }
-    }
-    await page.setViewportSize({ width: 390, height: 820 });
-    const openResultLink = documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i });
-    await openResultLink.focus();
-    await expect(openResultLink).toBeFocused();
-    await page.emulateMedia({ forcedColors: "active" });
-    await expect(documentResults.getByTestId("document-result-actions")).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-    await page.emulateMedia({ forcedColors: "none" });
-
-    const rankBox = await documentResults.getByTestId("document-result-rank").boundingBox();
-    const titleBox = await documentResults
-      .getByRole("link", { name: /Result 1: Synthetic lithium monitoring protocol/i })
-      .boundingBox();
-    expect(rankBox).not.toBeNull();
-    expect(titleBox).not.toBeNull();
-    expect(rankBox!.x + rankBox!.width).toBeLessThanOrEqual(titleBox!.x + 1);
-
-    const moreActions = documentResults.getByRole("button", {
-      name: /More actions for Synthetic lithium monitoring protocol/i,
-    });
-    await moreActions.focus();
-    await page.keyboard.press("ArrowDown");
-    const resultMenu = page.getByTestId("document-result-more-menu");
-    await expect(documentResults.getByRole("menu")).toHaveCount(0);
-    const menuBox = await resultMenu.boundingBox();
-    const triggerBox = await moreActions.boundingBox();
-    expect(menuBox).not.toBeNull();
-    expect(triggerBox).not.toBeNull();
-    expect(menuBox!.x).toBeGreaterThanOrEqual(0);
-    expect(menuBox!.y).toBeGreaterThanOrEqual(0);
-    expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
-    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(820);
-    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(triggerBox!.y);
-    await expect(resultMenu.getByRole("menuitem", { name: "Search only this source" })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    const copyCitation = resultMenu.getByRole("menuitem", { name: "Copy citation" });
-    await expect(copyCitation).toBeFocused();
-    await page.evaluate(() => {
-      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
-      Object.defineProperty(document, "execCommand", { configurable: true, value: () => true });
-    });
-    await page.keyboard.press("Enter");
-    await expect(resultMenu.getByRole("menuitem", { name: "Citation copied" })).toBeFocused();
-    await page.keyboard.press("Escape");
-    await expect(moreActions).toBeFocused();
-
-    // Retrieval scope and result refinements now live in one staged panel
-    // rather than competing with a native select in the ribbon.
-    await mobileFilterTrigger.click();
-    const phoneFilterPanel = page.getByTestId("document-filter-panel");
-    const phoneTablesFilter = phoneFilterPanel.getByRole("radio", { name: /Tables/ });
-    if ((await phoneTablesFilter.count()) > 0) {
-      await phoneTablesFilter.click();
-      await expect(phoneTablesFilter).toHaveAttribute("aria-checked", "true");
-      await phoneFilterPanel
-        .getByRole("radiogroup", { name: "Result type" })
-        .getByRole("radio", { name: /^All/ })
-        .click();
-    }
-    await phoneFilterPanel.getByTestId("document-filter-panel-done").click();
-    await expect(phoneFilterPanel).toHaveCount(0);
-    await expect(documentResults).toBeVisible();
-
-    const openDocumentLink = documentResults
-      .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
-      .last();
-    await expect(openDocumentLink).toBeVisible();
-    // Exact viewer target built from mockDemoApi's lithium result (document_id / bestPages[0] /
-    // bestChunkIds[0]): a link to the wrong document, page, or chunk must fail this assertion.
-    await expect(openDocumentLink).toHaveAttribute(
-      "href",
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toHaveCount(0);
-    await expect(documentResults.getByRole("button", { name: /Preview evidence/i })).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await expectNoPageHorizontalOverflow(page);
-
-    // Sort is a segmented group of pressed buttons, not a select: the active
-    // order is readable without opening anything. Exercised here rather than at
-    // 390px because the control is `sm`-and-up â€” the phone assertion above is
-    // that it is hidden; this is the proof it still works where it renders.
-    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
-    await expect(documentSort).toBeVisible();
-    await documentSort.getByRole("button", { name: "Aâ€“Z" }).click();
-    await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await expect(documentSort.getByRole("button", { name: "Aâ€“Z" })).toHaveAttribute("aria-pressed", "true");
-    await documentSort.getByRole("button", { name: "Relevance" }).click();
-
-    // The same panel, reached from the wide-viewport copy of the trigger.
-    const wideFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-wide");
-    await expect(wideFilterTrigger).toBeVisible();
-    // No tap-target assertion here: from `sm` up the ribbon controls are
-    // deliberately `min-h-10` (40px) for fine pointers. The 44px floor is a
-    // phone contract and is asserted on the phone trigger at 390px above.
-    await expect(queryRibbon.getByTestId("document-filter-trigger-phone")).toBeHidden();
-    await wideFilterTrigger.click();
-    const wideFilterPanel = page.getByTestId("document-filter-panel");
-    await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source locality" })).toBeVisible();
-    const dashboardMain = page.locator("main#main-content");
-    const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    // The corpus is now reached from the sheet's footer rather than the rail,
-    // and reaching it dismisses the sheet: browsing is leaving this surface, so
-    // the Sources drawer must not open underneath a filter panel still covering
-    // the results both of them describe.
-    await wideFilterPanel.getByRole("button", { name: /Browse all sources/ }).click();
-    await expect(wideFilterPanel).toHaveCount(0);
-    const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(resultsLibraryDialog).toBeVisible();
-    // Prefer Playwright's focus waiter over a raw activeElement poll â€” Sheet
-    // autofocus can land after lazy DocumentDrawer mount + composer focus=1.
-    await expect(resultsLibraryDialog.getByPlaceholder("Find a document")).toBeFocused({ timeout: 15_000 });
-    const sourceDialogBox = await resultsLibraryDialog.boundingBox();
-    expect(sourceDialogBox).not.toBeNull();
-    expect(sourceDialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
-    expect((sourceDialogBox?.y ?? 0) + (sourceDialogBox?.height ?? 0)).toBeLessThanOrEqual(900);
-    await expect.poll(() => dashboardMain.evaluate((element) => element.scrollTop)).toBe(scrollTopBeforeSources);
-    await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
-    await page.keyboard.press("Escape");
-    await expect(resultsLibraryDialog).toHaveCount(0);
-    // Focus must come back to a real control, never to `body` â€” closing a modal
-    // into nothing strands a keyboard user at the top of the document.
-    //
-    // It lands on the documents options button rather than on whatever opened
-    // the drawer, because the opener is now the sheet's footer control and the
-    // sheet dismisses itself on the way out, so by the time the drawer closes
-    // its opener has unmounted. That is a fallback, not the ideal â€” returning to
-    // the filter trigger would be better â€” but it is a visible, related control
-    // in the same workspace, and it is the app's existing restore target rather
-    // than anything this change introduced.
-    await expect
-      .poll(
-        async () =>
-          page.evaluate(() => {
-            const active = document.activeElement as HTMLElement | null;
-            if (!active || active === document.body) return "body";
-            return active.getAttribute("aria-label") ?? active.tagName;
-          }),
-        { timeout: 15_000 },
-      )
-      .toBe("Open documents options");
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
-  });
-
-  test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    const requestCounts = { documents: 0, jobs: 0, batches: 0, quality: 0 };
-    page.on("request", (request) => {
-      const pathname = new URL(request.url()).pathname;
-      if (pathname === "/api/documents") requestCounts.documents += 1;
-      if (pathname === "/api/ingestion/jobs") requestCounts.jobs += 1;
-      if (pathname === "/api/ingestion/batches") requestCounts.batches += 1;
-      if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
-    });
-
-    // Start on the Documents home rather than switching mode from `/`: the mode
-    // pill no longer changes the page, and a mid-test navigation would reset the
-    // request counts this test exists to measure.
-    await gotoApp(page, "/documents");
-    // waitForDemoDashboardReady looks for "Open answer options"; the actions
-    // trigger is named for the active mode, which is Documents on this route.
-    await expect(visibleQuestionInput(page)).toBeEnabled();
-    await expect(page.getByRole("button", { name: "Open documents options" })).toBeVisible({ timeout: 30_000 });
-    expect(requestCounts).toEqual({ documents: 0, jobs: 0, batches: 0, quality: 0 });
-
-    await openScopeControl(page);
-    await expect.poll(() => requestCounts.documents).toBe(1);
-    expect(requestCounts.jobs).toBe(0);
-    expect(requestCounts.batches).toBe(0);
-    expect(requestCounts.quality).toBe(0);
-    // Escape closes the scope popover but leaves the composer's command dropdown
-    // open, and that dropdown overlays the home actions below it â€” so dismiss the
-    // composer the way a user does, by clicking away from it. Previously this test
-    // switched mode after scoping and the re-render reset the composer for free;
-    // the Documents home is now its own route, so the blur has to be explicit.
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
-    await page
-      .getByRole("main")
-      .getByRole("heading", { name: "Documents" })
-      .first()
-      .click({ position: { x: 2, y: 2 } });
-    // Scope restore can land on the composer + trigger; the command listbox must
-    // stay closed so it cannot cover Start-here actions (Browse library).
-    await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
-
-    await page
-      .getByRole("button", { name: /Browse library/i })
-      .first()
-      .click();
-    await expect.poll(() => requestCounts.documents).toBe(1);
-    expect(requestCounts.jobs).toBe(0);
-    expect(requestCounts.batches).toBe(0);
-    expect(requestCounts.quality).toBe(0);
-  });
-
-  test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
-
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
-    await expect(page.getByTestId("tools-hub")).toBeVisible();
-    const queryRibbon = page.getByTestId("tools-hub").getByTestId("search-query-ribbon");
-    await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
-    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
-      "Medication Prescribing",
-    );
-    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
-    const detailsButton = page
-      .getByTestId("tools-hub")
-      .getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-    await detailsButton.click();
-    await expect(
-      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
-    ).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("services shortlist exposes comparison only when requested", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/services?q=mental%20health&focus=1&run=1");
-
-    const navigator = page.getByRole("main");
-    await expect(navigator).toBeVisible();
-    await expect(navigator.getByRole("button", { name: "Edit" })).toHaveCount(0);
-    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
-    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
-
-    // The compact rail is progressive: it tracks shortlist state rather than
-    // standing there as an always-on four-card walkthrough (ledger #163).
-    const progress = navigator.getByRole("navigation", { name: "Referral progress" });
-    const currentStage = progress.locator('[aria-current="step"]');
-    await expect(currentStage).toHaveText("Search");
-
-    const addButtons = navigator.getByRole("button", { name: /Add .* to shortlist/ });
-    await addButtons.nth(0).click();
-    const shortlist = navigator.getByTestId("services-shortlist-bar");
-    await expect(shortlist).toContainText("1 shortlisted");
-    await expect(shortlist.getByRole("button", { name: "Compare" })).toBeDisabled();
-    await expect(currentStage).toHaveText("Shortlist");
-
-    await addButtons.nth(1).click();
-    await expect(shortlist).toContainText("2 shortlisted");
-    await shortlist.getByRole("button", { name: "Compare" }).click();
-    await expect(navigator.getByTestId("services-comparison")).toBeVisible();
-    await expect(currentStage).toHaveText("Compare");
-
-    await shortlist.getByRole("button", { name: "Clear" }).click();
-    await expect(navigator.getByTestId("services-shortlist-bar")).toHaveCount(0);
-    await expect(navigator.getByTestId("services-comparison")).toHaveCount(0);
-    await expect(currentStage).toHaveText("Search");
-  });
-
-  test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await gotoApp(page, "/documents/search?mode=documents");
-    const questionInput = visibleQuestionInput(page);
-    await expect(questionInput).toBeVisible();
-    await waitForReactEventHandler(questionInput, "onChange");
-
-    await questionInput.fill("what is the best coffee machine for my kitchen");
-    await submitDocumentSearch(page);
-    await expect(page).toHaveURL(/\/documents\/search\?/);
-    await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    // Still a heading, deliberately: #1612 promoted this state's title to `h3`
-    // because it owns its region, and the move to the shared empty state must
-    // not quietly demote it back to a paragraph. Only the copy changed â€” the
-    // shared state names the query that found nothing.
-    await expect(
-      page.getByRole("heading", { level: 3, name: /No matches for .what is the best coffee machine/ }).first(),
-    ).toBeVisible();
-
-    const demoDocId = "11111111-1111-4111-8111-111111111111";
-    await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
-    await expect(page).toHaveURL(/chunk=44444444-4444-4444-8444-444444444442/);
-    await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
-      "Escalate review when there is vomiting",
-    );
-    // Citation landing keeps the indexed dump collapsed so the PDF stays primary.
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
-    await page.getByTestId("inspect-indexed-text").click();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
-    await expect(
-      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
-    ).toHaveJSProperty("open", true);
-
-    // The fixed document composer is the single search owner; the indexed-text
-    // disclosure must not duplicate a large search field inside its content.
-    await page.getByRole("button", { name: "Search document" }).click();
-    const sourceSearch = page.getByRole("textbox", { name: "Search within this document" });
-    await expect(page.getByLabel("Search within indexed source text")).toHaveCount(0);
-    await waitForReactEventHandler(sourceSearch, "onChange");
-    await sourceSearch.fill("safety plan include");
-    const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
-    await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
-    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
-    const initialActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
-    await expect(initialActiveHit).toHaveJSProperty("open", true);
-    const initialActiveHitId = await initialActiveHit.getAttribute("data-source-chunk-id");
-    expect(initialActiveHitId).toBeTruthy();
-    const initialActiveDisclosure = desktopTextPanel.locator(`details[data-source-chunk-id="${initialActiveHitId}"]`);
-    const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
-    const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
-    await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
-    await expect(previousHit).toHaveText("");
-    await expect(nextHit).toHaveAttribute("title", "Next document search hit");
-    await expect(nextHit).toHaveText("");
-    await nextHit.click();
-    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
-    const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
-    await expect(nextActiveHit).toHaveJSProperty("open", true);
-    await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
-    await page.getByRole("button", { name: "Close document search" }).click();
-    await expect(sourceSearch).toHaveCount(0);
-    await expect(desktopTextPanel.getByText("Hit 2 of 2")).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document viewer hydrates once and signs downloads only on demand @critical", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-
-    const documentId = "11111111-1111-4111-8111-111111111111";
-    const browserDetailRequests: string[] = [];
-    const setupRequests: string[] = [];
-    const signedUrlRequests: Array<"preview" | "download"> = [];
-    page.on("request", (request) => {
-      const url = new URL(request.url());
-      if (url.pathname === `/api/documents/${documentId}`) browserDetailRequests.push(request.url());
-      if (url.pathname === "/api/setup-status") setupRequests.push(request.url());
-    });
-    await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
-      const url = new URL(route.request().url());
-      const id = url.pathname.split("/").at(-2) ?? "";
-      const document = getDemoDocument(id);
-      if (!document) {
-        await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
-        return;
-      }
-      const requestKind = url.searchParams.get("download") === "true" ? "download" : "preview";
-      signedUrlRequests.push(requestKind);
-      if (requestKind === "download") await new Promise((resolve) => setTimeout(resolve, 250));
-      await route.fulfill({
-        json: { url: document.storage_path, fileType: document.file_type, demoMode: true },
-      });
-    });
-
-    await gotoApp(page, `/documents/${documentId}?page=1&chunk=44444444-4444-4444-8444-444444444442`);
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
-    await expect(page.getByTestId("source-chunk-indexed-text-panel")).toHaveCount(1);
-    await expect.poll(() => signedUrlRequests.filter((kind) => kind === "preview").length).toBe(1);
-    expect(browserDetailRequests).toHaveLength(0);
-    expect(setupRequests).toHaveLength(0);
-    expect(signedUrlRequests.filter((kind) => kind === "download")).toHaveLength(0);
-
-    const downloadButton = page.getByRole("button", { name: "Download", exact: true });
-    await expect(downloadButton).toBeEnabled();
-    await downloadButton.dblclick();
-    await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
-  });
-
-  test("document frame stretches the canvas owner at phone and desktop", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 720 });
-    await mockDemoApi(page);
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-
-    const canvasOwner = page.getByTestId("pdf-canvas-owner");
-    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
-    await expectDocumentOwnerFillsFrame(page, canvasOwner);
-
-    // There is one reader. The browser-engine iframe was removed because the
-    // production CSP (`default-src 'self'`, no frame-src) refuses a cross-origin
-    // frame; it only ever rendered against this same-origin demo corpus.
-    await expect(page.locator("iframe")).toHaveCount(0);
-
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await expectDocumentOwnerFillsFrame(page, canvasOwner);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 720 });
-    // iOS Safari cannot fullscreen a plain document element, so production
-    // takes the fixed in-app fallback there. Exercise that exact path instead
-    // of letting Chromium's native fullscreen top layer hide stacking bugs.
-    await page.addInitScript(() => {
-      Object.defineProperty(Element.prototype, "requestFullscreen", {
-        configurable: true,
-        value: () => Promise.reject(new Error("fullscreen blocked by test")),
-      });
-    });
-    await mockDemoApi(page);
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-
-    const evidence = page.locator('[data-testid="pinned-source-evidence"]:visible').first();
-    const preview = page.getByTestId("pdf-preview");
-    const toolbar = page.getByTestId("document-frame-controls");
-    const pdfScroller = page.getByTestId("pdf-canvas-scroll");
-    // Phone owns section navigation via the title disclosure + sheet, not the
-    // retired in-flow "Document viewer sections" link row.
-    const sectionTrigger = page.getByTestId("document-section-trigger");
-    const openSection = async (label: RegExp) => {
-      await revealPhoneHeaderControl(page, sectionTrigger);
-      await sectionTrigger.click();
-      const sheet = page.getByTestId("document-section-sheet");
-      await expect(sheet).toBeVisible();
-      const row = sheet.getByRole("button", { name: label });
-      await waitForReactEventHandler(row, "onClick");
-      await activateFocusedControl(page, row);
-      await expect(sheet).toHaveCount(0);
-    };
-
-    await expect(evidence).toBeVisible();
-    await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
-    await expect(page.locator("#source-text")).toBeVisible();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
-    await expect(page.getByTestId("inspect-indexed-text")).toBeVisible();
-    await expect(sectionTrigger).toBeVisible();
-    await revealPhoneHeaderControl(page, sectionTrigger);
-    await sectionTrigger.click();
-    const sectionSheet = page.getByTestId("document-section-sheet");
-    await expect(sectionSheet.getByRole("button", { name: /Cited excerpt/ })).toBeVisible();
-    await expect(sectionSheet.getByRole("button", { name: /PDF preview/ })).toBeVisible();
-    await expect(sectionSheet.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
-    const mobileDensityToggle = sectionSheet.getByTestId("document-view-density-toggle");
-    await expect(mobileDensityToggle).toHaveAttribute("aria-pressed", "true");
-    await expect(mobileDensityToggle).toHaveAccessibleName("Show full document content");
-    await page.keyboard.press("Escape");
-    await expect(sectionSheet).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
-    await expect(preview).toBeVisible();
-    await expect(toolbar).toBeVisible({ timeout: 30000 });
-    // Phones reach the lower-frequency view actions through the toolbar overflow;
-    // sm+ shows them inline. The toolbar is mounted before pdf.js finishes
-    // painting, so wait for a control to enable before dispatching a pointer.
-    const overflow = page.getByTestId("document-frame-overflow");
-    // Prefer the accessible name over role: a bare <summary> under role="toolbar"
-    // was exposed as generic in Chromium (CI tip 23dfb955), so button queries hung.
-    const overflowToggle = overflow.getByLabel("More viewing options");
-    const openOverflow = async () => {
-      await overflowToggle.click();
-    };
-    // At 320px Zoom in lives only inside the overflow menu (inline from 380px).
-    await openOverflow();
-    await expect(overflow.getByRole("button", { name: "Zoom in" })).toBeEnabled({ timeout: 30000 });
-    // Toggle the summary closed so later openOverflow() calls start from closed.
-    await overflowToggle.click();
-    await expect(pdfScroller.locator("canvas")).toBeVisible();
-
-    await expectDomIntegrity(page);
-
-    const evidenceBox = await evidence.boundingBox();
-    const previewBox = await preview.boundingBox();
-    const indexedTextHeading = page
-      .getByTestId("source-chunk-indexed-text-panel")
-      .getByRole("heading", { name: "Indexed source text", exact: true });
-    const indexedTextBox = await indexedTextHeading.boundingBox();
-    const imagesBox = await page.getByRole("heading", { name: "Tables and diagrams" }).boundingBox();
-
-    expect(evidenceBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(indexedTextBox).not.toBeNull();
-    expect(imagesBox).not.toBeNull();
-    expect(previewBox!.y).toBeLessThan(evidenceBox!.y);
-    expect(evidenceBox!.height).toBeLessThan(640);
-    expect(previewBox!.y).toBeLessThan(indexedTextBox!.y);
-    expect(indexedTextBox!.y).toBeLessThan(imagesBox!.y);
-
-    const passageToggle = page.getByTestId("toggle-full-passage").first();
-    await expect(passageToggle).toHaveText("Full passage");
-    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
-    // Keyboard activation is intentional here: pdf.js can resize the canvas
-    // while Firefox is calculating pointer coordinates, but a focused native
-    // button must keep its expand/collapse behavior through that layout shift.
-    await activateFocusedControl(page, passageToggle);
-    await expect(passageToggle).toHaveText("Collapse");
-    await expect(passageToggle).toHaveAttribute("aria-expanded", "true");
-    const expandedEvidenceBox = await evidence.boundingBox();
-    expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
-    await activateFocusedControl(page, passageToggle);
-    await expect(passageToggle).toHaveText("Full passage");
-    await expect(passageToggle).toHaveAttribute("aria-expanded", "false");
-    const collapsedEvidenceBox = await evidence.boundingBox();
-    expect(collapsedEvidenceBox?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(expandedEvidenceBox!.height);
-    await openSection(/PDF preview/);
-    await expect(preview).toBeInViewport();
-    await openSection(/Indexed source text/);
-    await expect(indexedTextHeading).toBeInViewport();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
-    await expect(
-      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
-    ).toBeVisible();
-    await openSection(/PDF preview/);
-    await expect(preview).toBeInViewport();
-
-    const mobilePdfStyles = await toolbar.evaluate((element) => ({
-      position: window.getComputedStyle(element).position,
-    }));
-    // Overflow dropdown anchors on the relative <details> wrapper; the toolbar
-    // itself stays in normal flow (static) so mobile PDF chrome does not create
-    // a sticky/fixed positioning context over the document.
-    expect(mobilePdfStyles.position).toBe("static");
-
-    await expect(pdfScroller).toBeVisible();
-    await openOverflow();
-    await overflow.getByRole("button", { name: "Fullscreen" }).click();
-    const fullscreenRootStyles = await page.getByTestId("document-frame").evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      const bounds = element.getBoundingClientRect();
-      const topOwner = document.elementFromPoint(window.innerWidth / 2, 1);
-      return {
-        position: style.position,
-        height: style.height,
-        bounds: {
-          left: Math.round(bounds.left),
-          top: Math.round(bounds.top),
-          right: Math.round(bounds.right),
-          bottom: Math.round(bounds.bottom),
-        },
-        ownsTopEdge: Boolean(topOwner && element.contains(topOwner)),
-      };
-    });
-    expect(fullscreenRootStyles.position).toBe("fixed");
-    expect(fullscreenRootStyles.bounds).toEqual({ left: 0, top: 0, right: 320, bottom: 720 });
-    expect(fullscreenRootStyles.ownsTopEdge).toBe(true);
-    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
-    const exitFullscreen = page.getByRole("button", { name: "Exit fullscreen document view" });
-    await expect(exitFullscreen).toBeVisible();
-    await expect(exitFullscreen).toBeFocused();
-    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    await expect(exitFullscreen).toBeVisible();
-    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
-    await exitFullscreen.click();
-    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
-
-    // A rejected desktop Fullscreen API request uses the same fallback. It must
-    // still suppress app chrome, cover the resized viewport, and leave through
-    // the keyboard Escape path without requiring the phone overflow menu.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const enterFullscreen = page.getByRole("button", { name: "Enter fullscreen document view" });
-    await expect(enterFullscreen).toBeVisible();
-    await enterFullscreen.click();
-    await expect(page.locator("#search")).toHaveCSS("visibility", "hidden");
-    await expect(page.getByTestId("document-frame")).toHaveAttribute("data-fullscreen-fallback", "on");
-    await expect(page.getByTestId("document-frame")).toHaveCSS("position", "fixed");
-    const fullscreenBounds = await page.getByTestId("document-frame").boundingBox();
-    expect(fullscreenBounds).not.toBeNull();
-    expect({
-      x: Math.round(fullscreenBounds!.x),
-      y: Math.round(fullscreenBounds!.y),
-      width: Math.round(fullscreenBounds!.width),
-      height: Math.round(fullscreenBounds!.height),
-    }).toEqual({ x: 0, y: 0, width: 1280, height: 900 });
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("document-frame")).not.toHaveAttribute("data-fullscreen");
-    await expect(page.locator("#search")).not.toHaveCSS("visibility", "hidden");
-    await page.setViewportSize({ width: 320, height: 720 });
-
-    const fitWidthScrollStyles = await pdfScroller.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      return {
-        overflowX: style.overflowX,
-        touchAction: style.touchAction,
-      };
-    });
-    expect(fitWidthScrollStyles.overflowX).toBe("hidden");
-    expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
-
-    // Exercise the independent actions sheet last. Its portal/focus teardown
-    // causes a deferred root commit in Firefox; no subsequent target should be
-    // selected against the pre-teardown layout.
-    const openDocumentActions = page.getByRole("button", { name: "Open document actions" }).first();
-    await scrollPrimarySurface(page, 0);
-    await expect(openDocumentActions).toBeInViewport();
-    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByRole("link", { name: "Add this document to scope" })).toHaveCount(0);
-    await openDocumentActions.click();
-    const documentActions = page.getByRole("dialog", { name: "This document" });
-    await expect(documentActions).toBeVisible();
-    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "true");
-    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toHaveCount(0);
-    await documentActions.getByRole("button", { name: "Search document" }).click();
-    const composer = page.locator("form.document-viewer-composer");
-    await expect(composer).toBeVisible();
-    await openDocumentActions.click();
-    await expect(documentActions).toBeVisible();
-    const composerBox = await composer.boundingBox();
-    expect(composerBox).not.toBeNull();
-    const sheetOwnsComposerPoint = await documentActions.evaluate(
-      (dialog, point) => dialog.contains(document.elementFromPoint(point.x, point.y)),
-      { x: composerBox!.x + composerBox!.width / 2, y: composerBox!.y + composerBox!.height / 2 },
-    );
-    expect(sheetOwnsComposerPoint).toBe(true);
-    await tapOutsideActiveSurface(page);
-    await expect(documentActions).toHaveCount(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document viewer smart summary is structured with badges and demoted indexing details", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
-
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
-      timeout: 30_000,
-    });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
-    await expect(clinicalSummary).toBeVisible();
-    await expect(clinicalSummary.getByRole("heading", { name: "Clinical priorities" })).toBeVisible();
-    const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
-    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "false");
-    const densityToggle = page.getByTestId("document-section-index").getByTestId("document-view-density-toggle");
-    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
-    await densityToggle.click();
-    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
-    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("heading", { name: "Key sections", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Useful pages", exact: true })).toHaveCount(0);
-    const summaryCard = page.getByTestId("high-yield-summary");
-    await expect(summaryCard).toBeVisible();
-    await expect(summaryCard).toHaveJSProperty("open", false);
-    await summaryCard.getByText("High-yield summary", { exact: true }).click();
-    await expect(summaryCard).toHaveJSProperty("open", true);
-    // Smart summary: badge cluster from labels + detected phrases, structured
-    // sections, and no document-header boilerplate leaking through.
-    await expect(summaryCard.getByText("Narrow therapeutic index", { exact: true })).toBeVisible();
-    await expect(summaryCard.getByTestId("formatted-high-yield-summary")).toBeVisible();
-    await expect(summaryCard).not.toContainText("Reference #");
-    await expect(summaryCard).not.toContainText("Service/Department/Unit");
-
-    // The old meta-only "Document details" card is gone; indexing metadata is
-    // demoted behind a collapsed disclosure at the bottom of the sidebar.
-    await expect(page.getByText("Document details", { exact: true })).toHaveCount(0);
-    const indexingDetails = page.getByTestId("indexing-details");
-    await expect(indexingDetails).toBeVisible();
-    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeHidden();
-    await indexingDetails.getByText("Indexing details", { exact: true }).click();
-    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeVisible();
-
-    await expectDomIntegrity(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document source text accordion stays compact at 320, 390, and 1280 pixels", async ({ page }) => {
-    await mockDemoApi(page);
-    for (const width of [320, 390, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
-      await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
-        timeout: 30_000,
-      });
-
-      const indexedText = page.locator("#source-text");
-      const pageText = indexedText.getByTestId("indexed-page-text-disclosure");
-      const passages = indexedText.locator("details[data-source-chunk-id]");
-      await expect(indexedText).toHaveJSProperty("open", false);
-      await expect(passages).toHaveCount(2);
-      for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
-        await expect(disclosure).toHaveJSProperty("open", false);
-      }
-
-      await indexedText.locator("summary").first().click();
-      await expect(indexedText).toHaveJSProperty("open", true);
-      await passages.nth(0).locator("summary").click();
-      await expect(passages.nth(0)).toHaveJSProperty("open", true);
-      await expect(passages.nth(1)).toHaveJSProperty("open", false);
-      await passages.nth(1).locator("summary").click();
-      await expect(passages.nth(1)).toHaveJSProperty("open", true);
-      await expect(passages.nth(0)).toHaveJSProperty("open", false);
-      await expectNoPageHorizontalOverflow(page);
-    }
-  });
-
-  test("document viewer content disclosures are naturally closed and mutually exclusive by default", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
-
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
-      timeout: 30_000,
-    });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
-    const summaryToggle = clinicalSummary.getByTestId("toggle-document-summary");
-    await expect(clinicalSummary).toBeVisible();
-    await expect(summaryToggle).toBeVisible();
-    await expect(summaryToggle).toHaveAttribute("aria-expanded", "false");
-    await summaryToggle.click();
-    await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(summaryToggle).toContainText("Show less");
-    await clinicalSummary.getByTestId("open-clinical-priorities").click();
-    const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
-    await expect(prioritiesSheet).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(prioritiesSheet).toHaveCount(0);
-    const indexedText = page.locator("#source-text");
-    const summary = page.getByTestId("high-yield-summary");
-    const images = page.locator("#source-images");
-    const indexingDetails = page.getByTestId("indexing-details");
-    const pageText = indexedText.getByTestId("indexed-page-text-disclosure");
-    const passages = indexedText.locator("details[data-source-chunk-id]");
-    const sectionTrigger = page.getByTestId("document-section-trigger");
-    const clickSectionNav = async (label: RegExp) => {
-      await revealPhoneHeaderControl(page, sectionTrigger);
-      await sectionTrigger.click();
-      const sheet = page.getByTestId("document-section-sheet");
-      await expect(sheet).toBeVisible();
-      const row = sheet.getByRole("button", { name: label });
-      await waitForReactEventHandler(row, "onClick");
-      await activateFocusedControl(page, row);
-      await expect(sheet).toHaveCount(0);
-    };
-    // Demo docs with no extracted visuals omit Images from the section sheet;
-    // open that disclosure from its own summary so exclusivity still covers
-    // the always-present #source-images details.
-    const openImagesDisclosure = async () => {
-      await images.locator("summary").click();
-      await expect(images).toHaveJSProperty("open", true);
-    };
-
-    await expect(indexedText).toBeVisible();
-    await expect(indexedText).toHaveJSProperty("open", false);
-    await expect(passages).toHaveCount(2);
-    for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
-      await expect(disclosure).toHaveJSProperty("open", false);
-    }
-    await revealPhoneHeaderControl(page, sectionTrigger);
-    await sectionTrigger.click();
-    const densitySheet = page.getByTestId("document-section-sheet");
-    const densityToggle = densitySheet.getByTestId("document-view-density-toggle");
-    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
-    await waitForReactEventHandler(densityToggle, "onClick");
-    await activateFocusedControl(page, densityToggle);
-    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
-    await expect(indexedText).toHaveJSProperty("open", true);
-    await activateFocusedControl(page, densityToggle);
-    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
-    await expect(indexedText).toHaveJSProperty("open", false);
-    await page.keyboard.press("Escape");
-    await expect(densitySheet).toHaveCount(0);
-    for (const disclosure of [summary, images, indexingDetails]) {
-      await expect(disclosure).toHaveJSProperty("open", false);
-    }
-
-    const summaryContent = summary.getByTestId("formatted-high-yield-summary");
-    await expect(summaryContent).toBeHidden();
-    await openImagesDisclosure();
-    await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
-    await expect(indexedText).toHaveJSProperty("open", true);
-    await expect(pageText).toHaveJSProperty("open", true);
-    await expect(passages.nth(0)).toHaveJSProperty("open", true);
-    await expect(passages.nth(1)).toHaveJSProperty("open", true);
-    await page.emulateMedia({ media: "print" });
-    await expect(summaryContent).toBeVisible();
-    await page.emulateMedia({ media: "screen" });
-    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
-    await expect(summaryContent).toBeHidden();
-    await expect(images).toHaveJSProperty("open", true);
-    await expect(indexedText).toHaveJSProperty("open", false);
-    await expect(pageText).toHaveJSProperty("open", false);
-    await expect(passages.nth(0)).toHaveJSProperty("open", false);
-    await expect(passages.nth(1)).toHaveJSProperty("open", false);
-
-    await clickSectionNav(/Indexed source text/);
-    await expect(indexedText).toBeInViewport();
-    await expect(indexedText).toHaveJSProperty("open", true);
-    await expect(images).toHaveJSProperty("open", false);
-    await passages.nth(0).locator("summary").click();
-    await expect(passages.nth(0)).toHaveJSProperty("open", true);
-    await passages.nth(1).locator("summary").click();
-    await expect(passages.nth(1)).toHaveJSProperty("open", true);
-    await expect(passages.nth(0)).toHaveJSProperty("open", false);
-
-    await clickSectionNav(/High-yield summary/);
-    // At this 390px viewport the rail's high-yield-summary disclosure is
-    // hidden (superseded by the in-flow DocumentClinicalSummary card), so
-    // there is nothing for the exclusive accordion to open here â€”
-    // jumpToDocumentSection scrolls to the visible copy instead.
-    await expect(page.locator("#source-summary-card")).toBeInViewport();
-    await expect(summary).toHaveJSProperty("open", false);
-    await expect(indexedText).toHaveJSProperty("open", false);
-
-    await openImagesDisclosure();
-    await expect(images).toHaveJSProperty("open", true);
-    await expect(summary).toHaveJSProperty("open", false);
-
-    await indexingDetails.getByText("Indexing details", { exact: true }).click();
-    await expect(indexingDetails).toHaveJSProperty("open", true);
-    await expect(images).toHaveJSProperty("open", false);
-
-    await expectDomIntegrity(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("answer glass header overlays main and fully hides while scrolling on phones", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await gotoApp(page, "/?mode=answer");
-
-    const header = page.locator("header.universal-header");
-    await expect(header).toBeVisible();
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-    // Browser-mode phones attach the overlay to the visual viewport so Safari
-    // can use document scrolling. Installed standalone mode uses the compiled
-    // absolute-to-frame override covered by the dedicated PWA contract test.
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("fixed");
-    const main = page.locator("main#main-content");
-    const reserve = await main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingTop));
-    const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
-    expect(Math.abs(reserve - headerHeight)).toBeLessThanOrEqual(2);
-
-    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "header-hide-scroll-spacer" });
-    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
-    // Step the active document owner so the dashboard reporter sees deliberate movement.
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-
-    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-    await expect
-      .poll(async () =>
-        header.evaluate((node) => {
-          const rect = node.getBoundingClientRect();
-          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
-        }),
-      )
-      .toBe(0);
-    // The scrim tail (taller than the bar) may leave only a whisper at the top
-    // edge while hidden â€” bound it so it can't grow into a visible band.
-    const scrimBottom = await page
-      .locator(".edge-glass-header-backdrop")
-      .evaluate((node) => node.getBoundingClientRect().bottom);
-    expect(scrimBottom).toBeLessThanOrEqual(34);
-
-    // Any deliberate scroll up slides the glass bar back in.
-    for (const offset of [160, 120, 60]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-  });
-
-  test("private-scope alert stays reachable while the answer view scrolls", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    // An unauthenticated session with a routed private-scope ref resolves to
-    // privateScopeStatus="unavailable", which renders the recovery alert.
-    await gotoApp(page, "/?mode=answer&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
-
-    const alert = page.getByTestId("private-scope-unavailable");
-    await expect(alert).toBeVisible({ timeout: 15000 });
-
-    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
-    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
-    for (const offset of [80, 160, 260, 380]) {
-      await scrollPrimarySurface(page, offset);
-    }
-
-    // Sticky inside <main>: the recovery actions must remain on-screen (they
-    // used to scroll away with content, stranding the user mid-thread).
-    await expect(alert).toBeVisible();
-    const box = await alert.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.y).toBeLessThanOrEqual(200);
-  });
-
-  test("private-scope alert clears the revealed phone header outside the answer view", async ({ page }) => {
-    // Reachable is not the same as visible. The alert is `sticky` inside <main>
-    // with `z-20`, while the phone header owns `z-30` at the viewport top, so an
-    // offset that assumes the header is out of the way leaves the recovery
-    // buttons underneath it. Measured 35px of the alert obscured before this
-    // guard, on a probe shorter than the real two-line alert. It predates phone
-    // overlay motion â€” a header pinned by `position: sticky` covered it exactly
-    // as much as the fixed overlay does â€” so assert the geometry, not the
-    // mechanism, and do it on a non-answer mode where the offset differs.
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents?scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
-
-    const alert = page.getByTestId("private-scope-unavailable");
-    await expect(alert).toBeVisible({ timeout: 15000 });
-
-    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
-    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
-
-    // Hide the chrome, then bring it back â€” the state that puts a full-height
-    // header over a sticky alert. Assert the hide, not just the reveal: if
-    // hide-on-scroll stopped firing the chrome would never leave, the upward
-    // scrolls would still end revealed, and the overlap check below would pass
-    // without ever exercising the state it exists to cover.
-    const collapse = page.getByTestId("universal-header-collapse");
-    for (const offset of [80, 160, 260, 380]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
-
-    for (const offset of [300, 240, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect(alert).toBeVisible();
-
-    const overlap = await page.evaluate(() => {
-      const node = document.querySelector('[data-testid="private-scope-unavailable"]');
-      const stack = document.querySelector(".phone-sticky-header-stack");
-      // Throw rather than return a sentinel: a negative number satisfies the
-      // `<= 1` assertion below, so a missing element would report a passing
-      // overlap contract that was never measured.
-      if (!(node instanceof HTMLElement) || !(stack instanceof HTMLElement)) {
-        throw new Error("private-scope alert overlap: the alert or the phone header stack was not rendered");
-      }
-      const a = node.getBoundingClientRect();
-      const h = stack.getBoundingClientRect();
-      return Math.max(0, Math.min(a.bottom, h.bottom) - Math.max(a.top, h.top));
-    });
-    expect(overlap, "the revealed phone header must not cover the recovery alert").toBeLessThanOrEqual(1);
-  });
-
-  test("answer glass header hides and returns on desktop widths too", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 860 });
-    await gotoApp(page, "/?mode=answer");
-
-    const header = page.locator("header.universal-header");
-    await expect(header).toBeVisible();
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
-
-    const main = page.locator("main#main-content");
-    await waitForReactEventHandler(main, "onScroll");
-    await main.evaluate((node) => {
-      const spacer = document.createElement("div");
-      spacer.style.height = "2400px";
-      node.appendChild(spacer);
-    });
-    for (const offset of [40, 90, 150, 220, 300]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
-
-    for (const offset of [250, 200, 140]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-  });
-
-  test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
-
-    const header = page.locator("header.universal-header");
-    const collapseHost = page.getByTestId("universal-header-collapse");
-    await expect(header).toBeVisible();
-    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    // Non-answer modes keep the header in flow â€” their sm+ composer renders
-    // beneath it, which the absolute answer-mode overlay would bury.
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
-
-    const main = page.locator("main#main-content");
-    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
-    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-
-    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-    await expect
-      .poll(async () =>
-        header.evaluate((node) => {
-          const rect = node.getBoundingClientRect();
-          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
-        }),
-      )
-      .toBe(0);
-
-    // A descendant may become the active scroller. Its near-zero offset must
-    // establish a new baseline rather than looking like a large upward gesture
-    // relative to the deeply scrolled main container.
-    await main.evaluate(async (node) => {
-      const nested = document.createElement("div");
-      nested.dataset.testid = "nested-scroll-intent-source";
-      nested.style.height = "40px";
-      nested.style.overflowY = "auto";
-      const content = document.createElement("div");
-      content.style.height = "200px";
-      nested.appendChild(content);
-      node.appendChild(nested);
-      nested.scrollTop = 4;
-      nested.dispatchEvent(new Event("scroll"));
-      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    });
-    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-
-    // At the bottom, collapsing the in-flow header can reflow the scroll
-    // surface and clamp scrollTop. That geometry-driven event is not an upward
-    // user gesture and must not immediately reveal the header. The collapse
-    // -budget gate refuses to START a hide at the bottom edge (that is the
-    // #964 "locks to the bottom" trap), so hide with runway remaining first,
-    // then ride the clamp to the bottom while hidden.
-    await scrollPrimarySurface(page, 0);
-    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    const visibleMaxOffset = (await readPrimaryScrollGeometry(page)).maxScrollTop;
-    await scrollPrimarySurface(page, visibleMaxOffset - 400);
-    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-    await scrollPrimarySurface(page, "end");
-    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-    await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
-    // The hidden attribute flips before the 240ms grid-row transition has
-    // released the header's layout space. Wait for rendered geometry so this
-    // assertion cannot race the animation on faster or slower CI runners.
-    await expect
-      .poll(async () =>
-        header.evaluate((node) => {
-          const rect = node.getBoundingClientRect();
-          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
-        }),
-      )
-      .toBe(0);
-    // A deliberate upward gesture reveals the chrome again. Use two separated
-    // steps, each yielding frames: on a starved CI renderer a single upward
-    // write can coalesce into the trailing bottom-clamp evaluation and be
-    // rebased away as geometry feedback. A real drag always emits follow-up
-    // events, and the second step is a clean upward delta past reveal intent.
-    const settledBottomOffset = (await readPrimaryScrollGeometry(page)).scrollTop;
-    for (const rise of [24, 48]) {
-      await scrollPrimarySurface(page, Math.max(0, settledBottomOffset - rise));
-    }
-    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-  });
-
-  test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockDemoApi(page);
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
-    const composer = page.locator("form.document-viewer-composer");
-    await page.getByRole("button", { name: "Open document actions" }).click();
-    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
-    await expect(composer).toBeVisible();
-    await composer.locator("input").evaluate((element) => element.blur());
-    // The chunk deep link intentionally scrolls the highlighted passage into
-    // view, which can initially hide the phone composer. Returning to the top
-    // must restore it before the explicit hide-on-scroll checks below.
-    await scrollPrimarySurface(page, 0);
-    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
-    });
-    const viewerContent = page.getByTestId("document-viewer-content");
-    const main = page.locator("#main-content");
-    // DocumentViewer owns the floating dock. The shell must keep only a tiny
-    // pad even when Safari's toolbar inset is large â€” otherwise #932's
-    // max(2rem, --safe-area-bottom) shell reserve recreates the blank band
-    // under the viewer while the viewer itself collapses correctly.
-    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
-    await expect
-      .poll(async () =>
-        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
-      )
-      .toBeGreaterThan(250);
-
-    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "composer-hide-scroll-spacer" });
-    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
-
-    // Hide on deliberate scroll down past the activation offset. The chunk
-    // deep-link effect can finish late in Chromium and move the scrollport once
-    // more, so treat reset + deliberate movement as one retriable action.
-    await expect(async () => {
-      await scrollPrimarySurface(page, 0);
-      await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
-      for (const offset of [40, 80, 120, 160, 200]) {
-        await scrollPrimarySurface(page, offset);
-      }
-      await expect(composer).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
-    }).toPass({ timeout: 15_000 });
-    await expect
-      .poll(async () =>
-        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
-      )
-      .toBeLessThanOrEqual(13);
-    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
-
-    // Reappear on scroll up.
-    await scrollPrimarySurface(page, 60);
-    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect
-      .poll(async () =>
-        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
-      )
-      .toBeGreaterThan(250);
-    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
-
-    // Keyboard focus inside the composer reveals it while hidden.
-    await scrollPrimarySurface(page, 240);
-    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
-    await composer.locator("input").focus();
-    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect
-      .poll(async () =>
-        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
-      )
-      .toBeGreaterThan(250);
-    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
-
-    await scrollPrimarySurface(page, 0);
-    await composer.getByRole("button", { name: "Close document search" }).click();
-    await expect(composer).toHaveCount(0);
-    await expect(viewerContent).toHaveAttribute("data-phone-footer-owner", "none");
-    await expect
-      .poll(async () =>
-        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
-      )
-      .toBeLessThanOrEqual(13);
-  });
-
-  test("document search stays separate from the shared answer stream and summary action", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
-    let legacySummaryRequestCount = 0;
-    page.on("request", (request) => {
-      if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
-        legacySummaryRequestCount += 1;
-      }
-    });
-    await mockDemoApi(page, {
-      onAnswerRequest: (query, scope) =>
-        answerRequests.push({ query, documentId: scope.documentId, summaryMode: scope.summaryMode }),
-      answerOverride: (query, documentId, documentIds) => ({
-        ...demoAnswer(query, documentId, documentIds),
-        answer:
-          "Key practical points: **clozapine** monitoring requires regular FBC/ANC checks and review of constipation, myocarditis symptoms, metabolic risk, and missed-dose restart rules.",
-      }),
-    });
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-
-    const composer = page.locator("form.document-viewer-composer");
-    await page.getByRole("button", { name: "Open document actions" }).click();
-    await page.getByRole("dialog", { name: "This document" }).getByRole("button", { name: "Search document" }).click();
-    await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
-    await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
-    await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
-    expect(answerRequests).toEqual([]);
-
-    const openDocumentActions = page.getByRole("button", { name: "Open document actions" });
-    await composer.getByRole("button", { name: "Close document search" }).click();
-    await expect(composer).toHaveCount(0);
-    await expect(openDocumentActions).toBeFocused();
-    await openDocumentActions.click();
-    const documentActions = page.getByRole("dialog", { name: "This document" });
-    await documentActions.getByRole("button", { name: "Answer from this", exact: true }).click();
-
-    const generatedSummary = page.getByTestId("generated-clinical-summary");
-    await expect(generatedSummary).toBeVisible();
-    await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
-    // The completed wait prints no visible chrome: the summary card arriving is
-    // the completion signal, and an elapsed time is a timing boast rather than
-    // anything a reader acts on. The announcement survives for screen readers.
-    await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
-    await expect(page.getByTestId("answer-progress").getByRole("status")).toContainText("Answer ready.");
-    await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
-    await expect(generatedSummary).not.toContainText("Key practical points:");
-    await expect(generatedSummary).not.toContainText("**");
-    await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
-
-    // The generated answer deliberately smooth-scrolls into view. Read both
-    // boxes in one browser evaluation so viewport motion cannot corrupt their
-    // relative order between independent Playwright round trips.
-    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
-      summary: '[data-testid="generated-clinical-summary"]',
-      preview: '[data-testid="pdf-preview"]',
-    });
-    expect(answerGeometry.nodes.summary.count).toBe(1);
-    expect(answerGeometry.nodes.preview.count).toBe(1);
-    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
-    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
-    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
-    expect(answerRequests).toEqual([
-      {
-        query: documentSummaryQuestion,
-        documentId: "11111111-1111-4111-8111-111111111111",
-        summaryMode: true,
-      },
-    ]);
-    expect(legacySummaryRequestCount).toBe(0);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document viewer failed preview exposes retry recovery @critical", async ({ page }) => {
-    await page.route("**/api/setup-status**", async (route) => {
-      await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
-    });
-    await page.route(/\/api\/documents\/([^/]+)(?:\?.*)?$/, async (route) => {
-      const url = new URL(route.request().url());
-      const id = url.pathname.split("/").at(-1) ?? "";
-      const payload = getDemoDocumentPayload(id, url.searchParams.get("chunk"));
-      await route.fulfill({ json: { ...payload, demoMode: true } });
-    });
-    await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 503,
-        json: { error: "Source preview could not be loaded." },
-      });
-    });
-    await page.setViewportSize({ width: 390, height: 820 });
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
-
-    await expect(page.getByTestId("pdf-preview").getByText("Source preview could not be loaded.")).toBeVisible({
-      timeout: 30000,
-    });
-    await expect(page.getByRole("button", { name: "Retry preview" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
-    await expectDomIntegrity(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("document viewer missing source state is coherent", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 404,
-        json: { error: "Document not found." },
-      });
-    });
-    await gotoApp(
-      page,
-      "/documents/99999999-9999-4999-8999-999999999999?page=1&chunk=99999999-9999-4999-8999-999999999998",
-    );
-
-    // Missing/unowned documents now resolve through the segment not-found boundary
-    // (page.tsx calls notFound() on PublicApiError 404) instead of DocumentViewer.
-    await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
-      timeout: 30000,
-    });
-    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
-    await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.getByRole("status")).not.toContainText("loading source");
-    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
-    await expectDomIntegrity(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("setup status endpoint returns non-secret checklist state", async ({ request }) => {
-    const response = await request.get("/api/setup-status");
-    expect(response.ok()).toBe(true);
-
-    const payload = await response.json();
-    expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(6);
-    expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
-      "env",
-      "project",
-      "schema",
-      "search",
-      "openai",
-      "worker",
-    ]);
-    expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
-  });
-
-  test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {
-    await page.setViewportSize({ width: 414, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    const setupStatusResponse = await request.get("/api/setup-status");
-    expect(setupStatusResponse.ok()).toBe(true);
-    expect((await setupStatusResponse.json()).demoMode).toBe(true);
-
-    await gotoApp(page, "/");
-    await expect(visibleQuestionInput(page)).toBeVisible();
-
-    await expectDocumentUploadUnavailable(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("demo site does not offer document uploads", async ({ page }) => {
-    await page.setViewportSize({ width: 414, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/");
-
-    await expectDocumentUploadUnavailable(page);
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  for (const viewport of [
-    { name: "mobile", width: 390, height: 820 },
-    { name: "tablet", width: 768, height: 1024 },
-    { name: "desktop", width: 1280, height: 900 },
-  ]) {
-    test(`guide opens and dismisses at ${viewport.name}`, async ({ page }) => {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await mockPrivateUnauthenticatedApi(page);
-      await gotoApp(page, "/");
-
-      const dialog = await openGuide(page);
-      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await page.keyboard.press("Shift+Tab");
-      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await page.keyboard.press("Tab");
-      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
-      await dialog.getByRole("button", { name: "Close guide" }).click();
-      await expect(dialog).toBeHidden();
-      const restoredSettings = accountSettingsDialog(page);
-      await expect(restoredSettings).toBeVisible();
-      await expect(restoredSettings.getByRole("button", { name: "Guide & help", exact: true })).toBeFocused();
-
-      const reopenedDialog = await openGuide(page);
-      if (viewport.width >= 1024) {
-        await tapOutsideActiveSurface(page);
-      } else {
-        await page.keyboard.press("Escape");
-      }
-      await expect(reopenedDialog).toBeHidden();
-      await expectNoPageHorizontalOverflow(page);
-    });
-  }
-
-  test("guide centre topic navigation and tour progress remain accessible", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-
-    const dialog = await openGuide(page);
-    const guideScrollBody = dialog.locator(".polished-scroll");
-    const mobileFooter = dialog.locator("[data-guide-mobile-footer]");
-    const mobileHeader = dialog.locator('[data-sheet-header="true"]');
-    await guideScrollBody.evaluate((element) => {
-      element.scrollTop = 140;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(mobileFooter).toHaveAttribute("aria-hidden", "true");
-    await expect(mobileFooter).toHaveAttribute("inert", "");
-    // Only the dock hides. The pinned header compacts, while "Close guide" and
-    // the view tabs stay reachable however far the reader has scrolled.
-    await expect(mobileHeader).toHaveClass(/guide-centre-header--compact/);
-    await expect(mobileHeader).toHaveAttribute("aria-hidden", "false");
-    await expect(mobileHeader).not.toHaveAttribute("inert");
-    await expect(dialog.getByRole("button", { name: "Close guide" })).toBeVisible();
-
-    /**
-     * The invariant is that a HIDDEN dock is not keyboard-reachable, and the way
-     * to test it is to try to focus it directly. The old tab sweep could not:
-     * tabbing scrolls the container, and a scroll back up legitimately reveals
-     * the dock. Measured 2026-08-19 at 390x820, the very first Tab already put
-     * `scrollTop` at 0 and `aria-hidden` at "false", so the sweep asserted
-     * against a dock that was correctly visible and focusable every time â€” it
-     * failed CI while testing nothing. (It is also why pinning `tabIndex={-1}`
-     * on the dock buttons could not fix it.)
-     */
-    const dockWhileHidden = await mobileFooter.evaluate((element) => {
-      const button = element.querySelector("button");
-      const before = document.activeElement;
-      button?.focus({ preventScroll: true });
-      return {
-        hidden: element.getAttribute("aria-hidden") === "true",
-        inert: element.hasAttribute("inert"),
-        focusMovedIntoDock: element.contains(document.activeElement),
-        focusMovedAtAll: document.activeElement !== before,
-      };
-    });
-    // Guard the guard: a dock that was not hidden would make the rest vacuous.
-    expect(dockWhileHidden.hidden).toBe(true);
-    expect(dockWhileHidden.inert).toBe(true);
-    expect(dockWhileHidden.focusMovedIntoDock).toBe(false);
-    expect(dockWhileHidden.focusMovedAtAll).toBe(false);
-
-    await guideScrollBody.evaluate((element) => {
-      element.scrollTop = 0;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-    await expect(mobileFooter).toHaveAttribute("aria-hidden", "false");
-    await expect(mobileFooter).not.toHaveAttribute("inert");
-    await expect(mobileHeader).not.toHaveClass(/guide-centre-header--compact/);
-    // The dock carries the guided tour and nothing else â€” no composer, no input.
-    await expect(dialog.locator("[data-guide-universal-search]")).toHaveCount(0);
-    await expect(dialog.locator("input")).toHaveCount(0);
-
-    await dialog.getByRole("button", { name: "All topics" }).click();
-    await dialog.getByRole("button", { name: /Privacy & safe use/ }).click();
-    await expect(dialog.getByRole("heading", { name: "Privacy and safe use" })).toBeFocused();
-
-    await dialog.getByRole("button", { name: "Guide home" }).click();
-    await dialog.getByRole("button", { name: "Start guided tour" }).click();
-    await expect(dialog.getByRole("heading", { level: 2, name: "The evidence-first workflow" })).toBeFocused();
-    await dialog.getByRole("button", { name: "Continue" }).click();
-    await expect(dialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" })).toBeFocused();
-
-    const axeResults = await new AxeBuilder({ page })
-      .include('[data-testid="clinical-kb-guide-centre"]')
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
-    expect(
-      axeResults.violations
-        .filter((violation) => violation.impact === "critical" || violation.impact === "serious")
-        .map((violation) => violation.id),
-    ).toEqual([]);
-
-    await dialog.getByRole("button", { name: "Close guide" }).click();
-    await expect(dialog).toBeHidden();
-    const reopenedDialog = await openGuide(page);
-    await reopenedDialog.getByRole("button", { name: "Resume guided tour" }).click();
-    await expect(
-      reopenedDialog.getByRole("heading", { level: 2, name: "Ask for one decision at a time" }),
-    ).toBeFocused();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
-  test("guide centre phone dock paints through the bottom safe area", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockPrivateUnauthenticatedApi(page);
-    await gotoApp(page, "/");
-
-    const dialog = await openGuide(page);
-    const band = dialog.locator(".guide-tour-dock");
-    await expect(band).toBeVisible();
-    // Seed the inset on :root and wait until content padding includes it. An
-    // inline style on the dialog node is lost when React re-renders the Sheet,
-    // which made contentPaddingBottom flake at 80px (5rem + 0) instead of 114px
-    // (5rem + 34px). Re-seed inside the poll so a late Sheet render cannot
-    // measure the unseeded token.
-    await expect
-      .poll(
-        async () => {
-          await page.evaluate(() => {
-            document.documentElement.style.setProperty("--safe-area-bottom", "34px");
-          });
-          return band.evaluate((element) => {
-            const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
-            return contentElement ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom) : 0;
-          });
-        },
-        { message: "guide content padding must include the seeded 34px safe-area inset (5rem + 34px)" },
-      )
-      .toBeGreaterThanOrEqual(114);
-
-    const painted = await band.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      const scrim = element.querySelector(".answer-footer-search-backdrop");
-      const scrimStyle = scrim ? window.getComputedStyle(scrim) : null;
-      const action = element.querySelector<HTMLElement>("[data-guide-tour-action-row] button");
-      const actionRect = action?.getBoundingClientRect();
-      const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
-      return {
-        background: style.backgroundColor,
-        borderTopWidth: style.borderTopWidth,
-        boxShadow: style.boxShadow,
-        paddingBottom: Number.parseFloat(style.paddingBottom),
-        left: Math.round(rect.left),
-        right: Math.round(window.innerWidth - rect.right),
-        bottom: Math.round(window.innerHeight - rect.bottom),
-        scrimDisplay: scrimStyle?.display ?? null,
-        scrimHeight: scrimStyle ? Math.round(Number.parseFloat(scrimStyle.height)) : 0,
-        scrimBackground: scrimStyle?.backgroundImage ?? "",
-        scrimMask: scrimStyle?.maskImage || scrimStyle?.getPropertyValue("-webkit-mask-image") || "",
-        actionBottomClearance: actionRect ? Math.round(window.innerHeight - actionRect.bottom) : 0,
-        contentPaddingBottom: contentElement
-          ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom)
-          : 0,
-      };
-    });
-
-    // The wrapper remains a flush, transparent dock; its child scrim owns paint.
-    expect(painted.background).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
-    expect(painted.borderTopWidth).toBe("0px");
-    expect(painted.boxShadow === "none" || /rgba\(0, 0, 0, 0\)/.test(painted.boxShadow)).toBe(true);
-    expect(painted.left).toBe(0);
-    expect(painted.right).toBe(0);
-    expect(painted.bottom).toBe(0);
-
-    // At a seeded 34px inset, the guide-specific 130px scrim remains compact
-    // while its opaque terminal mask keeps the Home Indicator region painted.
-    expect(painted.scrimDisplay).toBe("block");
-    expect(painted.scrimHeight).toBeGreaterThanOrEqual(130);
-    expect(painted.scrimHeight).toBeLessThan(160);
-    expect(painted.scrimBackground).not.toBe("none");
-    expect(painted.scrimMask).toMatch(/100%/);
-    expect(painted.scrimMask).not.toMatch(/transparent 100%/);
-    expect(painted.paddingBottom).toBeGreaterThanOrEqual(44);
-    expect(painted.actionBottomClearance).toBeGreaterThanOrEqual(44);
-    expect(painted.contentPaddingBottom).toBeGreaterThanOrEqual(114);
-
-    const action = band.locator("[data-guide-tour-action-row] button");
-    await expect(action).toHaveCount(1);
-    const pill = await action.evaluate((element) => {
-      const style = window.getComputedStyle(element);
-      const probe = document.createElement("div");
-      probe.style.backgroundColor = "var(--command)";
-      element.parentElement?.append(probe);
-      const commandFill = window.getComputedStyle(probe).backgroundColor;
-      probe.remove();
-      return {
-        background: style.backgroundColor,
-        commandFill,
-        borderRadius: Number.parseFloat(style.borderTopLeftRadius),
-        minHeight: Number.parseFloat(style.minHeight),
-      };
-    });
-    expect(pill.borderRadius).toBeGreaterThan(100);
-    expect(pill.minHeight).toBeGreaterThanOrEqual(48);
-    expect(pill.background).toBe(pill.commandFill);
-  });
-});
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×M½çdèµ©hºÚn¶X§zÍZ[\Ü^PZ[\ˆœ›ÛH^KXÛÜ™KÜ^]ÜšYÚŽÂš[\Ü\HÈ›Ý]HHœ›ÛHœ^]ÜšYÚXÛÜ™HŽÂš[\ÜÈ^XÝ\Ý\HØØ]Ü‹\HYÙHHœ›ÛHœ^]ÜšYÚÝ\ÝŽÂš[\ÜÈÝX–™\›ÕÝXÚÚ[ÈHœ›ÛH‹‹Ú[\œËÞ™\›Ë]ÝXÚŽÂš[\ÜÂˆ\[™š[X\žTØÜ›ÛÜXÙ\‹ˆ™XY[Øš[PÛÛ\ÜÙ\”™\Ù\™Tˆ™XYš[X\žTØÜ›Û[™ÛQÙ[ÛY]žKˆ™XYš[X\žTØÜ›ÛÙ[ÛY]žKˆØÜ›Ûš[X\žTÝ\™˜XÙKŸHœ›ÛH‹‹Ü^]ÜšYÚ\ØÜ›ÛŽÂš[\ÜÈ^XÝÚ[™ÛTÙ]YÝÛ™\‹š\ÚX›PžU\ÝYHœ›ÛH‹‹Ü^]ÜšYÚ\Ù][Y[ŽÂš[\ÜÈ[œÝÙ\•™XYÝÜ˜YÙRÙ^HHœ›ÛH‹‹‹ÜÜ˜ËÛX‹Ø[œÝÙ\‹]™XY\ÝÜ˜YÙHŽÂš[\ÜÈØÝ[Y[Ý[[X\žT]Y\Ý[ÛˆHœ›ÛH‹‹‹ÜÜ˜ËÛX‹Ø[œÝÙ\‹XÛÛ˜XÝŽÂš[\ÜÈ[[Ð[œÝÙ\‹[[ÑØÝ[Y[Ë[[ÔÝ[[X\žKÙ][[ÑØÝ[Y[Ù][[ÑØÝ[Y[^[ØYHœ›ÛH‹‹‹ÜÜ˜ËÛX‹Ù[[ËY]HŽÂš[\ÜÈ›Ü›T™XÛÜ™ÈHœ›ÛH‹‹‹ÜÜ˜ËÛX‹Ù›Ü›\ÈŽÂš[\ÜÈ\š]™QÛÝ™\›˜[˜ÙQœ›ÛTÙXÝ[ÛœÈHœ›ÛH‹‹‹ÜÜ˜ËÛX‹ÛYYXØ][Û‹\™XÛÜ™ÈŽÂš[\ÜÈÙ]YYXØ][Û”™XÛÜ™ØYYYXØ][Û”Û˜\ÚÝHœ›ÛH‹‹‹ÜÜ˜ËÛX‹ÛYYXØ][Û‹\Û˜\ÚÝŽÂš[\ÜÈÙX\˜ÚYYXØ][ÛØ][ÙÈHœ›ÛH‹‹‹ÜÜ˜ËÛX‹ÛYYXØ][Û‹\]Y\žHŽÂš[\ÜÈYYXØ][Û•ÔÙX\˜Ú™\Ý[\HYYXØ][Û”™XÛÜ™Hœ›ÛH‹‹‹ÜÜ˜ËÛX‹ÛYYXØ][ÛœÈŽÂš[\ÜÈÙ\šXÙT™XÛÜ™ÈHœ›ÛH‹‹‹ÜÜ˜ËÛX‹ÜÙ\šXÙ\ÈŽÂš[\ÜÈ™XÙ[]Y\žTÝÜ˜YÙRÙ^HHœ›ÛH‹‹‹ÜÜ˜ËÛX‹Ü™XÙ[\]Y\žK\ÝÜ˜YÙHŽÂ‚˜ÛÛœÝ\Ú›Ø\™šY]ÜÜÈHÂˆËÈ™\™\Ù[]]™HÝÛ™\œÈÛ›NˆÛ™HÛ™H
+
+KX›]
+8¢iÍŽ
+K\Ü[™ˆËÈ[™ØØ\Kˆ^˜HÛ™HÚYÈ
+ÍÍKÍM
+H\XØ]YHØ[YHÝ™\™›ÝÈ
+È\ÚÂˆËÈ\ÜÙ\ÈÚ]Ý]H\Ý[˜Ý^[Ý]œ˜[˜Ú‚ˆÈ˜[YNˆœÛX[[[Øš[H‹ÚYˆÌŒZYÚˆÌŒKˆÈ˜[YNˆX›]‹ÚYˆÍŽZYÚˆLKˆÈ˜[YNˆ›\Ü‹ÚYˆLŽZYÚˆLKˆÈ˜[YNˆ›[Øš[K[[™ØØ\H‹ÚYˆËZYÚˆÍÍHK—H\ÈÛÛœÝÂ˜ÛÛœÝZP\ÜÙ\[Û•[Y[Ý]\ÈHÌÌÂ˜ÛÛœÝ[[Ð[œÝÙ\•™XYÝÛ™\’YH›ØØ[Y[[Ë\Ù\ÜÚ[ÛˆŽÂ˜ÛÛœÝ[[Ð[œÝÙ\•™XYÝÜ˜YÙRÙ^HH	Ø[œÝÙ\•™XYÝÜ˜YÙRÙ^_N‰Ù[[Ð[œÝÙ\•™XYÝÛ™\’YXÂ˜ÛÛœÝ[[Ô™XÙ[]Y\žTÝÜ˜YÙRÙ^HH	Ü™XÙ[]Y\žTÝÜ˜YÙRÙ^_N‰Ù[[Ð[œÝÙ\•™XYÝÛ™\’YXÂ‚˜\Þ[˜È[˜Ý[Ûˆ^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙNˆYÙJHÂˆÛÛœÝÝ™\™›ÝÈH]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆÛÛœÝØÝ[Y[ÚYHX]›X^
+ØÝ[Y[™ØÝ[Y[[[Y[œØÜ›ÛÚYØÝ[Y[˜›ÙOËœØÜ›ÛÚYÏÈ
+NÂˆ™]\›ˆØÝ[Y[ÚYHØÝ[Y[™ØÝ[Y[[[Y[˜ÛY[ÚYÂˆJNÂ‚ˆ^XÝ
+Ý™\™›ÝÊKÐ™S\ÜÕ[“Ü‘\]X[
+ŠNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝØÝ[Y[ÝÛ™\‘š[Ñœ˜[YJYÙNˆYÙKÝÛ™\ŽˆØØ]ÜŠHÂˆËÈ™^Ý™X[Z[™ÈØ[ˆX]™HHY[ˆØÝ[Y[œ˜[YHÛÛ™H
+ÌLÊNÈ˜\™HÙ]žU\ÝYˆËÈ[ˆš\ÈÝšXÝ[ÙHÚ]ˆX]Ú\È
+ÙY[ˆ[™\ˆ[Øš[KXÛÛ\ÜÙ\‹\™\Ù\™K\Y
+K‚ˆÛÛœÝÝ\œ›Ý[™Hš\ÚX›PžU\ÝY
+YÙK™ØÝ[Y[Yœ˜[YK\Ý\œ›Ý[™ŠNÂˆÛÛœÝÛÛ[Hš\ÚX›PžU\ÝY
+YÙK™ØÝ[Y[Yœ˜[YKXÛÛ[ŠNÂˆ]ØZ]^XÝ
+Ý\œ›Ý[™
+KÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+ÛÛ[
+KÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+ÝÛ™\ŠKÐ™Uš\ÚX›J
+NÂ‚ˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HOˆÂˆÛÛœÝÜÝ\œ›Ý[™Ù[ÛY]žKÛÛ[›ÞÝÛ™\›ÞHH]ØZ]›ÛZ\ÙK˜[
+ÂˆÝ\œ›Ý[™™]˜[X]J
+[[Y[
+HOˆÂˆÛÛœÝÝ[HHÚ[™ÝË™Ù]ÛÛ\]YÝ[J[[Y[
+NÂˆ™]\›ˆÂˆÛY[ÚYˆ[[Y[˜ÛY[ÚYˆY[™ÓYˆ[X™\‹œ\œÙQ›Ø]
+Ý[KœY[™ÓY
+KˆY[™ÔšYÚˆ[X™\‹œ\œÙQ›Ø]
+Ý[KœY[™ÔšYÚ
+KˆNÂˆJKˆÛÛ[˜›Ý[™[™Ð›Þ
+
+KˆÝÛ™\‹˜›Ý[™[™Ð›Þ
+
+KˆJNÂˆYˆ
+XÛÛ[›Þ[ÝÛ™\›Þ
+H™]\›ˆ[X™\‹”ÔÒUU‘WÒS‘’S’UNÂˆÛÛœÝ]˜Z[X›UÚYBˆÝ\œ›Ý[™Ù[ÛY]žK˜ÛY[ÚYHÝ\œ›Ý[™Ù[ÛY]žKœY[™ÓYHÝ\œ›Ý[™Ù[ÛY]žKœY[™ÔšYÚÂˆ™]\›ˆX]›X^
+X]˜XœÊÛÛ[›ÞÚYH]˜Z[X›UÚY
+KX]˜XœÊÝÛ™\›ÞÚYH]˜Z[X›UÚY
+JNÂˆJBˆÐ™S\ÜÕ[“Ü‘\]X[
+ŠNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ™]™X[Û™RXY\ÛÛ›Û
+YÙNˆYÙKÛÛ›ÛˆØØ]ÜŠHÂˆÛÛœÝÈØÜ›ÛÜHH]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJNÂˆYˆ
+ØÜ›ÛÜˆ
+H]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKX]›X^
+ØÜ›ÛÜH
+JNÂˆ]ØZ]^XÝ
+ÛÛ›Û
+KÐ™R[•šY]ÜÜ
+
+NÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ[œÝ[Û\›Ø\™[ØÚÊYÙNˆYÙJHÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+HOˆÂˆ]Û\›Ø\™^HˆŽÂˆØš™XÝ™Yš[™T›Ü\J˜]šYØ]Ü‹˜Û\›Ø\™‹ÂˆÛÛ™šYÝ\˜X›NˆYKˆ˜[YNˆÂˆ™XY^ˆ\Þ[˜È
+
+HOˆÛ\›Ø\™^ˆÜš]U^ˆ\Þ[˜È
+˜[YNˆÝš[™ÊHOˆÂˆÛ\›Ø\™^H˜[YNÂˆKˆKˆJNÂˆJNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆÛÝÐ\
+YÙNˆYÙK]ˆÝš[™ÊHÂˆ]ØZ]YÙK™ÛÝÊ]ÈØZ][[ˆ™ÛXÛÛ[ØYYˆJNÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠˆÛXZ[‹XÛÛ[ŠK™š\œÝ
+
+JKÐ™Uš\ÚX›JÈ[Y[Ý]ˆMWÌJNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆØZ]›Ü”™XXÝ]™[[™\ŠØØ]ÜŽˆØØ]Ü‹]™[˜[YNˆ›ÛÚ[™ÙHˆ›ÛÛXÚÈˆ›Û”ØÜ›Ûˆ›Û”ÝX›Z]ŠHÂˆ]ØZ]^XÝˆœÛ
+ˆ\Þ[˜È
+
+HO‚ˆØØ]Ü‹™]˜[X]J
+[[Y[™XXÝ]™[˜[YJHOˆÂˆÛÛœÝ›ÜÒÙ^HHØš™XÝšÙ^\Ê[[Y[
+K™š[™
+
+Ù^JHOˆÙ^KœÝ\ÕÚ]
+—×Ü™XXÝ›ÜÉŠJNÂˆYˆ
+\›ÜÒÙ^JH™]\›ˆ˜[ÙNÂˆÛÛœÝ›ÜÈH
+[[Y[\È[šÛ›ÝÛˆ\È™XÛÜ™Ýš[™Ë™XÛÜ™Ýš[™Ë[šÛ›ÝÛŠVÜ›ÜÒÙ^WNÂˆ™]\›ˆ\[Ùˆ›ÜÏË–Ü™XXÝ]™[˜[YWHOOH™[˜Ý[ÛˆŽÂˆK]™[˜[YJKˆÈ[Y[Ý]ˆMWÌKˆ
+BˆÐ™JYJNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆXÝ]˜]Q›ØÝ\ÙYÛÛ›Û
+YÙNˆYÙKÛÛ›ÛˆØØ]ÜŠHÂˆ]ØZ]ÛÛ›Û™›ØÝ\Ê
+NÂˆ]ØZ]^XÝ
+ÛÛ›Û
+KÐ™Q›ØÝ\ÙY
+
+NÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘[\ˆŠNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝÚ[™ÛSYYXØ][Û”YÙJYÙNˆYÙJHÂˆËÈHYYXØ][Ûˆ›Ý]H™[™\œÈ[œÚYHÛØ˜[[ØÚÝ\ÙX\˜ÚÚ[ÚÜÙHÝ\Ü[œÙBˆËÈ˜[˜XÚÈ[™™\ÛÛ™YÛY[ÝX™YH›Ý™[™\ˆÚ[™[˜ˆ\š[™ÈBˆËÈ˜]šYØ][Û‹ÚY˜][ÛˆÝ™\›\HÚ\™Y]K]\ÝYØ[ˆ˜[œÚY[H™\ÛÛ™BˆËÈÈÛÈXZ[ˆ[[Y[È[™š\^]ÜšYÚÝšXÝ[ÙKˆØZ]›Üˆ]ÈÙ]BˆËÈÈ^XÝHÛ™H™Y›Ü™H\ÜÙ\[™Èš\ÚXš[]H8 %HÙ[Z[™H\›X[™[ÝX›K\™[™\‚ˆËÈÝ[˜Z[ÈÒ]™PÛÝ[
+JKÛÈ\ÈÙ\È›ÝX\ÚÈH™X[™YÜ™\ÜÚ[Û‹‚ˆÛÛœÝYYXØ][Û”YÙHHYÙK™Ù]žU\ÝY
+›YYXØ][Û‹\YÙKXXØ[\›ÜØ]HŠNÂˆYˆ
+
+]ØZ]YYXØ][Û”YÙK˜ÛÝ[
+
+JHOOHJHÂˆ]ØZ]›ÛZ\ÙKœ˜XÙJÂˆYÙKØZ]›Ü”™\ÜÛœÙJ
+™\ÜÛœÙJHOˆ™\ÜÛœÙK\›
+
+Kš[˜ÛY\Ê‹Ø\KÛYYXØ][ÛœËØXØ[\›ÜØ]HŠH	‰ˆ™\ÜÛœÙK›ÚÊ
+KÂˆ[Y[Ý]ˆÌÌˆJKˆ^XÝ
+YYXØ][Û”YÙJKÒ]™PÛÝ[
+KÈ[Y[Ý]ˆÌÌJKˆJK˜Ø]Ú
+
+
+HOˆ[™Yš[™Y
+NÂˆBˆ]ØZ]^XÝ
+YYXØ][Û”YÙJKÒ]™PÛÝ[
+KÈ[Y[Ý]ˆÌÌJNÂˆ]ØZ]^XÝ
+YYXØ][Û”YÙJKÐ™Uš\ÚX›JÈ[Y[Ý]ˆÌÌJNÂŸB‚™[˜Ý[Ûˆš\ÚX›T]Y\Ý[Û’[œ]
+YÙNˆYÙJHÂˆ™]\›ˆYÙK›ØØ]ÜŠ	ÖØ\šXK[X™[H”ÙX\˜Ú[™^YÝZY[[™\ÈžH]Y\Ý[ÛˆÜˆÙ^]ÛÜ™—Nš\ÚX›IÊK™š\œÝ
+
+NÂŸB‚™[˜Ý[Ûˆš\ÚX›P[œÝÙ\”ÝX›Z]]ÛŠYÙNˆYÙJHÂˆ™]\›ˆYÙK›ØØ]ÜŠ	ÖØ\šXK[X™[H‘Ù[™\˜]HÛÝ\˜ÙKX˜XÚÙY[œÝÙ\ˆ—Nš\ÚX›IÊK™š\œÝ
+
+NÂŸB‚˜\Þ[˜È[˜Ý[ÛˆÝX›Z]ØÝ[Y[ÙX\˜Ú
+YÙNˆYÙJHÂˆÛÛœÝÝX›Z]HYÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘š[™X]Ú[™ÈØÝ[Y[ÈˆJNÂˆ]ØZ]^XÝ
+ÝX›Z]
+KÐ™Q[˜X›Y
+
+NÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\ŠÝX›Z]›ØØ]ÜŠž]X[˜Ù\ÝÜŽŽ™›Ü›VÌWHŠK›Û”ÝX›Z]ŠNÂˆÛÛœÝ™\ÜÛœÙHHYÙKØZ]›Ü”™\ÜÛœÙJˆ
+Ø[™Y]JHOˆ™]ÈT“
+Ø[™Y]K\›
+
+JKœ]˜[YHOOH‹Ø\KÜÙX\˜Úˆ	‰ˆØ[™Y]K›ÚÊ
+KˆÈ[Y[Ý]ˆÌÌKˆ
+NÂˆ]ØZ]›ÛZ\ÙK˜[
+Ü™\ÜÛœÙKÝX›Z]˜ÛXÚÊ
+WJNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È˜[YNˆ‘š[™[™ÈX]Ú[™ÈØÝ[Y[ÈˆJJKÒ]™PÛÝ[
+Âˆ[Y[Ý]ˆÌÌˆJNÂŸB‚™[˜Ý[Ûˆš\ÚX›P[œÝÙ\‘›ÛÝÕ\ÝYÙÙ\Ý[ÛœÊYÙNˆYÙJHÂˆ™]\›ˆYÙBˆ›ØØ]ÜŠˆ	ÖÙ]K]\ÝYH˜[œÝÙ\‹Y›ÛÝË]\\ÝYÙÙ\Ý[ÛœÈ—Nš\ÚX›KÙ]K]\ÝYH˜[œÝÙ\‹XÛÛ\ÜÙ\‹Y›ÛÝË]\\ÝYÙÙ\Ý[ÛœÈ—Nš\ÚX›IËˆ
+Bˆ™š\œÝ
+
+NÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ\Õš\ÚX›UÚ]Ý]›ÝÊØØ]ÜŽˆØØ]ÜŠHÂˆ™]\›ˆØØ]Ü‹š\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆš[š\ÚX›T]Y\Ý[Û’[œ]
+YÙNˆYÙK˜[YNˆÝš[™ÊHÂˆÛÛœÝ]Y\Ý[Û’[œ]HYÙK›ØØ]ÜŠ	ÖØ\šXK[X™[H”ÙX\˜Ú[™^YÝZY[[™\ÈžH]Y\Ý[ÛˆÜˆÙ^]ÛÜ™—Nš\ÚX›IÊNÂˆÛÛœÝÝX›Z][œÝÙ\ˆHYÙK›ØØ]ÜŠ	ÖØ\šXK[X™[H‘Ù[™\˜]HÛÝ\˜ÙKX˜XÚÙY[œÝÙ\ˆ—Nš\ÚX›IÊNÂ‚ˆËÈ›ÙXÝ[ÛˆSØ[ˆ™Hš\ÚX›H™Y›Ü™H™XXÝÝÛœÈHÛÛ›ÛY[œ]‚ˆËÈš[[™È\š[™È]Ø\\È[[YYX][HÝ™\Üš][ˆžHY˜][Ûˆ[™X]™\ÂˆËÈHÝX›Z]]Ûˆ\ØX›YÛÈ\ÝX›\ÚH]™H[™\ˆ›Ý[™\žHš\œÝ‚ˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š]Y\Ý[Û’[œ]›ÛÚ[™ÙHŠNÂˆ]ØZ]^XÝ
+\Þ[˜È
+
+HOˆÂˆËÈH›ÙXÝ[Ûˆ˜]šYØ][ÛˆØ[ˆœšYY›HÝ™\›\Üˆ™\XÙHHÙ\™\‹\™[™\™YˆËÈÛÛ\ÜÙ\‹ˆ™\]Z\™HÛ™HÙ]Y™XXÝÝÛ™\ˆ™Y›Ü™Hš[[™ÈÛÈH™]ÈÛY[ˆËÈ™YHØ[››Ý\ØØ\™H˜[YH[™X]™HÝX›Z]\ØX›Y‚ˆ]ØZ]^XÝ
+]Y\Ý[Û’[œ]
+KÒ]™PÛÝ[
+KÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]^XÝ
+ÝX›Z][œÝÙ\ŠKÒ]™PÛÝ[
+KÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š]Y\Ý[Û’[œ]›ÛÚ[™ÙHŠNÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š]Y\Ý[Û’[œ]›ØØ]ÜŠž]X[˜Ù\ÝÜŽŽ™›Ü›VÌWHŠK›Û”ÝX›Z]ŠNÂˆ]ØZ]^XÝ
+ÝX›Z][œÝÙ\ŠKÒ]™P]šX]J]H‹Ñ[\ˆHÛ[šXØ[]Y\Ý[ÛŸÙ[™\˜]HHÛÝ\˜ÙKX˜XÚÙY[œÝÙ\‹ËÂˆ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ËˆJNÂˆ]ØZ]^XÝ
+]Y\Ý[Û’[œ]
+KÐ™QY]X›JÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]]Y\Ý[Û’[œ]™š[
+˜[YJNÂˆ]ØZ]^XÝ
+]Y\Ý[Û’[œ]
+KÒ]™U˜[YJ˜[YKÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]^XÝ
+ÝX›Z][œÝÙ\ŠKÐ™Q[˜X›Y
+È[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆJKÔ\ÜÊÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂ‚ˆ™]\›ˆ]Y\Ý[Û’[œ]ÂŸB‚˜ÛÛœÝ™XYTÙ]\ÚXÚÜÈHÂˆÈYˆ™[ˆ‹X™[ˆ‹™[‹›ØØ[ÛÛ™šYÝ\™Y‹Ý]\Îˆœ™XYH‹]Z[ˆ•\Ý[š\›Û›Y[™XYKˆˆKˆÈYˆœ›Ú™XÝ‹X™[ˆÛ[šXØ[Ðˆ]X˜\ÙH\™Ù]‹Ý]\Îˆœ™XYH‹]Z[ˆ•\ÝÝ\X˜\ÙH›Ú™XÝ™XYKˆˆKˆÈYˆœØÚ[XH‹X™[ˆœÝ\X˜\ÙKÜØÚ[XKœÜ[\YY‹Ý]\Îˆœ™XYH‹]Z[ˆ•\ÝØÚ[XH™XYKˆˆKˆÈYˆœÙX\˜Ú‹X™[ˆ”ÙX\˜Ú”È[™™XÝÜˆ[™^\È‹Ý]\Îˆœ™XYH‹]Z[ˆ•\ÝÙX\˜ÚØÚ[XH™XYKˆˆKˆÈYˆ›Ü[˜ZH‹X™[ˆ“Ü[RHTHÙ^H]˜Z[X›H‹Ý]\Îˆœ™XYH‹]Z[ˆ•\ÝÜ[RH™XYKˆˆKˆÈYˆÛÜšÙ\ˆ‹X™[ˆ›œH[ˆÛÜšÙ\ˆ[›š[™È‹Ý]\Îˆ[šÛ›ÝÛˆ‹]Z[ˆ•ÛÜšÙ\ˆ›Ý™\]Z\™Y›ÜˆRHÛ[ÚÙKˆˆK—NÂ‚˜\Þ[˜È[˜Ý[Ûˆ[ØÚÓØØ[›Ú™XÝY[]JYÙNˆYÙJHÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÛØØ[\›Ú™XÝZY	Ë\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ\˜[YNˆ”ÞXÚÚY‹ˆ›Ú™XÝYˆ\Ý\›Ú™XÝ‹ˆY[]T]ˆ‹Ø\KÛØØ[\›Ú™XÝZY‹ˆØØ[Ù\™\ŽˆÂˆÝ\œ™[\›ˆš‹ËÛØØ[ÜÝŽN‹ˆÝ\œ™[ÜˆŽNˆ›Ú™XÝÜÝ\ˆŽNˆ›Ú™XÝÜ[™ˆLÌŒLˆØY™SØØ[ÜšYÚ[ŽˆYKˆ™\]Y\ÝÜšYÚ[Žˆ[ˆ™\]Y\Ý™Y™\™\Žˆ[ˆ[œØY™SØØ[Ø[\Žˆ[ˆKˆKˆJNÂˆJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ[ØÚÔš]˜]U[˜]][XØ]Y\JYÙNˆYÙJHÂˆ]ØZ][ØÚÓØØ[›Ú™XÝY[]JYÙJNÂˆ]ØZ]YÙKœ›Ý]JŠŠ‹Ø\KÜÙ]\\Ý]\ÊŠˆ‹\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÈ[[Ó[ÙNˆ˜[ÙKÚXÚÜÎˆ™XYTÙ]\ÚXÚÜÈKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WØ[œÝÙ\ŠÎ—ÜÝ™X[JOÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ›ÙHH›Ý]Kœ™\]Y\Ý
+
+KœÜÝ]R”ÓÓŠ
+H\ÈÂˆ]Y\žOÎˆÝš[™ÎÂˆØÝ[Y[YÎˆÝš[™ÎÂˆØÝ[Y[YÏÎˆÝš[™Ö×NÂˆNÂˆ]ØZ][š[[œÝÙ\”™\ÜÛœÙJˆ›Ý]Kˆ[[Ð[œÝÙ\Š›ÙKœ]Y\žHÏÈ•Ú][Ûš]Üš[™È\È™\]Z\™YÈ‹›ÙK™ØÝ[Y[Y›ÙK™ØÝ[Y[YÊKˆ
+NÂˆJNÂŸB‚™[˜Ý[Ûˆ[œÝÙ\”Ý™X[P›ÙJ^[ØYˆ[šÛ›ÝÛŠHÂˆ™]\›ˆÂˆ]™[ˆ›ÙÜ™\Ü×™]Nˆ	Ò”ÓÓ‹œÝš[™ÚYžJÈÝYÙNˆœ™]šY]š[™È‹Y\ÜØYÙNˆ”ÙX\˜Ú[™È[™^YØÝ[Y[ËˆˆJ_Xˆ]™[ˆ›ÙÜ™\Ü×™]Nˆ	Ò”ÓÓ‹œÝš[™ÚYžJÈÝYÙNˆœ˜[šÚ[™È‹Y\ÜØYÙNˆ”Ù[XÝ[™ÈÛÝ™\›™YÛÝ\˜Ù\ËˆˆJ_Xˆ]™[ˆ›ÙÜ™\Ü×™]Nˆ	Ò”ÓÓ‹œÝš[™ÚYžJÈÝYÙNˆ˜ÛÛ\]H‹Y\ÜØYÙNˆ[œÝÙ\ˆ™XYKˆ‹[\ÙY\ÎˆLLJ_Xˆ]™[ˆš[˜[™]Nˆ	Ò”ÓÓ‹œÝš[™ÚYžJ^[ØY
+_Xˆˆ‹ˆKš›Ú[Š——ˆŠNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ[š[[œÝÙ\”™\ÜÛœÙJ›Ý]Nˆ›Ý]K^[ØYˆ[šÛ›ÝÛŠHÂˆÛÛœÝ]˜[YHH™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JKœ]˜[YNÂˆYˆ
+]˜[YK™[™ÕÚ]
+‹ÜÝ™X[HŠJHÂˆ]ØZ]›Ý]K™[š[
+Âˆ›ÙNˆ[œÝÙ\”Ý™X[P›ÙJ^[ØY
+KˆÛÛ[\Nˆ^Ù]™[\Ý™X[NÈÚ\œÙ]]]‹N‹ˆXY\œÎˆÈØXÚKPÛÛ›ÛŽˆ››ËXØXÚK›Ë]˜[œÙ›Ü›HˆKˆJNÂˆ™]\›ŽÂˆB‚ˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆ^[ØYJNÂŸB‚\H[[Ð[œÝÙ\“Ý™\œšYHH
+]Y\žNˆÝš[™ËØÝ[Y[YÎˆÝš[™ËØÝ[Y[YÏÎˆÝš[™Ö×JHOˆ™]\›•\O\[Ùˆ[[Ð[œÝÙ\ŽÂ\H[ØÚÑ[[Ð\SÜ[ÛœÈHÂˆ[œÝÙ\“Ý™\œšYOÎˆ[[Ð[œÝÙ\“Ý™\œšYNÂˆ[œÝÙ\‘[^S\ÏÎˆ[X™\ŽÂˆÛ[œÝÙ\”™\]Y\ÝÎˆ
+ˆ]Y\žNˆÝš[™ËˆØÛÜNˆÈØÝ[Y[YÎˆÝš[™ÎÈØÝ[Y[YÏÎˆÝš[™Ö×NÈÝ[[X\žS[ÙOÎˆ›ÛÛX[ˆKˆ
+HOˆ›ÚYÂŸNÂ‚˜\Þ[˜È[˜Ý[Ûˆ›ØÚÑ^\›˜[™\]Y\ÝÊYÙNˆYÙJHÂˆ]ØZ]YÙKœ›Ý]JŠŠ‹Êˆ‹\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ\›H™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JNÂˆYˆ
+ˆ
+\›œ›ÝØÛÛOOHšˆˆ\›œ›ÝØÛÛOOHšÎˆŠH	‰‚ˆVÈ›ØØ[ÜÝ‹ŒLËŒŒŒH‹ŽŽŒH‹–ÎŽŒWH—Kš[˜ÛY\Ê\›šÜÝ˜[YJBˆ
+HÂˆ]ØZ]›Ý]K˜X›Ü
+˜›ØÚÙYžXÛY[ŠNÂˆ™]\›ŽÂˆBˆ]ØZ]›Ý]K™˜[˜XÚÊ
+NÂˆJNÂŸB‚™[˜Ý[ÛˆYYXØ][Û’[™^™XÛÜ™Ê™XÛÜ™ÎˆYYXØ][Û”™XÛÜ™×JNˆYYXØ][Û”™XÛÜ™×HÂˆ™]\›ˆ™XÛÜ™Ë›X\
+
+™XÛÜ™
+HOˆÂˆÛÛœÝœ˜[™›ÝÜÈH™XÛÜ™œÙXÝ[ÛœÂˆ™š[\Š
+ÙXÝ[ÛŠHOˆÙXÝ[Û‹\HOOH™›Ü›HŠBˆ™›]X\
+
+ÙXÝ[ÛŠHOˆÙXÝ[Û‹œ›ÝÜÊBˆ™š[\Š
+›ÝÊHOˆØœ˜[™Ê›˜[Y\ÏËÚK\Ý
+›ÝËšÙ^JJNÂˆ™]\›ˆÂˆÛYÎˆ™XÛÜ™œÛYËˆ˜[YNˆ™XÛÜ™›˜[YKˆÛ\ÜÎˆ™XÛÜ™˜Û\ÜËˆÝX˜Û\ÜÎˆ™XÛÜ™œÝX˜Û\ÜËˆØ]YÛÜžNˆ™XÛÜ™˜Ø]YÛÜžKˆXØÙ[ˆ™XÛÜ™˜XØÙ[ˆYÎˆ™XÛÜ™YËˆØÚY[Nˆ™XÛÜ™œØÚY[KˆÝ]Îˆ×KˆÙXÝ[ÛœÎˆœ˜[™›ÝÜË›[™ÝˆÈÞÈ]Nˆ‘›Ü›][][Ûˆ	ˆXØÙ\ÜÈ‹\Nˆ™›Ü›H‹›ÝÜÎˆœ˜[™›ÝÜË›X\
+
+›ÝÊHOˆ
+È‹‹œ›ÝÈJJHWBˆˆ×Kˆ]ZXÚÎˆ×KˆNÂˆJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ[ØÚÑ[[Ð\JYÙNˆYÙKÜ[ÛœÎˆ[ØÚÑ[[Ð\SÜ[ÛœÈHßJHÂˆ]ØZ]›ØÚÑ^\›˜[™\]Y\ÝÊYÙJNÂˆ]ØZ][ØÚÓØØ[›Ú™XÝY[]JYÙJNÂˆ]ØZ]YÙKœ›Ý]JŠŠ‹Ø\KÜÙ]\\Ý]\ÊŠˆ‹\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÈ[[Ó[ÙNˆYKÚXÚÜÎˆ™XYTÙ]\ÚXÚÜÈKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[ÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆØÝ[Y[Îˆ[[ÑØÝ[Y[Ëˆ[[Ó[ÙNˆYKˆYÚ[˜][ÛŽˆÂˆ[Z]ˆMLˆÙ™œÙ]ˆˆÝ[ˆ[[ÑØÝ[Y[Ë›[™Ýˆ™^Ù™œÙ]ˆ[[ÑØÝ[Y[Ë›[™Ýˆ\Ó[Ü™Nˆ˜[ÙKˆKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÛYYXØ][ÛœÊÎ—Ê×‹Ï×JÊJOÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ\›H™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JNÂˆÛÛœÝÛYÈH\›œ]˜[YK›X]Ú
+×Ø\WÛYYXØ][Ûœ×Ê×‹×JÊIÊOË–ÌWNÂˆYˆ
+ÛYÊHÂˆÛÛœÝ™XÛÜ™HÙ]YYXØ][Û”™XÛÜ™
+XÛÙUT’PÛÛ\Û™[
+ÛYÊJNÂˆYˆ
+\™XÛÜ™
+HÂˆ]ØZ]›Ý]K™[š[
+ÈÝ]\ÎˆœÛÛŽˆÈ\œ›ÜŽˆ›ÈYYXØ][Ûˆ›Ý[™›Üˆ‰ÜÛYßH‹˜HJNÂˆ™]\›ŽÂˆBˆÛÛœÝÛÝ™\›˜[˜ÙHH\š]™QÛÝ™\›˜[˜ÙQœ›ÛTÙXÝ[ÛœÊ™XÛÜ™
+NÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ™XÛÜ™ˆÛÝ™\›˜[˜ÙNˆÂˆÛÝ\˜ÙTÝ]\ÎˆÛÝ™\›˜[˜ÙKœÛÝ\˜ÙWÜÝ]\Ëˆ˜[Y][Û”Ý]\ÎˆÛÝ™\›˜[˜ÙK˜[Y][Û—ÜÝ]\ËˆKˆ[[Ó[ÙNˆYKˆKˆJNÂˆ™]\›ŽÂˆB‚ˆÛÛœÝ]Y\žHH\›œÙX\˜Ú\˜[\Ë™Ù]
+œHŠOËš[J
+H[™Yš[™YÂˆÛÛœÝ[Z]H[X™\Š\›œÙX\˜Ú\˜[\Ë™Ù]
+›[Z]ŠHÏÈLŠNÂˆÛÛœÝ[™XÛÜ™ÈHØYYYXØ][Û”Û˜\ÚÝ
+
+NÂˆÛÛœÝ™XÛÜ™ÈH\›œÙX\˜Ú\˜[\Ë™Ù]
+™šY[ÈŠHOOHš[™^ˆÈYYXØ][Û’[™^™XÛÜ™Ê[™XÛÜ™ÊHˆ[™XÛÜ™ÎÂˆÛÛœÝ˜[šÙYH]Y\žHÈÙX\˜ÚYYXØ][ÛØ][ÙÊ[™XÛÜ™Ë]Y\žK[Z]
+Hˆ[™Yš[™YÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ™XÛÜ™ËˆX]Ú\Îˆ˜[šÙYË›X]Ú\Ë›X\
+
+X]Ú
+HOˆ
+ÂˆYYXØ][ÛŽˆX]Ú›YYXØ][Û‹ˆ™\Ý[ˆYYXØ][Û•ÔÙX\˜Ú™\Ý[
+X]Ú
+KˆØÛÜ™NˆX]ÚœØÛÜ™Kˆ™X\ÛÛœÎˆX]Úœ™X\ÛÛœËˆJJKˆ[\œ™]][ÛŽˆ˜[šÙYˆÈÂˆÛÜœ™XÝY]Y\žN‚ˆ˜[šÙY˜[˜[\Ú\Ë˜ÛÜœ™XÝ[ÛœË›[™Ý	‰ˆ˜[šÙY˜[˜[\Ú\Ë˜ÛÜœ™XÝY]Y\žHOOH˜[šÙY˜[˜[\Ú\Ë›ÜšYÚ[˜[]Y\žBˆÈ˜[šÙY˜[˜[\Ú\Ë˜ÛÜœ™XÝY]Y\žBˆˆ[™Yš[™YˆÛÜœ™XÝ[ÛœÎˆ˜[šÙY˜[˜[\Ú\Ë˜ÛÜœ™XÝ[ÛœË›[™ÝÈ˜[šÙY˜[˜[\Ú\Ë˜ÛÜœ™XÝ[ÛœÈˆ[™Yš[™Yˆ\YY^[œÚ[ÛœÎˆ˜[šÙY˜[˜[\Ú\Ë™^[œÚ[ÛœË›[™ÝÈ˜[šÙY˜[˜[\Ú\Ë™^[œÚ[ÛœÈˆ[™Yš[™YˆBˆˆ[™Yš[™YˆÝ[ˆ™XÛÜ™Ë›[™ÝˆÛÝ™\›˜[˜ÙNˆßKˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÜ™YÚ\ÝžWÜ™XÛÜ™ÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ\›H™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JNÂˆÛÛœÝÚ[™H\›œÙX\˜Ú\˜[\Ë™Ù]
+šÚ[™ŠNÂˆÛÛœÝšY]ÈH\›œÙX\˜Ú\˜[\Ë™Ù]
+šY]ÈŠHÏÈ™[ŽÂˆÛÛœÝ™XÛÜ™ÈHÚ[™OOH™›Ü›HˆÈ›Ü›T™XÛÜ™ÈˆÙ\šXÙT™XÛÜ™ÎÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ™XÛÜ™ËˆÝ[ˆ™XÛÜ™Ë›[™Ýˆ™\šYšYYÛÝ[ˆˆ‹‹ŠšY]ÈOOH™[ˆÈÈÛÝ™\›˜[˜ÙNˆßHHˆßJKˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÚ[™Ù\Ý[Û—Ú›ØœÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ›ØœÎˆ×K[[Ó[ÙNˆYHHJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÚ[™Ù\Ý[Û—Ø˜]Ú\ÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ˜]Ú\Îˆ×K[[Ó[ÙNˆYHHJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÚ[™Ù\Ý[Û—Ü]X[]JÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ][\Îˆ×K[[Ó[ÙNˆYHHJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WØ[œÝÙ\ŠÎ—ÜÝ™X[JOÊÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ›ÙHH›Ý]Kœ™\]Y\Ý
+
+KœÜÝ]R”ÓÓŠ
+H\ÈÂˆ]Y\žOÎˆÝš[™ÎÂˆØÝ[Y[YÎˆÝš[™ÎÂˆØÝ[Y[YÏÎˆÝš[™Ö×NÂˆÝ[[X\žS[ÙOÎˆ›ÛÛX[ŽÂˆNÂˆÛÛœÝ]Y\žHH\[Ùˆ›ÙKœ]Y\žHOOHœÝš[™ÈˆÈ›ÙKœ]Y\žKš[J
+HˆˆŽÂˆYˆ
+\]Y\žH]Y\žK›[™ÝˆŒ
+HÂˆ]ØZ]›Ý]K™[š[
+ÈÝ]\ÎˆœÛÛŽˆÈ\œ›ÜŽˆH]Y\žH™]ÙY[ˆH[™ŒÚ\˜XÝ\œÈ\È™\]Z\™YˆˆHJNÂˆ™]\›ŽÂˆBˆÜ[ÛœË›Û[œÝÙ\”™\]Y\ÝËŠ]Y\žKÂˆØÝ[Y[Yˆ›ÙK™ØÝ[Y[YˆØÝ[Y[YÎˆ›ÙK™ØÝ[Y[YËˆÝ[[X\žS[ÙNˆ›ÙKœÝ[[X\žS[ÙKˆJNÂˆYˆ
+Ü[ÛœË˜[œÝÙ\‘[^S\ÊHÂˆ]ØZ]™]È›ÛZ\ÙJ
+™\ÛÛ™JHOˆÙ][Y[Ý]
+™\ÛÛ™KÜ[ÛœË˜[œÝÙ\‘[^S\ÊJNÂˆBˆÛÛœÝ[œÝÙ\ˆBˆÜ[ÛœË˜[œÝÙ\“Ý™\œšYOËŠ]Y\žK›ÙK™ØÝ[Y[Y›ÙK™ØÝ[Y[YÊHÏÂˆ
+›ÙKœÝ[[X\žS[ÙH	‰ˆ›ÙK™ØÝ[Y[YˆÈ[[ÔÝ[[X\žJ›ÙK™ØÝ[Y[Y
+Bˆˆ[[Ð[œÝÙ\Š]Y\žK›ÙK™ØÝ[Y[Y›ÙK™ØÝ[Y[YÊJNÂˆ]ØZ][š[[œÝÙ\”™\ÜÛœÙJ›Ý]KÂˆ‹‹˜[œÝÙ\‹ˆ[[Ó[ÙNˆYKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÜÙX\˜Ú	Ë\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ›ÙHH›Ý]Kœ™\]Y\Ý
+
+KœÜÝ]R”ÓÓŠ
+H\ÈÈ]Y\žOÎˆÝš[™ÎÈ[ÙOÎˆÝš[™ÈNÂˆÛÛœÝ]Y\žHH›ÙKœ]Y\žOËÓÝÙ\Ø\ÙJ
+HÏÈˆŽÂˆYˆ
+]Y\žKš[˜ÛY\Ê˜ÛÙ™™YHXXÚ[™HŠJHÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ™\Ý[Îˆ×Kˆš\ÝX[]šY[˜ÙNˆ×Kˆ™[]YØÝ[Y[Îˆ×KˆØÝ[Y[X]Ú\Îˆ×Kˆ™[]˜[˜ÙNˆÈ™\™XÝˆ››Û™H‹ØÛÜ™Nˆ\™XÝÛÝ\˜ÙPÛÝ[ˆÙXZÔÛÝ\˜ÙPÛÝ[ˆKˆÛX\[™[ˆßKˆ[[Y]žNˆÂˆ]Y\žWØÛ\ÜÎˆ[œÝ\ÜYÛÜ—ÙÙ[™\˜[‹ˆ™]šY]˜[ÜÝ˜]YÞNˆ[œÝ\ÜYÜÚÜØÚ\˜ÝZ]‹ˆ[X™Y[™×ÜÚÚ\YˆYKˆKˆ[[Ó[ÙNˆYKˆKˆJNÂˆ™]\›ŽÂˆBˆÛÛœÝ\ÔØY™]T[ˆH]Y\žKš[˜ÛY\Êœ]Y[ØY™]H[ˆŠNÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ™\Ý[ÎˆÂˆÂˆYˆ\ÔØY™]T[ˆÈMMMMMMMKMMMMKMMMKNMMKMMMMMMMMMMMMHˆˆMMNMˆ‹ˆØÝ[Y[ÚYˆŒLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLH‹ˆ]Nˆ\ÔØY™]T[ˆÈ”Þ[]XÈ]Y[ØY™]H[ˆˆˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛ‹ˆš[WÛ˜[YNˆ\ÔØY™]T[ˆÈœ]Y[\ØY™]K\[‹œˆˆˆ›]][K[[Ûš]Üš[™Ëœˆ‹ˆYÙWÛ[X™\ŽˆKˆÚ[š×Ú[™^ˆˆÙXÝ[Û—ÚXY[™Îˆ\ÔØY™]T[ˆÈ”ØY™]H[ˆÛÛ[Èˆˆ“[Ûš]Üš[™È‹ˆÛÛ[ˆ\ÔØY™]T[‚ˆÈ”]Y[ØY™]H[ˆÚÝ[[˜ÛYHØ\›š[™ÈÚYÛœËÝ\ÜËÛÜ[™ÈÝ˜]YÚY\ËYX[œÈ™\ÝšXÝ[Û‹[™Üš\Ú\ÈÛÛXÝËˆ‚ˆˆ“]][H[Ûš]Üš[™È[™ÞXÚ]HØY™]K[™]ÛÝ\˜ÙH\ÜØYÙKˆ‹ˆ[XYÙWÚYÎˆ×KˆÚ[Z[\š]NˆŽKˆXœšYÜØÛÜ™NˆŽL‹ˆ[XYÙ\Îˆ×KˆKˆKˆš\ÝX[]šY[˜ÙNˆ×Kˆ™[]YØÝ[Y[Îˆ×KˆØÝ[Y[X]Ú\ÎˆÂˆÂˆØÝ[Y[ÚYˆŒLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLH‹ˆ]Nˆ\ÔØY™]T[ˆÈ”Þ[]XÈ]Y[ØY™]H[ˆˆˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛ‹ˆš[WÛ˜[YNˆ\ÔØY™]T[ˆÈœ]Y[\ØY™]K\[‹œˆˆˆ›]][K[[Ûš]Üš[™Ëœˆ‹ˆX™[ÎˆÂˆÂˆX™[ˆ\ÔØY™]T[ˆÈœ]Y[ØY™]H[ˆˆˆ›]][H‹ˆX™[Ý\Nˆ\ÔØY™]T[ˆÈ™ØÝ[Y[ˆˆ›YYXØ][Ûˆ‹ˆÛÝ\˜ÙNˆ™Ù[™\˜]Y‹ˆÛÛ™šY[˜ÙNˆŽMˆKˆKˆÝ[[X\žTÛš\]ˆ\ÔØY™]T[‚ˆÈ”]Y[ØY™]H[ˆÛÛ[È[™Üš\Ú\ÈÝ\ÜËˆ‚ˆˆ“]][H[Ûš]Üš[™È[™ÞXÚ]HØY™]K[™]™[Z[™\œËˆ‹ˆ™\ÝYÙ\ÎˆÌWKˆ™\ÝÚ[šÒYÎˆÂˆ\ÔØY™]T[ˆÈMMMMMMMKMMMMKMMMKNMMKMMMMMMMMMMMMHˆˆMMNMˆ‹ˆKˆ[XYÙPÛÝ[ˆKˆX›PÛÝ[ˆKˆX]Ú™X\ÛÛŽˆ“X]ÚY[™^Y\ÜØYÙH‹ˆØÛÜ™NˆŽL‹ˆKˆKˆÛX\[™[ˆßKˆ[[Y]žNˆÂˆ]Y\žWØÛ\ÜÎˆ\ÔØY™]T[ˆÈ™ØÝ[Y[ÛÛÚÝ\ˆˆ›YYXØ][Û—ÙÜÙWÜš\ÚÈ‹ˆ™]šY]˜[ÜÝ˜]YÞNˆ^Ù˜\ÝÜ]‹ˆ[X™Y[™×ÜÚÚ\YˆYKˆKˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÜÙX\˜ÚÝ[š]™\œØ[
+Î—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ]Y\žHH™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JKœÙX\˜Ú\˜[\Ë™Ù]
+œHŠOËš[J
+HÏÈˆŽÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ]Y\žKˆÜ›Ý\Îˆ×KˆÛÚÓ\ÎˆˆÛXZ[“Ü™\Žˆ×Kˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ö×‹×J×ÜÙX\˜Ú
+Î—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ]Y\žNˆ™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JKœÙX\˜Ú\˜[\Ë™Ù]
+œHŠHÏÈˆ‹ˆ™\Ý[ÎˆÂˆÂˆYˆMMMMMMMKMMMMKMMMKNMMKMMMMMMMMMMMMH‹ˆYÙWÛ[X™\ŽˆKˆÚ[š×Ú[™^ˆ‹ˆÙXÝ[Û—ÚXY[™Îˆ”ØY™]H[ˆÛÛ[È‹ˆÛš\]‚ˆ”]Y[ØY™]H[ˆÚÝ[[˜ÛYHØ\›š[™ÈÚYÛœËÛÜ[™ÈÝ˜]YÚY\ËÝ\ÜËÜš\Ú\ÈÛÛXÝË[™YX[œÈ™\ÝšXÝ[Û‹ˆ‹ˆX]ÚYÝ\›\ÎˆÈœØY™]H‹œ[ˆ‹š[˜ÛYH—Kˆ[XYÙWÚYÎˆ×KˆØÛÜ™Nˆ‹ˆKˆÂˆYˆMMNMˆ‹ˆYÙWÛ[X™\ŽˆKˆÚ[š×Ú[™^ˆˆÙXÝ[Û—ÚXY[™Îˆ“[Ûš]Üš[™È‹ˆÛš\]ˆ“]][H[Ûš]Üš[™È[™ÞXÚ]HØY™]K[™]ÛÝ\˜ÙH\ÜØYÙKˆ‹ˆX]ÚYÝ\›\ÎˆÈ›[Ûš]Üš[™È—Kˆ[XYÙWÚYÎˆ×KˆØÛÜ™NˆKŒ‹ˆKˆKˆYÙR]ÎˆÌWKˆ]ÛÝ[ˆ‹ˆÝ˜]YÞNˆ™[Ý^ÝšYÜ˜[WÜœÈ‹ˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ê×‹×JÊWÜÚYÛ™Y]\›
+Î—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝYH™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JKœ]˜[YKœÜ]
+‹ÈŠK˜]
+LŠHÏÈˆŽÂˆÛÛœÝØÝ[Y[HÙ][[ÑØÝ[Y[
+Y
+NÂˆYˆ
+YØÝ[Y[
+HÂˆ]ØZ]›Ý]K™[š[
+ÈÝ]\ÎˆœÛÛŽˆÈ\œ›ÜŽˆ‘[[ÈØÝ[Y[›Ý›Ý[™ˆˆHJNÂˆ™]\›ŽÂˆBˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÈ\›ˆØÝ[Y[œÝÜ˜YÙWÜ]š[U\NˆØÝ[Y[™š[WÝ\K[[Ó[ÙNˆYHKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ö×‹×J×ÜÝ[[X\š^™IË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ[œÝÙ\Ž‚ˆ’Ù^H˜XÝXØ[Ú[Îˆ
+Š˜ÛÞ˜\[™JŠˆ[Ûš]Üš[™È™\]Z\™\È™YÝ[\ˆËÐSÈÚXÚÜÈ[™™]šY]ÈÙˆÛÛœÝ\][Û‹^[ØØ\™]\ÈÞ[\Û\ËY]X›ÛXÈš\ÚË[™Z\ÜÙYYÜÙH™\Ý\[\Ëˆ‹ˆÜ›Ý[™YˆYKˆÛÛ™šY[˜ÙNˆšYÚ‹ˆÚ]][ÛœÎˆ×KˆÛÝ\˜Ù\Îˆ×Kˆ[[Ó[ÙNˆYKˆKˆJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ê×‹×JÊJÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ\›H™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JNÂˆÛÛœÝYH\›œ]˜[YKœÜ]
+‹ÈŠK˜]
+LJHÏÈˆŽÂˆÛÛœÝÙ[XÝYÚ[šÒYH\›œÙX\˜Ú\˜[\Ë™Ù]
+˜Ú[šÈŠNÂˆÛÛœÝ^[ØYHÙ][[ÑØÝ[Y[^[ØY
+YÙ[XÝYÚ[šÒY
+NÂˆYˆ
+\^[ØY
+HÂˆ]ØZ]›Ý]K™[š[
+ÈÝ]\ÎˆœÛÛŽˆÈ\œ›ÜŽˆ‘[[ÈØÝ[Y[›Ý›Ý[™ˆˆHJNÂˆ™]\›ŽÂˆBˆYˆ
+Ù[XÝYÚ[šÒYOOHMMMMMMMKMMMMKMMMKNMMKMMMMMMMMMMMMHŠHÂˆ]ØZ]›Ý]K™[š[
+ÂˆœÛÛŽˆÂˆ‹‹œ^[ØYˆØÝ[Y[ˆÂˆ‹‹œ^[ØY™ØÝ[Y[ˆ]Nˆ”Þ[]XÈ]Y[ØY™]H[ˆ‹ˆš[WÛ˜[YNˆœ]Y[\ØY™]K\[‹œˆ‹ˆKˆYÙ\Îˆ^[ØYœYÙ\Ë›X\
+
+YÙJHOˆ
+Âˆ‹‹œYÙKˆ^ˆ	ÜYÙK^W—”]Y[ØY™]H[ˆÚÝ[[˜ÛYHØ\›š[™ÈÚYÛœËÛÜ[™ÈÝ˜]YÚY\ËÝ\ÜËÜš\Ú\ÈÛÛXÝË[™YX[œÈ™\ÝšXÝ[Û‹˜ˆJJKˆÚ[šÜÎˆÂˆÂˆYˆMMMMMMMKMMMMKMMMKNMMKMMMMMMMMMMMMH‹ˆØÝ[Y[ÚYˆYˆYÙWÛ[X™\ŽˆKˆÚ[š×Ú[™^ˆ‹ˆÙXÝ[Û—ÚXY[™Îˆ”ØY™]H[ˆÛÛ[È‹ˆÛÛ[‚ˆ”]Y[ØY™]H[ˆÚÝ[[˜ÛYHØ\›š[™ÈÚYÛœËÛÜ[™ÈÝ˜]YÚY\ËÝ\ÜËÜš\Ú\ÈÛÛXÝË[™YX[œÈ™\ÝšXÝ[Û‹ˆ‹ˆ[XYÙWÚYÎˆ×KˆKˆKˆ[[Ó[ÙNˆYKˆKˆJNÂˆ™]\›ŽÂˆBˆÛÛœÝÛ™ÔÙ[XÝY\ÜØYÙHHÙ[XÝYÚ[šÒYˆÈÂˆ‹‹œ^[ØYˆÚ[šÜÎˆ^[ØY˜Ú[šÜË›X\
+
+Ú[šÊHO‚ˆÚ[šËšYOOHÙ[XÝYÚ[šÒYÈÈ‹‹˜Ú[šËÛÛ[ˆ\œ˜^J
+K™š[
+Ú[šË˜ÛÛ[
+Kš›Ú[ŠˆŠHHˆÚ[šËˆ
+KˆBˆˆ^[ØYÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ‹‹›Û™ÔÙ[XÝY\ÜØYÙK[[Ó[ÙNˆYHHJNÂˆJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝÛR[YÜš]JYÙNˆYÙKÜ[ÛœÎˆÈ[Øš[S˜]Îˆ›ÛÛX[ŽÈ[Øš[Q˜X”™XYOÎˆ›ÛÛX[ˆHHßJHÂˆÛÛœÝ]Y]H]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆÛÛœÝ\XØ]RYÈHË‹‹™ØÝ[Y[œ]Y\žTÙ[XÝÜ[
+–ÚYHŠWBˆ›X\
+
+[[Y[
+HOˆ[[Y[šY
+Bˆ™š[\Š
+Y[™^[
+HOˆY	‰ˆ[š[™^ÙŠY
+HOOH[™^
+NÂˆÛÛœÝœ›ÚÙ[\šXT™YœÎˆ\œ˜^OÈ]ŽˆÝš[™ÎÈYˆÝš[™ÈOˆH×NÂ‚ˆ›Üˆ
+ÛÛœÝ[[Y[ÙˆË‹‹™ØÝ[Y[œ]Y\žTÙ[XÝÜ[
+–Ø\šXK[X™[YžWKØ\šXKY\ØÜšX™YžWKØ\šXKXÛÛ›Û×HŠWJHÂˆ›Üˆ
+ÛÛœÝ]ˆÙˆÈ˜\šXK[X™[YžH‹˜\šXKY\ØÜšX™YžH‹˜\šXKXÛÛ›ÛÈ—JHÂˆÛÛœÝ˜[YHH[[Y[™Ù]]šX]J]ŠNÂˆYˆ
+]˜[YJHÛÛ[YNÂˆ›Üˆ
+ÛÛœÝYÙˆ˜[YKœÜ]
+×ÊËÊK™š[\Š›ÛÛX[ŠJHÂˆYˆ
+YØÝ[Y[™Ù][[Y[žRY
+Y
+JHœ›ÚÙ[\šXT™YœËœ\Ú
+È]‹YJNÂˆBˆBˆB‚ˆ™]\›ˆÂˆPÛÝ[ˆØÝ[Y[œ]Y\žTÙ[XÝÜ[
+šKÜ›ÛOIÚXY[™É×VØ\šXK[]™[IÌI×HŠK›[™Ýˆ\XØ]RYÎˆË‹‹›™]ÈÙ]
+\XØ]RYÊWKˆœ›ÚÙ[\šXT™YœËˆ\Ñœ˜[Y]ÛÜšÓÝ™\›^NˆÕ[š[™Y[[YH\œ›ÜŸZ[\œ›ÜŸ\XØ][Ûˆ\œ›ÜŸ™^šœËË\Ý
+ˆØÝ[Y[˜›ÙKš[›™\•^ˆ
+KˆNÂˆJNÂ‚ˆ^XÝ
+]Y]šPÛÝ[
+KÐ™JJNÂˆ^XÝ
+]Y]™\XØ]RYÊKÑ\]X[
+×JNÂˆ^XÝ
+]Y]˜œ›ÚÙ[\šXT™YœÊKÑ\]X[
+×JNÂˆ^XÝ
+]Y]š\Ñœ˜[Y]ÛÜšÓÝ™\›^JKÐ™J˜[ÙJNÂ‚ˆYˆ
+Ü[ÛœË›[Øš[S˜]ŠHÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ›˜]šYØ][Ûˆ‹È˜[YNˆ[œÝÙ\ˆÙXÝ[ÛœÈˆJJKÒ]™PÛÝ[
+
+NÂˆYˆ
+Ü[ÛœË›[Øš[Q˜X”™XYJHÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+›[Øš[K\ÙXÝ[Û‹Y˜X‹X]ÛˆŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+›[Øš[K\ÙXÝ[Û‹Y˜X‹[Y[HŠJKÐ™RY[Š
+NÂˆH[ÙHÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+›[Øš[K\ÙXÝ[Û‹Y˜X‹X]ÛˆŠJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+›[Øš[K\ÙXÝ[Û‹Y˜X‹[Y[HŠJKÒ]™PÛÝ[
+
+NÂˆBˆBŸB‚‹ËÈØÛÜHÜ[œÈœ›ÛHHÛÛ[X[™Ý\™˜XÙHY\ˆ[œÝÙ\ˆÝX›Z][™œ›ÛHHŠÈˆY[HÛˆ[ÙHÛY\Ë‚˜\Þ[˜È[˜Ý[ÛˆÜ[”ØÛÜPÛÛ›Û
+YÙNˆYÙJHÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘\ØØ\HŠNÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘\ØØ\HŠNÂˆ]ØZ]YÙBˆ™Ù]žT›ÛJ›\Ý›Þ‹È˜[YNˆÜÙX\˜ÚÝYÙÙ\Ý[ÛœËÚHJBˆØZ]›ÜŠÈÝ]NˆšY[ˆ‹[Y[Ý]ˆWÌJBˆ˜Ø]Ú
+
+
+HOˆ[™Yš[™Y
+NÂ‚ˆÛÛœÝÛÛ\ÜÙ\ˆHYÙK›ØØ]ÜŠ	ÖØ\šXK[X™[H”ÙX\˜Ú[™^YÝZY[[™\ÈžH]Y\Ý[ÛˆÜˆÙ^]ÛÜ™—Nš\ÚX›IÊK™š\œÝ
+
+NÂˆÛÛœÝ›ÝÛQØÚÈHYÙK›ØØ]ÜŠ™›Ü›K˜[œÝÙ\‹Y›ÛÝ\‹\ÙX\˜ÚYØÚÈŠNÂˆYˆ
+]ØZ]›ÝÛQØÚËš\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJJHÂˆËÈš[ÜˆÚY]ÜØÜ›Û[\˜XÝ[ÛœÈØ[ˆX]™HHÛ™HØÚÈ˜[œÛ]YÙ™‹\ØÜ™Y[‹‚ˆËÈ™\ÝÜ™H]™Y›Ü™HÜ[š[™ÈØÛÜHÛÈHÛXÚÈ[™È[ˆHšY]ÜÜ‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]^XÝ
+›ÝÛQØÚÊK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆB‚ˆËÈYˆHÛÛ\ÜÙ\ˆ\ÈØÜ›ÛYÝ]ÙˆšY]ÈÛˆ[Øš[KØÜ›ÛHÛÛZ[™\ˆÈHÜÈ™]™X[]ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂ‚ˆ]ØZ]ÛÛ\ÜÙ\‹˜ÛXÚÊ
+NÂˆÛÛœÝØÛÜSÜ[ÛˆHYÙK™Ù]žT›ÛJ›Ü[Ûˆ‹È˜[YNˆÔØÛÜHÛÝ\˜Ù\ËÚHJNÂˆYˆ
+]ØZ]ØÛÜSÜ[Û‹š\Õš\ÚX›JÈ[Y[Ý]ˆ—ÌJK˜Ø]Ú
+
+
+HOˆ˜[ÙJJHÂˆ]ØZ]ØÛÜSÜ[Û‹˜ÛXÚÊ
+NÂˆH[ÙHÂˆÛÛœÝXÝ[Û“Y[HHYÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆ[œÝÙ\ˆÜ[ÛœÈˆJNÂˆ]ØZ]^XÝ
+XÝ[Û“Y[JKÐ™Uš\ÚX›J
+NÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\ŠXÝ[Û“Y[K›ÛÛXÚÈŠNÂˆ]ØZ]XÝ[Û“Y[K˜ÛXÚÊ
+NÂˆÛÛœÝXÝ[ÛœÓY[HHYÙK™Ù]žU\ÝY
+™Z[KXXÝ[ÛœË[Y[HŠNÂˆ]ØZ]^XÝ
+XÝ[ÛœÓY[JKÐ™Uš\ÚX›JÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]XÝ[ÛœÓY[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ×”ØÛÜW‹ÈJK˜ÛXÚÊ
+NÂˆBˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+œØÛÜKXÛÛ[X[™\ÜÝ™\ˆŠJKÐ™Uš\ÚX›JÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝZ[•ÝXÚ\™Ù]
+ØØ]ÜŽˆØØ]Ü‹Z[”Ú^™HH
+HÂˆÛÛœÝ›ÞH]ØZ]ØØ]Ü‹˜›Ý[™[™Ð›Þ
+
+NÂˆ^XÝ
+›Þ
+K››ÝÐ™S[
+
+NÂˆÛÛœÝYX\Ý\™[Y[Û\˜[˜ÙHHŽÂˆ^XÝ
+›ÞKšZYÚ
+ÈYX\Ý\™[Y[Û\˜[˜ÙJKÐ™QÜ™X]\•[“Ü‘\]X[
+Z[”Ú^™JNÂˆ^XÝ
+›ÞKÚY
+ÈYX\Ý\™[Y[Û\˜[˜ÙJKÐ™QÜ™X]\•[“Ü‘\]X[
+Z[”Ú^™JNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ\Ý]ÚYPXÝ]™TÝ\™˜XÙJYÙNˆYÙJHÂˆÛÛœÝšY]ÜÜHYÙKšY]ÜÜÚ^™J
+HÏÈÈÚYˆÎLZYÚˆŒNÂˆ]ØZ]YÙK›[Ý\ÙK˜ÛXÚÊX]›X^
+KšY]ÜÜÚYH
+K
+NÂŸB‚˜\Þ[˜È[˜Ý[ÛˆØÜ›Û[Øš[UX›Q^[™ÛX\“Ù‘›ÛÝ\ŠYÙNˆYÙKÛ[šXØ[X›NˆØØ]ÜŠHÂˆ]ØZ]Û[šXØ[X›KœØÜ›Û[ÕšY]ÒY“™YYY
+
+NÂˆ]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆÛÛœÝ^[™HØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÖÙ]K]\ÝYHX›KY^[™X]Ûˆ—IÊNÂˆÛÛœÝXZ[ˆHØÝ[Y[œ]Y\žTÙ[XÝÜS[[Y[Š›XZ[ˆÛXZ[‹XÛÛ[ŠNÂˆÛÛœÝ›ÛÝ\ˆHØÝ[Y[œ]Y\žTÙ[XÝÜŠˆ‹˜[œÝÙ\‹Y›ÛÝ\‹\ÙX\˜ÚYØÚË™\Ú›Ø\™XÛÛ\ÜÙ\‹YYÙK˜[œÝÙ\‹Y›ÛÝ\‹\ÙX\˜ÚYYÙH‹ˆ
+NÂˆYˆ
+Y^[™[XZ[ŠH™]\›ŽÂˆÛÛœÝXZ[“Ý™\™›ÝÖHHÚ[™ÝË™Ù]ÛÛ\]YÝ[JXZ[ŠK›Ý™\™›ÝÖNÂˆÛÛœÝXZ[“ÝÛœÔØÜ›ÛBˆÈ˜]]È‹œØÜ›Û‹›Ý™\›^H—Kš[˜ÛY\ÊXZ[“Ý™\™›ÝÖJH	‰ˆXZ[‹œØÜ›ÛZYÚˆXZ[‹˜ÛY[ZYÚÂˆ›Üˆ
+]][\HÈ][\ŽÈ][\
+ÏHJHÂˆÛÛœÝ^[™™XÝH^[™™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆÛÛœÝ›ÛÝ\•ÜH›ÛÝ\Ë™Ù]›Ý[™[™ÐÛY[™XÝ
+
+KÜÏÈÚ[™ÝËš[›™\’ZYÚÂˆÛÛœÝÝ\œ™[Ý™\›\H^[™™XÝ˜›ÝÛHH›ÛÝ\•Ü
+ÈÂˆYˆ
+Ý\œ™[Ý™\›\H
+Hœ™XZÎÂˆYˆ
+XZ[“ÝÛœÔØÜ›Û
+HXZ[‹œØÜ›ÛÜ
+ÏHÝ\œ™[Ý™\›\Âˆ[ÙHÚ[™ÝËœØÜ›ÛžJÈÜˆÝ\œ™[Ý™\›\™Z]š[ÜŽˆ˜]]ÈˆJNÂˆBˆJNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆÜ[“[Øš[UX›Q[ØÜ™Y[ŠYÙNˆYÙKÛ[šXØ[X›NˆØØ]ÜŠHÂˆ]ØZ]ØÜ›Û[Øš[UX›Q^[™ÛX\“Ù‘›ÛÝ\ŠYÙKÛ[šXØ[X›JNÂˆÛÛœÝ^[™]ÛˆHÛ[šXØ[X›K™Ù]žU\ÝY
+X›KY^[™X]ÛˆŠNÂˆÛÛœÝX›QX[ÙÈHYÙK™Ù]žU\ÝY
+X›KY[ØÜ™Y[‹YX[ÙÈŠNÂˆ]ØZ]^XÝ
+^[™]ÛŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š^[™]Û‹›ÛÛXÚÈŠNÂˆ]ØZ]^[™]Û‹˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X›QX[ÙÊKÐ™Uš\ÚX›JÈ[Y[Ý]ˆMWÌJNÂˆ™]\›ˆX›QX[ÙÎÂŸB‚˜\Þ[˜È[˜Ý[ÛˆÜ[“[Øš[PÛ[šXØ[ÝZYSY[JYÙNˆYÙJHÂˆÛÛœÝšYÙÙ\ˆHYÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆÛ[šXØ[ÝZYHY[HˆJNÂˆ]ØZ]^XÝ
+šYÙÙ\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\ŠšYÙÙ\‹›ÛÛXÚÈŠNÂˆ]ØZ]šYÙÙ\‹˜ÛXÚÊ
+NÂ‚ˆÛÛœÝY[HHYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆÛ[šXØ[ÝZYHˆJNÂˆ]ØZ]^XÝ
+Y[JKÐ™Uš\ÚX›J
+NÂˆÛÛœÝY[P›ÞH]ØZ]Y[K˜›Ý[™[™Ð›Þ
+
+NÂˆ^XÝ
+Y[P›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+Y[P›ÞKž
+KÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“™]ÈÚ]ˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”ÙX\˜ÚÛ[šXØ[ÝZYHˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žU^
+”™XÙ[Ú]È‹È^XÝˆYHJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žU^
+”ÚÜÝ]È‹È^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘Y]ˆJJKÐ™Uš\ÚX›J
+NÂˆÛÛœÝ˜]šYØ][ÛˆHY[K™Ù]žT›ÛJ›˜]šYØ][Ûˆ‹È˜[YNˆ”[›™YÚÜÝ]ÈˆJNÂˆ]ØZ]^XÝ
+˜]šYØ][ÛŠKÐ™Uš\ÚX›J
+NÂˆ^XÝ
+ˆ]ØZ]˜]šYØ][Û‚ˆ™Ù]žT›ÛJ›[šÈŠBˆ™]˜[X]P[
+
+[šÜÊHOˆ[šÜË›X\
+
+[šÊHOˆ
+È˜[YNˆ[šË^ÛÛ[™YŽˆ[šË™Ù]]šX]Jš™YˆŠHJJJKˆ
+KÑ\]X[
+ÂˆÈ˜[YNˆ[œÝÙ\ˆ‹™YŽˆ‹ÏÛ[ÙOX[œÝÙ\ˆˆKˆËÈÝÛ™\ˆXÚ\Ú[ÛˆŒ‹LLÎˆØÝ[Y[È›Ú[œÈHÝ\ˆÛÛœÛÛY]Y[Ù\È[™ˆËÈ[šÜÈ]HÚ\™YÛYKˆÙØÝ[Y[ØÝ[^\ÝÈ[™Ý[Z[È]ÂˆËÈœ›ÝÜÙKÜ™XÙ[ÛÜšÜÜXÙK]]\ÈHÙXÛÛ™[™[™ÈYÙH8 %Ø[YHÝX]KˆËÈY™™\™[]H8 %[™™XXÚ[™È]œ›ÛHHÚYX˜\ˆ™XY\ÈHÜ›Û™ÈØÜ™Y[‹‚ˆËÈ]ÙY\È]È›Ý]H[™]È[˜›Ý[™[šÈœ›ÛHHÛÛÈ\™XÝÜžK‚ˆËÈYYXØ][Ûˆ\È›ÝÛÛœÛÛY]YˆÛYYXØ][ÛœÈ\ÈH™\ØÜšXš[™ÈÛÜšÜÜXÙKˆËÈ›ÝHÌÈÛÈÏÛ[ÙO\™\ØÜšXš[™Ë‚ˆÈ˜[YNˆ‘ØÝ[Y[È‹™YŽˆ‹ÏÛ[ÙOYØÝ[Y[ÈˆKˆÈ˜[YNˆ”Ù\šXÙ\È‹™YŽˆ‹ÏÛ[ÙO\Ù\šXÙ\ÈˆKˆÈ˜[YNˆ“YYXØ][Ûˆ‹™YŽˆ‹ÛYYXØ][ÛœÈˆKˆÈ˜[YNˆ‘˜XÝÚY]È‹™YŽˆ‹ÏÛ[ÙOY˜XÝÚY]ÈˆKˆÈ˜[YNˆ•ÛÛÈ‹™YŽˆ‹ÝÛÛÈˆKˆJNÂˆ]ØZ]^XÝ
+˜]šYØ][Û‹™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“[Ü™H[Ù\ÈˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘ÝZYH	ˆ[‹^XÝˆYHJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ×ŠÝÚ]ÚÈ
+OÊ\šßYÚ
+H[ÙIÚHJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÐ\X\˜[˜ÙH]]ËÈJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ù][™ÜÈ‹^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Y[K™Ù]žU^
+‘ÝY\ÝŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆ”ÞXÚÚYÝZYHˆJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆ™]\›ˆY[NÂŸB‚˜\Þ[˜È[˜Ý[ÛˆØZ]›Ü‘[[Ñ\Ú›Ø\™™XYJYÙNˆYÙJHÂˆ]ØZ]^XÝ
+š\ÚX›T]Y\Ý[Û’[œ]
+YÙJJKÐ™Q[˜X›Y
+
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆ[œÝÙ\ˆÜ[ÛœÈˆJJKÐ™Uš\ÚX›JÈ[Y[Ý]ˆÌJNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆØZ]›Ü”\œÚ\ÝY[œÝÙ\•™XY
+YÙNˆYÙKZ[”š[Ü•\›œÈHJHÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆYÙK™]˜[X]J
+ÝÜ˜YÙRÙ^JHOˆÂˆžHÂˆÛÛœÝ˜]ÈHÚ[™ÝËœÙ\ÜÚ[Û”ÝÜ˜YÙK™Ù]][JÝÜ˜YÙRÙ^JNÂˆYˆ
+\˜]ÊH™]\›ˆÂˆÛÛœÝ\œÙYH”ÓÓ‹œ\œÙJ˜]ÊH\ÈÈš[Ü•\›œÏÎˆ[šÛ›ÝÛ–×HNÂˆ™]\›ˆ\œ˜^Kš\Ð\œ˜^J\œÙYœš[Ü•\›œÊHÈ\œÙYœš[Ü•\›œË›[™ÝˆÂˆHØ]ÚÂˆ™]\›ˆÂˆBˆK[[Ð[œÝÙ\•™XYÝÜ˜YÙRÙ^JKˆ
+BˆÐ™QÜ™X]\•[“Ü‘\]X[
+Z[”š[Ü•\›œÊNÂŸB‚˜\Þ[˜È[˜Ý[ÛˆÜ[‘ÝZYJYÙNˆYÙJHÂˆÛÛœÝX[ÙÈHYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆ”ÞXÚÚYÝZYHˆJNÂˆÛÛœÝÙ][™ÜÈHXØÛÝ[Ù][™ÜÑX[ÙÊYÙJNÂˆÛÛœÝšY]ÜÜHYÙKšY]ÜÜÚ^™J
+NÂ‚ˆËÈÝZYH›ÝÈ]™\È[œÚYHÙ][™ÜËˆYˆÙ][™ÜÈ\È[™XYHÜ[ˆ
+K™ËˆY\‚ˆËÈÛÜÚ[™ÈÝZYH™\ÝÜ™\È]
+KÚÚ\H™[Ü[ˆÛXÚÈ]ÛÝ[]HÝ™\›^K‚ˆYˆ
+J]ØZ]Ù][™ÜËš\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJJJHÂˆËÈHÙ][™ÜÈšYÙÙ\ˆ™XÛÛY\Èš\ÚX›H™Y›Ü™H™XXÝ]XÚ\È]È[™\‹ÛÈBˆËÈÚ[™ÛHÛXÚÈ\ÈÚ[[HÝØ[ÝÙY[™HX[ÙÈ™]™\ˆÜ[œËˆ™]žHBˆËÈÛXÚÈÙÙ]\ˆÚ]HX[ÙÈ]ÚÝ[›ÙXÙK˜]\ˆ[ˆ\ÜÙ\[™ÂˆËÈš\ÚXš[]HÛ˜ÙH8 %HØ[YHÚ\H\ÙY›ÜˆHÛÛ\ÜÙ\ˆ[™[ÙHY[K‚ˆ]ØZ]^XÝ
+\Þ[˜È
+
+HOˆÂˆËÈY[\Ý[žHÛÛœÝXÝ[Û‹ˆYˆHX[ÙÈÜ[™Y\ÝY\ˆH[›™\‚ˆËÈ\ÜÙ\[Û‰ÜÈÝÛˆXY[™H^\™YÔ\ÜØÝ[ØÚY[\È[›Ý\‚ˆËÈ][\ÈÚ]Ý]\ÈH][\ÛXÚÜÈHšYÙÙ\ˆH[Ù[\È[™XYBˆËÈÛÝ™\š[™È
+Üˆ™[Ü[œÈHÛ™HY[HÛˆÜÙˆ]
+H[™H[\ˆ[Y\ÂˆËÈÝ][™\ˆ^XÝHHØY]^\ÝÈÈÛ\˜]K‚ˆYˆ
+]ØZ]Ù][™ÜËš\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJJH™]\›ŽÂˆYˆ
+šY]ÜÜ	‰ˆšY]ÜÜÚYÍŽ
+HÂˆËÈHÝØ[ÝÙYÛXÚÈX]™\ÈHÛ™HY[HÔS‹ÛÈH™]žH][Ø^\ÂˆËÈ™[Ü[œÈÛÝ[ÙÙÛH]Ú][™[ˆ˜Z[Èš[™Ù][™ÜÈ[œÚYH]‚ˆËÈ™]\ÙHHÜ[ˆY[NÈÛ›HÝ[[[ÛˆÛ™HÚ[ˆ\™H\È›Û™K‚ˆÛÛœÝÜ[“Y[HHYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆÛ[šXØ[ÝZYHˆJNÂˆÛÛœÝY[HH
+]ØZ]Ü[“Y[Kš\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJJBˆÈÜ[“Y[Bˆˆ]ØZ]Ü[“[Øš[PÛ[šXØ[ÝZYSY[JYÙJNÂˆ]ØZ]Y[K™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ù][™ÜÈ‹^XÝˆYHJK˜ÛXÚÊ
+NÂˆH[ÙHYˆ
+šY]ÜÜ	‰ˆšY]ÜÜÚYL
+HÂˆÛÛœÝ˜Z[HYÙK™Ù]žSX™[
+Û[šXØ[ÝZYHÛÛ\ÙYÚYX˜\ˆŠNÂˆÛÛœÝ˜Z[Ù][™ÜÈH˜Z[™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ù][™ÜÈ‹^XÝˆYHJNÂˆ]ØZ]^XÝ
+˜Z[Ù][™ÜÊKÐ™Uš\ÚX›J
+NÂˆ]ØZ]˜Z[Ù][™ÜË˜ÛXÚÊ
+NÂˆH[ÙHÂˆÛÛœÝÚYX˜\ˆHYÙK›ØØ]ÜŠˆØÛ[šXØ[]ÛÛË\ÚYX˜\ˆŠNÂˆÛÛœÝÙ][™ÜÕšYÙÙ\ˆH
+]ØZ]ÚYX˜\‹š\Õš\ÚX›J
+K˜Ø]Ú
+
+
+HOˆ˜[ÙJJBˆÈÚYX˜\‹™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ù][™ÜÈ‹^XÝˆYHJBˆˆYÙK™Ù]žSX™[
+Û[šXØ[ÝZYHÛÛ\ÙYÚYX˜\ˆŠK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ù][™ÜÈ‹^XÝˆYHJNÂˆ]ØZ]^XÝ
+Ù][™ÜÕšYÙÙ\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]Ù][™ÜÕšYÙÙ\‹˜ÛXÚÊ
+NÂˆBˆ]ØZ]^XÝ
+Ù][™ÜÊKÐ™Uš\ÚX›JÈ[Y[Ý]ˆ×ÌJNÂˆJKÔ\ÜÊÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆB‚ˆ]ØZ]^XÝ
+Ù][™ÜÊKÐ™Uš\ÚX›JÈ[Y[Ý]ˆZP\ÜÙ\[Û•[Y[Ý]\ÈJNÂˆ]ØZ]Ù][™ÜË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘ÝZYH	ˆ[‹^XÝˆYHJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙÊKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJšXY[™È‹È˜[YNˆ’ÝÈÈ™\šYžH[ˆ[œÝÙ\ˆˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ•™\šYžH[ˆ[œÝÙ\ˆˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆ™]\›ˆX[ÙÎÂŸB‚™[˜Ý[ÛˆXØÛÝ[Ù][™ÜÑX[ÙÊYÙNˆYÙJHÂˆ™]\›ˆYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆXØÛÝ[	ˆ\ˆJNÂŸB‚™[˜Ý[ÛˆXØÛÝ[Ù]\X[ÙÊYÙNˆYÙJHÂˆ™]\›ˆYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆXØÛÝ[Ù]\ˆJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝÛÛ›ÛÐ™[ÝÔÛ™UÜØY™P\™XJYÙNˆYÙKÛÛ›ÛÎˆØØ]Ü–×JHÂˆÛÛœÝØY™P\™XUÜH]ØZ]YÙK™]˜[X]J
+
+HO‚ˆ[X™\‹œ\œÙQ›Ø]
+Ù]ÛÛ\]YÝ[JØÝ[Y[™ØÝ[Y[[[Y[
+K™Ù]›Ü\U˜[YJ‹K\ØY™KX\™XK]ÜŠJKˆ
+NÂˆ^XÝ
+ØY™P\™XUÜ
+KÐ™QÜ™X]\•[Š
+NÂ‚ˆ›Üˆ
+ÛÛœÝÛÛ›ÛÙˆÛÛ›ÛÊHÂˆÛÛœÝ›Ý[™ÈH]ØZ]ÛÛ›Û˜›Ý[™[™Ð›Þ
+
+NÂˆ^XÝ
+›Ý[™ÊK››ÝÐ™S[
+
+NÂˆ^XÝ
+›Ý[™ÈKžJKÐ™QÜ™X]\•[“Ü‘\]X[
+ØY™P\™XUÜ
+NÂˆBŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝXØÛÝ[Ù][™ÜÔÝ\™˜XÙJÙ][™ÜÎˆØØ]ÜŠHÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJšXY[™È‹È˜[YNˆXØÛÝ[	ˆ\ˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJšXY[™È‹È˜[YNˆXØÛÝ[‹^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJšXY[™È‹È˜[YNˆÛ[šXØ[Y˜][È‹^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJšXY[™È‹È˜[YNˆ\™Y™\™[˜Ù\È‹^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU\ÝY
+œÙ][™ÜËXXØÛÝ[XØ\™ŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU\ÝY
+œÙ][™ÜË\›ÝË\›Ùš[HŠJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU\ÝY
+œÙ][™ÜË\›ÝËZ\š\ÙXÝ[ÛˆŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU\ÝY
+œÙ][™ÜË\›ÝËX[œÝÙ\‹\Ý[HŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU\ÝY
+œÙ][™ÜË\›ÝËX\X\˜[˜ÙHŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žU^
+”Ø]™YÛˆ\È]šXÙNÈ›ÝY]\ÙY[ˆ[œÝÙ\œËˆŠJKÒ]™PÛÝ[
+JNÂˆ]ØZ]^XÝ
+Ù][™ÜÊK››ÝÐÛÛZ[•^
+ØYZ[Ÿ]X˜\Ù_ÝÜ˜YÙ_ÛÝ\˜ÙH™]šY]ß[\Ü\[[™KÚJNÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝ[Øš[TÙ][™ÜÓ^[Ý]
+Ù][™ÜÎˆØØ]ÜŠHÂˆÛÛœÝ\š\ÙXÝ[Û”›ÝÈHÙ][™ÜË™Ù]žU\ÝY
+œÙ][™ÜË\›ÝËZ\š\ÙXÝ[ÛˆŠNÂˆËÈH›ÝÈØ\œšY\ÈÛÈX™[È›ÜˆÛ™HÛÛ›Û[X™\˜][KˆHš\ÚX›H›ÝÂˆËÈ^\ÈHX™[[›Ü˜ÛÈÛXÚÚ[™È]›ØÝ\Ù\ÈHÙ[XÝ[™HÂˆËÈÙ[XÝÙY\È]ÈÝÛˆÜ‹[Û›XX™[™XØ]\ÙHHšY[Ú]Ý]Û™H\È›ÝBˆËÈšY[È\šXK[X™[YžXÚ[È]Hš\ÚX›HÛ™KÛÈHXØÙ\ÜÚX›H˜[YBˆËÈ\ÈÜÙHÛÜ™ÈÛ˜ÙH˜]\ˆ[ˆHÛÈÛÛ˜Ø][˜]Yˆ\È^[Ý]\ÜÙ\[Û‚ˆËÈ\ÈX›Ý]Ú\™HH
+š\ÚX›JˆX™[Ú]ËÛÈ]Y™\ÜÙ\È]Û™HžHYˆËÈ[œÝXYÙˆžH^‚ˆÛÛœÝX™[H\š\ÙXÝ[Û”›ÝË›ØØ]ÜŠˆÜÙ][™ÜËZ\š\ÙXÝ[Û‹[X™[ŠNÂˆÛÛœÝÛÛ›ÛH\š\ÙXÝ[Û”›ÝË™Ù]žT›ÛJ˜ÛÛX›Ø›ÞŠNÂˆÛÛœÝÜ›ÝÐ›ÞX™[›ÞÛÛ›Û›ÞHH]ØZ]›ÛZ\ÙK˜[
+Âˆ\š\ÙXÝ[Û”›ÝË˜›Ý[™[™Ð›Þ
+
+KˆX™[˜›Ý[™[™Ð›Þ
+
+KˆÛÛ›Û˜›Ý[™[™Ð›Þ
+
+KˆJNÂ‚ˆ^XÝ
+›ÝÐ›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+X™[›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+ÛÛ›Û›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+ÛÛ›Û›ÞKžJKÐ™QÜ™X]\•[“Ü‘\]X[
+X™[›ÞKžH
+ÈX™[›ÞKšZYÚ
+È
+NÂˆ^XÝ
+ÛÛ›Û›ÞKž
+KÐ™QÜ™X]\•[“Ü‘\]X[
+›ÝÐ›ÞKž
+NÂˆ^XÝ
+ÛÛ›Û›ÞKž
+ÈÛÛ›Û›ÞKÚY
+KÐ™S\ÜÕ[“Ü‘\]X[
+›ÝÐ›ÞKž
+È›ÝÐ›ÞKÚY
+NÂ‚ˆËÈ“[Ý[Ûˆˆ›Ú[™Y\È\ÝÛˆŒ‹LLMÎˆ]™XØ[YHH™YK[Ü[ÛˆÙYÛY[YˆËÈÛÛ›Û
+Þ\Ý[HÈ™YXÙYÈ[
+HÛÈ[ˆÔÈ™YXÙH[Ý[Ûˆ™\]Y\ÝØ[ˆ™BˆËÈ^XÚ]HÝ™\œšY[ˆ[‹X\™\XÚ[™ÈHÛ›ÛÛX[ˆÝÚ]Ú‚ˆ›Üˆ
+ÛÛœÝÜ›Ý\X™[ÙˆÈ[œÝÙ\ˆÝ[H‹\X\˜[˜ÙH‹’[\™˜XÙH[œÚ]H‹‘Y˜][[™[™ÈšY]È‹“[Ý[Ûˆ—JHÂˆÛÛœÝ›ÝÈHÙ][™ÜË™Ù]žU\ÝY
+Ù][™ÜË\›ÝËIÙÜ›Ý\X™[ÓÝÙ\Ø\ÙJ
+Kœ™\XÙP[
+ˆ‹‹HŠ_X
+NÂˆÛÛœÝ˜Y[ÜÈH›ÝË™Ù]žT›ÛJœ˜Y[ÙÜ›Ý\‹È˜[YNˆÜ›Ý\X™[JK™Ù]žT›ÛJœ˜Y[ÈŠNÂˆÛÛœÝ˜Y[Ð›Þ\ÈH]ØZ]˜Y[ÜË™]˜[X]P[
+
+[[Y[ÊHO‚ˆ[[Y[Ë›X\
+
+[[Y[
+HOˆÂˆÛÛœÝ›ÞH[[Y[™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆÛÛœÝ^H[[Y[œ]Y\žTÙ[XÝÜŠœÜ[ˆŠNÂˆ™]\›ˆÂˆˆ›ÞžˆNˆ›ÞžKˆÚYˆ›ÞÚYˆZYÚˆ›ÞšZYÚˆ^š]Îˆ^È^œØÜ›ÛÚYH^˜ÛY[ÚY
+ÈHˆYKˆNÂˆJKˆ
+NÂ‚ˆ^XÝ
+˜Y[Ð›Þ\ÊKÒ]™S[™Ý
+ÊNÂˆ^XÝ
+ˆX]›X^
+‹‹œ˜Y[Ð›Þ\Ë›X\
+
+›Þ
+HOˆ›ÞžJJHHX]›Z[Š‹‹œ˜Y[Ð›Þ\Ë›X\
+
+›Þ
+HOˆ›ÞžJJKˆ
+KÐ™S\ÜÕ[“Ü‘\]X[
+JNÂˆ^XÝ
+˜Y[Ð›Þ\Ë™]™\žJ
+›Þ
+HOˆ›ÞšZYÚH
+JKÐ™JYJNÂˆ^XÝ
+˜Y[Ð›Þ\Ë™]™\žJ
+›Þ
+HOˆ›Þ^š]ÊJKÐ™JYJNÂˆ^XÝ
+˜Y[Ð›Þ\ÖÌKž
+È˜Y[Ð›Þ\ÖÌKÚY
+KÐ™S\ÜÕ[“Ü‘\]X[
+˜Y[Ð›Þ\ÖÌWKž
+NÂˆ^XÝ
+˜Y[Ð›Þ\ÖÌWKž
+È˜Y[Ð›Þ\ÖÌWKÚY
+KÐ™S\ÜÕ[“Ü‘\]X[
+˜Y[Ð›Þ\ÖÌ—Kž
+NÂˆB‚ˆËÈHÝÚ]Ú›ÝÈÝ[\ÈÈÛH\\™Ù]È”™XÙ[ÙX\˜Ú\ÈÛˆÛYH‚ˆËÈ\ÈH™X\™\Ý™[XZ[š[™È›ÛÛX[ˆ›ÝÈ][Ý[Ûˆ\ÈHÙYÛY[YÛÛ›Û‚ˆÛÛœÝÝÚ]Ú›ÞH]ØZ]Ù][™ÜÂˆ™Ù]žU\ÝY
+œÙ][™ÜË\›ÝË\™XÙ[\ÙX\˜Ú\Ë[Û‹ZÛYHŠBˆ™Ù]žT›ÛJœÝÚ]ÚŠBˆ˜›Ý[™[™Ð›Þ
+
+NÂˆ^XÝ
+ÝÚ]Ú›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+ÝÚ]Ú›ÞKÚY
+KÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ^XÝ
+ÝÚ]Ú›ÞKšZYÚ
+KÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHÙ][™ÜÈˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù][™ÜË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ˜XÚÈœ›ÛHÙ][™ÜÈˆJJKÒ]™PÛÝ[
+
+NÂŸB‚˜\Þ[˜È[˜Ý[Ûˆ^XÝXØÛÝ[Ù]\Ý\™˜XÙJÙ]\ˆØØ]ÜŠHÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJšXY[™È‹È˜[YNˆÛÛ[YHÈ[Ý\ˆÛÜšÜÜXÙHˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJšXY[™È‹È˜[YNˆ–[Ý\ˆÛÜšÜÜXÙKÚ\™]™\ˆ[ÝHÛÜšËˆˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žSX™[
+•ÛÜšÈ[XZ[ŠJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÛ[YHÙXÝ\™[HˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÛ[YHÚ]\HˆJJKÐ™Q[˜X›Y
+
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÛ[YHÚ]ÛÛÙÛHˆJJKÐ™Q[˜X›Y
+
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÛ[YHÚ]ZXÜ›ÜÛÙˆJJKÐ™Q[˜X›Y
+
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+Ð\HÚYÛ‹Z[ˆ\È›Ý]˜Z[X›KÚJJKÒ]™PÛÝ[
+
+NÂˆÛÛœÝXØÛÝ[Ù]\šY]ÜÜÚYH]ØZ]Ù]\™]˜[X]J
+
+HOˆÚ[™ÝËš[›™\•ÚY
+NÂˆYˆ
+XØÛÝ[Ù]\šY]ÜÜÚYHL
+HÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+”Ø]™H˜]›Ý\š]\È‹È^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+Ô™[Ü[ˆ\ÝY™\ÛÝ\˜Ù\ÈÛˆ[žH]šXÙKÚJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+’ÙY\[Ý\ˆÛ[šXØ[Y˜][È‹È^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+Ö[Ý\ˆ\š\ÙXÝ[Ûˆ[™[œÝÙ\ˆÝ[H›ÛÝÈ[ÝKÚJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+”™XÙ[ÙX\˜Ú\ÈÝ^H\™H‹È^XÝˆYHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+Ðœ›ÝÜÙ\ˆXÝ]š]HÙ\È›ÝÞ[˜ÈÈ[Ý\ˆXØÛÝ[ÚJJKÐ™Uš\ÚX›J
+NÂˆH[ÙHÂˆ]ØZ]^XÝ
+Ù]\™Ù]žU^
+‘˜]›Ý\š]\ÈÞ[˜È‹È^XÝˆYHJJKûÛÞv¶‰žËkºwµç[™NÈ[™^[™ÈY]Y]H\ÂˆËÈ[[ÝY™Z[™HÛÛ\ÙY\ØÛÜÝ\™H]H›ÝÛHÙˆHÚYX˜\‹‚ˆ]ØZ]^XÝ
+YÙK™Ù]žU^
+‘ØÝ[Y[]Z[È‹È^XÝˆYHJJKÒ]™PÛÝ[
+
+NÂˆÛÛœÝ[™^[™Ñ]Z[ÈHYÙK™Ù]žU\ÝY
+š[™^[™ËY]Z[ÈŠNÂˆ]ØZ]^XÝ
+[™^[™Ñ]Z[ÊKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+[™^[™Ñ]Z[Ë™Ù]žU^
+œ˜YËYY\[Y[[ÜžK]ŒHŠJKÐ™RY[Š
+NÂˆ]ØZ][™^[™Ñ]Z[Ë™Ù]žU^
+’[™^[™È]Z[È‹È^XÝˆYHJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+[™^[™Ñ]Z[Ë™Ù]žU^
+œ˜YËYY\[Y[[ÜžK]ŒHŠJKÐ™Uš\ÚX›J
+NÂ‚ˆ]ØZ]^XÝÛR[YÜš]JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+™ØÝ[Y[ÛÝ\˜ÙH^XØÛÜ™[ÛˆÝ^\ÈÛÛ\XÝ]ÌŒÎL[™LŽ^[È‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ›Üˆ
+ÛÛœÝÚYÙˆÌÌŒÎLLŽJHÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYZYÚˆLJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÙØÝ[Y[ËÌLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLOÜYÙOLHŠNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È]™[ˆK˜[YNˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛˆJJKÐ™Uš\ÚX›JÂˆ[Y[Ý]ˆÌÌˆJNÂ‚ˆÛÛœÝ[™^Y^HYÙK›ØØ]ÜŠˆÜÛÝ\˜ÙK]^ŠNÂˆÛÛœÝYÙU^H[™^Y^™Ù]žU\ÝY
+š[™^Y\YÙK]^Y\ØÛÜÝ\™HŠNÂˆÛÛœÝ\ÜØYÙ\ÈH[™^Y^›ØØ]ÜŠ™]Z[ÖÙ]K\ÛÝ\˜ÙKXÚ[šËZYHŠNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\ÊKÒ]™PÛÝ[
+ŠNÂˆ›Üˆ
+ÛÛœÝ\ØÛÜÝ\™HÙˆÜYÙU^\ÜØYÙ\Ë›
+
+K\ÜØYÙ\Ë›
+JWJHÂˆ]ØZ]^XÝ
+\ØÛÜÝ\™JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆB‚ˆ]ØZ][™^Y^›ØØ]ÜŠœÝ[[X\žHŠK™š\œÝ
+
+K˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]\ÜØYÙ\Ë›
+
+K›ØØ]ÜŠœÝ[[X\žHŠK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+JJKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]\ÜØYÙ\Ë›
+JK›ØØ]ÜŠœÝ[[X\žHŠK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+JJKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆBˆJNÂ‚ˆ\Ý
+™ØÝ[Y[šY]Ù\ˆÛÛ[\ØÛÜÝ\™\È\™H˜]\˜[HÛÜÙY[™]]X[H^Û\Ú]™HžHY˜][‹\Þ[˜È
+ÂˆYÙKˆJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÙØÝ[Y[ËÌLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLOÜYÙOLHŠNÂ‚ˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È]™[ˆK˜[YNˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛˆJJKÐ™Uš\ÚX›JÂˆ[Y[Ý]ˆÌÌˆJNÂˆÛÛœÝÛ[šXØ[Ý[[X\žHHYÙK™Ù]žU\ÝY
+™ØÝ[Y[XÛ[šXØ[\Ý[[X\žHŠNÂˆÛÛœÝÝ[[X\žUÙÙÛHHÛ[šXØ[Ý[[X\žK™Ù]žU\ÝY
+ÙÙÛKYØÝ[Y[\Ý[[X\žHŠNÂˆ]ØZ]^XÝ
+Û[šXØ[Ý[[X\žJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ý[[X\žUÙÙÛJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+Ý[[X\žUÙÙÛJKÒ]™P]šX]J˜\šXKY^[™Y‹™˜[ÙHŠNÂˆ]ØZ]Ý[[X\žUÙÙÛK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+Ý[[X\žUÙÙÛJKÒ]™P]šX]J˜\šXKY^[™Y‹YHŠNÂˆ]ØZ]^XÝ
+Ý[[X\žUÙÙÛJKÐÛÛZ[•^
+”ÚÝÈ\ÜÈŠNÂˆ]ØZ]Û[šXØ[Ý[[X\žK™Ù]žU\ÝY
+›Ü[‹XÛ[šXØ[\š[Üš]Y\ÈŠK˜ÛXÚÊ
+NÂˆÛÛœÝš[Üš]Y\ÔÚY]HYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆÛ[šXØ[š[Üš]Y\ÈˆJNÂˆ]ØZ]^XÝ
+š[Üš]Y\ÔÚY]
+KÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘\ØØ\HŠNÂˆ]ØZ]^XÝ
+š[Üš]Y\ÔÚY]
+KÒ]™PÛÝ[
+
+NÂˆÛÛœÝ[™^Y^HYÙK›ØØ]ÜŠˆÜÛÝ\˜ÙK]^ŠNÂˆÛÛœÝÝ[[X\žHHYÙK™Ù]žU\ÝY
+šYÚ^ZY[\Ý[[X\žHŠNÂˆÛÛœÝ[XYÙ\ÈHYÙK›ØØ]ÜŠˆÜÛÝ\˜ÙKZ[XYÙ\ÈŠNÂˆÛÛœÝ[™^[™Ñ]Z[ÈHYÙK™Ù]žU\ÝY
+š[™^[™ËY]Z[ÈŠNÂˆÛÛœÝYÙU^H[™^Y^™Ù]žU\ÝY
+š[™^Y\YÙK]^Y\ØÛÜÝ\™HŠNÂˆÛÛœÝ\ÜØYÙ\ÈH[™^Y^›ØØ]ÜŠ™]Z[ÖÙ]K\ÛÝ\˜ÙKXÚ[šËZYHŠNÂˆÛÛœÝÙXÝ[Û•šYÙÙ\ˆHYÙK™Ù]žU\ÝY
+™ØÝ[Y[\ÙXÝ[Û‹]šYÙÙ\ˆŠNÂˆÛÛœÝÛXÚÔÙXÝ[Û“˜]ˆH\Þ[˜È
+X™[ˆ™YÑ^
+HOˆÂˆ]ØZ]™]™X[Û™RXY\ÛÛ›Û
+YÙKÙXÝ[Û•šYÙÙ\ŠNÂˆ]ØZ]ÙXÝ[Û•šYÙÙ\‹˜ÛXÚÊ
+NÂˆÛÛœÝÚY]HYÙK™Ù]žU\ÝY
+™ØÝ[Y[\ÙXÝ[Û‹\ÚY]ŠNÂˆ]ØZ]^XÝ
+ÚY]
+KÐ™Uš\ÚX›J
+NÂˆÛÛœÝ›ÝÈHÚY]™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆX™[JNÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š›ÝË›ÛÛXÚÈŠNÂˆ]ØZ]XÝ]˜]Q›ØÝ\ÙYÛÛ›Û
+YÙK›ÝÊNÂˆ]ØZ]^XÝ
+ÚY]
+KÒ]™PÛÝ[
+
+NÂˆNÂˆËÈ[[ÈØÜÈÚ]›È^˜XÝYš\ÝX[ÈÛZ][XYÙ\Èœ›ÛHHÙXÝ[ÛˆÚY]ÂˆËÈÜ[ˆ]\ØÛÜÝ\™Hœ›ÛH]ÈÝÛˆÝ[[X\žHÛÈ^Û\Ú]š]HÝ[ÛÝ™\œÂˆËÈH[Ø^\Ë\™\Ù[ÜÛÝ\˜ÙKZ[XYÙ\È]Z[Ë‚ˆÛÛœÝÜ[’[XYÙ\Ñ\ØÛÜÝ\™HH\Þ[˜È
+
+HOˆÂˆ]ØZ][XYÙ\Ë›ØØ]ÜŠœÝ[[X\žHŠK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+[XYÙ\ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆNÂ‚ˆ]ØZ]^XÝ
+[™^Y^
+KÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\ÊKÒ]™PÛÝ[
+ŠNÂˆ›Üˆ
+ÛÛœÝ\ØÛÜÝ\™HÙˆÜYÙU^\ÜØYÙ\Ë›
+
+K\ÜØYÙ\Ë›
+JWJHÂˆ]ØZ]^XÝ
+\ØÛÜÝ\™JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆBˆ]ØZ]™]™X[Û™RXY\ÛÛ›Û
+YÙKÙXÝ[Û•šYÙÙ\ŠNÂˆ]ØZ]ÙXÝ[Û•šYÙÙ\‹˜ÛXÚÊ
+NÂˆÛÛœÝ[œÚ]TÚY]HYÙK™Ù]žU\ÝY
+™ØÝ[Y[\ÙXÝ[Û‹\ÚY]ŠNÂˆÛÛœÝ[œÚ]UÙÙÛHH[œÚ]TÚY]™Ù]žU\ÝY
+™ØÝ[Y[]šY]ËY[œÚ]K]ÙÙÛHŠNÂˆ]ØZ]^XÝ
+[œÚ]UÙÙÛJKÒ]™P]šX]J˜\šXK\™\ÜÙY‹YHŠNÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\Š[œÚ]UÙÙÛK›ÛÛXÚÈŠNÂˆ]ØZ]XÝ]˜]Q›ØÝ\ÙYÛÛ›Û
+YÙK[œÚ]UÙÙÛJNÂˆ]ØZ]^XÝ
+[œÚ]UÙÙÛJKÒ]™P]šX]J˜\šXK\™\ÜÙY‹™˜[ÙHŠNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]XÝ]˜]Q›ØÝ\ÙYÛÛ›Û
+YÙK[œÚ]UÙÙÛJNÂˆ]ØZ]^XÝ
+[œÚ]UÙÙÛJKÒ]™P]šX]J˜\šXK\™\ÜÙY‹YHŠNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘\ØØ\HŠNÂˆ]ØZ]^XÝ
+[œÚ]TÚY]
+KÒ]™PÛÝ[
+
+NÂˆ›Üˆ
+ÛÛœÝ\ØÛÜÝ\™HÙˆÜÝ[[X\žK[XYÙ\Ë[™^[™Ñ]Z[×JHÂˆ]ØZ]^XÝ
+\ØÛÜÝ\™JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆB‚ˆÛÛœÝÝ[[X\žPÛÛ[HÝ[[X\žK™Ù]žU\ÝY
+™›Ü›X]YZYÚ^ZY[\Ý[[X\žHŠNÂˆ]ØZ]^XÝ
+Ý[[X\žPÛÛ[
+KÐ™RY[Š
+NÂˆ]ØZ]Ü[’[XYÙ\Ñ\ØÛÜÝ\™J
+NÂˆ]ØZ]YÙK™]˜[X]J
+
+HOˆÚ[™ÝË™\Ü]Ú]™[
+™]È]™[
+˜™Y›Ü™\š[ŠJJNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+YÙU^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+JJKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]YÙK™[][]SYYXJÈYYXNˆœš[ˆJNÂˆ]ØZ]^XÝ
+Ý[[X\žPÛÛ[
+KÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK™[][]SYYXJÈYYXNˆœØÜ™Y[ˆˆJNÂˆ]ØZ]YÙK™]˜[X]J
+
+HOˆÚ[™ÝË™\Ü]Ú]™[
+™]È]™[
+˜Y\œš[ŠJJNÂˆ]ØZ]^XÝ
+Ý[[X\žPÛÛ[
+KÐ™RY[Š
+NÂˆ]ØZ]^XÝ
+[XYÙ\ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+YÙU^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+JJKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂ‚ˆ]ØZ]ÛXÚÔÙXÝ[Û“˜]ŠÒ[™^YÛÝ\˜ÙH^ÊNÂˆ]ØZ]^XÝ
+[™^Y^
+KÐ™R[•šY]ÜÜ
+
+NÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+[XYÙ\ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]\ÜØYÙ\Ë›
+
+K›ØØ]ÜŠœÝ[[X\žHŠK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]\ÜØYÙ\Ë›
+JK›ØØ]ÜŠœÝ[[X\žHŠK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+JJKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+\ÜØYÙ\Ë›
+
+JKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂ‚ˆ]ØZ]ÛXÚÔÙXÝ[Û“˜]ŠÒYÚ^ZY[Ý[[X\žKÊNÂˆËÈ]\ÈÎLšY]ÜÜH˜Z[	ÜÈYÚ^ZY[\Ý[[X\žH\ØÛÜÝ\™H\ÂˆËÈY[ˆ
+Ý\\œÙYYžHH[‹Y›ÝÈØÝ[Y[Û[šXØ[Ý[[X\žHØ\™
+KÛÂˆËÈ\™H\È›Ý[™È›ÜˆH^Û\Ú]™HXØÛÜ™[ÛˆÈÜ[ˆ\™H8 %ˆËÈ[\ÑØÝ[Y[ÙXÝ[ÛˆØÜ›ÛÈÈHš\ÚX›HÛÜH[œÝXY‚ˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠˆÜÛÝ\˜ÙK\Ý[[X\žKXØ\™ŠJKÐ™R[•šY]ÜÜ
+
+NÂˆ]ØZ]^XÝ
+Ý[[X\žJKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂˆ]ØZ]^XÝ
+[™^Y^
+KÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂ‚ˆ]ØZ]Ü[’[XYÙ\Ñ\ØÛÜÝ\™J
+NÂˆ]ØZ]^XÝ
+[XYÙ\ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+Ý[[X\žJKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂ‚ˆ]ØZ][™^[™Ñ]Z[Ë™Ù]žU^
+’[™^[™È]Z[È‹È^XÝˆYHJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+[™^[™Ñ]Z[ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹YJNÂˆ]ØZ]^XÝ
+[XYÙ\ÊKÒ]™R”Ô›Ü\J›Ü[ˆ‹˜[ÙJNÂ‚ˆ]ØZ]^XÝÛR[YÜš]JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+˜[œÝÙ\ˆÛ\ÜÈXY\ˆÝ™\›^\ÈXZ[ˆ[™[HY\ÈÚ[HØÜ›Û[™ÈÛˆÛ™\È‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÏÛ[ÙOX[œÝÙ\ˆŠNÂ‚ˆÛÛœÝXY\ˆHYÙK›ØØ]ÜŠšXY\‹[š]™\œØ[ZXY\ˆŠNÂˆ]ØZ]^XÝ
+XY\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+XY\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆËÈœ›ÝÜÙ\‹[[ÙHÛ™\È]XÚHÝ™\›^HÈHš\ÝX[šY]ÜÜÛÈØY˜\šBˆËÈØ[ˆ\ÙHØÝ[Y[ØÜ›Û[™Ëˆ[œÝ[YÝ[™[Û™H[ÙH\Ù\ÈHÛÛ\[YˆËÈXœÛÛ]K]ËYœ˜[YHÝ™\œšYHÛÝ™\™YžHHYXØ]YÐHÛÛ˜XÝ\Ý‚ˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆXY\‹™]˜[X]J
+›ÙJHOˆÚ[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœÜÚ][ÛŠJKÐ™J™š^YŠNÂˆÛÛœÝXZ[ˆHYÙK›ØØ]ÜŠ›XZ[ˆÛXZ[‹XÛÛ[ŠNÂˆÛÛœÝ™\Ù\™HH]ØZ]XZ[‹™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™ÕÜ
+JNÂˆÛÛœÝXY\’ZYÚH]ØZ]XY\‹™]˜[X]J
+›ÙJHOˆ›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+KšZYÚ
+NÂˆ^XÝ
+X]˜XœÊ™\Ù\™HHXY\’ZYÚ
+JKÐ™S\ÜÕ[“Ü‘\]X[
+ŠNÂ‚ˆ]ØZ]\[™š[X\žTØÜ›ÛÜXÙ\ŠYÙKÈZYÚˆŒ\ÝYˆšXY\‹ZYK\ØÜ›Û\ÜXÙ\ˆˆJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›ÝÛ™\ŠKÐ™J™ØÝ[Y[ŠNÂˆËÈÝ\HXÝ]™HØÝ[Y[ÝÛ™\ˆÛÈH\Ú›Ø\™™\Ü\ˆÙY\È[X™\˜]H[Ý™[Y[‚ˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÍLŒMŒŒJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆB‚ˆ]ØZ]^XÝ
+XY\ŠKÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆXY\‹™]˜[X]J
+›ÙJHOˆÂˆÛÛœÝ™XÝH›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆ™]\›ˆX]›X^
+™XÝ˜›ÝÛJHHX]›X^
+™XÝÜ
+NÂˆJKˆ
+BˆÐ™J
+NÂˆËÈHØÜš[HZ[
+[\ˆ[ˆH˜\ŠHX^HX]™HÛ›HHÚ\Ü\ˆ]HÜˆËÈYÙHÚ[HY[ˆ8 %›Ý[™]ÛÈ]Ø[‰ÝÜ›ÝÈ[ÈHš\ÚX›H˜[™‚ˆÛÛœÝØÜš[P›ÝÛHH]ØZ]YÙBˆ›ØØ]ÜŠ‹™YÙKYÛ\ÜËZXY\‹X˜XÚÙ›ÜŠBˆ™]˜[X]J
+›ÙJHOˆ›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+K˜›ÝÛJNÂˆ^XÝ
+ØÜš[P›ÝÛJKÐ™S\ÜÕ[“Ü‘\]X[
+Í
+NÂ‚ˆËÈ[žH[X™\˜]HØÜ›Û\ÛY\ÈHÛ\ÜÈ˜\ˆ˜XÚÈ[‹‚ˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÌMŒLŒŒJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+XY\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆJNÂ‚ˆ\Ý
+œš]˜]K\ØÛÜH[\Ý^\È™XXÚX›HÚ[HH[œÝÙ\ˆšY]ÈØÜ›ÛÈ‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆËÈ[ˆ[˜]][XØ]YÙ\ÜÚ[ÛˆÚ]H›Ý]Yš]˜]K\ØÛÜH™Yˆ™\ÛÛ™\ÈÂˆËÈš]˜]TØÛÜTÝ]\ÏH[˜]˜Z[X›H‹ÚXÚ™[™\œÈH™XÛÝ™\žH[\‚ˆ]ØZ]ÛÝÐ\
+YÙK‹ÏÛ[ÙOX[œÝÙ\‰œØÛÜT™YXXXXXXXXKXXXXKMXXKNXXKXXXXXXXXXXXXHŠNÂ‚ˆÛÛœÝ[\HYÙK™Ù]žU\ÝY
+œš]˜]K\ØÛÜK][˜]˜Z[X›HŠNÂˆ]ØZ]^XÝ
+[\
+KÐ™Uš\ÚX›JÈ[Y[Ý]ˆMLJNÂ‚ˆ]ØZ]\[™š[X\žTØÜ›ÛÜXÙ\ŠYÙKÈZYÚˆŒJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›ÝÛ™\ŠKÐ™J™ØÝ[Y[ŠNÂˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÎMŒŒÎJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆB‚ˆËÈÝXÚÞH[œÚYHXZ[ŽˆH™XÛÝ™\žHXÝ[ÛœÈ]\Ý™[XZ[ˆÛ‹\ØÜ™Y[ˆ
+^BˆËÈ\ÙYÈØÜ›Û]Ø^HÚ]ÛÛ[Ý˜[™[™ÈH\Ù\ˆZY]™XY
+K‚ˆ]ØZ]^XÝ
+[\
+KÐ™Uš\ÚX›J
+NÂˆÛÛœÝ›ÞH]ØZ][\˜›Ý[™[™Ð›Þ
+
+NÂˆ^XÝ
+›Þ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+›ÞKžJKÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ^XÝ
+›ÞKžJKÐ™S\ÜÕ[“Ü‘\]X[
+Œ
+NÂˆJNÂ‚ˆ\Ý
+œš]˜]K\ØÛÜH[\ÛX\œÈH™]™X[YÛ™HXY\ˆÝ]ÚYHH[œÝÙ\ˆšY]È‹\Þ[˜È
+ÈYÙHJHOˆÂˆËÈ™XXÚX›H\È›ÝHØ[YH\Èš\ÚX›KˆH[\\ÈÝXÚÞX[œÚYHXZ[‚ˆËÈÚ]‹LŒÚ[HHÛ™HXY\ˆÝÛœÈ‹LÌ]HšY]ÜÜÜÛÈ[‚ˆËÈÙ™œÙ]]\ÜÝ[Y\ÈHXY\ˆ\ÈÝ]ÙˆHØ^HX]™\ÈH™XÛÝ™\žBˆËÈ]ÛœÈ[™\›™X]]ˆYX\Ý\™YÍ\ÙˆH[\ØœØÝ\™Y™Y›Ü™H\ÂˆËÈÝX\™ÛˆH›Ø™HÚÜ\ˆ[ˆH™X[ÛË[[™H[\ˆ]™Y]\ÈÛ™BˆËÈÝ™\›^H[Ý[Ûˆ8 %HXY\ˆ[›™YžHÜÚ][ÛŽˆÝXÚÞXÛÝ™\™Y]^XÝBˆËÈ\È]XÚ\ÈHš^YÝ™\›^HÙ\È8 %ÛÈ\ÜÙ\HÙ[ÛY]žK›ÝBˆËÈYXÚ[š\ÛK[™È]ÛˆH›Û‹X[œÝÙ\ˆ[ÙHÚ\™HHÙ™œÙ]Y™™\œË‚ˆ]ØZ]YÙK™[][]SYYXJÈ™YXÙY[Ý[ÛŽˆ››Ë\™Y™\™[˜ÙHˆJNÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÙØÝ[Y[ÏÜØÛÜT™YXXXXXXXXKXXXXKMXXKNXXKXXXXXXXXXXXXHŠNÂ‚ˆÛÛœÝ[\HYÙK™Ù]žU\ÝY
+œš]˜]K\ØÛÜK][˜]˜Z[X›HŠNÂˆ]ØZ]^XÝ
+[\
+KÐ™Uš\ÚX›JÈ[Y[Ý]ˆMLJNÂ‚ˆ]ØZ]\[™š[X\žTØÜ›ÛÜXÙ\ŠYÙKÈZYÚˆŒJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›ÝÛ™\ŠKÐ™J™ØÝ[Y[ŠNÂ‚ˆËÈYHHÚ›ÛYK[ˆœš[™È]˜XÚÈ8 %HÝ]H]]ÈH[ZZYÚˆËÈXY\ˆÝ™\ˆHÝXÚÞH[\ˆ\ÜÙ\HYK›Ý\ÝH™]™X[ˆY‚ˆËÈYK[Û‹\ØÜ›ÛÝÜYš\š[™ÈHÚ›ÛYHÛÝ[™]™\ˆX]™KH\Ø\™ˆËÈØÜ›ÛÈÛÝ[Ý[[™™]™X[Y[™HÝ™\›\ÚXÚÈ™[ÝÈÛÝ[\ÜÂˆËÈÚ]Ý]]™\ˆ^\˜Ú\Ú[™ÈHÝ]H]^\ÝÈÈÛÝ™\‹‚ˆÛÛœÝÛÛ\ÙHHYÙK™Ù]žU\ÝY
+[š]™\œØ[ZXY\‹XÛÛ\ÙHŠNÂˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÎMŒŒÎJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+ÛÛ\ÙJKÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂ‚ˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÌÌŒJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+ÛÛ\ÙJK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝ
+[\
+KÐ™Uš\ÚX›J
+NÂ‚ˆÛÛœÝÝ™\›\H]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆÛÛœÝ›ÙHHØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÖÙ]K]\ÝYHœš]˜]K\ØÛÜK][˜]˜Z[X›H—IÊNÂˆÛÛœÝÝXÚÈHØÝ[Y[œ]Y\žTÙ[XÝÜŠ‹œÛ™K\ÝXÚÞKZXY\‹\ÝXÚÈŠNÂˆËÈ›ÝÈ˜]\ˆ[ˆ™]\›ˆHÙ[[™[ˆH™YØ]]™H[X™\ˆØ]\ÙšY\ÈBˆËÈHX\ÜÙ\[Ûˆ™[ÝËÛÈHZ\ÜÚ[™È[[Y[ÛÝ[™\ÜH\ÜÚ[™ÂˆËÈÝ™\›\ÛÛ˜XÝ]Ø\È™]™\ˆYX\Ý\™Y‚ˆYˆ
+J›ÙH[œÝ[˜Ù[ÙˆS[[Y[
+HJÝXÚÈ[œÝ[˜Ù[ÙˆS[[Y[
+JHÂˆ›ÝÈ™]È\œ›ÜŠœš]˜]K\ØÛÜH[\Ý™\›\ˆH[\ÜˆHÛ™HXY\ˆÝXÚÈØ\È›Ý™[™\™YŠNÂˆBˆÛÛœÝHH›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆÛÛœÝHÝXÚË™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆ™]\›ˆX]›X^
+X]›Z[ŠK˜›ÝÛK˜›ÝÛJHHX]›X^
+KÜÜ
+JNÂˆJNÂˆ^XÝ
+Ý™\›\H™]™X[YÛ™HXY\ˆ]\Ý›ÝÛÝ™\ˆH™XÛÝ™\žH[\ŠKÐ™S\ÜÕ[“Ü‘\]X[
+JNÂˆJNÂ‚ˆ\Ý
+˜[œÝÙ\ˆÛ\ÜÈXY\ˆY\È[™™]\›œÈÛˆ\ÚÝÜÚYÈÛÈ‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆLŽZYÚˆŒJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÏÛ[ÙOX[œÝÙ\ˆŠNÂ‚ˆÛÛœÝXY\ˆHYÙK›ØØ]ÜŠšXY\‹[š]™\œØ[ZXY\ˆŠNÂˆ]ØZ]^XÝ
+XY\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆXY\‹™]˜[X]J
+›ÙJHOˆÚ[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœÜÚ][ÛŠJKÐ™J˜XœÛÛ]HŠNÂ‚ˆÛÛœÝXZ[ˆHYÙK›ØØ]ÜŠ›XZ[ˆÛXZ[‹XÛÛ[ŠNÂˆ]ØZ]ØZ]›Ü”™XXÝ]™[[™\ŠXZ[‹›Û”ØÜ›ÛŠNÂˆ]ØZ]XZ[‹™]˜[X]J
+›ÙJHOˆÂˆÛÛœÝÜXÙ\ˆHØÝ[Y[˜Ü™X]Q[[Y[
+™]ˆŠNÂˆÜXÙ\‹œÝ[KšZYÚHŒŽÂˆ›ÙK˜\[™Ú[
+ÜXÙ\ŠNÂˆJNÂˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÍLMLŒŒÌJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+XY\ŠKÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂ‚ˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÌLŒMJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+XY\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆJNÂ‚ˆ\Ý
+››Û‹X[œÝÙ\ˆÛ™HXY\ˆÙY\ÈH[‹Y›ÝÈÛÛ\ÙHYH‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÙØÝ[Y[ËÜÙX\˜ÚÜO[]][JÛ[Ûš]Üš[™Éœ[LHŠNÂ‚ˆÛÛœÝXY\ˆHYÙK›ØØ]ÜŠšXY\‹[š]™\œØ[ZXY\ˆŠNÂˆÛÛœÝÛÛ\ÙRÜÝHYÙK™Ù]žU\ÝY
+[š]™\œØ[ZXY\‹XÛÛ\ÙHŠNÂˆ]ØZ]^XÝ
+XY\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+K››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆËÈ›Û‹X[œÝÙ\ˆ[Ù\ÈÙY\HXY\ˆ[ˆ›ÝÈ8 %Z\ˆÛJÈÛÛ\ÜÙ\ˆ™[™\œÂˆËÈ™[™X]]ÚXÚHXœÛÛ]H[œÝÙ\‹[[ÙHÝ™\›^HÛÝ[\žK‚ˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆXY\‹™]˜[X]J
+›ÙJHOˆÚ[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœÜÚ][ÛŠJKÐ™Jœ™[]]™HŠNÂ‚ˆÛÛœÝXZ[ˆHYÙK›ØØ]ÜŠ›XZ[ˆÛXZ[‹XÛÛ[ŠNÂˆ]ØZ]\[™š[X\žTØÜ›ÛÜXÙ\ŠYÙKÈZYÚˆŒJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›ÝÛ™\ŠKÐ™J™ØÝ[Y[ŠNÂˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÍLŒMŒŒJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆB‚ˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+KÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆXY\‹™]˜[X]J
+›ÙJHOˆÂˆÛÛœÝ™XÝH›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆ™]\›ˆX]›X^
+™XÝ˜›ÝÛJHHX]›X^
+™XÝÜ
+NÂˆJKˆ
+BˆÐ™J
+NÂ‚ˆËÈH\ØÙ[™[X^H™XÛÛYHHXÝ]™HØÜ›Û\‹ˆ]È™X\‹^™\›ÈÙ™œÙ]]\ÝˆËÈ\ÝX›\ÚH™]È˜\Ù[[™H˜]\ˆ[ˆÛÚÚ[™ÈZÙHH\™ÙH\Ø\™Ù\Ý\™BˆËÈ™[]]™HÈHY\HØÜ›ÛYXZ[ˆÛÛZ[™\‹‚ˆ]ØZ]XZ[‹™]˜[X]J\Þ[˜È
+›ÙJHOˆÂˆÛÛœÝ™\ÝYHØÝ[Y[˜Ü™X]Q[[Y[
+™]ˆŠNÂˆ™\ÝY™]\Ù]\ÝYH›™\ÝY\ØÜ›ÛZ[[\ÛÝ\˜ÙHŽÂˆ™\ÝYœÝ[KšZYÚHŽÂˆ™\ÝYœÝ[K›Ý™\™›ÝÖHH˜]]ÈŽÂˆÛÛœÝÛÛ[HØÝ[Y[˜Ü™X]Q[[Y[
+™]ˆŠNÂˆÛÛ[œÝ[KšZYÚHŒŒŽÂˆ™\ÝY˜\[™Ú[
+ÛÛ[
+NÂˆ›ÙK˜\[™Ú[
+™\ÝY
+NÂˆ™\ÝYœØÜ›ÛÜHÂˆ™\ÝY™\Ü]Ú]™[
+™]È]™[
+œØÜ›ÛŠJNÂˆ]ØZ]™]È›ÛZ\ÙO›ÚYŠ
+™\ÛÛ™JHOˆ™\]Y\Ý[š[X][Û‘œ˜[YJ
+
+HOˆ™\]Y\Ý[š[X][Û‘œ˜[YJ
+
+HOˆ™\ÛÛ™J
+JJJNÂˆJNÂˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+KÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂ‚ˆËÈ]H›ÝÛKÛÛ\Ú[™ÈH[‹Y›ÝÈXY\ˆØ[ˆ™Y›ÝÈHØÜ›ÛˆËÈÝ\™˜XÙH[™Û[\ØÜ›ÛÜˆ]Ù[ÛY]žKYš]™[ˆ]™[\È›Ý[ˆ\Ø\™ˆËÈ\Ù\ˆÙ\Ý\™H[™]\Ý›Ý[[YYX][H™]™X[HXY\‹ˆHÛÛ\ÙBˆËÈXYÙ]Ø]H™Y\Ù\ÈÈÕT•HYH]H›ÝÛHYÙH
+]\ÈBˆËÈÎM›ØÚÜÈÈH›ÝÛHˆ˜\
+KÛÈYHÚ][Ø^H™[XZ[š[™Èš\œÝˆËÈ[ˆšYHHÛ[\ÈH›ÝÛHÚ[HY[‹‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+K››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆÛÛœÝš\ÚX›SX^Ù™œÙ]H
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›X^ØÜ›ÛÜÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKš\ÚX›SX^Ù™œÙ]H
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+KÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK™[™ŠNÂˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+KÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆÛÛ\ÙRÜÝ™Ù]]šX]J™]K\ØÜ›ÛZY[ˆŠKÈ[Y[Ý]ˆWÌJKÐ™JYHŠNÂˆËÈHY[ˆ]šX]H›\È™Y›Ü™HH\ÈÜšY\›ÝÈ˜[œÚ][Ûˆ\ÂˆËÈ™[X\ÙYHXY\‰ÜÈ^[Ý]ÜXÙKˆØZ]›Üˆ™[™\™YÙ[ÛY]žHÛÈ\ÂˆËÈ\ÜÙ\[ÛˆØ[››Ý˜XÙHH[š[X][ÛˆÛˆ˜\Ý\ˆÜˆÛÝÙ\ˆÒH[›™\œË‚ˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆXY\‹™]˜[X]J
+›ÙJHOˆÂˆÛÛœÝ™XÝH›ÙK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆ™]\›ˆX]›X^
+™XÝ˜›ÝÛJHHX]›X^
+™XÝÜ
+NÂˆJKˆ
+BˆÐ™J
+NÂˆËÈH[X™\˜]H\Ø\™Ù\Ý\™H™]™X[ÈHÚ›ÛYHYØZ[‹ˆ\ÙHÛÈÙ\\˜]YˆËÈÝ\ËXXÚZY[[™Èœ˜[Y\ÎˆÛˆHÝ\™YÒH™[™\™\ˆHÚ[™ÛH\Ø\™ˆËÈÜš]HØ[ˆÛØ[\ØÙH[ÈH˜Z[[™È›ÝÛKXÛ[\]˜[X][Ûˆ[™™BˆËÈ™X˜\ÙY]Ø^H\ÈÙ[ÛY]žH™YY˜XÚËˆH™X[˜YÈ[Ø^\È[Z]È›ÛÝË]\ˆËÈ]™[Ë[™HÙXÛÛ™Ý\\ÈHÛX[ˆ\Ø\™[H\Ý™]™X[[[‚ˆÛÛœÝÙ]Y›ÝÛSÙ™œÙ]H
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJKœØÜ›ÛÜÂˆ›Üˆ
+ÛÛœÝš\ÙHÙˆÌJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKX]›X^
+Ù]Y›ÝÛSÙ™œÙ]Hš\ÙJJNÂˆBˆ]ØZ]^XÝ
+ÛÛ\ÙRÜÝ
+K››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆJNÂ‚ˆ\Ý
+™ØÝ[Y[šY]Ù\ˆ›ÝÛHÛÛ\ÜÙ\ˆY\ÈÚ[HØÜ›Û[™ÈÝÛˆÛˆÛ™\È‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ]ØZ]ÛÝÐ\
+ˆYÙKˆ‹ÙØÝ[Y[ËÌLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLOÜYÙOLI˜Ú[šÏMMMNMˆ‹ˆ
+NÂ‚ˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È]™[ˆK˜[YNˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛˆJJKÐ™Uš\ÚX›J
+NÂˆÛÛœÝÛÛ\ÜÙ\ˆHYÙK›ØØ]ÜŠ™›Ü›K™ØÝ[Y[]šY]Ù\‹XÛÛ\ÜÙ\ˆŠNÂˆ]ØZ]YÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆØÝ[Y[XÝ[ÛœÈˆJK˜ÛXÚÊ
+NÂˆ]ØZ]YÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆ•\ÈØÝ[Y[ˆJK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”ÙX\˜ÚØÝ[Y[ˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠKÐ™Uš\ÚX›J
+NÂˆ]ØZ]ÛÛ\ÜÙ\‹›ØØ]ÜŠš[œ]ŠK™]˜[X]J
+[[Y[
+HOˆ[[Y[˜›\Š
+JNÂˆËÈHÚ[šÈY\[šÈ[[[Û˜[HØÜ›ÛÈHYÚYÚY\ÜØYÙH[ÂˆËÈšY]ËÚXÚØ[ˆ[š]X[HYHHÛ™HÛÛ\ÜÙ\‹ˆ™]\›š[™ÈÈHÜˆËÈ]\Ý™\ÝÜ™H]™Y›Ü™HH^XÚ]YK[Û‹\ØÜ›ÛÚXÚÜÈ™[ÝË‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆØÝ[Y[™ØÝ[Y[[[Y[œÝ[KœÙ]›Ü\J‹K\ØY™KX\™XKX›ÝÛH‹ŒLLœŠNÂˆJNÂˆÛÛœÝšY]Ù\ÛÛ[HYÙK™Ù]žU\ÝY
+™ØÝ[Y[]šY]Ù\‹XÛÛ[ŠNÂˆÛÛœÝXZ[ˆHYÙK›ØØ]ÜŠˆÛXZ[‹XÛÛ[ŠNÂˆËÈØÝ[Y[šY]Ù\ˆÝÛœÈH›Ø][™ÈØÚËˆHÚ[]\ÝÙY\Û›HH[žBˆËÈY]™[ˆÚ[ˆØY˜\šIÜÈÛÛ˜\ˆ[œÙ]\È\™ÙH8 %Ý\Ú\ÙHÎLÌ‰ÜÂˆËÈX^
+œ™[KK\ØY™KX\™XKX›ÝÛJHÚ[™\Ù\™H™XÜ™X]\ÈH›[šÈ˜[™ˆËÈ[™\ˆHšY]Ù\ˆÚ[HHšY]Ù\ˆ]Ù[ˆÛÛ\Ù\ÈÛÜœ™XÝK‚ˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ™XY[Øš[PÛÛ\ÜÙ\”™\Ù\™T
+XZ[ŠJKÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆšY]Ù\ÛÛ[™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™Ð›ÝÛJJKˆ
+BˆÐ™QÜ™X]\•[ŠL
+NÂ‚ˆ]ØZ]\[™š[X\žTØÜ›ÛÜXÙ\ŠYÙKÈZYÚˆŒ\ÝYˆ˜ÛÛ\ÜÙ\‹ZYK\ØÜ›Û\ÜXÙ\ˆˆJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ
+]ØZ]™XYš[X\žTØÜ›ÛÙ[ÛY]žJYÙJJK›ÝÛ™\ŠKÐ™J™ØÝ[Y[ŠNÂ‚ˆËÈYHÛˆ[X™\˜]HØÜ›ÛÝÛˆ\ÝHXÝ]˜][ÛˆÙ™œÙ]ˆHÚ[šÂˆËÈY\[[šÈY™™XÝØ[ˆš[š\Ú]H[ˆÚ›ÛZ][H[™[Ý™HHØÜ›ÛÜÛ˜ÙBˆËÈ[Ü™KÛÈ™X]™\Ù]
+È[X™\˜]H[Ý™[Y[\ÈÛ™H™]šXX›HXÝ[Û‹‚ˆ]ØZ]^XÝ
+\Þ[˜È
+
+HOˆÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YH‹È[Y[Ý]ˆWÌJNÂˆ›Üˆ
+ÛÛœÝÙ™œÙ]ÙˆÍLŒMŒŒJHÂˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKÙ™œÙ]
+NÂˆBˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠKÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YH‹È[Y[Ý]ˆWÌJNÂˆJKÔ\ÜÊÈ[Y[Ý]ˆMWÌJNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆšY]Ù\ÛÛ[™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™Ð›ÝÛJJKˆ
+BˆÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ™XY[Øš[PÛÛ\ÜÙ\”™\Ù\™T
+XZ[ŠJKÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂ‚ˆËÈ™X\X\ˆÛˆØÜ›Û\‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙKŒ
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆšY]Ù\ÛÛ[™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™Ð›ÝÛJJKˆ
+BˆÐ™QÜ™X]\•[ŠL
+NÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ™XY[Øš[PÛÛ\ÜÙ\”™\Ù\™T
+XZ[ŠJKÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂ‚ˆËÈÙ^X›Ø\™›ØÝ\È[œÚYHHÛÛ\ÜÙ\ˆ™]™X[È]Ú[HY[‹‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠKÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]ÛÛ\ÜÙ\‹›ØØ]ÜŠš[œ]ŠK™›ØÝ\Ê
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠK››ÝÒ]™P]šX]J™]K\ØÜ›ÛZY[ˆ‹YHŠNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆšY]Ù\ÛÛ[™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™Ð›ÝÛJJKˆ
+BˆÐ™QÜ™X]\•[ŠL
+NÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆ™XY[Øš[PÛÛ\ÜÙ\”™\Ù\™T
+XZ[ŠJKÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂ‚ˆ]ØZ]ØÜ›Ûš[X\žTÝ\™˜XÙJYÙK
+NÂˆ]ØZ]ÛÛ\ÜÙ\‹™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHØÝ[Y[ÙX\˜ÚˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+šY]Ù\ÛÛ[
+KÒ]™P]šX]J™]K\Û™KY›ÛÝ\‹[ÝÛ™\ˆ‹››Û™HŠNÂˆ]ØZ]^XÝˆœÛ
+\Þ[˜È
+
+HO‚ˆšY]Ù\ÛÛ[™]˜[X]J
+›ÙJHOˆ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[J›ÙJKœY[™Ð›ÝÛJJKˆ
+BˆÐ™S\ÜÕ[“Ü‘\]X[
+LÊNÂˆJNÂ‚ˆ\Ý
+™ØÝ[Y[ÙX\˜ÚÝ^\ÈÙ\\˜]Hœ›ÛHHÚ\™Y[œÝÙ\ˆÝ™X[H[™Ý[[X\žHXÝ[Ûˆ‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆŒJNÂˆÛÛœÝ[œÝÙ\”™\]Y\ÝÎˆ\œ˜^OÈ]Y\žNˆÝš[™ÎÈØÝ[Y[YÎˆÝš[™ÎÈÝ[[X\žS[ÙOÎˆ›ÛÛX[ˆOˆH×NÂˆ]YØXÞTÝ[[X\žT™\]Y\ÝÛÝ[HÂˆYÙK›ÛŠœ™\]Y\Ý‹
+™\]Y\Ý
+HOˆÂˆYˆ
+×Ø\WÙØÝ[Y[×Ö×‹×J×ÜÝ[[X\š^™IË\Ý
+™]ÈT“
+™\]Y\Ý\›
+
+JKœ]˜[YJJHÂˆYØXÞTÝ[[X\žT™\]Y\ÝÛÝ[
+ÏHNÂˆBˆJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙKÂˆÛ[œÝÙ\”™\]Y\Ýˆ
+]Y\žKØÛÜJHO‚ˆ[œÝÙ\”™\]Y\ÝËœ\Ú
+È]Y\žKØÝ[Y[YˆØÛÜK™ØÝ[Y[YÝ[[X\žS[ÙNˆØÛÜKœÝ[[X\žS[ÙHJKˆ[œÝÙ\“Ý™\œšYNˆ
+]Y\žKØÝ[Y[YØÝ[Y[YÊHOˆ
+Âˆ‹‹™[[Ð[œÝÙ\Š]Y\žKØÝ[Y[YØÝ[Y[YÊKˆ[œÝÙ\Ž‚ˆ’Ù^H˜XÝXØ[Ú[Îˆ
+Š˜ÛÞ˜\[™JŠˆ[Ûš]Üš[™È™\]Z\™\È™YÝ[\ˆËÐSÈÚXÚÜÈ[™™]šY]ÈÙˆÛÛœÝ\][Û‹^[ØØ\™]\ÈÞ[\Û\ËY]X›ÛXÈš\ÚË[™Z\ÜÙYYÜÙH™\Ý\[\Ëˆ‹ˆJKˆJNÂˆ]ØZ]ÛÝÐ\
+ˆYÙKˆ‹ÙØÝ[Y[ËÌLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLOÜYÙOLI˜Ú[šÏMMMNMˆ‹ˆ
+NÂ‚ˆÛÛœÝÛÛ\ÜÙ\ˆHYÙK›ØØ]ÜŠ™›Ü›K™ØÝ[Y[]šY]Ù\‹XÛÛ\ÜÙ\ˆŠNÂˆ]ØZ]YÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆØÝ[Y[XÝ[ÛœÈˆJK˜ÛXÚÊ
+NÂˆ]ØZ]YÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆ•\ÈØÝ[Y[ˆJK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”ÙX\˜ÚØÝ[Y[ˆJK˜ÛXÚÊ
+NÂˆ]ØZ]ÛÛ\ÜÙ\‹™Ù]žT›ÛJ^›Þ‹È˜[YNˆ”ÙX\˜ÚÚ][ˆ\ÈØÝ[Y[ˆJK™š[
+œØY™]H[ˆ[˜ÛYHŠNÂˆ]ØZ]XÝ]˜]Q›ØÝ\ÙYÛÛ›Û
+YÙKÛÛ\ÜÙ\‹™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”ÙX\˜ÚÚ][ˆ\ÈØÝ[Y[ˆJJNÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+œÛÝ\˜ÙKXÚ[šËZ[™^Y]^\[™[ŠK™Ù]žU^
+’]HÙˆˆŠK™š\œÝ
+
+JKÐ™Uš\ÚX›J
+NÂˆ^XÝ
+[œÝÙ\”™\]Y\ÝÊKÑ\]X[
+×JNÂ‚ˆÛÛœÝÜ[‘ØÝ[Y[XÝ[ÛœÈHYÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ“Ü[ˆØÝ[Y[XÝ[ÛœÈˆJNÂˆ]ØZ]ÛÛ\ÜÙ\‹™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHØÝ[Y[ÙX\˜ÚˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+ÛÛ\ÜÙ\ŠKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+Ü[‘ØÝ[Y[XÝ[ÛœÊKÐ™Q›ØÝ\ÙY
+
+NÂˆ]ØZ]Ü[‘ØÝ[Y[XÝ[ÛœË˜ÛXÚÊ
+NÂˆÛÛœÝØÝ[Y[XÝ[ÛœÈHYÙK™Ù]žT›ÛJ™X[ÙÈ‹È˜[YNˆ•\ÈØÝ[Y[ˆJNÂˆ]ØZ]ØÝ[Y[XÝ[ÛœË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ[œÝÙ\ˆœ›ÛH\È‹^XÝˆYHJK˜ÛXÚÊ
+NÂ‚ˆÛÛœÝÙ[™\˜]YÝ[[X\žHHYÙK™Ù]žU\ÝY
+™Ù[™\˜]YXÛ[šXØ[\Ý[[X\žHŠNÂˆ]ØZ]^XÝ
+Ù[™\˜]YÝ[[X\žJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+˜[œÝÙ\‹\›ÙÜ™\ÜÈŠJKÒ]™P]šX]J™]K\›ÙÜ™\ÜË\Ý]H‹˜ÛÛ\]HŠNÂˆËÈHÛÛ\]YØZ]š[È›Èš\ÚX›HÚ›ÛYNˆHÝ[[X\žHØ\™\œš]š[™È\ÂˆËÈHÛÛ\][ÛˆÚYÛ˜[[™[ˆ[\ÙY[YH\ÈH[Z[™È›Ø\Ý˜]\ˆ[‚ˆËÈ[ž][™ÈH™XY\ˆXÝÈÛ‹ˆH[››Ý[˜Ù[Y[Ý\š]™\È›ÜˆØÜ™Y[ˆ™XY\œË‚ˆ]ØZ]^XÝ
+YÙK™Ù]žU^
+Ð[œÝÙ\ˆ™XYH[‹ÊJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+˜[œÝÙ\‹\›ÙÜ™\ÜÈŠK™Ù]žT›ÛJœÝ]\ÈŠJKÐÛÛZ[•^
+[œÝÙ\ˆ™XYKˆŠNÂˆ]ØZ]^XÝ
+Ù[™\˜]YÝ[[X\žJKÐÛÛZ[•^
+˜ÛÞ˜\[™H[Ûš]Üš[™È™\]Z\™\È™YÝ[\ˆËÐSÈÚXÚÜÈŠNÂˆ]ØZ]^XÝ
+Ù[™\˜]YÝ[[X\žJK››ÝÐÛÛZ[•^
+’Ù^H˜XÝXØ[Ú[ÎˆŠNÂˆ]ØZ]^XÝ
+Ù[™\˜]YÝ[[X\žJK››ÝÐÛÛZ[•^
+ŠŠˆŠNÂˆ]ØZ]^XÝ
+Ù[™\˜]YÝ[[X\žK›ØØ]ÜŠœÝ›Û™ÈŠK™š[\ŠÈ\Õ^ˆ˜ÛÞ˜\[™HˆJJKÒ]™PÛÝ[
+JNÂ‚ˆËÈHÙ[™\˜]Y[œÝÙ\ˆ[X™\˜][HÛ[ÛÝ\ØÜ›ÛÈ[ÈšY]Ëˆ™XY›ÝˆËÈ›Þ\È[ˆÛ™Hœ›ÝÜÙ\ˆ]˜[X][ÛˆÛÈšY]ÜÜ[Ý[ÛˆØ[››ÝÛÜœ\Z\‚ˆËÈ™[]]™HÜ™\ˆ™]ÙY[ˆ[™\[™[^]ÜšYÚ›Ý[™š\Ë‚ˆÛÛœÝ[œÝÙ\‘Ù[ÛY]žHH]ØZ]™XYš[X\žTØÜ›Û[™ÛQÙ[ÛY]žJYÙKÂˆÝ[[X\žNˆ	ÖÙ]K]\ÝYH™Ù[™\˜]YXÛ[šXØ[\Ý[[X\žH—IËˆ™]šY]Îˆ	ÖÙ]K]\ÝYHœ‹\™]šY]È—IËˆJNÂˆ^XÝ
+[œÝÙ\‘Ù[ÛY]žK››Ù\ËœÝ[[X\žK˜ÛÝ[
+KÐ™JJNÂˆ^XÝ
+[œÝÙ\‘Ù[ÛY]žK››Ù\Ëœ™]šY]Ë˜ÛÝ[
+KÐ™JJNÂˆ^XÝ
+[œÝÙ\‘Ù[ÛY]žK››Ù\ËœÝ[[X\žKœ™XÝ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+[œÝÙ\‘Ù[ÛY]žK››Ù\Ëœ™]šY]Ëœ™XÝ
+K››ÝÐ™S[
+
+NÂˆ^XÝ
+[œÝÙ\‘Ù[ÛY]žK››Ù\ËœÝ[[X\žKœ™XÝKÜ
+KÐ™S\ÜÕ[Š[œÝÙ\‘Ù[ÛY]žK››Ù\Ëœ™]šY]Ëœ™XÝKÜ
+NÂˆ^XÝ
+[œÝÙ\”™\]Y\ÝÊKÑ\]X[
+ÂˆÂˆ]Y\žNˆØÝ[Y[Ý[[X\žT]Y\Ý[Û‹ˆØÝ[Y[YˆŒLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLH‹ˆÝ[[X\žS[ÙNˆYKˆKˆJNÂˆ^XÝ
+YØXÞTÝ[[X\žT™\]Y\ÝÛÝ[
+KÐ™J
+NÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+™ØÝ[Y[šY]Ù\ˆ˜Z[Y™]šY]È^ÜÙ\È™]žH™XÛÝ™\žHÜš]XØ[‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœ›Ý]JŠŠ‹Ø\KÜÙ]\\Ý]\ÊŠˆ‹\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ[[Ó[ÙNˆYKÚXÚÜÎˆ™XYTÙ]\ÚXÚÜÈHJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ê×‹×JÊJÎ—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆÛÛœÝ\›H™]ÈT“
+›Ý]Kœ™\]Y\Ý
+
+K\›
+
+JNÂˆÛÛœÝYH\›œ]˜[YKœÜ]
+‹ÈŠK˜]
+LJHÏÈˆŽÂˆÛÛœÝ^[ØYHÙ][[ÑØÝ[Y[^[ØY
+Y\›œÙX\˜Ú\˜[\Ë™Ù]
+˜Ú[šÈŠJNÂˆ]ØZ]›Ý]K™[š[
+ÈœÛÛŽˆÈ‹‹œ^[ØY[[Ó[ÙNˆYHHJNÂˆJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ö×‹×J×ÜÚYÛ™Y]\›
+Î—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆÝ]\ÎˆLËˆœÛÛŽˆÈ\œ›ÜŽˆ”ÛÝ\˜ÙH™]šY]ÈÛÝ[›Ý™HØYYˆˆKˆJNÂˆJNÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆŒJNÂˆ]ØZ]ÛÝÐ\
+ˆYÙKˆ‹ÙØÝ[Y[ËÌLLLLLLLKLLLLKMLLKNLLKLLLLLLLLLLLLOÜYÙOLI˜Ú[šÏMMMNMˆ‹ˆ
+NÂ‚ˆ]ØZ]^XÝ
+YÙK™Ù]žU\ÝY
+œ‹\™]šY]ÈŠK™Ù]žU^
+”ÛÝ\˜ÙH™]šY]ÈÛÝ[›Ý™HØYYˆŠJKÐ™Uš\ÚX›JÂˆ[Y[Ý]ˆÌˆJNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”™]žH™]šY]ÈˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È]™[ˆK˜[YNˆ”Þ[]XÈ]][H[Ûš]Üš[™È›ÝØÛÛˆJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝÛR[YÜš]JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+™ØÝ[Y[šY]Ù\ˆZ\ÜÚ[™ÈÛÝ\˜ÙHÝ]H\ÈÛÚ\™[‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆŒJNÂˆ]ØZ][ØÚÔš]˜]U[˜]][XØ]Y\JYÙJNÂˆ]ØZ]YÙKœ›Ý]J×Ø\WÙØÝ[Y[×Ö×‹×J×ÜÚYÛ™Y]\›
+Î—ËŠŠOÉË\Þ[˜È
+›Ý]JHOˆÂˆ]ØZ]›Ý]K™[š[
+ÂˆÝ]\ÎˆˆœÛÛŽˆÈ\œ›ÜŽˆ‘ØÝ[Y[›Ý›Ý[™ˆˆKˆJNÂˆJNÂˆ]ØZ]ÛÝÐ\
+ˆYÙKˆ‹ÙØÝ[Y[ËÎNNNNNNNKNNNNKMNNKNNNKNNNNNNNNNNNNOÜYÙOLI˜Ú[šÏNNNNNNNNKNNNNKMNNKNNNKNNNNNNNNNNNN‹ˆ
+NÂ‚ˆËÈZ\ÜÚ[™ËÝ[›ÝÛ™YØÝ[Y[È›ÝÈ™\ÛÛ™H›ÝYÚHÙYÛY[›ÝY›Ý[™›Ý[™\žBˆËÈ
+YÙKÞØ[È›Ý›Ý[™
+
+HÛˆX›XÐ\Q\œ›Üˆ
+H[œÝXYÙˆØÝ[Y[šY]Ù\‹‚ˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJšXY[™È‹È]™[ˆK˜[YNˆ‘ØÝ[Y[›Ý›Ý[™ˆJJKÐ™Uš\ÚX›JÂˆ[Y[Ý]ˆÌˆJNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJœÝ]\ÈŠJKÐÛÛZ[•^
+Ý[˜]˜Z[X›_š]˜]_Z\ÜÚ[™ß™[[Ý™YÚJNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ›[šÈ‹È˜[YNˆÔ™]\›ˆÈØÝ[Y[Xœ˜\žKÚHJJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJœÝ]\ÈŠJK››ÝÐÛÛZ[•^
+›ØY[™ÈÛÝ\˜ÙHŠNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJœÝ]\ÈŠJK››ÝÐÛÛZ[•^
+“ØY[™ÈÛÝ\˜ÙHY]Y]HŠNÂˆ]ØZ]^XÝÛR[YÜš]JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+œÙ]\Ý]\È[™Ú[™]\›œÈ›Û‹\ÙXÜ™]ÚXÚÛ\ÝÝ]H‹\Þ[˜È
+È™\]Y\ÝJHOˆÂˆÛÛœÝ™\ÜÛœÙHH]ØZ]™\]Y\Ý™Ù]
+‹Ø\KÜÙ]\\Ý]\ÈŠNÂˆ^XÝ
+™\ÜÛœÙK›ÚÊ
+JKÐ™JYJNÂ‚ˆÛÛœÝ^[ØYH]ØZ]™\ÜÛœÙKšœÛÛŠ
+NÂˆ^XÝ
+\[Ùˆ^[ØY™[[Ó[ÙJKÐ™J˜›ÛÛX[ˆŠNÂˆ^XÝ
+^[ØY˜ÚXÚÜÊKÒ]™S[™Ý
+ŠNÂˆ^XÝ
+^[ØY˜ÚXÚÜË›X\
+
+ÚXÚÎˆÈYˆÝš[™ÈJHOˆÚXÚËšY
+JKÑ\]X[
+Âˆ™[ˆ‹ˆœ›Ú™XÝ‹ˆœØÚ[XH‹ˆœÙX\˜Ú‹ˆ›Ü[˜ZH‹ˆÛÜšÙ\ˆ‹ˆJNÂˆ^XÝ
+”ÓÓ‹œÝš[™ÚYžJ^[ØY
+JK››ÝÓX]Ú
+ÜÚË_Ù\šXÙWÜ›Û_^R‹ÚJNÂˆJNÂ‚ˆ\Ý
+œ›ÙXÝ[ÛˆÚ]HÙ\È›ÝÙ™™\ˆØÝ[Y[\ØYÈÈ[˜]][XØ]Y\Ù\œÈ‹\Þ[˜È
+ÈYÙK™\]Y\ÝJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆMZYÚˆŒJNÂˆ]ØZ][ØÚÔš]˜]U[˜]][XØ]Y\JYÙJNÂˆÛÛœÝÙ]\Ý]\Ô™\ÜÛœÙHH]ØZ]™\]Y\Ý™Ù]
+‹Ø\KÜÙ]\\Ý]\ÈŠNÂˆ^XÝ
+Ù]\Ý]\Ô™\ÜÛœÙK›ÚÊ
+JKÐ™JYJNÂˆ^XÝ
+
+]ØZ]Ù]\Ý]\Ô™\ÜÛœÙKšœÛÛŠ
+JK™[[Ó[ÙJKÐ™JYJNÂ‚ˆ]ØZ]ÛÝÐ\
+YÙK‹ÈŠNÂˆ]ØZ]^XÝ
+š\ÚX›T]Y\Ý[Û’[œ]
+YÙJJKÐ™Uš\ÚX›J
+NÂ‚ˆ]ØZ]^XÝØÝ[Y[\ØY[˜]˜Z[X›JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+™[[ÈÚ]HÙ\È›ÝÙ™™\ˆØÝ[Y[\ØYÈ‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆMZYÚˆŒJNÂˆ]ØZ][ØÚÑ[[Ð\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÈŠNÂ‚ˆ]ØZ]^XÝØÝ[Y[\ØY[˜]˜Z[X›JYÙJNÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ›Üˆ
+ÛÛœÝšY]ÜÜÙˆÂˆÈ˜[YNˆ›[Øš[H‹ÚYˆÎLZYÚˆŒKˆÈ˜[YNˆX›]‹ÚYˆÍŽZYÚˆLKˆÈ˜[YNˆ™\ÚÝÜ‹ÚYˆLŽZYÚˆLKˆJHÂˆ\Ý
+ÝZYHÜ[œÈ[™\ÛZ\ÜÙ\È]	ÝšY]ÜÜ›˜[Y_X\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆšY]ÜÜÚYZYÚˆšY]ÜÜšZYÚJNÂˆ]ØZ][ØÚÔš]˜]U[˜]][XØ]Y\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÈŠNÂ‚ˆÛÛœÝX[ÙÈH]ØZ]Ü[‘ÝZYJYÙJNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆX[ÙË™]˜[X]J
+[[Y[
+HOˆ[[Y[˜ÛÛZ[œÊØÝ[Y[˜XÝ]™Q[[Y[
+JJKÐ™JYJNÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ”ÚY
+ÕXˆŠNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆX[ÙË™]˜[X]J
+[[Y[
+HOˆ[[Y[˜ÛÛZ[œÊØÝ[Y[˜XÝ]™Q[[Y[
+JJKÐ™JYJNÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ•XˆŠNÂˆ]ØZ]^XÝœÛ
+\Þ[˜È
+
+HOˆX[ÙË™]˜[X]J
+[[Y[
+HOˆ[[Y[˜ÛÛZ[œÊØÝ[Y[˜XÝ]™Q[[Y[
+JJKÐ™JYJNÂˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHÝZYHˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙÊKÐ™RY[Š
+NÂˆÛÛœÝ™\ÝÜ™YÙ][™ÜÈHXØÛÝ[Ù][™ÜÑX[ÙÊYÙJNÂˆ]ØZ]^XÝ
+™\ÝÜ™YÙ][™ÜÊKÐ™Uš\ÚX›J
+NÂˆ]ØZ]^XÝ
+™\ÝÜ™YÙ][™ÜË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘ÝZYH	ˆ[‹^XÝˆYHJJKÐ™Q›ØÝ\ÙY
+
+NÂ‚ˆÛÛœÝ™[Ü[™YX[ÙÈH]ØZ]Ü[‘ÝZYJYÙJNÂˆYˆ
+šY]ÜÜÚYHL
+HÂˆ]ØZ]\Ý]ÚYPXÝ]™TÝ\™˜XÙJYÙJNÂˆH[ÙHÂˆ]ØZ]YÙKšÙ^X›Ø\™œ™\ÜÊ‘\ØØ\HŠNÂˆBˆ]ØZ]^XÝ
+™[Ü[™YX[ÙÊKÐ™RY[Š
+NÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂˆB‚ˆ\Ý
+™ÝZYHÙ[™HÜXÈ˜]šYØ][Ûˆ[™Ý\ˆ›ÙÜ™\ÜÈ™[XZ[ˆXØÙ\ÜÚX›H‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆŒJNÂˆ]ØZ]YÙK™[][]SYYXJÈ›Ü˜ÙYÛÛÜœÎˆ˜XÝ]™H‹™YXÙY[Ý[ÛŽˆœ™YXÙHˆJNÂˆ]ØZ][ØÚÔš]˜]U[˜]][XØ]Y\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÈŠNÂ‚ˆÛÛœÝX[ÙÈH]ØZ]Ü[‘ÝZYJYÙJNÂˆÛÛœÝÝZYTØÜ›Û›ÙHHX[ÙË›ØØ]ÜŠ‹œÛ\ÚY\ØÜ›ÛŠNÂˆÛÛœÝ[Øš[Q›ÛÝ\ˆHX[ÙË›ØØ]ÜŠ–Ù]KYÝZYK[[Øš[KY›ÛÝ\—HŠNÂˆÛÛœÝ[Øš[RXY\ˆHX[ÙË›ØØ]ÜŠ	ÖÙ]K\ÚY]ZXY\HYH—IÊNÂˆ]ØZ]ÝZYTØÜ›Û›ÙK™]˜[X]J
+[[Y[
+HOˆÂˆ[[Y[œØÜ›ÛÜHMÂˆ[[Y[™\Ü]Ú]™[
+™]È]™[
+œØÜ›Û‹ÈX˜›\ÎˆYHJJNÂˆJNÂˆ]ØZ]^XÝ
+[Øš[Q›ÛÝ\ŠKÒ]™P]šX]J˜\šXKZY[ˆ‹YHŠNÂˆ]ØZ]^XÝ
+[Øš[Q›ÛÝ\ŠKÒ]™P]šX]Jš[™\‹ˆŠNÂˆËÈÛ›HHØÚÈY\ËˆH[›™YXY\ˆÛÛ\XÝËÚ[HÛÜÙHÝZYHˆ[™ˆËÈHšY]ÈXœÈÝ^H™XXÚX›HÝÙ]™\ˆ˜\ˆH™XY\ˆ\ÈØÜ›ÛY‚ˆ]ØZ]^XÝ
+[Øš[RXY\ŠKÒ]™PÛ\ÜÊÙÝZYKXÙ[™KZXY\‹KXÛÛ\XÝÊNÂˆ]ØZ]^XÝ
+[Øš[RXY\ŠKÒ]™P]šX]J˜\šXKZY[ˆ‹™˜[ÙHŠNÂˆ]ØZ]^XÝ
+[Øš[RXY\ŠK››ÝÒ]™P]šX]Jš[™\ŠNÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHÝZYHˆJJKÐ™Uš\ÚX›J
+NÂ‚ˆÊŠ‚ˆ
+ˆH[˜\šX[\È]HQSˆØÚÈ\È›ÝÙ^X›Ø\™\™XXÚX›K[™HØ^Bˆ
+ˆÈ\Ý]\ÈÈžHÈ›ØÝ\È]\™XÝKˆHÛXˆÝÙY\ÛÝ[›Ý‚ˆ
+ˆX˜š[™ÈØÜ›ÛÈHÛÛZ[™\‹[™HØÜ›Û˜XÚÈ\YÚ][X][H™]™X[Âˆ
+ˆHØÚËˆYX\Ý\™YŒ‹LLNH]ÎLŒH™\žHš\œÝXˆ[™XYH]ˆ
+ˆØÜ›ÛÜ][™\šXKZY[˜]™˜[ÙH‹ÛÈHÝÙY\\ÜÙ\Yˆ
+ˆYØZ[œÝHØÚÈ]Ø\ÈÛÜœ™XÝHš\ÚX›H[™›ØÝ\ØX›H]™\žH[YH8 %]ˆ
+ˆ˜Z[YÒHÚ[H\Ý[™È›Ý[™Ëˆ
+]\È[ÛÈÚH[›š[™ÈX’[™^^ËL_Xˆ
+ˆÛˆHØÚÈ]ÛœÈÛÝ[›Ýš^]ŠBˆ
+‹ÂˆÛÛœÝØÚÕÚ[RY[ˆH]ØZ][Øš[Q›ÛÝ\‹™]˜[X]J
+[[Y[
+HOˆÂˆÛÛœÝ]ÛˆH[[Y[œ]Y\žTÙ[XÝÜŠ˜]ÛˆŠNÂˆÛÛœÝ™Y›Ü™HHØÝ[Y[˜XÝ]™Q[[Y[Âˆ]ÛË™›ØÝ\ÊÈ™]™[ØÜ›ÛˆYHJNÂˆ™]\›ˆÂˆY[Žˆ[[Y[™Ù]]šX]J˜\šXKZY[ˆŠHOOHYH‹ˆ[™\ˆ[[Y[š\Ð]šX]Jš[™\ŠKˆ›ØÝ\Ó[Ý™Y[ÑØÚÎˆ[[Y[˜ÛÛZ[œÊØÝ[Y[˜XÝ]™Q[[Y[
+Kˆ›ØÝ\Ó[Ý™Y][ˆØÝ[Y[˜XÝ]™Q[[Y[OOH™Y›Ü™KˆNÂˆJNÂˆËÈÝX\™HÝX\™ˆHØÚÈ]Ø\È›ÝY[ˆÛÝ[XZÙHH™\Ý˜XÝ[Ý\Ë‚ˆ^XÝ
+ØÚÕÚ[RY[‹šY[ŠKÐ™JYJNÂˆ^XÝ
+ØÚÕÚ[RY[‹š[™\
+KÐ™JYJNÂˆ^XÝ
+ØÚÕÚ[RY[‹™›ØÝ\Ó[Ý™Y[ÑØÚÊKÐ™J˜[ÙJNÂˆ^XÝ
+ØÚÕÚ[RY[‹™›ØÝ\Ó[Ý™Y][
+KÐ™J˜[ÙJNÂ‚ˆ]ØZ]ÝZYTØÜ›Û›ÙK™]˜[X]J
+[[Y[
+HOˆÂˆ[[Y[œØÜ›ÛÜHÂˆ[[Y[™\Ü]Ú]™[
+™]È]™[
+œØÜ›Û‹ÈX˜›\ÎˆYHJJNÂˆJNÂˆ]ØZ]^XÝ
+[Øš[Q›ÛÝ\ŠKÒ]™P]šX]J˜\šXKZY[ˆ‹™˜[ÙHŠNÂˆ]ØZ]^XÝ
+[Øš[Q›ÛÝ\ŠK››ÝÒ]™P]šX]Jš[™\ŠNÂˆ]ØZ]^XÝ
+[Øš[RXY\ŠK››ÝÒ]™PÛ\ÜÊÙÝZYKXÙ[™KZXY\‹KXÛÛ\XÝÊNÂˆËÈHØÚÈØ\œšY\ÈHÝZYYÝ\ˆ[™›Ý[™È[ÙH8 %›ÈÛÛ\ÜÙ\‹›È[œ]‚ˆ]ØZ]^XÝ
+X[ÙË›ØØ]ÜŠ–Ù]KYÝZYK][š]™\œØ[\ÙX\˜ÚHŠJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+X[ÙË›ØØ]ÜŠš[œ]ŠJKÒ]™PÛÝ[
+
+NÂ‚ˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ[ÜXÜÈˆJK˜ÛXÚÊ
+NÂˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÔš]˜XÞH	ˆØY™H\ÙKÈJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJšXY[™È‹È˜[YNˆ”š]˜XÞH[™ØY™H\ÙHˆJJKÐ™Q›ØÝ\ÙY
+
+NÂ‚ˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ‘ÝZYHÛYHˆJK˜ÛXÚÊ
+NÂˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”Ý\ÝZYYÝ\ˆˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJšXY[™È‹È]™[ˆ‹˜[YNˆ•H]šY[˜ÙKYš\œÝÛÜšÙ›ÝÈˆJJKÐ™Q›ØÝ\ÙY
+
+NÂˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÛ[YHˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙË™Ù]žT›ÛJšXY[™È‹È]™[ˆ‹˜[YNˆ\ÚÈ›ÜˆÛ™HXÚ\Ú[Ûˆ]H[YHˆJJKÐ™Q›ØÝ\ÙY
+
+NÂ‚ˆÛÛœÝ^T™\Ý[ÈH]ØZ]™]È^PZ[\ŠÈYÙHJBˆš[˜ÛYJ	ÖÙ]K]\ÝYH˜Û[šXØ[ZØ‹YÝZYKXÙ[™H—IÊBˆÚ]YÜÊÈØØYÌ˜H‹ØØYÌ˜XH‹ØØYÌŒXH‹ØØYÌŒXXH—JBˆ˜[˜[^™J
+NÂˆ^XÝ
+ˆ^T™\Ý[Ëš[Û][ÛœÂˆ™š[\Š
+š[Û][ÛŠHOˆš[Û][Û‹š[\XÝOOH˜Üš]XØ[ˆš[Û][Û‹š[\XÝOOHœÙ\š[Ý\ÈŠBˆ›X\
+
+š[Û][ÛŠHOˆš[Û][Û‹šY
+Kˆ
+KÑ\]X[
+×JNÂ‚ˆ]ØZ]X[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆÛÜÙHÝZYHˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+X[ÙÊKÐ™RY[Š
+NÂˆÛÛœÝ™[Ü[™YX[ÙÈH]ØZ]Ü[‘ÝZYJYÙJNÂˆ]ØZ]™[Ü[™YX[ÙË™Ù]žT›ÛJ˜]Ûˆ‹È˜[YNˆ”™\Ý[YHÝZYYÝ\ˆˆJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+ˆ™[Ü[™YX[ÙË™Ù]žT›ÛJšXY[™È‹È]™[ˆ‹˜[YNˆ\ÚÈ›ÜˆÛ™HXÚ\Ú[Ûˆ]H[YHˆJKˆ
+KÐ™Q›ØÝ\ÙY
+
+NÂˆ]ØZ]^XÝ›ÔYÙRÜš^›Û[Ý™\™›ÝÊYÙJNÂˆJNÂ‚ˆ\Ý
+™ÝZYHÙ[™HÛ™HØÚÈZ[È›ÝYÚH›ÝÛHØY™H\™XH‹\Þ[˜È
+ÈYÙHJHOˆÂˆ]ØZ]YÙKœÙ]šY]ÜÜÚ^™JÈÚYˆÎLZYÚˆŒJNÂˆ]ØZ][ØÚÔš]˜]U[˜]][XØ]Y\JYÙJNÂˆ]ØZ]ÛÝÐ\
+YÙK‹ÈŠNÂ‚ˆÛÛœÝX[ÙÈH]ØZ]Ü[‘ÝZYJYÙJNÂˆÛÛœÝ˜[™HX[ÙË›ØØ]ÜŠ‹™ÝZYK]Ý\‹YØÚÈŠNÂˆ]ØZ]^XÝ
+˜[™
+KÐ™Uš\ÚX›J
+NÂˆËÈÙYYH[œÙ]Ûˆœ›ÛÝ[™ØZ][[ÛÛ[Y[™È[˜ÛY\È]ˆ[‚ˆËÈ[›[™HÝ[HÛˆHX[ÙÈ›ÙH\ÈÜÝÚ[ˆ™XXÝ™K\™[™\œÈHÚY]ˆËÈÚXÚXYHÛÛ[Y[™Ð›ÝÛH›ZÙH]
+\™[H
+È
+H[œÝXYÙˆLMˆËÈ
+\™[H
+ÈÍ
+Kˆ™K\ÙYY[œÚYHHÛÛÈH]HÚY]™[™\ˆØ[››ÝˆËÈYX\Ý\™HH[œÙYYYÚÙ[‹‚ˆ]ØZ]^XÝˆœÛ
+ˆ\Þ[˜È
+
+HOˆÂˆ]ØZ]YÙK™]˜[X]J
+
+HOˆÂˆØÝ[Y[™ØÝ[Y[[[Y[œÝ[KœÙ]›Ü\J‹K\ØY™KX\™XKX›ÝÛH‹ŒÍŠNÂˆJNÂˆ™]\›ˆ˜[™™]˜[X]J
+[[Y[
+HOˆÂˆÛÛœÝÛÛ[[[Y[H[[Y[˜ÛÜÙ\Ý
+	ÖÜ›ÛOH™X[ÙÈ—IÊOËœ]Y\žTÙ[XÝÜŠ–Ù]KYÝZYKXÛÛ[HŠNÂˆ™]\›ˆÛÛ[[[Y[È[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[JÛÛ[[[Y[
+KœY[™Ð›ÝÛJHˆÂˆJNÂˆKˆÈY\ÜØYÙNˆ™ÝZYHÛÛ[Y[™È]\Ý[˜ÛYHHÙYYYÍØY™KX\™XH[œÙ]
+\™[H
+ÈÍ
+HˆKˆ
+BˆÐ™QÜ™X]\•[“Ü‘\]X[
+LM
+NÂ‚ˆÛÛœÝZ[YH]ØZ]˜[™™]˜[X]J
+[[Y[
+HOˆÂˆÛÛœÝÝ[HHÚ[™ÝË™Ù]ÛÛ\]YÝ[J[[Y[
+NÂˆÛÛœÝ™XÝH[[Y[™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆÛÛœÝØÜš[HH[[Y[œ]Y\žTÙ[XÝÜŠ‹˜[œÝÙ\‹Y›ÛÝ\‹\ÙX\˜ÚX˜XÚÙ›ÜŠNÂˆÛÛœÝØÜš[TÝ[HHØÜš[HÈÚ[™ÝË™Ù]ÛÛ\]YÝ[JØÜš[JHˆ[ÂˆÛÛœÝXÝ[ÛˆH[[Y[œ]Y\žTÙ[XÝÜS[[Y[Š–Ù]KYÝZYK]Ý\‹XXÝ[Û‹\›Ý×H]ÛˆŠNÂˆÛÛœÝXÝ[Û”™XÝHXÝ[ÛË™Ù]›Ý[™[™ÐÛY[™XÝ
+
+NÂˆÛÛœÝÛÛ[[[Y[H[[Y[˜ÛÜÙ\Ý
+	ÖÜ›ÛOH™X[ÙÈ—IÊOËœ]Y\žTÙ[XÝÜŠ–Ù]KYÝZYKXÛÛ[HŠNÂˆ™]\›ˆÂˆ˜XÚÙÜ›Ý[™ˆÝ[K˜˜XÚÙÜ›Ý[™ÛÛÜ‹ˆ›Ü™\•ÜÚYˆÝ[K˜›Ü™\•ÜÚYˆ›ÞÚYÝÎˆÝ[K˜›ÞÚYÝËˆY[™Ð›ÝÛNˆ[X™\‹œ\œÙQ›Ø]
+Ý[KœY[™Ð›ÝÛJKˆYˆX]œ›Ý[™
+™XÝ›Y
+KˆšYÚˆX]œ›Ý[™
+Ú[™ÝËš[›™\•ÚYH™XÝœšYÚ
+Kˆ›ÝÛNˆX]œ›Ý[™
+Ú[™ÝËš[›™\’ZYÚH™XÝ˜›ÝÛJKˆØÜš[Q\Ü^NˆØÜš[TÝ[OË™\Ü^HÏÈ[ˆØÜš[RZYÚˆØÜš[TÝ[HÈX]œ›Ý[™
+[X™\‹œ\œÙQ›Ø]
+ØÜš[TÝ[KšZYÚ
+JHˆˆØÜš[P˜XÚÙÜ›Ý[™ˆØÜš[TÝ[OË˜˜XÚÙÜ›Ý[™[XYÙHÏÈˆ‹ˆØÜš[SX\ÚÎˆØÜš[TÝ[OË›X\ÚÒ[XYÙHØÜš[TÝ[OË™Ù]›Ü\U˜[YJ‹]ÙXšÚ][X\ÚËZ[XYÙHŠHˆ‹ˆXÝ[Û›ÝÛPÛX\˜[˜ÙNˆXÝ[Û”™XÝÈX]œ›Ý[™
+Ú[™ÝËš[›™\’ZYÚHXÝ[Û”™XÝ˜›ÝÛJHˆˆÛÛ[Y[™Ð›ÝÛNˆÛÛ[[[Y[ˆÈ[X™\‹œ\œÙQ›Ø]
+Ú[™ÝË™Ù]ÛÛ\]YÝ[JÛÛ[[[Y[
+KœY[™Ð›ÝÛJBˆˆˆNÂˆJNÂ‚ˆËÈHÜ˜\\ˆ™[XZ[œÈH›\Ú˜[œÜ\™[ØÚÎÈ]ÈÚ[ØÜš[HÝÛœÈZ[‚ˆ^XÝ
+Z[Y˜˜XÚÙÜ›Ý[™
+KÓX]Ú
+Ü™Ø˜W
+
+_˜[œÜ\™[ÊNÂˆ^XÝ
+Z[Y˜›Ü™\•ÜÚY
+KÐ™JŒŠNÂˆ^XÝ
+Z[Y˜›ÞÚYÝÈOOH››Û™HˆÜ™Ø˜W
+
+KË\Ý
+Z[Y˜›ÞÚYÝÊJKÐ™JYJNÂˆ^XÝ
+Z[Y›Y
+KÐ™J
+NÂˆ^XÝ
+Z[YœšYÚ
+KÐ™J
+NÂˆ^XÝ
+Z[Y˜›ÝÛJKÐ™J
+NÂ‚ˆËÈ]HÙYYYÍ[œÙ]HÝZYK\ÜXÚYšXÈLÌØÜš[H™[XZ[œÈÛÛ\XÝˆËÈÚ[H]ÈÜ\]YH\›Z[˜[X\ÚÈÙY\ÈHÛYH[™XØ]Üˆ™YÚ[ÛˆZ[Y‚ˆ^XÝ
+Z[YœØÜš[Q\Ü^JKÐ™J˜›ØÚÈŠNÂˆ^XÝ
+Z[YœØÜš[RZYÚ
+KÐ™QÜ™X]\•[“Ü‘\]X[
+LÌ
+NÂˆ^XÝ
+Z[YœØÜš[RZYÚ
+KÐ™S\ÜÕ[ŠMŒ
+NÂˆ^XÝ
+Z[YœØÜš[P˜XÚÙÜ›Ý[™
+K››ÝÐ™J››Û™HŠNÂˆ^XÝ
+Z[YœØÜš[SX\ÚÊKÓX]Ú
+ÌL	KÊNÂˆ^XÝ
+Z[YœØÜš[SX\ÚÊK››ÝÓX]Ú
+Ý˜[œÜ\™[L	KÊNÂˆ^XÝ
+Z[YœY[™Ð›ÝÛJKÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ^XÝ
+Z[Y˜XÝ[Û›ÝÛPÛX\˜[˜ÙJKÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ^XÝ
+Z[Y˜ÛÛ[Y[™Ð›ÝÛJKÐ™QÜ™X]\•[“Ü‘\]X[
+LM
+NÂ‚ˆÛÛœÝXÝ[ÛˆH˜[™›ØØ]ÜŠ–Ù]KYÝZYK]Ý\‹XXÝ[Û‹\›Ý×H]ÛˆŠNÂˆ]ØZ]^XÝ
+XÝ[ÛŠKÒ]™PÛÝ[
+JNÂˆÛÛœÝ[H]ØZ]XÝ[Û‹™]˜[X]J
+[[Y[
+HOˆÂˆÛÛœÝÝ[HHÚ[™ÝË™Ù]ÛÛ\]YÝ[J[[Y[
+NÂˆÛÛœÝ›Ø™HHØÝ[Y[˜Ü™X]Q[[Y[
+™]ˆŠNÂˆ›Ø™KœÝ[K˜˜XÚÙÜ›Ý[™ÛÛÜˆH˜\ŠKXÛÛ[X[™
+HŽÂˆ[[Y[œ\™[[[Y[Ë˜\[™
+›Ø™JNÂˆÛÛœÝÛÛ[X[™š[HÚ[™ÝË™Ù]ÛÛ\]YÝ[J›Ø™JK˜˜XÚÙÜ›Ý[™ÛÛÜŽÂˆ›Ø™Kœ™[[Ý™J
+NÂˆ™]\›ˆÂˆ˜XÚÙÜ›Ý[™ˆÝ[K˜˜XÚÙÜ›Ý[™ÛÛÜ‹ˆÛÛ[X[™š[ˆ›Ü™\”˜Y]\Îˆ[X™\‹œ\œÙQ›Ø]
+Ý[K˜›Ü™\•ÜY˜Y]\ÊKˆZ[’ZYÚˆ[X™\‹œ\œÙQ›Ø]
+Ý[K›Z[’ZYÚ
+KˆNÂˆJNÂˆ^XÝ
+[˜›Ü™\”˜Y]\ÊKÐ™QÜ™X]\•[ŠL
+NÂˆ^XÝ
+[›Z[’ZYÚ
+KÐ™QÜ™X]\•[“Ü‘\]X[
+
+NÂˆ^XÝ
+[˜˜XÚÙÜ›Ý[™
+KÐ™J[˜ÛÛ[X[™š[
+NÂˆJNÂŸJNÂ

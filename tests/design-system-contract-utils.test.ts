@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -121,10 +124,39 @@ describe("design-system contract helpers", () => {
     expect(find('<summary className="min-h-tap lg:min-h-8">Details</summary>')).toEqual(["src/example.tsx:1"]);
     expect(find('<button className={cn("min-h-tap", "md:min-h-9 px-2")}>Save</button>')).toEqual(["src/example.tsx:1"]);
 
+    // Every min-width breakpoint declared by the repository is a real Tailwind
+    // variant and must receive the same floor enforcement as its standard
+    // counterpart. These aliases previously disappeared as "unknown" variants.
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const repositoryBreakpoints = [...globals.matchAll(/--breakpoint-([a-z0-9-]+):/g)].map((match) => match[1]);
+    expect(repositoryBreakpoints).toEqual([
+      "phone",
+      "tablet",
+      "desktop",
+      "filter-label-collapse",
+      "filter-label-restore",
+    ]);
+    for (const breakpoint of repositoryBreakpoints) {
+      expect(find(`<button className="min-h-tap ${breakpoint}:min-h-9">Save</button>`)).toEqual(["src/example.tsx:1"]);
+    }
+
     // The band cascade: a later band restores the floor for itself and every
     // band above it, but not for the one that was already short.
     expect(find('<button className="min-h-tap sm:min-h-9 lg:min-h-12">Save</button>')).toEqual(["src/example.tsx:1"]);
     expect(find('<button className="min-h-tap sm:min-h-10 lg:min-h-12">Save</button>')).toEqual([]);
+    expect(
+      find('<button className="min-h-tap filter-label-collapse:min-h-9 filter-label-restore:min-h-12">Save</button>'),
+    ).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap phone:min-h-10 tablet:min-h-12">Save</button>')).toEqual([]);
+
+    // JSX token order is not CSS precedence. Important short declarations beat
+    // non-important safe ones, and same-threshold aliases are ordered by
+    // Tailwind's generated stylesheet rather than by the class attribute.
+    expect(find('<button className="min-h-tap sm:!min-h-9 sm:min-h-12">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap sm:min-h-9 sm:!min-h-12">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-[36px] phone:min-h-12">Save</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
 
     // A band that turns the control inert has no tap target to floor. Narrow by
     // construction: `pointer-events-none` must win in the SAME band.
@@ -153,8 +185,6 @@ describe("design-system contract helpers", () => {
     // unpinned they are this file's private opinion about `@theme`, and a
     // redefinition of either token would silently desynchronise the gate from
     // the stylesheet it is supposed to be enforcing. Read the declarations.
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
     const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
     const declaredPixels = (name: string) => {
       const match = globals.match(new RegExp(`--${name}: *([0-9.]+)rem;`));
