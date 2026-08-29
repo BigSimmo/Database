@@ -31,6 +31,7 @@ import {
   type Unit,
 } from "@/components/ward-management/ward-model";
 import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import type { Admission } from "@/components/ward-management/ward-admissions";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
@@ -1193,6 +1194,22 @@ function outOfAreaAdmissions(): Admission[] {
   });
 }
 
+/**
+ * The length of stay a given row MUST show, computed here from the seed's own `arrivedAt` and the
+ * pinned clock the provider is rendered with.
+ *
+ * Never by calling `daysInBed`, and never by reading the ledger's `sinceArrival`: an expectation
+ * taken from the code under test follows it wherever it goes, so a screen that computed a stay
+ * from entirely the wrong instant would still agree with its own expectation. `WARD_ADMISSIONS_ANCHOR`
+ * is pinned equal to `NOW_ANCHOR` by `tests/ward-travel-grouping.test.ts`, which is what makes the
+ * clock here the same clock the fixture was authored against.
+ */
+function expectedStayLabel(admission: Admission): string {
+  const days = Math.floor((NOW_ANCHOR - admission.arrivedAt!) / MINUTES_PER_DAY);
+  if (days === 0) return "Under a day";
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
 function ledgerText(): string {
   return screen.getByTestId("ward-out-of-area-board").textContent ?? "";
 }
@@ -1359,10 +1376,17 @@ describe("OutOfAreaBoard — the entries", () => {
     for (const word of ["overdue", "target", "deadline", "breach", "waiting", "remaining", " left", " due"]) {
       expect(entries, `"${word.trim()}" reads as a deadline on a screen that has none`).not.toContain(word);
     }
-    // And an elapsed length of stay really is rendered, so the absence above is not the absence of
-    // the whole column. Whole days, via `daysInBed` — the minute format this screen shipped with
-    // rendered stays as long as `5041h 30m`, which is correct and unreadable.
-    expect(entries).toMatch(/\d+ days?\b/);
+    // And a real length of stay is rendered, so the absences above are not the absence of the
+    // whole column.
+    //
+    // The floor this replaced was `/\d+ days?\b/` over this same region, and it did not do what
+    // its comment claimed. `textContent` concatenates without separators, so a table cell reading
+    // "34 days" is immediately followed by the next row's "South West" and there is NO word
+    // boundary after "days"; only the card, which renders "34 days since arrival", ever satisfied
+    // it. Proven by a mutation that emptied the table's cell and left this test green while only
+    // the per-row walk failed. A plain `toContain` of a value computed from the seed has no such
+    // dependence on where the string happens to sit.
+    expect(entries).toContain(expectedStayLabel(outOfAreaAdmissions()[0]).toLowerCase());
   });
 
   it("renders the same four facts on the phone card, which is all a phone shows", () => {
@@ -1406,6 +1430,42 @@ describe("OutOfAreaBoard — the entries", () => {
       const text = row.textContent ?? "";
       expect(text, `an hours-and-minutes duration is unreadable at this scale: ${text}`).not.toMatch(/\d+h \d{2}m/);
       expect(text, `no length of stay in days on this row: ${text}`).toMatch(/\d+ days?\b|Under a day/);
+    }
+  });
+
+  it("gives each row that person's own length of stay, not a shape that looks like one", () => {
+    /*
+     * Format coverage is not value coverage, and this project has already shipped the difference.
+     * In Phase 1 a past timestamp handed to a countdown formatter rendered "1h 35m overdue" on all
+     * 48 movements, at seven call sites, one of them under a column headed "Wait". Forty-three
+     * tests were green and three reviews had passed, because every assertion checked the shape of
+     * the string and none checked the number in it.
+     *
+     * The three assertions above are that same shape check: all of them pass on a screen that
+     * shows ONE constant figure for every person. So each row's number is checked here against
+     * that row's OWN arrival, computed from the seed rather than from the code that renders it —
+     * and the phone card is checked the same way for every row, not just for the first.
+     */
+    renderLedger();
+    const subjects = outOfAreaAdmissions();
+    expect(subjects.length).toBeGreaterThan(1);
+
+    // Without at least two different day counts in the fixture, a constant could not be told apart
+    // from the truth and this test would be decorative however carefully it were written.
+    const distinct = new Set(subjects.map(expectedStayLabel));
+    expect(
+      distinct.size,
+      "every seeded stay is now the same length, so a constant-per-row screen would pass this test",
+    ).toBeGreaterThan(1);
+
+    for (const admission of subjects) {
+      const expected = expectedStayLabel(admission);
+      const cells = screen.getByTestId(`ward-out-of-area-row-${admission.id}`).querySelectorAll("td");
+      expect(cells[3]?.textContent, `${admission.id}'s row shows the wrong length of stay`).toBe(expected);
+      expect(
+        screen.getByTestId(`ward-out-of-area-card-${admission.id}`).textContent ?? "",
+        `${admission.id}'s phone card shows the wrong length of stay`,
+      ).toContain(`${expected} since arrival`);
     }
   });
 

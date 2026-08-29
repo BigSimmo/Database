@@ -3,6 +3,8 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+import { seedWardFlowState } from "../src/components/ward-management/ward-flow-reducer";
+
 const WARD_DIR = "src/components/ward-management";
 
 /**
@@ -483,6 +485,36 @@ describe("one source of truth", () => {
       `file(s) reading the admission seed outside ADMISSION_SEED_ALLOWLIST: ${offenders.join(", ")}. ` +
         "Read that constant's comment before adding one — the out-of-area board states in its own words " +
         "that this list is seeded and not live, and a second reader is usually the change that makes that false.",
+    ).toEqual([]);
+  });
+
+  it("keeps the reducer's state free of any admissions key, which is the thing that sentence depends on", () => {
+    /*
+     * The two-line complement to `ADMISSION_SEED_ALLOWLIST` above, and it guards the scenario that
+     * constant's own comment names rather than the file shape.
+     *
+     * The import rule is a tripwire for the LIKELY change — a second module reading the seed — but
+     * three routes get past it: a re-export through a module that is already allowed, a dynamic
+     * `import()`, and admissions entering reducer state with no seed import at all (a new event
+     * building them, or a fetch). All three end in the same place, which is why the assertion is
+     * made there: the moment `WardFlowState` carries admissions, the out-of-area board's paragraph
+     * — "this prototype does not record admissions as they happen ... this is not a live statewide
+     * count" — is false, while every test that pins that paragraph stays green, because they pin
+     * its PRESENCE and cannot pin its TRUTH.
+     *
+     * Matched case-insensitively on the substring rather than by exact key, so `admissions`,
+     * `wardAdmissions` and `admissionsById` are all caught: this is a tripwire meant to fire on the
+     * shape of the change, not a list of names someone has to remember to extend.
+     */
+    const stateKeys = Object.keys(seedWardFlowState());
+    // A seeded state that came back empty would make the filter below vacuous.
+    expect(stateKeys.length).toBeGreaterThan(0);
+    const admissionKeys = stateKeys.filter((key) => key.toLowerCase().includes("admission"));
+    expect(
+      admissionKeys,
+      `WardFlowState now carries ${admissionKeys.join(", ")}. Before removing this assertion, re-read the ` +
+        "out-of-area board's provenance paragraph (out-of-area-board.tsx): it tells the reader this list is " +
+        "seeded and not live, and admissions in reducer state is what makes that false.",
     ).toEqual([]);
   });
 
