@@ -7,6 +7,10 @@ import type {
 } from "@/lib/types";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
+import type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
+
+export type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
+export type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
 
 export type RagObservationContext = {
   interactionId: string;
@@ -37,6 +41,10 @@ export type SearchChunksArgs = {
   cacheContext?: {
     indexingVersionAtRequestStart?: Promise<string>;
   };
+  /** Caller-injected immutable public-corpus facts, resolved once at the exported request boundary. */
+  ragContextSnapshotInput?: RagContextSnapshotInput;
+  /** Internal: the exact frozen request snapshot shared by nested retrieval/cache calls. */
+  ragRequestContext?: RagRequestContext;
 };
 
 export type SearchTelemetry = {

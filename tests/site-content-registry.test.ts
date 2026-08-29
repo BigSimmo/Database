@@ -66,7 +66,7 @@ describe("site content contracts", () => {
       staticManifestDigest: activeRelease.staticManifestDigest,
       dynamicStateDigest: activeRelease.dynamicStateDigest,
       releaseDigest: activeRelease.releaseDigest,
-      changeEpoch: "change-1",
+      changeEpoch: "1",
       state: "current",
     };
     const snapshot: RagContextSnapshot = {
@@ -74,6 +74,8 @@ describe("site content contracts", () => {
       resolvedAt: "2026-08-23T10:00:01.000Z",
       documentIndexGeneration: "generation-1",
       sourcePolicyVersion: "source-policy-v1",
+      rolloutVersion: "rollout-v1",
+      siteContentRegistryVersion: activeRelease.registryVersion,
       publicSiteContent: partition,
     };
 

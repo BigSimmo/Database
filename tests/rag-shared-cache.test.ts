@@ -60,6 +60,91 @@ function createSharedCacheBuilder(payload: {
 }
 
 describe("shared RAG search cache", () => {
+  it("shares site-aware search rows by snapshot while retaining exact answer owner selectors", async () => {
+    vi.resetModules();
+    const selectors: Array<{ method: "eq" | "is"; column: string; value: unknown }> = [];
+    const builder = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => {
+        selectors.push({ method: "eq", column, value });
+        return builder;
+      },
+      is: (column: string, value: unknown) => {
+        selectors.push({ method: "is", column, value });
+        return builder;
+      },
+      gt: () => builder,
+      limit: () => builder,
+      maybeSingle: async () => ({ data: null, error: null }),
+    };
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        RAG_SEARCH_CACHE_TTL_MS: 60_000,
+        RAG_SEARCH_CACHE_SIZE: 200,
+        RAG_ANSWER_CACHE_TTL_MS: 60_000,
+        RAG_ANSWER_CACHE_SIZE: 200,
+        RAG_PERSIST_RAW_QUERY_TEXT: false,
+        RAG_QUERY_HASH_SECRET: "test-query-hash-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/deep-memory", () => ({ ragDeepMemoryVersion: "test-rag-version" }));
+    vi.doMock("@/lib/clinical-search", () => ({ buildClinicalTextSearchQuery: (query: string) => query.trim() }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => builder }) }));
+
+    const { withRagRequestContext } = await import("../src/lib/rag/rag-context-snapshot");
+    const { getSharedCachedAnswer, getSharedCachedSearch } = await import("../src/lib/rag/rag-cache");
+    const snapshotInput = {
+      expectedSiteStaticManifestDigest: "a".repeat(64),
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1" as const,
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active" as const,
+        activatedAt: "2026-08-29T00:00:00.000Z",
+      },
+      publicSiteChangeEpoch: "1",
+      pendingPublicSiteChangeCount: 0,
+      documentIndexGeneration: "generation-v1",
+      sourcePolicyVersion: "source-policy-v1",
+      rolloutVersion: "rollout-v1",
+    };
+    const request = withRagRequestContext({
+      query: "public monitoring",
+      ownerId,
+      accessScope: { includePublic: true as const },
+      ragContextSnapshotInput: snapshotInput,
+    });
+
+    await getSharedCachedSearch(request, "table_threshold", [], { indexingVersionAtRequestStart: "index-v1" });
+    const firstSearchQuery = selectors.find(
+      (selector) => selector.method === "eq" && selector.column === "normalized_query",
+    )?.value;
+    expect(selectors).toContainEqual({ method: "is", column: "owner_id", value: null });
+    expect(selectors).not.toContainEqual({ method: "eq", column: "owner_id", value: ownerId });
+
+    selectors.length = 0;
+    await getSharedCachedAnswer(request, Date.now(), { indexingVersionAtRequestStart: "index-v1" });
+    expect(selectors).toContainEqual({ method: "eq", column: "owner_id", value: ownerId });
+
+    selectors.length = 0;
+    const nextRequest = withRagRequestContext({
+      query: request.query,
+      ownerId: request.ownerId,
+      accessScope: request.accessScope,
+      ragContextSnapshotInput: { ...snapshotInput, publicSiteChangeEpoch: "2" },
+    });
+    await getSharedCachedSearch(nextRequest, "table_threshold", [], { indexingVersionAtRequestStart: "index-v1" });
+    const nextSearchQuery = selectors.find(
+      (selector) => selector.method === "eq" && selector.column === "normalized_query",
+    )?.value;
+    expect(nextSearchQuery).not.toBe(firstSearchQuery);
+  });
+
   it("uses one shared-cache read for a cold filtered miss", async () => {
     vi.resetModules();
     let sharedCacheReads = 0;

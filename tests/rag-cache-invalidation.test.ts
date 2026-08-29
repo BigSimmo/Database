@@ -48,6 +48,58 @@ class DeleteQuery implements PromiseLike<{ data: null; error: null }> {
 }
 
 describe("RAG cache invalidation", () => {
+  it("removes only the matching hashed site-aware answer and in-flight identities", async () => {
+    vi.resetModules();
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: () => ({
+          delete: () => new DeleteQuery([]),
+        }),
+      }),
+    }));
+
+    const { withRagRequestContext } = await import("../src/lib/rag/rag-context-snapshot");
+    const { answerInflight, invalidateRagCachesForOwner, scopedAnswerCacheKey } =
+      await import("../src/lib/rag/rag-cache");
+    const input = {
+      expectedSiteStaticManifestDigest: "a".repeat(64),
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1" as const,
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active" as const,
+        activatedAt: "2026-08-29T00:00:00.000Z",
+      },
+      publicSiteChangeEpoch: "1",
+      pendingPublicSiteChangeCount: 0,
+      documentIndexGeneration: "generation-v1",
+      sourcePolicyVersion: "source-policy-v1",
+      rolloutVersion: "rollout-v1",
+    };
+    const publicRequest = withRagRequestContext({
+      query: "clozapine monitoring",
+      accessScope: { includePublic: true as const },
+      ragContextSnapshotInput: input,
+    });
+    const ownerAArgs = { ...publicRequest, ownerId };
+    const ownerB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const ownerBArgs = { ...publicRequest, ownerId: ownerB };
+    const ownerAKey = scopedAnswerCacheKey(ownerAArgs);
+    const ownerBKey = scopedAnswerCacheKey(ownerBArgs);
+    answerInflight.set(ownerAKey, Promise.resolve(sampleAnswer("owner-a")));
+    answerInflight.set(ownerBKey, Promise.resolve(sampleAnswer("owner-b")));
+
+    expect(ownerAKey).not.toContain(ownerId);
+    invalidateRagCachesForOwner(ownerId);
+
+    expect(answerInflight.has(ownerAKey)).toBe(false);
+    expect(answerInflight.has(ownerBKey)).toBe(true);
+    invalidateRagCachesForOwner(ownerB);
+  });
+
   it("clears anonymous shared cache rows with owner_id is null instead of writing the anonymous sentinel to UUID filters", async () => {
     vi.resetModules();
     const calls: FilterCall[][] = [];

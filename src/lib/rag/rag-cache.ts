@@ -6,11 +6,16 @@ import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
-import { retrievalAccessScopeForArgs, retrievalAccessScopeKey } from "@/lib/owner-scope";
+import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
+import {
+  retrievalPlanForQueryClass,
+  type RagRequestContext,
+  type SearchChunksArgs,
+  type SearchTelemetry,
+} from "@/lib/rag/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 import {
@@ -69,6 +74,21 @@ function abortReason(signal: AbortSignal): Error {
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw abortReason(signal);
+}
+
+function requestSnapshotCacheKey(args: Pick<SearchChunksArgs, "ragRequestContext">) {
+  return args.ragRequestContext?.snapshotCacheKey ?? "";
+}
+
+function siteAwareAnswerOwnerToken(ownerId: string) {
+  const ownerHash = createHash("sha256").update(`rag-site-aware-answer-owner-v1\0${ownerId}`).digest("hex");
+  return `answer-owner:${ownerHash}`;
+}
+
+export function isRagCacheAccessAllowed(args: Pick<SearchChunksArgs, "ownerId" | "accessScope" | "ragRequestContext">) {
+  if (!requestSnapshotCacheKey(args)) return true;
+  const scope = retrievalAccessScopeForArgs(args);
+  return scope.includePublic === true && !scope.ownerId;
 }
 
 function documentScopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
@@ -148,21 +168,33 @@ export function answerGenerationFingerprint() {
   });
 }
 
-function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode">) {
+export function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode" | "ragRequestContext">) {
   const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
-  return queryCacheKeyForStorage(`${query}|generation:${answerGenerationFingerprint()}`);
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  return queryCacheKeyForStorage(
+    `${query}|generation:${answerGenerationFingerprint()}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+  );
 }
 
 export function scopedAnswerCacheKey(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "ragRequestContext"
+  >,
 ) {
-  return [
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  const identity = [
     ragCacheDependencyVersion,
     scopeKey(args),
     modeKey(args),
     `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
-  ].join("|");
+  ];
+  if (snapshotCacheKey) {
+    identity.push(`snapshot:${snapshotCacheKey}`);
+    if (args.ownerId) identity.push(siteAwareAnswerOwnerToken(args.ownerId));
+  }
+  return identity.join("|");
 }
 
 export function cloneAnswer(answer: RagAnswer) {
@@ -174,15 +206,128 @@ export function answerCacheAllowedForOwner(ownerId?: string | null) {
   return Boolean(ownerId);
 }
 
+type RagPublicCacheKind = "search" | "answer";
+type RagPublicCacheEvidence = Pick<SearchResult, "document_id" | "id">;
+export type RagPublicCacheWriteProof = Readonly<{
+  version: "rag-public-cache-write-proof-v1";
+  cacheKind: RagPublicCacheKind;
+  snapshotCacheKey: string;
+  selectedEvidenceDigest: string;
+  allSelectedEvidencePublic: true;
+  pendingExclusion: "not_required" | "proven";
+}>;
+
+function selectedEvidenceDigest(selectedEvidence: readonly RagPublicCacheEvidence[]) {
+  if (
+    selectedEvidence.some(
+      (result) =>
+        typeof result.document_id !== "string" ||
+        result.document_id.length === 0 ||
+        typeof result.id !== "string" ||
+        result.id.length === 0,
+    )
+  ) {
+    throw new Error("Public cache proof requires stable selected-evidence identities.");
+  }
+  const tuples = selectedEvidence
+    .map((result) => [result.document_id, result.id] as const)
+    .sort(([leftDocument, leftId], [rightDocument, rightId]) => {
+      const left = `${leftDocument}\0${leftId}`;
+      const right = `${rightDocument}\0${rightId}`;
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
+  return createHash("sha256")
+    .update(`rag-public-selected-evidence-v1\0${JSON.stringify(tuples)}`)
+    .digest("hex");
+}
+
+export function createRagPublicCacheWriteProof(input: {
+  cacheKind: RagPublicCacheKind;
+  requestContext: RagRequestContext;
+  accessScope: RetrievalAccessScope;
+  selectedEvidence: readonly RagPublicCacheEvidence[];
+  allSelectedEvidencePublic: true;
+  pendingExclusion: "not_required" | "proven";
+}): RagPublicCacheWriteProof {
+  if (
+    !Object.isFrozen(input.requestContext) ||
+    !Object.isFrozen(input.requestContext.snapshot) ||
+    !Object.isFrozen(input.requestContext.snapshot.publicSiteContent)
+  ) {
+    throw new Error("Public cache proof requires the frozen request snapshot.");
+  }
+  if (!(["search", "answer"] as const).includes(input.cacheKind)) {
+    throw new Error("Public cache proof requires a supported cache kind.");
+  }
+  if (!(["not_required", "proven"] as const).includes(input.pendingExclusion)) {
+    throw new Error("Public cache proof requires an explicit pending-exclusion verdict.");
+  }
+  const scope = retrievalAccessScopeForArgs({ accessScope: input.accessScope });
+  if (!scope.includePublic || scope.ownerId) throw new Error("Public cache proof requires exact public-only scope.");
+  if (input.allSelectedEvidencePublic !== true)
+    throw new Error("Public cache proof requires explicit public evidence.");
+  const { snapshot, snapshotCacheKey } = input.requestContext;
+  if (!/^[0-9a-f]{64}$/.test(snapshotCacheKey) || !["current", "updating"].includes(snapshot.publicSiteContent.state)) {
+    throw new Error("Public cache proof requires a current or updating site snapshot.");
+  }
+  if (snapshot.publicSiteContent.state === "updating" && input.pendingExclusion !== "proven") {
+    throw new Error("Updating public cache proof requires exact pending-record exclusion.");
+  }
+  return Object.freeze({
+    version: "rag-public-cache-write-proof-v1",
+    cacheKind: input.cacheKind,
+    snapshotCacheKey,
+    selectedEvidenceDigest: selectedEvidenceDigest(input.selectedEvidence),
+    allSelectedEvidencePublic: true,
+    pendingExclusion: input.pendingExclusion,
+  });
+}
+
+function cacheWriteProofAllows(
+  args: Pick<SearchChunksArgs, "ragRequestContext">,
+  cacheKind: RagPublicCacheKind,
+  selectedEvidence: readonly RagPublicCacheEvidence[],
+  proof?: RagPublicCacheWriteProof,
+) {
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  if (!snapshotCacheKey) return true;
+  const snapshot = args.ragRequestContext?.snapshot;
+  if (!snapshot || !proof || !Object.isFrozen(proof)) return false;
+  const proofKeys = [
+    "allSelectedEvidencePublic",
+    "cacheKind",
+    "pendingExclusion",
+    "selectedEvidenceDigest",
+    "snapshotCacheKey",
+    "version",
+  ];
+  if (Object.keys(proof).sort().join("|") !== proofKeys.join("|")) return false;
+  if (!/^[0-9a-f]{64}$/.test(snapshotCacheKey)) return false;
+  if (!["current", "updating"].includes(snapshot.publicSiteContent.state)) return false;
+  if (!["not_required", "proven"].includes(proof.pendingExclusion)) return false;
+  if (snapshot.publicSiteContent.state === "updating" && proof.pendingExclusion !== "proven") return false;
+  try {
+    return (
+      proof.version === "rag-public-cache-write-proof-v1" &&
+      proof.cacheKind === cacheKind &&
+      proof.snapshotCacheKey === snapshotCacheKey &&
+      proof.allSelectedEvidencePublic === true &&
+      proof.selectedEvidenceDigest === selectedEvidenceDigest(selectedEvidence)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function getCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode" | "ragRequestContext"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<RagAnswer | null> {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return null;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || !isRagCacheAccessAllowed(args)) return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
 
   const key = scopedAnswerCacheKey(args);
@@ -235,12 +380,18 @@ export async function getCachedAnswer(
 export async function setCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode" | "ragRequestContext"
   >,
   answer: RagAnswer,
-  options?: { indexingVersionAtRetrievalStart?: string | null },
+  options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
+  if (
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "answer", answer.sources ?? [], options?.publicCacheWriteProof)
+  )
+    return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
   const invalidationEpochAtStart = captureInvalidationEpoch(args.ownerId);
@@ -264,7 +415,7 @@ export async function setCachedAnswer(
     return;
   }
   void (async () => {
-    await setSharedCachedAnswer(args, answer, indexingVersion);
+    await setSharedCachedAnswer(args, answer, indexingVersion, options?.publicCacheWriteProof);
     if (!invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
     answerCache.delete(key);
     await deleteSharedCachedAnswerRow(args, indexingVersion);
@@ -287,6 +438,7 @@ export function retrievalPlanCacheQuery(
     | "minSimilarity"
     | "forceEmbedding"
     | "lexicalOnly"
+    | "ragRequestContext"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -306,11 +458,12 @@ export function retrievalPlanCacheQuery(
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
     ...(env.RAG_SEMANTIC_RERANK_ENABLED ? [`semanticRerank:${env.OPENAI_RERANK_MODEL}`] : []),
+    ...(requestSnapshotCacheKey(args) ? [`snapshot:${requestSnapshotCacheKey(args)}`] : []),
   ].join("|");
   return queryCacheKeyForStorage(cacheKey);
 }
 
-function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
+export function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
   return [ragCacheDependencyVersion, scopeKey(args), retrievalPlanCacheQuery(args, queryClass, queryVariants)].join(
     "|",
   );
@@ -350,7 +503,7 @@ export async function getCachedSearch(
   options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   throwIfAborted(args.signal);
-  if (!isSearchCacheEnabled(args)) return null;
+  if (!isSearchCacheEnabled(args) || !isRagCacheAccessAllowed(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
@@ -393,10 +546,17 @@ export async function setCachedSearch(
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
-  options?: { indexingVersionAtRetrievalStart?: string | null },
+  options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
   throwIfAborted(args.signal);
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
+  if (
+    args.skipCache ||
+    env.RAG_SEARCH_CACHE_TTL_MS <= 0 ||
+    env.RAG_SEARCH_CACHE_SIZE <= 0 ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "search", results, options?.publicCacheWriteProof)
+  )
+    return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
@@ -415,7 +575,7 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, cacheTelemetry, indexingVersion, queryVariants);
+  setSharedCachedSearch(args, results, cacheTelemetry, indexingVersion, queryVariants, options?.publicCacheWriteProof);
 }
 
 type SharedCacheKind = "search" | "answer";
@@ -427,7 +587,15 @@ function sharedCacheSelector(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
   >,
   indexingVersion: string,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
@@ -443,7 +611,8 @@ function sharedCacheSelector(
     .gt("expires_at", new Date().toISOString())
     .limit(1);
 
-  query = args.ownerId ? query.eq("owner_id", args.ownerId) : query.is("owner_id", null);
+  const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
+  query = ownerId ? query.eq("owner_id", ownerId) : query.is("owner_id", null);
   return query;
 }
 
@@ -524,7 +693,7 @@ export async function getSharedCachedSearch(
   | null
 > {
   throwIfAborted(args.signal);
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
+  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || !isRagCacheAccessAllowed(args)) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
   try {
@@ -604,12 +773,28 @@ export async function getSharedCachedSearch(
 export async function getSharedCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
 ) {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
+  throwIfAborted(args.signal);
+  if (
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    env.RAG_ANSWER_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return null;
   try {
     const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
     const { data, error } = await sharedCacheSelector(
@@ -620,6 +805,7 @@ export async function getSharedCachedAnswer(
       sharedAnswerNormalizedQuery(args),
     ).maybeSingle();
     if (error || !data?.payload) return null;
+    throwIfAborted(args.signal);
     const answer = cloneAnswer((data.payload as { answer: RagAnswer }).answer);
     if (isGenerationFallbackAnswer(answer)) {
       await deleteSharedCachedAnswerRow({ ...args, accessScope: retrievalAccessScopeForArgs(args) }, indexingVersion);
@@ -638,6 +824,7 @@ export async function getSharedCachedAnswer(
     };
     return answer;
   } catch {
+    if (args.signal?.aborted) throw abortReason(args.signal);
     return null;
   }
 }
@@ -646,7 +833,15 @@ async function replaceSharedCacheRow(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
   >,
   payload: unknown,
   ttlMs: number,
@@ -669,8 +864,9 @@ async function replaceSharedCacheRow(
     if (args.signal) deleteQuery = deleteQuery.abortSignal(args.signal);
     await deleteQuery;
     if (args.signal?.aborted) return;
+    const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
     let insertQuery = supabase.from("rag_response_cache").insert({
-      owner_id: args.ownerId ?? null,
+      owner_id: ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
       normalized_query: normalizedQuery,
@@ -693,8 +889,15 @@ function setSharedCachedSearch(
   telemetry: SearchTelemetry,
   indexingVersion: string,
   queryVariants: string[] = [],
+  publicCacheWriteProof?: RagPublicCacheWriteProof,
 ) {
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return;
+  if (
+    args.skipCache ||
+    env.RAG_SEARCH_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "search", results, publicCacheWriteProof)
+  )
+    return;
   void replaceSharedCacheRow(
     "search",
     args,
@@ -708,12 +911,28 @@ function setSharedCachedSearch(
 async function setSharedCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "forceEmbedding"
+    | "ragRequestContext"
   >,
   answer: RagAnswer,
   indexingVersion: string,
+  publicCacheWriteProof?: RagPublicCacheWriteProof,
 ) {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
+  if (
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    env.RAG_ANSWER_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "answer", answer.sources ?? [], publicCacheWriteProof)
+  )
+    return;
   await replaceSharedCacheRow(
     "answer",
     args,
@@ -725,7 +944,10 @@ async function setSharedCachedAnswer(
 }
 
 async function deleteSharedCachedAnswerRow(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "ragRequestContext"
+  >,
   indexingVersion: string,
 ) {
   try {
@@ -768,10 +990,14 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
 
   const sharedCacheOwnerId = ownerId === "anonymous" ? null : ownerId;
   for (const key of answerCache.keys()) {
-    if (ragCacheKeyMatchesOwner(key, ownerId)) answerCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId) || key.includes(siteAwareAnswerOwnerToken(ownerId))) {
+      answerCache.delete(key);
+    }
   }
   for (const key of answerInflight.keys()) {
-    if (ragCacheKeyMatchesOwner(key, ownerId)) answerInflight.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId) || key.includes(siteAwareAnswerOwnerToken(ownerId))) {
+      answerInflight.delete(key);
+    }
   }
   for (const key of searchCache.keys()) {
     if (ragCacheKeyMatchesOwner(key, ownerId)) searchCache.delete(key);

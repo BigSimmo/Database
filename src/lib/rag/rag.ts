@@ -126,6 +126,7 @@ import {
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
+  isRagCacheAccessAllowed,
   isSearchCacheEnabled,
   isSearchCacheLookupEnabled,
   packAdjacentSourceContext,
@@ -134,6 +135,7 @@ import {
   setCachedAnswer,
   setCachedSearch,
 } from "@/lib/rag/rag-cache";
+import { withRagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export {
   invalidateRagCachesForDocumentMutation,
   invalidateRagCachesForOwner,
@@ -1580,10 +1582,8 @@ function finishSearch<T extends { telemetry: SearchTelemetry }>(timing: SearchTi
   search.telemetry.search_total_latency_ms = Date.now() - timing.startedAt;
   return search;
 }
-
 /**
  * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
- *
  * @param args - Retrieval options, including the query, scope, search mode, and embedding preferences.
  * @returns The ranked search results and telemetry describing the retrieval process.
  */
@@ -1594,6 +1594,7 @@ export async function searchChunksWithTelemetry(
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
+  args = withRagRequestContext(args);
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   if (hasAdversarialManipulationIntent(retrievalQuery)) {
     // Refuse prompt-injection and secret-exfiltration requests before creating a
@@ -2444,17 +2445,18 @@ function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
     scoreExplanations: buildAnswerScoreExplanations(results),
   };
 }
-
 /** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
-
 /** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
+  throwIfAborted(args.signal);
+  args = withRagRequestContext(args);
   const startedAt = Date.now();
   const coalescingEnabled =
     answerCacheAllowedForOwner(args.ownerId) &&
+    isRagCacheAccessAllowed(args) &&
     !args.skipCache &&
     env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
     env.RAG_ANSWER_CACHE_SIZE > 0;
@@ -2508,7 +2510,6 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
   if (inflightKey) answerInflight.set(inflightKey, pending);
   return observeRagAnswer(await pending, args.observationContext);
 }
-
 /** Answer question with scope uncoalesced. */
 async function answerQuestionWithScopeUncoalesced(
   args: AnswerQuestionWithScopeArgs,
@@ -2592,7 +2593,6 @@ async function answerQuestionWithScopeUncoalesced(
         : sharedCachedAnswer.smartPanel,
     });
   }
-
   const searchStartedAt = Date.now();
   // Cache-version refresh plus the local/shared answer-cache lookups above run before any
   // phase timer, so without this number the pre-retrieval window is invisible in
@@ -2611,6 +2611,7 @@ async function answerQuestionWithScopeUncoalesced(
         documentId: args.documentId,
         documentIds: args.documentIds,
         ownerId: args.ownerId,
+        accessScope: args.accessScope,
         allowGlobalSearch: args.allowGlobalSearch,
         topK: 12,
         minSimilarity: 0.12,
@@ -2618,6 +2619,7 @@ async function answerQuestionWithScopeUncoalesced(
         queryMode: args.queryMode,
         signal: retrievalDeadline.signal,
         cacheContext,
+        ragRequestContext: args.ragRequestContext,
       }),
     );
   } finally {

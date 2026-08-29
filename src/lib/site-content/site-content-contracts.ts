@@ -61,5 +61,7 @@ export type RagContextSnapshot = {
   resolvedAt: string;
   documentIndexGeneration: string;
   sourcePolicyVersion: string;
+  rolloutVersion: string;
+  siteContentRegistryVersion: string | null;
   publicSiteContent: SiteContentPartitionSnapshot;
 };
