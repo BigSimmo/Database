@@ -30,6 +30,12 @@ describe("escalationBoard", () => {
 
   // RE-MEASURED on 2026-08-29 at NOW_ANCHOR against this file's own basis — `seedWardFlowState()`'s
   // `movements` and `units`, not another file's fixture read — counting `eligibility(...).eligible`
+  // RE-MEASURED 2026-08-30: 43 open movements and 353 eligible pairs on the standard night, after
+  // WF-019 and WF-020 were seeded to give the fixture waits longer than a day. THE ASSERTIONS BELOW
+  // DID NOT MOVE - both new movements are placeable, so the stranded sets are unchanged and nothing
+  // here went red. This comment is corrected anyway, because a figure no assertion reads can be
+  // wrong for as long as it likes and is read by people making decisions: this same file carried
+  // "123 eligible pairs" for days when the number was 98.
   // for every open movement (never the truncated length of `eligibleCandidatesAmong(...)`'s default
   // 3-candidate shortlist, which is a same-cohort count, not an eligibility count): 23 units,
   // 41 open movements, 342 eligible movement/unit pairs, distribution

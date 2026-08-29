@@ -323,7 +323,7 @@ const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
   ],
   [
     "/mockups/ward-flow/patients/[patientId]",
-    "0 of 48 instances reachable without state — nothing names a concrete movement anywhere. All four " +
+    "0 of 50 instances reachable without state — nothing names a concrete movement anywhere. All four " +
       "builders (patient-search.tsx, live-tracker.tsx, ward-management-modes.tsx, " +
       "ward-management-network.tsx) work from a query or a selection, so which movements are reachable " +
       "depends entirely on what the coordinator has already done. Unlike the three above this is the " +
