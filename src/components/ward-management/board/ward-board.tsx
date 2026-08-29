@@ -368,6 +368,9 @@ const RELEASE_BAND_PHRASE: Record<ReleaseBand, string> = {
   "by-midday": "Expected by midday",
   "by-1600": "Expected by 16:00",
   tonight: "Expected tonight",
+  // WB-DB-7, 2026-08-30. Said plainly rather than folded into "tonight", which is what the four
+  // time-of-day bands would have done to it silently.
+  tomorrow: "Expected tomorrow",
 };
 
 /**

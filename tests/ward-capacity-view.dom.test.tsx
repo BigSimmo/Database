@@ -18,6 +18,7 @@ import { capacityBreakdown } from "@/components/ward-management/ward-bed-availab
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
 
 /** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch — the same
@@ -261,25 +262,34 @@ describe("ward capacity headline (Task 7)", () => {
     expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent(heldBefore ?? "");
   });
 
-  it("shows the excluded count once a release falls beyond tonight, and not before", () => {
+  it("shows the excluded count once a release falls beyond the board's horizon, and not before", () => {
+    /*
+     * REWRITTEN 2026-08-30 for WB-DB-7. This used to advance the clock 700 minutes so that
+     * `FLAG_BED_RELEASE`'s own stamp landed past 22:00, which was the old cutoff. Under a rolling
+     * horizon with a "tomorrow" band, a release later the same evening is correctly SHOWN rather
+     * than excluded, so the clock advance no longer produces an exclusion and the fixture has to
+     * reach two days out to make one.
+     *
+     * The property is unchanged: the excluded count appears only once something genuinely falls
+     * outside the horizon, and it is reported rather than dropped in silence.
+     */
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <WardModeWorkspace mode="capacity" />
-        <ClockAdvancer minutes={700} />
-        <PredictedReleaseFlagger unitId="fre-adult-open" />
+        <PredictedReleaseFlagger unitId="fre-adult-open" expectedAt={NOW_ANCHOR + 2 * MINUTES_PER_DAY} />
       </WardFlowProvider>,
     );
 
-    // Baseline: nothing in the seeded fixture falls beyond 22:00 (the latest fixture release is
-    // NOW_ANCHOR + 240, still well inside the evening shift), so nothing is excluded yet.
+    // Baseline: every seeded release falls today or tomorrow, so nothing is excluded yet. This half
+    // matters as much as the other - an assertion that only ever sees the count present would pass
+    // on a screen that showed it unconditionally.
     expect(screen.queryByTestId("ward-capacity-excluded-beyond-today")).not.toBeInTheDocument();
 
-    // NOW_ANCHOR (642) + 700 = 1342, past EVENING_SHIFT_END_MINUTES (1320). FLAG_BED_RELEASE
-    // always stamps `expectedAt` as the instant the ward reported it, so flagging now stamps a
-    // release that falls beyond tonight.
-    fireEvent.click(screen.getByTestId("test-advance-clock"));
     fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
 
-    expect(screen.getByTestId("ward-capacity-excluded-beyond-today")).toHaveTextContent("1");
+    expect(
+      screen.getByTestId("ward-capacity-excluded-beyond-today"),
+      "a release beyond the horizon must be counted and shown, never quietly omitted",
+    ).toHaveTextContent("1");
   });
 });

@@ -450,8 +450,8 @@ function CapacityView() {
       </div>
       {excludedBeyondToday > 0 && (
         <p className={styles.excludedNotice} data-testid="ward-capacity-excluded-beyond-today">
-          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected after tonight (22:00) — excluded
-          from every figure above, counted here rather than silently dropped.
+          {excludedBeyondToday} release{excludedBeyondToday === 1 ? "" : "s"} expected beyond tomorrow — excluded from
+          every figure above, counted here rather than silently dropped.
         </p>
       )}
       <table className={styles.dataTable}>

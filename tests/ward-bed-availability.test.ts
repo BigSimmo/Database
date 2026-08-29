@@ -62,10 +62,34 @@ describe("release bands", () => {
     expect(releaseBand(released, NOW_ANCHOR + MINUTES_PER_DAY)).toBe("beyond-today");
   });
 
-  it("excludes anything expected after the evening shift ends", () => {
-    // 1440 minutes is a full day past the anchor, so it lands beyond tonight whatever hour the
-    // anchor sits at.
-    expect(releaseBand(release({ expectedAt: NOW_ANCHOR + 1440 }), NOW_ANCHOR)).toBe("beyond-today");
+  it("puts a release a day out in tomorrow, and only excludes what is further than that", () => {
+    /*
+     * WB-DB-7 (2026-08-30) made the horizon a rolling day with a "tomorrow" band, so a release one
+     * day out is now REPORTED as tomorrow rather than excluded. "Beyond today" means beyond
+     * tomorrow. The property under test is unchanged - an excluded release is counted and shown
+     * rather than silently dropped - only the boundary that produces one has moved.
+     *
+     * Both directions asserted, because either alone passes on a board that has collapsed the two.
+     */
+    expect(
+      releaseBand(release({ expectedAt: NOW_ANCHOR + MINUTES_PER_DAY }), NOW_ANCHOR),
+      "a release expected tomorrow must SAY tomorrow - the four time-of-day bands would have " +
+        "silently rendered it as tonight, which is the defect this band exists to remove",
+    ).toBe("tomorrow");
+    expect(
+      releaseBand(release({ expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY }), NOW_ANCHOR),
+      "two days out is beyond the board's horizon and must be excluded rather than shown",
+    ).toBe("beyond-today");
+  });
+
+  it("bands by the time of day on the day it falls, not by the raw instant", () => {
+    // The category error this replaced: `expectedAt <= MIDDAY_MINUTES` compared an absolute instant
+    // against 720. A 09:00-tomorrow release is 1980, greater than every band boundary, so it fell
+    // through to "tonight" - correct arithmetic, wrong day, and nothing red.
+    expect(releaseBand(release({ expectedAt: MINUTES_PER_DAY + 9 * 60 }), NOW_ANCHOR)).toBe("tomorrow");
+    expect(releaseBand(release({ expectedAt: 11 * 60 }), NOW_ANCHOR)).toBe("by-midday");
+    expect(releaseBand(release({ expectedAt: 15 * 60 }), NOW_ANCHOR)).toBe("by-1600");
+    expect(releaseBand(release({ expectedAt: 21 * 60 }), NOW_ANCHOR)).toBe("tonight");
   });
 });
 
@@ -96,7 +120,7 @@ describe("capacity breakdown", () => {
   });
 
   it("reports what it excluded rather than dropping it silently", () => {
-    const result = capacityBreakdown(unit, [release({ expectedAt: NOW_ANCHOR + 1440 })], [], NOW_ANCHOR);
+    const result = capacityBreakdown(unit, [release({ expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY })], [], NOW_ANCHOR);
     expect(result.predictedToday).toBe(0);
     expect(result.excludedBeyondToday).toBe(1);
   });
@@ -104,7 +128,7 @@ describe("capacity breakdown", () => {
   it("counts a blocked release expected beyond today in excludedBeyondToday and nowhere else", () => {
     const result = capacityBreakdown(
       unit,
-      [blockedRelease({ state: "confirmed", waitingOn: null, expectedAt: NOW_ANCHOR + 1440 })],
+      [blockedRelease({ state: "confirmed", waitingOn: null, expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY })],
       [],
       NOW_ANCHOR,
     );

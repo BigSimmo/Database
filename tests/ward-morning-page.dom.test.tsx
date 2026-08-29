@@ -589,6 +589,39 @@ describe("MorningPage", () => {
    * the CONTENT logic: the label names the right view and the right instant, and switches when
    * the view toggles — the source of truth a rendered-CSS check alone could not verify either.
    */
+  it("carries WB-DB-10's dated change notice, saying by what RULE the figures moved", () => {
+    /*
+     * A stamp says WHEN a sheet was taken. It never says BY WHAT RULE, so a definitional change
+     * reads as ordinary variation between two correctly-stamped sheets and nobody can tell the
+     * number moved for a reason rather than because the ward did.
+     *
+     * WB-DB-7 raised these figures on 2026-08-30 by making the horizon a rolling day. This notice
+     * is the only artefact on the page that explains that, and without an assertion it is one tidy
+     * edit from disappearing - the sheet would still print, still be stamped, and still be wrong to
+     * compare against an older one.
+     *
+     * Asserted on SUBSTANCE rather than on the sentence, so a rewording survives and a deletion
+     * does not: the date, what changed, and the instruction for retiring it.
+     */
+    renderMorningPage();
+
+    const notice = screen.getByTestId("ward-morning-definition-change");
+    expect(notice, "the notice must be dated, or a reader cannot tell which sheets it applies to").toHaveTextContent(
+      "30 August 2026",
+    );
+    expect(notice, "it must say what the new rule IS, not merely that something changed").toHaveTextContent(
+      "rolling twenty-four hours",
+    );
+    expect(
+      notice,
+      "it must say the difference is the rule rather than the ward - that is the whole point of it",
+    ).toHaveTextContent("the rule rather than the ward");
+    expect(
+      notice,
+      "it must carry its own retirement condition, or it stays on the page for ever by default",
+    ).toHaveTextContent("Remove this notice");
+  });
+
   it("states which view and instant the print-only label carries, and updates it when the view toggles", () => {
     renderMorningPage();
 

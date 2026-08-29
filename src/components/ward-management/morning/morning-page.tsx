@@ -257,6 +257,19 @@ function PrintViewMeta({ view, liveNow }: { view: MorningView; liveNow: Instant 
         The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock — not a
         reconstruction of what the ward state actually was at 08:00, because this prototype keeps no event history.
       </p>
+      {/*
+       * WB-DB-10's change notice, and it exists because a timestamp is not one. A stamp says WHEN a
+       * sheet was taken; it never says BY WHAT RULE, so a definitional change reads as ordinary
+       * variation between two correctly-stamped sheets and nobody can tell that the number moved for
+       * a reason. This sentence is the only artefact that says why, and it is dated so it can be
+       * removed on evidence rather than on a feeling that enough time has passed.
+       */}
+      <p className={styles.printViewNote} data-testid="ward-morning-definition-change">
+        <strong>Definition changed 30 August 2026.</strong> Beds expected free are now counted over a rolling
+        twenty-four hours with tomorrow shown separately, rather than stopping at the end of the evening shift. Figures
+        on this sheet are higher than on a sheet printed before that date, and the difference is the rule rather than
+        the ward. Remove this notice once sheets printed under the old rule are no longer in circulation.
+      </p>
     </div>
   );
 }

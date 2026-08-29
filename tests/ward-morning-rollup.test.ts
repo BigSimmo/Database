@@ -224,8 +224,9 @@ describe("ward-morning-rollup", () => {
           unitId: "unit-a",
           state: "predicted",
           // Beyond the 22:00 evening-shift-end boundary `releaseBand()` uses — genuinely
-          // "beyond tonight", not merely late today.
-          expectedAt: EVENING_SHIFT_END_MINUTES + 60,
+          // Beyond the board's horizon entirely: WB-DB-7 (2026-08-30) made a release one day out
+          // "tomorrow" rather than excluded, so producing an exclusion now takes two days.
+          expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY,
           waitingOn: "Awaiting ward round",
           blocker: null,
           blockedBy: null,
@@ -238,7 +239,7 @@ describe("ward-morning-rollup", () => {
           id: "r-beyond-b",
           unitId: "unit-b",
           state: "confirmed",
-          expectedAt: EVENING_SHIFT_END_MINUTES + 120,
+          expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY + 60,
           waitingOn: null,
           blocker: null,
           blockedBy: null,

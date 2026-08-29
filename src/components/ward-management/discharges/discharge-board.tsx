@@ -58,6 +58,7 @@ const BAND_LABELS: Record<ReleaseBand, string> = {
   "by-midday": "By midday",
   "by-1600": "By 4pm",
   tonight: "Tonight",
+  tomorrow: "Tomorrow",
 };
 
 const EMPTY_REASON: Record<GroupKey, string> = {

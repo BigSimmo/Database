@@ -17,6 +17,7 @@ vi.mock("next/link", () => ({
 import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 function renderBoard() {
@@ -30,7 +31,7 @@ function renderBoard() {
 /**
  * Raises a real `FLAG_BED_RELEASE` reducer event — the same mechanism `ward-handover.dom.test.tsx`'s
  * `ClockAdvancer` uses to move shared state without reaching into the reducer directly — carrying
- * an explicit `expectedAt` safely beyond `EVENING_SHIFT_END_MINUTES` (1320). `FLAG_BED_RELEASE`
+ * an explicit `expectedAt` two full days out, safely beyond the rolling horizon WB-DB-7 introduced. `FLAG_BED_RELEASE`
  * carries the ward's own estimate as `event.expectedAt` (see `ward-flow-events.ts`'s own doc
  * comment); this is a real, reducer-produced `BedRelease` whose `expectedAt` genuinely falls
  * beyond tonight — not a fixture or component change, and independent of the board's own live
@@ -49,7 +50,7 @@ function FarFutureReleaseFlagger() {
           unitId: "rph-adult-secure",
           actingUnitId: "rph-adult-secure",
           waitingOn: "Nothing outstanding",
-          expectedAt: EVENING_SHIFT_END_MINUTES + 100,
+          expectedAt: NOW_ANCHOR + 2 * MINUTES_PER_DAY,
         })
       }
     >

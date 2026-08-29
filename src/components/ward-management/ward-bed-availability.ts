@@ -1,4 +1,4 @@
-import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
+import { dayOf, MINUTES_PER_DAY, minuteOfDay, type Instant } from "@/components/ward-management/ward-clock";
 import type { BedRelease, LeaveBed, Unit } from "@/components/ward-management/ward-model";
 
 /**
@@ -27,7 +27,21 @@ const LATE_AFTERNOON_MINUTES = 16 * 60; // 960
  */
 export const EVENING_SHIFT_END_MINUTES = 22 * 60; // 1320
 
-export const RELEASE_BANDS = ["now", "by-midday", "by-1600", "tonight"] as const;
+/**
+ * WB-DB-7 added `"tomorrow"` on 2026-08-30, and it is not a fifth bucket bolted onto four.
+ *
+ * The owner asked for the horizon to roll forward twenty-four hours instead of stopping at the end
+ * of the evening shift. Widening it alone would have been one line and would have LIED: the four
+ * bands below are TIMES OF DAY, and a discharge expected at 09:00 tomorrow falls through
+ * `<= MIDDAY` and `<= LATE_AFTERNOON` and lands in `"tonight"`. It compiles, every test passes, and
+ * a ward reads at handover that a bed frees tonight when it frees tomorrow morning.
+ *
+ * That is the same defect as `Instant` meaning two things: an absolute instant compared against a
+ * time-of-day constant, in a fourth place. So the fix is the same shape rather than a new band -
+ * `releaseBand` decides WHICH DAY first and only then which part of that day, and "tomorrow" falls
+ * out of the model instead of being added to it.
+ */
+export const RELEASE_BANDS = ["now", "by-midday", "by-1600", "tonight", "tomorrow"] as const;
 export type ReleaseBand = (typeof RELEASE_BANDS)[number];
 
 /**
@@ -41,19 +55,30 @@ export type ReleaseBand = (typeof RELEASE_BANDS)[number];
  */
 export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "beyond-today" {
   if (release.state === "released") {
-    // RELEASE_BED restates confirmedAt to the release instant. "Released today" is this
-    // operating day only: advancing the demo clock across midnight must drop yesterday's
-    // released rows into the same beyond-today exclusion the discharge board already states
-    // at its foot. Same-day released beds stay "now" even when expectedAt was later today.
-    if (Math.floor(release.confirmedAt / MINUTES_PER_DAY) !== Math.floor(now / MINUTES_PER_DAY)) {
-      return "beyond-today";
-    }
+    // A ROLLING twenty-four hours, not the calendar day. A bed released at 23:00 stopped counting
+    // at midnight under the old comparison - an hour later, and by the calendar rather than by
+    // anything a ward would recognise. The night shift reads this board at 02:00 and the beds
+    // released on their own shift had already dropped off it.
+    if (now - release.confirmedAt >= MINUTES_PER_DAY) return "beyond-today";
     return "now";
   }
-  if (release.expectedAt > EVENING_SHIFT_END_MINUTES) return "beyond-today";
+
+  // WHICH DAY FIRST. This is the whole correction: every comparison below is against a time of day,
+  // so it may only be reached once the day is known to be today. `expectedAt` is an absolute
+  // instant and `MIDDAY_MINUTES` is 720 - comparing them directly is the category error that made
+  // a 09:00-tomorrow discharge render as "tonight".
+  const daysAhead = dayOf(release.expectedAt) - dayOf(now);
+  if (daysAhead >= 2) return "beyond-today";
+  if (daysAhead === 1) return "tomorrow";
+
+  // Anything already due, or dated earlier than today, is a bed a ward can act on now. A release
+  // whose expected time has simply passed is not a mistake - it is a ward that has not yet
+  // confirmed - and it belongs in front of somebody rather than in an excluded count.
   if (release.expectedAt <= now) return "now";
-  if (release.expectedAt <= MIDDAY_MINUTES) return "by-midday";
-  if (release.expectedAt <= LATE_AFTERNOON_MINUTES) return "by-1600";
+
+  const timeOfDay = minuteOfDay(release.expectedAt);
+  if (timeOfDay <= MIDDAY_MINUTES) return "by-midday";
+  if (timeOfDay <= LATE_AFTERNOON_MINUTES) return "by-1600";
   return "tonight";
 }
 
