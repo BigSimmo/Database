@@ -946,7 +946,7 @@ function SettingsSection({
       <h3
         id={headingId}
         className={cn(
-          "px-1 text-xs font-semibold leading-5 tracking-[0.03em] text-[color:var(--text-muted)]",
+          "px-1 text-xs font-semibold leading-5 tracking-normal text-[color:var(--text-muted)]",
           !note && "mb-2",
         )}
       >
