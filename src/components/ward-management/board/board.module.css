@@ -183,6 +183,18 @@
   outline-offset: calc(-1 * var(--wb-outline-heavy));
 }
 
+/* The same hatch as the tile, at swatch size — so the legend entry is recognisably the thing it
+   indexes rather than an approximation of it. Stripes scaled down to suit the smaller square. */
+.legendSwatchBlocked {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--wb-hatch-gap),
+    var(--wb-hatch-gap) 0.1875rem,
+    var(--wb-hatch-line) 0.1875rem,
+    var(--wb-hatch-line) 0.25rem
+  );
+}
+
 /* Capped rather than full-bleed: found by looking at the 1440px rendering, where an uncapped
    `auto-fill` laid all twenty beds out as a single sixteen-wide strip with four stragglers under
    it — a wall of boxes rather than a ward. A ward is a small, roughly square block of beds, so
@@ -222,6 +234,36 @@
   border-color: var(--border-strong);
   background: transparent;
   color: var(--text-soft);
+}
+
+/*
+ * OUT OF SERVICE — the third bed state, and the fix for a defect found by rendering the board.
+ *
+ * It must read as a different KIND of thing from BOTH of its neighbours, because confusing it with
+ * either is a real error a coordinator would act on: mistaken for empty it is a bed they try to
+ * fill and cannot, mistaken for occupied it is a bed they think holds somebody. So it takes
+ * neither of their treatments — not the empty tile's dashed-and-hollow edge, and not a band fill.
+ *
+ * The distinguishing mark is a diagonal HATCH, which is a pattern rather than a colour: it
+ * survives greyscale, a print with backgrounds stripped, and forced-colors mode, none of which a
+ * fourth shade of the band hue would. Backed up by the words "Out of service" on the tile face —
+ * the hatch is what makes it quick to spot, the words are what make it unambiguous, and the words
+ * alone are enough. A solid border (not dashed) is the third channel: this bed exists and is
+ * definitely not available, as against an empty one whose dashes read as absence.
+ */
+.bedBlocked {
+  border-color: var(--border-strong);
+  /* No hex: both stops are theme tokens, so the hatch re-grounds itself in dark like everything
+     else on this board. 0.375rem stripes — wide enough to read as a hatch at the 5rem tile size
+     rather than as noise or as a flat mid-tone. */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--wb-hatch-gap),
+    var(--wb-hatch-gap) 0.375rem,
+    var(--wb-hatch-line) 0.375rem,
+    var(--wb-hatch-line) 0.4375rem
+  );
+  color: var(--text-muted);
 }
 
 /* Rule 2. Taken, but nobody is in it yet — so it carries a fill (it is NOT free) while sitting
@@ -284,10 +326,25 @@
 }
 
 .waiting,
+.blockedLabel,
 .emptyLabel {
   font-size: var(--text-2xs);
   font-weight: 600;
   line-height: var(--wb-leading-body);
+}
+
+/*
+ * The words sit ON the hatch, so they get a solid plate to sit on. Without it the diagonal
+ * stripes run straight through the letterforms and "Out of service" — which is the channel doing
+ * the actual work on this tile, the hatch only being the quick cue — becomes the least readable
+ * text on the board. The plate is the page's own raised surface, so it reads as a label resting on
+ * a struck-through bed rather than as a fifth colour.
+ */
+.blockedLabel {
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  padding: 0 var(--wb-space-4);
+  color: var(--text);
 }
 
 .footnote {
@@ -319,5 +376,16 @@
 
   .bedEmpty {
     border-style: dashed;
+  }
+
+  /*
+   * The hatch is a `background-image` and the print reset may drop it, so on paper the words "Out
+   * of service" are what distinguish this tile — which is the arrangement the rule demands anyway
+   * (colour, and a pattern, never carry a fact alone). The plate behind those words is removed
+   * here: on a white sheet it is an invisible rectangle at best and a grey box at worst.
+   */
+  .blockedLabel {
+    background: transparent;
+    padding: 0;
   }
 }

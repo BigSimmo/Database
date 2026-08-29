@@ -59,6 +59,7 @@ const BAND_CLASS: Record<StayBandId, string> = {
 type Tile =
   | { kind: "occupied"; key: string; days: number; bandId: StayBandId | null; bandLabel: string; pastDate: boolean }
   | { kind: "waiting"; key: string }
+  | { kind: "blocked"; key: string }
   | { kind: "empty"; key: string };
 
 /** Where a unit's own record lives. Resolved by walking `wardSites` rather than through
@@ -75,14 +76,35 @@ function findUnit(unitId: string): { unit: Unit; site: Site } | undefined {
 /**
  * One tile per bed, in `unit.beds` of them.
  *
- * Occupied tiles come first, then whatever physical beds are left over are drawn empty. The tiles
- * carry NO bed identity: an `Admission` records the unit, never a bed number, so numbering these
- * "Bed 1..20" would invent an identity nothing in the model holds and a ward would read it as
- * real. They are a count of beds, in a grid, and nothing more.
+ * A unit's beds divide into THREE, not two: **occupied** (including pulled — the ward gave the
+ * bed away and the person may still be in an emergency department), **blocked** (out of service),
+ * and **empty**. So the tiles are laid out occupied, then blocked, then empty, and
+ * `occupied + blocked + empty === unit.beds`.
+ *
+ * **The blocked tiles are the fix for a defect found by rendering this page and looking at it.**
+ * The first pass knew only occupied and empty, so it drew `beds − occupied` empty tiles and every
+ * out-of-service bed appeared as one a coordinator could fill. On `fsh-adult-secure` that put four
+ * fillable-looking tiles under a header saying three beds free — both figures correct, and the
+ * board contradicting itself on screen. No test caught it; `tests/ward-board-consistency.test.ts`
+ * was written afterwards and pins the arithmetic across all 23 units.
+ *
+ * **Which tile is blocked is NOT knowable and is not invented.** `Unit.blocked` is a COUNT — the
+ * model holds no per-bed record and no admission carries a bed number — so these are drawn as the
+ * last `unit.blocked` of the non-occupied tiles purely because they have to be drawn somewhere.
+ * The claim being made on screen is "this many of this ward's beds are out of service", which is
+ * exactly what the data supports, and nothing on a blocked tile identifies a particular bed. That
+ * is the same discipline the tiles already hold for bed numbering: `unit.beds` tiles in a grid,
+ * none of them a bed anybody could name.
+ *
+ * The tiles carry NO bed identity: an `Admission` records the unit, never a bed number, so
+ * numbering these "Bed 1..20" would invent an identity nothing in the model holds and a ward would
+ * read it as real. They are a count of beds, in a grid, and nothing more.
  *
  * If a unit somehow holds more occupants than it has beds, every occupant is still drawn — the
  * over-count is the fact worth seeing, and truncating the list to `unit.beds` would hide exactly
- * the people a double-allocation put there.
+ * the people a double-allocation put there. The blocked tiles are drawn in that case too: beds out
+ * of service do not stop being out of service because the ward is over-full, and the empty count
+ * floors at zero rather than going negative and cancelling them out.
  */
 function buildTiles(unit: Unit, admissions: readonly Admission[], now: Instant): Tile[] {
   const occupants = admissionsForUnit(admissions, unit.id).filter(bedIsOccupied);
@@ -103,7 +125,18 @@ function buildTiles(unit: Unit, admissions: readonly Admission[], now: Instant):
     };
   });
 
-  const emptyCount = Math.max(0, unit.beds - tiles.length);
+  // Guarded against a negative or non-integer count in the fixture rather than trusted: a bad
+  // `blocked` would otherwise either throw the loop or silently draw nothing.
+  const blockedCount = Math.max(0, Math.floor(unit.blocked));
+  for (let index = 0; index < blockedCount; index += 1) {
+    tiles.push({ kind: "blocked", key: `blocked-${index}` });
+  }
+
+  // Derived by subtraction, NOT read from `unit.empty.value`. The two agree on every seeded unit
+  // (that is what the consistency test pins), but the tiles must add up to the beds even if a
+  // future feed disagrees with itself — a grid that silently drew a different number of tiles
+  // than the ward has beds is a worse failure than one that shows the shortfall as empty.
+  const emptyCount = Math.max(0, unit.beds - occupants.length - blockedCount);
   for (let index = 0; index < emptyCount; index += 1) {
     tiles.push({ kind: "empty", key: `empty-${index}` });
   }
@@ -187,6 +220,13 @@ export function WardBoard({ unitId }: { unitId: string }) {
           <span className={`${styles.legendSwatch} ${styles.legendSwatchPast}`} aria-hidden="true" />
           Past the ward&apos;s own expected date
         </li>
+        {/* Listed beside the stay bands because a reader counting fillable beds needs to know
+            this tile exists. The tile says so in words on its own face too — this is the index,
+            not the explanation. */}
+        <li className={styles.legendItem}>
+          <span className={`${styles.legendSwatch} ${styles.legendSwatchBlocked}`} aria-hidden="true" />
+          Out of service — not fillable
+        </li>
       </ul>
 
       <ol className={styles.beds} data-testid="ward-board-beds">
@@ -216,6 +256,11 @@ export function WardBoard({ unitId }: { unitId: string }) {
             )}
             {/* Rule 2 on screen: taken, but nobody is in it yet. */}
             {tile.kind === "waiting" && <span className={styles.waiting}>Empty, waiting</span>}
+            {/* Rule 1 on screen for the third bed state: the words say it, not the fill. A
+                coordinator reading this board in greyscale, in forced-colors, or on paper must
+                still be able to tell an unfillable bed from a fillable one, and "Out of service"
+                is what does that — the hatched fill only makes it quicker. */}
+            {tile.kind === "blocked" && <span className={styles.blockedLabel}>Out of service</span>}
             {tile.kind === "empty" && <span className={styles.emptyLabel}>Empty</span>}
           </li>
         ))}
@@ -225,14 +270,38 @@ export function WardBoard({ unitId }: { unitId: string }) {
         {tiles.length} tile{tiles.length === 1 ? "" : "s"}, one per recorded bed. A tile carries no bed number — an
         admission records the ward it is on, never a bed. “Empty, waiting” is a bed this ward has already given away to
         somebody who has not arrived yet; it is taken, not free.
+        {/* Only said on a ward that HAS one. Rendered unconditionally it read "this ward records 0
+            of them, and which particular beds are out of service is not recorded" — a paragraph
+            explaining, at length, a tile the reader cannot see and this ward does not have. Found
+            by rendering `rph-adult-secure`, which has no blocked beds, not by looking at `fsh`
+            where the sentence happened to make sense. */}
+        {unit.blocked > 0 && (
+          <>
+            {" "}
+            “Out of service” beds cannot be filled either — this ward records {unit.blocked} of them, and which
+            particular {unit.blocked === 1 ? "bed is" : "beds are"} out of service is not recorded, so the tiles marked
+            here are a count and not a location.
+          </>
+        )}
       </p>
     </main>
   );
 }
 
+/**
+ * Written as an exhaustive switch on `tile.kind`, NOT as a chain of early returns with the
+ * occupied case as the fall-through — which is how the blocked tile was broken the moment it was
+ * added. The chain ended `if empty … if waiting … then treat it as occupied`, so a new third kind
+ * silently took the occupied branch, read a `bandId` it does not have, and rendered with an
+ * `undefined` class and an occupied fill. Nothing failed: `undefined` is a legal class name, and
+ * the tile still drew. It was found by measuring the rendered background of every tile kind, not
+ * by a test and not by reading the diff. A switch over the discriminant makes the compiler ask the
+ * question instead.
+ */
 function tileClassName(tile: Tile): string {
   if (tile.kind === "empty") return `${styles.bed} ${styles.bedEmpty}`;
   if (tile.kind === "waiting") return `${styles.bed} ${styles.bedWaiting}`;
+  if (tile.kind === "blocked") return `${styles.bed} ${styles.bedBlocked}`;
   const band = tile.bandId === null ? "" : ` ${BAND_CLASS[tile.bandId]}`;
   const past = tile.pastDate ? ` ${styles.bedPast}` : "";
   return `${styles.bed} ${styles.bedOccupied}${band}${past}`;
