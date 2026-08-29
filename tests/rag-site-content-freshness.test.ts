@@ -17,6 +17,8 @@ const STATIC_DIGEST = "a".repeat(64);
 const DYNAMIC_DIGEST = "b".repeat(64);
 const RELEASE_DIGEST = "c".repeat(64);
 const RELEASE_ID = "11111111-1111-5111-8111-111111111111";
+const RETAINED_BOOTSTRAP_RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const RETAINED_BOOTSTRAP_DIGEST = "8a2edbdfe117338cc0323036ba3a68590744950ad89b9ce177415685a7115757";
 
 const activeRelease: ActiveSiteContentRelease = {
   version: "clinical-kb-site-release-v1",
@@ -25,6 +27,17 @@ const activeRelease: ActiveSiteContentRelease = {
   staticManifestDigest: STATIC_DIGEST,
   dynamicStateDigest: DYNAMIC_DIGEST,
   releaseDigest: RELEASE_DIGEST,
+  state: "active",
+  activatedAt: "2026-08-29T00:00:00.000Z",
+};
+
+const retainedBootstrapRelease: ActiveSiteContentRelease = {
+  version: "clinical-kb-site-release-v1",
+  releaseId: RETAINED_BOOTSTRAP_RELEASE_ID,
+  registryVersion: "site-content-bootstrap-public-release-v1",
+  staticManifestDigest: "0".repeat(64),
+  dynamicStateDigest: RETAINED_BOOTSTRAP_DIGEST,
+  releaseDigest: RETAINED_BOOTSTRAP_DIGEST,
   state: "active",
   activatedAt: "2026-08-29T00:00:00.000Z",
 };
@@ -782,6 +795,36 @@ describe("site-aware RAG cache isolation", () => {
         cacheKind: "search",
         requestContext: staleRequest.ragRequestContext,
         accessScope: staleRequest.accessScope,
+        selectedEvidence: [selectedResult],
+        allSelectedEvidencePublic: true,
+        pendingExclusion: "not_required",
+      }),
+    ).toThrow();
+  });
+
+  it.each([
+    { label: "missing expected digest", expectedSiteStaticManifestDigest: null },
+    { label: "all-zero expected digest", expectedSiteStaticManifestDigest: "0".repeat(64) },
+    { label: "mismatching expected digest", expectedSiteStaticManifestDigest: "f".repeat(64) },
+  ])("rejects public cache writes for retained bootstrap with $label", async ({ expectedSiteStaticManifestDigest }) => {
+    const { snapshot: snapshotModule, cache: ragCacheModule } = await loadRagModules();
+    const request = snapshotModule.withRagRequestContext({
+      query: "retained bootstrap public scope",
+      accessScope: { includePublic: true },
+      ragContextSnapshotInput: {
+        ...currentInput,
+        expectedSiteStaticManifestDigest,
+        activePublicSiteRelease: retainedBootstrapRelease,
+        publicSiteChangeEpoch: "0",
+      },
+    });
+
+    expect(request.ragRequestContext.snapshot.publicSiteContent.state).toBe("unavailable");
+    expect(() =>
+      ragCacheModule.createRagPublicCacheWriteProof({
+        cacheKind: "search",
+        requestContext: request.ragRequestContext,
+        accessScope: request.accessScope,
         selectedEvidence: [selectedResult],
         allSelectedEvidencePublic: true,
         pendingExclusion: "not_required",

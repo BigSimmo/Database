@@ -128,6 +128,42 @@ describe("canonical site-content publication reads", () => {
     expect(pending.source).toBe("canonical_public");
   });
 
+  it("does not revive bundled seeds for an unavailable uninitialized transition", async () => {
+    const result = await readCanonicalSiteContentRecords({
+      supabase: {
+        rpc: vi.fn(async () => ({
+          data: [
+            {
+              initialized: false,
+              record: null,
+              render_payload: null,
+              snapshot: { state: "unavailable", releaseId: null, changeEpoch: "1" },
+            },
+          ],
+          error: null,
+        })),
+      },
+      kind: "medication",
+      slug: null,
+      seeds: [seed],
+    });
+
+    expect(result.records).toEqual([]);
+    expect(result.source).toBe("canonical_public");
+  });
+
+  it("does not treat an empty canonical response as explicit legacy bootstrap evidence", async () => {
+    const result = await readCanonicalSiteContentRecords({
+      supabase: { rpc: vi.fn(async () => ({ data: [], error: null })) },
+      kind: "medication",
+      slug: null,
+      seeds: [seed],
+    });
+
+    expect(result.records).toEqual([]);
+    expect(result.source).toBe("canonical_public");
+  });
+
   it("serves retained epoch-zero release bytes instead of reconstructing current deployment seeds", async () => {
     const frozenBootstrap = { slug: "seed", title: "Frozen before first activation" };
     const result = await readCanonicalSiteContentRecords({

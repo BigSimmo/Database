@@ -29,8 +29,10 @@ import {
   canonicalDynamicSiteContentProjection,
   siteContentProjectionDigest,
 } from "@/lib/site-content/site-content-publication";
+import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
 
 const rpc = vi.fn();
+const sourceRpc = vi.fn();
 const sourceRow = {
   id: "11111111-1111-4111-8111-111111111111",
   owner_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -78,7 +80,7 @@ function mockRuntime() {
   vi.resetModules();
   vi.doMock("@/lib/supabase/admin", () => ({
     createAdminClient: () => ({
-      rpc,
+      rpc: sourceRpc,
       from: () => ({
         select: () => ({
           eq: () => ({ single: async () => ({ data: sourceRow, error: null }) }),
@@ -95,10 +97,84 @@ function mockRuntime() {
 afterEach(() => {
   vi.restoreAllMocks();
   rpc.mockReset();
+  sourceRpc.mockReset();
   requireAuthenticatedUserContext.mockReset();
 });
 
 describe("site-content publication POST", () => {
+  it("records an exact reconciliation plan only through the authenticated user-context client", async () => {
+    mockRuntime();
+    requireAuthenticatedUserContext.mockResolvedValue({
+      user: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+      publicationClient: { rpc },
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+    const trustedSnapshots = [
+      {
+        logicalId: "medications:sertraline",
+        publicRecordId: "medications:sertraline",
+        route: "/medications/sertraline",
+        contentHash: "a".repeat(64),
+        publicationVersion: "b".repeat(64),
+        governanceHash: "c".repeat(64),
+      },
+    ];
+    const dispositions = [
+      {
+        logicalId: "medications:sertraline",
+        disposition: "adopt",
+        sourceKind: "medication",
+        sourceRowId: "11111111-1111-4111-8111-111111111111",
+        sourceVersion: "2026-08-24T00:00:00.000Z",
+        contentHash: "a".repeat(64),
+        publicationVersion: "b".repeat(64),
+        trustedPublicRecordId: "medications:sertraline",
+        trustedRoute: "/medications/sertraline",
+        trustedGovernanceHash: "c".repeat(64),
+      },
+    ];
+    const governed = {
+      version: "site-content-reconciliation-plan-v1" as const,
+      trustedSnapshotDigest: siteContentValueHash({
+        version: "site-content-trusted-snapshot-v1",
+        records: trustedSnapshots,
+      }),
+      expectedRecordCount: 1,
+      expectedGroupCount: 1,
+      batchSize: 1,
+      batchCount: 1,
+      counts: { adopt: 1, retire: 0, identicalDuplicate: 0, total: 1 },
+      trustedSnapshots,
+      dispositions,
+    };
+    const plan = { ...governed, planDigest: siteContentValueHash(governed) };
+    const { POST } = await import("../src/app/api/site-content/publications/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/site-content/publications", {
+        method: "POST",
+        body: JSON.stringify({ action: "record_reconciliation", plan }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("record_site_content_reconciliation_plan", { p_plan: plan });
+    expect(sourceRpc).not.toHaveBeenCalled();
+
+    for (const forbidden of ["reviewedBy", "actorId", "serviceRole"]) {
+      rpc.mockClear();
+      const invalid = await POST(
+        new Request("http://localhost/api/site-content/publications", {
+          method: "POST",
+          body: JSON.stringify({ action: "record_reconciliation", plan, [forbidden]: "attacker" }),
+        }),
+      );
+      expect(invalid.status).toBe(400);
+      expect(rpc).not.toHaveBeenCalled();
+    }
+  });
+
   it("uses service authority only for source preflight and user-context authority for SQL mutation", () => {
     const route = readFileSync("src/app/api/site-content/publications/route.ts", "utf8");
     const publication = readFileSync("src/lib/site-content/site-content-publication.ts", "utf8");

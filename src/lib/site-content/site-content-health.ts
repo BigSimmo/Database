@@ -311,6 +311,13 @@ export function classifySiteContentPartition(input: SiteContentPartitionInput): 
   if (reasons.length > 0 || !validRelease || expected === undefined || epoch === null) {
     return { ...base, state: "unavailable", staticMatches: false, reasons: sortedReasons(reasons) };
   }
+  if (
+    release.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    release.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
+    release.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST
+  ) {
+    return { ...base, state: "unavailable", staticMatches: false, reasons: ["bootstrap_invalid"] };
+  }
   if (release.staticManifestDigest !== expected) {
     return { ...base, state: "stale", staticMatches: false, reasons: ["static_manifest_mismatch"] };
   }

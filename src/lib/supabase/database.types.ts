@@ -2579,15 +2579,17 @@ export type Database = {
       site_content_reconciliation_plans: GeneratedTable<{
         plan_digest: string; version: string; trusted_snapshot_digest: string; trusted_snapshots: Json; dispositions: Json;
         expected_record_count: number; expected_group_count: number; batch_size: number; batch_count: number; counts: Json;
-        reviewed_by: string; reviewed_at: string;
-      }, "plan_digest" | "version" | "trusted_snapshot_digest" | "trusted_snapshots" | "dispositions" | "expected_record_count" | "expected_group_count" | "batch_size" | "batch_count" | "counts" | "reviewed_by">;
+        reviewed_by: string; reviewed_at: string; administrator_authorized_at: string;
+        administrator_authorization_version: string;
+      }, "plan_digest" | "version" | "trusted_snapshot_digest" | "trusted_snapshots" | "dispositions" | "expected_record_count" | "expected_group_count" | "batch_size" | "batch_count" | "counts" | "reviewed_by" | "administrator_authorized_at" | "administrator_authorization_version">;
       site_content_public_records: GeneratedTable<{
         logical_id: string; kind: string; slug: string; current_publication_id: string; head_change_epoch: number;
         retired: boolean; pending_event_sequence: number | null; updated_at: string;
       }, "logical_id" | "kind" | "slug" | "current_publication_id" | "head_change_epoch">;
       site_content_sync_state: GeneratedTable<{
         singleton: boolean; change_epoch: number; served_change_epoch: number; active_release_id: string | null;
-        active_release_digest: string | null; initialized: boolean; updated_at: string;
+        active_release_digest: string | null; active_transition_receipt_id: string | null;
+        initialized: boolean; updated_at: string;
       }>;
       site_content_sync_events: GeneratedTable<{
         event_sequence: number; logical_id: string; target_publication_id: string; target_change_epoch: number; state: string;
@@ -3424,7 +3426,7 @@ export type Database = {
         Returns: Json;
       };
       record_site_content_reconciliation_plan: {
-        Args: { p_plan: Json; p_reviewed_by: string };
+        Args: { p_plan: Json };
         Returns: boolean;
       };
       publish_site_content_record: {

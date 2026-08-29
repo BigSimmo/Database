@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-29T03:20:34.234Z",
+  "generated_at": "2026-08-29T20:52:35.641Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "b52fd195aa1d2340cc0852c49c875cc60344035ac286841bd0dd1f6fbb19eb57",
-  "replay_seconds": 115,
+  "schema_sha256": "c7a4827486fcf7569bebb5b2dea4dafad86eeebcb592dede35dfffd8976d15f1",
+  "replay_seconds": 17,
   "snapshot": {
     "views": [
       {
@@ -4541,6 +4541,22 @@
         "name": "site_content_reconciliation_plans",
         "columns": [
           {
+            "name": "administrator_authorization_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "administrator_authorized_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "batch_count",
             "type": "integer",
             "default": null,
@@ -5257,6 +5273,14 @@
           {
             "name": "active_release_id",
             "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "active_transition_receipt_id",
+            "type": "text",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -7858,6 +7882,11 @@
         "table": "site_content_sync_event_plans"
       },
       {
+        "def": "CREATE TRIGGER site_content_sync_state_transition_pointer_guard BEFORE UPDATE ON public.site_content_sync_state FOR EACH ROW EXECUTE FUNCTION public.guard_site_content_sync_state_transition_pointer()",
+        "name": "site_content_sync_state_transition_pointer_guard",
+        "table": "site_content_sync_state"
+      },
+      {
         "def": "CREATE TRIGGER site_content_sync_worker_invocations_delete_immutable BEFORE DELETE ON public.site_content_sync_worker_invocations FOR EACH ROW EXECUTE FUNCTION public.guard_site_content_immutable_row()",
         "name": "site_content_sync_worker_invocations_delete_immutable",
         "table": "site_content_sync_worker_invocations"
@@ -7884,7 +7913,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "8599c70f4d4c973d1447977eb7186bb9",
+        "def_hash": "deb00b05b0bd75b84571e40d06f06ad3",
         "signature": "public.activate_site_content_release(uuid,text,bigint,text,jsonb)"
       },
       {
@@ -7940,7 +7969,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b1e81ed18dd93e4c4f794538193019a7",
+        "def_hash": "500c5fc139300ccb5bd984e2d7f66887",
         "signature": "public.claim_site_content_sync_events(uuid,integer,integer)"
       },
       {
@@ -8177,6 +8206,13 @@
         ],
         "def_hash": "8233737f57aee60bdba67aa086a7accf",
         "signature": "public.guard_site_content_receipt_shape(jsonb,text,uuid,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "fb76841c229e20722b511e2ac35eccc6",
+        "signature": "public.guard_site_content_sync_state_transition_pointer()"
       },
       {
         "acl": [
@@ -8503,7 +8539,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "ad93b785fe34a61ab3e418b44720861f",
+        "def_hash": "9c7d5cbead3d5480142654a396083eb6",
         "signature": "public.read_site_content_health()"
       },
       {
@@ -8513,7 +8549,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a3680d700e2d7e7246cfad3e7def8ac3",
+        "def_hash": "d82b8d8185f90684b738bc298b944d5e",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -8526,11 +8562,11 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
-        "def_hash": "68dc59c2928a1bccc78e85e29617514f",
-        "signature": "public.record_site_content_reconciliation_plan(jsonb,uuid)"
+        "def_hash": "eb7f41af5c16a815c25b600b180ca88f",
+        "signature": "public.record_site_content_reconciliation_plan(jsonb)"
       },
       {
         "acl": [
@@ -8657,7 +8693,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "0bf0b3ffe095a21f152c368e4074a1e6",
+        "def_hash": "f85ce253af002c8c53cabdad6899fa41",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {
@@ -8756,6 +8792,20 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "8e4f9dd9463b4ece72fc951ead094433",
+        "signature": "public.site_content_current_transition_kind(text,uuid,text,boolean,bigint)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "366175ca096c74de57c46aff87bee8f0",
+        "signature": "public.site_content_current_transition_source_release_id(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "3a489ad6324b7de0fb808a755bfa3f73",
         "signature": "public.site_content_dynamic_state_digest(uuid)"
       },
@@ -8772,6 +8822,20 @@
         ],
         "def_hash": "bb6a622bdde15114205c45b2d19809fc",
         "signature": "public.site_content_ecmascript_trim(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "3685f34006254cf11ce5764b6995beb7",
+        "signature": "public.site_content_health_operational_base()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "abcad0e15c57262b73310bf28ff9ea33",
+        "signature": "public.site_content_initial_adoption_closure_valid(bigint)"
       },
       {
         "acl": [
@@ -8826,6 +8890,13 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "12ea057cd8e20ac26bc9c7edb2bb8f85",
+        "signature": "public.site_content_receipt_bytes_valid(text,text,uuid,text,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "df5a620560f50f074aa0c97baf1e4ead",
         "signature": "public.site_content_reconciliation_sources_match(text)"
       },
@@ -8863,6 +8934,13 @@
         ],
         "def_hash": "94ddaa6051775d0e77c8165b02dce6c6",
         "signature": "public.site_content_release_id(text,bigint,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "dcf88e7a9118deaf3fc83a56213d4e55",
+        "signature": "public.site_content_retained_bootstrap_valid(uuid,text)"
       },
       {
         "acl": [
@@ -9797,6 +9875,11 @@
         "table": "site_content_publications"
       },
       {
+        "def": "CHECK ((administrator_authorization_version = 'site-content-admin-authorization-v1'::text))",
+        "name": "site_content_reconciliation_plans_authorization_version_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
         "def": "CHECK (((batch_count > 0) AND (batch_count <= 5000)))",
         "name": "site_content_reconciliation_plans_batch_count_check",
         "table": "site_content_reconciliation_plans"
@@ -10119,6 +10202,16 @@
       {
         "def": "CHECK (singleton)",
         "name": "site_content_sync_state_singleton_check",
+        "table": "site_content_sync_state"
+      },
+      {
+        "def": "CHECK ((((NOT initialized) AND (active_release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid) AND (served_change_epoch = 0) AND (active_transition_receipt_id IS NULL)) OR (initialized AND (active_transition_receipt_id IS NOT NULL))))",
+        "name": "site_content_sync_state_transition_pointer_check",
+        "table": "site_content_sync_state"
+      },
+      {
+        "def": "FOREIGN KEY (active_transition_receipt_id) REFERENCES public.site_content_release_receipts(receipt_id)",
+        "name": "site_content_sync_state_transition_receipt_fkey",
         "table": "site_content_sync_state"
       },
       {

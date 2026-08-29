@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.112.2";
 
+import { withServiceRoleAuthorization } from "./auth.ts";
+
 type ClaimedEvent = {
   event_sequence: number;
   logical_id: string;
@@ -272,60 +274,74 @@ Deno.serve(async (request: Request) => {
   if (request.method !== "POST") {
     return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
   }
-  try {
-    const supabase = createClient(
-      requiredEnvironment("SUPABASE_URL"),
-      requiredEnvironment("SUPABASE_SERVICE_ROLE_KEY"),
-      {
-        auth: { persistSession: false, autoRefreshToken: false },
-      },
-    );
-    const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "1");
-    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(MAX_BATCH, Math.trunc(requestedLimit))) : 1;
-    const workerId = crypto.randomUUID();
-    const invocationId = crypto.randomUUID();
-    const admitted = await recordInvocation(supabase, workerId, invocationId, "started", null);
-    if (!admitted) {
-      return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_NOT_ADMITTED" }, { status: 503 });
-    }
+  return withServiceRoleAuthorization(request.headers.get("authorization"), async () => {
     try {
-      const claim = await supabase.rpc("claim_site_content_sync_events", {
-        p_worker_id: workerId,
-        p_limit: limit,
-        p_lease_seconds: LEASE_SECONDS,
-      });
-      if (claim.error) {
-        const terminalRecorded = await recordInvocation(supabase, workerId, invocationId, "failed", "claim_failed");
-        return Response.json(
-          { ok: false, error: terminalRecorded ? "SITE_CONTENT_CLAIM_FAILED" : "SITE_CONTENT_WORKER_FAILED" },
-          { status: 500 },
+      const supabase = createClient(
+        requiredEnvironment("SUPABASE_URL"),
+        requiredEnvironment("SUPABASE_SERVICE_ROLE_KEY"),
+        {
+          auth: { persistSession: false, autoRefreshToken: false },
+        },
+      );
+      const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "1");
+      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(MAX_BATCH, Math.trunc(requestedLimit))) : 1;
+      const workerId = crypto.randomUUID();
+      const invocationId = crypto.randomUUID();
+      const admitted = await recordInvocation(supabase, workerId, invocationId, "started", null);
+      if (!admitted) {
+        return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_NOT_ADMITTED" }, { status: 503 });
+      }
+      try {
+        const claim = await supabase.rpc("claim_site_content_sync_events", {
+          p_worker_id: workerId,
+          p_limit: limit,
+          p_lease_seconds: LEASE_SECONDS,
+        });
+        if (claim.error) {
+          const terminalRecorded = await recordInvocation(supabase, workerId, invocationId, "failed", "claim_failed");
+          return Response.json(
+            { ok: false, error: terminalRecorded ? "SITE_CONTENT_CLAIM_FAILED" : "SITE_CONTENT_WORKER_FAILED" },
+            { status: 500 },
+          );
+        }
+        const events = (claim.data ?? []) as ClaimedEvent[];
+        const counts = { ready: 0, failed: 0, leaseLost: 0 };
+        for (const event of events) {
+          const outcome = await processEvent(supabase, event);
+          if (outcome === "ready") counts.ready += 1;
+          else if (outcome === "failed") counts.failed += 1;
+          else counts.leaseLost += 1;
+        }
+        const terminalPhase = counts.failed > 0 || counts.leaseLost > 0 ? "failed" : "succeeded";
+        const terminalOutcome: InvocationOutcome =
+          counts.leaseLost > 0
+            ? "lease_lost"
+            : counts.failed > 0
+              ? "event_failed"
+              : counts.ready > 0
+                ? "ready"
+                : "idle";
+        const terminalRecorded = await recordInvocation(
+          supabase,
+          workerId,
+          invocationId,
+          terminalPhase,
+          terminalOutcome,
         );
-      }
-      const events = (claim.data ?? []) as ClaimedEvent[];
-      const counts = { ready: 0, failed: 0, leaseLost: 0 };
-      for (const event of events) {
-        const outcome = await processEvent(supabase, event);
-        if (outcome === "ready") counts.ready += 1;
-        else if (outcome === "failed") counts.failed += 1;
-        else counts.leaseLost += 1;
-      }
-      const terminalPhase = counts.failed > 0 || counts.leaseLost > 0 ? "failed" : "succeeded";
-      const terminalOutcome: InvocationOutcome =
-        counts.leaseLost > 0 ? "lease_lost" : counts.failed > 0 ? "event_failed" : counts.ready > 0 ? "ready" : "idle";
-      const terminalRecorded = await recordInvocation(supabase, workerId, invocationId, terminalPhase, terminalOutcome);
-      if (!terminalRecorded) {
+        if (!terminalRecorded) {
+          return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
+        }
+        return Response.json({ ok: true, claimed: events.length, ...counts });
+      } catch {
+        try {
+          await recordInvocation(supabase, workerId, invocationId, "failed", "worker_failed");
+        } catch {
+          // The fixed response is authoritative; the durable unterminated row makes health stop.
+        }
         return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
       }
-      return Response.json({ ok: true, claimed: events.length, ...counts });
     } catch {
-      try {
-        await recordInvocation(supabase, workerId, invocationId, "failed", "worker_failed");
-      } catch {
-        // The fixed response is authoritative; the durable unterminated row makes health stop.
-      }
       return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
     }
-  } catch {
-    return Response.json({ ok: false, error: "SITE_CONTENT_WORKER_FAILED" }, { status: 500 });
-  }
+  });
 });

@@ -8,6 +8,15 @@ import {
   type SiteContentSyncPlan,
   type SiteContentSyncPlanItem,
 } from "@/lib/site-content/site-content-sync";
+import {
+  hasServiceRoleAuthorization,
+  withServiceRoleAuthorization,
+} from "../supabase/functions/site-content-sync/auth";
+
+function tokenForRole(role: string) {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ role })}.offline-signature`;
+}
 
 function plan(): SiteContentSyncPlan {
   return {
@@ -57,6 +66,26 @@ async function loadRecordInvocation() {
 }
 
 describe("site-content synchronization worker", () => {
+  it("admits only a gateway-verified service-role JWT before any downstream worker work", async () => {
+    expect(hasServiceRoleAuthorization(null)).toBe(false);
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("anon")}`)).toBe(false);
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("authenticated")}`)).toBe(false);
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("service_role")}`)).toBe(true);
+
+    for (const authorization of [null, `Bearer ${tokenForRole("anon")}`, `Bearer ${tokenForRole("authenticated")}`]) {
+      const downstream = vi.fn(() => Response.json({ ok: true }));
+      const response = await withServiceRoleAuthorization(authorization, downstream);
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ ok: false, error: "Unauthorized" });
+      expect(downstream).not.toHaveBeenCalled();
+    }
+
+    const downstream = vi.fn(() => Response.json({ ok: true }));
+    const response = await withServiceRoleAuthorization(`Bearer ${tokenForRole("service_role")}`, downstream);
+    expect(response.status).toBe(200);
+    expect(downstream).toHaveBeenCalledTimes(1);
+  });
+
   it("records one admitted invocation and one fixed terminal outcome around the existing one-event worker", () => {
     const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
     expect(source).toContain("record_site_content_sync_worker_invocation");
@@ -99,7 +128,17 @@ describe("site-content synchronization worker", () => {
   it("keeps the automatic Edge executor JWT-protected, bounded, fenced, and changed-only", () => {
     const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
     const config = readFileSync("supabase/config.toml", "utf8");
+    const handler = source.slice(source.indexOf("Deno.serve(async (request: Request) =>"));
     expect(config).toMatch(/\[functions\.site-content-sync\]\s+verify_jwt = true/);
+    expect(handler.indexOf('withServiceRoleAuthorization(request.headers.get("authorization")')).toBeGreaterThanOrEqual(
+      0,
+    );
+    expect(handler.indexOf('withServiceRoleAuthorization(request.headers.get("authorization")')).toBeLessThan(
+      handler.indexOf('requiredEnvironment("SUPABASE_URL")'),
+    );
+    expect(handler.indexOf('withServiceRoleAuthorization(request.headers.get("authorization")')).toBeLessThan(
+      handler.indexOf("recordInvocation(supabase"),
+    );
     expect(source).toContain("const MAX_BATCH = 1");
     expect(source).toContain("read_site_content_sync_event_plan");
     expect(source).toContain("record.reuseEmbedding");

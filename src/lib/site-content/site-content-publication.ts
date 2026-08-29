@@ -25,6 +25,7 @@ import {
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
+import type { SiteContentReconciliationInput } from "@/lib/site-content/site-content-reconciliation";
 import {
   parseSiteContentReleaseEvidence,
   type SiteContentReleaseEvidence,
@@ -501,7 +502,7 @@ export async function readCanonicalSiteContentRecords<T>(input: {
     snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
       ? (snapshot as Record<string, unknown>).releaseId
       : null;
-  if (!initialized && typeof retainedReleaseId !== "string") {
+  if (rows.length > 0 && !initialized && snapshot === null && typeof retainedReleaseId !== "string") {
     const seeds = input.slug
       ? input.seeds.filter((seed) => {
           const value = seed as Record<string, unknown>;
@@ -556,6 +557,18 @@ export type SiteContentPublicationCommand = {
   expectedChangeEpoch: string;
   reconciliationPlanDigest?: string;
 };
+
+export async function recordSiteContentReconciliationPlan(input: {
+  publicationSupabase: RpcClient;
+  plan: SiteContentReconciliationInput;
+}) {
+  const { data, error } = await callRpc(input.publicationSupabase, "record_site_content_reconciliation_plan", {
+    p_plan: input.plan,
+  });
+  if (error) throw new Error(`Site-content reconciliation command failed: ${error.message}`);
+  if (data !== true) throw new Error("Site-content reconciliation command failed: invalid RPC response.");
+  return { outcome: "recorded" as const, planDigest: input.plan.planDigest };
+}
 
 export async function publishSiteContentCommand(input: {
   sourceSupabase: RpcClient;

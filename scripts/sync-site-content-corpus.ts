@@ -15,6 +15,10 @@ import {
 } from "../src/lib/site-content/site-content-manifest";
 import { SITE_CONTENT_REGISTRY_VERSION } from "../src/lib/site-content/site-content-registry";
 import {
+  assertSiteContentReconciliationInput,
+  type SiteContentReconciliationInput,
+} from "../src/lib/site-content/site-content-reconciliation";
+import {
   assertRecoveryReadinessForOperation,
   parseRecoveryReadinessEvidence,
 } from "../src/lib/recovery-readiness-evidence";
@@ -161,163 +165,6 @@ function assertDynamicInput(value: unknown): asserts value is DynamicInput {
   }
 }
 
-type ReconciliationInput = {
-  version: "site-content-reconciliation-plan-v1";
-  planDigest: string;
-  trustedSnapshotDigest: string;
-  expectedRecordCount: number;
-  expectedGroupCount: number;
-  batchSize: number;
-  batchCount: number;
-  counts: { adopt: number; retire: number; identicalDuplicate: number; total: number };
-  trustedSnapshots: Array<Record<string, unknown>>;
-  dispositions: Array<Record<string, unknown>>;
-};
-
-function assertReconciliationInput(value: unknown): asserts value is ReconciliationInput {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Reviewed reconciliation plan is invalid.");
-  const plan = value as Record<string, unknown>;
-  const expectedKeys = [
-    "batchCount",
-    "batchSize",
-    "counts",
-    "dispositions",
-    "expectedRecordCount",
-    "expectedGroupCount",
-    "planDigest",
-    "trustedSnapshotDigest",
-    "trustedSnapshots",
-    "version",
-  ].sort();
-  if (
-    JSON.stringify(Object.keys(plan).sort()) !== JSON.stringify(expectedKeys) ||
-    plan.version !== "site-content-reconciliation-plan-v1" ||
-    typeof plan.planDigest !== "string" ||
-    !SHA256.test(plan.planDigest) ||
-    typeof plan.trustedSnapshotDigest !== "string" ||
-    !SHA256.test(plan.trustedSnapshotDigest) ||
-    !Number.isInteger(plan.expectedRecordCount) ||
-    !Number.isInteger(plan.expectedGroupCount) ||
-    !Number.isInteger(plan.batchSize) ||
-    !Number.isInteger(plan.batchCount) ||
-    !Array.isArray(plan.dispositions) ||
-    !Array.isArray(plan.trustedSnapshots) ||
-    !plan.counts ||
-    typeof plan.counts !== "object"
-  ) {
-    throw new Error("Reviewed reconciliation plan is invalid.");
-  }
-  const dispositions = plan.dispositions as Array<Record<string, unknown>>;
-  const trustedSnapshots = plan.trustedSnapshots as Array<Record<string, unknown>>;
-  const batchSize = Number(plan.batchSize);
-  const sourceIds = dispositions.map((item) => `${String(item.sourceKind)}:${String(item.sourceRowId)}`);
-  const allowed = new Set(["adopt", "retire", "identical_duplicate"]);
-  const dispositionKeys = [
-    "contentHash",
-    "disposition",
-    "logicalId",
-    "publicationVersion",
-    "sourceKind",
-    "sourceRowId",
-    "sourceVersion",
-    "trustedGovernanceHash",
-    "trustedPublicRecordId",
-    "trustedRoute",
-  ].sort();
-  const counts = plan.counts as Record<string, unknown>;
-  const trustedKeys = [
-    "contentHash",
-    "governanceHash",
-    "logicalId",
-    "publicationVersion",
-    "publicRecordId",
-    "route",
-  ].sort();
-  const snapshotsByLogicalId = new Map(trustedSnapshots.map((snapshot) => [String(snapshot.logicalId), snapshot]));
-  if (
-    dispositions.length !== plan.expectedRecordCount ||
-    new Set(sourceIds).size !== dispositions.length ||
-    dispositions.some((item, index) => {
-      if (index === 0) return false;
-      const previous = dispositions[index - 1]!;
-      const left = `${String(previous.logicalId)}\u0000${String(previous.sourceKind)}\u0000${String(previous.sourceRowId)}`;
-      const right = `${String(item.logicalId)}\u0000${String(item.sourceKind)}\u0000${String(item.sourceRowId)}`;
-      return left >= right;
-    }) ||
-    trustedSnapshots.length !== plan.expectedGroupCount ||
-    snapshotsByLogicalId.size !== trustedSnapshots.length ||
-    trustedSnapshots.some(
-      (snapshot, index) =>
-        JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(trustedKeys) ||
-        typeof snapshot.logicalId !== "string" ||
-        typeof snapshot.publicRecordId !== "string" ||
-        typeof snapshot.route !== "string" ||
-        !SHA256.test(String(snapshot.contentHash)) ||
-        !SHA256.test(String(snapshot.publicationVersion)) ||
-        !SHA256.test(String(snapshot.governanceHash)) ||
-        (index > 0 && String(trustedSnapshots[index - 1]!.logicalId) >= String(snapshot.logicalId)),
-    ) ||
-    batchSize < 1 ||
-    batchSize > 500 ||
-    plan.batchCount !== Math.ceil(plan.expectedRecordCount / batchSize) ||
-    JSON.stringify(Object.keys(counts).sort()) !==
-      JSON.stringify(["adopt", "identicalDuplicate", "retire", "total"].sort()) ||
-    counts.total !== dispositions.length ||
-    counts.adopt !== dispositions.filter((item) => item.disposition === "adopt").length ||
-    counts.retire !== dispositions.filter((item) => item.disposition === "retire").length ||
-    counts.identicalDuplicate !== dispositions.filter((item) => item.disposition === "identical_duplicate").length ||
-    dispositions.some(
-      (item) =>
-        !item ||
-        typeof item !== "object" ||
-        JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(dispositionKeys) ||
-        typeof item.logicalId !== "string" ||
-        typeof item.disposition !== "string" ||
-        !allowed.has(item.disposition) ||
-        !["service", "form", "medication", "differential", "presentation"].includes(String(item.sourceKind)) ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(String(item.sourceRowId)) ||
-        typeof item.sourceVersion !== "string" ||
-        !SHA256.test(String(item.contentHash)) ||
-        !SHA256.test(String(item.publicationVersion)) ||
-        !SHA256.test(String(item.trustedGovernanceHash)) ||
-        typeof item.trustedPublicRecordId !== "string" ||
-        typeof item.trustedRoute !== "string" ||
-        !snapshotsByLogicalId.has(String(item.logicalId)),
-    )
-  ) {
-    throw new Error("Reviewed reconciliation plan is not an exact unique population.");
-  }
-  for (const snapshot of trustedSnapshots) {
-    const logicalId = String(snapshot.logicalId);
-    const group = dispositions.filter((item) => item.logicalId === logicalId);
-    const matchesTrusted = (item: Record<string, unknown>) =>
-      item.contentHash === snapshot.contentHash &&
-      item.publicationVersion === snapshot.publicationVersion &&
-      item.trustedGovernanceHash === snapshot.governanceHash &&
-      item.trustedPublicRecordId === snapshot.publicRecordId &&
-      item.trustedRoute === snapshot.route;
-    if (
-      group.filter((item) => item.disposition === "adopt").length !== 1 ||
-      !group.filter((item) => item.disposition !== "retire").every(matchesTrusted) ||
-      group.filter((item) => item.disposition === "retire").some(matchesTrusted)
-    ) {
-      throw new Error("Reviewed reconciliation dispositions do not match the trusted snapshot group.");
-    }
-  }
-  if (
-    plan.trustedSnapshotDigest !==
-    siteContentValueHash({ version: "site-content-trusted-snapshot-v1", records: trustedSnapshots })
-  ) {
-    throw new Error("Reviewed reconciliation trusted snapshot digest does not match its exact population.");
-  }
-  const governed = { ...plan };
-  delete governed.planDigest;
-  if (plan.planDigest !== siteContentValueHash(governed)) {
-    throw new Error("Reviewed reconciliation plan digest does not match its immutable fields.");
-  }
-}
-
 function assertProviderAuthorization(value: unknown, projectRef: string, planDigest: string) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Provider authorization is invalid.");
@@ -350,7 +197,7 @@ async function main() {
   });
   const dynamic = json(options.dynamic!);
   assertDynamicInput(dynamic);
-  let reconciliation: ReconciliationInput | null = null;
+  let reconciliation: SiteContentReconciliationInput | null = null;
   if (dynamic.initialAdoption && !options.reconciliation) {
     throw new Error("Initial adoption requires --reconciliation <reviewed-plan.json>.");
   }
@@ -359,7 +206,7 @@ async function main() {
   }
   if (dynamic.initialAdoption && options.reconciliation) {
     const candidate = json(options.reconciliation);
-    assertReconciliationInput(candidate);
+    assertSiteContentReconciliationInput(candidate);
     reconciliation = candidate;
   }
   if (!options.write && options.expectedReconciliationDigest) {

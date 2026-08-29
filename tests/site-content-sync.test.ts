@@ -333,7 +333,30 @@ describe("site-content synchronization planning", () => {
       >;
       dynamic.initialAdoption = true;
       writeFileSync(initial, `${JSON.stringify(dynamic)}\n`, "utf8");
-      const trustedSnapshots: Array<Record<string, unknown>> = [];
+      const trustedSnapshots = [
+        {
+          logicalId: "medications:sertraline",
+          publicRecordId: "medications:sertraline",
+          route: "/medications/sertraline",
+          contentHash: "a".repeat(64),
+          publicationVersion: "b".repeat(64),
+          governanceHash: "c".repeat(64),
+        },
+      ];
+      const dispositions = [
+        {
+          logicalId: "medications:sertraline",
+          disposition: "adopt",
+          sourceKind: "medication",
+          sourceRowId: "11111111-1111-4111-8111-111111111111",
+          sourceVersion: "2026-08-24T00:00:00.000Z",
+          contentHash: "a".repeat(64),
+          publicationVersion: "b".repeat(64),
+          trustedPublicRecordId: "medications:sertraline",
+          trustedRoute: "/medications/sertraline",
+          trustedGovernanceHash: "c".repeat(64),
+        },
+      ];
       const trustedSnapshotDigest = siteContentValueHash({
         version: "site-content-trusted-snapshot-v1",
         records: trustedSnapshots,
@@ -341,13 +364,13 @@ describe("site-content synchronization planning", () => {
       const governed = {
         version: "site-content-reconciliation-plan-v1",
         trustedSnapshotDigest,
-        expectedRecordCount: 0,
-        expectedGroupCount: 0,
-        batchSize: 100,
-        batchCount: 0,
-        counts: { adopt: 0, retire: 0, identicalDuplicate: 0, total: 0 },
+        expectedRecordCount: 1,
+        expectedGroupCount: 1,
+        batchSize: 1,
+        batchCount: 1,
+        counts: { adopt: 1, retire: 0, identicalDuplicate: 0, total: 1 },
         trustedSnapshots,
-        dispositions: [] as Array<Record<string, unknown>>,
+        dispositions,
       };
       const reconciliation = { ...governed, planDigest: siteContentValueHash(governed) };
       writeFileSync(reconciliationPath, `${JSON.stringify(reconciliation)}\n`, "utf8");

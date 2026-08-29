@@ -113,6 +113,19 @@ function releaseEvidence() {
 }
 
 describe("site-content partition classification", () => {
+  it("never treats the retained-bootstrap sentinel as a deployable partition digest", () => {
+    for (const expectedSiteStaticManifestDigest of [undefined, "0".repeat(64), "f".repeat(64)]) {
+      const partition = classifySiteContentPartition({
+        expectedSiteStaticManifestDigest,
+        activePublicSiteRelease: retainedBootstrapRelease,
+        publicSiteChangeEpoch: "0",
+        pendingPublicSiteChangeCount: 0,
+      });
+      expect(partition.state).toBe("unavailable");
+      expect(partition.staticMatches).toBe(false);
+    }
+  });
+
   it("owns the exact five and ten minute boundaries", () => {
     expect(SITE_CONTENT_ACTIVATION_SLO_MS).toBe(300_000);
     expect(SITE_CONTENT_QUEUE_STOP_AGE_MS).toBe(600_000);
