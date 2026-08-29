@@ -92,6 +92,23 @@ describe("site-content CI owner contract", () => {
     expect(classify("src/lib/specifiers.ts")).toContain("site_content_changed=true");
   });
 
+  it("classifies each specialist-proven dynamic value-flow input independently", () => {
+    expect(classify("src/lib/registry-fixtures.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/service-catalog.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/service-catalog-mapper.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/compact-best-use-title.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/form-catalog.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/mha-act-sections.ts")).toContain("site_content_changed=true");
+    expect(classify("data/mha-2014-sections.json")).toContain("site_content_changed=true");
+    expect(classify("src/lib/differential-fixtures.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/differential-seed.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/medications.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/medication-fixtures.ts")).toContain("site_content_changed=true");
+
+    expect(owners.producers.services).toContain("src/lib/registry-fixtures.ts");
+    expect(owners.producers.forms).toContain("src/lib/registry-fixtures.ts");
+  });
+
   it("keeps manifest validation fail-closed in the selector self-test", () => {
     const source = readFileSync("scripts/ci-change-scope.mjs", "utf8");
     expect(source).toContain("validateSiteContentChangeOwners");

@@ -100,6 +100,81 @@ end;
 $$;
 reset role;
 
+set local role service_role;
+insert into task4_invocation_results values (
+  'terminal-success-before-history',
+  public.record_site_content_sync_worker_invocation(
+    '11111111-1111-4111-8111-111111111111'::uuid,
+    '22222222-2222-4222-8222-222222222222'::uuid,
+    'succeeded',
+    'idle'
+  )
+);
+reset role;
+
+with historical as (
+  select
+    pg_catalog.gen_random_uuid() invocation_id,
+    pg_catalog.gen_random_uuid() worker_id,
+    pg_catalog.clock_timestamp() - (g * interval '1 second') started_at,
+    g
+  from generate_series(1, 4096) g
+)
+insert into public.site_content_sync_worker_invocations (
+  invocation_id,
+  worker_id,
+  started_at,
+  admission_expires_at,
+  terminal_phase,
+  terminal_at,
+  outcome_code
+)
+select
+  invocation_id,
+  worker_id,
+  started_at,
+  started_at + interval '5 minutes',
+  'succeeded',
+  started_at + interval '100 milliseconds',
+  case when g % 2 = 0 then 'idle' else 'ready' end
+from historical;
+
+do $$
+declare
+  v_health jsonb;
+  v_latest_plan json;
+  v_success_plan json;
+begin
+  v_health := public.read_site_content_health();
+  if (v_health->>'synchronizerSeen')::boolean is distinct from true
+    or (v_health->>'latestInvocationSucceeded')::boolean is distinct from true
+    or v_health->'lastInvocationAt' = 'null'::jsonb
+    or v_health->'lastSuccessfulInvocationAt' = 'null'::jsonb
+  then
+    raise exception 'populated invocation history did not produce successful health evidence: %', v_health;
+  end if;
+
+  perform pg_catalog.set_config('enable_seqscan', 'off', true);
+  execute $plan$
+    explain (format json)
+    select i.* from public.site_content_sync_worker_invocations i
+    order by i.started_at desc, i.invocation_id desc limit 1
+  $plan$ into v_latest_plan;
+  execute $plan$
+    explain (format json)
+    select max(terminal_at) from public.site_content_sync_worker_invocations
+    where terminal_phase = 'succeeded' and outcome_code in ('idle','ready')
+  $plan$ into v_success_plan;
+
+  if v_latest_plan::text not like '%site_content_sync_worker_invocations_started_at_idx%' then
+    raise exception 'latest invocation query did not use its supporting index: %', v_latest_plan;
+  end if;
+  if v_success_plan::text not like '%site_content_sync_worker_invocations_successful_terminal_at_idx%' then
+    raise exception 'successful terminal query did not use its supporting partial index: %', v_success_plan;
+  end if;
+end;
+$$;
+
 rollback;
 
 create table public.task4_invocation_concurrency_results (

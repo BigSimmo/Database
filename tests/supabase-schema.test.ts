@@ -85,6 +85,33 @@ describe("site-content Task 4 health schema", () => {
     }
   });
 
+  it("binds initialized release integrity to the exact served epoch and guard-valid receipt shape", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      const integrityStart = sql.indexOf("integrity as (");
+      const releaseDigestStart = sql.indexOf("release_digest_valid", integrityStart);
+      const populationIntegrity = sql.slice(integrityStart, releaseDigestStart);
+      const rollbackStart = sql.indexOf("rollback as (");
+      const rollbackEnd = sql.indexOf("activation_evidence as (", rollbackStart);
+      const rollback = sql.slice(rollbackStart, rollbackEnd);
+
+      expect(populationIntegrity).toContain("r.target_change_epoch = s.served_change_epoch");
+      expect(rollback).toContain("receipt.receipt#>>'{resource,previousSiteReleaseId}' = p.id::text");
+      expect(rollback).toContain("receipt.receipt#>>'{resource,previousSiteReleaseDigest}' = p.release_digest");
+      expect(rollback).not.toContain("previousResource");
+    }
+  });
+
+  it("indexes both append-only invocation health access paths", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain(
+        "create index site_content_sync_worker_invocations_started_at_idx on public.site_content_sync_worker_invocations (started_at desc, invocation_id desc)",
+      );
+      expect(sql).toContain(
+        "create index site_content_sync_worker_invocations_successful_terminal_at_idx on public.site_content_sync_worker_invocations (terminal_at desc) where terminal_phase = 'succeeded' and outcome_code in ('idle', 'ready')",
+      );
+    }
+  });
+
   it("fences invocation replay and derives one bounded, read-only health snapshot", () => {
     expect(siteContentHealthMigration).toContain("pg_catalog.pg_advisory_xact_lock(93206432)");
     expect(siteContentHealthMigration).toContain("admission_expires_at <= v_now");
@@ -142,6 +169,12 @@ describe("site-content Task 4 health schema", () => {
     expect(siteContentHealthSqlFixture).toContain(
       "served corrected successor retained an orphaned historical quarantine failure",
     );
+    expect(siteContentHealthSqlFixture).toContain(
+      "served epoch advanced beyond the active release target without failing population integrity",
+    );
+    expect(siteContentHealthSqlFixture).toContain("guard_site_content_receipt_shape");
+    expect(siteContentHealthSqlFixture).toContain("previousSiteReleaseId");
+    expect(siteContentHealthSqlFixture).not.toContain("previousResource");
     expect(siteContentInvocationSqlFixture).toContain("set local role service_role");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => null");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => 'succeeded', p_outcome_code => null");
@@ -149,6 +182,10 @@ describe("site-content Task 4 health schema", () => {
     expect(siteContentInvocationSqlFixture).toContain("retry-after-lock-expiry");
     expect(siteContentInvocationSqlFixture).toContain("terminal-after-lock-expiry");
     expect(siteContentInvocationSqlFixture).toContain("where locktype = 'advisory' and not granted");
+    expect(siteContentInvocationSqlFixture).toContain("site_content_sync_worker_invocations_started_at_idx");
+    expect(siteContentInvocationSqlFixture).toContain(
+      "site_content_sync_worker_invocations_successful_terminal_at_idx",
+    );
   });
 });
 const documentIndexUnitsMigration = readFileSync(

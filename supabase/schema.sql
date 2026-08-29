@@ -11702,6 +11702,13 @@ create table public.site_content_sync_worker_invocations (
     or (terminal_phase is not null and terminal_at is not null and outcome_code is not null))
 );
 
+create index site_content_sync_worker_invocations_started_at_idx
+on public.site_content_sync_worker_invocations (started_at desc, invocation_id desc);
+
+create index site_content_sync_worker_invocations_successful_terminal_at_idx
+on public.site_content_sync_worker_invocations (terminal_at desc)
+where terminal_phase = 'succeeded' and outcome_code in ('idle', 'ready');
+
 create trigger site_content_sync_worker_invocations_identity_immutable
 before update of invocation_id, worker_id, started_at, admission_expires_at
 on public.site_content_sync_worker_invocations
@@ -12064,7 +12071,8 @@ as $$
     from sync_state s left join active_release r on true
   ),
   integrity as (
-    select coalesce(r.expected_record_count = (select count(*) from active_records), false)
+    select coalesce(r.target_change_epoch = s.served_change_epoch, false)
+        and coalesce(r.expected_record_count = (select count(*) from active_records), false)
         and coalesce(r.expected_tombstone_count = (select count(*) from active_records where tombstone), false)
         and not exists (select 1 from active_records where record is null or render_payload is null)
         and not exists (select 1 from active_records rr
@@ -12130,8 +12138,8 @@ as $$
       and receipt.receipt#>>'{resource,kind}' = 'site_release'
       and receipt.receipt#>>'{resource,siteReleaseId}' = r.id::text
       and receipt.receipt#>>'{resource,siteReleaseDigest}' = r.release_digest
-      and receipt.receipt#>>'{previousResource,siteReleaseId}' = p.id::text
-      and receipt.receipt#>>'{previousResource,siteReleaseDigest}' = p.release_digest
+      and receipt.receipt#>>'{resource,previousSiteReleaseId}' = p.id::text
+      and receipt.receipt#>>'{resource,previousSiteReleaseDigest}' = p.release_digest
       and (
         (p.target_change_epoch <> 0 and p.id <> 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid)
         or (p.target_change_epoch = 0

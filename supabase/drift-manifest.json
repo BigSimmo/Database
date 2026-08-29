@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-29T00:52:39.392Z",
+  "generated_at": "2026-08-29T03:20:34.234Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "9f6ba192a2892bc701653b2918213a7c96277e3c9216d5062ecde3f64c9dbdc5",
-  "replay_seconds": 23,
+  "schema_sha256": "b52fd195aa1d2340cc0852c49c875cc60344035ac286841bd0dd1f6fbb19eb57",
+  "replay_seconds": 115,
   "snapshot": {
     "views": [
       {
@@ -7079,6 +7079,18 @@
         "def_hash": "68dff91ec867f47c2590f4f74dd41846"
       },
       {
+        "def": "CREATE INDEX site_content_sync_worker_invocations_started_at_idx ON public.site_content_sync_worker_invocations USING btree (started_at DESC, invocation_id DESC)",
+        "name": "site_content_sync_worker_invocations_started_at_idx",
+        "table": "site_content_sync_worker_invocations",
+        "def_hash": "db9ebdccb9cec909a1b854599093f7ce"
+      },
+      {
+        "def": "CREATE INDEX site_content_sync_worker_invocations_successful_terminal_at_idx ON public.site_content_sync_worker_invocations USING btree (terminal_at DESC) WHERE ((terminal_phase = 'succeeded'::text) AND (outcome_code = ANY (ARRAY['idle'::text, 'ready'::text])))",
+        "name": "site_content_sync_worker_invocations_successful_terminal_at_idx",
+        "table": "site_content_sync_worker_invocations",
+        "def_hash": "4f51bcf3fa762c6fd61117f47faa17da"
+      },
+      {
         "def": "CREATE UNIQUE INDEX source_review_events_pkey ON public.source_review_events USING btree (id)",
         "name": "source_review_events_pkey",
         "table": "source_review_events",
@@ -8491,7 +8503,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "9dba75b98e7a2c3bc94699e5dd267b36",
+        "def_hash": "ad93b785fe34a61ab3e418b44720861f",
         "signature": "public.read_site_content_health()"
       },
       {

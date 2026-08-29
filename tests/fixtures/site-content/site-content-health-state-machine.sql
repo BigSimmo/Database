@@ -86,24 +86,49 @@ insert into public.site_content_releases (
 insert into public.site_content_release_receipts (
   receipt_id, release_id, receipt_kind, recovery_readiness_digest, receipt
 )
-select
-  'sha256:' || repeat('6', 64),
-  '60000000-0000-5000-8000-000000000001'::uuid,
-  'activation',
-  repeat('7', 64),
-  jsonb_build_object(
+with receipt_fields as (
+  select jsonb_build_object(
+    'version', 'activation-receipt-v1',
+    'promotionId', 'site-release:task4-health-fixture',
+    'projectRef', 'task4-health-fixture',
+    'operation', 'site_release',
+    'recoveryReadinessDigest', repeat('7', 64),
+    'activatedAt', to_char(
+      pg_catalog.statement_timestamp() at time zone 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+    ),
     'resource', jsonb_build_object(
       'kind', 'site_release',
       'siteReleaseId', '60000000-0000-5000-8000-000000000001',
-      'siteReleaseDigest', repeat('3', 64)
-    ),
-    'previousResource', jsonb_build_object(
-      'siteReleaseId', bootstrap.id::text,
-      'siteReleaseDigest', bootstrap.release_digest
+      'siteReleaseDigest', repeat('3', 64),
+      'previousSiteReleaseId', bootstrap.id::text,
+      'previousSiteReleaseDigest', bootstrap.release_digest
     )
-  )
+  ) receipt
 from public.site_content_releases bootstrap
-where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+), receipt as (
+  select fields.receipt || jsonb_build_object(
+    'receiptId',
+    'sha256:' || encode(extensions.digest(convert_to(
+      'activation-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(fields.receipt),
+      'UTF8'
+    ), 'sha256'), 'hex')
+  ) receipt
+  from receipt_fields fields
+)
+select
+  public.guard_site_content_receipt_shape(
+    receipt.receipt,
+    'activation',
+    '60000000-0000-5000-8000-000000000001'::uuid,
+    repeat('7', 64)
+  ),
+  '60000000-0000-5000-8000-000000000001'::uuid,
+  'activation',
+  repeat('7', 64),
+  receipt.receipt
+from receipt;
 
 update public.site_content_sync_state
 set change_epoch = 1,
@@ -118,6 +143,21 @@ select
   value::text as evidence
 from evidence
 \gset epoch_zero_rollback_baseline_
+
+update public.site_content_sync_state
+set change_epoch = 2,
+  served_change_epoch = 2;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  ((value->>'populationComplete')::boolean = false) as passed,
+  value::text as evidence
+from evidence
+\gset active_release_epoch_mismatch_
+
+update public.site_content_sync_state
+set change_epoch = 1,
+  served_change_epoch = 1;
 
 update public.site_content_releases
 set dynamic_state_digest = case
@@ -146,6 +186,11 @@ values
     'epoch-zero predecessor accepted a different valid dynamic-state digest',
     :'epoch_zero_rollback_dynamic_passed'::boolean,
     :'epoch_zero_rollback_dynamic_evidence'::jsonb
+  ),
+  (
+    'served epoch advanced beyond the active release target without failing population integrity',
+    :'active_release_epoch_mismatch_passed'::boolean,
+    :'active_release_epoch_mismatch_evidence'::jsonb
   );
 
 do $$
