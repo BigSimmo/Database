@@ -35,7 +35,45 @@ this, running its tests where its test file did not exist.
 board branch reuses an existing, already-installed folder.
 
 **The ward board folds into Phase 8's branch when Phase 8 lands.** Phase 8 stays the main line —
-owner's decision. There are no overlapping code files, so the merge should be clean.
+owner's decision.
+
+**THE MERGE WILL NOT BE CLEAN. This page said it would; that was false.** Verified with
+`git merge-tree --write-tree` — **three add/add conflicts**:
+
+```
+CONFLICT (add/add): src/components/ward-management/ward-admissions.ts
+CONFLICT (add/add): src/components/ward-management/ward-admissions-seed.ts
+CONFLICT (add/add): tests/ward-admission-model.test.ts
+```
+
+**Why the safety rule did not catch it, which is the part worth keeping.** The rule was _"never edit
+a file that exists on the other branch."_ Neither session edited one — **each created the same file
+from scratch**, after the branches diverged, when Phase 8 cherry-picked the record. Git sees two
+unrelated files sharing a name. **A rule about editing cannot catch two sessions creating.** It got
+past the rule rather than through it.
+
+**Resolution, agreed by all three sessions and binding: take the ward board's copy of all three
+WHOLESALE, then repair Phase 8's test literals.** Never file by file, and never row by row.
+
+**Why wholesale, tested the way that matters** — not "which is longer" but _"is there anything on the
+Phase 8 side the ward board does not already have?"_ Answer: three seed rows in pre-confirmation
+form, which this branch already carries in extended form. Nothing else.
+
+**The single line most likely to be lost**, in the seed at `rph-adult-secure`:
+
+```ts
+["Female", "South West", 34, -2, { blockReason: "Awaiting accommodation", confirmedHoursAgo: 26 }],
+```
+
+The only seeded occupant that is **both confirmed and blocked**. Phase 8's row lacks
+`confirmedHoursAgo`, so a hand merge takes the shorter one _because it looks like the common
+ancestor_. Losing it removes a test **case**, not a test — **nothing goes red**, and a derivation that
+dropped blocked releases from the confirmed count would then pass every test in this repository.
+
+**This resolution has an expiry.** It is correct only while Phase 8 has not touched those three files.
+**Re-run `git merge-tree --write-tree` immediately before folding** and confirm the conflict set is
+still exactly these three. If Phase 8 has since edited any of them, "take ours wholesale" silently
+deletes that work with no failing gate.
 
 ## 3. State (verify against `git log`)
 
