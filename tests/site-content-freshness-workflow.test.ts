@@ -1,8 +1,26 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const fixture = "tests/fixtures/site-content/release-evidence-current.json";
+
+function runWithIdentitySets(logicalIds: string[], publishedLogicalIds: string[]): string {
+  const directory = mkdtempSync(join(tmpdir(), "site-content-freshness-identity-"));
+  const evidencePath = join(directory, "evidence.json");
+  try {
+    const evidence = JSON.parse(readFileSync(fixture, "utf8"));
+    writeFileSync(evidencePath, `${JSON.stringify({ ...evidence, logicalIds, publishedLogicalIds })}\n`, "utf8");
+    return execFileSync(
+      "node",
+      ["scripts/run-tsx.mjs", "scripts/check-site-content-freshness.ts", "--evidence", evidencePath],
+      { encoding: "utf8" },
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
 
 describe("site-content freshness workflow", () => {
   it("accepts the committed offline evidence and emits no private fixture identifiers", () => {
@@ -29,6 +47,21 @@ describe("site-content freshness workflow", () => {
         { encoding: "utf8" },
       ),
     ).toThrow(/SITE_CONTENT_FRESHNESS_ARGUMENTS_INVALID/);
+  });
+
+  it("rejects unique unequal identity arrays that collide under delimiter joining", () => {
+    expect(() => runWithIdentitySets(["a", "b|c"], ["a|b", "c"])).toThrow(/SITE_CONTENT_OFFLINE_EVIDENCE_INVALID/);
+  });
+
+  it("rejects structurally unequal canonical logical-ID sets", () => {
+    expect(() => runWithIdentitySets(["forms:a", "services:b"], ["forms:a", "services:c"])).toThrow(
+      /SITE_CONTENT_OFFLINE_EVIDENCE_INVALID/,
+    );
+  });
+
+  it("accepts canonical logical-ID sets independently of input order", () => {
+    const output = runWithIdentitySets(["forms:a", "services:b"], ["services:b", "forms:a"]);
+    expect(JSON.parse(output)).toMatchObject({ state: "current", operationStop: false });
   });
 
   it("wires the offline checks in the static-pr job without mutation or provider commands", () => {

@@ -241,6 +241,140 @@ values (
   :'bootstrap_evidence'::jsonb
 );
 
+savepoint task4_quarantine_recovery;
+
+insert into public.site_content_publications (
+  id, logical_id, kind, slug, source_table, source_row_id, source_owner_id,
+  source_version, published_by, record, render_payload, retired,
+  administrator_authorized_at, administrator_authorization_version
+) values
+  (
+    '70000000-0000-5000-8000-000000000001'::uuid,
+    'services:task4-quarantine-recovery',
+    'service',
+    'task4-quarantine-recovery',
+    'clinical_registry_records',
+    '70000000-0000-4000-8000-000000000002'::uuid,
+    '70000000-0000-4000-8000-000000000003'::uuid,
+    'task4-quarantine-recovery-v1',
+    '70000000-0000-4000-8000-000000000004'::uuid,
+    '{}'::jsonb,
+    '{}'::jsonb,
+    false,
+    pg_catalog.clock_timestamp(),
+    'site-content-admin-authorization-v1'
+  ),
+  (
+    '70000000-0000-5000-8000-000000000005'::uuid,
+    'services:task4-quarantine-recovery',
+    'service',
+    'task4-quarantine-recovery',
+    'clinical_registry_records',
+    '70000000-0000-4000-8000-000000000002'::uuid,
+    '70000000-0000-4000-8000-000000000003'::uuid,
+    'task4-quarantine-recovery-v2',
+    '70000000-0000-4000-8000-000000000004'::uuid,
+    '{}'::jsonb,
+    '{}'::jsonb,
+    false,
+    pg_catalog.clock_timestamp(),
+    'site-content-admin-authorization-v1'
+  );
+
+insert into public.site_content_public_records (
+  logical_id, kind, slug, current_publication_id, head_change_epoch, retired
+) values (
+  'services:task4-quarantine-recovery',
+  'service',
+  'task4-quarantine-recovery',
+  '70000000-0000-5000-8000-000000000001'::uuid,
+  1,
+  false
+);
+
+with inserted as (
+  insert into public.site_content_sync_events (
+    logical_id, target_publication_id, target_change_epoch, state, attempt_count, terminal_at
+  ) values (
+    'services:task4-quarantine-recovery',
+    '70000000-0000-5000-8000-000000000001'::uuid,
+    1,
+    'quarantined',
+    5,
+    pg_catalog.clock_timestamp()
+  )
+  returning event_sequence
+)
+update public.site_content_public_records
+set pending_event_sequence = inserted.event_sequence
+from inserted
+where logical_id = 'services:task4-quarantine-recovery';
+
+update public.site_content_sync_state set change_epoch = 1 where singleton;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  ((value->>'quarantinedCount')::bigint = 1
+    and (value->>'pendingSetExact')::boolean = false) as passed,
+  value::text as evidence
+from evidence
+\gset current_quarantine_
+
+with inserted as (
+  insert into public.site_content_sync_events (
+    logical_id, target_publication_id, target_change_epoch, state
+  ) values (
+    'services:task4-quarantine-recovery',
+    '70000000-0000-5000-8000-000000000005'::uuid,
+    2,
+    'ready'
+  )
+  returning event_sequence
+)
+update public.site_content_public_records
+set current_publication_id = '70000000-0000-5000-8000-000000000005'::uuid,
+  head_change_epoch = 2,
+  pending_event_sequence = inserted.event_sequence,
+  updated_at = pg_catalog.clock_timestamp()
+from inserted
+where logical_id = 'services:task4-quarantine-recovery';
+
+update public.site_content_sync_state set change_epoch = 2 where singleton;
+
+update public.site_content_sync_events
+set state = 'completed', terminal_at = pg_catalog.clock_timestamp(), updated_at = pg_catalog.clock_timestamp()
+where target_publication_id = '70000000-0000-5000-8000-000000000005'::uuid;
+
+update public.site_content_public_records
+set pending_event_sequence = null, updated_at = pg_catalog.clock_timestamp()
+where logical_id = 'services:task4-quarantine-recovery';
+
+update public.site_content_sync_state set served_change_epoch = 2 where singleton;
+
+with evidence as (select public.read_site_content_health() value)
+select
+  ((value->>'quarantinedCount')::bigint = 0
+    and (value->>'pendingSetExact')::boolean = true
+    and (value->>'outstandingHeadCount')::bigint = 0) as passed,
+  value::text as evidence
+from evidence
+\gset recovered_quarantine_
+
+rollback to savepoint task4_quarantine_recovery;
+
+insert into task4_health_integrity_results(case_name, passed, evidence)
+values
+  (
+    'current quarantined terminal did not stop pending integrity',
+    :'current_quarantine_passed'::boolean,
+    :'current_quarantine_evidence'::jsonb
+  ),
+  (
+    'served corrected successor retained an orphaned historical quarantine failure',
+    :'recovered_quarantine_passed'::boolean,
+    :'recovered_quarantine_evidence'::jsonb
+  );
+
 savepoint task4_missing_public_head;
 
 insert into public.site_content_publications (

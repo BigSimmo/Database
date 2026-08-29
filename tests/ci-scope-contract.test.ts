@@ -84,6 +84,14 @@ describe("site-content CI owner contract", () => {
     expect(classify("src/lib/differential-presentation-display.ts")).toContain("site_content_changed=true");
   });
 
+  it("classifies each remaining canonical transitive input independently", () => {
+    expect(classify("src/components/calculators/calculator-routes.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/catalog-search.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/form-ranker.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/service-ranker.ts")).toContain("site_content_changed=true");
+    expect(classify("src/lib/specifiers.ts")).toContain("site_content_changed=true");
+  });
+
   it("keeps manifest validation fail-closed in the selector self-test", () => {
     const source = readFileSync("scripts/ci-change-scope.mjs", "utf8");
     expect(source).toContain("validateSiteContentChangeOwners");

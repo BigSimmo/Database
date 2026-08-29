@@ -12,6 +12,7 @@ const EVIDENCE_ERROR = "SITE_CONTENT_OFFLINE_EVIDENCE_INVALID";
 const LIVE_ERROR = "SITE_CONTENT_LIVE_MODE_NOT_AUTHORIZED";
 const SHA256 = /^[0-9a-f]{64}$/;
 const COMMIT_SHA = /^[0-9a-f]{40}$/;
+const LOGICAL_ID = /^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$/;
 
 function stop(code: string): never {
   process.stderr.write(`${code}\n`);
@@ -91,17 +92,20 @@ if (
   !isIsoTimestamp(raw.observedAt) ||
   !Array.isArray(raw.logicalIds) ||
   !Array.isArray(raw.publishedLogicalIds) ||
-  raw.logicalIds.some((id) => typeof id !== "string" || id.length === 0) ||
-  raw.publishedLogicalIds.some((id) => typeof id !== "string" || id.length === 0)
+  raw.logicalIds.some((id) => typeof id !== "string" || !LOGICAL_ID.test(id)) ||
+  raw.publishedLogicalIds.some((id) => typeof id !== "string" || !LOGICAL_ID.test(id))
 ) {
   stop(EVIDENCE_ERROR);
 }
 const logicalIds = raw.logicalIds as string[];
 const publishedLogicalIds = raw.publishedLogicalIds as string[];
+const sortedLogicalIds = [...logicalIds].sort();
+const sortedPublishedLogicalIds = [...publishedLogicalIds].sort();
 if (
   new Set(logicalIds).size !== logicalIds.length ||
   new Set(publishedLogicalIds).size !== publishedLogicalIds.length ||
-  [...logicalIds].sort().join("|") !== [...publishedLogicalIds].sort().join("|")
+  sortedLogicalIds.length !== sortedPublishedLogicalIds.length ||
+  sortedLogicalIds.some((logicalId, index) => logicalId !== sortedPublishedLogicalIds[index])
 ) {
   stop(EVIDENCE_ERROR);
 }

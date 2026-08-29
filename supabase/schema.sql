@@ -11800,7 +11800,7 @@ declare
   v_publication_id uuid := gen_random_uuid();
   v_event_sequence bigint;
   v_actor uuid := auth.uid();
-  v_authorized_at timestamptz := pg_catalog.clock_timestamp();
+  v_authorized_at timestamptz;
 begin
   if v_actor is null or auth.jwt()->>'role' is distinct from 'authenticated' then
     raise exception using errcode = '42501', message = 'site_content_administrator_required';
@@ -11811,6 +11811,7 @@ begin
   if not found then
     raise exception using errcode = '42501', message = 'site_content_administrator_required';
   end if;
+  v_authorized_at := pg_catalog.clock_timestamp();
   perform pg_catalog.pg_advisory_xact_lock(93206431);
   select * into strict v_state from public.site_content_sync_state where singleton for update;
   if v_state.change_epoch is distinct from p_expected_change_epoch then
@@ -11903,7 +11904,7 @@ declare
   v_publication_id uuid := gen_random_uuid();
   v_event_sequence bigint;
   v_actor uuid := auth.uid();
-  v_authorized_at timestamptz := pg_catalog.clock_timestamp();
+  v_authorized_at timestamptz;
 begin
   if v_actor is null or auth.jwt()->>'role' is distinct from 'authenticated' then
     raise exception using errcode = '42501', message = 'site_content_administrator_required';
@@ -11912,6 +11913,7 @@ begin
   where u.id = v_actor and u.raw_app_meta_data->>'site_role' is not distinct from 'administrator'
   for share;
   if not found then raise exception using errcode = '42501', message = 'site_content_administrator_required'; end if;
+  v_authorized_at := pg_catalog.clock_timestamp();
   perform pg_catalog.pg_advisory_xact_lock(93206431);
   select * into strict v_state from public.site_content_sync_state where singleton for update;
   if v_state.change_epoch is distinct from p_expected_change_epoch then
@@ -12000,6 +12002,11 @@ as $$
   terminals as (
     select distinct on (head_logical_id) * from chains order by head_logical_id, cardinality(path) desc
   ),
+  terminal_current_events as (
+    select distinct e.event_sequence, e.state, e.lease_expires_at
+    from terminals t
+    join public.site_content_sync_events e on e.event_sequence = t.event_sequence
+  ),
   live_events as (
     select e.* from public.site_content_sync_events e where e.state in ('pending','retry_pending','processing','ready')
   ),
@@ -12008,10 +12015,10 @@ as $$
       count(*) filter (where state = 'retry_pending')::bigint retry_pending_count,
       count(*) filter (where state = 'processing')::bigint processing_count,
       count(*) filter (where state = 'ready')::bigint ready_count,
-      (select count(*)::bigint from public.site_content_sync_events where state = 'quarantined') quarantined_count,
+      count(*) filter (where state = 'quarantined')::bigint quarantined_count,
       count(*) filter (where state = 'processing'
         and (lease_expires_at is null or lease_expires_at <= db_clock.now))::bigint expired_lease_count
-    from live_events cross join db_clock
+    from terminal_current_events cross join db_clock
   ),
   invocation_latest as (
     select i.* from public.site_content_sync_worker_invocations i

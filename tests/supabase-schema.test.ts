@@ -53,6 +53,38 @@ describe("site-content Task 4 health schema", () => {
     }
   });
 
+  it("samples immutable administrator authorization only after the locked role validation", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      for (const name of ["publish_site_content_record", "retire_site_content_record"]) {
+        const start = sql.lastIndexOf(`create or replace function public.${name}(`);
+        const end = sql.indexOf(" $$;", start);
+        const body = sql.slice(start, end);
+        const failedAuthorization = body.indexOf("if not found then");
+        const completedAuthorizationCheck = body.indexOf("end if;", failedAuthorization);
+        const authorizationTime = body.indexOf("v_authorized_at := pg_catalog.clock_timestamp()");
+
+        expect(start).toBeGreaterThanOrEqual(0);
+        expect(end).toBeGreaterThan(start);
+        expect(body).toContain("v_authorized_at timestamptz;");
+        expect(body).not.toContain("v_authorized_at timestamptz :=");
+        expect(failedAuthorization).toBeGreaterThan(body.indexOf("for share"));
+        expect(completedAuthorizationCheck).toBeGreaterThan(failedAuthorization);
+        expect(authorizationTime).toBeGreaterThan(completedAuthorizationCheck);
+      }
+    }
+  });
+
+  it("derives de-duplicated queue counts from current chain terminals", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain("terminal_current_events as (");
+      const queueStart = sql.indexOf("queue as (");
+      const queueEnd = sql.indexOf("invocation_latest as (", queueStart);
+      const queue = sql.slice(queueStart, queueEnd);
+      expect(queue).toContain("from terminal_current_events cross join db_clock");
+      expect(queue).not.toContain("from public.site_content_sync_events where state = 'quarantined'");
+    }
+  });
+
   it("fences invocation replay and derives one bounded, read-only health snapshot", () => {
     expect(siteContentHealthMigration).toContain("pg_catalog.pg_advisory_xact_lock(93206432)");
     expect(siteContentHealthMigration).toContain("admission_expires_at <= v_now");
@@ -106,6 +138,10 @@ describe("site-content Task 4 health schema", () => {
       "bootstrap retained integrity ignored an extra outstanding head/live event",
     );
     expect(siteContentHealthSqlFixture).toContain("missing public head did not make populationComplete false");
+    expect(siteContentHealthSqlFixture).toContain("current quarantined terminal did not stop pending integrity");
+    expect(siteContentHealthSqlFixture).toContain(
+      "served corrected successor retained an orphaned historical quarantine failure",
+    );
     expect(siteContentInvocationSqlFixture).toContain("set local role service_role");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => null");
     expect(siteContentInvocationSqlFixture).toContain("p_phase => 'succeeded', p_outcome_code => null");
