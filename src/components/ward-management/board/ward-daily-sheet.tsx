@@ -1,4 +1,4 @@
-import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { dayOf, formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 
 import styles from "./board.module.css";
 
@@ -87,22 +87,40 @@ export function dailySheetGroups(people: readonly DailySheetPerson[]): DailyShee
  * clock would assert a moment that is not the moment being shown. A stamp that can lie is worse
  * than no stamp, because the freeze was removed on the strength of it.
  *
- * **The DATE is missing and that is stated, not silently dropped.** DB-10 requires date AND time,
- * for a real reason: paper outlives its day, and a sheet stamped `15:22` read the next morning
- * distinguishes nothing. This model cannot supply it — an `Instant` is minutes since midnight on a
- * single synthetic operating day (`ward-clock.ts`), there is no calendar anywhere in Ward Flow, and
- * printing an invented date on the one element DB-10 made load-bearing would be worse than the gap
- * it fills. So the sheet says what it has and says what it lacks, in the heading, where DB-10 put
- * it. Flagged for the owner: the date arrives the day the model gains a calendar, and not before.
+ * **There is still no DATE, and that is stated rather than silently dropped — but the SAFEGUARD
+ * DB-10 wanted now works.** DB-10 requires date AND time, for a real reason: paper outlives its
+ * day, and a sheet stamped `15:22` read the next morning distinguishes nothing from one stamped
+ * `15:22` the morning before. Two sheets that are two moments must not look like two claims about
+ * one.
+ *
+ * A calendar date is still not available and is still not invented. But `a3d199fa7` gave an
+ * `Instant` a DAY (`dayOf`), so the sheet can now carry which day of the demonstration it was
+ * taken on — and that is sufficient for the failure DB-10 actually names, without fabricating the
+ * one element the decision made load-bearing. Two sheets from different days are now visibly two
+ * moments.
+ *
+ * **The `+ 1` is presentation and lives only here.** `dayOf` returns 0 for the opening day, and
+ * "day 0" reads as a defect to anybody not holding `ward-clock.ts` open. Nothing computes from
+ * this string; it is read aloud and pinned to a wall.
+ *
+ * Flagged for the owner and still open: a real calendar date arrives when the model gains a
+ * calendar, and not before. A day number is not a date — it distinguishes two sheets from each
+ * other, and tells nobody which Tuesday either of them was.
  *
  * A non-finite instant yields no time rather than `NaN:NaN` — the conservative direction this
  * whole feature takes: a sheet that cannot say when it was taken must not appear to.
  */
 export function asAtStamp(now: Instant): { time: string | null; dayNote: string } {
   const time = Number.isFinite(now) ? formatInstant(now) : null;
+  // A non-finite instant yields no day either: `dayOf(NaN)` is `NaN`, and "day NaN" is exactly the
+  // kind of stamp this function's own doc comment refuses. No time, no day, same branch.
+  const day = time === null ? null : dayOf(now) + 1;
   return {
     time,
-    dayNote: "synthetic operating day — this prototype holds no calendar date",
+    dayNote:
+      day === null
+        ? "synthetic operating day — this prototype holds no calendar date"
+        : `day ${day} of this demonstration — synthetic days, this prototype holds no calendar date`,
   };
 }
 

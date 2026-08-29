@@ -14,7 +14,7 @@ import {
 } from "@/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { arrowTargets, headlineAvailable, sinceYesterday } from "@/components/ward-management/ward-board-derivations";
-import { formatInstant, wallClockNow } from "@/components/ward-management/ward-clock";
+import { MINUTES_PER_DAY, formatInstant, wallClockNow } from "@/components/ward-management/ward-clock";
 import { derivedBedReleases } from "@/components/ward-management/ward-discharge-dates";
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import type { Unit } from "@/components/ward-management/ward-model";
@@ -127,6 +127,47 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     expect(asAtStamp(8 * 60 + 14).time).toBe("08:14");
     expect(asAtStamp(15 * 60 + 22).time).toBe("15:22");
     expect(asAtStamp(8 * 60 + 14).time).not.toBe(asAtStamp(15 * 60 + 22).time);
+  });
+
+  it("distinguishes two sheets taken at the same time on different days, which is what DB-10 is FOR", () => {
+    /*
+     * The gap the three tests above cannot see, and the one DB-10 exists to close. Every one of
+     * them varies the time of day, so all three pass while a sheet taken at 08:14 on the opening
+     * day and one taken at 08:14 the next day are byte-identical — two moments looking like two
+     * competing claims about one, which is exactly the hazard DB-10 names ("paper outlives its
+     * day"). A stamp that only carries a clock face cannot discharge that requirement however
+     * prominent it is.
+     *
+     * Asserted on the WHOLE stamp rather than on `time`, deliberately: `time` is a clock face and
+     * SHOULD be identical across days. It is the stamp as a reader receives it that has to differ.
+     */
+    const openingMorning = 8 * 60 + 14;
+    const nextMorning = openingMorning + MINUTES_PER_DAY;
+
+    expect(asAtStamp(openingMorning).time).toBe(asAtStamp(nextMorning).time);
+
+    const opening = asAtStamp(openingMorning);
+    const next = asAtStamp(nextMorning);
+    expect(opening.dayNote).not.toBe(next.dayNote);
+    expect(opening.dayNote).toContain("day 1");
+    expect(next.dayNote).toContain("day 2");
+  });
+
+  it("still refuses a calendar date, and says so on every day", () => {
+    // The day number is NOT a date and must not be allowed to read as one arriving. It
+    // distinguishes two sheets from each other; it tells nobody which Tuesday either was. The
+    // refusal therefore travels on every day, not only the opening one.
+    for (const instant of [8 * 60 + 14, 8 * 60 + 14 + MINUTES_PER_DAY, 8 * 60 + 14 + 9 * MINUTES_PER_DAY]) {
+      expect(asAtStamp(instant).dayNote).toContain("no calendar date");
+    }
+  });
+
+  it("offers no day at all when it has no time, rather than day NaN", () => {
+    // `dayOf(NaN)` is `NaN`. The non-finite branch is the one place a stamp could print "day NaN"
+    // on a sheet somebody pins to a wall, so time and day fail together on purpose.
+    expect(asAtStamp(Number.NaN).time).toBeNull();
+    expect(asAtStamp(Number.NaN).dayNote).not.toContain("NaN");
+    expect(asAtStamp(Number.NaN).dayNote).toContain("no calendar date");
   });
 
   it("yields no time at all for an unusable instant, never NaN", () => {
