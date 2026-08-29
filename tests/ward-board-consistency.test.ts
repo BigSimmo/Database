@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bedIsOccupied } from "@/components/ward-management/ward-admissions";
+import { ADMISSION_FIELDS, bedIsOccupied } from "@/components/ward-management/ward-admissions";
 import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { unitCapacity } from "@/components/ward-management/ward-derivations";
 import { allUnits } from "@/components/ward-management/ward-sites";
@@ -83,5 +83,64 @@ describe("the ward board's tiles agree with the unit's own figures", () => {
       .filter((row) => row.occupied > row.beds);
 
     expect(overfull).toEqual([]);
+  });
+
+  /**
+   * **A witness to the branch merge, deliberately placed OUTSIDE the conflict set.**
+   *
+   * This file is not one of the three paths that conflict, so a resolution cannot delete it
+   * alongside what it guards — which is exactly what makes the fully-wrong resolution look green.
+   * `tests/ward-admission-model.test.ts` IS in that set: resolving it away removes the assertion
+   * that the discharge fields must exist in the same edit that removes the fields.
+   *
+   * **This assertion was added because the first version of this file could NOT do this job, and a
+   * sister session caught it rather than me.** The two checks above read `bedIsOccupied` — byte
+   * identical on both branches, verified by blob id — and unit figures from the unconflicted
+   * `ward-sites.ts`. Nothing they touch changes under the wrong resolution, so they pass. They
+   * catch a MIXED resolution only, which four greps already catch. A test believed to be an
+   * independent witness, that is not one, is worse than no test: it is a check that cannot fail
+   * wearing the label of the thing that would have caught the error.
+   *
+   * `dischargeConfirmedAt` / `dischargeConfirmedBy` are the ONLY route to the `confirmed` discharge
+   * stage. They appear 4 times in this branch's seed and 0 times on the other. So:
+   *
+   * **If this reddens after a merge, the discharge fields were dropped — do not "fix" it by
+   * relaxing the assertion. Re-resolve the three conflicted paths toward the board's copy.**
+   */
+  /**
+   * **Four claims, four cases, on purpose.** Vitest stops a case at its first failing assertion, so
+   * four `expect`s in one block can only ever be exercised by a mutation that trips the first of
+   * them — the other three stay unproven while the case reddens and the whole thing reads as
+   * thoroughly verified. This was written as one block and split after noticing that, which means
+   * the shape got built into the very test whose job is to be a reliable witness.
+   */
+  it("declares dischargeConfirmedAt on the admission record", () => {
+    expect(ADMISSION_FIELDS, "the record no longer declares dischargeConfirmedAt").toContain("dischargeConfirmedAt");
+  });
+
+  it("declares dischargeConfirmedBy on the admission record", () => {
+    expect(ADMISSION_FIELDS, "the record no longer declares dischargeConfirmedBy").toContain("dischargeConfirmedBy");
+  });
+
+  it("seeds at least one confirmed discharge, so the stage is reachable at all", () => {
+    const confirmed = wardAdmissions.filter((admission) => admission.dischargeConfirmedAt !== null);
+
+    expect(
+      confirmed.length,
+      "no seeded admission carries dischargeConfirmedAt — the confirmed discharge stage is unreachable",
+    ).toBeGreaterThan(0);
+  });
+
+  /**
+   * Confirmed BY someone, not merely AT some time. The pair is what makes the stage attributable,
+   * and a resolution could plausibly keep one field and drop the other — so this is asserted apart
+   * from the case above rather than after it.
+   */
+  it("never records a discharge confirmed at an instant by nobody", () => {
+    const unattributed = wardAdmissions
+      .filter((admission) => admission.dischargeConfirmedAt !== null && admission.dischargeConfirmedBy === null)
+      .map((admission) => admission.id);
+
+    expect(unattributed, "confirmed at an instant, by nobody").toEqual([]);
   });
 });
