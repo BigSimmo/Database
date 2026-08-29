@@ -14,7 +14,7 @@ import {
   type CancelTransportReason,
   type ReleaseHoldReason,
 } from "@/components/ward-management/ward-change-reasons";
-import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
+import { formatInstant, formatInstantWithDay, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import {
   BED_RELEASE_BLOCKED_FIGURE_LABEL,
@@ -1338,7 +1338,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                   <li key={movement.id} data-testid={`ward-withdrawn-${movement.id}`} className={styles.card}>
                     <strong>{movement.id}</strong>
                     <span className={styles.cardMeta}>{entry ? entry.reason : "Withdrawn — reason unresolved"}</span>
-                    {entry ? <span className={styles.cardMeta}>{formatInstant(entry.at)}</span> : null}
+                    {entry ? <span className={styles.cardMeta}>{formatInstantWithDay(entry.at, now)}</span> : null}
                   </li>
                 );
               })}

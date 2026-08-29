@@ -53,7 +53,7 @@ import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
@@ -805,7 +805,9 @@ function EffectivenessValue({
 }
 
 function GovernanceView() {
-  const { movements } = useWardFlow();
+  // `now` is read so the audit timeline can say WHICH DAY an entry falls on. A bare clock face on a
+  // history list silently asserts today, and an audit trail is the one surface where that is worst.
+  const { movements, now } = useWardFlow();
   const sources = [
     ["WA Health System Flow Centre", "https://www.health.wa.gov.au/Improving-WA-Health/System-Flow-Centre"],
     [
@@ -893,7 +895,7 @@ function GovernanceView() {
                 ) : (
                   <CalendarDays aria-hidden="true" />
                 )}{" "}
-                {formatInstant(event.at)} · {event.label}
+                {formatInstantWithDay(event.at, now)} · {event.label}
               </li>
             ))}
           </ol>
@@ -934,8 +936,8 @@ function GovernanceView() {
                   ) : (
                     <Clock3 aria-hidden="true" />
                   )}{" "}
-                  {formatInstant(entry.at)} · {entry.movementId} · {auditKindLabels[entry.kind]} · {entry.detail} · by{" "}
-                  {entry.by}
+                  {formatInstantWithDay(entry.at, now)} · {entry.movementId} · {auditKindLabels[entry.kind]} ·{" "}
+                  {entry.detail} · by {entry.by}
                 </li>
               ))}
             </ol>

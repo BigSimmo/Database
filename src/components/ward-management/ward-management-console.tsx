@@ -18,7 +18,7 @@ import {
 import { useState } from "react";
 
 import { ContextualBackLink } from "@/components/contextual-back-link";
-import { formatInstant } from "@/components/ward-management/ward-clock";
+import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
@@ -381,7 +381,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <ol className={styles.timeline}>
               {timeline.map((event, index) => (
                 <li key={`${event.at}-${index}`}>
-                  <time>{formatInstant(event.at)}</time>
+                  <time>{formatInstantWithDay(event.at, now)}</time>
                   <span>{event.label}</span>
                 </li>
               ))}
@@ -399,7 +399,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <ol className={styles.timeline}>
               {patient.declines.map((decline, index) => (
                 <li key={`${decline.unitId}-${decline.at}-${index}`}>
-                  <time>{formatInstant(decline.at)}</time>
+                  <time>{formatInstantWithDay(decline.at, now)}</time>
                   <span>
                     {unitName(decline.unitId)} · {declineReasonLabels[decline.reason]}
                   </span>
@@ -417,7 +417,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <ol className={styles.timeline}>
               {changeEvents.map((change, index) => (
                 <li key={`${change.kind}-${change.at}-${index}`}>
-                  <time>{formatInstant(change.at)}</time>
+                  <time>{formatInstantWithDay(change.at, now)}</time>
                   <span>
                     {change.kind === "legal" ? "Legal status" : "Urgency"} changed {change.detail} by {change.by} ·{" "}
                     {change.reasonLabel}
@@ -436,7 +436,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <dl className={styles.factList}>
               <div>
                 <dt>When</dt>
-                <dd>{formatInstant(patient.escalation.at)}</dd>
+                <dd>{formatInstantWithDay(patient.escalation.at, now)}</dd>
               </div>
               <div>
                 <dt>Units tried</dt>
