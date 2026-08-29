@@ -177,6 +177,10 @@ work that has been approved and shipped.**
 **Whoever releases the baton runs this before handing it on. It is part of the handover, not a
 favour, and it needs no judgement:**
 
+`claude/Wardquestions` is the **current working branch** of the rules session and is still live -
+it is not merged and will not be. It has no worktree on the main line and cannot get one, which is
+why its documents travel by copy rather than by merge, and why this instruction exists at all.
+
 ```
 git checkout claude/Wardquestions -- \
   docs/ward-flow-mission-and-refusals.md \
