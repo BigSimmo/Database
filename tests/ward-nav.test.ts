@@ -44,7 +44,8 @@ import { ReferralIntakeForm } from "@/components/ward-management/referrals/refer
 import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { wardMovements } from "@/components/ward-management/ward-movements";
 
 import {
   WARD_DEVELOPER_HUB_HREF,
@@ -98,6 +99,7 @@ function routeToPattern(route: string): RegExp {
 
 const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
 const staticRoutes = wardFlowRoutes.filter((entry) => !entry.dynamic).map((entry) => entry.route);
+const dynamicRoutes = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => entry.route);
 const dynamicPatterns = wardFlowRoutes.filter((entry) => entry.dynamic).map((entry) => routeToPattern(entry.route));
 
 describe("Ward Flow route enumeration (sanity check on the scan itself)", () => {
@@ -129,6 +131,283 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/transport/officer`);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ward/rph-adult-secure`))).toBe(true);
     expect(dynamicPatterns.some((pattern) => pattern.test(`${ROUTE_PREFIX}/ed/peel-ed`))).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------ *
+ * The DYNAMIC half of the D8 check.
+ *
+ * `staticRoutes` above is filtered to static routes, so until now a dynamic route was checked for
+ * pattern SHAPE only — never for whether anything links it. The one orphan this programme found,
+ * the board's ward-detail route, was dynamic, which is exactly why nothing caught it.
+ *
+ * **What these assertions prove, stated precisely, because the obvious version of this guard is
+ * wrong.** A source scan can see that a route is REFERENCED. It cannot see that every instance
+ * the route serves is REACHABLE, and the difference is not academic: a link built inside a
+ * `.map()` may iterate the whole collection or a context-derived subset of three, and the two are
+ * textually identical. `ward-role-switcher.tsx` builds `/mockups/ward-flow/ward/${unit.id}` over
+ * `wardCandidates`, which is EMPTY unless a movement is focused and is otherwise that movement's
+ * accepted unit or its referred units — nought to three. So `ward/[unitId]` HAS a link builder
+ * while twenty-two of its twenty-three wards have no route in at all. A guard reading that
+ * builder as reachability would certify those twenty-two as fine, which is the same defect class
+ * as the orphan it was written to catch. Nothing below claims reachability.
+ *
+ * The property that IS mechanical: how many of a route's instances are named by a CONCRETE href
+ * somewhere in `src/` — an href a reader can follow with nothing selected and no state at all.
+ * That number is computed by the scan, the number of instances is read from the live fixture, and
+ * any shortfall must be recorded in `WARD_DYNAMIC_ROUTE_ORPHANS` with BOTH numbers written out in
+ * full. A reason can be vague and still satisfy a check; a coverage figure cannot, because the
+ * scan recomputes both halves of it and compares them to the words. Seed a twenty-fourth unit and
+ * every entry that says "of 23" goes red until somebody re-counts.
+ * ------------------------------------------------------------------------------------------ */
+
+const SRC_ROOT = path.join(REPO_ROOT, "src");
+
+/** Every `.ts`/`.tsx` file under `src/`, so a link may live anywhere — the developer hub that
+ *  opens the sandbox is not under `src/components/ward-management/`. */
+function collectSourceFiles(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collectSourceFiles(full, acc);
+    else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) acc.push(full);
+  }
+  return acc;
+}
+
+const sourceFiles = collectSourceFiles(SRC_ROOT);
+
+/** The three characters a JSX/TS href can sit between. Built by concatenation rather than written
+ *  into a template literal, because `${` inside one is an interpolation and a regex escape that
+ *  survives review can still arrive as a different byte — this project has lost a whole guard to a
+ *  literal `\b` becoming 0x08 four times. */
+const HREF_QUOTE = "[\"'`]";
+/** One concrete path segment: `rph-adult-secure`, `peel-ed`. Deliberately cannot start with `[`,
+ *  which is what keeps a prose mention of `/mockups/ward-flow/ward/[unitId]` out of the results. */
+const CONCRETE_SEGMENT = "[A-Za-z0-9][A-Za-z0-9._-]*";
+/** A template hole: `${unit.id}`. */
+const BUILT_SEGMENT = "\\$\\{[^}]*\\}";
+
+function dynamicRouteLinkPatterns(route: string) {
+  const base = route
+    .split("/")
+    .filter((segment) => !/^\[.+\]$/.test(segment))
+    .map(escapeRegex)
+    .join("/");
+  return {
+    concrete: new RegExp(HREF_QUOTE + base + "/(" + CONCRETE_SEGMENT + ")" + HREF_QUOTE, "g"),
+    built: new RegExp(HREF_QUOTE + base + "/" + BUILT_SEGMENT + HREF_QUOTE),
+  };
+}
+
+type DynamicRouteScan = {
+  /** Distinct concrete instances named by a literal href — `{"rph-adult-secure"}`. */
+  concreteInstances: Set<string>;
+  /** Repo-relative files holding at least one concrete href for this route. */
+  concreteSites: string[];
+  /** Repo-relative files that BUILD an href for this route. What they iterate is not visible. */
+  builtSites: string[];
+};
+
+/** A route's own `page.tsx` directory cannot vouch for the route — a route referencing itself is
+ *  not a way in. Sibling Ward Flow pages still count; they are real links. */
+function ownRouteDir(route: string) {
+  return path.join(WARD_FLOW_ROOT, ...route.slice(ROUTE_PREFIX.length).split("/").filter(Boolean));
+}
+
+function scanDynamicRoute(route: string): DynamicRouteScan {
+  const { concrete, built } = dynamicRouteLinkPatterns(route);
+  const ownDir = ownRouteDir(route) + path.sep;
+  const scan: DynamicRouteScan = { concreteInstances: new Set(), concreteSites: [], builtSites: [] };
+  for (const file of sourceFiles) {
+    if (file.startsWith(ownDir)) continue;
+    const text = readFileSync(file, "utf8");
+    const relative = path.relative(REPO_ROOT, file).split(path.sep).join("/");
+    concrete.lastIndex = 0;
+    let found = false;
+    for (let match = concrete.exec(text); match !== null; match = concrete.exec(text)) {
+      scan.concreteInstances.add(match[1]);
+      found = true;
+    }
+    if (found) scan.concreteSites.push(relative);
+    if (built.test(text)) scan.builtSites.push(relative);
+  }
+  return scan;
+}
+
+const dynamicRouteScans = new Map(dynamicRoutes.map((route) => [route, scanDynamicRoute(route)]));
+
+/**
+ * How many instances each dynamic route can serve, read from the live fixture rather than written
+ * down — so the coverage figures below cannot quietly go stale the way this branch's "22 units"
+ * comments did when Phase 7 seeded the twenty-third.
+ */
+const WARD_DYNAMIC_ROUTE_INSTANCES: ReadonlyMap<string, () => number> = new Map([
+  ["/mockups/ward-flow/ward/[unitId]", () => allUnits().length],
+  ["/mockups/ward-flow/board/[unitId]", () => allUnits().length],
+  ["/mockups/ward-flow/ed/[edId]", () => allEmergencyDepartments().length],
+  ["/mockups/ward-flow/patients/[patientId]", () => wardMovements.length],
+]);
+
+/**
+ * Dynamic routes that do NOT name every instance they serve, each recording the coverage as a
+ * figure the scan recomputes: the entry must contain the exact words "<linked> of <instances>
+ * instances reachable without state". Both numbers are computed, so neither can drift, and an
+ * entry cannot be satisfied by prose alone.
+ *
+ * "Without state" is the whole qualification. Three of the four routes are also reachable through
+ * a context-derived builder — but only after a coordinator has selected something, and only for
+ * whatever that selection implies. That is described in each entry and is deliberately NOT
+ * counted, because nothing here can see how many instances such a builder actually covers.
+ */
+const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
+  [
+    "/mockups/ward-flow/ward/[unitId]",
+    "1 of 23 instances reachable without state — ward-nav.ts's one seeded example (rph-adult-secure), " +
+      "carried as exampleOnly. ward-role-switcher.tsx builds the rest, but only over `wardCandidates`: " +
+      "empty with no movement focused, otherwise the focused movement's accepted unit or its referred " +
+      "units, so nought to three more and only after a selection. The other 22 wards have no route in. " +
+      "Owner decision pending on where a full ward index belongs.",
+  ],
+  [
+    "/mockups/ward-flow/board/[unitId]",
+    "1 of 23 instances reachable without state — ward-nav.ts's one seeded example (rph-adult-secure). " +
+      "Nothing builds a board href anywhere, so unlike the ward route there is not even a context-derived " +
+      "path to the other 22; they can be reached only by typing the URL. This is the orphan the fold " +
+      "found: the nav entry made ONE board reachable, not twenty-three. Owner decision pending on where " +
+      "a full board index belongs.",
+  ],
+  [
+    "/mockups/ward-flow/ed/[edId]",
+    "1 of 8 instances reachable without state — ward-nav.ts's one seeded example (peel-ed). " +
+      "ward-role-switcher.tsx builds one more, but only the focused movement's own originEdId, so nought " +
+      "or one and only after a selection. The other 7 departments have no route in.",
+  ],
+  [
+    "/mockups/ward-flow/patients/[patientId]",
+    "0 of 48 instances reachable without state — nothing names a concrete movement anywhere. All four " +
+      "builders (patient-search.tsx, live-tracker.tsx, ward-management-modes.tsx, " +
+      "ward-management-network.tsx) work from a query or a selection, so which movements are reachable " +
+      "depends entirely on what the coordinator has already done. Unlike the three above this is the " +
+      "intended shape — a patient workspace is reached from a patient, never from a list of all 48 — but " +
+      "it is recorded rather than exempted, because the figure is what makes the claim checkable.",
+  ],
+]);
+
+function coverageSentence(route: string) {
+  const scan = dynamicRouteScans.get(route);
+  const instances = WARD_DYNAMIC_ROUTE_INSTANCES.get(route);
+  return `${scan?.concreteInstances.size ?? 0} of ${instances ? instances() : 0} instances reachable without state`;
+}
+
+describe("Ward Flow dynamic routes — what links them, and what they leave orphaned (D8, dynamic half)", () => {
+  /**
+   * The floor, in the style of the route-enumeration canary above and for the same reason: three
+   * of the four assertions below are "this list is empty", and an empty list is what a scan that
+   * silently found nothing produces too.
+   */
+  it("scanned real routes and real source, and counts a prose mention as a link in neither direction", () => {
+    // Written out in full rather than counted. A fifth dynamic route arriving here should cost
+    // somebody a decision about how its instances are reached, not a number.
+    expect([...dynamicRoutes].sort()).toEqual([
+      "/mockups/ward-flow/board/[unitId]",
+      "/mockups/ward-flow/ed/[edId]",
+      "/mockups/ward-flow/patients/[patientId]",
+      "/mockups/ward-flow/ward/[unitId]",
+    ]);
+
+    // 1306 .ts/.tsx files under src/ on this tree. Floored rather than pinned, because src/ grows
+    // for reasons that have nothing to do with Ward Flow — but a walk that resolved the wrong root
+    // or lost its extension filter returns 0 or a handful, and every per-route result below would
+    // then read "nothing links this route" for reasons having nothing to do with the navigation.
+    expect(sourceFiles.length).toBeGreaterThan(900);
+
+    // Positive pins: the scan reads file CONTENT, and tells a concrete href from a built one.
+    const board = dynamicRouteScans.get("/mockups/ward-flow/board/[unitId]");
+    expect(board?.concreteSites).toEqual(["src/components/ward-management/ward-nav.ts"]);
+    expect([...(board?.concreteInstances ?? [])]).toEqual(["rph-adult-secure"]);
+    expect(board?.builtSites).toEqual([]);
+    const ward = dynamicRouteScans.get("/mockups/ward-flow/ward/[unitId]");
+    expect(ward?.builtSites).toEqual(["src/components/ward-management/ward-role-switcher.tsx"]);
+
+    // NEGATIVE pin, and the reason this query is narrow enough to mean anything at all.
+    // `ward-flow-events.ts` and `ward-flow-reducer.ts` both mention `/mockups/ward-flow/ward/[unitId]`
+    // in prose, wrapped in markdown backticks — so each sits between exactly the quote characters a
+    // real href sits between, and only the leading `[` of the placeholder segment separates the two.
+    // A pattern loose enough to admit them would report almost every route as linked while proving
+    // nothing, and would read exactly like a passing result.
+    const wardLinkSites = new Set([...(ward?.concreteSites ?? []), ...(ward?.builtSites ?? [])]);
+    expect([...wardLinkSites]).not.toContain("src/components/ward-management/ward-flow-reducer.ts");
+    expect([...wardLinkSites]).not.toContain("src/components/ward-management/ward-flow-events.ts");
+  });
+
+  /**
+   * Direction 2 of the two-way check, for dynamic routes. Titled for what it proves: a route is
+   * REFERENCED. It is the floor beneath the coverage assertion below — a route nothing mentions
+   * anywhere is unreachable outright, which needs no argument about how many instances a builder
+   * covers, and is the state the board's route shipped in.
+   */
+  it("every dynamic Ward Flow route is referenced by at least one link in src/ (referenced — NOT proven reachable)", () => {
+    const unreferenced = dynamicRoutes.filter((route) => {
+      const scan = dynamicRouteScans.get(route);
+      return (scan?.concreteSites.length ?? 0) === 0 && (scan?.builtSites.length ?? 0) === 0;
+    });
+    expect(
+      unreferenced,
+      `Dynamic Ward Flow route(s) with no href anywhere under src/ — nothing can reach any instance of them: ${unreferenced.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("declares, for every dynamic Ward Flow route, the collection whose instances it serves", () => {
+    const undeclared = dynamicRoutes.filter((route) => !WARD_DYNAMIC_ROUTE_INSTANCES.has(route));
+    expect(
+      undeclared,
+      `Dynamic Ward Flow route(s) with no entry in WARD_DYNAMIC_ROUTE_INSTANCES, so no coverage figure can be computed for them: ${undeclared.join(", ")}`,
+    ).toEqual([]);
+    const stale = [...WARD_DYNAMIC_ROUTE_INSTANCES.keys()].filter((route) => !dynamicRoutes.includes(route));
+    expect(stale, `WARD_DYNAMIC_ROUTE_INSTANCES entr(ies) for route(s) no longer on disk: ${stale.join(", ")}`).toEqual(
+      [],
+    );
+  });
+
+  /**
+   * The assertion that goes red on a new orphan. It is satisfied EITHER by naming every instance
+   * — which is the only thing a source scan can actually establish — OR by an entry stating the
+   * shortfall as the two computed numbers. All four routes currently take the second branch, and
+   * that is not a softening: it is the deficiency put on the record as a figure, which is what
+   * anyone fixing it has to change.
+   */
+  it("every dynamic Ward Flow route names every instance it serves, or records exactly how many it orphans", () => {
+    const unrecorded = dynamicRoutes
+      .map((route) => {
+        const linked = dynamicRouteScans.get(route)?.concreteInstances.size ?? 0;
+        const instances = WARD_DYNAMIC_ROUTE_INSTANCES.get(route)?.() ?? 0;
+        if (linked >= instances) return undefined;
+        const recorded = WARD_DYNAMIC_ROUTE_ORPHANS.get(route);
+        if (recorded === undefined) {
+          return `${route}: ${coverageSentence(route)}, and WARD_DYNAMIC_ROUTE_ORPHANS has no entry for it`;
+        }
+        if (!recorded.includes(coverageSentence(route))) {
+          return `${route}: the scan measures "${coverageSentence(route)}" but its WARD_DYNAMIC_ROUTE_ORPHANS entry does not say so`;
+        }
+        return undefined;
+      })
+      .filter((problem): problem is string => problem !== undefined);
+    expect(unrecorded, `Dynamic Ward Flow route coverage problem(s):\n  ${unrecorded.join("\n  ")}`).toEqual([]);
+  });
+
+  it("WARD_DYNAMIC_ROUTE_ORPHANS has no entry for a route that is no longer dynamic, or no longer orphans anything", () => {
+    for (const [route, reason] of WARD_DYNAMIC_ROUTE_ORPHANS) {
+      expect(dynamicRoutes, `${route} is recorded as orphaning instances but is no longer a dynamic route`).toContain(
+        route,
+      );
+      expect(reason.trim().length, `${route}'s recorded reason is empty`).toBeGreaterThan(0);
+      const linked = dynamicRouteScans.get(route)?.concreteInstances.size ?? 0;
+      const instances = WARD_DYNAMIC_ROUTE_INSTANCES.get(route)?.() ?? 0;
+      expect(
+        linked,
+        `${route} now names all ${instances} of its instances — delete its WARD_DYNAMIC_ROUTE_ORPHANS entry rather than leaving a false record`,
+      ).toBeLessThan(instances);
+    }
   });
 });
 
