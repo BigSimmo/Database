@@ -14,6 +14,7 @@ vi.mock("next/link", () => ({
 }));
 
 import { MorningPage } from "@/components/ward-management/morning/morning-page";
+import { MorningTour } from "@/components/ward-management/morning/morning-tour";
 import { TOUR_BEAT_INTERVAL_MS, tourBeatEvents } from "@/components/ward-management/morning/morning-tour";
 import { EVENT_ROLE } from "@/components/ward-management/ward-flow-events";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -99,10 +100,31 @@ function ExternalRaiser() {
   );
 }
 
+/**
+ * Mounts the tour DIRECTLY, beside the page rather than inside it.
+ *
+ * WHY, from 2026-08-30: the owner paused the guided tour — "pause the guided tour for now as the app
+ * is not built. That should be done last." `MorningPage` no longer renders `MorningTour`, so a test
+ * that mounted the page and looked for the tour would find nothing.
+ *
+ * The tour is PAUSED, NOT DELETED, and that distinction is only real if its behaviour stays covered.
+ * Skipping this file would have been the easy alternative and the wrong one: a skipped test is a
+ * check that cannot fail, so the tour would rot silently and whoever un-pauses it would inherit
+ * whatever it had become. Mounting the component directly keeps every assertion below live against
+ * the real reducer, exactly as before — only the page's own rendering of it has stopped.
+ *
+ * `onChangeView` is a no-op stub. It used to switch the page between a frozen and a live view;
+ * WB-DB-11 removed that view entirely, so there is nothing left for it to change and the tour's
+ * remaining behaviour is what these tests are about.
+ *
+ * The complement to this file is `tests/ward-morning-tour-paused.test.tsx`, which asserts the page
+ * mounts no tour and dispatches nothing. Together they say: the tour works, and it is switched off.
+ */
 function renderMorningPage({ withAccepter = false }: { withAccepter?: boolean } = {}) {
   return render(
     <WardFlowProvider initialNow={NOW_ANCHOR}>
       <MorningPage />
+      <MorningTour onChangeView={() => {}} />
       {withAccepter && <ConcurrentAccepter />}
       <StateProbe />
     </WardFlowProvider>,
@@ -145,7 +167,11 @@ describe("MorningTour", () => {
     // (ruling R1 — the fixed view is a frozen snapshot and would never show beat 4).
     expect(screen.getByTestId("ward-morning-tour-beat")).toHaveTextContent("Beat 0 of 4");
     expect(screen.getByTestId("ward-morning-tour-caption")).toHaveTextContent(/resetting/i);
-    expect(screen.getByTestId("ward-morning-view-live")).toHaveAttribute("aria-pressed", "true");
+    // The tour used to switch the page to the live view at Start, asserted here through the
+    // fixed/live toggle's aria-pressed state. WB-DB-11 removed that toggle on 2026-08-30 - there
+    // is one view now and it is always live - so there is no control left to press and nothing
+    // for the tour to switch. The assertion is removed rather than adapted: adapting it would
+    // have meant inventing a new thing for it to check, which is how a test outlives its subject.
 
     advance();
     expect(screen.getByTestId("ward-morning-tour-beat")).toHaveTextContent("Beat 1 of 4");
@@ -273,6 +299,7 @@ describe("MorningTour", () => {
     const { rerender } = render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <MorningPage />
+        <MorningTour onChangeView={() => {}} />
         <ExternalRaiser />
         <StateProbe />
       </WardFlowProvider>,
@@ -302,6 +329,7 @@ describe("MorningTour", () => {
     rerender(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
         <MorningPage />
+        <MorningTour onChangeView={() => {}} />
         <ExternalRaiser />
         <StateProbe />
       </WardFlowProvider>,

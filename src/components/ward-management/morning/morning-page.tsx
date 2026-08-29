@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 
 import type { CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
@@ -24,7 +23,6 @@ import {
 } from "@/components/ward-management/ward-morning-rollup";
 import { wardSites } from "@/components/ward-management/ward-sites";
 
-import { MorningTour } from "./morning-tour";
 import styles from "./morning.module.css";
 
 /** Every figure key, in the ONE order `CAPACITY_FIGURE_LABELS` declares them — never a
@@ -110,35 +108,31 @@ export function buildFrozenMorning(
 export function MorningPage() {
   const { units, bedReleases, leaveBeds, referrals, now } = useWardFlow();
 
-  const [frozen] = useState<FrozenMorning>(() =>
-    buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds, referrals),
-  );
-
-  const [view, setView] = useState<MorningView>("fixed");
-
-  // Live view: recomputed from the live `now` on every render, never frozen.
+  // ONE VIEW, ALWAYS LIVE (WB-DB-11, owner decision). Recomputed from the live `now` on every
+  // render, never frozen.
   const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
-  // Task 9's demand figure on the live view, recomputed every render for the same reason the
-  // rollup above is: the tour accepts and declines real referrals through the real reducer, and a
-  // frozen live count would keep claiming people are waiting after they have been placed.
   const livePeopleWaiting = peopleWaitingCount(referrals);
 
   return (
     <div className={styles.screen} data-testid="ward-morning-page">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
-        {/* Task 3: given the same `setView` setter `MorningBody` receives below, so the tour can
-            switch the page to the live view at Start without reaching back into this component's
-            own state — the seam this file's own `MorningBody` doc comment describes. */}
-        <MorningTour onChangeView={setView} />
-        <MorningBody
-          frozen={frozen}
-          view={view}
-          onChangeView={setView}
-          liveRollup={liveRollup}
-          liveNow={now}
-          livePeopleWaiting={livePeopleWaiting}
-        />
+        {/*
+         * THE GUIDED TOUR IS PAUSED, NOT REMOVED - owner instruction 2026-08-30: "pause the guided
+         * tour for now as the app is not built. That should be done last."
+         *
+         * `MorningTour` is deliberately not rendered here. Its file, its beats and its tests stay
+         * exactly where they are, because a tour of a half-built application teaches the wrong
+         * thing and a tour deleted for being inconvenient is a feature that disappears with nobody
+         * deciding it should. It comes back when the application it describes exists.
+         *
+         * Pausing it is not a display change. The tour DISPATCHES - `RESET_SCENARIO`, real accepts,
+         * real declines, straight through the live reducer - so "paused" has to mean it emits
+         * nothing, and `tests/ward-morning-tour-paused.test.ts` asserts exactly that rather than
+         * trusting this comment. That test is the thing somebody must deliberately remove when the
+         * tour is switched back on, which makes un-pausing a decision rather than an edit.
+         */}
+        <MorningBody liveRollup={liveRollup} liveNow={now} livePeopleWaiting={livePeopleWaiting} />
       </main>
     </div>
   );
@@ -154,35 +148,14 @@ export function MorningPage() {
  * from outside does not require reaching back into `MorningPage`'s own state.
  */
 export function MorningBody({
-  frozen,
-  view,
-  onChangeView,
   liveRollup,
   liveNow,
   livePeopleWaiting,
 }: {
-  frozen: FrozenMorning;
-  view: MorningView;
-  onChangeView: (view: MorningView) => void;
   liveRollup: ServiceRollup;
   liveNow: Instant;
   livePeopleWaiting: number;
 }) {
-  const noHandoverYet = view === "fixed" && frozen.instant === null;
-  const activeRollup = view === "fixed" ? frozen.rollup : liveRollup;
-  // The instant every figure group on the active view is tagged with (spec D6: each view carries
-  // its own instant next to every figure group) — the fixed view's frozen handover instant while
-  // showing it, the live clock while showing that. Only read once `noHandoverYet` is ruled out
-  // above, so `frozen.instant` is never null here (the branches below that use it are gated the
-  // same way `activeRollup` already is).
-  const activeNow: Instant = view === "fixed" ? (frozen.instant as Instant) : liveNow;
-  // Task 9's demand figure for the active view, gated exactly as `activeNow` above is: it is only
-  // ever read inside the `!noHandoverYet && activeRollup` branch, where `frozen.peopleWaiting` is
-  // non-null by the same construction that makes `frozen.rollup` non-null (`buildFrozenMorning`
-  // sets both from the one `instant === null` test). Never `?? 0` — a zero would read as "nobody
-  // is waiting", which is a claim, not the absence of one.
-  const activePeopleWaiting: number = view === "fixed" ? (frozen.peopleWaiting as number) : livePeopleWaiting;
-
   return (
     <>
       <GovernanceBanner />
@@ -191,34 +164,24 @@ export function MorningBody({
           sibling of `ViewControl`, not a descendant — `.viewControl` is fully hidden in print
           (it holds the two interactive buttons), so anything that must survive into print has to
           live outside it. */}
-      <PrintViewMeta view={view} liveNow={liveNow} />
+      <PrintViewMeta liveNow={liveNow} />
 
-      {noHandoverYet ? (
-        <NoHandoverYet onSwitchToLive={() => onChangeView("live")} />
-      ) : (
-        activeRollup && (
-          <>
-            {/* Task 9: the demand figure sits BESIDE the headline, never inside it (spec D2).
-                `.headlineRow` is a layout wrapper only — it places two independent sections side
-                by side and performs no arithmetic across them. */}
-            <div className={styles.headlineRow}>
-              <HeadlineFigure rollup={activeRollup.service} now={activeNow} />
-              <PeopleWaitingFigure count={activePeopleWaiting} view={view} />
-            </div>
-            <RemainingFigures rollup={activeRollup.service} />
-            <ExcludedBeyondTonight count={activeRollup.service.excludedBeyondToday} />
-          </>
-        )
-      )}
-
-      <ViewControl view={view} onChangeView={onChangeView} liveNow={liveNow} />
-
-      {!noHandoverYet && activeRollup && (
+      {liveRollup && (
         <>
-          <UnplacedUnitsNote unplacedUnitIds={activeRollup.unplacedUnitIds} />
+          {/* Task 9: the demand figure sits BESIDE the headline, never inside it (spec D2).
+              `.headlineRow` is a layout wrapper only — it places two independent sections side
+              by side and performs no arithmetic across them. */}
+          <div className={styles.headlineRow}>
+            <HeadlineFigure rollup={liveRollup.service} now={liveNow} />
+            <PeopleWaitingFigure count={livePeopleWaiting} />
+          </div>
+          <RemainingFigures rollup={liveRollup.service} />
+          <ExcludedBeyondTonight count={liveRollup.service.excludedBeyondToday} />
+
+          <UnplacedUnitsNote unplacedUnitIds={liveRollup.unplacedUnitIds} />
           <div className={styles.siteList} data-testid="ward-morning-sites">
-            {activeRollup.sites.map((siteRollup) => (
-              <SiteBlock key={siteRollup.site.code} siteRollup={siteRollup} now={activeNow} />
+            {liveRollup.sites.map((siteRollup) => (
+              <SiteBlock key={siteRollup.site.code} siteRollup={siteRollup} now={liveNow} />
             ))}
           </div>
         </>
@@ -245,17 +208,30 @@ export function MorningBody({
  *    carries the page's one honest caveat about the fixed view (a snapshot at open, not a
  *    reconstruction of 08:00) rather than losing it entirely along with the buttons.
  */
-function PrintViewMeta({ view, liveNow }: { view: MorningView; liveNow: Instant }) {
+function PrintViewMeta({ liveNow }: { liveNow: Instant }) {
   return (
     <div className={styles.printViewMeta} data-testid="ward-morning-print-meta">
       <p className={styles.printViewLabel} data-testid="ward-morning-print-view-label">
-        {view === "fixed"
-          ? `This sheet: handover view, frozen ${formatInstant(MORNING_HANDOVER_MINUTES)}.`
-          : `This sheet: live view, as at ${formatInstant(liveNow)}.`}
+        {`This sheet: printed ${formatInstant(liveNow)}.`}
       </p>
+      {/*
+       * WHY THE TIME IS ON THE SHEET AT ALL, and prominently.
+       *
+       * This used to say which of two views produced the sheet, and label a frozen one against the
+       * 08:00 handover clock. The owner removed that on 2026-08-30: "There is no point of a stale
+       * handover. Remove it and make the print out live from whatever time." He is right that the
+       * frozen sheet was the worse artefact - it claimed a reconstruction of 08:00 that this
+       * prototype cannot make, since it holds no event history and the snapshot was taken whenever
+       * the page happened to be opened.
+       *
+       * But a printed sheet is stale the moment it leaves the printer whatever it says. Removing
+       * the label without replacing it would swap a time that was wrong for no time at all, and a
+       * sheet with no time on it is the one nobody can tell is old. So it now says the moment it
+       * was actually printed, which is the only claim a sheet can make and keep.
+       */}
       <p className={styles.printViewNote} data-testid="ward-morning-print-view-note">
-        The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock — not a
-        reconstruction of what the ward state actually was at 08:00, because this prototype keeps no event history.
+        Printed from the live view. Every figure is as at the time above and nothing on this sheet updates once it is
+        printed — a printed sheet is a moment, not a monitor.
       </p>
       {/*
        * WB-DB-10's change notice, and it exists because a timestamp is not one. A stamp says WHEN a
@@ -387,7 +363,7 @@ export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: I
  * of `referralQueueOrder`'s own list — the very list the referral board renders. This page
  * computes no figure of its own (spec D1).
  */
-function PeopleWaitingFigure({ count, view }: { count: number; view: MorningView }) {
+function PeopleWaitingFigure({ count }: { count: number }) {
   return (
     <section className={styles.peopleWaiting} data-testid="ward-morning-people-waiting">
       <h2 className={styles.peopleWaitingTitle}>{PEOPLE_WAITING_LABEL}</h2>
@@ -397,23 +373,20 @@ function PeopleWaitingFigure({ count, view }: { count: number; view: MorningView
         </span>
       </p>
       {/*
-       * Review finding M7: the first sentence used to read "counted exactly as the referral board
-       * counts them" on BOTH views. The derivation claim is true — this figure is the length of
-       * `referralQueueOrder`'s own list, the very list the board renders — but on the fixed view
-       * the number is captured in a `useState` initialiser at mount and never moves again, so the
-       * present tense it reads as is not. Accept a referral (the guided tour does exactly that,
-       * through the real reducer) and the board reads Queued (1) while this still reads 2, under
-       * a sentence saying the two are counted the same.
+       * Review finding M7 recorded that this sentence used to read "counted exactly as the referral
+       * board counts them" on BOTH views, and that on the FIXED view it was false in tense: the
+       * number was captured at mount and never moved, so accepting a referral left the board reading
+       * Queued (1) while this still read 2, under a sentence saying the two are counted the same.
        *
-       * So the fixed view is worded the way every bed figure on it already is — as at the
-       * handover instant — and the live-agreement sentence stays on the view where it is true.
+       * WB-DB-11 removed the fixed view on 2026-08-30, so there is one view and the live wording is
+       * the only wording. The finding is kept rather than dropped with the branch it described,
+       * because it is the reason this sentence is worded in the present tense at all - and a future
+       * reader adding a second view would otherwise reintroduce the same false tense with nothing
+       * recording that it had already happened once.
        */}
       <p className={styles.peopleWaitingNote} data-testid="ward-morning-people-waiting-note">
-        {view === "fixed"
-          ? "Referrals still queued as at the handover instant above, counted the way the referral board counts them. It does not move as the board is worked through the day."
-          : "Referrals still queued, counted exactly as the referral board counts them."}{" "}
-        It is shown beside the beds figure, never taken away from it — this page states demand and supply and leaves the
-        comparison to the reader.
+        Referrals still queued, counted exactly as the referral board counts them. It is shown beside the beds figure,
+        never taken away from it — this page states demand and supply and leaves the comparison to the reader.
       </p>
     </section>
   );

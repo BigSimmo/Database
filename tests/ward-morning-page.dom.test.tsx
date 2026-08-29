@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { render, screen, within } from "@testing-library/react";
+import { useEffect, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-discharge-board.dom.test.tsx):
@@ -14,15 +14,13 @@ vi.mock("next/link", () => ({
 }));
 
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
-import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { formatInstant } from "@/components/ward-management/ward-clock";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import {
-  buildFrozenMorning,
   FreshnessStamp,
   MorningBody,
   MorningPage,
   UnplacedUnitsNote,
-  type MorningView,
 } from "@/components/ward-management/morning/morning-page";
 import {
   CAPACITY_FIGURE_LABELS,
@@ -67,65 +65,6 @@ function renderMorningPage({ withClockAdvancer = false }: { withClockAdvancer?: 
       <MorningPage />
       {withClockAdvancer && <ClockAdvancer minutes={100} />}
     </WardFlowProvider>,
-  );
-}
-
-/**
- * Drives `MorningBody` directly with a hand-authored `frozen = { instant: null, rollup: null }`
- * — the null-handover failure branch — instead of depending on `WardFlowProvider`'s live clock
- * ever genuinely falling before 08:00.
- *
- * That dependency does not actually work in this codebase today: `WardFlowProvider`'s
- * `initialNow` prop is documented as "pins the clock at this instant", but its value is only
- * ever used to decide whether the clock is pinned at all — `now` is always computed as
- * `NOW_ANCHOR + elapsed + clockOffsetMinutes`, and `elapsed` is hardcoded to `0` whenever
- * `initialNow` is defined, so `initialNow`'s own numeric value is never read on that path. Every
- * existing Ward Flow test happens to pass `initialNow={NOW_ANCHOR}` (642, 10:42 — after the
- * 08:00 gate), so nothing has exercised a pinned `now` before 08:00 until this suite. This is
- * exactly the kind of case `MorningBody`'s own doc comment explains the seam is for — see that
- * comment in `morning-page.tsx`. (Flagged separately; not this task's file to fix.)
- */
-function NullHandoverHarness() {
-  const { units, bedReleases, leaveBeds, referrals, now } = useWardFlow();
-  const [view, setView] = useState<MorningView>("fixed");
-  const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
-  return (
-    <MorningBody
-      frozen={{ instant: null, rollup: null, peopleWaiting: null }}
-      view={view}
-      onChangeView={setView}
-      liveRollup={liveRollup}
-      liveNow={now}
-      livePeopleWaiting={peopleWaitingCount(referrals)}
-    />
-  );
-}
-
-/**
- * Unlike `NullHandoverHarness` above, this drives the REAL `buildFrozenMorning` — the actual
- * null-producing path (spec D5) — instead of hand-authoring `frozen = { instant: null, rollup:
- * null }`. `WardFlowProvider`'s `initialNow` prop cannot be used to make the live `now` genuinely
- * fall before 08:00 (its numeric value is discarded on the path that matters — see
- * `NullHandoverHarness`'s comment and the mutation report's Gap 1), so this harness takes the real
- * `units`/`bedReleases`/`leaveBeds` from the provider and calls `buildFrozenMorning` directly with
- * a synthetic pre-08:00 `now` argument — exactly the value `MorningPage`'s own `useState`
- * initialiser would close over if the clock genuinely read that time. This exercises
- * `buildFrozenMorning`'s null-propagation for real, not a bypass of it.
- */
-function DirectFrozenHarness({ now }: { now: Instant }) {
-  const { units, bedReleases, leaveBeds, referrals } = useWardFlow();
-  const frozen = buildFrozenMorning(now, wardSites, units, bedReleases, leaveBeds, referrals);
-  const [view, setView] = useState<MorningView>("fixed");
-  const liveRollup = serviceRollup(wardSites, units, bedReleases, leaveBeds, now);
-  return (
-    <MorningBody
-      frozen={frozen}
-      view={view}
-      onChangeView={setView}
-      liveRollup={liveRollup}
-      liveNow={now}
-      livePeopleWaiting={peopleWaitingCount(referrals)}
-    />
   );
 }
 
@@ -341,141 +280,6 @@ describe("MorningPage", () => {
     }
   });
 
-  /**
-   * THE FREEZE MUST BE REAL. `serviceRollup` is a pure function of `now`, so if `MorningPage`
-   * ever re-derived the fixed view on the provider's live clock tick — instead of freezing it
-   * once at mount — this test catches it two ways: the headline figure text would change, and
-   * every site block's text would change too (compared whole). Advancing the clock 100 minutes
-   * from `NOW_ANCHOR` (10:42) to 12:22 stays within the same operating day and stays well after
-   * 08:00, so this is purely a freeze check, not a null-handover check (that is covered below).
-   *
-   * The live view is checked in the same test to prove the opposite is also true: the "Live
-   * HH:MM" control label DOES move when the clock advances, because it reads the live `now` on
-   * every render — if the whole page were accidentally frozen (not just the fixed view), this
-   * assertion would fail too.
-   */
-  it("freezes the fixed view at open and does not change when the shared clock advances, while the live label keeps moving", () => {
-    renderMorningPage({ withClockAdvancer: true });
-
-    const headlineBefore = screen.getByTestId("ward-morning-headline").textContent;
-    const sitesBefore = screen.getByTestId("ward-morning-sites").textContent;
-    const liveButtonBefore = screen.getByTestId("ward-morning-view-live").textContent;
-    expect(liveButtonBefore).toContain(formatInstant(NOW_ANCHOR));
-
-    fireEvent.click(screen.getByRole("button", { name: "advance clock" }));
-
-    const headlineAfter = screen.getByTestId("ward-morning-headline").textContent;
-    const sitesAfter = screen.getByTestId("ward-morning-sites").textContent;
-    expect(headlineAfter).toBe(headlineBefore);
-    expect(sitesAfter).toBe(sitesBefore);
-
-    const liveButtonAfter = screen.getByTestId("ward-morning-view-live").textContent;
-    expect(liveButtonAfter).toContain(formatInstant(NOW_ANCHOR + 100));
-    expect(liveButtonAfter).not.toBe(liveButtonBefore);
-  });
-
-  /**
-   * Failure branch: `morningHandoverInstant(now)` is `null` before 08:00, i.e.
-   * `frozen = { instant: null, rollup: null }`. The fixed view must show no figures at all —
-   * never a previous day's snapshot, never a silent fall back to `now` (spec D5). See
-   * `NullHandoverHarness`'s own comment for why this drives `MorningBody` directly.
-   */
-  it("shows no figures at all in the fixed view before 08:00, states the handover has not been taken, and offers the live view", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <NullHandoverHarness />
-      </WardFlowProvider>,
-    );
-
-    expect(screen.getByTestId("ward-morning-no-handover")).toHaveTextContent(
-      "The 08:00 handover has not been taken for this day.",
-    );
-    expect(screen.queryByTestId("ward-morning-headline")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("ward-morning-sites")).not.toBeInTheDocument();
-
-    // Offering the live view — clicking through actually switches and renders real figures.
-    fireEvent.click(screen.getByRole("button", { name: "Show the live view instead" }));
-
-    expect(screen.queryByTestId("ward-morning-no-handover")).not.toBeInTheDocument();
-    expect(screen.getByTestId("ward-morning-headline")).toBeInTheDocument();
-    expect(screen.getByTestId("ward-morning-view-live")).toHaveAttribute("aria-pressed", "true");
-  });
-
-  /**
-   * Review finding M7. The demand note used to read "counted exactly as the referral board counts
-   * them" on both views. `frozen.peopleWaiting` is captured in a `useState` initialiser at mount,
-   * so on the FIXED view the figure never moves again — accept a referral and the board reads one
-   * fewer while this still reads the old number, under a sentence claiming the two are counted
-   * the same. The derivation is true; the present-tense agreement is not.
-   *
-   * Asserted as the property, not the sentence: the fixed view must qualify the figure with the
-   * instant it was taken at, and must not claim live agreement; the live view, where the claim IS
-   * true, must still make it. Both are read off one render, switching views, so a component that
-   * rendered one wording unconditionally fails whichever view it picked.
-   */
-  it("qualifies the demand figure by the handover instant on the fixed view, and claims live agreement only on the live view", () => {
-    renderMorningPage();
-
-    const fixedNote = screen.getByTestId("ward-morning-people-waiting-note").textContent ?? "";
-    expect(fixedNote).toContain("as at the handover instant");
-    expect(fixedNote).not.toContain("counted exactly as the referral board counts them");
-
-    fireEvent.click(screen.getByTestId("ward-morning-view-live"));
-
-    const liveNote = screen.getByTestId("ward-morning-people-waiting-note").textContent ?? "";
-    expect(liveNote).toContain("counted exactly as the referral board counts them");
-    expect(liveNote).not.toContain("as at the handover instant");
-  });
-
-  /**
-   * Review finding M5. The page's only <h1> lives in `HeadlineFigure`, inside the branch the
-   * test above proves is NOT rendered here — so before this fix the no-handover state shipped a
-   * page with zero <h1>. `ward-landmarks.test.ts` renders `MorningPage` at `NOW_ANCHOR` only,
-   * where the other branch always wins, so it could not see this; the branch is genuinely
-   * reachable through the demo control's "+1 hour", about fourteen presses from `NOW_ANCHOR`.
-   *
-   * Exactly one, never at least one — the landmark suite's own rule is that "a second <h1> is as
-   * much a defect as none", and the two branches here are mutually exclusive.
-   */
-  it("renders exactly one <h1> in the no-handover state, where the headline figure is absent", () => {
-    const { container } = render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <NullHandoverHarness />
-      </WardFlowProvider>,
-    );
-
-    expect(screen.queryByTestId("ward-morning-headline")).not.toBeInTheDocument();
-    expect(container.querySelectorAll("h1")).toHaveLength(1);
-
-    // Switching to the live view brings the headline figure back — and still exactly one <h1>,
-    // so this fix cannot have produced two on the branch that already had one.
-    fireEvent.click(screen.getByRole("button", { name: "Show the live view instead" }));
-    expect(screen.getByTestId("ward-morning-headline")).toBeInTheDocument();
-    expect(container.querySelectorAll("h1")).toHaveLength(1);
-  });
-
-  /**
-   * Same failure branch as the test above, but through the REAL `buildFrozenMorning` (see
-   * `DirectFrozenHarness`'s doc comment for why `WardFlowProvider` cannot supply this directly).
-   * A `buildFrozenMorning` that silently fell back to `now` instead of propagating `null` —
-   * mutation-report Gap 1 — would render figures here instead of the not-taken state, and this
-   * test would fail.
-   */
-  it("propagates buildFrozenMorning()'s real null-instant result to no figures at all, never a fallback to now", () => {
-    const beforeHandover = 100; // 01:40 on the same operating day as NOW_ANCHOR (642) — before 08:00
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <DirectFrozenHarness now={beforeHandover} />
-      </WardFlowProvider>,
-    );
-
-    expect(screen.getByTestId("ward-morning-no-handover")).toHaveTextContent(
-      "The 08:00 handover has not been taken for this day.",
-    );
-    expect(screen.queryByTestId("ward-morning-headline")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("ward-morning-sites")).not.toBeInTheDocument();
-  });
-
   it("reads 'Never confirmed' for a rollup with nothing confirmed, never a bare 0", () => {
     render(<FreshnessStamp freshness={{ kind: "never" }} />);
     expect(screen.getByText("Never confirmed")).toBeInTheDocument();
@@ -622,21 +426,32 @@ describe("MorningPage", () => {
     ).toHaveTextContent("Remove this notice");
   });
 
-  it("states which view and instant the print-only label carries, and updates it when the view toggles", () => {
+  it("stamps the printed sheet with the moment it was printed, which is the only claim a sheet can keep", () => {
+    /*
+     * REWRITTEN 2026-08-30 (WB-DB-11). This asserted which of two views produced the sheet, and that
+     * the label changed when the toggle was pressed. There is one view now and no toggle.
+     *
+     * The owner's instruction was "there is no point of a stale handover - remove it and make the
+     * print out live from whatever time". The frozen sheet was the worse artefact: it claimed a
+     * reconstruction of the 08:00 handover that this prototype cannot make, having no event history,
+     * and the snapshot was actually taken whenever the page happened to be opened.
+     *
+     * But a printed sheet is stale the moment it leaves the printer whatever it says, so removing
+     * the label without replacing it would have swapped a wrong time for no time - and a sheet with
+     * no time on it is the one nobody can tell is old. This pins the replacement: the real moment of
+     * printing, and a sentence saying the sheet does not update.
+     */
     renderMorningPage();
 
-    expect(screen.getByTestId("ward-morning-print-view-label")).toHaveTextContent(
-      `This sheet: handover view, frozen ${formatInstant(MORNING_HANDOVER_MINUTES)}.`,
-    );
-    expect(screen.getByTestId("ward-morning-print-view-note")).toHaveTextContent(
-      "not a reconstruction of what the ward state actually was at 08:00",
-    );
+    expect(
+      screen.getByTestId("ward-morning-print-view-label"),
+      "the printed sheet must state the moment it was printed, or nobody holding it can tell how old it is",
+    ).toHaveTextContent(`This sheet: printed ${formatInstant(NOW_ANCHOR)}.`);
 
-    fireEvent.click(screen.getByTestId("ward-morning-view-live"));
-
-    expect(screen.getByTestId("ward-morning-print-view-label")).toHaveTextContent(
-      `This sheet: live view, as at ${formatInstant(NOW_ANCHOR)}.`,
-    );
+    expect(
+      screen.getByTestId("ward-morning-print-view-note"),
+      "and it must say the sheet does not update, because a reader cannot tell a printout from a screen",
+    ).toHaveTextContent("nothing on this sheet updates once it is printed");
   });
 
   /**
@@ -672,30 +487,14 @@ describe("MorningPage", () => {
     }
 
     const nonZero = syntheticServiceRollup(3);
-    render(
-      <MorningBody
-        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: nonZero, peopleWaiting: 0 }}
-        view="fixed"
-        onChangeView={() => {}}
-        liveRollup={nonZero}
-        liveNow={MORNING_HANDOVER_MINUTES}
-        livePeopleWaiting={0}
-      />,
-    );
+    render(<MorningBody liveRollup={nonZero} liveNow={MORNING_HANDOVER_MINUTES} livePeopleWaiting={0} />);
     expect(screen.getByTestId("ward-morning-excluded")).toHaveTextContent(
       "3 beds excluded from the figures above — expected beyond tonight.",
     );
 
     const zero = syntheticServiceRollup(0);
     const { container } = render(
-      <MorningBody
-        frozen={{ instant: MORNING_HANDOVER_MINUTES, rollup: zero, peopleWaiting: 0 }}
-        view="fixed"
-        onChangeView={() => {}}
-        liveRollup={zero}
-        liveNow={MORNING_HANDOVER_MINUTES}
-        livePeopleWaiting={0}
-      />,
+      <MorningBody liveRollup={zero} liveNow={MORNING_HANDOVER_MINUTES} livePeopleWaiting={0} />,
     );
     expect(within(container).getByTestId("ward-morning-excluded")).toHaveTextContent(
       "0 beds excluded from the figures above — expected beyond tonight.",
@@ -710,27 +509,6 @@ describe("MorningPage", () => {
 
     const { container } = render(<UnplacedUnitsNote unplacedUnitIds={[]} />);
     expect(container.firstChild).toBeNull();
-  });
-
-  it("marks the active fixed/live view in text as well as aria-pressed, not colour alone", () => {
-    renderMorningPage();
-
-    const fixedButton = screen.getByTestId("ward-morning-view-fixed");
-    const liveButton = screen.getByTestId("ward-morning-view-live");
-    // The fixed control's own label names the literal handover time — always 08:00, from the
-    // one constant, never the actual freeze instant (which is `null` on the no-handover branch).
-    expect(fixedButton).toHaveTextContent(formatInstant(MORNING_HANDOVER_MINUTES));
-    expect(fixedButton).toHaveAttribute("aria-pressed", "true");
-    expect(liveButton).toHaveAttribute("aria-pressed", "false");
-    expect(fixedButton).toHaveTextContent("Showing");
-    expect(liveButton).not.toHaveTextContent("Showing");
-
-    fireEvent.click(liveButton);
-
-    expect(fixedButton).toHaveAttribute("aria-pressed", "false");
-    expect(liveButton).toHaveAttribute("aria-pressed", "true");
-    expect(fixedButton).not.toHaveTextContent("Showing");
-    expect(liveButton).toHaveTextContent("Showing");
   });
 
   it("carries a print control and a one-line cross-link naming the question each page answers", () => {
@@ -905,25 +683,5 @@ describe("MorningPage", () => {
       differsFromSiteRollup,
       "every RPH ward's breakdown is identical to RPH's site rollup — cannot distinguish 'own numbers' from 'hospital total' with this fixture",
     ).toBe(true);
-  });
-
-  /**
-   * Gap 4 (final review), on-screen half. `ViewControl`'s explainer paragraph is the page's ONLY
-   * statement that the fixed view is a snapshot taken at page open, read against the 08:00 clock
-   * — NOT a reconstruction of what the ward state actually was at 08:00, because this prototype
-   * keeps no event history. That honesty requirement is binding (spec D5/D6): a coordinator who
-   * mistakes the fixed view for a true 08:00 reconstruction is trusting a number the prototype
-   * cannot actually stand behind. Nothing previously asserted this paragraph's substance — a
-   * mutation deleting it outright would have gone unnoticed by every existing test.
-   */
-  it("states the fixed view's binding honesty caveat in the on-screen explainer — a snapshot at open against the 08:00 clock, not a reconstruction of 08:00 itself", () => {
-    renderMorningPage();
-
-    const explainer = screen.getByTestId("ward-morning-view-explainer");
-    expect(explainer).toHaveTextContent(
-      "The handover view is a snapshot taken when this page was opened, read against the 08:00 handover clock",
-    );
-    expect(explainer).toHaveTextContent("not a reconstruction of what the ward state actually was at 08:00");
-    expect(explainer).toHaveTextContent("this prototype keeps no event history");
   });
 });
