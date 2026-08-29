@@ -103,9 +103,21 @@ export function dailySheetGroups(people: readonly DailySheetPerson[]): DailyShee
  * "day 0" reads as a defect to anybody not holding `ward-clock.ts` open. Nothing computes from
  * this string; it is read aloud and pinned to a wall.
  *
- * Flagged for the owner and still open: a real calendar date arrives when the model gains a
- * calendar, and not before. A day number is not a date — it distinguishes two sheets from each
- * other, and tells nobody which Tuesday either of them was.
+ * **THE CALENDAR ARRIVED, AND THE SHEET STILL DOES NOT PRINT A DATE. That is a choice now, not a
+ * limitation.** `b1198cf6e` gave the clock a real date (`dayZero` on the provider,
+ * `calendarDateOf`), so this sheet COULD say "30 August". It does not, for two reasons, and the
+ * second is the one that matters:
+ *
+ *   1. A reader of a ward sheet is oriented to now, not to a calendar — which is why
+ *      `formatInstantWithDay` prefers "yesterday" and "3 days ago" over dates.
+ *   2. **A dated sheet invites the reader to believe the FIGURES are dated, and they are not.**
+ *      Every number on this page is synthetic. A real date beside invented figures is the one
+ *      combination that makes a prototype look like a record.
+ *
+ * So the old "this prototype holds no calendar date" clause was removed the moment it became
+ * false — it was a true statement about a missing capability, and leaving it in place after the
+ * capability arrived would have made the sheet lie about the system rather than about the day.
+ * What replaced it says what is actually true: the figures are synthetic, whatever the clock knows.
  *
  * A non-finite instant yields no time rather than `NaN:NaN` — the conservative direction this
  * whole feature takes: a sheet that cannot say when it was taken must not appear to.
@@ -119,8 +131,8 @@ export function asAtStamp(now: Instant): { time: string | null; dayNote: string 
     time,
     dayNote:
       day === null
-        ? "synthetic operating day — this prototype holds no calendar date"
-        : `day ${day} of this demonstration — synthetic days, this prototype holds no calendar date`,
+        ? "synthetic figures — not a record of any real day"
+        : `day ${day} of this demonstration — synthetic figures, not a record of any real day`,
   };
 }
 

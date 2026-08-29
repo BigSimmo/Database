@@ -111,13 +111,29 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     }
   });
 
-  it("says it holds no calendar date rather than inventing one", () => {
+  it("prints NO calendar date, now that it could print a real one", () => {
+    /*
+     * This test got STRONGER when the clock gained a date (`b1198cf6e`), and it is worth saying
+     * why rather than just editing the string it pins.
+     *
+     * Before, the sheet could not print a date — there was no calendar — so asserting the absence
+     * of one asserted a LIMITATION, and would have passed no matter what anybody decided. Now
+     * `dayZero` and `calendarDateOf` exist and this sheet could say "30 August" in one line. The
+     * same assertion therefore now guards a DECISION: a real date beside invented figures is the
+     * one combination that makes a prototype look like a record.
+     *
+     * Asserted as the absence of any year or month name rather than of one fixed sentence, so it
+     * cannot be satisfied by rewording — the point is that no date reaches the page, by any
+     * spelling.
+     */
     renderWardBoard(UNIT_ID);
     const stamp = screen.getByTestId("ward-board-as-at").textContent ?? "";
-    // DB-10 asks for date AND time. An `Instant` is minutes since midnight on one synthetic
-    // operating day, so the date does not exist — and a fabricated one on the element the decision
-    // made load-bearing would be worse than the gap. The gap is stated instead.
-    expect(stamp).toContain("no calendar date");
+
+    expect(stamp).toMatch(/synthetic/i);
+    expect(stamp, `a year reached the stamp: ${stamp}`).not.toMatch(/(19|20)\d{2}/);
+    const months =
+      /(January|February|March|April|May|June|July|August|September|October|November|December)/;
+    expect(stamp, `a month name reached the stamp: ${stamp}`).not.toMatch(months);
   });
 
   it("moves with the instant it is given, and never reads a clock of its own", () => {
@@ -158,7 +174,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // distinguishes two sheets from each other; it tells nobody which Tuesday either was. The
     // refusal therefore travels on every day, not only the opening one.
     for (const instant of [8 * 60 + 14, 8 * 60 + 14 + MINUTES_PER_DAY, 8 * 60 + 14 + 9 * MINUTES_PER_DAY]) {
-      expect(asAtStamp(instant).dayNote).toContain("no calendar date");
+      expect(asAtStamp(instant).dayNote).toContain("not a record of any real day");
     }
   });
 
@@ -167,7 +183,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // on a sheet somebody pins to a wall, so time and day fail together on purpose.
     expect(asAtStamp(Number.NaN).time).toBeNull();
     expect(asAtStamp(Number.NaN).dayNote).not.toContain("NaN");
-    expect(asAtStamp(Number.NaN).dayNote).toContain("no calendar date");
+    expect(asAtStamp(Number.NaN).dayNote).toContain("not a record of any real day");
   });
 
   it("yields no time at all for an unusable instant, never NaN", () => {
