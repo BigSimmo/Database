@@ -911,3 +911,218 @@
   font-size: var(--text-3xs);
   line-height: var(--net-leading-body);
 }
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * WHY THIS BLOCK EXISTS. Every unit on this diagram is a `<button>` (`ServiceCard`), and the
+ * transitional `header, nav, button { display: none !important }` reset in `globals.css` therefore
+ * deleted ALL of them from every printed copy: the canvas frame, the hub and the legend printed,
+ * with nothing inside. A unit missing from the whole-network overview reads as "no such bed
+ * exists" — the exact failure the derived right-hand column was written to prevent, arriving this
+ * time through print CSS instead of through layout.
+ *
+ * That reset's own comment says not to extend its element list, and `globals.css` already sets the
+ * precedent for the fix (`[data-synthetic-marker-host]`, `.privacy-page`): restore the one thing
+ * the reset wrongly caught, scoped to the stylesheet that owns it, and write down why. A unit node
+ * is CONTENT — a labelled box of figures. `<button>` is only how a reader opens one on screen.
+ *
+ * A PRINTED DIAGRAM IS NOT A SCREENSHOT OF A SCREEN. Four deliberate differences, each with its
+ * own rule below:
+ *
+ *   1. NO AFFORDANCES. Elevation, the accent routed border and the accent selection outline all
+ *      say "press me", which is noise on paper. Flattened to plain bordered boxes.
+ *   2. INK, NOT THEME COLOUR. A coordinator printing from a dark-themed screen would otherwise
+ *      get pale text on white paper — invisible. Everything inside the canvas prints
+ *      `color: inherit` over a transparent background, so it inherits the global print reset's
+ *      black-on-white in BOTH themes, and nothing depends on a fill the printer may strip.
+ *   3. WORDS, NOT FILLS, FOR THE BED STATES. On screen the five chips are numbers told apart by
+ *      colour alone. Stripped of colour that is "2 3 0 1 0" — unreadable. Each chip prints its own
+ *      label in front of its figure, on the same standard `board.module.css` sets for the blocked
+ *      and held tiles: a pattern or a word carries the fact, never a fill.
+ *   4. NO CONNECTORS — see `.connectorLayer` below. This one removes something, and the reason is
+ *      that it cannot be trusted on paper.
+ */
+@media print {
+  /* 1. The nodes themselves, restored. `.serviceCard` (0,1,0) outranks the reset's `button`
+     (0,0,1), so this wins without needing to touch the global list. */
+  .serviceCard {
+    display: grid !important;
+    border-color: currentColor;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    /* A ward split down the middle by a page break is a ward whose figures are on two sheets. */
+    break-inside: avoid;
+  }
+
+  /*
+   * The SAME reset, the same mistake, one level up: each service cluster's heading — the health
+   * service's name and its unit count — is a `<header>`, and the band arrangement's heading is
+   * too. Without them the restored nodes print as 23 boxes in two columns with nothing saying
+   * which service any of them belongs to, and grouping by service is the whole shape of this
+   * picture. Found by looking at the paper, which is the only place either heading was missing.
+   */
+  .clusterHeader,
+  .bandHeader {
+    display: flex !important;
+    break-after: avoid;
+  }
+
+  /*
+   * 2. Ink. Every colour inside the canvas is a theme token, and half of them invert with the
+   * theme — so a print taken from a dark screen would put near-white text on white paper. Both
+   * themes collapse to the same black-on-transparent here. Nothing is lost by it: every state on
+   * this diagram is already carried by a word or a border style, because forced-colors and screen
+   * readers demanded that long before print did.
+   */
+  .canvas,
+  .bandArrangement,
+  .legend {
+    /*
+     * The ink root. `color: inherit` alone was NOT enough and the paper proved it: the global
+     * print reset makes `body` black, but `.modeShell` (the workspace shell, another module)
+     * re-asserts `color: var(--text)` in between, so a dark-themed print inherited near-white
+     * `rgb(244, 246, 248)` text — measured, not assumed. `CanvasText` is the initial value of
+     * `color` and resolves against the element's own colour scheme, so pinning the scheme to
+     * light here yields black in BOTH themes without this file naming a colour of its own.
+     */
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  /* The legend is inked with the canvas it describes, and for the reason this file already gives
+     about connector keys: a key whose colour is not on the picture sends a reader hunting for one.
+     Its swatches keep their solid-versus-dashed shapes, which is the distinction that still holds
+     in ink — the two forward-looking states from the three physical ones. */
+  .canvas *,
+  .bandArrangement *,
+  .legend * {
+    background: transparent !important;
+    color: inherit !important;
+  }
+
+  /* Borders and outlines follow the ink rather than the palette, so they survive as thin black
+     rules instead of a pale tint. Border STYLE is untouched — dashed stays dashed, which is what
+     tells the two forward-looking chips apart from the three physical ones. */
+  .canvas *,
+  .bandArrangement *,
+  .legend * {
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /* 3. Each chip says what it counts. `attr(data-label)` reads the label straight off the DOM —
+     `bedStateCopy` in `ward-management-network.tsx` is the one place those five words are
+     written, so this cannot drift into printing "Ready" for a chip the app calls something else.
+     The chip stops being a fixed square and sizes to its own text. */
+  .bedChip {
+    display: inline-flex;
+    min-width: 0;
+    height: auto;
+    align-items: baseline;
+    gap: var(--net-space-2);
+    padding: 0 var(--net-space-4);
+  }
+
+  .bedChip::before {
+    content: attr(data-label);
+    font-weight: 400;
+  }
+
+  /*
+   * 4. The connector overlay does not print, and this is a correctness decision rather than a
+   * tidiness one. Every connector coordinate is measured in JavaScript from the LIVE SCREEN
+   * layout (`measure()` reads `getBoundingClientRect()` on the canvas, the hub and each node) and
+   * is recomputed only by a `ResizeObserver` on the canvas and a window resize. A printed page is
+   * laid out separately and at a different width — the workspace rail and header are gone and the
+   * canvas is far narrower — and none of that re-runs `measure()`. So the lines a printer draws
+   * are the lines the SCREEN needed, laid over nodes that have since moved: a route line pointing
+   * at the wrong ward. On a bed-finding sheet that is worse than no line at all, and it is
+   * invisible to every test we have. Verified before this block existed: with the nodes hidden the
+   * printed route collapsed to a right-angled stub in the top-left corner of the paper, pointing
+   * at nothing.
+   *
+   * Nothing is lost that is not carried in words: each node prints its own `.placementVerdict`
+   * with `matchReason`'s own wording, which is exactly why that text exists (review Important 5 —
+   * routed state used to be conveyed only by an outline colour plus an `aria-hidden` connector).
+   */
+  .connectorLayer {
+    display: none !important;
+  }
+
+  /* The legend describes the canvas, and two of its keys describe lines that are no longer on it.
+     Same rule this file already applies when the band arrangement drops the connectors: "a legend
+     key for a line that is not on the canvas invites a reader to look for one." */
+  .legendItem:has(.legendRoute),
+  .legendItem:has(.legendDemand) {
+    display: none !important;
+  }
+
+  /*
+   * SELECTION prints as weight, never as a highlight, and never as a word.
+   *
+   * The accent outline is a screen affordance: it may be stripped with the backgrounds, and where
+   * it survives it reads as a recommendation. It is not one — `aria-pressed` here means only "this
+   * is the node the reader had open", the toggle that fills the detail panel beside the diagram,
+   * and that panel prints and names the unit anyway. The facts that ARE decisions (the placement
+   * verdict, the accepted/referred destinations on the coordinator's diagram) are already words on
+   * the node. So the selected node keeps a heavier edge — enough to find it again against the
+   * screen it was printed from — and takes no colour and no label that a reader could mistake for
+   * a bed this system has chosen.
+   */
+  .serviceCard[aria-pressed="true"]:not(:focus-visible) {
+    border-width: 0.125rem;
+    outline: none;
+  }
+
+  /* The routed border is the same accent as the selection outline and means something different
+     again; flattened to ink above, it would be indistinguishable from an ordinary node. Left as
+     the ordinary border it now is: routing is carried by the verdict text on the node. */
+  .serviceCard[data-routed="true"] {
+    box-shadow: none;
+  }
+
+  /*
+   * The canvas geometry, rebuilt for paper — which is only safe BECAUSE the connectors above are
+   * gone. On screen the three tracks (`1fr | 12.5rem | 1fr`) exist so the hub sits physically
+   * between the two columns the lines run to; with no lines to align, that middle track is a
+   * 12.5rem hole down the centre of an A4 page, and it squeezed the left column so hard that
+   * "Graylands Adult Secure" printed over three lines beside a right column five times its width.
+   *
+   * So on paper the hub becomes a caption spanning the top — it is still the picture's subject
+   * line, carrying the open-movement count — and the two service columns take half the page each.
+   * Nothing here changes the screen, and nothing on screen is measured against it any more.
+   */
+  .canvas {
+    min-height: 0;
+    align-items: start;
+    gap: var(--net-space-10);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hub {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  .column[data-side="left"] {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .column[data-side="right"] {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .networkPage {
+    min-height: 0;
+  }
+
+  /* A service's units stay together where the paper allows it; the heading never prints as the
+     last thing on a sheet with its wards overleaf (`break-after: avoid`, above). */
+  .cluster {
+    break-inside: avoid;
+  }
+}

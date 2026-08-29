@@ -1942,3 +1942,141 @@
     padding-top: var(--spacing-ward-phone-bar);
   }
 }
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * WHY THIS BLOCK EXISTS. Every unit on the flow diagram is a `<button>` (`DiagramUnit`), and the
+ * transitional `header, nav, button { display: none !important }` reset in `globals.css` therefore
+ * deleted all of them from every printed copy. What reached paper was the five service headings —
+ * NORTH METRO, EAST METRO, SOUTH METRO, WACHS, PRIVATE — with nothing under any of them: a
+ * statewide bed picture asserting that the state has no beds. The reset's own comment says not to
+ * extend its element list, and `globals.css` sets the precedent for the fix
+ * (`[data-synthetic-marker-host]`, `.privacy-page`): restore only what the reset wrongly caught,
+ * scoped to the stylesheet that owns it, and write down why. A unit node is CONTENT — a labelled
+ * box of figures — and `<button>` is only how a reader opens one on screen.
+ *
+ * The same block also has to release the screen's height, because on this workspace restoring the
+ * nodes alone would not put a single one of them on paper. See `.screen` below.
+ *
+ * A PRINTED DIAGRAM IS NOT A SCREENSHOT OF A SCREEN — the differences are the same three this
+ * project's other printed surfaces already make, and each has its own rule below: no interactive
+ * affordances, ink rather than theme colour, and no connector lines that cannot be trusted.
+ */
+@media print {
+  /*
+   * THE HEIGHT CAP, released. `.screen` is `height: 100dvh; overflow: hidden` — correct for an
+   * app shell whose regions scroll independently, and fatal on paper: the printed document is
+   * exactly one viewport tall and everything below it is CLIPPED, not paginated. Measured before
+   * this block existed: the whole coordinator workspace printed as a single A4 page that stopped
+   * mid-way down the emergency-department list, so the inpatient-units column — every ward on the
+   * diagram — was off the page even before the `button` reset deleted it. Restoring the nodes
+   * without this would have produced a fix that no printed page could show.
+   *
+   * Scrolling boxes have no meaning on paper; this is the same substitution the global print
+   * reset already makes for `main`, `section` and `article`, applied to the three grid boxes that
+   * carry a height here.
+   */
+  .screen,
+  .main,
+  .body,
+  .diagramRegion,
+  .diagramScroll {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 1. The nodes themselves, restored. `.diagramUnit` (0,1,0) outranks the reset's `button`
+     (0,0,1), so this wins without touching the global list. A ward split by a page break is a
+     ward whose figures are on two sheets. */
+  .diagramUnit,
+  .diagramUnitSelected {
+    display: grid !important;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  /*
+   * 2. Ink. Every colour on this diagram is a theme token and most of them invert with the theme,
+   * so a print taken from a dark-themed screen puts near-white text on white paper. Both themes
+   * collapse to the same black-on-transparent here, and nothing depends on a fill the printer may
+   * strip. Nothing is lost by it: every state on this diagram is already carried by a word or a
+   * border style — "Accepted destination", "Outstanding referral", the eligibility verdict, the
+   * two restriction notices — because forced-colors and screen readers demanded that long before
+   * print did.
+   */
+  .diagramCanvas {
+    /*
+     * The ink root. `color: inherit` alone was NOT enough and the paper proved it: the global
+     * print reset makes `body` black, but `.screen` above re-asserts `color: var(--text)` in
+     * between, so a dark-themed print inherited near-white text — measured, not assumed.
+     * `CanvasText` is the initial value of `color` and resolves against the element's own colour
+     * scheme, so pinning the scheme to light here yields black in BOTH themes without this file
+     * naming a colour of its own.
+     */
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .diagramCanvas * {
+    background: transparent !important;
+    color: inherit !important;
+  }
+
+  /* Borders and outlines follow the ink rather than the palette. Border and outline STYLE are
+     untouched, which is what still separates a shortlisted-and-eligible node (solid) from a
+     shortlisted-but-ineligible one (dashed) once both are black — the distinction review
+     Critical 1 added, surviving the loss of its colour. */
+  .diagramCanvas * {
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /*
+   * 3. The connector overlay does not print, and this is a correctness decision rather than a
+   * tidiness one. Every connector coordinate is measured in JavaScript from the LIVE SCREEN
+   * layout (`measure()` reads `getBoundingClientRect()` on the canvas, the hub and each node) and
+   * is recomputed only by a `ResizeObserver` on the canvas and a window resize. The printed page
+   * is a separate, much narrower layout — the rail and header are gone, and below 64rem this
+   * diagram's three columns collapse into one stacked column — and none of that re-runs
+   * `measure()`. The lines a printer draws are therefore the lines the SCREEN needed, laid over
+   * nodes that have since moved: a route line pointing at the wrong ward, on the sheet a
+   * coordinator is holding. That is worse than no line, and no test we have can see it.
+   *
+   * Nothing is lost that is not already in words: each node prints its own eligibility verdict and
+   * its own accepted/referred badge, which is exactly why that text exists (review Important 5 —
+   * routed state used to be conveyed only by an outline colour plus an `aria-hidden` connector).
+   */
+  .diagramConnectors {
+    display: none !important;
+  }
+
+  /*
+   * SELECTION prints as weight, never as a highlight, and never as a word.
+   *
+   * The accent fill is a screen affordance: most printers drop background colour, so the same
+   * page prints differently depending on one checkbox in the print dialog — and where it does
+   * survive, a filled ward reads as a recommendation. It is not one: `aria-pressed` here means
+   * only "this is the node the reader had open". The facts that ARE decisions are already words on
+   * the node face. So the selected node keeps a heavier edge — enough to find it again against the
+   * screen it was printed from — and takes no fill and no label a reader could mistake for a bed
+   * this system has chosen.
+   */
+  .diagramUnitSelected {
+    border-width: 0.125rem;
+  }
+
+  /* The three-column grid is a wide-screen arrangement; A4 is not a wide screen. Below 64rem the
+     diagram already stacks departments, hub and units into one column, and a printed page is
+     narrower than that breakpoint, so the stacked arrangement is what prints — deliberately, and
+     without touching the geometry the screen was measured at. The unit grid's own `auto-fit`
+     tracks then reflow to however many fit the paper. */
+  .diagramNodes {
+    break-inside: auto;
+  }
+
+  .diagramServiceGroup {
+    break-inside: avoid;
+  }
+}

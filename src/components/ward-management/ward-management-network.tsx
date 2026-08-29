@@ -231,8 +231,19 @@ function BedStateChips({
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
   return (
     <span className={styles.bedChips}>
+      {/* `data-label` below is read by nothing on screen. It exists so the print block in
+          `ward-management-network.module.css` can put each chip's own word in front of its figure —
+          on paper the five chips are told apart by colour alone, and colour is the one channel a
+          printer may drop. Carried as an attribute rather than written into the CSS so
+          `bedStateCopy` stays the single place these five words are spelled. */}
       {(Object.keys(bedStateCopy) as BedStateKey[]).map((key) => (
-        <span className={styles.bedChip} data-state={key} key={key} title={bedStateCopy[key].detail}>
+        <span
+          className={styles.bedChip}
+          data-state={key}
+          data-label={bedStateCopy[key].label}
+          key={key}
+          title={bedStateCopy[key].detail}
+        >
           {bedStateValue(key, capacity, breakdown)}
         </span>
       ))}
