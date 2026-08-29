@@ -308,15 +308,31 @@ sites must converge on the same explicit vocabulary because a dash can read as a
 
 ```ts
 type MissingValueProps = {
-  reason: "not_recorded" | "not_applicable" | "unknown" | "extraction_failed";
+  reason:
+    | "not_recorded"
+    | "not_applicable"
+    | "unknown"
+    | "extraction_failed"
+    | "not_yet_calculated"
+    | "withheld_until_complete";
   /** "cell" tightens spacing for dense tables; the phrase is never abbreviated. */
   density?: "inline" | "cell";
   className?: string;
 };
 ```
 
-**Variants.** The four phrases (SPEC §11): `Not recorded` · `Not applicable` · `Unknown` ·
-`Unable to extract`. **[assumed:** "Withheld" excluded until a redaction path exists.**]**
+**Variants.** The six phrases (SPEC §11): `Not recorded` · `Not applicable` · `Unknown` ·
+`Unable to extract` · `Not yet calculated` · `Withheld until complete`. The last two say the
+value is absent only for now — `not_yet_calculated` where nothing has been computed because
+the user has not finished, `withheld_until_complete` where a value **could** be computed and
+the surface is deliberately suppressing it so a partial reading cannot mislead. Do not use
+either where the input is complete. **[assumed:** a general "Withheld" redaction phrase is
+still excluded until a redaction path exists — `Withheld until complete` is suppression
+pending completion, not redaction.**]**
+
+**Plain-string call sites.** `missingValuePhrase(reason)` returns the same phrase as a string,
+for the accessors and result objects typed `string` that would break if handed a component
+(diffing through a `Set`, clipboard export). Same wording, same rules; never a second vocabulary.
 
 **States.** None — it is a terminal, static rendering of absence.
 
@@ -1028,7 +1044,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |

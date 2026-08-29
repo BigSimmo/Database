@@ -4,6 +4,7 @@ import { AlertTriangle, Info, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainIcons, domainLabels, domainOrder, type CalculatorFixture } from "./calculator-fixtures";
 import {
@@ -200,10 +201,16 @@ export function CalculatorsClinicalConsoleMockup() {
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xl font-extrabold tabular-nums text-[color:var(--text-heading)]">
-                  {derived.started ? derived.score : "—"}
-                  <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-                </span>
+                {/* Unstarted is not a missing score: no score exists yet, so the fraction has no numerator. The scale's own
+                    endpoints stay visible in the ScoreBandBar directly below. */}
+                {derived.started ? (
+                  <span className="font-mono text-xl font-extrabold tabular-nums text-[color:var(--text-heading)]">
+                    {derived.score}
+                    <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+                  </span>
+                ) : (
+                  <MissingValue reason="not_yet_calculated" />
+                )}
                 <SeverityPill
                   tone={derived.result.tone}
                   label={derived.started ? derived.result.label : "Not started"}

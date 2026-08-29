@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 
 import { ModeHomeHero } from "@/components/mode-home-template";
 import { ShowAllChip } from "@/components/show-all-chip";
+import { MissingValue } from "@/components/ui/missing-value";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { sharedHomePresentation } from "@/lib/ui-copy";
@@ -540,10 +541,18 @@ export function ScorePanel({
       <div className="flex items-end justify-between gap-2">
         <div>
           <p className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Score</p>
-          <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
-            {derived.started ? derived.score : "—"}
-            <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-          </p>
+          {/* Unstarted is not a missing score: no score exists yet, so the fraction has no numerator. The scale's own
+              endpoints stay visible in the ScoreBandBar directly below. */}
+          {derived.started ? (
+            <p className="font-mono text-2xl font-extrabold tabular-nums leading-8 text-[color:var(--text-heading)]">
+              {derived.score}
+              <span className="text-sm font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+            </p>
+          ) : (
+            <p>
+              <MissingValue reason="not_yet_calculated" />
+            </p>
+          )}
         </div>
         <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
       </div>
@@ -642,10 +651,14 @@ function CalculatorDetail({
         className="sticky top-2 z-10 grid gap-1.5 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-3 py-2.5 shadow-[var(--e2)] backdrop-blur-md lg:hidden"
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
-            {derived.started ? derived.score : "—"}
-            <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-          </span>
+          {derived.started ? (
+            <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
+              {derived.score}
+              <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+            </span>
+          ) : (
+            <MissingValue reason="not_yet_calculated" />
+          )}
           <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
         </div>
         <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
