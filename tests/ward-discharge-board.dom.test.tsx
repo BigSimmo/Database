@@ -59,11 +59,11 @@ function FarFutureReleaseFlagger() {
 }
 
 describe("DischargeBoard", () => {
-  it("groups releases under Blocked, Confirmed, Predicted, Released today, in that exact order", () => {
+  it("groups releases under Blocked, Confirmed, Predicted, Discharged today, in that exact order", () => {
     renderBoard();
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings).toEqual(["Blocked", "Confirmed", "Predicted", "Released today"]);
+    expect(headings).toEqual(["Blocked", "Confirmed", "Predicted", "Discharged today"]);
   });
 
   it("names the blocker on a blocked row", () => {
@@ -151,7 +151,7 @@ describe("DischargeBoard", () => {
   it("gives every row in every non-empty group a freshness stamp", () => {
     renderBoard();
 
-    for (const key of ["blocked", "confirmed", "predicted", "released-today"]) {
+    for (const key of ["blocked", "confirmed", "predicted", "discharged-today"]) {
       const table = screen.getByTestId(`ward-discharge-table-${key}`);
       const rows = within(table).getAllByRole("row");
       // First row is the header row (<th> cells) — every remaining row is a data row and must
@@ -194,7 +194,7 @@ describe("DischargeBoard", () => {
 
     // Belt and braces: total data rows across every group must stay at 9 even though the reducer
     // now holds 10 bed releases — the tenth is declared (via the count above) but never listed.
-    const totalDataRows = ["blocked", "confirmed", "predicted", "released-today"]
+    const totalDataRows = ["blocked", "confirmed", "predicted", "discharged-today"]
       .map((key) => within(screen.getByTestId(`ward-discharge-table-${key}`)).getAllByRole("row").length - 1)
       .reduce((sum, count) => sum + count, 0);
     expect(totalDataRows).toBe(9);

@@ -49,7 +49,7 @@ import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";
  *                    emergency department waiting for transport. The bed is gone from this
  *                    moment; see `bedIsOccupied`.
  *   - `occupied`   — the person is physically in the bed.
- *   - `left`       — gone. The bed is released; see `LEAVING_DESTINATIONS` for what "released"
+ *   - `left`       — gone. The bed is released; see `LEAVING_DESTINATIONS` for what "discharged"
  *                    means to the state as opposed to this ward.
  *
  * A runtime array beside the union, the same treatment every other union in this feature that

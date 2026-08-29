@@ -183,7 +183,7 @@ describe("ward bed release flag", () => {
 });
 
 /**
- * List 3 (2026-08-28): what a RELEASED bed is being made ready for. Until the owner supplied
+ * List 3 (2026-08-28): what a DISCHARGED bed is being made ready for. Until the owner supplied
  * `BED_PREPARATION_NOTES` this array was empty, so no picker shipped and nothing here could be
  * tested — the note existed as a field nobody could set.
  *
@@ -196,7 +196,7 @@ describe("ward bed release flag", () => {
 describe("ward bed preparation note", () => {
   it("fixture assumption: arm-adult-open starts with exactly one released bed, already being made ready", () => {
     const released = bedReleases.filter(
-      (release) => release.unitId === "arm-adult-open" && release.state === "released",
+      (release) => release.unitId === "arm-adult-open" && release.state === "discharged",
     );
     expect(released).toHaveLength(1);
     expect(released[0]?.preparing).toBe(true);

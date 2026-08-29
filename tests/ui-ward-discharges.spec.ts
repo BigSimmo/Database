@@ -186,7 +186,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // changes a real, physical bed count rather than just a record about one. ---
     await goBackToWard(page);
     await page.getByTestId(`ward-bed-release-release-${releaseId}`).click();
-    // `released` is terminal and drops off the ward's own pending list (spec D10).
+    // `discharged` is terminal and drops off the ward's own pending list (spec D10).
     await expect(releaseRow).toHaveCount(0);
 
     // --- The board reflects the release: Now (`availableNow`) rises by one — the single number

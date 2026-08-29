@@ -829,7 +829,7 @@ export const bedReleases: BedRelease[] = [
     // construction. It is still a note and still gates nothing.
     id: "WR-008",
     unitId: "arm-adult-open",
-    state: "released",
+    state: "discharged",
     expectedAt: NOW_ANCHOR - 15,
     waitingOn: null,
     blocker: null,

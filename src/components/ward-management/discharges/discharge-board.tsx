@@ -16,7 +16,7 @@ import styles from "./discharges.module.css";
  * board is "which bed do I chase, and which one is simply on its way" — so releases are grouped
  * by how much work is left on them, worst first: a **blocked** release needs somebody to act on
  * it right now, a **confirmed** one is just waiting for the clock, a **predicted** one is a
- * belief rather than a fact yet, and **released today** is done. Within a group, releases are
+ * belief rather than a fact yet, and **discharged today** is done. Within a group, releases are
  * ordered by `releaseBand` — the same "now / by midday / by 1600 / tonight" ladder the capacity
  * board uses (`ward-bed-availability.ts`), so the two boards never disagree about how soon
  * "soon" is.
@@ -31,7 +31,7 @@ const GROUP_LABELS = {
   blocked: "Blocked",
   confirmed: "Confirmed",
   predicted: "Predicted",
-  "released-today": "Released today",
+  "discharged-today": "Discharged today",
 } as const;
 
 type GroupKey = keyof typeof GROUP_LABELS;
@@ -51,7 +51,7 @@ type GroupKey = keyof typeof GROUP_LABELS;
  * release must appear exactly once, the breakdown is a set of counts where "how many confirmed"
  * and "how many stuck" are both wanted in full.
  */
-const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "predicted", "released-today"];
+const GROUP_ORDER: readonly GroupKey[] = ["blocked", "confirmed", "predicted", "discharged-today"];
 
 const BAND_LABELS: Record<ReleaseBand, string> = {
   now: "Now",
@@ -64,14 +64,14 @@ const EMPTY_REASON: Record<GroupKey, string> = {
   blocked: "release is currently blocked",
   confirmed: "release is confirmed, unreleased and not blocked",
   predicted: "release is predicted and not blocked",
-  "released-today": "release has been released today",
+  "discharged-today": "the person has been discharged today",
 };
 
 export type DischargeGroups = {
   blocked: BedRelease[];
   confirmed: BedRelease[];
   predicted: BedRelease[];
-  "released-today": BedRelease[];
+  "discharged-today": BedRelease[];
   /** Releases expected beyond tonight (`EVENING_SHIFT_END_MINUTES`) — never merged into a group,
    *  always counted. Silent truncation reads as "we counted everything" when we did not. */
   excludedBeyondToday: number;
@@ -87,7 +87,7 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
     blocked: [],
     confirmed: [],
     predicted: [],
-    "released-today": [],
+    "discharged-today": [],
   };
   let excludedBeyondToday = 0;
 
@@ -100,9 +100,9 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
     // The flag is read BEFORE the stage (bed-model rework, 2026-08-28), so a confirmed discharge
     // that is stuck appears in the group a coordinator scans first rather than sitting quietly
     // under Confirmed. Order matters: swapping these two tests would bury exactly the row this
-    // board exists to surface. `released` still wins over everything — a bed that is already
+    // board exists to surface. `discharged` still wins over everything — a bed that is already
     // free is nobody's work, and the reducer clears the flag when it releases anyway.
-    if (release.state === "released") buckets["released-today"].push(release);
+    if (release.state === "discharged") buckets["discharged-today"].push(release);
     else if (release.blocker !== null) buckets.blocked.push(release);
     else if (release.state === "confirmed") buckets.confirmed.push(release);
     else buckets.predicted.push(release);
@@ -119,7 +119,7 @@ export function groupDischarges(releases: BedRelease[], now: Instant): Discharge
     blocked: byBand(buckets.blocked),
     confirmed: byBand(buckets.confirmed),
     predicted: byBand(buckets.predicted),
-    "released-today": byBand(buckets["released-today"]),
+    "discharged-today": byBand(buckets["discharged-today"]),
     excludedBeyondToday,
   };
 }
@@ -147,7 +147,7 @@ export function DischargeBoard() {
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
             This board is <strong>not a medical device</strong>. It shows only what a ward has recorded — a release
-            predicted, confirmed or released, and whether it is currently blocked — and it never adds a predicted or
+            predicted, confirmed or discharged, and whether it is currently blocked — and it never adds a predicted or
             unreleased bed into &quot;available now&quot;.
           </p>
         </div>

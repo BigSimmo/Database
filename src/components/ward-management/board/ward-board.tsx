@@ -392,8 +392,8 @@ function outgoingToday(
   basis: OutgoingBasis,
   now: Instant,
 ): BedRelease[] {
-  // `state === basis` already excludes `"released"` — the two bases are the only other states a
-  // `BedRelease` can carry — so `capacityBreakdown`'s explicit `"released"` skip needs no separate
+  // `state === basis` already excludes `"discharged"` — the two bases are the only other states a
+  // `BedRelease` can carry — so `capacityBreakdown`'s explicit `"discharged"` skip needs no separate
   // clause here. It is the same cut, reached by the narrower test.
   return bedReleases.filter(
     (release) => release.unitId === unit.id && release.state === basis && releaseBand(release, now) !== "beyond-today",

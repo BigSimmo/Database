@@ -304,7 +304,7 @@ function departed(departure: Departure): Admission {
     // A completed admission records the departure that HAPPENED (`leftAt`, `leavingDestination`).
     // A confirmation is a decision about a discharge still to come, so back-filling one here would
     // be a fact invented after the event, and `derivedBedReleases` reads a departed admission as
-    // `"released"` regardless.
+    // `"discharged"` regardless.
     dischargeConfirmedAt: null,
     dischargeConfirmedBy: null,
     blockReason: null,

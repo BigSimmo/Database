@@ -40,8 +40,8 @@ export type ReleaseBand = (typeof RELEASE_BANDS)[number];
  * back to a wrapped time-of-day comparison.
  */
 export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "beyond-today" {
-  if (release.state === "released") {
-    // RELEASE_BED restates confirmedAt to the release instant. "Released today" is this
+  if (release.state === "discharged") {
+    // RELEASE_BED restates confirmedAt to the release instant. "Discharged today" is this
     // operating day only: advancing the demo clock across midnight must drop yesterday's
     // released rows into the same beyond-today exclusion the discharge board already states
     // at its foot. Same-day released beds stay "now" even when expectedAt was later today.
@@ -97,7 +97,7 @@ export function capacityBreakdown(
   let excludedBeyondToday = 0;
 
   for (const release of unitReleases) {
-    if (release.state === "released") continue;
+    if (release.state === "discharged") continue;
     const band = releaseBand(release, now);
     if (band === "beyond-today") {
       excludedBeyondToday += 1;

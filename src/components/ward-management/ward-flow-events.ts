@@ -240,7 +240,7 @@ export type WardFlowEvent =
       /**
        * The release gaining the blocked FLAG. Bed-model rework (2026-08-28): this no longer
        * changes `state` at all — a blocked release stays `predicted` or `confirmed`, and a
-       * blocked-but-confirmed bed keeps counting as confirmed. `released` is refused: there is
+       * blocked-but-confirmed bed keeps counting as confirmed. `discharged` is refused: there is
        * nothing left to hold up once the bed is free.
        */
       releaseId: string;
@@ -295,8 +295,8 @@ export type WardFlowEvent =
       role: WardFlowRole;
       now: Instant;
       /**
-       * The release moving into `released` — terminal. Accepted from `confirmed` and from
-       * `predicted` alike: `released` is a statement of fact about a bed that is now empty, not a
+       * The release moving into `discharged` — terminal. Accepted from `confirmed` and from
+       * `predicted` alike: `discharged` is a statement of fact about a bed that is now empty, not a
        * promotion of a prediction into availability, and the four-stage model already allowed the
        * same journey through `blocked`. Narrowing it to `confirmed`-only during the rework would
        * have refused a path wards could already take.

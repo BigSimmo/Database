@@ -55,7 +55,7 @@ export const stageCopy: Record<MovementStage, { label: string; shortLabel: strin
 export const bedReleaseStateLabels: Record<BedReleaseState, string> = {
   predicted: "Predicted",
   confirmed: "Confirmed",
-  released: "Released",
+  discharged: "Discharged",
 };
 
 /** The blocked FLAG's label on one release row (bed-model rework, 2026-08-28). Deliberately NOT
