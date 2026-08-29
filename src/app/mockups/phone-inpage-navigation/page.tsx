@@ -497,7 +497,7 @@ export default function PhoneInPageNavigationMockup() {
         </PhoneFrame>
       </section>
       <footer className="mx-auto mt-12 flex max-w-6xl items-center justify-between border-t border-[#283033] py-6 text-xs text-[#7f8b89]">
-        <span>Clinical KB · design exploration</span>
+        <span>PsychSift · design exploration</span>
         <span className="flex items-center gap-2">
           <Search className="size-3.5" /> Phone-first, 390px canvas
         </span>

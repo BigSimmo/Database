@@ -5,7 +5,7 @@ import { DictionaryTopicsPage } from "@/components/dictionary/dictionary-catalog
 import { LoadingPanel } from "@/components/ui-primitives";
 
 export const metadata: Metadata = {
-  title: "Clinical dictionary topics | Clinical KB",
+  title: "Clinical dictionary topics | PsychSift",
   description: "Browse twelve governed clinical terminology collections.",
 };
 

@@ -179,7 +179,7 @@ export default function ModeDropdownMockupPage() {
               <Sparkles className="h-4 w-4" />
             </span>
             <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
-              Clinical KB mockup
+              PsychSift mockup
             </p>
           </div>
           <h1 className="mt-3 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)]">

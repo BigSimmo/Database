@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { ClinicalTrustCockpit } from "@/components/developer-area/clinical-trust-cockpit";
 
 export const metadata: Metadata = {
-  title: "Clinical trust · Developer · Clinical KB",
+  title: "Clinical trust · Developer · PsychSift",
   description: "Administrator-only quality feedback, source-impact, and content-maturity evidence.",
 };
 

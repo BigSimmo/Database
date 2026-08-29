@@ -7,7 +7,7 @@ import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { MedicationsHomeClient } from "./medications-home-client";
 
 export const metadata: Metadata = {
-  title: "Medication - Clinical KB",
+  title: "Medication - PsychSift",
   description: "Medication dosing, safety, and monitoring guidance from indexed sources.",
 };
 

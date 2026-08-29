@@ -157,24 +157,43 @@ approximately — true is what fixes the cut's position; see **The middle line**
 
 ### The point
 
-A circle of radius **10.4586** centred at **(60.4716, 17.3581)**.
+A circle of radius **10.4586** centred at **(44.8724, 20.0286)** — which is exactly the centre of
+the throat arc.
 
-Measured against the cut, its centre sits **43.95 units along** the cut from the cut's midpoint and
-**14.90 units off** it, on the lower stroke's side. Its nearest approach to the S is 13.65 units —
-a little over three times the width of the cut, which is what keeps it reading as a separate
-particle rather than part of the letter.
+That is the whole of the placement rule. Because the point shares its centre with the arc that cups
+it, the crescent of white between them is a **constant 7.2646 units** all the way round — 17.7232
+less the point's own 10.4586 — with zero variation. It is the same idea as the straight cut between
+the two strokes: negative space of one measured width, not a gap that happens to look about right.
+Move the point off that centre and the crescent immediately starts to taper. Its clearance to the
+lower stroke is 8.18 units.
+
+**The small-size point** sits 10 units further out, at **(54.8724, 20.0286)**, opening the crescent
+from 7.26 to 11.55. It travels with the widened cut as a set — the wider ink box it produces also
+needs its own centring transform, and mixing one variant's point with the other's placement puts
+the glyph off-centre in the tile. Below about 20 px the crescent is under two pixels and the point
+fuses into the S whatever is done; that is the size, not the placement.
+
+Two earlier positions are worth recording, because both were wrong in instructive ways. It sat at
+(60.4716, 17.3581) until 2026-08-28, well clear of the S to the upper right. The nearest point on
+the entire S was the upper stroke's sharp tip, aimed straight at the circle from 13.65 units — 2.2
+px at a 16 px icon, which antialiasing closes. A sharp point aimed at a circle reads as contact
+even when the numbers say otherwise. Dropping it 7 units to (60.4716, 24.3581) fixed the contact
+reading and opened the approach to 18.46 units, but left it floating: too far out, and unrelated to
+any curve in the mark. Cradling it in the throat resolves both, and gives the mark a hint of the
+**P** in PsychSift alongside the S.
 
 An earlier draft of these files had it at (58.9234, 16.5279) with radius 10.2165. That was a
 measurement error, not a decision: 1.8 units in and 2.3% small, which crowded the S's shoulder and
 made the point look like a stray rather than a counterweight.
 
-With the point included, the glyph spans 0 to 70.93 horizontally and 0 to 100.38 vertically.
+With the point included, the glyph spans 0 to 55.33 horizontally and 0 to 100.38 vertically.
+The small-size variant, whose point sits further out, spans 0 to 65.33 by the same 0 to 100.38.
 
 ### The tile
 
 A square with a corner radius of **3/16 of its side** (18.75%). The glyph is scaled to **80% of the
 tile height** and its ink bounding box — S and point together — is centred in the tile. At 512 px
-that leaves 112 px clear on the left and right and 51 px top and bottom.
+that leaves 143 px clear on the left and right and 51 px top and bottom.
 
 An earlier draft weighted the placement 46% of the way from the S's own centre toward the glyph's
 right edge, on the theory that the light point should not drag the heavy S leftward. It
@@ -183,18 +202,28 @@ bounding box is both simpler and visibly right.
 
 ### Small sizes
 
-At 32 px and below the 4.2-unit cut closes up. `psychsift-favicon.svg` is a separate optical cut for
-that range: the gap is widened to **7.2 units** by moving each facing edge 1.5 units away from the
-other, and the blends are re-solved against the lines they now meet. Because only the facing edges
-move, the outer silhouette is identical to the one in the primary file. Use it for favicons, browser
-tabs, and anything rendered under 32 px.
+At 32 px and below two things close up: the 4.2-unit cut between the strokes, and the 7.26-unit
+crescent around the point. `psychsift-favicon.svg` is a separate optical variant for that range, and
+it changes both.
+
+The cut is widened to **7.2 units** by moving each facing edge 1.5 units away from the other, with
+the blends re-solved against the lines they now meet. Because only the facing edges move, the outer
+silhouette is identical to the one in the primary file.
+
+The point slides **10 units out of its cradle**, to (54.8724, 20.0286), opening the crescent to
+11.55 units. That widens the ink bounding box to 65.33, so this variant also carries its own
+centring transform; the three changes are one set and must not be mixed with the primary variant's
+placement. Below about 20 px the crescent is under two pixels and the point fuses into the S
+whatever is done — that is the size, not the placement.
+
+Use this variant for favicons, browser tabs, and anything rendered under 32 px.
 
 ### The maskable icon
 
 `psychsift-mark-maskable.svg` is full-bleed, because Android crops adaptive icons to whatever shape
 the launcher uses. Everything that must survive that crop has to sit inside a centred circle of
 **66.7% of the icon's width**. The glyph is scaled to **62% of the height**, which puts its furthest
-ink 168 px from the centre of a 512 px icon against the 171 px the safe circle allows. Do not raise
+ink 160 px from the centre of a 512 px icon against the 171 px the safe circle allows. Do not raise
 that 62%: an earlier draft used 58% with a different centring and still put ink 176 px out, outside
 the safe circle.
 

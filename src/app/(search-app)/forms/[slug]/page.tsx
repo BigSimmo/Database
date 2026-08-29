@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: FormRouteProps): Promise<Meta
   const form = getFormRecord(slug);
 
   return {
-    title: form ? `${form.title} - Forms - Clinical KB` : "Form record - Forms - Clinical KB",
+    title: form ? `${form.title} - Forms - PsychSift` : "Form record - Forms - PsychSift",
     description: form?.subtitle ?? "Psychiatry form and workflow details.",
   };
 }

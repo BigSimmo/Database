@@ -68,7 +68,7 @@ async function mockDashboardApis(page: Page) {
     if (url.pathname === "/api/local-project-id") {
       await route.fulfill({
         json: {
-          appName: "Clinical KB",
+          appName: "PsychSift",
           projectId: "test-project",
           identityPath: "/api/local-project-id",
           localServer: { safeLocalOrigin: true },

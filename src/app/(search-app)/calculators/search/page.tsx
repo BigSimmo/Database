@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { CalculatorsSearchPage } from "@/components/calculators";
 
 export const metadata: Metadata = {
-  title: "Search clinical calculators | Clinical KB",
+  title: "Search clinical calculators | PsychSift",
   description: "Search source-cited psychiatry scores and clinical decision calculators by indication and name.",
 };
 

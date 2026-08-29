@@ -26,7 +26,7 @@ describe("caring-contacts database configuration", () => {
     expect(caringContactsDatabaseUrl()).toBe("postgres://demo@example.invalid:5432/postgres");
   });
 
-  it("refuses the pinned Clinical KB project reference", () => {
+  it("refuses the pinned PsychSift project reference", () => {
     expect(() =>
       assertNotClinicalKbProject("postgres://user@db.sjrfecxgysukkwxsowpy.supabase.co:5432/postgres"),
     ).toThrow(CaringContactsProjectSeparationError);
@@ -34,25 +34,25 @@ describe("caring-contacts database configuration", () => {
 
   // Review round 1, Important 1: DNS hostnames are case-insensitive, so a connection string
   // spelled with a different case for the project reference resolves to the identical live
-  // Clinical KB host. A case-sensitive check would be the exact bypass this function exists to
+  // PsychSift host. A case-sensitive check would be the exact bypass this function exists to
   // close.
-  it("refuses the pinned Clinical KB project reference regardless of case", () => {
+  it("refuses the pinned PsychSift project reference regardless of case", () => {
     expect(() =>
       assertNotClinicalKbProject("postgres://user@db.SJRFECXGYSUKKWXSOWPY.supabase.co:5432/postgres"),
     ).toThrow(CaringContactsProjectSeparationError);
   });
 
-  it("refuses a URL that is byte-identical to the Clinical KB connection", () => {
+  it("refuses a URL that is byte-identical to the PsychSift connection", () => {
     vi.stubEnv("SUPABASE_DB_URL", "postgres://shared@example.invalid:5432/postgres");
     expect(() => assertNotClinicalKbProject("postgres://shared@example.invalid:5432/postgres")).toThrow(
       CaringContactsProjectSeparationError,
     );
   });
 
-  // Review round 1, Minor 1: the configured URL is trimmed before comparison; the Clinical KB
+  // Review round 1, Minor 1: the configured URL is trimmed before comparison; the PsychSift
   // value it is compared against was not, so two connections differing only by surrounding
   // whitespace would otherwise pass as distinct.
-  it("refuses a URL matching the Clinical KB connection only after both sides are trimmed", () => {
+  it("refuses a URL matching the PsychSift connection only after both sides are trimmed", () => {
     vi.stubEnv("SUPABASE_DB_URL", "  postgres://shared@example.invalid:5432/postgres  ");
     expect(() => assertNotClinicalKbProject("postgres://shared@example.invalid:5432/postgres")).toThrow(
       CaringContactsProjectSeparationError,

@@ -1,11 +1,11 @@
 ---
 name: clinical-kb-workflow
-description: Use when working in the D:\Repos\Database Clinical KB repo, especially for local run, UI/browser QA, Supabase/OpenAI/RAG changes, clinical governance, dependency/upload shortcuts, or choosing verification.
+description: Use when working in the D:\Repos\Database PsychSift repo, especially for local run, UI/browser QA, Supabase/OpenAI/RAG changes, clinical governance, dependency/upload shortcuts, or choosing verification.
 ---
 
-# Clinical KB Workflow
+# PsychSift Workflow
 
-Use this skill for `D:\Repos\Database`, the Clinical KB Next.js clinical reference RAG app.
+Use this skill for `D:\Repos\Database`, the PsychSift Next.js clinical reference RAG app.
 Root `AGENTS.md` remains authoritative. If these notes drift, inspect the repo before acting.
 
 ## Repo Basics

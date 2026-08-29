@@ -33,8 +33,8 @@ describe("privacy UI", () => {
 
     expect(markup).toContain("<main");
     expect(markup).toContain("<h1");
-    expect(markup).toContain("How Clinical KB handles your data");
-    expect(markup).toContain("Before you use Clinical KB");
+    expect(markup).toContain("How PsychSift handles your data");
+    expect(markup).toContain("Before you use PsychSift");
     expect(markup).not.toContain("Quiet");
     expect(markup).not.toContain("Draft");
     expect(markup).toContain("This is draft product information");
@@ -56,7 +56,7 @@ describe("privacy UI", () => {
     // phrase must be explicit or this renders as "systemand".
     expect(markup).toContain("not a patient-record system</strong> and its provider-backed features");
     expect(markup).toContain("deliberately omits a patient-identifier field");
-    expect(markup).toContain("Safety-plan working content has no Clinical KB retention");
+    expect(markup).toContain("Safety-plan working content has no PsychSift retention");
     expect(markup).toContain("Clipboard, print, and PDF copies are outside the app");
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("completed answer threads may also remain in this browser tab for up to 12 hours");

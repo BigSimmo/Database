@@ -122,7 +122,7 @@ function isAllowedPublicCachePath(pathname: string) {
 // in production builds); this spec is the one place the worker itself is under test.
 test.use({ serviceWorkers: "allow" });
 
-test.describe("Clinical KB PWA", () => {
+test.describe("PsychSift PWA", () => {
   test.describe.configure({ timeout: 120_000 });
 
   test.beforeEach(async ({ browserName, context }) => {
@@ -281,7 +281,7 @@ test.describe("Clinical KB PWA", () => {
           window.dispatchEvent(event);
         });
 
-        const install = page.getByRole("region", { name: "Install Clinical KB" });
+        const install = page.getByRole("region", { name: "Install PsychSift" });
         await expect(install).toBeVisible();
         await page.evaluate(
           () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
@@ -379,7 +379,7 @@ test.describe("Clinical KB PWA", () => {
       window.dispatchEvent(event);
     });
 
-    const install = page.getByRole("region", { name: "Install Clinical KB" });
+    const install = page.getByRole("region", { name: "Install PsychSift" });
     await expect(install).toBeVisible();
     const scrollState = await install.evaluate((surface) => ({
       clientHeight: surface.clientHeight,
@@ -407,7 +407,7 @@ test.describe("Clinical KB PWA", () => {
       window.dispatchEvent(event);
     });
 
-    const install = page.getByRole("region", { name: "Install Clinical KB" });
+    const install = page.getByRole("region", { name: "Install PsychSift" });
     const composer = page.locator("form.answer-footer-search-edge:visible").first();
     await expect(install).toBeVisible();
     await expect(composer).toBeVisible();
@@ -437,7 +437,7 @@ test.describe("Clinical KB PWA", () => {
     expect(offlineResponse?.status()).toBe(200);
     expect(offlineResponse?.fromServiceWorker()).toBe(true);
     await expect(page).toHaveURL(new RegExp(`${coldPath}$`));
-    await expect(page.getByRole("heading", { name: "Clinical KB is offline" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "PsychSift is offline" })).toBeVisible();
     await expect(page.getByText("does not store or replay clinical queries", { exact: false })).toBeVisible();
 
     await context.setOffline(false);
@@ -445,9 +445,9 @@ test.describe("Clinical KB PWA", () => {
       page.waitForURL((url) => url.pathname === "/" && url.search === "", { waitUntil: "domcontentloaded" }),
       page.getByRole("link", { name: "Try again" }).click(),
     ]);
-    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await expect(page).toHaveTitle("Clinical Answers | PsychSift");
     await expect(page.locator("#main-content")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Clinical KB is offline" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "PsychSift is offline" })).toHaveCount(0);
 
     const privateProbePath = `/api/pwa-private-probe-${Date.now()}`;
     await context.route(`**${privateProbePath}`, (route) =>

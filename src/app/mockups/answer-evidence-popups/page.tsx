@@ -60,7 +60,7 @@ function Shell({ children }: { children: ReactNode }) {
                   <Layers className="h-4 w-4" />
                 </span>
                 <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
-                  Clinical KB mockup
+                  PsychSift mockup
                 </p>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-3xl">

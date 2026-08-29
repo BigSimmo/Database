@@ -1,4 +1,4 @@
-/* Clinical KB v2 token layer — globally active, class-scoped for rollback.
+/* PsychSift v2 token layer — globally active, class-scoped for rollback.
  *
  * Source of truth: THIS FILE (`src/app/ckb-v2-tokens.css`), ranked #2 under
  * AGENTS.md per docs/design-system/SPEC.md. Committed tests are #3. The design
