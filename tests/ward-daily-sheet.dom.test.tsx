@@ -69,6 +69,9 @@ describe("the daily sheet exists on the board and says what it is", () => {
       "Who is stuck",
       "Who is overdue",
       "Nobody has said when they are going",
+      // Added 2026-08-30. A fifth group, placed LAST rather than inserted into D19's verbatim
+      // four — see `AWAY_GROUP_PLACEMENT_UNRESOLVED`; the owner has not ruled on where it sits.
+      "Who is off the ward",
     ]);
   });
 
@@ -108,6 +111,48 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     const wall = wallClockNow();
     if (wall !== WARD_ADMISSIONS_ANCHOR) {
       expect(stamp).not.toContain(`As at ${formatInstant(wall)}`);
+    }
+  });
+
+  it("says on the PAPER that a patient is at an emergency department, not only on the screen", () => {
+    /*
+     * The gap the tile fix left, and the more serious half of it.
+     *
+     * The board's grid was fixed first. The printed sheet still showed that patient as an ordinary
+     * occupant — a day count, a discharge plan, a diagnosis, and nothing saying they were not on
+     * the ward. **This sheet is read aloud at handover**, so it is precisely the moment somebody
+     * asks "and where is she?" and the page cannot answer. The paper is also the artefact that
+     * leaves the room: a screen is re-read, a printed sheet is carried to a meeting and believed.
+     *
+     * Asserted against the sheet specifically, not the board as a whole — the board contains both
+     * surfaces, so a query over the whole page would have passed on the strength of the tile fix
+     * and this line could have been deleted with the suite green.
+     */
+    // The ward that actually has people away, not this file's default — a sheet with nobody away
+    // proves nothing, and would pass just as quietly if the line were never rendered.
+    const away = wardAdmissions.filter((admission) => admission.awayAtEmergencyDepartmentSince !== null);
+    expect(away.length, "no seeded admission is away at an ED").toBeGreaterThan(0);
+    const unitId = away[0].unitId;
+    const awayHere = away.filter((admission) => admission.unitId === unitId);
+
+    renderWardBoard(unitId);
+
+    // Scoped to the group, not the whole sheet. A person who is away AND has no discharge date
+    // appears in BOTH groups on purpose — the same way somebody both stuck and overdue appears
+    // twice — so counting across the sheet counts one of them more than once.
+    const awayGroup = screen.getByTestId("ward-daily-sheet-away");
+    const notes = within(awayGroup).getAllByText(/at an emergency department/i);
+    expect(
+      notes.length,
+      `the off-the-ward group shows ${notes.length} of ${awayHere.length} people away on this ward`,
+    ).toBe(awayHere.length);
+
+    for (const note of notes) {
+      // The half most likely to be trimmed as wordy, and the half a reader most needs: "away" on a
+      // bed sheet otherwise reads as "so the bed is free".
+      expect(note.textContent, `sheet line does not say the bed is still theirs: ${note.textContent}`).toMatch(
+        /still theirs/i,
+      );
     }
   });
 
@@ -151,8 +196,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
 
     expect(stamp).toMatch(/synthetic/i);
     expect(stamp, `a year reached the stamp: ${stamp}`).not.toMatch(/(19|20)\d{2}/);
-    const months =
-      /(January|February|March|April|May|June|July|August|September|October|November|December)/;
+    const months = /(January|February|March|April|May|June|July|August|September|October|November|December)/;
     expect(stamp, `a month name reached the stamp: ${stamp}`).not.toMatch(months);
   });
 

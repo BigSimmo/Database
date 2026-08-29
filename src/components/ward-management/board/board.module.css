@@ -354,6 +354,20 @@
   line-height: var(--wb-leading-body);
 }
 
+/*
+ * "At an emergency department" on the printed sheet. Bolder than `.sheetRowLine` because it
+ * qualifies every line beneath it, and because this sheet is read aloud — the reader's eye has to
+ * catch it before they start reciting a discharge plan for somebody who is not on the ward.
+ *
+ * Weight and words, never a fill: a printer drops backgrounds, and the whole defect this board has
+ * already been through once is ink that vanishes on paper.
+ */
+.sheetRowAway {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
 .sheetDestinations {
   margin: var(--wb-space-4) 0 0;
   padding: 0;

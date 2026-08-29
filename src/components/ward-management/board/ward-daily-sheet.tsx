@@ -40,9 +40,42 @@ export type DailySheetPerson = {
   homeRegion: string;
   /** Already phrased by `tentativeDiagnosisPhrase`, never a bare block code. */
   tentativeDiagnosis: string | null;
+  /**
+   * Whole hours at an emergency department, or `null` while the person is on the ward.
+   *
+   * **On the sheet as well as the tile, and the sheet is the half that matters more.** The tile
+   * was fixed first and left the paper: a patient at an ED still printed as an ordinary occupant,
+   * with a day count and a discharge plan and nothing saying they were not on the ward. **This
+   * sheet is read aloud at handover**, which is exactly the moment somebody asks "and where is
+   * she?" — and until this, nobody on the page could answer.
+   *
+   * The paper is also the artefact that leaves the room. A screen is re-read; a printed sheet is
+   * carried to a meeting and believed.
+   */
+  awayAtEdHours: number | null;
   expectedDays: number | null;
   blockReason: string | null;
 };
+
+/**
+ * AN UNRULED LAYOUT DECISION, NAMED SO IT IS NOT MISTAKEN FOR A SETTLED ONE.
+ *
+ * D19 fixed the sheet's reading order verbatim — **who came in · who is going · who is stuck · who
+ * is overdue** — and "who is off the ward" is a fifth group nobody has ruled on. It is placed LAST
+ * rather than inserted into an approved sequence, which is the conservative choice and not
+ * necessarily the right one: a handover might want it first, since it changes what every other
+ * group's rows mean.
+ *
+ * **The cost that makes it a real decision rather than a preference:** this sheet already spills to
+ * a second page on 22- and 24-bed wards, and a fifth column makes that worse. It was still built,
+ * because a patient who is off the ward and printed as an ordinary occupant is a worse failure than
+ * a two-page sheet — the same reasoning that refused to truncate the occupant list.
+ *
+ * `tests/ward-daily-sheet.dom.test.tsx` asserts the placement, so a ruling lands in one edit.
+ */
+export const AWAY_GROUP_PLACEMENT_UNRESOLVED =
+  "Unruled 2026-08-30: where 'Who is off the ward' sits in the sheet's reading order, and whether a " +
+  "fifth group is worth the second page on 22- and 24-bed wards. Currently last. See DailySheetGroups.";
 
 export type DailySheetGroups = {
   /** Recorded as held up by something — `BED_RELEASE_BLOCKERS`, an owner-approved list about the
@@ -54,6 +87,21 @@ export type DailySheetGroups = {
    *  folded into "overdue": an absent plan and a passed plan are different facts, and a meeting
    *  does different things about them. */
   noDate: DailySheetPerson[];
+  /**
+   * Off the ward at an emergency department, and its own group for a measured reason.
+   *
+   * **A line on the person's row was not enough, and the measurement is why.** The other three
+   * groups are exceptions — stuck, overdue, no date — so a patient who is away but has an ordinary
+   * discharge plan and no blocker falls into NONE of them and never printed at all. Measured, not
+   * reasoned: the sheet showed **1 of 2** people away on the ward that has them.
+   *
+   * So being off the ward is its own exception, which is what it always was — it is exactly the
+   * question a handover asks ("and where is she?") and exactly the one the sheet could not answer.
+   *
+   * A person can appear here AND in another group, on purpose, the same way somebody both stuck
+   * and overdue appears twice: both facts are true and a meeting acts on both.
+   */
+  awayFromWard: DailySheetPerson[];
 };
 
 /**
@@ -75,6 +123,7 @@ export function dailySheetGroups(people: readonly DailySheetPerson[]): DailyShee
     heldUp: people.filter((person) => person.blockReason !== null),
     overdue: people.filter((person) => person.pastDate),
     noDate: people.filter((person) => person.expectedDays === null),
+    awayFromWard: people.filter((person) => person.awayAtEdHours !== null),
   };
 }
 
@@ -147,6 +196,25 @@ function SheetPerson({ person, testId }: { person: DailySheetPerson; testId: str
         {person.days === null ? "No stay yet — not arrived" : `Day ${person.days}`}
         {person.bandLabel !== null && <span className={styles.sheetRowBand}>{person.bandLabel}</span>}
       </p>
+      {/*
+       * DIRECTLY AFTER THE LEAD, and above everything else about them, because it changes what
+       * every line below it means: a day count, a discharge plan and a diagnosis all read
+       * differently about somebody who is not on the ward.
+       *
+       * Only for the people it applies to — two on a twenty-bed ward — rather than a line on every
+       * row saying "on the ward". This sheet already spills to a second page at 22 and 24 beds, so
+       * a line per occupant would cost a page to state the ordinary case.
+       *
+       * Says the bed is still theirs in the same breath, as the board's panel does: "away" on a
+       * bed sheet otherwise reads as "so the bed is free", and it is not — the ward is holding it.
+       */}
+      {person.awayAtEdHours !== null && (
+        <p className={styles.sheetRowAway} data-testid={`${testId}-away`}>
+          {person.awayAtEdHours === 0
+            ? "At an emergency department — the bed is still theirs."
+            : `At an emergency department, ${person.awayAtEdHours} ${person.awayAtEdHours === 1 ? "hour" : "hours"} — the bed is still theirs.`}
+        </p>
+      )}
       <p className={styles.sheetRowLine}>
         {person.sex}, from {person.homeRegion}
       </p>
@@ -359,6 +427,21 @@ export function WardDailySheet({
           emptyText="Everybody in a bed on this ward has an expected date."
           people={groups.noDate}
           note="An absent date means nobody has set one. It never reads as a plan to stay, and the system never guesses one."
+        />
+
+        {/*
+         * LAST in the reading order, and that placement is provisional — see
+         * `AWAY_GROUP_PLACEMENT_UNRESOLVED` below. D19 fixed the first four headings verbatim and
+         * this is a fifth nobody has ruled on, so it goes after them rather than being inserted
+         * into a sequence the owner approved.
+         */}
+        <SheetGroup
+          heading="Who is off the ward"
+          headingId="ward-daily-sheet-away-heading"
+          testId="ward-daily-sheet-away"
+          emptyText="Everybody in a bed on this ward is on it."
+          people={groups.awayFromWard}
+          note="The bed stays theirs while they are away — nothing here frees a bed, and none of these people is counted as leaving."
         />
       </div>
 
