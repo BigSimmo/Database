@@ -109,6 +109,27 @@ export type WardFlowEvent =
   | { type: "ADVANCE_CLOCK"; role: WardFlowRole; now: Instant; minutes: number }
   | { type: "RESET_SCENARIO"; role: WardFlowRole; now: Instant }
   | { type: "SET_SCENARIO"; role: WardFlowRole; now: Instant; scenario: WardScenario }
+  /**
+   * ADD A PATIENT. The owner's flow: search for somebody, and if nobody comes up, add them.
+   *
+   * The person being added has never been referred, never moved and never arrived - which is the
+   * whole reason this event exists rather than a patient falling out of one of those. A record
+   * created by arrival is correct on every screen showing admitted people and absent at exactly the
+   * moment the flow describes.
+   *
+   * Carries identity because identity lives on `Patient` and nowhere else, by owner ruling PD-1
+   * (2026-08-30). It does not carry a referral, a movement or a unit: a patient exists before any of
+   * them and outlives all of them.
+   */
+  | {
+      type: "ADD_PATIENT";
+      role: WardFlowRole;
+      now: Instant;
+      umrn: string;
+      givenName: string;
+      familyName: string;
+      dateOfBirth: string;
+    }
   | {
       type: "CHANGE_URGENCY";
       role: WardFlowRole;
@@ -443,6 +464,8 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   // `DECLINE` (a ward declining a specific movement, downstream) — see this file's own top-level
   // comment on `WardFlowRole`.
   RECEIVE_REFERRAL: ["community"],
+  // Anyone at the front door may add a patient who is not yet known - that IS the front door.
+  ADD_PATIENT: ["ed", "community", "coordinator"],
   ACCEPT_REFERRAL: ["coordinator"],
   DECLINE_REFERRAL: ["coordinator"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec

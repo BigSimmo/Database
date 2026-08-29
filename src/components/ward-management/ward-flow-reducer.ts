@@ -26,6 +26,8 @@ import { allEmergencyDepartments, siteByCode } from "@/components/ward-managemen
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { Admission } from "@/components/ward-management/ward-admissions";
+import type { Patient } from "@/components/ward-management/ward-patients";
+import { wardPatients } from "@/components/ward-management/ward-patients-seed";
 import { wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
@@ -138,6 +140,21 @@ export type WardFlowState = {
    * already renders, and so an arrival appends a record OF THE SAME SHAPE rather than a second
    * kind of occupant that every consumer would have to learn about.
    */
+  /**
+   * The people. Owner ruling PD-1, 2026-08-30.
+   *
+   * Separate from `admissions` because the lifecycles are different, not because the data is. An
+   * admission is a stay in one bed - correctly born at arrival, ended when the person leaves. A
+   * patient exists before any referral, outlives every admission, and is the thing the owner's flow
+   * searches for: "search a patient, and if nobody comes up, ADD them."
+   *
+   * A record created by arrival would look right on every screen showing admitted people and be
+   * missing at exactly that moment.
+   */
+  patients: Patient[];
+  /** Monotonic id source for added patients - same discipline as the other sequences here: only
+   *  ever increases, never derived from `state.patients.length`, which the seed makes non-zero. */
+  patientSequence: number;
   admissions: Admission[];
   /** Monotonic id source for admissions created by arrival, holding the same discipline as
    *  `leaveBedSequence` and `frontDoorReferralSequence`: only ever increases, and never derived
@@ -165,6 +182,8 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     refreshRequests: [],
     referrals: structuredClone(referrals),
     frontDoorReferralSequence: 0,
+    patients: structuredClone(wardPatients),
+    patientSequence: 0,
     admissions: structuredClone(wardAdmissions),
     admissionSequence: 0,
   };
@@ -200,6 +219,9 @@ function subjectId(event: WardFlowEvent): string {
     // the intake itself, exactly the same reasoning ADVANCE_CLOCK/RESET_SCENARIO/SET_SCENARIO
     // above already use.
     case "RECEIVE_REFERRAL":
+    // A patient is not filed against a movement, and that is the point of the record rather than an
+    // omission: they exist before any movement does.
+    case "ADD_PATIENT":
       return "none";
     default:
       return event.movementId;
@@ -323,6 +345,25 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     // `event.now` is the provider's now and already includes `clockOffsetMinutes`, which a reset
     // clears. Subtracting it lands the seed on the now the board will show AFTER the reset rather
     // than the one it showed before, so the visible clock does not jump.
+    case "ADD_PATIENT": {
+      /**
+       * The whole case, and it is short on purpose: adding a patient links to nothing.
+       *
+       * No movement, no referral, no unit, no admission. That is what makes the owner's flow
+       * possible - somebody searched, nobody came up, and this is the person who did not exist yet.
+       * A version of this that required any of those would be the too-late record wearing a
+       * different name.
+       */
+      const patient: Patient = {
+        id: `PT-A${String(state.patientSequence + 1).padStart(2, "0")}`,
+        umrn: event.umrn,
+        givenName: event.givenName,
+        familyName: event.familyName,
+        dateOfBirth: event.dateOfBirth,
+      };
+      return { ...state, patients: [...state.patients, patient], patientSequence: state.patientSequence + 1 };
+    }
+
     case "RESET_SCENARIO":
       return shiftInstants(seedWardFlowState(), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 

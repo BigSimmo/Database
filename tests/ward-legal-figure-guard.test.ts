@@ -669,6 +669,22 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       return unitIds.map((unitId) => ({ type, role, now, unitId }));
     case "RECEIVE_REFERRAL":
       return [{ type, role, now, ...RECEIVE_REFERRAL_CANDIDATE }];
+    case "ADD_PATIENT":
+      // Adding a patient links to nothing — no movement, no referral, no unit — which is exactly
+      // why this candidate is a bare literal rather than a crossing of existing state. A patient
+      // exists before any of those, and a candidate that needed one of them would be testing a
+      // different event from the one the owner's flow describes.
+      return [
+        {
+          type,
+          role,
+          now,
+          umrn: "UM900001",
+          givenName: "Sweep",
+          familyName: "Candidate",
+          dateOfBirth: "1980-01-01",
+        },
+      ];
     case "ACCEPT_REFERRAL":
       // Every QUEUED referral crossed with every unit — the reducer's own `referralEligibility`
       // gate decides which pairing is actually accepted, so this offers every legitimate
