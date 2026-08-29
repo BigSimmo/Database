@@ -289,20 +289,36 @@ export function WardBoard({ unitId }: { unitId: string }) {
 }
 
 /**
- * Written as an exhaustive switch on `tile.kind`, NOT as a chain of early returns with the
- * occupied case as the fall-through — which is how the blocked tile was broken the moment it was
- * added. The chain ended `if empty … if waiting … then treat it as occupied`, so a new third kind
- * silently took the occupied branch, read a `bandId` it does not have, and rendered with an
- * `undefined` class and an occupied fill. Nothing failed: `undefined` is a legal class name, and
- * the tile still drew. It was found by measuring the rendered background of every tile kind, not
- * by a test and not by reading the diff. A switch over the discriminant makes the compiler ask the
- * question instead.
+ * An EXHAUSTIVE switch on `tile.kind`, not a chain of early returns ending in the occupied case as
+ * the fall-through — which is how the blocked tile was broken the moment it was added.
+ *
+ * The chain read `if empty … if waiting … otherwise treat it as occupied`, so the new third kind
+ * silently took the occupied branch, read a `bandId` it does not have, and rendered with the class
+ * name `"undefined"` and an occupied fill. **Nothing failed.** `"undefined"` is a legal class name
+ * that matches no rule, the tile still drew, and it drew in a plausible-looking colour. It was
+ * found by sampling the rendered background of every tile kind on the page — not by a test, and
+ * not by reading the diff, where the missing branch is an absence rather than a mistake.
+ *
+ * The `never` binding below is the guard against the next kind: adding a fifth `Tile` variant and
+ * forgetting this function becomes a compile error instead of another silently mis-styled tile.
  */
 function tileClassName(tile: Tile): string {
-  if (tile.kind === "empty") return `${styles.bed} ${styles.bedEmpty}`;
-  if (tile.kind === "waiting") return `${styles.bed} ${styles.bedWaiting}`;
-  if (tile.kind === "blocked") return `${styles.bed} ${styles.bedBlocked}`;
-  const band = tile.bandId === null ? "" : ` ${BAND_CLASS[tile.bandId]}`;
-  const past = tile.pastDate ? ` ${styles.bedPast}` : "";
-  return `${styles.bed} ${styles.bedOccupied}${band}${past}`;
+  switch (tile.kind) {
+    case "empty":
+      return `${styles.bed} ${styles.bedEmpty}`;
+    case "waiting":
+      return `${styles.bed} ${styles.bedWaiting}`;
+    case "blocked":
+      return `${styles.bed} ${styles.bedBlocked}`;
+    case "occupied": {
+      const band = tile.bandId === null ? "" : ` ${BAND_CLASS[tile.bandId]}`;
+      const past = tile.pastDate ? ` ${styles.bedPast}` : "";
+      return `${styles.bed} ${styles.bedOccupied}${band}${past}`;
+    }
+    default: {
+      // Unreachable while the switch is exhaustive; a new variant fails to assign here.
+      const unhandled: never = tile;
+      throw new Error(`Unhandled ward-board tile kind: ${JSON.stringify(unhandled)}`);
+    }
+  }
 }
