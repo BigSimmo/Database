@@ -289,7 +289,7 @@ export function CalculatorSearchHome({
               aria-pressed={active}
               onClick={() => setDomain(chip.id)}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-sm-minus font-bold transition lg:min-h-9",
+                "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-sm-minus font-bold transition lg:min-h-compact-meta",
                 active
                   ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",

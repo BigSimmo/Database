@@ -105,10 +105,35 @@ describe("design-system contract helpers", () => {
     ]);
 
     // The repo's correct responsive pattern must NOT be flagged: 48px on
-    // phones, released to 40px from `sm` up.
+    // phones, released to the 40px compact-meta step-down from `sm` up.
     expect(find('<button className="min-h-12 sm:min-h-10">Save</button>')).toEqual([]);
-    expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap lg:min-h-[2.5rem]">Save</button>')).toEqual([]);
     expect(find('<button className="min-h-[48px]">Save</button>')).toEqual([]);
+
+    // TOKENS.md §2 bans `--row-compact` (36px) as a tap target with no
+    // breakpoint carve-out, so a prefixed band below the 40px compact-meta
+    // floor is the defect — not a "deliberate desktop release". Reading the
+    // unprefixed token alone made this class of violation unreachable.
+    expect(find('<button className="min-h-tap sm:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-12 lg:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-tap lg:min-h-8">Details</summary>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className={cn("min-h-tap", "md:min-h-9 px-2")}>Save</button>')).toEqual(["src/example.tsx:1"]);
+
+    // The band cascade: a later band restores the floor for itself and every
+    // band above it, but not for the one that was already short.
+    expect(find('<button className="min-h-tap sm:min-h-9 lg:min-h-12">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-tap sm:min-h-10 lg:min-h-12">Save</button>')).toEqual([]);
+
+    // A band that turns the control inert has no tap target to floor. Narrow by
+    // construction: `pointer-events-none` must win in the SAME band.
+    expect(find('<button className="min-h-tap sm:pointer-events-none sm:min-h-0">Header</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-0">Header</button>')).toEqual(["src/example.tsx:1"]);
+    expect(
+      find('<button className="pointer-events-none min-h-tap sm:pointer-events-auto sm:min-h-9">X</button>'),
+    ).toEqual(["src/example.tsx:1"]);
+
+    // A `:` inside an arbitrary value is not a variant separator.
+    expect(find('<button className="min-h-[calc(100dvh-2rem)] text-[color:var(--text)]">Save</button>')).toEqual([]);
     expect(find('<button className="min-h-[3rem]">Save</button>')).toEqual([]);
     expect(find('<button className={compact ? "min-h-tap" : "min-h-12"}>Save</button>')).toEqual([]);
 

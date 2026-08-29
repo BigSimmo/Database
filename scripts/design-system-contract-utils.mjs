@@ -250,10 +250,27 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * own declared floor, so a value under the token is a lowered tap target by
  * construction.
  *
- * Unprefixed only. `min-h-12 sm:min-h-10` is the repo's correct pattern — 48px
- * on phones, 40px from `sm` up — so a variant-prefixed short value is a
- * deliberate desktop release, not a violation. An unprefixed `min-h-tap` or
- * `min-h-12`+ on the same element rescues it.
+ * Breakpoint-aware, NOT unprefixed-only. Reading the unprefixed token alone was
+ * a check that could not fail for the case TOKENS.md §2 names as the defect:
+ * `min-h-12 sm:min-h-9` is 48px on phones and 36px everywhere else, and the
+ * unprefixed read concludes it is fine. Two floors apply, because §2's density
+ * table sanctions exactly one step-down and bans the other:
+ *
+ * - Base band must be the full 48px tap floor (`--spacing-tap`).
+ * - A `sm:`/`md:`/`lg:`/`xl:`/`2xl:` band may release to 40px — the named
+ *   `min-h-compact-meta` desktop step-down for metadata/disclosure roles — but
+ *   never below it. 36px is `--row-compact`, and "never reuse `--row-compact`
+ *   (36px) as tap; `sm:min-h-9` / `lg:min-h-9` on an interactive control is the
+ *   defect this rule exists to close" is a hard ban with no breakpoint carve-out.
+ *
+ * So `min-h-12 sm:min-h-10` stays green (§2's sanctioned release) and
+ * `min-h-tap sm:min-h-9` goes red (§2's banned example, verbatim).
+ *
+ * Only min-width breakpoint variants are modelled. A token carrying any other
+ * variant (`hover:`, `dark:`, `max-sm:`, `group-*`, `data-*`, `print:`) neither
+ * raises nor lowers a band's effective height, exactly as before this change —
+ * widening to those is a separate question with its own false-positive surface,
+ * and no interactive control in `src` currently carries one.
  */
 const TAP_FLOOR_INTERACTIVE_TAGS = new Set(["a", "button", "input", "select", "summary", "textarea"]);
 const MAX_CLASS_ALTERNATIVES = 128;
@@ -345,15 +362,100 @@ function minHeightPixels(token) {
   return arbitrary[2] === "rem" ? value * 16 : value;
 }
 
+/** `--spacing-tap`. The floor on the base band, and on a primary at every band. */
+const TAP_FLOOR_PX = 48;
+/**
+ * `--spacing-compact-meta`. TOKENS.md §2 names `sm:min-h-compact-meta` /
+ * `lg:min-h-compact-meta` as the one sanctioned desktop step-down, so a
+ * prefixed band may sit here — but 36px (`--row-compact`) is banned outright.
+ */
+const RESPONSIVE_STEP_DOWN_FLOOR_PX = 40;
+/** Tailwind min-width breakpoints, base first. Index doubles as the band order. */
+const MIN_WIDTH_BREAKPOINT_BANDS = ["sm", "md", "lg", "xl", "2xl"];
+
+/**
+ * Split a utility into its variant prefixes and the utility itself, on `:` at
+ * bracket depth zero. Depth matters: `min-h-[calc(100dvh-var(--x))]` and
+ * `data-[state=open]:` both carry a `:` that is not a variant separator.
+ */
+function splitVariantPrefixes(token) {
+  const segments = [];
+  let depth = 0;
+  let current = "";
+  for (const character of token) {
+    if (character === "[" || character === "(") depth += 1;
+    else if (character === "]" || character === ")") depth -= 1;
+    if (character === ":" && depth === 0) {
+      segments.push(current);
+      current = "";
+      continue;
+    }
+    current += character;
+  }
+  return { variants: segments, utility: current };
+}
+
+/**
+ * The band a `min-h-*` token establishes, or `null` when it establishes none.
+ * `0` is the base band; `1..5` are `sm`..`2xl`. A token with any non-breakpoint
+ * variant returns `null` — it is conditional on state, not on viewport width.
+ */
+function minHeightBandIndex(variants) {
+  if (variants.length === 0) return 0;
+  if (variants.length > 1) return null;
+  const band = MIN_WIDTH_BREAKPOINT_BANDS.indexOf(variants[0]);
+  return band === -1 ? null : band + 1;
+}
+
+/**
+ * The value winning at `band` is the one declared at the highest band at or
+ * below it; ties inside a band go to the last declaration, as the cascade does.
+ */
+function effectiveAtBand(declarations, band) {
+  let effective = null;
+  let winningBand = -1;
+  for (const declaration of declarations) {
+    if (declaration.band > band || declaration.band < winningBand) continue;
+    effective = declaration.value;
+    winningBand = declaration.band;
+  }
+  return effective;
+}
+
 function hasSubFloorEffectiveMinHeight(classText) {
-  const minHeightTokens = classText
-    .split(/\s+/)
-    .filter((token) => token && !token.includes(":"))
-    .map((token) => token.replace(/^!/, ""))
-    .filter((token) => token.startsWith("min-h-"));
-  if (minHeightTokens.length === 0) return false;
-  const pixels = minHeightPixels(minHeightTokens.at(-1));
-  return pixels !== null && pixels < 48;
+  const minHeights = [];
+  const pointerEvents = [];
+  for (const token of classText.split(/\s+/)) {
+    if (!token) continue;
+    const { variants, utility } = splitVariantPrefixes(token);
+    const normalized = utility.replace(/^!/, "");
+    const band = minHeightBandIndex(variants);
+    if (band === null) continue;
+    if (normalized === "pointer-events-none" || normalized === "pointer-events-auto") {
+      pointerEvents.push({ band, value: normalized === "pointer-events-none" });
+      continue;
+    }
+    if (!normalized.startsWith("min-h-")) continue;
+    const pixels = minHeightPixels(normalized);
+    if (pixels === null) continue;
+    minHeights.push({ band, value: pixels });
+  }
+  if (minHeights.length === 0) return false;
+
+  for (let band = 0; band <= MIN_WIDTH_BREAKPOINT_BANDS.length; band += 1) {
+    const effective = effectiveAtBand(minHeights, band);
+    if (effective === null) continue;
+    // A band that turns the element inert has no tap target to floor. This is
+    // the deliberate phone-only-disclosure shape — `sm:pointer-events-none
+    // sm:min-h-0` on a header that becomes static copy once the panel is always
+    // open — and padding it back to 48px would restore a dead 48px block on
+    // desktop. Narrow on purpose: it needs `pointer-events-none` winning in the
+    // SAME band, so an interactive band is never excused by a neighbour's.
+    if (effectiveAtBand(pointerEvents, band) === true) continue;
+    const floor = band === 0 ? TAP_FLOOR_PX : RESPONSIVE_STEP_DOWN_FLOOR_PX;
+    if (effective < floor) return true;
+  }
+  return false;
 }
 
 export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
