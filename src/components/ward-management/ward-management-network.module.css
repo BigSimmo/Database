@@ -782,9 +782,14 @@
   gap: var(--net-space-10);
 }
 
+/* `0 1 auto`, never `1 1 0`. Equal halves would force the referral panel to the movement queue's
+   height: the seed holds two queued referrals against a long movement list, so half the column
+   would be blank, and at the narrower widths where the column is short both panels would resolve
+   to the taller one's height. Each panel takes the height its own content needs and shrinks only
+   when the column runs out. */
 .queueColumn > .queuePanel {
   min-height: 0;
-  flex: 1 1 0;
+  flex: 0 1 auto;
 }
 
 /* One unit node's verdict for the selected referral. Every node carries one, so this is never a

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +16,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
 import { referrals } from "@/components/ward-management/ward-movements";
@@ -106,6 +107,45 @@ describe("network diagram, referral placement", () => {
     // way the set equality above could hold while the screen said nothing useful.
     const distinct = new Set(verdictNodes().map((node) => node.textContent));
     expect(distinct.size, "every unit node carried the same verdict text").toBeGreaterThan(1);
+  });
+
+  /**
+   * Fix round 1, finding 1. The placement aside shipped with three test ids and no assertion
+   * against any of them: the whole panel could have been deleted and every other test here stayed
+   * green — including this task's own claim that a referral's tier renders as the coordinator's
+   * label rather than a bare digit, which had no test at all.
+   *
+   * Scoped STRUCTURALLY, `within` the aside resolved by its own accessible name, never by a
+   * document-wide query. jsdom hides nothing, so "the label is somewhere in the document" would
+   * pass just as well with the element moved out of the panel entirely.
+   */
+  it("names the referral in the aside, with the tier spelled as a label and not a bare digit", () => {
+    expect(SUBJECT.urgency, "the seed's first queued referral no longer carries the tier this pins").toBe(2);
+    expect(SUBJECT.homeRegion, "the seed's first queued referral no longer carries the facts this pins").toBe(
+      "Perth Metropolitan",
+    );
+
+    renderNetwork();
+
+    // Before selection the placement panel is not merely empty — it is not the aside on screen.
+    expect(screen.queryByRole("complementary", { name: "Referral placement" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "Explainable shortlist" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId(`ward-network-referral-${SUBJECT.id}`));
+
+    const aside = screen.getByRole("complementary", { name: "Referral placement" });
+    expect(
+      screen.queryByRole("complementary", { name: "Explainable shortlist" }),
+      "both asides were on screen at once — the movement panel did not stand down",
+    ).toBeNull();
+
+    // `urgencyTierLabel`'s own output, written out rather than recomputed here: a bare "2" reddens
+    // this, which is the whole reason the label exists on a referral surface.
+    expect(within(aside).getByTestId("ward-network-placement-tier")).toHaveTextContent("Tier 2 · urgent");
+    expect(within(aside).getByTestId("ward-network-placement-facts")).toHaveTextContent(
+      "Youth · Female · Perth Metropolitan",
+    );
+    expect(within(aside).getByTestId("ward-network-placement-note")).toBeInTheDocument();
   });
 
   it("hands the diagram back to the movement view when the selected referral is deselected", () => {
@@ -212,5 +252,130 @@ describe("the placement overlay adds no new read of the bed-release model", () =
       releaseModelImportsIn(source),
       "the placement overlay added a read of the bed-release model this component did not already have",
     ).toEqual(["BedRelease", "capacityBreakdown"]);
+  });
+
+  /*
+   * Fix round 1, finding 2, and the more important half of this contract.
+   *
+   * The ratchet above inspects IMPORT SPECIFIERS, so all it proves is that no new release-model
+   * MODULE is reached. `capacityBreakdown` is already imported — rendering the blocked-discharge
+   * figure would need no new import at all, and the ratchet would stay green while the prohibition
+   * this phase's central claim rests on was broken. A guard watching the door with the thing it
+   * guards against already inside the room.
+   *
+   * What follows is the READ. Every property taken off a `capacityBreakdown` value in this
+   * component, whatever the local variable happens to be called. The permitted set is exactly the
+   * two figures the Confirmed and Predicted chips showed before Phase 8 began. `blockedToday` —
+   * the blocked-discharge figure, added to the breakdown after this phase's plan was written — and
+   * `excludedBeyondToday` are the two that must never appear: surfacing either would grow the
+   * phase's only unvalidated-bed-model exposure from two figures to three, and would break the
+   * claim that being wrong about that model costs this phase almost nothing.
+   *
+   * It matters most because step two edits this same file, which is exactly the moment somebody
+   * reaches for those numbers for good-looking reasons.
+   */
+
+  /** Every property name read off a `capacityBreakdown` value in `source`. A value counts as one
+   *  when it is bound from a `capacityBreakdown(...)` call, when its type annotation names
+   *  `capacityBreakdown` (how `bedStateValue` receives one), or when the call result is read
+   *  directly. Scoped that way rather than by property name, because `unitCapacity` returns a
+   *  `held` and a `blocked` of its own and reading those is not a release-model read. */
+  function breakdownPropertyReads(source: string): string[] {
+    const ast = parseModuleSource(source);
+    const bindings = new Set<string>();
+    const reads = new Set<string>();
+
+    const isBreakdownCall = (node: Record<string, unknown> | null | undefined) =>
+      node?.type === "CallExpression" &&
+      (node.callee as Record<string, unknown> | undefined)?.type === "Identifier" &&
+      (node.callee as { name?: string }).name === "capacityBreakdown";
+
+    const walk = (node: unknown, visit: (node: Record<string, unknown>) => void) => {
+      if (Array.isArray(node)) {
+        for (const child of node) walk(child, visit);
+        return;
+      }
+      if (!node || typeof node !== "object" || typeof (node as { type?: unknown }).type !== "string") return;
+      visit(node as Record<string, unknown>);
+      for (const [key, value] of Object.entries(node)) {
+        if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
+        walk(value, visit);
+      }
+    };
+
+    walk(ast.program, (node) => {
+      if (node.type === "VariableDeclarator") {
+        const id = node.id as { type?: string; name?: string } | undefined;
+        if (id?.type === "Identifier" && id.name && isBreakdownCall(node.init as Record<string, unknown>)) {
+          bindings.add(id.name);
+        }
+      }
+      // A type annotation naming the function — `ReturnType<typeof capacityBreakdown>` — read from
+      // the annotation's own source range, so no assumption is made about its TS node shape.
+      if (node.type === "Identifier" && node.typeAnnotation && typeof node.name === "string") {
+        const annotation = node.typeAnnotation as { start?: number; end?: number };
+        if (typeof annotation.start === "number" && typeof annotation.end === "number") {
+          if (source.slice(annotation.start, annotation.end).includes("capacityBreakdown")) bindings.add(node.name);
+        }
+      }
+    });
+
+    walk(ast.program, (node) => {
+      if (node.type !== "MemberExpression" || node.computed === true) return;
+      const property = node.property as { type?: string; name?: string } | undefined;
+      if (property?.type !== "Identifier" || !property.name) return;
+      const object = node.object as { type?: string; name?: string } | undefined;
+      const fromBinding = object?.type === "Identifier" && object.name !== undefined && bindings.has(object.name);
+      if (fromBinding || isBreakdownCall(node.object as Record<string, unknown>)) reads.add(property.name);
+    });
+
+    return [...reads].sort();
+  }
+
+  it("sees a breakdown read whatever the value is called, and never mistakes a capacity read for one", () => {
+    // Pins the detector in both directions before anything is concluded from it. All four positive
+    // shapes appear in, or could appear in, the component itself.
+    expect(
+      breakdownPropertyReads("const breakdown = capacityBreakdown(u, r, l, n); void breakdown.blockedToday;"),
+    ).toEqual(["blockedToday"]);
+    expect(breakdownPropertyReads("const totals = capacityBreakdown(u, r, l, n); void totals.blockedToday;")).toEqual([
+      "blockedToday",
+    ]);
+    expect(
+      breakdownPropertyReads(
+        "function f(breakdown: ReturnType<typeof capacityBreakdown>) { return breakdown.excludedBeyondToday; }",
+      ),
+      "a breakdown received as a typed parameter was invisible to this guard",
+    ).toEqual(["excludedBeyondToday"]);
+    expect(breakdownPropertyReads("void capacityBreakdown(u, r, l, n).excludedBeyondToday;")).toEqual([
+      "excludedBeyondToday",
+    ]);
+
+    // And the negative, which is why this is scoped to the value rather than to property names:
+    // `unitCapacity` has a `held` and a `blocked` of its own, and this component reads both.
+    expect(
+      breakdownPropertyReads("const capacity = unitCapacity(u, r); void capacity.held; void capacity.blocked;"),
+      "a unitCapacity read was counted as a bed-release read",
+    ).toEqual([]);
+  });
+
+  it("reads only the two breakdown figures the bed-state chips already showed", () => {
+    // The figures are read off the function's OWN return value rather than hand-listed, so a
+    // renamed or newly added figure is covered the day it lands rather than the day somebody
+    // remembers to add it here.
+    const breakdownKeys = Object.keys(capacityBreakdown(allUnits()[0]!, [], [], NOW_ANCHOR));
+    expect(breakdownKeys, "the blocked-discharge figure this guard names is no longer in the breakdown").toContain(
+      "blockedToday",
+    );
+    expect(breakdownKeys, "the beyond-today figure this guard names is no longer in the breakdown").toContain(
+      "excludedBeyondToday",
+    );
+
+    // EXACTLY, never a subset — a detector that found nothing would satisfy a subset check while
+    // proving nothing at all.
+    expect(
+      breakdownPropertyReads(readFileSync(NETWORK_COMPONENT, "utf8")),
+      "this component now reads a bed-release figure beyond the two the Confirmed/Predicted chips already showed",
+    ).toEqual(["confirmedToday", "predictedToday"]);
   });
 });
