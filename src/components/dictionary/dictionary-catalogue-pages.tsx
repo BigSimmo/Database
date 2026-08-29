@@ -29,6 +29,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn, searchShell, searchShellInput } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
@@ -282,42 +283,24 @@ export function DictionaryCataloguePage() {
     })),
   ];
 
-  /* Joined two-cell toggle: one border, no gap, sized to its own labels.
-     Each segment keeps the shared 48px tap target while compact text preserves
-     the row's visual density. `aria-label` keeps the accessible name
-     "Terms (2)" rather than concatenated "Terms2". Focus uses an inset outline
-     because the joined track clips an outset ring. */
+  /* One equal-layout rail: both catalogue scopes have identical geometry while
+     the shared primitive owns radio semantics, arrow-key navigation, focus and
+     the 48px tap target. A fixed compact width keeps the long Abbreviations
+     label readable at 320px without letting either segment size itself from its
+     text and leave the control visually lopsided. */
   const scopeToggle = (
-    <div
-      role="group"
-      aria-label="Show"
-      data-testid="dictionary-scope-toggle"
-      className="inline-flex min-h-tap shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]"
-    >
-      {scopeOptions.map((option) => {
-        const active = params.scope === option.value;
-        const count = scopeCounts[option.value];
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            aria-label={`${option.label} (${count})`}
-            aria-controls="dictionary-catalogue-results"
-            onClick={() => setOne("view", option.value, "definitions")}
-            className={cn(
-              "inline-flex min-h-tap items-center gap-1 px-2 text-xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-              active
-                ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
-            )}
-          >
-            <span>{option.label}</span>
-            <span className="nums font-medium tabular-nums">{count}</span>
-          </button>
-        );
-      })}
+    <div data-testid="dictionary-scope-toggle" className="w-56 shrink-0">
+      <SegmentedControl
+        label="Show"
+        value={params.scope}
+        onChange={(value) => setOne("view", value, "definitions")}
+        options={scopeOptions.map((option) => ({
+          ...option,
+          hint: String(scopeCounts[option.value]),
+        }))}
+        ariaControls="dictionary-catalogue-results"
+        layout="equal"
+      />
     </div>
   );
 
@@ -333,7 +316,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-0.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:hidden",
         focusRing,
       )}
     >
@@ -385,8 +368,8 @@ export function DictionaryCataloguePage() {
         />
         <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /
-            Abbreviations and A–Z sit underneath on the right. */}
-        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 sm:px-6 sm:pb-3">
+            Abbreviations and A–Z sit centred underneath it on phones. */}
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 pt-3 sm:px-6 sm:pb-3 sm:pt-0">
           <SearchResultsHeaderBand
             modeId="dictionary"
             query={params.q}
@@ -406,7 +389,7 @@ export function DictionaryCataloguePage() {
             appliedFilters={appliedFilters}
             onClearFilters={activeCount ? clearFilters : undefined}
           />
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1">
+          <div className="mt-2 flex flex-nowrap items-center justify-center gap-1.5">
             {scopeToggle}
             {letterChip}
           </div>
