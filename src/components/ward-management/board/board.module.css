@@ -417,9 +417,39 @@
   align-items: start;
 }
 
+/*
+ * Two tiers, not one, because there are now three columns' worth of content and only two of them
+ * fit at 960px.
+ *
+ * At 60rem the grid takes the left column and BOTH panels stack in the right one — `.beds` is
+ * pinned across two rows so the destinations panel and the people panel fall underneath each
+ * other rather than the second wrapping back under the tiles. It still works with only one panel
+ * present (the destinations panel is not rendered when no occupant has a date inside the horizon):
+ * the remaining panel simply occupies row 1 of that column.
+ *
+ * At 78rem there is room for the people panel to sit where it was asked for — the far right — so
+ * the pin is released and the three columns lay out in DOM order. The tile grid keeps its own
+ * `max-width` cap either way, so widening the window never turns the ward back into the
+ * sixteen-wide strip that cap exists to prevent.
+ */
 @media (min-width: 60rem) {
   .body {
     grid-template-columns: minmax(0, 1fr) 18rem;
+  }
+
+  .beds {
+    grid-row: 1 / span 2;
+    grid-column: 1;
+  }
+}
+
+@media (min-width: 78rem) {
+  .body {
+    grid-template-columns: minmax(0, 1fr) 17rem 18rem;
+  }
+
+  .beds {
+    grid-row: 1;
   }
 }
 
@@ -483,6 +513,131 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * WHO IS IN THESE BEDS — the far-right per-person panel.
+ *
+ * Same panel chrome as `.destinations` above, deliberately: they are two readings of the same
+ * ward and a reader should recognise them as the same KIND of thing. What separates them is what
+ * is inside, not a second box style.
+ *
+ * The list is NOT truncated and must not become so. Eighteen people is a tall panel, and the
+ * alternative — a "top 5" with the rest hidden — is the failure this branch has already had to fix
+ * once on paper: a truncated list that looks complete is worse than no list, because nobody
+ * reading it can tell that anything is missing.
+ */
+.people {
+  min-width: 0;
+  border: var(--wb-hairline) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-chrome);
+  padding: var(--wb-space-12);
+}
+
+.peopleHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.peopleIntro {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+/* The absence note. Set apart by a rule above it rather than by a tint, so it survives a stripped
+   background exactly as everything else on this board does — and so it reads as a standing note
+   about the record rather than as a warning about this ward. */
+.peopleAbsence {
+  margin: var(--wb-space-8) 0 var(--wb-space-12);
+  border-top: var(--wb-hairline) solid var(--border);
+  padding-top: var(--wb-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--wb-leading-body);
+}
+
+.peopleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A hairline BETWEEN entries — `:not(:first-child)`, so the first record does not carry a rule
+   that would read as a separator from the note above it. A rule rather than a fill or a striped
+   background: patterns and lines survive greyscale, a stripped-background print and forced-colors,
+   which is the same reason `.destination` uses a left rule and `.bedBlocked` a hatch. */
+.person:not(:first-child) {
+  border-top: var(--wb-hairline) solid var(--border);
+  padding-top: var(--wb-space-12);
+}
+
+.personStay {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--wb-space-4) var(--wb-space-8);
+  margin: 0;
+}
+
+.personDays {
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.personBand,
+.personNoStay {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+/* Rule 2 in the panel. Carries the same weight as a day count rather than the band's muted
+   treatment: a bed that has been given away is a fact about the ward, not a footnote. */
+.personNoStay {
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.personWho {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+.personExpected {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--wb-leading-body);
+}
+
+.personLine {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--wb-leading-body);
+}
+
+/* The blocker takes the page's ordinary ink rather than the muted grey the provenance line uses:
+   it is the one line here that says why a bed is not coming free, and it must not read as an
+   aside. No tint and no colour coding — the words "Held up by" are what carry it. */
+.personBlocker {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: var(--wb-leading-body);
+}
+
 .footnote {
   margin: 0;
   max-width: var(--container-reading);
@@ -504,10 +659,22 @@
     background: transparent;
   }
 
-  /* The rail is a `<nav>`, already stripped by the global print reset (`header, nav, button {
-     display: none !important }`), so its grid track collapses to zero width on its own — nothing
-     here has to hide it. The content padding that used to live on `.screen` now lives on `.main`
-     and is zeroed here in its place. */
+  /*
+   * **The claim that used to sit here was WRONG and is corrected rather than deleted.** It read:
+   * "the rail is a `<nav>`, already stripped by the global print reset (`header, nav, button {
+   * display: none !important }`), so its grid track collapses to zero width on its own". Measured
+   * against the real printed sheet at 900px on 2026-08-29, `ClinicalRail` renders an `<aside>`
+   * (`ward-management.module.css`'s `.clinical`), which that reset does not touch: it prints as a
+   * 72px strip of navigation icons down the left of EVERY page, and the ward's content is inset by
+   * that much on all three. Left as found rather than fixed here, because the element belongs to
+   * another module and every Ward Flow screen that mounts the rail has the same sheet — a
+   * one-screen override in this file would fix the page in front of me and leave the other four,
+   * which is the mistake the previous print pass recorded making with `.regionHeader`. Flagged in
+   * this task's report.
+   *
+   * The content padding that used to live on `.screen` now lives on `.main` and is zeroed here in
+   * its place.
+   */
   .main {
     padding: 0;
   }
@@ -544,6 +711,40 @@
   .heldLabel {
     background: transparent;
     padding: 0;
+  }
+
+  /*
+   * THE PAST-DATE BADGE, MEASURED OFF THE REAL SHEET RATHER THAN REASONED ABOUT.
+   *
+   * `.pastMark` is white ink (`--danger-solid-contrast`) on a `--danger-solid` fill, which is
+   * correct on both screen themes and wrong on paper: a printer drops the fill and leaves the white
+   * ink to be rendered at whatever the driver decides. Cropped out of the real PDF at 400 dpi, the
+   * words came back light grey on white — legible only if you already knew they were there, on the
+   * one mark on this board a coordinator most needs to notice. That is precisely the failure the
+   * colour-never-alone rule exists to prevent, and it was invisible in every check that reads
+   * computed styles: the computed `color` is `rgb(255,255,255)` in print media exactly as it is on
+   * screen, because the fill is dropped by the print PIPELINE and not by any CSS rule.
+   *
+   * The fix is the one `.blockedLabel` and `.heldLabel` above already carry — drop the plate and
+   * take the page's own ink — plus a hairline, so the words still read as a MARK rather than as
+   * another line of body text now that nothing encloses them. `CanvasText` follows the print
+   * medium's ink instead of resolving a theme token that may have been chosen for a dark screen,
+   * the same treatment `morning.module.css` documents on its own print block.
+   *
+   * This applies to the badge wherever it appears: the tiles carried it before this pass and the
+   * people panel carries it now, and the two must not diverge on paper.
+   */
+  .pastMark {
+    border: var(--wb-hairline) solid CanvasText;
+    background: transparent;
+    color: CanvasText;
+  }
+
+  /* The panel is a long list and A4 is short: an entry split across a page break loses either its
+     day count or its expected date, and a reader has no way to tell which half they are looking
+     at. Kept whole, the same way `.bed` already is. */
+  .person {
+    break-inside: avoid;
   }
 }
 

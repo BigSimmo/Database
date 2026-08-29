@@ -15,11 +15,11 @@ import {
   constraintSentence,
   headlineAvailable,
 } from "@/components/ward-management/ward-board-derivations";
-import type { Instant } from "@/components/ward-management/ward-clock";
+import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import { unitCapacity } from "@/components/ward-management/ward-derivations";
 import { derivedBedReleases } from "@/components/ward-management/ward-discharge-dates";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import type { BedRelease, Site, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, HomeRegion, Sex, Site, Unit } from "@/components/ward-management/ward-model";
 import { wardSites } from "@/components/ward-management/ward-sites";
 import { teamForRegion } from "@/components/ward-management/ward-teams";
 
@@ -176,6 +176,137 @@ function buildTiles(unit: Unit, admissions: readonly Admission[], bedReleases: r
   return tiles;
 }
 
+/**
+ * One person in one of this ward's beds, as the right-hand panel states them.
+ *
+ * Every field is copied from the `Admission` or derived from it by an existing helper. Nothing
+ * here is looked up, defaulted, or filled in: an absent fact arrives as `null` and is RENDERED as
+ * absent, which is the same discipline `isPastExpectedDischarge` and `derivedBedReleases` already
+ * hold to a few files away.
+ */
+type Occupant = {
+  key: string;
+  /** Whole days in the bed, or `null` for a bed given away to somebody who has not arrived. */
+  days: number | null;
+  /** The stay band's own label, or `null` when there is no stay to band. */
+  bandLabel: string | null;
+  pastDate: boolean;
+  sex: Sex;
+  homeRegion: HomeRegion;
+  /** Whole days from `now` to the ward's own expected date — NEGATIVE when it has passed, `null`
+   *  when nobody has set one. */
+  expectedDays: number | null;
+  dischargeDateMoves: number;
+  dischargeDateSetBy: string | null;
+  confirmed: boolean;
+  dischargeConfirmedBy: string | null;
+  blockReason: string | null;
+};
+
+/** The expected date, or `null` for both of the ways it can be missing — unset, and unusable.
+ *  A non-finite instant is exactly as absent as a null one; neither may become a date on screen. */
+function expectedInstant(admission: Admission): Instant | null {
+  const expected = admission.expectedDischargeAt;
+  return expected === null || !Number.isFinite(expected) ? null : expected;
+}
+
+/**
+ * Whole days from `now` to the ward's own expected date, or `null` when there is none.
+ *
+ * The same `Math.floor((expected - now) / MINUTES_PER_DAY)` `arrowTargets` uses, deliberately
+ * WITHOUT its floor at zero. That floor is right there — the destinations panel groups people by
+ * how soon the nearest one leaves, and a negative "soonest" is meaningless in an ordering — and it
+ * would be wrong here, where the sign is the fact: this panel distinguishes a date still ahead
+ * from one already passed, and clamping would silently present every passed date as "under a day
+ * away". The two panels therefore agree on magnitude and differ only where they are documented to.
+ */
+function daysUntilExpected(admission: Admission, now: Instant): number | null {
+  const expected = expectedInstant(admission);
+  if (expected === null || !Number.isFinite(now)) return null;
+  return Math.floor((expected - now) / MINUTES_PER_DAY);
+}
+
+/**
+ * Who is in this ward's beds, soonest expected out first.
+ *
+ * **Scoped with `admissionsForUnit(admissions, unit.id)` and filtered with `bedIsOccupied` — the
+ * same two calls `buildTiles` makes**, so the panel and the grid are looking at one set of people
+ * and can never disagree about who is in a bed. That is not a stylistic preference: the sibling
+ * destinations panel shipped earlier today reading `admissions` unscoped, and offered "Kimberley
+ * 28 people" on a twenty-bed ward. Its derivation was correct and all nine of its assertions
+ * passed; the defect was in the CALL, where no test of that derivation could see it. The check
+ * that catches this class is arithmetic a ward can do in its head — these rows plus the empty,
+ * held and out-of-service tiles must equal `unit.beds` — and the new suite asserts exactly that.
+ *
+ * `bedIsOccupied` includes `"pulled"`, so a bed given away to somebody still in an emergency
+ * department appears here with no stay rather than being dropped: they hold one of the ward's beds
+ * and the grid already draws them.
+ *
+ * Ordering is total and deterministic — expected date ascending, anyone with no date last, then by
+ * id. Ordering by id on a tie is arbitrary but STABLE, which is what the panel needs: two renders
+ * of the same fixture must not reshuffle. A passed date sorts to the top on its own, because its
+ * instant is the smallest, which is where a flow meeting wants it.
+ */
+function buildOccupants(unit: Unit, admissions: readonly Admission[], now: Instant): Occupant[] {
+  const inBeds = admissionsForUnit(admissions, unit.id).filter(bedIsOccupied);
+
+  return [...inBeds]
+    .sort((a, b) => {
+      const aAt = expectedInstant(a);
+      const bAt = expectedInstant(b);
+      if (aAt !== null && bAt !== null && aAt !== bAt) return aAt - bAt;
+      if (aAt === null && bAt !== null) return 1;
+      if (aAt !== null && bAt === null) return -1;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    })
+    .map((admission) => ({
+      key: admission.id,
+      days: daysInBed(admission, now),
+      bandLabel: stayBand(admission, now)?.label ?? null,
+      pastDate: isPastExpectedDischarge(admission, now),
+      sex: admission.sex,
+      homeRegion: admission.homeRegion,
+      expectedDays: daysUntilExpected(admission, now),
+      dischargeDateMoves: admission.dischargeDateMoves,
+      dischargeDateSetBy: admission.dischargeDateSetBy,
+      // Read as a decision that was TAKEN, never inferred from how close the date is, how long ago
+      // it was set, or how often it moved — `ward-discharge-dates.ts` records at length why each
+      // of those proxies renders a ward decision nobody made. A non-finite instant is not a
+      // decision either, so it degrades to unconfirmed rather than to a confirmation at `NaN`.
+      confirmed: admission.dischargeConfirmedAt !== null && Number.isFinite(admission.dischargeConfirmedAt),
+      dischargeConfirmedBy: admission.dischargeConfirmedBy,
+      blockReason: admission.blockReason,
+    }));
+}
+
+/** The expected date in words. Never a calendar date: the model holds instants on a synthetic
+ *  operating day and no calendar at all, so a printed "14 March" would be invented. */
+function expectedPhrase(expectedDays: number | null): string {
+  if (expectedDays === null) return "No expected date set";
+  // Sign, not magnitude, is what changes the sentence — see `daysUntilExpected` on why the zero
+  // floor `arrowTargets` applies would be wrong here.
+  if (expectedDays < 0) {
+    const past = -expectedDays;
+    return `${past} day${past === 1 ? "" : "s"} past the ward's expected date`;
+  }
+  // Floors to 0 for anything inside the next day. "Within a day" rather than "today": the model
+  // has no calendar, so it cannot say which day anything falls on.
+  if (expectedDays === 0) return "Expected out within a day";
+  return `Expected out in ${expectedDays} day${expectedDays === 1 ? "" : "s"}`;
+}
+
+/** How many times the WARD moved its own plan. Never a measure of the person — `dischargeDateMoves`
+ *  says the plan kept changing, and this sentence must not be readable as saying anybody was slow.
+ *  Guarded against a negative or non-integer count rather than trusted, the same way `unit.blocked`
+ *  is guarded in `buildTiles`. */
+function movesPhrase(moves: number): string {
+  if (!Number.isFinite(moves) || moves < 1) return "not moved since";
+  const whole = Math.floor(moves);
+  if (whole === 1) return "moved once since";
+  if (whole === 2) return "moved twice since";
+  return `moved ${whole} times since`;
+}
+
 export function WardBoard({ unitId }: { unitId: string }) {
   const found = findUnit(unitId);
   if (found === undefined) {
@@ -225,6 +356,9 @@ export function WardBoard({ unitId }: { unitId: string }) {
    * A derivation's tests cannot see a caller handing it the wrong set.
    */
   const targets = arrowTargets(admissionsForUnit(admissions, unit.id), now);
+  /* Scoped inside `buildOccupants` with the same `admissionsForUnit(...)` + `bedIsOccupied` pair
+   * `buildTiles` uses — see that function's own comment for the defect this prevents. */
+  const occupants = buildOccupants(unit, admissions, now);
 
   return (
     <div className={styles.screen} data-testid="ward-board">
@@ -393,6 +527,122 @@ export function WardBoard({ unitId }: { unitId: string }) {
           </ol>
         </aside>
       )}
+
+      {/*
+       * WHO IS IN THESE BEDS — the far-right panel the product owner asked for, as a LIST of the
+       * ward's occupants rather than a detail panel for a tile a reader selects.
+       *
+       * **Selectable tiles were the obvious build and are refused, on this file's own grounds.**
+       * The tiles are deliberately anonymous: `buildTiles`' comment says a tile "carries NO bed
+       * identity" and the footnote says so on screen, because an `Admission` records the ward it is
+       * on and never a bed. Making a tile clickable hands it exactly the identity that whole
+       * discipline exists to withhold — the fifth tile along becomes the handle for a particular
+       * person, two readers of the same board say "the third one on row two", and the grid's order
+       * is seed order rather than any ward's floor plan, so the locator they have agreed on means
+       * nothing. Three separate facts in this file are already recorded as unknowable per bed
+       * (which bed is blocked, which is held, which bed anybody is in); selection would quietly
+       * assert the third.
+       *
+       * Two further costs, neither of them the reason but both real. A printed sheet would carry
+       * the detail of whichever person the reader last clicked and nothing about the other
+       * seventeen — a sheet whose content depends on an interaction that left no mark on it. And
+       * `globals.css`'s print reset carries `header, nav, button { display: none !important }`, so
+       * every tile would vanish from paper unless restored — the defect this branch has now fixed
+       * on three surfaces.
+       *
+       * **What makes a second reading of the same people earn its place:** the grid answers "how
+       * full is this ward and how long are the stays", spatially and at a glance, and it has room
+       * for exactly one number per person. This panel is the only place the ward's DISCHARGE PLAN
+       * appears at all — when each person is expected out, who set that date, how many times it has
+       * moved, whether the ward has confirmed it, and what is holding it up. None of that fits on a
+       * 5rem tile, and none of it is in the destinations panel above, which aggregates by region
+       * over a seven-day horizon and says nothing about any individual. Three different questions,
+       * three panels, and this is the only one that is per-person.
+       *
+       * **There is no diagnosis and no placeholder for one.** `Admission` cannot express one
+       * (`ward-admissions.ts`, rule 3 — an owner decision, pinned structurally by
+       * `tests/ward-admission-model.test.ts`), so the panel says so in one line and shows nothing.
+       * A greyed "Diagnosis: —" row would be a field a ward would expect to be filled in later.
+       */}
+      <aside className={styles.people} aria-labelledby="ward-board-people-heading">
+        <h2 id="ward-board-people-heading" className={styles.peopleHeading}>
+          Who is in these beds
+        </h2>
+        {/* Both figures on one line ON PURPOSE. A per-person panel fed the wrong collection is
+            this feature's most recently shipped defect, and it is invisible in a list — but
+            "28 people" beside "20 beds" is arithmetic a ward does without thinking. The count is
+            the rendered rows, so the sentence cannot describe a different list from the one below
+            it. */}
+        <p className={styles.peopleIntro} data-testid="ward-board-people-count">
+          {occupants.length} of this ward&apos;s {unit.beds} bed{unit.beds === 1 ? "" : "s"}{" "}
+          {occupants.length === 1 ? "is" : "are"} taken. Soonest expected out first; anyone with no date set is last.
+        </p>
+        {/* The one honest line about the absence, and the whole of it. It states what the record
+            holds, not what a future record might hold — nothing here is a field awaiting content. */}
+        <p className={styles.peopleAbsence}>No diagnosis is shown: this record does not hold one.</p>
+        {/* An empty list under a heading reads as a panel that failed to load rather than as a ward
+            with nobody in it, so the absence is said in words. `constraintSentence` returns null for
+            the same reason a few lines up. */}
+        {occupants.length === 0 && <p className={styles.personLine}>Nobody is recorded in a bed on this ward.</p>}
+        <ol className={styles.peopleList} data-testid="ward-board-people">
+          {occupants.map((occupant) => (
+            <li key={occupant.key} className={styles.person} data-testid={`ward-board-person-${occupant.key}`}>
+              <p className={styles.personStay}>
+                {occupant.days === null ? (
+                  /* Rule 2 again, in the panel: the bed is gone, the stay has not started. Never a
+                     zero-day stay, which would present somebody as newly arrived somewhere they
+                     have not reached. */
+                  <span className={styles.personNoStay}>No stay yet — not arrived</span>
+                ) : (
+                  <>
+                    <span className={styles.personDays} data-testid={`ward-board-person-${occupant.key}-days`}>
+                      {occupant.days} day{occupant.days === 1 ? "" : "s"}
+                    </span>
+                    {/* The band in words, unlike the tile — a tile has no room for it and prints
+                        the number instead, but this panel does, and the words are what survive a
+                        greyscale sheet. `null` only where there is no stay to band. */}
+                    {occupant.bandLabel !== null && <span className={styles.personBand}>{occupant.bandLabel}</span>}
+                  </>
+                )}
+                {occupant.pastDate && <span className={styles.pastMark}>Past date</span>}
+              </p>
+              <p className={styles.personWho}>
+                {occupant.sex}, from {occupant.homeRegion}
+              </p>
+              <p className={styles.personExpected}>{expectedPhrase(occupant.expectedDays)}</p>
+              {/* Provenance only where there IS a date. With none, "set by nobody, never moved"
+                  would describe a plan that does not exist. */}
+              {occupant.expectedDays !== null && (
+                <p className={styles.personLine}>
+                  {occupant.dischargeDateSetBy !== null
+                    ? `Date set by ${occupant.dischargeDateSetBy}`
+                    : "Date set — the role that set it is not recorded"}
+                  , and {movesPhrase(occupant.dischargeDateMoves)}.{" "}
+                  {/* Confirmed and unconfirmed are BOTH stated, because the difference is the
+                      point: a plan the ward may revise, against a decision it has taken. Silence
+                      for the unconfirmed case would leave a reader unable to tell "not decided"
+                      from "not displayed". "Not yet its decision" never reads as a refusal — an
+                      unset `dischargeConfirmedAt` means nobody has decided, never that anybody
+                      declined. */}
+                  {occupant.confirmed
+                    ? occupant.dischargeConfirmedBy !== null
+                      ? `Confirmed by ${occupant.dischargeConfirmedBy} — a decision, not a plan.`
+                      : "Confirmed — a decision, not a plan; the role that confirmed it is not recorded."
+                    : "Not confirmed — the ward's plan, not yet its decision."}
+                </p>
+              )}
+              {/* Drawn from `BED_RELEASE_BLOCKERS` — the owner's list, about the BED, never about
+                  the person. Absent when nothing is recorded, and an absent blocker is silence:
+                  it never renders as "nothing outstanding", which would be a ward's finding rather
+                  than this panel's ignorance. Same distinction `derivedBedReleases` draws for
+                  `waitingOn`. */}
+              {occupant.blockReason !== null && (
+                <p className={styles.personBlocker}>Held up by: {occupant.blockReason}.</p>
+              )}
+            </li>
+          ))}
+        </ol>
+      </aside>
       </div>
 
       <p className={styles.footnote} data-testid="ward-board-footnote">
