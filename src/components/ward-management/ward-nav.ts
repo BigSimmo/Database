@@ -53,8 +53,38 @@ export const WARD_VIEWS: readonly WardViewItem[] = [
 
 export type WardNavGroup = "role" | "board";
 
+/**
+ * Every `WARD_NAV` id, as a union rather than `string`.
+ *
+ * `WARD_VIEWS`' ids have always been union-typed (`WardMode`), which is what makes
+ * `WARD_VIEW_ICONS: Record<WardMode, LucideIcon>` in `ward-nav-icons.ts` compiler-guarded — a view
+ * with no icon does not build. `WARD_NAV`'s ids were `string`, so its sibling `WARD_NAV_ICONS` had
+ * to be `Record<string, LucideIcon>`, which accepts anything and guarantees nothing. Both the rail
+ * and the drawer do `const Icon = WARD_NAV_ICONS[item.id]` and then render `<Icon />`, so a
+ * missing entry throws `Element type is invalid` at render on EVERY Ward Flow screen (the rail
+ * mounts on all of them), not just the one whose id lost its icon. That has already happened once.
+ *
+ * Adding an id here and to `WARD_NAV` without adding its icon is now a type error at the icon map.
+ * `tests/ward-nav.test.ts` still asserts the same property at test time and MUST be kept: the two
+ * mechanisms fail differently — the compiler catches it before anything runs, the test catches the
+ * case where a `Record` key is present but resolves to nothing usable — and a phase that has spent
+ * two days on guards that turned out not to guard does not trade a real check for a newer one.
+ */
+export type WardNavId =
+  | "ward"
+  | "board"
+  | "officer"
+  | "ed"
+  | "handover"
+  | "escalation"
+  | "search"
+  | "discharges"
+  | "morning"
+  | "referrals"
+  | "out-of-area";
+
 export type WardNavItem = {
-  id: string;
+  id: WardNavId;
   href: string;
   label: string;
   group: WardNavGroup;
