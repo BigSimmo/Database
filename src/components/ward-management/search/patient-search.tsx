@@ -13,6 +13,7 @@ import {
   type MovementSearchQuery,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { findPatients, patientDisplayName, type Patient } from "@/components/ward-management/ward-patients";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { allEmergencyDepartments, edById } from "@/components/ward-management/ward-sites";
 
@@ -47,7 +48,7 @@ import styles from "./search.module.css";
  * never a bare empty table with no explanation.
  */
 export function PatientSearchPage() {
-  const { movements, units, now } = useWardFlow();
+  const { movements, units, now, patients } = useWardFlow();
   const [text, setText] = useState("");
   const [stage, setStage] = useState<MovementStage | "">("");
   const [edId, setEdId] = useState("");
@@ -62,6 +63,17 @@ export function PatientSearchPage() {
   );
 
   const results = useMemo(() => searchMovements(movements, units, query), [movements, units, query]);
+
+  /**
+   * PEOPLE, not movements — and this is the half the old search structurally could not do.
+   *
+   * `searchMovements` applies `isOpen` first and unconditionally, so it can only ever find somebody
+   * mid-journey. A patient who has been referred but not moved, one who has arrived on a ward, and
+   * one who has just been added and has nothing attached at all are all invisible to it — and the
+   * last of those is the case the owner's flow turns on: "search a patient, and if nobody comes up,
+   * ADD them." You cannot know nobody came up if the search can only see people already in transit.
+   */
+  const people = useMemo(() => findPatients(patients, text), [patients, text]);
 
   return (
     <div className={styles.screen} data-testid="ward-patient-search">
@@ -120,9 +132,47 @@ export function PatientSearchPage() {
           </label>
         </form>
 
+        <PeopleSection people={people} query={text} />
+
         <ResultsSection results={results} units={units} now={now} />
       </main>
     </div>
+  );
+}
+
+/**
+ * The people the search found, listed before the movements because a person is the subject and a
+ * movement is something that happened to them.
+ *
+ * Deliberately shows a patient with NOTHING attached. An entry here is not evidence of a referral,
+ * a bed or a journey — it says this person is known to the system, which is exactly the question
+ * being asked before somebody decides to add them.
+ */
+export function PeopleSection({ people, query }: { people: Patient[]; query: string }) {
+  const searched = query.trim().length > 0;
+  return (
+    <section className={styles.section} data-testid="ward-patient-search-people">
+      <h2 className={styles.resultsHeading}>{people.length === 1 ? "1 person" : `${people.length} people`}</h2>
+      {!searched ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-people-idle">
+          Search by record number or name to find a person. Related spellings are found too — searching
+          &ldquo;hallow&rdquo; finds both Halloway and Hallowin.
+        </p>
+      ) : people.length === 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-people-empty">
+          Nobody of that name or record number is known to this system. If the person in front of you is real, they need
+          adding before they can be referred.
+        </p>
+      ) : (
+        <ul className={styles.peopleList} data-testid="ward-patient-search-people-list">
+          {people.map((patient) => (
+            <li key={patient.id} data-testid={`ward-patient-search-person-${patient.id}`}>
+              <strong>{patientDisplayName(patient)}</strong> · {patient.umrn} · born {patient.dateOfBirth}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

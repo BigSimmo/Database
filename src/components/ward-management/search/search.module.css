@@ -221,3 +221,21 @@
     padding-top: var(--spacing-ward-phone-bar);
   }
 }
+
+/* The people section. Listed above the movements because a person is the subject and a movement is
+   something that happened to them — the ordering is the claim, so it is stated here rather than
+   left to whichever section happens to be rendered first. */
+.peopleList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.peopleList li {
+  padding: var(--space-3);
+  border: 1px solid var(--ward-border-subtle, currentColor);
+  border-radius: var(--radius-md, 0.5rem);
+}

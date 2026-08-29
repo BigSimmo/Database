@@ -15,6 +15,7 @@ import {
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { absoluteWallClockMinutes, demoDayZero, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { Admission } from "@/components/ward-management/ward-admissions";
+import type { Patient } from "@/components/ward-management/ward-patients";
 import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
@@ -68,6 +69,9 @@ type WardFlowContextValue = {
   /** The people in the beds - seeded occupants plus anyone who has ARRIVED during this session.
    *  Task 17, 2026-08-30: before this, arrival closed the movement and created no person, so a
    *  patient who reached a ward disappeared from every surface that filters to open movements. */
+  /** The people. A patient exists before any referral and outlives every admission, so search can
+   *  find somebody with nothing attached at all - which is the case the owner's flow turns on. */
+  patients: Patient[];
   admissions: Admission[];
   now: Instant;
   /** The calendar day that `Instant` 0 falls on - local midnight of the day this session opened.
@@ -158,6 +162,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       bedReleases: state.bedReleases,
       leaveBeds: state.leaveBeds,
       refreshRequests: state.refreshRequests,
+      patients: state.patients,
       admissions: state.admissions,
       now,
       dayZero,
@@ -170,6 +175,12 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       state.movements,
       state.units,
       state.referrals,
+      // Both added 2026-08-30 and both were MISSING when their fields were exposed, which is a real
+      // defect rather than a lint nicety: without them the context value is memoised against a stale
+      // state, so a patient added during a session would not appear in search and a patient arriving
+      // on a ward would not appear as an occupant. Every test passed, because each renders fresh.
+      state.patients,
+      state.admissions,
       state.rejections,
       state.bedReleases,
       state.leaveBeds,

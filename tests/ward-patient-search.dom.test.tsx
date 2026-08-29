@@ -141,3 +141,63 @@ describe("PatientSearchPage", () => {
     expect(after).not.toBe(before);
   });
 });
+
+describe("search finds PEOPLE, including ones the movement search structurally cannot", () => {
+  /*
+   * WHY THIS IS A DIFFERENT CLAIM FROM THE TESTS ABOVE. `searchMovements` applies `isOpen` first and
+   * unconditionally, so it can only ever return somebody mid-journey. A patient who has been
+   * referred but not moved, one who has arrived on a ward, and one who has just been added and has
+   * nothing attached at all are all invisible to it.
+   *
+   * The last is the case the owner's flow turns on: "search a patient, and if nobody comes up, ADD
+   * them." You cannot know that nobody came up if the search can only see people already in transit
+   * — it would report "no match" for somebody sitting in the system, and the clinician would add a
+   * duplicate.
+   */
+  it("finds a person by record number even though they have no movement at all", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "UM100001" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(
+      within(people).getByText(/Halloway/),
+      "a seeded patient with no open movement must still be findable. If this fails, search is still " +
+        "looking at journeys rather than people, and 'if nobody comes up, add them' cannot be trusted.",
+    ).toBeInTheDocument();
+  });
+
+  it("finds related spellings, not just exact ones", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "hallow" } });
+
+    const people = screen.getByTestId("ward-patient-search-people-list");
+    expect(within(people).getByText(/Talia Halloway/)).toBeInTheDocument();
+    expect(
+      within(people).getByText(/Marcus Hallowin/),
+      "the near-miss pair is seeded for exactly this. A search that returned only the exact spelling " +
+        "would look correct on this fixture and hide the person a clinician was actually looking for.",
+    ).toBeInTheDocument();
+  });
+
+  it("says plainly that nobody is known, rather than showing an empty list", () => {
+    renderSearch();
+
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzzznobody" } });
+
+    expect(
+      screen.getByTestId("ward-patient-search-people-empty"),
+      "an empty result must SAY nobody is known and what that means. A blank space reads as a page " +
+        "that has not loaded, and the decision resting on it is whether to add a person.",
+    ).toHaveTextContent("need adding before they can be referred");
+  });
+
+  it("prompts rather than listing everybody before anything is typed", () => {
+    // A search that returned every patient on an empty query would make the "nobody came up" signal
+    // meaningless — and would put the whole synthetic patient list on screen unasked.
+    renderSearch();
+    expect(screen.getByTestId("ward-patient-search-people-idle")).toBeInTheDocument();
+    expect(screen.queryByTestId("ward-patient-search-people-list")).toBeNull();
+  });
+});
