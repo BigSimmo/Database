@@ -1,4 +1,4 @@
-import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
+import { dayOf, minuteOfDay, MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import type { BedRelease, LeaveBed, Unit } from "@/components/ward-management/ward-model";
 
 /**
@@ -27,17 +27,66 @@ const LATE_AFTERNOON_MINUTES = 16 * 60; // 960
  */
 export const EVENING_SHIFT_END_MINUTES = 22 * 60; // 1320
 
+/**
+ * AN OPEN OWNER DECISION, NAMED HERE SO IT CANNOT BE MISTAKEN FOR A SETTLED ONE.
+ *
+ * He was asked what a discharge expected TOMORROW should be called, and deferred it with his other
+ * open questions: *"Do your best for now to build what's there knowing that it is liable to
+ * change."* So the current answer is below, and it is provisional:
+ *
+ *   **Anything on a later day is `"beyond-today"` and is excluded, exactly as before.**
+ *
+ * That is the PRE-EXISTING behaviour, chosen deliberately over inventing a `"tomorrow"` band. A
+ * placeholder that looks like a decision is worse than an unchanged one: the next reader finds a
+ * plausible band, assumes somebody chose it, and builds on it.
+ *
+ * **It is also the correction to my own recommendation.** I recommended adding a `"tomorrow"`
+ * band — a VALUE answer to a SHAPE problem. The arithmetic could not survive a day boundary at
+ * all, so the new member would have become the bucket for everything the arithmetic mishandled,
+ * and it would have looked like a decision. When a fix is a new value and the defect is in the
+ * shape, the fix hides the defect.
+ *
+ * **What changes when he answers, one place each:** `RELEASE_BANDS` gains a member and every
+ * screen rendering a band label needs wording for it; `releaseBand`'s day comparison stops
+ * short-circuiting; and DB-7's rolling horizon replaces the 22:00 cutoff, which raises the morning
+ * page's predicted count and owes that page a stated notice.
+ *
+ * `tests/ward-release-band-day-boundary.test.ts` asserts the current answer BY NAME, so deciding it
+ * is not a search — and a search cannot prove it found everything.
+ */
+export const TOMORROW_BAND_UNRESOLVED =
+  "Owner deferred 2026-08-30: what a discharge expected tomorrow is called. Current answer is the " +
+  "unchanged one — a later day is beyond-today and excluded. See RELEASE_BANDS and releaseBand.";
+
 export const RELEASE_BANDS = ["now", "by-midday", "by-1600", "tonight"] as const;
 export type ReleaseBand = (typeof RELEASE_BANDS)[number];
 
 /**
- * `Instant` is minutes since midnight on the synthetic operating day, not a wall-clock time of
- * day that wraps — so the band is derived from the RAW instant, compared directly against the
- * named minute constants, never from a wrapped time-of-day (e.g. via `formatInstant`). A release
- * expected a full day after `now` (`now + 1440`) must land in `"beyond-today"` even though it
- * falls at the same clock time as `now` itself; wrapping first would put it back in an earlier
- * band and silently resurrect a release that should have dropped off the board. Do not "fix" this
- * back to a wrapped time-of-day comparison.
+ * WHICH DAY FIRST, THEN WHICH PART OF THAT DAY. Rewritten 2026-08-30; read the reason before
+ * changing it back.
+ *
+ * The three named constants are minutes from the start of DAY ZERO. Until the demo clock moved,
+ * every instant WAS a minute of day zero, so comparing a raw instant against them was correct —
+ * and the comment that used to sit here defended exactly that, for a real reason restated below.
+ *
+ * **Once the clock ran past midnight that comparison collapsed.** An instant on day one is 1440 or
+ * more, so every release on day one exceeded `EVENING_SHIFT_END_MINUTES` and came back
+ * `"beyond-today"`: the whole band vocabulary reduced to one value, and "beyond today" came to
+ * mean "beyond day zero". Confirmed by running it rather than inferred —
+ * `tests/ward-release-band-day-boundary.test.ts` failed with `expected 'beyond-today' to be
+ * 'by-midday'` for an 09:00 discharge read at 08:00 on day one.
+ *
+ * **The rule the old comment protected still holds and is still enforced.** A release a full day
+ * after `now` must NOT wrap back into an earlier band — `now + 1440` falls at the same clock time
+ * as `now` and is emphatically not "now". That is why the DAY comparison comes first and
+ * short-circuits before any minute-of-day comparison is reached. Wrapping first was the danger;
+ * wrapping only after the day is settled is not.
+ *
+ * **The horizon is deliberately unchanged and no count on any screen moves.** A later day is still
+ * `"beyond-today"`, and a discharge after 22:00 today is still `"beyond-today"`. DB-7 — a rolling
+ * 24 hours, and what to call a discharge expected tomorrow — is a separate change that RAISES the
+ * morning page's predicted count and owes that page a stated notice in the same commit. See
+ * `TOMORROW_BAND_UNRESOLVED` below.
  */
 export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "beyond-today" {
   if (release.state === "discharged") {
@@ -50,10 +99,22 @@ export function releaseBand(release: BedRelease, now: Instant): ReleaseBand | "b
     }
     return "now";
   }
-  if (release.expectedAt > EVENING_SHIFT_END_MINUTES) return "beyond-today";
+  // WHICH DAY, first and short-circuiting. A later day never reaches the minute comparisons below,
+  // which is what stops a discharge a full day out wrapping back into an earlier band.
+  if (dayOf(release.expectedAt) > dayOf(now)) return "beyond-today";
+  // WHICH PART OF THIS DAY. `minuteOfDay` rather than the raw instant, so the same clock time
+  // bands the same way whatever day the demonstration has reached.
+  const minute = minuteOfDay(release.expectedAt);
+  // BEFORE the `<= now` test, and the order is load-bearing rather than stylistic. The original
+  // put the evening cutoff first, so a release reported at 23:22 is "beyond-today" and NOT "now"
+  // even though its instant has already passed. Putting `<= now` above this reversed that and
+  // turned an excluded release into an available bed — caught by `ward-capacity-view.dom.test.tsx`,
+  // which advances the clock to 1342 and flags a release there. This rewrite changes WHICH BAND a
+  // release falls in across a day boundary, and must change no count on any screen.
+  if (minute > EVENING_SHIFT_END_MINUTES) return "beyond-today";
   if (release.expectedAt <= now) return "now";
-  if (release.expectedAt <= MIDDAY_MINUTES) return "by-midday";
-  if (release.expectedAt <= LATE_AFTERNOON_MINUTES) return "by-1600";
+  if (minute <= MIDDAY_MINUTES) return "by-midday";
+  if (minute <= LATE_AFTERNOON_MINUTES) return "by-1600";
   return "tonight";
 }
 
