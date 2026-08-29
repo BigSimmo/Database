@@ -19,6 +19,7 @@ import {
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
+import { SYNTHETIC_TRAVEL_TIMES_NOTICE } from "@/components/ward-management/ward-distance";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
@@ -33,13 +34,21 @@ import type {
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
   candidateAccepts,
+  groupCandidatesByTravelBand,
   matchReason,
   referralCandidates,
   referralQueueOrder,
   referralWaitLabel,
+  TRAVEL_BAND_GROUP_EMPTY_SENTENCE,
+  travelBandGroupCounts,
+  travelBandGroupCountsSentence,
+  travelBandGroupLabel,
   type ReferralCandidate,
+  type TravelBandGroup,
+  type TravelBandGroupCounts,
 } from "@/components/ward-management/ward-referrals";
 import { siteByCode } from "@/components/ward-management/ward-sites";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 import styles from "./ward-management-network.module.css";
 
@@ -63,6 +72,69 @@ const columnServices: { left: readonly HealthService[]; right: readonly HealthSe
   left: ["North Metro", "WACHS"],
   right: ["East Metro", "South Metro", "Private"],
 };
+
+/**
+ * Phase 8, Task 8 (spec D11, step 3). What this screen says about the picture it is drawing, in the
+ * place a coordinator reads it.
+ *
+ * It is here rather than in `ward-distance.ts` because it describes THIS LAYOUT, not the travel-band
+ * data — the sentence about the data is `SYNTHETIC_TRAVEL_TIMES_NOTICE`, which is imported and
+ * rendered beside it. The test imports this constant rather than retyping it, so there is still only
+ * one spelling of it anywhere.
+ *
+ * Two claims, both of which have to be on the screen:
+ *
+ *  1. **It is not a map, and it is not called one.** Nobody has checked where any of these hospitals
+ *     is. A picture is read as a map whatever its caption says, so this deliberately positions
+ *     nothing: it is a stack of labelled bands, and a band is a lookup into an invented table.
+ *  2. **It is LESS than this screen was meant to have, and the reason is the missing fact rather
+ *     than a design preference.** Saying only the first would leave the shortfall looking like a
+ *     choice somebody made, which would be the wrong thing to learn from it. The last sentence is
+ *     the practical consequence and is checked before it is claimed: the bands are looked up per
+ *     render through `unitTravelBand` and stored nowhere, so replacing `ward-travel-bands.ts`'s
+ *     invented values with measured ones changes this arrangement and changes no code.
+ *
+ * No comparative proximity word, no distance figure, and nothing about how anyone travels.
+ */
+export const BAND_ARRANGEMENT_LIMITATION_NOTICE =
+  "These groups are the travel bands this prototype invented for this person's home region. They are " +
+  "not a map, and this arrangement is less than the roughly geographic layout this screen was meant " +
+  "to have. The reason is a missing fact rather than a preference: nobody has checked where any of " +
+  "these hospitals is. When real travel times are checked, this same arrangement becomes as " +
+  "geographic as the checked data allows, with no change to how it is built.";
+
+/**
+ * The width at which the band groups start open: deliberately the same phone line the match view's
+ * band groups use (`referral-match.tsx`), because it is the same owner decision about the same
+ * groups and a coordinator crossing between the two screens should not meet two different
+ * behaviours. Nothing in this module's CSS keys off this width — the collapse default is the only
+ * thing that depends on it — so there is no stylesheet value here for it to drift from.
+ *
+ * Owner decision, 2026-08-29: shut by default at phone width, open at desktop width. The binding
+ * condition on that decision is why folding these groups is safe, and it is a condition on the
+ * markup below rather than on this constant: every heading and BOTH of its counts render whether
+ * the group is open or shut, including for an empty group, so "there is nothing within an hour" is
+ * answerable without opening anything. Collapsing folds; it does not hide.
+ */
+const BAND_GROUPS_OPEN_MEDIA_QUERY = "(min-width: 40rem)";
+
+/**
+ * Whether the band groups start open, tracked live so a rotation or a resize is honoured rather than
+ * frozen at mount. On the server there is no `matchMedia` at all and the answer is `false` — the
+ * phone default — so nothing width-dependent is guessed where no width is known. A shut group is the
+ * conservative answer in any case: the heading and both counts are inside the `<summary>`, which is
+ * the part a closed disclosure still paints.
+ */
+const useBandGroupsOpenByDefault = createBrowserStore<boolean>(
+  (onStoreChange) => {
+    if (typeof window.matchMedia !== "function") return () => {};
+    const media = window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY);
+    media.addEventListener("change", onStoreChange);
+    return () => media.removeEventListener("change", onStoreChange);
+  },
+  () => (typeof window.matchMedia === "function" ? window.matchMedia(BAND_GROUPS_OPEN_MEDIA_QUERY).matches : false),
+  false,
+);
 
 type Connector = { id: string; path: string; kind: "demand" | "route" };
 type Candidate = { unit: Unit; rank: number; etaLabel: string; verdict: ReturnType<typeof eligibility> };
@@ -230,6 +302,96 @@ function ServiceCard({
 }
 
 /**
+ * Phase 8, Task 8 (spec D11, step 3). One band group on the diagram: its heading, its two counts,
+ * and the unit nodes in it.
+ *
+ * The SAME nodes the service-column layout draws — `ServiceCard`, with the same `data-testid` and
+ * the same verdict — rearranged into bands. Nothing here computes anything about a unit: the
+ * candidate carries the verdict `referralCandidates` produced once in the workspace below, and the
+ * band is the group this candidate was put in rather than a second lookup per node. A band looked up
+ * twice is a band that can disagree with itself, and the heading and its nodes would be the two
+ * places.
+ *
+ * `<details>`/`<summary>` rather than a hand-built disclosure, for the same reason the match view
+ * uses one: the summary — heading and BOTH counts — is painted whether the group is open or shut,
+ * and it is painted for an empty group exactly as for a populated one. That is the binding condition
+ * the owner attached to collapsing at all (2026-08-29). Nothing is omitted, nothing is reordered,
+ * and the open/shut state depends only on viewport width — never on which band this is, and never on
+ * either count. Making an empty group non-collapsible would be exactly that forbidden dependency, so
+ * every group behaves the same.
+ */
+function NetworkBandGroup({
+  group,
+  counts,
+  openByDefault,
+  bedReleases,
+  leaveBeds,
+  now,
+  selectedUnitId,
+  onSelectUnit,
+  registerRef,
+}: {
+  group: TravelBandGroup;
+  counts: TravelBandGroupCounts;
+  openByDefault: boolean;
+  bedReleases: BedRelease[];
+  leaveBeds: LeaveBed[];
+  now: Instant;
+  selectedUnitId: string | null;
+  onSelectUnit: (unitId: string) => void;
+  registerRef: (id: string, node: HTMLButtonElement | null) => void;
+}) {
+  /* Seeded from the width default and then owned by the coordinator's own toggling. The parent
+   * REMOUNTS this component when that default changes (see its `key`), which is what re-seeds every
+   * group on a rotation or resize — deliberately, rather than by setting state from an effect. */
+  const [open, setOpen] = useState(openByDefault);
+
+  return (
+    <details
+      className={styles.bandGroup}
+      data-testid={`ward-network-band-group-${group.band}`}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className={styles.bandSummary} data-testid={`ward-network-band-summary-${group.band}`}>
+        <span className={styles.bandLabel}>{travelBandGroupLabel(group.band)}</span>
+        {/* Two present facts about the beds in this band, from `travelBandGroupCounts` — which counts
+         *  the very candidates rendered below, so a heading cannot disagree with its own nodes.
+         *  Neither figure counts what is missing. The sentence is the match view's own, shared so the
+         *  two surfaces cannot word one fact two ways. */}
+        <span className={styles.bandCounts} data-testid={`ward-network-band-counts-${group.band}`}>
+          {travelBandGroupCountsSentence(counts)}
+        </span>
+      </summary>
+      {group.candidates.length === 0 ? (
+        <p className={styles.bandEmpty} data-testid={`ward-network-band-empty-${group.band}`}>
+          {TRAVEL_BAND_GROUP_EMPTY_SENTENCE}
+        </p>
+      ) : (
+        <div className={styles.bandCards}>
+          {group.candidates.map((candidate) => (
+            <ServiceCard
+              key={candidate.unit.id}
+              unit={candidate.unit}
+              bedReleases={bedReleases}
+              leaveBeds={leaveBeds}
+              now={now}
+              /* The movement shortlist's route highlighting belongs to the movement view, which has
+               * stood down by the time this renders — there is no route to be on. */
+              routed={false}
+              selected={selectedUnitId === candidate.unit.id}
+              placement={candidate}
+              onSelect={() => onSelectUnit(candidate.unit.id)}
+              registerRef={registerRef}
+            />
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
+/**
  * Task 7 (spec D8-5). What the aside says while a referral is the diagram's subject: who is being
  * placed, and where the answers are.
  *
@@ -302,6 +464,25 @@ export function WardNetworkWorkspace() {
     [referralQueue, selectedReferralId],
   );
 
+  /**
+   * Phase 8, Task 8 (spec D11, step 3). Who the band arrangement is drawn for — and the ONE place
+   * that is decided, so there is a single line to read and a single line to change.
+   *
+   * A referral, or nothing at all. **A movement can never be one**, and the missing `??` on the
+   * right of this line is the whole point rather than an omission. A `Movement` carries an origin
+   * emergency department — where the person presented — and no home region whatsoever (see
+   * `movementHealthService`'s own doc comment, and Accepted ADR 3 on why presenting somewhere is
+   * not living there). A band arrangement drawn from an origin would therefore be a proximity claim
+   * with no fact behind it, which is precisely the defect this phase exists to close: WF-018, sitting
+   * in SCGH's own emergency department, was once offered RPH first under a heading reading "Nearest
+   * candidates", in an order that was only the array's order.
+   *
+   * So while a movement is the subject the diagram draws NO arrangement and the service-column
+   * layout stands unchanged. That is a gap the spec left and this plan filled; the owner may prefer
+   * something else, but the something else cannot be an arrangement without a home region.
+   */
+  const bandSubject: Referral | null = selectedReferral;
+
   /*
    * EVERY unit, each with its own verdict — `referralCandidates` never truncates, sorts or ranks,
    * and nothing here does either. This is deliberately not the movement path's three-of-many
@@ -310,13 +491,36 @@ export function WardNetworkWorkspace() {
    * call per node would be a second computation of the same question.
    */
   const placements = useMemo(
-    () => (selectedReferral ? referralCandidates(selectedReferral, units, now) : []),
-    [selectedReferral, units, now],
+    () => (bandSubject ? referralCandidates(bandSubject, units, now) : []),
+    [bandSubject, units, now],
   );
-  const placementByUnitId = useMemo(
-    () => new Map(placements.map((placement) => [placement.unit.id, placement])),
-    [placements],
+  /*
+   * Phase 8, Task 8 (spec D11, step 3). The same `placements` above, rearranged by how far each bed
+   * is from where this person lives.
+   *
+   * `placements` — the ARRAY, not a map keyed by unit id, and not a second call to
+   * `referralCandidates`. Two things follow from that and both are load-bearing. The grouping is a
+   * pure rearrangement that preserves its caller's order, so passing the array in the network's own
+   * fixed order is what makes each band's contents arrive in that same fixed order for free; and
+   * every verdict shown under a heading is the very object the heading counted, so the two cannot
+   * disagree. That is also why `travelBandGroupCounts` takes the GROUP rather than a referral and a
+   * clock: `referralEligibility`'s capacity-freshness gate is time-dependent, so a count recomputed
+   * against a second `now` could legitimately differ from the nodes beside it, and nothing would
+   * look wrong in either place.
+   *
+   * Empty while a movement is the subject, which is what leaves the service-column layout standing
+   * below — see the canvas.
+   */
+  const bandGroups = useMemo(
+    () => (bandSubject ? groupCandidatesByTravelBand(bandSubject, placements) : []),
+    [bandSubject, placements],
   );
+  const bandGroupCounts = useMemo(() => bandGroups.map(travelBandGroupCounts), [bandGroups]);
+
+  /* Shut on a phone, open at desktop width — read through the repository's own SSR-safe external
+   * store rather than by setting state in an effect, so the value is already correct on the first
+   * client render. */
+  const bandGroupsOpenByDefault = useBandGroupsOpenByDefault();
 
   /* The movement shortlist's route lines and highlighted cards belong to the movement view, so
    * they stand down while a referral is the subject. `candidates` itself is untouched — nothing is
@@ -340,7 +544,15 @@ export function WardNetworkWorkspace() {
   const measure = useCallback(() => {
     const canvas = canvasRef.current;
     const hub = hubRef.current;
-    if (!canvas || !hub) return;
+    /* Task 8: the hub and the service clusters are the movement view's own picture and unmount while
+     * a referral is the subject, so this is now reachable in normal use rather than only on a
+     * missing ref. Clearing is the whole point — returning early would leave the previous frame's
+     * connector paths drawn across a layout they no longer describe. The functional update keeps the
+     * same empty array when it is already empty, so a resize with no hub cannot loop. */
+    if (!canvas || !hub) {
+      setConnectors((current) => (current.length === 0 ? current : []));
+      return;
+    }
     const base = canvas.getBoundingClientRect();
     const hubBox = hub.getBoundingClientRect();
     const hubLeft = { x: hubBox.left - base.left, y: hubBox.top - base.top + hubBox.height / 2 };
@@ -532,7 +744,7 @@ export function WardNetworkWorkspace() {
             </span>
           </header>
 
-          <div className={styles.canvas} ref={canvasRef}>
+          <div className={styles.canvas} ref={canvasRef} data-layout={bandSubject ? "bands" : "services"}>
             <svg className={styles.connectorLayer} aria-hidden="true">
               <defs>
                 <marker id="ward-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
@@ -552,55 +764,108 @@ export function WardNetworkWorkspace() {
               ))}
             </svg>
 
-            {(["left", "right"] as const).map((side) => (
-              <div className={styles.column} data-side={side} key={side}>
-                {columnServices[side].map((service) => (
-                  <section
-                    className={styles.cluster}
-                    key={service}
-                    ref={(node) => registerCluster(service, node)}
-                    aria-labelledby={`ward-network-${service}`}
-                  >
-                    <header className={styles.clusterHeader}>
-                      <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
-                      <span>
-                        {units
-                          .filter((unit) => siteByCode(unit.siteCode)?.service === service)
-                          .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
-                        ready
-                      </span>
-                    </header>
-                    <div className={styles.clusterCards}>
-                      {units
-                        .filter((unit) => siteByCode(unit.siteCode)?.service === service)
-                        .map((unit) => (
-                          <ServiceCard
-                            key={unit.id}
-                            unit={unit}
-                            bedReleases={bedReleases}
-                            leaveBeds={leaveBeds}
-                            now={now}
-                            routed={routedIds.has(unit.id)}
-                            selected={detail?.id === unit.id}
-                            placement={placementByUnitId.get(unit.id)}
-                            onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
-                            registerRef={registerCard}
-                          />
-                        ))}
-                    </div>
-                  </section>
+            {/*
+             * Phase 8, Task 8 (spec D11, step 3). Which picture the canvas is drawing, and the ONE
+             * place that is decided.
+             *
+             * With a referral selected the diagram arranges every unit by how far it is from where
+             * that person lives. With a MOVEMENT selected it draws no band arrangement at all and the
+             * service-column layout stands exactly as it did: a movement carries no home region (it
+             * carries an origin emergency department, which is where the person presented, not where
+             * they live — see `movementHealthService`), so any arrangement here would be a proximity
+             * claim with no fact behind it. That is the "Nearest candidates" defect this whole phase
+             * exists to close, in a new coat: WF-018, sitting in SCGH's own emergency department, was
+             * once offered RPH first under that heading, in an order that was only the array's order.
+             *
+             * There is no third branch and no fallback subject. Both pictures draw the same
+             * `ServiceCard` nodes, so this is a rearrangement of one set of nodes and never two sets
+             * — rendering both at once would put every unit on the screen twice.
+             */}
+            {bandSubject ? (
+              <div className={styles.bandArrangement} data-testid="ward-network-band-arrangement">
+                {/* What this picture is, and what it is not. Rendered above the groups, because a
+                 *  reader who takes it for a map has already taken it for one by the time they reach
+                 *  a footnote. */}
+                <p className={styles.bandLimitation} data-testid="ward-network-band-limitation">
+                  {BAND_ARRANGEMENT_LIMITATION_NOTICE}
+                </p>
+                {/* The one place this screen states that the travel times are invented. Imported,
+                 *  never retyped, and rendered once — a band shown anywhere without this sentence on
+                 *  the same screen is a defect. */}
+                <p className={styles.syntheticNotice} data-testid="ward-network-synthetic-notice">
+                  {SYNTHETIC_TRAVEL_TIMES_NOTICE}
+                </p>
+                {bandGroups.map((group, index) => (
+                  <NetworkBandGroup
+                    /* Includes the width default, so crossing the breakpoint re-seeds every group's
+                     * open/shut state by remount. The key never depends on the band or on either
+                     * count — the collapse state must not vary with which band this is or with what
+                     * is in it. */
+                    key={`${group.band}-${bandGroupsOpenByDefault}`}
+                    group={group}
+                    counts={bandGroupCounts[index]}
+                    openByDefault={bandGroupsOpenByDefault}
+                    bedReleases={bedReleases}
+                    leaveBeds={leaveBeds}
+                    now={now}
+                    selectedUnitId={detail?.id ?? null}
+                    onSelectUnit={(unitId) => setSelectedUnitId(detail?.id === unitId ? null : unitId)}
+                    registerRef={registerCard}
+                  />
                 ))}
               </div>
-            ))}
+            ) : (
+              <>
+                {(["left", "right"] as const).map((side) => (
+                  <div className={styles.column} data-side={side} key={side}>
+                    {columnServices[side].map((service) => (
+                      <section
+                        className={styles.cluster}
+                        key={service}
+                        ref={(node) => registerCluster(service, node)}
+                        aria-labelledby={`ward-network-${service}`}
+                      >
+                        <header className={styles.clusterHeader}>
+                          <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
+                          <span>
+                            {units
+                              .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                              .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
+                            ready
+                          </span>
+                        </header>
+                        <div className={styles.clusterCards}>
+                          {units
+                            .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+                            .map((unit) => (
+                              <ServiceCard
+                                key={unit.id}
+                                unit={unit}
+                                bedReleases={bedReleases}
+                                leaveBeds={leaveBeds}
+                                now={now}
+                                routed={routedIds.has(unit.id)}
+                                selected={detail?.id === unit.id}
+                                onSelect={() => setSelectedUnitId(detail?.id === unit.id ? null : unit.id)}
+                                registerRef={registerCard}
+                              />
+                            ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                ))}
 
-            <div className={styles.hub} ref={hubRef}>
-              <Network aria-hidden="true" />
-              <strong>STATEWIDE FLOW</strong>
-              <span>Coordinated visibility and placement</span>
-              <span className={styles.hubMeta}>
-                {selectedReferral ? selectedReferral.id : patient.id} routing · {openMovements} open movements
-              </span>
-            </div>
+                <div className={styles.hub} ref={hubRef}>
+                  <Network aria-hidden="true" />
+                  <strong>STATEWIDE FLOW</strong>
+                  <span>Coordinated visibility and placement</span>
+                  <span className={styles.hubMeta}>
+                    {patient.id} routing · {openMovements} open movements
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           <footer className={styles.legend}>
@@ -611,14 +876,23 @@ export function WardNetworkWorkspace() {
                 <b>{bedStateCopy[key].label}</b> {bedStateCopy[key].detail}
               </span>
             ))}
-            <span className={styles.legendItem}>
-              <i className={styles.legendRoute} aria-hidden="true" />
-              <b>Shortlisted</b> Route for selected movement
-            </span>
-            <span className={styles.legendItem}>
-              <i className={styles.legendDemand} aria-hidden="true" />
-              <b>Demand</b> Health service into statewide flow
-            </span>
+            {/* Task 8: both entries describe connector lines, and neither line is drawn while a
+             *  referral is the subject — the band arrangement has no route and no demand trunk. A
+             *  legend key for a line that is not on the canvas invites a reader to look for one.
+             *  The bed-state entries above are unconditional because those chips are on every node in
+             *  either picture. */}
+            {selectedReferral ? null : (
+              <>
+                <span className={styles.legendItem}>
+                  <i className={styles.legendRoute} aria-hidden="true" />
+                  <b>Shortlisted</b> Route for selected movement
+                </span>
+                <span className={styles.legendItem}>
+                  <i className={styles.legendDemand} aria-hidden="true" />
+                  <b>Demand</b> Health service into statewide flow
+                </span>
+              </>
+            )}
           </footer>
         </section>
 

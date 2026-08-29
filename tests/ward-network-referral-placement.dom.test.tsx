@@ -16,9 +16,20 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
-import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import {
+  NOT_RECORDED_LABEL,
+  SYNTHETIC_TRAVEL_TIMES_NOTICE,
+  TRAVEL_BAND_LABELS,
+  travelBand,
+  TRAVEL_BANDS,
+  type TravelBand,
+} from "@/components/ward-management/ward-distance";
+import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { BAND_ARRANGEMENT_LIMITATION_NOTICE } from "@/components/ward-management/ward-management-network";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
+import { HOME_REGIONS, type HomeRegion, type Referral } from "@/components/ward-management/ward-model";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { referralQueueOrder } from "@/components/ward-management/ward-referrals";
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -33,6 +44,26 @@ const D15_CONTRACT_TEST = resolve(process.cwd(), "tests/ward-referral-matching.t
 const SUBJECT = referralQueueOrder(referrals)[0]!;
 
 const VERDICT_TESTID = /^ward-network-verdict-/;
+
+/**
+ * A home region for which at least one travel band holds no unit at all, SEARCHED for in the
+ * fixture rather than named — the same discipline `tests/ward-referral-screens.dom.test.tsx` sets
+ * for itself, and for the same reason: every value in `SYNTHETIC_TRAVEL_BANDS` is invented, sits
+ * beside real hospital names, and nobody has measured one. On the day the placeholders are replaced
+ * with checked values this either stays green or fails loudly by name.
+ *
+ * It exists because neither referral in the live queue has one: both are Perth Metropolitan, for
+ * which every band is populated, so the empty-group case cannot be reached from the seed alone.
+ * `RaiseAndSelectHarness` below raises a real referral with this region so it can be.
+ */
+const REGION_WITH_AN_EMPTY_BAND = HOME_REGIONS.find((homeRegion) => {
+  const bands = allUnits().map((unit) => travelBand(homeRegion, unit.siteCode));
+  return TRAVEL_BANDS.some((band) => !bands.includes(band));
+});
+
+/** Every referral id the seed ships with, so a referral this suite raises can be told apart from
+ *  them without depending on how the reducer mints an id. */
+const SEED_REFERRAL_IDS = new Set(referrals.map((referral) => referral.id));
 
 function renderNetwork() {
   return render(
@@ -377,5 +408,283 @@ describe("the placement overlay adds no new read of the bed-release model", () =
       breakdownPropertyReads(readFileSync(NETWORK_COMPONENT, "utf8")),
       "this component now reads a bed-release figure beyond the two the Confirmed/Predicted chips already showed",
     ).toEqual(["confirmedToday", "predictedToday"]);
+  });
+});
+
+/**
+ * Phase 8, Task 8 (spec D11, step 3). The diagram arranges every unit by how far it is from where
+ * the selected referral's person lives — and draws no arrangement at all for a movement.
+ *
+ * The two properties below are the ones that can silently invert. "Present for a referral" is easy
+ * and would pass on a screen that drew the arrangement unconditionally, which is why the absence
+ * half is asserted in the same test and why the mutation named in the comment is the one that has
+ * to redden it.
+ */
+describe("network diagram, the travel-band arrangement", () => {
+  /** Written out rather than derived from `TRAVEL_BANDS`: a count compared against the list it came
+   *  from could not fail. Adding or removing a band is then a decision somebody takes in a test.
+   *  It counts groups on a screen and is not a clinical, legal or measured figure. */
+  const EXPECTED_BAND_GROUP_COUNT = 5;
+
+  /** The heading a coordinator reads for a group key, taken from the exported label maps and never
+   *  through `travelBandGroupLabel` — an expectation computed by calling the very function the
+   *  screen calls would move with it, so a screen labelling groups by something else entirely would
+   *  still agree with its own expectation. */
+  const bandHeadingFor = (band: string) =>
+    band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[band as TravelBand];
+
+  /**
+   * The grouping a screen actually rendered: each group in DOM order, with the unit ids inside it in
+   * DOM order.
+   *
+   * Read with `querySelectorAll` rather than a role query on purpose — the groups are `<details>`,
+   * and jsdom's stubbed `matchMedia` reports no match, so they mount SHUT. A role query would
+   * quietly return nothing for a shut group and turn a completeness assertion into a vacuous one.
+   */
+  function groupingIn(root: HTMLElement, groupPrefix: string, itemPrefix: string) {
+    return Array.from(root.querySelectorAll(`[data-testid^="${groupPrefix}"]`)).map((group) => ({
+      band: (group.getAttribute("data-testid") ?? "").slice(groupPrefix.length),
+      unitIds: Array.from(group.querySelectorAll(`[data-testid^="${itemPrefix}"]`)).map((node) =>
+        (node.getAttribute("data-testid") ?? "").slice(itemPrefix.length),
+      ),
+    }));
+  }
+
+  const diagramGrouping = (root: HTMLElement) => groupingIn(root, "ward-network-band-group-", "ward-network-card-");
+  const matchGrouping = (root: HTMLElement) =>
+    groupingIn(root, "ward-referral-match-band-group-", "ward-referral-match-row-");
+
+  /** `ReferralMatchView` takes its referral and units as explicit props, so this harness can hand it
+   *  exactly the inputs the diagram is working from — the same seed referral, the same site table,
+   *  the same clock — and any difference in grouping is then the screens disagreeing, never the
+   *  inputs differing. */
+  function MatchHarness({ referral }: { referral: Referral }) {
+    const { now, dispatch, rejections } = useWardFlow();
+    return (
+      <ReferralMatchView referral={referral} units={allUnits()} now={now} dispatch={dispatch} rejections={rejections} />
+    );
+  }
+
+  /**
+   * Raises a real referral through the reducer (`RECEIVE_REFERRAL`, so it genuinely resolves in
+   * `state.referrals` and reaches the diagram's own queue) and renders the network workspace beside
+   * it. `originSiteCode` is taken from the site table and is deliberately unrelated to `homeRegion`:
+   * where somebody presents is not where they live, which is the distinction this whole phase turns
+   * on, and only `homeRegion` reaches a band.
+   */
+  function RaiseAndSelectHarness({ homeRegion }: { homeRegion: HomeRegion }) {
+    const { referrals: live, now, dispatch } = useWardFlow();
+    const raised = live.find((referral) => !SEED_REFERRAL_IDS.has(referral.id));
+    return (
+      <>
+        <button
+          type="button"
+          data-testid="raise-band-test-referral"
+          onClick={() =>
+            dispatch({
+              type: "RECEIVE_REFERRAL",
+              role: "community",
+              now,
+              ageBand: "Adult",
+              sex: "Female",
+              secureBedNeeded: false,
+              involuntaryBedNeeded: false,
+              homeRegion,
+              source: "community",
+              urgency: 2,
+              originSiteCode: allUnits()[0]!.siteCode,
+              transportNeeded: false,
+            })
+          }
+        >
+          Raise
+        </button>
+        <span data-testid="raised-referral-id">{raised?.id ?? ""}</span>
+        <WardModeWorkspace mode="network" />
+      </>
+    );
+  }
+
+  function renderMatchFor(referral: Referral) {
+    return render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <MatchHarness referral={referral} />
+      </WardFlowProvider>,
+    );
+  }
+
+  /*
+   * MUTATION that must redden this test, and the reason it is the one worth running:
+   *
+   *     const bandSubject: Referral | null = selectedReferral;
+   *   → const bandSubject: Referral | null =
+   *       selectedReferral ?? ({ ...referralQueue[0], homeRegion: movementHealthService(patient) } as unknown as Referral);
+   *
+   * That is the "Nearest candidates" mistake in a new coat. A `Movement` has no home region at all —
+   * it has an origin emergency department, which is where the person presented — so the only way to
+   * arrange for one is to substitute something about the ORIGIN SITE for where they live. WF-018 sat
+   * in SCGH's own emergency department and was offered RPH first under that heading, in an order that
+   * was merely the array's order. An arrangement drawn from an origin is that same claim with no fact
+   * behind it, and this test is what stands between the screen and it.
+   */
+  it("arranges by band for a referral, and draws no arrangement at all for a movement", () => {
+    const { container } = renderNetwork();
+
+    // A movement is the subject on mount. Nothing about distance is drawn, and the service-column
+    // layout is what is standing.
+    expect(
+      within(container).queryByTestId("ward-network-band-arrangement"),
+      "a band arrangement was drawn while a movement was the diagram's subject",
+    ).toBeNull();
+    expect(within(container).queryAllByTestId(/^ward-network-band-group-/)).toHaveLength(0);
+    expect(container.querySelector('[data-layout="services"]')).not.toBeNull();
+    expect(container.querySelector('[data-layout="bands"]')).toBeNull();
+
+    fireEvent.click(screen.getByTestId(`ward-network-referral-${SUBJECT.id}`));
+
+    expect(within(container).getByTestId("ward-network-band-arrangement")).toBeInTheDocument();
+    expect(within(container).getAllByTestId(/^ward-network-band-group-/)).toHaveLength(EXPECTED_BAND_GROUP_COUNT);
+    expect(container.querySelector('[data-layout="bands"]')).not.toBeNull();
+    expect(container.querySelector('[data-layout="services"]')).toBeNull();
+
+    // Deselecting hands the diagram back, arrangement and all — so the absence above is a live
+    // property of movement mode rather than only of the first paint.
+    fireEvent.click(screen.getByTestId(`ward-network-referral-${SUBJECT.id}`));
+    expect(
+      within(container).queryByTestId("ward-network-band-arrangement"),
+      "deselecting the referral left its band arrangement on the diagram",
+    ).toBeNull();
+  });
+
+  /*
+   * MUTATION that must redden this test:
+   *
+   *     () => (bandSubject ? groupCandidatesByTravelBand(bandSubject, placements) : []),
+   *   → () => (bandSubject ? [...groupCandidatesByTravelBand(bandSubject, placements)].reverse() : []),
+   *
+   * A diagram and a match view that group one referral's beds two different ways is the Phase 5
+   * defect exactly: one screen answering a question two ways, with nothing on either screen to say
+   * which answer is the intended one.
+   */
+  it("groups the same referral the same way the match view does — band order and contents alike", () => {
+    const units = allUnits();
+    // Non-vacuity floor. Two lists that agree prove nothing if both are empty, and a comparison over
+    // one populated band could not see a reordering inside it.
+    expect(units.length, "the network is too small for this comparison to mean anything").toBeGreaterThan(3);
+
+    const diagram = renderNetwork();
+    fireEvent.click(within(diagram.container).getByTestId(`ward-network-referral-${SUBJECT.id}`));
+    const fromDiagram = diagramGrouping(diagram.container);
+
+    const match = renderMatchFor(SUBJECT);
+    const fromMatch = matchGrouping(match.container);
+
+    // Both screens really did render the whole network, grouped, before either is compared with the
+    // other — otherwise two screens that had both lost their list would agree perfectly.
+    expect(fromDiagram).toHaveLength(EXPECTED_BAND_GROUP_COUNT);
+    expect(fromMatch).toHaveLength(EXPECTED_BAND_GROUP_COUNT);
+    expect(fromDiagram.flatMap((group) => group.unitIds)).toHaveLength(units.length);
+    expect(fromMatch.flatMap((group) => group.unitIds)).toHaveLength(units.length);
+    expect(
+      fromDiagram.filter((group) => group.unitIds.length > 0).length,
+      "every unit landed in one band, so a reordering of the groups could not be seen",
+    ).toBeGreaterThan(1);
+
+    expect(fromDiagram, "the diagram and the match view grouped one referral's beds differently").toEqual(fromMatch);
+  });
+
+  /*
+   * MUTATION that must redden this test: move the `.bandCounts` span out of the `<summary>` in
+   * `NetworkBandGroup`, leaving it as the group's first body element.
+   *
+   * That mutation is invisible to a document-wide query, which is the point. jsdom hides nothing, so
+   * "the counts are in the document" stays true for a collapsed group whose bar a coordinator sees
+   * blank. The assertion is therefore STRUCTURAL — the counts are inside the `<summary>`, the part a
+   * closed disclosure still paints — because that containment is the binding condition the owner
+   * attached to letting these groups collapse at all (2026-08-29).
+   */
+  it("keeps every band heading and both its counts in the part a shut group still paints", () => {
+    // Deliberately NOT `SUBJECT`: every band is populated for both queued referrals, so neither can
+    // exercise the empty-group half of the owner's binding condition — and "including for an empty
+    // group" is the half that makes collapsing these groups permissible at all.
+    expect(
+      REGION_WITH_AN_EMPTY_BAND,
+      "no home region leaves a travel band empty, so the empty-group case cannot be exercised here",
+    ).toBeDefined();
+
+    const { container } = render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <RaiseAndSelectHarness homeRegion={REGION_WITH_AN_EMPTY_BAND!} />
+      </WardFlowProvider>,
+    );
+    fireEvent.click(within(container).getByTestId("raise-band-test-referral"));
+    const raisedId = within(container).getByTestId("raised-referral-id").textContent ?? "";
+    expect(raisedId, "the harness raised no referral the reducer accepted").not.toBe("");
+    fireEvent.click(within(container).getByTestId(`ward-network-referral-${raisedId}`));
+
+    const groups = within(container).getAllByTestId(/^ward-network-band-group-/);
+    expect(groups).toHaveLength(EXPECTED_BAND_GROUP_COUNT);
+
+    // The groups mount shut here (the suite's `matchMedia` stub reports no match), so this is the
+    // collapsed case and not the open one.
+    const shut = groups.filter((group) => !(group as HTMLDetailsElement).open);
+    expect(shut, "no group was collapsed, so this proves nothing about a collapsed group").toHaveLength(
+      EXPECTED_BAND_GROUP_COUNT,
+    );
+
+    let emptyGroups = 0;
+    for (const group of groups) {
+      const band = (group.getAttribute("data-testid") ?? "").replace("ward-network-band-group-", "");
+      const summary = group.querySelector("summary");
+      expect(summary, `band group ${band} has no summary`).not.toBeNull();
+
+      // Scoped `within(summary)`, never `within(group)` and never document-wide: the whole claim is
+      // about which part of the group they sit in.
+      const counts = within(summary as HTMLElement).getByTestId(`ward-network-band-counts-${band}`);
+      expect(counts.textContent ?? "").toMatch(/in this band/);
+      expect(within(summary as HTMLElement).getByText(bandHeadingFor(band))).toBeInTheDocument();
+
+      if (within(group).queryByTestId(`ward-network-band-empty-${band}`)) emptyGroups += 1;
+    }
+
+    // And an empty group is one of the cases just checked, not an exception to it. Without this the
+    // loop above could hold while empty groups were dropped from the screen entirely.
+    expect(emptyGroups, "no band group was empty, so the empty case above was never exercised").toBeGreaterThan(0);
+  });
+
+  /*
+   * MUTATION that must redden this test: render a second copy of the
+   * `ward-network-synthetic-notice` paragraph inside the arrangement.
+   *
+   * "Once" is the property worth guarding. A band shown without that sentence on the same screen is
+   * a defect; a sentence repeated per group is how a screen stops being read at all.
+   */
+  it("states once that the travel times are invented, and states what this picture is not", () => {
+    const { container } = renderNetwork();
+    fireEvent.click(within(container).getByTestId(`ward-network-referral-${SUBJECT.id}`));
+
+    const notices = within(container).getAllByTestId("ward-network-synthetic-notice");
+    expect(notices).toHaveLength(1);
+    // The imported sentence, never a retyped one.
+    expect(notices[0].textContent).toBe(SYNTHETIC_TRAVEL_TIMES_NOTICE);
+
+    const arrangement = within(container).getByTestId("ward-network-band-arrangement");
+    const occurrences = (arrangement.textContent ?? "").split(SYNTHETIC_TRAVEL_TIMES_NOTICE).length - 1;
+    expect(occurrences, "the invented-travel-times sentence was repeated inside the arrangement").toBe(1);
+
+    // The screen says what this picture is not, and that it is less than it was meant to be.
+    const limitation = within(container).getByTestId("ward-network-band-limitation");
+    expect(limitation.textContent).toBe(BAND_ARRANGEMENT_LIMITATION_NOTICE);
+    expect(limitation.textContent ?? "").toMatch(/not a map/);
+    expect(limitation.textContent ?? "").toMatch(/less than/);
+
+    // No comparative proximity word anywhere in the arrangement — not in a heading, not in a count,
+    // not in either notice. Air transport only is a statement about how you get there, never about
+    // how long it takes.
+    const comparative = /nearest|closest|furthest|most remote|hardest to reach|best|optimal|recommend|preferred/i;
+    // Positive control, so a regex that had stopped matching anything could not read as a clean
+    // sweep.
+    expect("the nearest bed is best", "the comparative-word pattern no longer matches one").toMatch(comparative);
+    expect(arrangement.textContent ?? "").not.toMatch(comparative);
   });
 });

@@ -818,3 +818,122 @@
   font-size: var(--text-3xs);
   line-height: var(--net-leading-body);
 }
+
+/* --- band arrangement (Task 8) ------------------------------------------ */
+
+/*
+ * Phase 8, Task 8 (spec D11, step 3). With a referral selected the canvas stops being a
+ * three-column constellation and becomes a single stack of travel-band groups, so the hub column
+ * and the two service columns are not laid out here at all — the markup does not render them.
+ *
+ * This is a picture of invented bands and NOT a map: nothing is positioned, nothing is scaled, and
+ * no shape resembles anywhere. Do not add one. `align-content: start` because a short arrangement
+ * belongs at the top of the canvas rather than floating in the middle of it, which is what the
+ * constellation's `align-items: center` does for a picture with a centre.
+ */
+.canvas[data-layout="bands"] {
+  align-content: start;
+  align-items: start;
+  gap: var(--net-space-8);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bandArrangement {
+  z-index: var(--net-z-node);
+  display: grid;
+  gap: var(--net-space-8);
+}
+
+/* What the picture is and what it is not, and the fact that it is less than this screen was meant
+   to have. Quiet supporting text, never a warning banner: it states a limit of the data, not a
+   problem with this patient or this network. */
+.bandLimitation,
+.syntheticNotice {
+  margin: 0;
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}
+
+/* A band group folds; it does not hide. The heading and both counts live in `.bandSummary`, which a
+   `<details>` paints open or shut alike — including for an empty group — so "there is nothing within
+   an hour" is answerable without opening anything. */
+.bandGroup {
+  border: 0.0625rem solid var(--net-border);
+  border-radius: var(--radius-md);
+  background: var(--net-canvas);
+}
+
+/* `min-height: 3rem` is the 48px production tap target this repository holds to, the same figure
+   `.serviceCard` above uses. Never lowered to 2.75rem. */
+.bandSummary {
+  display: flex;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--net-space-8);
+  padding: var(--net-space-6) var(--net-space-10);
+  cursor: pointer;
+  /* `display: flex` suppresses the browser's own disclosure triangle, so the affordance is replaced
+     explicitly below rather than lost. A group a coordinator cannot see is openable is a group whose
+     nodes they will not find. */
+  list-style: none;
+}
+
+.bandSummary::-webkit-details-marker {
+  display: none;
+}
+
+/* Drawn rather than written, so it adds no text to the heading: a glyph in the summary would become
+   part of every count and label assertion and could drift into wording. */
+.bandSummary::after {
+  width: 0;
+  height: 0;
+  border-top: 0.3125rem solid transparent;
+  border-bottom: 0.3125rem solid transparent;
+  border-left: 0.375rem solid var(--net-muted);
+  content: "";
+}
+
+.bandGroup[open] > .bandSummary::after {
+  transform: rotate(90deg);
+}
+
+.bandSummary:focus-visible {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: -0.125rem;
+}
+
+.bandLabel {
+  color: var(--net-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--net-leading-tight);
+}
+
+/* Two present facts, styled as quiet supporting text — never as a badge or a score, which would read
+   as this screen's own judgement of a band rather than a count of what is in it. */
+.bandCounts {
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  line-height: var(--net-leading-tight);
+}
+
+/* The unit nodes in a band, in the order the band handed them over. No comparator here and none
+   anywhere above it: `auto-fill` lays them out, it does not order them. */
+.bandCards {
+  display: grid;
+  gap: var(--net-space-6);
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  padding: 0 var(--net-space-10) var(--net-space-10);
+}
+
+.bandEmpty {
+  margin: 0;
+  padding: 0 var(--net-space-10) var(--net-space-10);
+  color: var(--net-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-body);
+}

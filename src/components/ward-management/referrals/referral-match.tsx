@@ -3,11 +3,7 @@
 import { useEffect, useRef, useState, type Dispatch } from "react";
 
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
-import {
-  NOT_RECORDED_LABEL,
-  SYNTHETIC_TRAVEL_TIMES_NOTICE,
-  TRAVEL_BAND_LABELS,
-} from "@/components/ward-management/ward-distance";
+import { NOT_RECORDED_LABEL, SYNTHETIC_TRAVEL_TIMES_NOTICE } from "@/components/ward-management/ward-distance";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import {
   REFERRAL_DECLINE_REASONS,
@@ -25,7 +21,10 @@ import {
   networkHasCohort,
   referralCandidates,
   referralWaitLabel,
+  TRAVEL_BAND_GROUP_EMPTY_SENTENCE,
   travelBandGroupCounts,
+  travelBandGroupCountsSentence,
+  travelBandGroupLabel,
   type ReferralCandidate,
   type TravelBandGroup,
   type TravelBandGroupCounts,
@@ -377,7 +376,7 @@ function BandGroup({
    * group on a rotation or resize — deliberately, rather than by setting state from an effect. */
   const [open, setOpen] = useState(openByDefault);
 
-  const label = bandGroupLabel(group.band);
+  const label = travelBandGroupLabel(group.band);
   return (
     <details
       className={styles.bandGroup}
@@ -389,15 +388,16 @@ function BandGroup({
         <span className={styles.bandLabel}>{label}</span>
         {/* Two positive facts about the beds in this band, from `travelBandGroupCounts` — which
          *  counts the very candidates rendered below, so a heading cannot disagree with its own
-         *  rows. Neither figure counts what is missing. */}
+         *  rows. Neither figure counts what is missing. The sentence itself is
+         *  `travelBandGroupCountsSentence`, shared with the network diagram since Phase 8 Task 8
+         *  put band groups on that screen too — one spelling, so the two surfaces cannot drift. */}
         <span className={styles.bandCounts} data-testid={`ward-referral-match-band-counts-${group.band}`}>
-          {counts.units} {counts.units === 1 ? "unit" : "units"} in this band · {counts.accepting}{" "}
-          {counts.accepting === 1 ? "accepts" : "accept"} this referral
+          {travelBandGroupCountsSentence(counts)}
         </span>
       </summary>
       {group.candidates.length === 0 ? (
         <p className={styles.bandEmpty} data-testid={`ward-referral-match-band-empty-${group.band}`}>
-          No unit in this band.
+          {TRAVEL_BAND_GROUP_EMPTY_SENTENCE}
         </p>
       ) : (
         <ul className={styles.bandRows}>
@@ -408,13 +408,6 @@ function BandGroup({
       )}
     </details>
   );
-}
-
-/** The one spelling of a group's heading, both bands and the gap. `NOT_RECORDED_LABEL` is a label a
- *  coordinator reads; `"not_recorded"` is only ever a key. An unrecorded band NEVER renders blank —
- *  a blank cell in a distance column is read as "close". */
-function bandGroupLabel(band: TravelBandGroup["band"]): string {
-  return band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[band];
 }
 
 function MatchRow({

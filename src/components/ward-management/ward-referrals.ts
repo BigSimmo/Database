@@ -1,7 +1,9 @@
 import { bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
+  NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
+  TRAVEL_BAND_LABELS,
   TRAVEL_BANDS,
   travelBand,
   unitTravelBand,
@@ -274,6 +276,45 @@ export type TravelBandGroupCounts = { units: number; accepting: number };
 export function travelBandGroupCounts(group: TravelBandGroup): TravelBandGroupCounts {
   return { units: group.candidates.length, accepting: group.candidates.filter(candidateAccepts).length };
 }
+
+/*
+ * Phase 8, Task 8. The three pieces of wording a band group's heading and empty state are made of,
+ * lifted out of the match view when the network diagram became a SECOND surface that draws band
+ * groups.
+ *
+ * They are shared functions rather than markup written once per screen for the reason this project
+ * keeps paying for: three screens once each held their own copy of one label and two of them
+ * disagreed. A heading spelled in two components is a heading that can drift in one of them, and a
+ * coordinator comparing the diagram against the match view would have no way to tell which spelling
+ * was the intended one. The band LABELS themselves still come from `ward-distance.ts` and are not
+ * re-spelled here — this only fixes how a group key maps to one, and how the two counts read.
+ */
+
+/** The one spelling of a band group's heading, for a real band and for the gap alike.
+ *  `NOT_RECORDED_LABEL` is what a coordinator reads; `"not_recorded"` is only ever a key. An
+ *  unrecorded band NEVER renders blank — a blank cell in a distance column is read as "close". */
+export function travelBandGroupLabel(band: TravelBandGroup["band"]): string {
+  return band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[band];
+}
+
+/**
+ * The one spelling of the two figures a band group's heading carries.
+ *
+ * Two present facts about the beds in this band and nothing else. `accepting` is a subset of
+ * `units` and is the only ratio these two ever form; neither counts what is missing, and neither
+ * shares a denominator with any other figure on any screen.
+ */
+export function travelBandGroupCountsSentence(counts: TravelBandGroupCounts): string {
+  return (
+    `${counts.units} ${counts.units === 1 ? "unit" : "units"} in this band · ` +
+    `${counts.accepting} ${counts.accepting === 1 ? "accepts" : "accept"} this referral`
+  );
+}
+
+/** What an empty group says under its heading. An empty group is still rendered, still carries its
+ *  heading and still carries both counts — "there is nothing in this band" is an answer a
+ *  coordinator came for, and a group that vanishes when it is empty cannot give it. */
+export const TRAVEL_BAND_GROUP_EMPTY_SENTENCE = "No unit in this band.";
 
 /**
  * One person currently in a bed the fixture records as out of area, and how long since they got
