@@ -240,7 +240,9 @@ per-admission means the board could show which tile is which. Two things justify
 and sex mix are the commonest real reason a bed is not a bed (D11), and it removes a hand-maintained
 count in favour of a derived one — this repository's single most reliable source of silent failure.
 **The owner was told the alternative** (keep sex as a ward-level count only, at the cost of the
-sex-mix column no longer refreshing automatically) and has not overruled it. If he does, the fallback
+sex-mix column no longer refreshing automatically) and **explicitly approved carrying it on
+2026-08-29** — put to him as a direct question, answered yes, with the removal of a hand-maintained
+count named as the reason. This is no longer inferred consent. If he ever reverses it, the fallback
 is a one-module change.
 
 ### D6 — Beds are tiles, not numbered beds
@@ -571,8 +573,11 @@ Local and offline only. No provider-backed command, ever.
    that list and defines none of its own. See D9.
 2. **The receiving-time options at the pull (D15)** — still outstanding, not drafted; the field is
    not built until he supplies them.
-3. **`sex` on an admission (D5)** — flagged as a small widening with the fallback named. Silence is
-   being read as acceptance; he may overrule at one module's cost.
+3. ~~**`sex` on an admission (D5)**~~ — **ANSWERED 2026-08-29.** Explicitly approved, not inferred.
+   Recorded here late: this page continued to say "silence is being read as acceptance" for several
+   hours after he had answered, and another session reading it correctly re-raised a settled decision
+   as an open governance question. **A stale document is not a neutral document** — it actively
+   manufactures work and re-opens things the owner has closed.
 4. **The roadmap needs one line** placing this work relative to Phase 8. Phase 8 is now well under
    way and has landed travel bands, the home-region decision and an out-of-area definition, so this
    board is no longer "before Phase 8" as first written — it now runs **alongside or after** it and
