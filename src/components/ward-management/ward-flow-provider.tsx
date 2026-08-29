@@ -13,7 +13,7 @@ import {
 } from "react";
 
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
+import { absoluteWallClockMinutes, demoDayZero, wallClockNow } from "@/components/ward-management/ward-clock";
 import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
@@ -65,6 +65,10 @@ type WardFlowContextValue = {
    *  reducer state. Records that somebody asked — nothing here ever changes a bed figure. */
   refreshRequests: { unitId: string; at: Instant; byRole: string }[];
   now: Instant;
+  /** The calendar day that `Instant` 0 falls on - local midnight of the day this session opened.
+   *  An instant plus this is a real moment; an instant alone is only an offset. Screens that must
+   *  say a DATE rather than a relative day read it from here so every surface agrees. */
+  dayZero: Date;
   /** Which synthetic night is seeded — `ward-scenarios.ts`'s `WardScenario` — so a UI surface
    *  (`ward-demo-controls.tsx`'s scenario switch) can mark the active one without guessing it
    *  from `units` itself. */
@@ -103,43 +107,39 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     shiftInstants(seedWardFlowState(), offset),
   );
 
-  // `wallClockNow()` — the only wall-clock read this component is allowed to make (see
-  // ward-clock.ts) — only ever returns a minute-of-day (0–1439), so two readings on their own
-  // can never carry more than one day's worth of information: `elapsedMinutesSinceMount` can
-  // correctly unwrap a SINGLE midnight rollover between two readings, but a dashboard left
-  // mounted for exactly 24h (or any multiple of it) reads the same minute-of-day again, so a
-  // plain two-reading comparison against the ORIGINAL mount instant goes back to `raw === 0`
-  // and silently resets elapsed time to zero instead of continuing to grow — moving every
-  // deadline, wait and expired hold on every screen backward by up to a day. Fixed by never
-  // comparing against the original mount instant again: each 30s tick folds its own delta
-  // (never more than 30s + scheduling jitter, so always safely inside one midnight rollover)
-  // into `elapsedBefore`, an accumulator that only ever grows — so the total is correct no
-  // matter how many midnights the session spans, not just the first one.
-  const [clockCheckpoint, setClockCheckpoint] = useState<{ reading: Instant; elapsedBefore: number }>(() => ({
-    reading: initialNow ?? wallClockNow(),
-    elapsedBefore: 0,
-  }));
+  /**
+   * The moment this session opened, and the day 0 that every `Instant` counts from. Captured once:
+   * two components deriving it separately would disagree across midnight, which is the
+   * two-clocks-on-one-card failure a layer down.
+   */
+  const [dayZero] = useState<Date>(() => demoDayZero(new Date()));
+
+  /**
+   * Minutes since the epoch at mount, carrying the DATE and not only the time of day.
+   *
+   * This is what removed the midnight workaround rather than improving it. `wallClockNow()` returns
+   * 0-1439, so two readings cannot say how many days apart they are: the old code assumed a negative
+   * difference meant exactly one rollover, which held only because it re-read every thirty seconds,
+   * and needed a running accumulator so a session spanning several midnights did not reset to zero.
+   * An absolute count makes elapsed time a plain subtraction that is correct over any span, and the
+   * whole class of bug disappears rather than being handled.
+   */
+  const [mountedAtAbsolute] = useState<number>(() => absoluteWallClockMinutes());
+
+  // Re-renders on a 30s cadence so the clock advances on screen. It carries no time itself - the
+  // elapsed figure below is recomputed from the live clock on every render, so a missed or delayed
+  // tick reports the true elapsed minutes rather than a fixed 30s-per-tick approximation.
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (initialNow !== undefined) return; // pinned: never tick in a test
-    const id = setInterval(() => {
-      setClockCheckpoint((previous) => {
-        const reading = wallClockNow();
-        return { reading, elapsedBefore: previous.elapsedBefore + elapsedMinutesSinceMount(previous.reading, reading) };
-      });
-    }, 30_000);
+    const id = setInterval(() => setTick((previous) => previous + 1), 30_000);
     return () => clearInterval(id);
   }, [initialNow]);
 
-  // Recomputed from the live wall clock on every unpinned render (not only on a tick, so a
-  // missed/delayed timer tick still reports the true elapsed minutes rather than a fixed
-  // 30s-per-tick approximation) — but layered on top of the last checkpoint's accumulated
-  // total rather than the original mount instant, which is what keeps this correct beyond one
-  // day. A pinned `initialNow` (tests, deterministic renders) never touches the wall clock.
-  const elapsed =
-    initialNow !== undefined
-      ? 0
-      : clockCheckpoint.elapsedBefore + elapsedMinutesSinceMount(clockCheckpoint.reading, wallClockNow());
+  // A pinned `initialNow` (tests, deterministic renders) never touches the wall clock.
+  const elapsed = initialNow !== undefined ? 0 : absoluteWallClockMinutes() - mountedAtAbsolute;
+
   const now = NOW_ANCHOR + anchorOffsetMinutes + elapsed + state.clockOffsetMinutes;
 
   const [focusMovementId, setFocusMovementId] = useState<string | undefined>(undefined);
@@ -154,6 +154,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       leaveBeds: state.leaveBeds,
       refreshRequests: state.refreshRequests,
       now,
+      dayZero,
       scenario: state.scenario,
       dispatch,
       focusMovementId,
@@ -168,6 +169,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       state.leaveBeds,
       state.refreshRequests,
       now,
+      dayZero,
       state.scenario,
       dispatch,
       focusMovementId,

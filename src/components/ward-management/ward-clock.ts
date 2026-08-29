@@ -33,6 +33,17 @@ export function wallClockNow(): Instant {
 }
 
 /**
+ * NO LONGER USED BY THE PROVIDER, and kept rather than removed on purpose.
+ *
+ * The provider now reads `absoluteWallClockMinutes()`, so elapsed time is a plain subtraction and the
+ * midnight rollover this unwraps cannot arise there. What is left is still a correct utility for the
+ * genuine minute-of-day case, and its tests pin the boundary behaviour that took a real defect to
+ * find. Removing an exported symbol in this repository goes through `check:dead-code-candidate`
+ * rather than through a judgement that nothing imports it - "nothing imports it" is necessary and
+ * nowhere near sufficient here, and four survivors of one cleanup sweep had zero importers and were
+ * all alive. Flagged for that gate rather than quietly taken out in a commit about clocks.
+ */
+/**
  * Minutes elapsed between two `wallClockNow()` readings — a mount instant and a later
  * reading, both already resolved by the caller. `wallClockNow()` wraps to 0 at 24:00: a
  * session mounted late in the day and read again after midnight sees `current < mountedAt`
@@ -44,6 +55,66 @@ export function wallClockNow(): Instant {
 export function elapsedMinutesSinceMount(mountedAt: Instant, current: Instant): number {
   const raw = current - mountedAt;
   return raw < 0 ? raw + MINUTES_PER_DAY : raw;
+}
+
+/**
+ * Minutes since the Unix epoch, counted in LOCAL wall-clock terms.
+ *
+ * `wallClockNow()` returns a minute of the day and throws the date away, which is why
+ * `elapsedMinutesSinceMount` has to guess at midnight: two readings of a 0-1439 counter cannot say
+ * how many days apart they are, so a negative difference is ASSUMED to mean exactly one rollover.
+ * That assumption holds only because the provider re-reads every thirty seconds, and it is a patch
+ * over a missing concept rather than a solution.
+ *
+ * This carries the date, so the difference between two readings is simply their difference, over any
+ * span. Dividing by `MINUTES_PER_DAY` gives the local day, which is what makes "which day is this
+ * instant on" answerable at all.
+ *
+ * Local rather than UTC deliberately: a ward's day starts at local midnight, and a demonstration in
+ * Perth that rolled its day over at 08:00 because the epoch is UTC would be wrong in the one way
+ * nobody would think to check. The daylight-saving jump is accepted - Western Australia does not
+ * observe it, and an hour's discontinuity twice a year is not a risk this prototype carries.
+ */
+export function absoluteWallClockMinutes(): number {
+  const now = new Date();
+  return Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 60_000);
+}
+
+/**
+ * The calendar date that the demo's day 0 falls on - local midnight of the day a session opened.
+ *
+ * An `Instant` counts minutes from this moment, so it and this date together are a real point in
+ * time. Held by the provider rather than derived per call: two components computing it separately
+ * would disagree across midnight, which is the two-clocks-on-one-card failure a layer down.
+ */
+export function demoDayZero(openedAt: Date): Date {
+  return new Date(openedAt.getFullYear(), openedAt.getMonth(), openedAt.getDate());
+}
+
+/** The real calendar moment an instant refers to, given the day 0 the session opened on. */
+export function calendarDateOf(instant: Instant, dayZero: Date): Date {
+  return new Date(dayZero.getTime() + instant * 60_000);
+}
+
+/**
+ * An instant, with its day said out loud whenever it is not today.
+ *
+ * `formatInstant` renders a bare clock face, which silently ASSERTS today - a patient who arrived
+ * three days ago reads as "14:00" and looks like this morning. That is the defect: not the wrapping
+ * itself, but a display making a claim about the day without checking it. Anything that may fall on
+ * another day uses this.
+ *
+ * Relative wording rather than a date because the reader is oriented to now rather than to a
+ * calendar. A date belongs only where somebody would say one aloud.
+ */
+export function formatInstantWithDay(instant: Instant, now: Instant): string {
+  const clockFace = formatInstant(instant);
+  const dayDifference = dayOf(instant) - dayOf(now);
+  if (dayDifference === 0) return clockFace;
+  if (dayDifference === -1) return `${clockFace} yesterday`;
+  if (dayDifference === 1) return `${clockFace} tomorrow`;
+  if (dayDifference < -1) return `${clockFace}, ${Math.abs(dayDifference)} days ago`;
+  return `${clockFace}, in ${dayDifference} days`;
 }
 
 export function minutesUntil(due: Instant, now: Instant) {
