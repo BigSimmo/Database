@@ -874,3 +874,40 @@ build DB-7 alone and it still is.**
 can be built before the merge. Doing them as one piece of work with a single visual pass is cheaper
 than twice, and this is a change whose whole risk is what a person reads off a sheet rather than what
 a test asserts.
+
+### DB-11 — The frozen view is dropped. Everything is live, on screen and on paper (OWNER, 2026-08-29)
+
+**This reverses Phase 6's D3 outright, and it was chosen with the cost stated.** Not narrowed, not
+qualified — the fixed 08:00 view goes, and the page is live everywhere.
+
+**What D3 was protecting, so nobody restores it later believing it was lost by accident:** a page that
+holds still can be printed, pinned up and argued over, and the numbers do not move while a handover is
+discussing them. That concern was real and remains real. **The owner was shown it as the explicit cost
+of this option and took it anyway.** Do not reinstate the freeze without a recorded decision from him.
+
+**Why the trade is defensible.** Freezing solved a problem the timestamp also solves, and solved it by
+introducing a second one. A frozen sheet printed at 15:00 showing the morning's figures is stale, and
+staleness on a bed board is the failure mode this whole programme exists to prevent — nothing
+predicted, held or on leave may ever read as available now, and a figure eight hours old is the same
+class of untruth. One live picture, stamped with the moment it was taken, cannot disagree with itself.
+
+**What must travel with it:**
+
+1. **The stamp is now load-bearing on screen too, not only on paper.** A live figure with no visible
+   "as at" is indistinguishable from a stale one — the same reason the printed stamp carries date and
+   time. It updates as the figures do.
+2. **This is a deletion, and the dead-code discipline applies.** `MorningView`, `FrozenMorning`,
+   `morningHandoverInstant`, and Phase 6's frozen-view tests are all removed, not orphaned. Run
+   `npm run check:dead-code-candidate` and enumerate every removed symbol — Phase 6 built that view
+   carefully, including its null propagation when handover has not yet happened, and its tests must be
+   deleted deliberately rather than left passing against nothing.
+3. **`MORNING_HANDOVER_MINUTES` may survive its view.** Check whether anything else reads 08:00 before
+   removing it; the discharge and capacity surfaces may.
+4. **The page's name is now wrong, and that is a separate decision.** It is reached at `/morning` and
+   called the morning page, but it is no longer pinned to the morning — it is the live bed-state page.
+   Flagged, not renamed: a route rename touches nav, reachability and the site map, and it is not
+   worth bundling into this. **Owner decision when convenient.**
+
+**Sequencing: at the fold, with DB-7 and DB-10, one visual pass covering all three.** They touch the
+same page and the same file, and the risk in every one of them is what a person reads off a sheet
+rather than what a test asserts.
