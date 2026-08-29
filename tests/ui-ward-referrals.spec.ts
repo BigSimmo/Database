@@ -3,6 +3,7 @@ import { expect, test, type Page } from "playwright/test";
 import {
   INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE,
   OUT_OF_AREA_BANDS,
+  TRAVEL_BAND_LABELS,
   travelBand,
 } from "@/components/ward-management/ward-distance";
 import { HOME_REGIONS, type UrgencyLevel } from "@/components/ward-management/ward-model";
@@ -413,9 +414,6 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
       "fixture assumption: no (home region, acceptable unit) pair in the synthetic table is out of area, so this journey cannot test a far acceptance at all",
     ).toBeDefined();
     const { homeRegion, unit, band } = FAR_PLACEMENT!;
-    expect(OUT_OF_AREA_BANDS, `fixture assumption: ${band} is one of this prototype's out-of-area bands`).toContain(
-      band,
-    );
 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
@@ -454,6 +452,23 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // still shut, which jsdom cannot show, because jsdom does not hide closed disclosure content.
     const farGroup = page.getByTestId(`ward-referral-match-band-group-${band}`);
     await expect(farGroup).toHaveJSProperty("open", false);
+    /*
+     * Phase 8, Task 10 fix round (F2). This replaces an
+     * `expect(OUT_OF_AREA_BANDS).toContain(band)` that stood here and COULD NOT FAIL: `band`
+     * reached that line only because the `FAR_PLACEMENT` search had already admitted it through
+     * `OUT_OF_AREA_BANDS.includes(band)` a hundred lines earlier, so both sides of the comparison
+     * were the same source. A check that cannot fail, added by the task whose subject is checks
+     * that cannot fail.
+     *
+     * What is worth checking at this point has two genuinely different sources: the group the
+     * screen mounted under THIS band's testid must also be showing THIS band's heading. The testid
+     * comes from the grouping in `referral-match.tsx` and the heading from `travelBandGroupLabel`,
+     * so a group rendered under one band's testid while headed with another band's label fails
+     * here — which would mean the accept control taken out of it below belongs to a band the
+     * coordinator was never shown. Stated precisely: this does not re-prove that the band is out of
+     * area (the search settled that); it proves the screen agrees about which band this group is.
+     */
+    await expect(farGroup.locator("summary")).toContainText(TRAVEL_BAND_LABELS[band]);
     await expect(page.getByTestId(`ward-referral-match-band-counts-${band}`)).toBeVisible();
     await farGroup.locator("summary").click();
     await expect(farGroup).toHaveJSProperty("open", true);
@@ -493,6 +508,47 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
 
     // D8-9, and the reason the brief's "record its arrival" step does not exist: nothing done on
     // these screens reaches this ledger, and the ledger says so in its own words.
+    /*
+     * Phase 8, Task 10 fix round (F3). NON-VACUITY FLOOR, before the two absence pins below.
+     *
+     * `toHaveCount(0)` on `ward-out-of-area-row-<id>` proves nothing on its own: rename the
+     * row/card testid scheme and it goes green having established only that a testid nobody uses
+     * matches nothing. Same shape as the route-scan sanity check at the top of
+     * `tests/ward-nav.test.ts` — pin what must be PRESENT before trusting what must be ABSENT.
+     *
+     * So: the ledger must be rendering rows and cards under exactly the prefixes the absence pins
+     * use, and the two layouts must be showing the same set of people (the table above 40rem, the
+     * cards below it — a coordinator on a phone sees only the second, so a floor that reached only
+     * the table would leave half the assertion unfloored).
+     */
+    const ledgerRows = page.locator('[data-testid^="ward-out-of-area-row-"]');
+    const ledgerCards = page.locator('[data-testid^="ward-out-of-area-card-"]');
+    const ledgerRowCount = await ledgerRows.count();
+    expect(
+      ledgerRowCount,
+      "the ledger renders no row under `ward-out-of-area-row-`, so the absence assertions below would pass against a testid scheme that no longer exists",
+    ).toBeGreaterThan(0);
+    await expect(ledgerCards, "the ledger's phone cards and its table are not showing the same people").toHaveCount(
+      ledgerRowCount,
+    );
+
+    /*
+     * And what the ledger renders is what the ledger promises. Every row's travel-time cell must
+     * carry the label of one of `OUT_OF_AREA_BANDS` — the board is headed "People in a bed far
+     * from home", and the constant is this prototype's whole definition of far. Two sources: the
+     * board's own filter decides which people are listed, the exported list decides which bands
+     * count as far. This is where `OUT_OF_AREA_BANDS` earns its place in this spec, replacing the
+     * tautology removed above.
+     */
+    const outOfAreaLabels = OUT_OF_AREA_BANDS.map((b) => TRAVEL_BAND_LABELS[b]);
+    const renderedBands = await ledgerRows.evaluateAll((rows) =>
+      rows.map((row) => (row.children[2]?.textContent ?? "").trim()),
+    );
+    expect(
+      [...new Set(renderedBands)].filter((b) => !outOfAreaLabels.includes(b)),
+      "the out-of-area ledger is listing somebody whose travel band is not one this prototype calls out of area",
+    ).toEqual([]);
+
     await expect(page.getByTestId(`ward-out-of-area-row-${raisedId}`)).toHaveCount(0);
     await expect(page.getByTestId(`ward-out-of-area-card-${raisedId}`)).toHaveCount(0);
     await expect(page.getByTestId("ward-out-of-area-provenance")).toContainText(

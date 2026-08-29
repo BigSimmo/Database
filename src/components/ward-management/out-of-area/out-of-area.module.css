@@ -173,9 +173,21 @@
  * way to reach it was to scroll sideways inside a table that showed no sign of having more.
  *
  * 30rem (480px) fits that 499px box, so all four columns are on screen at every width the table is
- * used at, verified from 641px to 1440px. `overflow-wrap: anywhere` on the cells does the rest —
- * a band or a region wraps onto a second line rather than pushing a column off the edge. The
- * scroller above is kept as the backstop it always was, not as the thing a reader has to find.
+ * used at, verified from 641px to 1440px.
+ *
+ * WHAT ACTUALLY SETS THE FLOOR, corrected in the Task 10 fix round: an earlier draft of this
+ * comment credited `overflow-wrap: anywhere` on the cells, and that is not what holds this table
+ * up. `.table th` below carries `white-space: nowrap`, so the headers CANNOT wrap, and the width
+ * this table refuses to go below is the sum of its header min-contents. Measured in the browser at
+ * a 641px viewport with `min-width` overridden to 0: the table settles at 499px — exactly its
+ * container — with headers at 115 / 122 / 175 / 87px, so the min-content floor is at or under the
+ * box and `min-width: 30rem` is comfortably below it and never binds there. `overflow-wrap:
+ * anywhere` does real work on the CELLS, where a long region or band wraps onto a second line
+ * instead of widening its column; it just is not the thing that stops the header row overflowing.
+ * The distinction matters because a longer header string would move the real floor and this value
+ * would not save it — the browser guard below would, which is why the guard is geometric rather
+ * than a check on this number. The scroller above is kept as the backstop it always was, not as
+ * the thing a reader has to find.
  *
  * Guarded in a REAL BROWSER by tests/ui-ward-referrals.spec.ts, which asserts no cell's right edge
  * escapes the scroller at 641px. jsdom has no layout, so no Vitest suite can see this class of

@@ -184,4 +184,68 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await expect(cells.nth(2)).toHaveText("1Confirmed");
     await expect(cells.nth(3)).toHaveText("0Predicted");
   });
+
+  /**
+   * Phase 8, Task 10 fix round (F4). The discharges board's tables, across every width they are
+   * narrower at than they want to be.
+   *
+   * The Task 10 review noticed that `discharges.module.css` carried the same `.tableScroll` /
+   * `.table { min-width }` pattern that had just been found defective on the out-of-area ledger,
+   * 96px wider (44rem against 38rem), and that the pass had not looked at it. Measured in a
+   * browser before anything was changed, it reproduced on all four groups: `Freshness` — who
+   * confirmed this discharge and when — sat outside its scroller at 641, 700, 760 and 820px, and
+   * at 641px `Blocker` did too. Both were in the document at every one of those widths, which is
+   * exactly why nothing already on this branch could see it.
+   *
+   * Asserted as geometric containment rather than as a stylesheet value, so it goes on holding
+   * whatever the table's widths, the shell's padding or the icon rail become — and it is checked
+   * at four widths rather than one because, unlike the ledger's, this table's defective band ran
+   * well past the breakpoint where the card layout hands over.
+   *
+   * The floor first: every group must be rendering a table with cells in it. `toEqual([])` on a
+   * list of escaping cells passes trivially against a board that renders nothing at all, and this
+   * page renders its tables only when a group has entries.
+   */
+  test("no column of the discharges board's tables is off the screen at any width the table is used at", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 641, height: 900 });
+    await page.goto("/mockups/ward-flow/discharges", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-discharge-board")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    const scrollers = page.locator('[data-testid^="ward-discharge-table-"]');
+    const scrollerCount = await scrollers.count();
+    expect(
+      scrollerCount,
+      "the discharges board renders no table under `ward-discharge-table-`, so the containment assertion below would pass having measured nothing",
+    ).toBeGreaterThan(0);
+
+    for (const width of [641, 700, 760, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      const measured = await scrollers.evaluateAll((nodes) =>
+        nodes.map((scroll) => {
+          const right = scroll.getBoundingClientRect().right;
+          const cells = [...scroll.querySelectorAll("thead th, tbody tr:first-child td")];
+          return {
+            id: scroll.getAttribute("data-testid") ?? "(no testid)",
+            cells: cells.length,
+            clipped: cells
+              .filter((cell) => cell.getBoundingClientRect().right > right + 1)
+              .map(
+                (cell) =>
+                  `${(cell.textContent ?? "").trim()} (right edge ${Math.round(cell.getBoundingClientRect().right)} vs scroller ${Math.round(right)})`,
+              ),
+          };
+        }),
+      );
+      for (const table of measured) {
+        expect(table.cells, `${table.id} at ${width}px renders no cells to measure`).toBeGreaterThan(0);
+        expect(
+          table.clipped,
+          `column(s) of ${table.id} are off the screen at ${width}px, reachable only by scrolling sideways inside the table`,
+        ).toEqual([]);
+      }
+    }
+  });
 });

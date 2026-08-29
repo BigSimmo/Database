@@ -119,9 +119,36 @@
   overflow-x: auto;
 }
 
+/*
+ * `min-width` was 44rem (704px) and clipped this board's last columns, exactly as 38rem did on the
+ * out-of-area ledger — the same pattern, 96px wider, and so a wider band of viewports affected.
+ * Found by the Phase 8 Task 10 review, then MEASURED in a real browser before being touched.
+ *
+ * Measured at 641, 700, 760 and 820px, on all four groups (blocked, confirmed, predicted,
+ * released-today): `.tableScroll` gets a client box 142px narrower than the viewport, the table
+ * holds itself at 704px, and `Freshness` — the column carrying who confirmed this discharge and
+ * when — sits at right edge 811px against a scroller ending at 606 / 665 / 725 / 785px. At 641px
+ * `Blocker` is off the screen too. Both were in the document at every width, which is why the
+ * board's own tests stayed green: they were simply never on the screen, reachable only by scrolling
+ * sideways inside a table that gives no sign of having more. Clean again from 1024px up, where the
+ * container exceeds the table's own width and `min-width` stops binding.
+ *
+ * 30rem (480px) matches the ledger's proven value and fits the same 499px box. Stated precisely,
+ * because the neighbouring comment used to get this wrong: `min-width` is not what holds the table
+ * up. `.table th` carries `white-space: nowrap`, so the real floor is the sum of the header
+ * min-contents; measured here with `min-width` overridden to 0, this six-column table settles at
+ * 499px with headers at 58 / 99 / 70 / 56 / 102 / 113px. 30rem sits below that floor and therefore
+ * never binds at the widths this table is used at — which is the point: the value stops FORCING an
+ * overflow, and the min-content floor does the rest. A longer header string would move that floor,
+ * and this number would not save it; the browser guard would.
+ *
+ * Guarded in a REAL BROWSER by tests/ui-ward-discharges.spec.ts, which asserts no cell's right edge
+ * escapes its scroller across that whole band of widths. jsdom has no layout, so no Vitest suite
+ * can see this class of defect at all.
+ */
 .table {
   width: 100%;
-  min-width: 44rem;
+  min-width: 30rem;
   border-collapse: collapse;
   font-size: var(--text-xs);
 }

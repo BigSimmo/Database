@@ -18,6 +18,7 @@ vi.mock("next/link", () => ({
 
 import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { wallClockNow } from "@/components/ward-management/ward-clock";
 import {
   NOT_RECORDED_LABEL,
   SYNTHETIC_TRAVEL_TIMES_NOTICE,
@@ -26,6 +27,7 @@ import {
   TRAVEL_BANDS,
   type TravelBand,
 } from "@/components/ward-management/ward-distance";
+import { EVENT_ROLE } from "@/components/ward-management/ward-flow-events";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { BAND_ARRANGEMENT_LIMITATION_NOTICE } from "@/components/ward-management/ward-management-network";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
@@ -1017,6 +1019,38 @@ describe("network diagram, the whole-network overview", () => {
     // A floor on the sweep itself: a list that lost entries would otherwise control fewer arms while
     // every remaining assertion still passed.
     expect(SECOND_CLOCK_ARMS, "the per-arm control list no longer covers every arm").toHaveLength(6);
+    /*
+     * ANCHORED TO THE REAL VOCABULARY — Phase 8, Task 10 fix round (F5).
+     *
+     * Both sides of every assertion around this one are hand-written inside this file, so the whole
+     * item-17 rework closed regex TYPOS and left VOCABULARY DRIFT wide open: rename an action in
+     * the reducer and the arm stops describing anything real while the control, the length floor
+     * and the equality pin all stay green — a guard reporting clean about a clock that no longer
+     * has that name.
+     *
+     * The vocabulary exists in the repository, so one side is read from it rather than retyped.
+     * `EVENT_ROLE` is the reducer's own role table and is `Record<WardFlowEvent["type"], ...>`, so
+     * adding an event without an entry is a compile error; the three events only the `demo` role
+     * may dispatch ARE the clock-and-scenario events this guard is about. `wallClockNow.name` is
+     * the exported function's own name, which follows the export through a rename.
+     *
+     * Deliberately NOT anchored: `Date.now` and `new Date` are platform spellings, not this
+     * repository's vocabulary, and there is nothing here for them to drift against.
+     */
+    const demoOnlyEventTypes = Object.entries(EVENT_ROLE)
+      .filter(([, roles]) => roles.length === 1 && roles[0] === "demo")
+      .map(([type]) => type)
+      .sort();
+    expect(
+      SECOND_CLOCK_ARMS.map(({ arm }) => arm.source)
+        .filter((source) => demoOnlyEventTypes.some((type) => type === source))
+        .sort(),
+      `the second-clock controls no longer name the reducer's own demo-only events — the reducer declares [${demoOnlyEventTypes.join(", ")}]`,
+    ).toEqual(demoOnlyEventTypes);
+    expect(
+      SECOND_CLOCK_ARMS.map(({ arm }) => arm.source),
+      "the second-clock controls no longer name the clock helper `ward-clock.ts` actually exports",
+    ).toContain(wallClockNow.name);
     for (const { arm, control } of SECOND_CLOCK_ARMS) {
       expect(control, `the second-clock pattern's ${arm.source} arm matches nothing`).toMatch(arm);
     }
