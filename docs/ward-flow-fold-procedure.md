@@ -636,3 +636,60 @@ pushed, so that is the whole of it.
 **Blocked on one physical thing, not a procedural one:** the merge target branch is checked out in
 the Phase 8 worktree, and git will not allow a second checkout of it. That session has been asked to
 stand down explicitly — in words, not by going quiet.
+
+---
+
+## 12. The SECOND fold — `claude/ward-flow-print-fixes` back to the line
+
+Prepared before it is called, so it can run when the board session reaches its natural stopping
+point rather than being designed under time pressure. **The owner approved convergence; the board
+session picks the moment.**
+
+**Measured, and it is a different animal from the first fold:**
+
+```
+print-fixes ahead                   4
+behind                              5
+files differing                     8
+files changed on BOTH sides         0     <- the number that matters
+merge-tree                          NO CONFLICTS
+```
+
+**Zero files changed on both sides means there is no resolution to get wrong.** The first fold's
+danger was three files where the wrong answer was green because the guard sat inside the conflict
+set. That hazard is absent here, so applying the seven conditions unchanged would be **ceremony
+rather than caution** — and a condition kept out of reflex teaches the next reader that conditions
+are ritual.
+
+### What to keep, and why each earns its place
+
+1. **A fresh backup at the moment of merging**, not earlier. A backup of a superseded state
+   satisfies this on paper only.
+2. **Both worktrees confirmed clean, and `merge-tree` re-run against committed tips at that moment.**
+   This is the one the first fold actually needed: it predicted three conflicts and there were four,
+   because an uncommitted edit was structurally invisible to it and nothing in its output said so.
+   **A clean prediction over a dirty tree is not a clean merge.**
+3. **Afterwards: the ward suite AND `typecheck`.** Both. This exact branch pair already produced a
+   tree that passed 1053 tests and did not compile — Vitest does not typecheck, so a whole class of
+   breakage sits outside "the suite is green". **"It was green" is not a complete claim; name which
+   green.**
+4. **Read the total against the previous total, not the ratio.** A test file that fails to parse
+   subtracts its tests from the denominator and the pass fraction stays perfect. Pin the baseline to
+   a SHA — one taken two commits earlier mis-calibrates the only check that sees vanished tests.
+
+### What to drop, deliberately
+
+The wholesale-resolution rule, the four name greps, the value check and the band greps were built for
+a specific hazard in specific files. **None of those files is changed on both sides here.** Carrying
+them would assert a danger that is not present.
+
+**But re-derive that, do not assume it.** If the both-sides count is non-zero when the moment comes,
+the hazard is back and so are the conditions. That number is the trigger, and it is knowable before
+the merge rather than during it.
+
+### One thing this fold releases
+
+**WB-DB-18 is recorded and deliberately unbuilt**, because it needs `ward-screen.tsx` and the board
+branch has changed that file. Its own note says one shared back control or the third screen drifts,
+so building two of three would guarantee the outcome the note exists to prevent. **The fold is what
+unblocks it** — worth saying in the fold's record so nobody later reads that hold as unexplained.
