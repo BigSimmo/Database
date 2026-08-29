@@ -24,6 +24,8 @@ import type {
 import { bedReleases, leaveBeds, referrals, wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
+import { shiftInstants } from "@/components/ward-management/ward-reanchor";
+import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
  * Stages `REFER_TO_UNITS` accepts, exported so a UI surface can pre-check referability and gate
@@ -285,11 +287,19 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
   }
 
   switch (event.type) {
+    // A reset re-anchors onto the demo's CURRENT now rather than handing back a fixture authored
+    // at NOW_ANCHOR. Without this, a reset forty minutes into a demonstration returns predictions
+    // that are already lapsed against a clock that has moved on - the exact defect Task 1 exists to
+    // remove, reappearing on the one control a presenter reaches for when something looks wrong.
+    //
+    // `event.now` is the provider's now and already includes `clockOffsetMinutes`, which a reset
+    // clears. Subtracting it lands the seed on the now the board will show AFTER the reset rather
+    // than the one it showed before, so the visible clock does not jump.
     case "RESET_SCENARIO":
-      return seedWardFlowState();
+      return shiftInstants(seedWardFlowState(), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 
     case "SET_SCENARIO":
-      return seedWardFlowState(event.scenario);
+      return shiftInstants(seedWardFlowState(event.scenario), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };

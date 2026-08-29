@@ -14,6 +14,7 @@ import {
 
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
+import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import type {
@@ -87,7 +88,20 @@ type WardFlowProviderProps = {
 };
 
 export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps) {
-  const [state, dispatch] = useReducer(wardFlowReducer, undefined, seedWardFlowState);
+  /**
+   * How far the demo's day sits from the day the fixture was authored on. Read ONCE, at mount, so
+   * every instant the app shows moves together; re-reading it per render would let the seed and the
+   * clock drift apart between two renders of the same screen.
+   *
+   * Zero on the pinned path. A deterministic render (tests, screenshots, contract walks) keeps the
+   * frozen 10:42 night the fixture was measured against, which is what lets 53 test files assert
+   * against it without depending on the hour the suite happens to run.
+   */
+  const [anchorOffsetMinutes] = useState<number>(() => (initialNow !== undefined ? 0 : wallClockNow() - NOW_ANCHOR));
+
+  const [state, dispatch] = useReducer(wardFlowReducer, anchorOffsetMinutes, (offset) =>
+    shiftInstants(seedWardFlowState(), offset),
+  );
 
   // `wallClockNow()` — the only wall-clock read this component is allowed to make (see
   // ward-clock.ts) — only ever returns a minute-of-day (0–1439), so two readings on their own
@@ -126,7 +140,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
     initialNow !== undefined
       ? 0
       : clockCheckpoint.elapsedBefore + elapsedMinutesSinceMount(clockCheckpoint.reading, wallClockNow());
-  const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
+  const now = NOW_ANCHOR + anchorOffsetMinutes + elapsed + state.clockOffsetMinutes;
 
   const [focusMovementId, setFocusMovementId] = useState<string | undefined>(undefined);
 

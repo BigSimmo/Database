@@ -95,6 +95,12 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
   "src/components/ward-management/ward-sites.ts", // declares the constant and uses it to build the fixture's capacity timestamps
   "src/components/ward-management/ward-movements.ts", // the movement fixture; every synthetic timestamp derives from it
   "src/components/ward-management/ward-flow-provider.tsx", // the provider, which reads it once to derive the live `now`
+  // Added 2026-08-30 for Task 1. RESET_SCENARIO and SET_SCENARIO re-seed from a fixture authored
+  // at NOW_ANCHOR, so the reducer must know that anchor to shift the fresh seed onto the demo's
+  // current now - otherwise a reset mid-demonstration hands back predictions already lapsed
+  // against a clock that has moved on. It reads the constant to compute a DIFFERENCE and never as
+  // a time in its own right, which is the same narrow use the provider is allowed on the line above.
+  "src/components/ward-management/ward-flow-reducer.ts",
 ]);
 
 /**
