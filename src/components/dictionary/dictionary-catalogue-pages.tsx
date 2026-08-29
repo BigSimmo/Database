@@ -290,11 +290,12 @@ export function DictionaryCataloguePage() {
 
   /* One equal-layout rail: both catalogue scopes have identical geometry while
      the shared primitive owns radio semantics, arrow-key navigation, focus and
-     the 48px tap target. A fixed compact width keeps the long Abbreviations
-     label readable at 320px without letting either segment size itself from its
-     text and leave the control visually lopsided. */
+     the 48px tap target. Responsive compact widths give the longer
+     Abbreviations label enough room as the shared control's padding grows,
+     without letting either segment size itself from its text and leave the
+     control visually lopsided. */
   const scopeToggle = (
-    <div data-testid="dictionary-scope-toggle" className="w-56 shrink-0">
+    <div data-testid="dictionary-scope-toggle" className="w-56 shrink-0 min-[360px]:w-64 sm:w-72">
       <SegmentedControl
         label="Show"
         value={params.scope}

@@ -210,10 +210,20 @@ test("merges search and browse into one catalogue with a measured phone header",
     .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().width));
   expect(scopeSegments).toHaveLength(2);
   expect(Math.abs(scopeSegments[0] - scopeSegments[1])).toBeLessThanOrEqual(1);
-  await toggle.getByRole("radio", { name: /Terms/ }).focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(toggle.getByRole("radio", { name: /Abbreviations/ })).toBeChecked();
-  await expect(page).toHaveURL(/view=abbreviations/);
+  const abbreviationsRadio = toggle.getByRole("radio", { name: /Abbreviations/ });
+  const expectAbbreviationsLabelToFit = async () => {
+    const dimensions = await abbreviationsRadio.getByText("Abbreviations", { exact: true }).evaluate((label) => ({
+      clientWidth: label.clientWidth,
+      scrollWidth: label.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  };
+  await expectAbbreviationsLabelToFit();
+  await expect(abbreviationsRadio).toBeChecked();
+  await abbreviationsRadio.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(toggle.getByRole("radio", { name: /Terms/ })).toBeChecked();
+  await expect(page).not.toHaveURL(/view=abbreviations/);
 
   await page.setViewportSize({ width: 320, height: 760 });
   await page.waitForTimeout(400);
@@ -229,6 +239,10 @@ test("merges search and browse into one catalogue with a measured phone header",
   expect(narrowRow.toggleTop).toBeGreaterThanOrEqual(narrowRow.ribbonBottom);
   expect(narrowRow.toggleWidth).toBeGreaterThan(120);
   expect(narrowRow.overflow).toBeLessThanOrEqual(2);
+
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.waitForTimeout(400);
+  await expectAbbreviationsLabelToFit();
   await page.setViewportSize({ width: 390, height: 844 });
 
   await gotoDictionary(page, "/dictionary/search?q=tardive+dyskinesia", "dictionary-catalogue-main");
