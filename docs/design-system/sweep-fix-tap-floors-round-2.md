@@ -57,11 +57,9 @@ So:
 The `compact` branch of `DocumentTagCloud`'s "+N more" button is a **46px** tap target. It is not a
 false positive; the gate is right about it for the wrong reason.
 
-It was left unchanged because resizing that component was outside this round's brief and the
-component is shared with another agent's working set. The cheapest fix is one token —
-`before:-inset-y-3` → `before:-inset-y-3.5` — which lifts compact to 50px and default to 54px with
-**no visual change at all**, because the pseudo-element is invisible. `min-h-compact-meta` is the
-cleaner remedy if the chip is ever reworked. Recorded in the component's own comment.
+The owner subsequently asked for it to be closed with the one-token remedy proposed here
+(`before:-inset-y-3` → `before:-inset-y-3.5`). That remedy was measured and **rejected** — see
+§8. The chip is unchanged, and the recommendation in this document's first revision was wrong.
 
 ---
 
@@ -208,6 +206,97 @@ geometry above was measured against it. Playwright journeys (`ui-smoke`, `ui-sty
 
 ## 7. Not done
 
-- The 46px `compact` "+N more" chip (§1). Recommended fix stated; needs an owner decision.
+- The 46px `compact` "+N more" chip (§1). The proposed inset widening was measured and rejected
+  (§8); the chip is unchanged. A coherent remedy needs a design decision about row pitch.
+- The tap-theft between wrapped rows (§8) affects every `DocumentTagChip`, not just "+N more".
+  Not fixed — it is a design change, not a token change.
+- The gate cannot see a `className` passed as an identifier (§9), so the chips are uncounted.
+  Not fixed — resolving local class variables is its own piece of work with its own fallout.
 - No Playwright/browser gate, no `verify:cheap`, no `verify:pr-local`.
 - `min-h-11` was not introduced anywhere; it remains forbidden.
+
+---
+
+## 8. Follow-up: the inset widening was measured and REJECTED — chip unchanged
+
+The owner asked to close the 46px compact chip with the one-token remedy proposed in §1:
+`before:-inset-y-3` → `before:-inset-y-3.5`, on the condition that it must not create a
+neighbour-overlap problem. **It does. The change was not shipped.**
+
+### Can the branches be changed independently?
+
+Partly, and it does not matter. The `::before` sits in the **shared** half of the `cn()` call while
+`min-h-6` / `min-h-7` sit in the `compact` ternary, so raising only the compact branch would mean
+moving `before:-inset-y-*` into the ternary. That is mechanically easy. The measurement below made
+the question moot.
+
+Note also that `DocumentTagChip` carries the **same** `before:-inset-y-3` idiom, so this is not two
+buttons — it is every chip in the cloud.
+
+### The overlap: measured, current code, no change applied
+
+Realistic layout: four fixed-width chips in `flex flex-wrap gap-1.5`, wrapping to two rows, chips
+`c0` (row 1) and `c2` (row 2) vertically aligned. `getBoundingClientRect` for geometry;
+`document.elementFromPoint` for who wins the tap.
+
+| Config                               | chip box | hit area | row gap | hit overlap | intrudes into row-1 **visible box** | tap at row-1 bottom-1px |
+| ------------------------------------ | -------- | -------- | ------- | ----------- | ----------------------------------- | ----------------------- |
+| `-inset-y-3` `min-h-6` (**current**) | 24px     | 46px     | 6px     | 16px        | **5px**                             | **`c2`**                |
+| `-inset-y-3.5` `min-h-6` (proposed)  | 24px     | 50px     | 6px     | 20px        | **7px**                             | **`c2`**                |
+| `-inset-y-3` `min-h-7` (**current**) | 28px     | 50px     | 6px     | 16px        | **5px**                             | **`c2`**                |
+| `-inset-y-3.5` `min-h-7` (proposed)  | 28px     | 54px     | 6px     | 20px        | **7px**                             | **`c2`**                |
+
+Scanning down through row 1's visible box for the exact point where it stops winning:
+
+| Config                               | stolen from bottom of visible box | % of chip height | thief |
+| ------------------------------------ | --------------------------------- | ---------------- | ----- |
+| `-inset-y-3` `min-h-6` (**current**) | **5.5px**                         | **23%**          | `c2`  |
+| `-inset-y-3.5` `min-h-6`             | 7.5px                             | 31%              | `c2`  |
+| `-inset-y-3` `min-h-7` (**current**) | **5.5px**                         | **20%**          | `c2`  |
+| `-inset-y-3.5` `min-h-7`             | 7.5px                             | 27%              | `c2`  |
+
+Answering the owner's question directly: **yes, adjacent rows already have overlapping hit areas,
+and the bottom chip wins.** Both chips are positioned with `z-index: auto`, so paint order is DOM
+order and the later element takes the shared region.
+
+The horizontal axis is clean: `-inset-x-1` is 4px against a 6px column gap, so the 2px of overlap
+falls inside the gap and never enters a neighbour's visible box (`stolenFromRightEdge: 0`).
+
+### Two conclusions
+
+1. **Do not widen the inset.** It takes theft from 5.5px to 7.5px. Per the owner's stop condition,
+   the change was not shipped and the chip stays at 46px.
+
+2. **The pre-existing theft is the more serious defect**, and it is not something this round
+   introduced. Today, on any wrapped tag cloud, a tap on the bottom fifth of a chip selects a
+   different filter. On a phone — where the cloud wraps most — that is a live misfire, and it is
+   worse than 2px of shortfall.
+
+The conflict is structural rather than a tuning problem: a 6px row gap tolerates **3px** of
+expansion per side before neighbours overlap, while reaching 48px from a 24px chip needs **12px** —
+4× the budget. **The `::before` idiom cannot produce a compliant, non-overlapping target in a
+wrapped row at this gap**, at any inset value. The coherent remedy is real height —
+`min-h-compact-meta` (40px, the owner's own compact-role floor) with the `::before` dropped
+entirely — which changes row pitch and is therefore a design decision, not a token swap.
+
+This is also a third, independent reason the gate was not taught the `before:-inset-y-*` idiom in
+§4: a rule that scored the idiom as compliant would have blessed a control that steals its
+neighbour's taps.
+
+## 9. Observation: the gate cannot see a `className` identifier
+
+`DocumentTagChip`'s chips declare `min-h-6` / `min-h-7` on a `<button>` and are **not** counted.
+The reason is not the pseudo-element — it is that the class string is built into a local
+(`tagClassName`) and passed as `className={tagClassName}`. `jsxClassAlternatives` resolves literals,
+ternaries, templates and calls in the attribute itself, but an identifier resolves to `[""]`.
+
+Verified rather than assumed:
+
+```
+inline  -> ["src/x.tsx:1"]
+via var -> []
+```
+
+So `sub-floor interactive min-heights 2` counts the two "+N more" buttons only, and understates the
+real number in this file. Left alone deliberately: resolving local class variables would change
+findings across the repo and needs its own baseline pass.

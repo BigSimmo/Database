@@ -77,6 +77,19 @@ function DocumentTagChip({
   // Compact-meta visual density (filter chips, not primary CTAs). ::before
   // expands the hit toward the 48px tap floor without painting a 48px chip.
   // Ring/border stay for Agent 4.
+  //
+  // MEASURED 2026-08-29: it does not reach the floor, and it overshoots the row
+  // gap. The insets resolve against the padding box, so the 1px border costs 1px
+  // per side and the real hit area is 46px (compact) / 50px (default), not 48/52.
+  // Worse, in `flex flex-wrap gap-1.5` the 11px expansion overruns the 6px row
+  // gap by 5px, so a tap on the bottom 5.5px of a chip (23% of the compact chip)
+  // activates the chip on the row BELOW. Do not widen the inset to compensate —
+  // that makes the theft worse (7.5px at `-inset-y-3.5`). See
+  // `docs/design-system/sweep-fix-tap-floors-round-2.md` §8.
+  //
+  // Not counted by `interactiveTapFloorDeclarations`: the gate reads `className`
+  // JSX attributes and this one is an identifier (`tagClassName`), which it
+  // cannot resolve. Verified, not assumed.
   const tagClassName = cn(
     "relative inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
     compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
@@ -181,9 +194,18 @@ export function DocumentTagCloud({
               // `answer-content.tsx` could not use this idiom at all. A rule doing
               // `min-h + 2 × inset` would have scored the compact branch a passing 48 when
               // it is really 46, i.e. it would have excluded a true violation.
-              // RESIDUAL for the owner: widening to `before:-inset-y-3.5` lifts compact to
-              // 50px with no visual change; `min-h-compact-meta` is the cleaner remedy if
-              // this chip is ever reworked. Not changed here — out of the round-2 brief.
+              // RESIDUAL for the owner. Widening to `before:-inset-y-3.5` was proposed and
+              // then MEASURED AND REJECTED on 2026-08-29: it does reach 50px, but these
+              // chips sit in `flex flex-wrap gap-1.5` (6px rows) and the expansion already
+              // overruns that gap. Today a tap on the bottom 5.5px of a chip — 23% of the
+              // compact chip's height — activates the chip on the row BELOW it. Widening
+              // takes that to 7.5px (31%). Do not widen the inset.
+              // The conflict is structural: a 6px row gap allows 3px of expansion per side
+              // before neighbours start stealing taps, and reaching 48px from a 24px chip
+              // needs 12px. The `::before` idiom cannot deliver a compliant, non-overlapping
+              // target in a wrapped row at this gap. The coherent remedy is real height —
+              // `min-h-compact-meta` (40px, the owner's compact-role floor) with the
+              // `::before` dropped entirely — which costs row pitch and is a design call.
               "relative w-fit rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
               compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
             )}
@@ -230,9 +252,18 @@ export function DocumentTagCloud({
             // `answer-content.tsx` could not use this idiom at all. A rule doing
             // `min-h + 2 × inset` would have scored the compact branch a passing 48 when
             // it is really 46, i.e. it would have excluded a true violation.
-            // RESIDUAL for the owner: widening to `before:-inset-y-3.5` lifts compact to
-            // 50px with no visual change; `min-h-compact-meta` is the cleaner remedy if
-            // this chip is ever reworked. Not changed here — out of the round-2 brief.
+            // RESIDUAL for the owner. Widening to `before:-inset-y-3.5` was proposed and
+            // then MEASURED AND REJECTED on 2026-08-29: it does reach 50px, but these
+            // chips sit in `flex flex-wrap gap-1.5` (6px rows) and the expansion already
+            // overruns that gap. Today a tap on the bottom 5.5px of a chip — 23% of the
+            // compact chip's height — activates the chip on the row BELOW it. Widening
+            // takes that to 7.5px (31%). Do not widen the inset.
+            // The conflict is structural: a 6px row gap allows 3px of expansion per side
+            // before neighbours start stealing taps, and reaching 48px from a 24px chip
+            // needs 12px. The `::before` idiom cannot deliver a compliant, non-overlapping
+            // target in a wrapped row at this gap. The coherent remedy is real height —
+            // `min-h-compact-meta` (40px, the owner's compact-role floor) with the
+            // `::before` dropped entirely — which costs row pitch and is a design call.
             "relative inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
             compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
           )}
