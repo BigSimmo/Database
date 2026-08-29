@@ -263,7 +263,12 @@ is, or about sides of a ward.
 | **Outline** | past their own expected discharge date                        |
 | **Number**  | days, written out                                             |
 
-**The owner's stay bands, used verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
+**The owner's stay bands, used verbatim — as of 2026-08-29 12:25:** under 2 weeks · 2 weeks–1 month
+· 1–3 months · over 3 months (ids `under-2-weeks` / `2-weeks-1-month` / `1-3-months` /
+`over-3-months`; ceilings 14 / 30 / 90 / open). **Superseded set, recorded here 2026-08-28:** under
+1 week · 1–4 weeks · 1–3 months · over 3 months. He replaced the first two bands and left the third
+alone. See the note in `docs/ward-flow-handover-2026-08-29.md` §6 on why a verbatim list without a
+date eventually instructs a reader to undo the decision it preserves.
 These are his, not derived from anything, and the page must label them as bands he set.
 
 Two rules that are not negotiable:

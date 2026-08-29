@@ -168,7 +168,17 @@ Phase 8 owns, so the screens wait for the fold.
 - **One discharge date drives everything.** Confirming is a **separate act** from setting it.
 - **A discharge nobody has spoken about says nothing.** "Nothing outstanding" stays in the approved
   picker but is never assumed — silence and a clean bill are different facts.
-- **Stay bands, verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
+- **Stay bands, verbatim — his four as of 2026-08-29 12:25:** under 2 weeks · 2 weeks–1 month ·
+  1–3 months · over 3 months. Ids `under-2-weeks` / `2-weeks-1-month` / `1-3-months` /
+  `over-3-months`, ceilings 14 / 30 / 90 / open, landed in `1d2f64c5f`.
+  **This line previously recorded the SUPERSEDED set** — under 1 week · 1–4 weeks · 1–3 months ·
+  over 3 months, ids `under-1-week` / `1-4-weeks`, from `4c3c4625a` at 03:49 the same day — and it
+  recorded it under the word *verbatim*, inside a section headed "must not be re-litigated". So the
+  rule written to protect his decisions was, for nine hours, the thing that would have carried a
+  reversion of one: a cold-start session reading this line and then the code would have "corrected"
+  the bands back in good faith, citing this document. **Date a verbatim list, or it eventually
+  instructs someone to undo the decision it was written to preserve.** Left visible rather than
+  silently replaced, because the failure is more useful than the correction.
 - **The ward states its sex-acceptance counts daily.** No per-bed designations.
 - **Ten WA regions stay.** Screens lead with region; travel distance is a footnote, because most
   patients have no band (the table covers 6 of 10 regions).

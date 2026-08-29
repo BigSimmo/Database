@@ -25,7 +25,14 @@ Copied verbatim from the spec and from `AGENTS.md`. **Every task's requirements 
 - **Never `git stash`.** The stack is shared across every worktree on this machine.
 - **No gate skipped, no assertion deleted, no test loosened.** If a change would reduce what can honestly be claimed, do not make it — record it instead.
 - **Every bed dimension is "does this bed accept this person", never an equality.** `bed.sexDesignation === referral.sex` excludes every undesignated bed — most of the network — and looks entirely reasonable in review.
-- **Owner's stay bands, verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
+- **Owner's stay bands, verbatim — as of 2026-08-29 12:25:** under 2 weeks · 2 weeks–1 month ·
+  1–3 months · over 3 months (ids `under-2-weeks` / `2-weeks-1-month` / `1-3-months` /
+  `over-3-months`; ceilings 14 / 30 / 90 / open), landed in `1d2f64c5f`.
+  **SUPERSEDED, and still written throughout the task bodies below:** under 1 week · 1–4 weeks,
+  ids `under-1-week` / `1-4-weeks`, ceilings 7 / 28. Every code sample further down this plan
+  predates the change and shows the old ids — they are left as written because a plan is a record
+  of what was decided when, not a live specification. **The code is the authority, not this file.**
+  See `docs/ward-flow-handover-2026-08-29.md` §6.
 - **Colour never carries a fact alone.** Every colour has the same fact beside it in words or numbers.
 - **One owner-pending list must not be invented** (D15). D9's list was ANSWERED on 2026-08-28 — reuse `BED_RELEASE_BLOCKERS`, never define a second vocabulary for the same fact.
 - **The bed model is THREE stages plus a flag** — `predicted | confirmed | released`, with `blocked` a flag (`blocker` + `blockedBy`) sitting on a predicted or confirmed release. `blocked` is never a state. A blocked-but-confirmed bed KEEPS counting as confirmed.
