@@ -1141,16 +1141,16 @@ model exists to avoid. `node scripts/run-vitest.mjs run <files>` takes the share
 
 Verified by counting `dischargeConfirmedAt` on both branches:
 
-| File | This branch | Phase 8 |
-| ---- | ----------- | ------- |
-| `ward-admissions.ts` | 2 | 0 |
-| `ward-admissions-seed.ts` | 4 | 0 |
-| `tests/ward-admission-model.test.ts` | 4 | 0 |
+| File                                 | This branch | Phase 8 |
+| ------------------------------------ | ----------- | ------- |
+| `ward-admissions.ts`                 | 2           | 0       |
+| `ward-admissions-seed.ts`            | 4           | 0       |
+| `tests/ward-admission-model.test.ts` | 4           | 0       |
 
 **Why file-by-file resolution is dangerous here rather than merely wrong.** `dischargeConfirmedAt` is
 the only route to a `confirmed` release (DB-2). The third file is the **structural test asserting the
 record's exact field set** — the guard against exactly this loss. Resolving all three in Phase 8's
-favour deletes the fields *and* the assertion that they must exist, **and the suite goes green**,
+favour deletes the fields _and_ the assertion that they must exist, **and the suite goes green**,
 because the test that would have failed is the one being deleted.
 
 **BINDING RULE, agreed with both other sessions: take THIS branch's copy of all three wholesale, then
