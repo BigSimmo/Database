@@ -18,6 +18,7 @@ import {
   panelSubtle,
   primaryControl,
 } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
@@ -209,16 +210,20 @@ export function FavouritesHub({
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
+          {/* SPEC §11: an untrusted count is `Unknown`, never a dash. The registry either has not
+              answered yet or failed, so the number exists and we cannot read it — which is exactly
+              "unknown", not "not recorded" and not "not applicable". A dash in a numeric tile reads
+              as zero, i.e. "your library is empty", which is the one thing we must not assert. */}
           {[
             {
               label: "Items",
-              value: libraryCountsTrusted ? String(itemCount) : "—",
+              value: libraryCountsTrusted ? String(itemCount) : <MissingValue reason="unknown" />,
               icon: Heart,
               countBearing: true,
             },
             {
               label: "Sets",
-              value: libraryCountsTrusted ? String(setCount) : "—",
+              value: libraryCountsTrusted ? String(setCount) : <MissingValue reason="unknown" />,
               icon: Folder,
               countBearing: true,
             },

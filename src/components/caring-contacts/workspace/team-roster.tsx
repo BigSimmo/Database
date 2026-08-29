@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { toAwstParts } from "@/lib/caring-contacts/clock";
+import { formatMinutesDuration } from "@/lib/caring-contacts/duration-display";
 import type { PlanSendingHold } from "@/lib/caring-contacts/schedule-view";
 import type { CoordinatorWorkload, TeamWorkloadView, UnclaimedWork } from "@/lib/caring-contacts/team-workload";
 
@@ -143,10 +144,16 @@ function clearedByWording(clearedBy: UnclaimedWork["clearedBy"]): string | null 
  * late. The screen was made to name that anchor honestly once the bound it had wrongly claimed was
  * withdrawn; naming an anchor honestly is not the same as measuring the right thing, and this is the
  * second half of that fix.
+ *
+ * THE SENTENCE NAMES A DURATION, NOT A MINUTE COUNT (fixed 2026-08-29). `formatMinutesDuration`
+ * (`src/lib/caring-contacts/duration-display.ts`) is what turns the exact minute figure into
+ * something a coordinator reads as a wait -- "31 days" rather than "44575 minutes" -- and this is
+ * presentation only: the minute count itself, and the escalation threshold it is compared against,
+ * are untouched.
  */
 function unclaimedAgeSentence(minutes: number | null): string | null {
   if (minutes === null) return null;
-  return `The oldest has been waiting ${plural(minutes, "minute", "minutes")}.`;
+  return `The oldest has been waiting ${formatMinutesDuration(minutes)}.`;
 }
 
 /**
@@ -234,7 +241,7 @@ function unclaimedBacklogSentence(backlog: UnclaimedWork["exceptionBacklog"]): s
   const oldest =
     backlog.oldestMinutesSinceScheduledSend === null
       ? ""
-      : ` The oldest has waited ${plural(backlog.oldestMinutesSinceScheduledSend, "minute", "minutes")} since its scheduled send.`;
+      : ` The oldest has waited ${formatMinutesDuration(backlog.oldestMinutesSinceScheduledSend)} since its scheduled send.`;
   return `${plural(backlog.contacts, "contact needs", "contacts need")} review on plans nobody owns.${oldest}`;
 }
 
@@ -354,7 +361,7 @@ function Backlog({ backlog }: { backlog: CoordinatorWorkload["exceptionBacklog"]
       <span className="tabular-nums">{plural(backlog.contacts, "contact", "contacts")}</span>
       {backlog.oldestMinutesSinceScheduledSend === null ? null : (
         <span className="mt-1 block text-[color:var(--text-muted)]">
-          Oldest {plural(backlog.oldestMinutesSinceScheduledSend, "minute", "minutes")} since its scheduled send
+          Oldest {formatMinutesDuration(backlog.oldestMinutesSinceScheduledSend)} since its scheduled send
         </span>
       )}
     </>

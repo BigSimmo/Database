@@ -7,9 +7,32 @@ import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-d
  * recorded this" is indistinguishable from "this does not apply". The phrase is
  * the whole component — there is no children prop, no icon-only form, and no
  * density at which the wording contracts back to a dash.
+ *
+ * Two of the six reasons say the value is absent only for now, and they are not
+ * interchangeable with the four that describe a record:
+ *
+ *   not_yet_calculated     — no value exists yet because the user has not
+ *                            finished supplying what it is derived from. It
+ *                            asserts nothing about the record, and must never
+ *                            be used where the input is complete.
+ *   withheld_until_complete — a value could be produced from what has been
+ *                            entered so far, and the surface is deliberately
+ *                            not publishing it, because a partial reading would
+ *                            be clinically misleading. The phrase names the
+ *                            release condition on purpose: a clinician told only
+ *                            that something is "withheld" will go looking for
+ *                            it. Deliberately narrow — this is suppression
+ *                            pending completion, not redaction, and SPEC §11
+ *                            still has no redaction phrase.
  */
 
-export type MissingValueReason = "not_recorded" | "not_applicable" | "unknown" | "extraction_failed";
+export type MissingValueReason =
+  | "not_recorded"
+  | "not_applicable"
+  | "unknown"
+  | "extraction_failed"
+  | "not_yet_calculated"
+  | "withheld_until_complete";
 
 export type MissingValueProps = {
   reason: MissingValueReason;
@@ -23,6 +46,8 @@ const PHRASES: Record<MissingValueReason, string> = {
   not_applicable: "Not applicable",
   unknown: "Unknown",
   extraction_failed: "Unable to extract",
+  not_yet_calculated: "Not yet calculated",
+  withheld_until_complete: "Withheld until complete",
 };
 
 const recordUnknownReason = createBoundedDiagnosticRecorder({

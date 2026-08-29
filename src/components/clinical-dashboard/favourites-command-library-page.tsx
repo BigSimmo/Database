@@ -537,7 +537,7 @@ export function RowActionsMenu({
                       setActionPending(false);
                     }
                   }}
-                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)] sm:min-h-9"
+                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)]"
                 >
                   <option value="">Unsorted</option>
                   {sets.map((set) => (
@@ -702,7 +702,7 @@ function FavouritesDashboardBand({
             type="button"
             onClick={onShowRecent}
             className={cn(
-              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+              "inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
               focusRing,
             )}
           >
@@ -731,7 +731,7 @@ function FavouritesDashboardBand({
                   onClick={() => onOpen(item)}
                   aria-label={`Open ${item.title}`}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
                     focusRing,
                   )}
                 >
@@ -1253,7 +1253,7 @@ function ItemWorkspace({
                           }
                         }}
                         className={cn(
-                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60 sm:min-h-9",
+                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60",
                           focusRing,
                         )}
                       >
@@ -1279,7 +1279,7 @@ function ItemWorkspace({
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60 sm:min-h-9",
+                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60",
                     focusRing,
                   )}
                 >
@@ -1905,7 +1905,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                         onClick={() => handleOpen(item)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
-                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
+                          "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-compact-meta",
                           focusRing,
                         )}
                       >
