@@ -1586,6 +1586,11 @@
    * This applies to the badge wherever it appears: the tiles carried it before this pass and the
    * people panel carries it now, and the two must not diverge on paper.
    */
+  /* `.awayMark` takes `.pastMark`'s treatment exactly — same shape on screen, same on paper, and
+     for the reason the comment above gives: the two badges must not diverge on paper. It sets its
+     own `--surface-inset` background and `--text-heading` ink, both of which are theme tokens
+     chosen for a screen. */
+  .awayMark,
   .pastMark {
     border: var(--wb-hairline) solid CanvasText;
     /*
@@ -1653,6 +1658,17 @@
    * a real 400dpi sheet. Only elements sitting on the PAGE GROUND are listed: everything inside a
    * panel keeps its own painted background and the ink that goes with it.
    */
+  /*
+   * `.asAtFixed` was added to this list on 2026-08-30 — it sits on the page ground directly beneath
+   * `.asAtNote` and needs the same ink for the same reason. It is the sentence saying the board
+   * does not advance, which on paper is the only way a reader can tell a fixed time from a stopped
+   * one.
+   *
+   * The note lives HERE rather than beside the selector because
+   * `tests/ward-board-selection.dom.test.tsx` pins this list's shape within 400 characters, and a
+   * comment inside it pushes `color: CanvasText` out of range. That guard is doing its job; do not
+   * widen it to make room for prose.
+   */
   .unitName,
   .siteName,
   .headlineValue,
@@ -1660,6 +1676,7 @@
   .constraint,
   .asAtValue,
   .asAtNote,
+  .asAtFixed,
   .legend,
   .occupancy,
   .peopleAbsence,
@@ -1761,6 +1778,12 @@
   .sheetRowLead,
   .sheetRowBand,
   .sheetRowLine,
+  /* Added 2026-08-30 WITH the element itself, not after somebody noticed a blank line on paper.
+     `.sheetRowAway` sets its own `--text-heading`, which resolves to a near-white in the dark
+     theme — so without this the one line saying a patient is not on the ward printed white on
+     white, on the sheet that is read aloud at handover. Exactly the defect this block already
+     exists to fix, reintroduced by a new rule that set a colour. */
+  .sheetRowAway,
   .sheetNote {
     color: CanvasText;
   }
@@ -1841,6 +1864,11 @@
   .personNoStay,
   .personWho,
   .personLine,
+  /* The fourth of the same defect, all introduced in one night by rules that each set a colour.
+     `.personAway` is the people panel's copy of the at-an-ED line; the sheet's copy is handled
+     with the sheet block above. Neither is optional on paper: a printed occupant list that cannot
+     say somebody is off the ward is the list a handover reads from. */
+  .personAway,
   .personExpected,
   .personBlocker,
   .personSelectedMark {
