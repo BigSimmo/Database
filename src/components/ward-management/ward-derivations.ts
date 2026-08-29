@@ -30,6 +30,7 @@ import {
   type HealthService,
   type Movement,
   type MovementStage,
+  type Referral,
   type TransportJob,
   type Unit,
 } from "@/components/ward-management/ward-model";
@@ -708,6 +709,98 @@ export function searchMovements(movements: Movement[], units: Unit[], query: Mov
       ].filter((value): value is string => value !== undefined);
       return haystack.some((value) => value.toLowerCase().includes(needle));
     });
+}
+
+/**
+ * PATIENT SEARCH ACROSS BOTH RECORDS — the owner's requirement, 2026-08-30:
+ *
+ * > "when I search that patient, there should be some way of the ED psych to see the patient show
+ * > up."
+ *
+ * **`searchMovements` above cannot satisfy that, and the name is why nobody noticed.** It promises
+ * a patient search and searches MOVEMENTS — a record that begins when a person is already being
+ * moved. Somebody who has been referred and not yet accepted has no movement, so an ED
+ * psychiatrist typing their referral could search and be told, truthfully and uselessly, that
+ * there is nothing there. A search that returns nothing is indistinguishable from a search for
+ * somebody who does not exist.
+ *
+ * **This is deliberately a NEW function rather than a widening of `searchMovements`.** That one is
+ * called by one component and pinned by twenty assertions describing movement behaviour exactly —
+ * the `isOpen` rule above all, which must survive untouched. Widening it in place would have
+ * re-pointed every one of those assertions at a function that now answers a different question.
+ *
+ * **THE THIRD KIND IS THE SEAM AND IT IS DELIBERATELY ABSENT.** An admitted patient — somebody in
+ * a bed — is an `Admission`, and searching those is the other half of the owner's requirement. It
+ * is NOT built here, because the record that makes a patient survive arrival is being changed by
+ * another session right now and building against a shape mid-flight is how two sessions produce
+ * one broken record. The union below is what lets that drop in as a third member rather than a
+ * rewrite: nothing here assumes there are exactly two kinds, and every consumer must already
+ * switch on `kind`.
+ */
+export type PatientSearchResult = { kind: "movement"; movement: Movement } | { kind: "referral"; referral: Referral };
+
+/**
+ * The referral half's own text match, kept beside the movement one rather than merged with it.
+ *
+ * **The fields are not the same and pretending otherwise would be the defect.** A movement has a
+ * destination unit, a stage and an owner; a referral has none of those — it has not been accepted
+ * by anybody, which is the entire reason it is still a referral. What it does have is where it
+ * came from and who it is for.
+ *
+ * Deliberately NOT matched: `acceptedUnitId`. A referral that has been accepted has a movement,
+ * and matching it here would return the same person twice under two kinds, which reads on screen
+ * as two patients.
+ */
+function referralMatches(referral: Referral, needle: string): boolean {
+  if (needle === "") return true;
+  const haystack = [
+    referral.id,
+    referral.originSiteCode,
+    referral.homeRegion,
+    referral.ageBand,
+    referral.source,
+    referral.urgency,
+  ];
+  return haystack.some((value) => String(value).toLowerCase().includes(needle));
+}
+
+/**
+ * Both records, one result list, in a deliberate order: **referrals first.**
+ *
+ * A referral is somebody waiting for a decision and a movement is somebody whose decision has been
+ * made. When an ED psychiatrist searches a patient, the one still waiting is the one they can act
+ * on — so it goes at the top rather than being ranked by whatever the fixture order happens to be.
+ *
+ * **Queued referrals only.** An accepted referral has a movement and would otherwise appear twice;
+ * a declined one is a closed request, and surfacing it is the same untruth `isOpen` exists to
+ * prevent on the movement side — a search hit for somebody who is no longer in the system.
+ *
+ * `stage` and `edId` are movement-shaped filters and are honoured on the movement half alone. When
+ * either is set, referrals drop out entirely rather than being silently included: a coordinator
+ * who has picked a stage is asking a question referrals cannot answer, and returning them anyway
+ * would be answering a different question.
+ */
+export function searchPatients(
+  movements: Movement[],
+  referralList: Referral[],
+  units: Unit[],
+  query: MovementSearchQuery,
+): PatientSearchResult[] {
+  const needle = query.text.trim().toLowerCase();
+  const movementHalf: PatientSearchResult[] = searchMovements(movements, units, query).map((movement) => ({
+    kind: "movement",
+    movement,
+  }));
+
+  const movementFilterSet = query.stage !== undefined || query.edId !== undefined;
+  if (movementFilterSet) return movementHalf;
+
+  const referralHalf: PatientSearchResult[] = referralList
+    .filter((referral) => referral.state === "queued")
+    .filter((referral) => referralMatches(referral, needle))
+    .map((referral) => ({ kind: "referral", referral }));
+
+  return [...referralHalf, ...movementHalf];
 }
 
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
