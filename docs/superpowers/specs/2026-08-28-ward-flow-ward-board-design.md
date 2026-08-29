@@ -1094,3 +1094,58 @@ field is the same field with a softer name.
 
 **Scope:** `shortlist-panel.tsx` and `ward-management-modes.tsx` both belong to the other branch.
 This decision is recorded here and implemented at the fold, not by this session.
+
+### DB-15 SUPERSEDED — the owner confirmed FIVE reasons, 2026-08-29
+
+**His list, verbatim:**
+
+```
+Receiving team agreed despite the mismatch
+Clinical urgency outweighs it
+Bed information known to be out of date
+Continuity with a previous admission
+Closer to home or family
+```
+
+**The four-reason version above is superseded by this and is recorded, not deleted**, because the
+reasoning it carries is still the test any future addition must pass.
+
+**Confirmed with him directly rather than taken from a relay.** The relay contradicted an instruction
+he had given in the other conversation an hour earlier ("go ahead with your recommendations", where
+the recommendation was four), and a peer message is not owner approval — the discipline this
+programme established today, when the Phase 8 session refused a relay of mine on exactly that basis
+and was right to.
+
+**The objection I raised is overruled, and stays on the record.** Nothing in the model holds a
+previous admission, so _"continuity with a previous admission"_ is a reason the system can never
+check, count, or display evidence for — unlike the other four, each of which is backed
+(`restrictionNotice`, `URGENCY_LEVELS`, capacity freshness, `homeRegion`). **He knows it is a real
+clinical reason and the model does not.** That is his call to make and it is the right way round:
+the model's silence is a gap in the model, not evidence about practice.
+
+**The gap stays cheap to close.** Give `Admission` a link to a prior occupancy and the fifth becomes
+backed like the rest.
+
+### DB-16 — There is never an "other, please specify"
+
+**Not now and not later.** A free-text escape hatch beside the picker is free text returning through
+the back door, and it would undo the decision entirely — the box is being removed precisely because
+it is the last free-text field on a referral surface.
+
+**The owner accepted a real cost knowingly:** a coordinator whose actual reason is not on the list
+must pick the nearest one. That is a worse record of that one override, and it is the price of the
+guarantee that no patient's words, and no author's summary of them, can ever land here.
+
+**Growing the list is an owner decision. Adding an escape hatch is not available to anyone.** If the
+five turn out to be too few, the answer is a sixth entry he supplies, never a text box.
+
+### Owed at the fold, recorded so it is not lost
+
+- **The board route is an orphan.** `/mockups/ward-flow/board/[unitId]` has **zero inbound references
+  anywhere in `src`**, and route reachability excludes every `/mockups` route — **so nothing fails.**
+  It is a temporary route by design, but it must gain a nav entry or a documented
+  `WARD_NAV_INTENTIONALLY_UNLISTED` reason at the fold. `ward-nav.ts` belongs to the other branch.
+- **A correction worth carrying:** the button-wiring lint rule **does** apply to
+  `src/components/ward-management/**` — its exemption covers four patterns and that is not one of
+  them. An earlier claim that Ward Flow was exempt was wrong, checked against `eslint.config.mjs`
+  rather than the documentation. **Do not spend visual-pass time auditing what lint already covers.**
