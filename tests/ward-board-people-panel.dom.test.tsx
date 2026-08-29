@@ -7,6 +7,7 @@ import {
   bedIsOccupied,
   daysInBed,
   isPastExpectedDischarge,
+  TENTATIVE_DIAGNOSIS_BLOCKS,
   type Admission,
 } from "@/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
@@ -45,6 +46,16 @@ function renderWardBoard(unitId: string) {
 /** The unit the panel was built and looked at on: 20 beds, 18 taken, one of them a pulled bed with
  *  no stay, one occupant confirmed AND blocked, and three people past the ward's own date. */
 const UNIT_ID = "rph-adult-secure";
+
+/**
+ * The one sentence that qualifies every diagnosis on this board, pinned as literal text.
+ *
+ * Written out here rather than read from the component, deliberately: this is the claim the screen
+ * makes to a clinician, and a test that derived it from the same string the component renders would
+ * follow any rewording — including one that dropped the word "tentative" — and stay green.
+ */
+const QUALIFYING_SENTENCE =
+  "Any diagnosis shown is tentative: a broad category a referral gave on the way in, not a diagnosis this ward has confirmed.";
 
 const ALL_UNITS: Unit[] = wardSites.flatMap((site) => site.units);
 
@@ -160,9 +171,7 @@ describe("ward board people panel — what each person's entry states", () => {
   });
 
   it("gives a pulled bed no stay and no expected date, rather than a zero-day one", () => {
-    const pulled = occupantsFor(UNIT_ID).filter(
-      (admission) => daysInBed(admission, WARD_ADMISSIONS_ANCHOR) === null,
-    );
+    const pulled = occupantsFor(UNIT_ID).filter((admission) => daysInBed(admission, WARD_ADMISSIONS_ANCHOR) === null);
     // Non-vacuity: without a pulled occupant in the fixture this asserts nothing.
     expect(pulled.length).toBeGreaterThan(0);
 
@@ -210,9 +219,7 @@ describe("ward board people panel — what each person's entry states", () => {
     // a passed date to zero and this panel deliberately does not, so a copy of that floor landing
     // here would silently render every overdue person as leaving within a day.
     for (const admission of past) {
-      const overdueDays = Math.floor(
-        (WARD_ADMISSIONS_ANCHOR - (admission.expectedDischargeAt ?? 0)) / (24 * 60),
-      );
+      const overdueDays = Math.floor((WARD_ADMISSIONS_ANCHOR - (admission.expectedDischargeAt ?? 0)) / (24 * 60));
       expect(panel.textContent).toContain(
         `${overdueDays} day${overdueDays === 1 ? "" : "s"} past the ward's expected date`,
       );
@@ -235,9 +242,9 @@ describe("ward board people panel — what each person's entry states", () => {
       (p.textContent ?? "").includes("a decision, not a plan"),
     );
     expect(confirmations).toHaveLength(confirmed.length);
-    expect(
-      within(panel).getAllByText(/Not confirmed — the ward's plan, not yet its decision\./),
-    ).toHaveLength(plannedOnly.length);
+    expect(within(panel).getAllByText(/Not confirmed — the ward's plan, not yet its decision\./)).toHaveLength(
+      plannedOnly.length,
+    );
 
     // The role, from the record — and the confirming role, not the date-setting one. The fixture
     // deliberately makes those two different so a screen that confuses them looks wrong.
@@ -268,49 +275,112 @@ describe("ward board people panel — what each person's entry states", () => {
 });
 
 /**
- * The owner decision this panel is most likely to be "helpfully" broken by later.
+ * THE OWNER DECISION THAT REVERSED, and the tests that were rewritten with it rather than deleted.
  *
- * `Admission` carries no diagnosis and must not grow one (`ward-admissions.ts`, rule 3, pinned
- * structurally by `tests/ward-admission-model.test.ts`). The brief for this panel asked for one
- * anyway, so the risk is not that somebody adds the field — that test catches it — but that a
- * screen adds a ROW for it: an empty "Diagnosis: —", a "not recorded" placeholder, or a heading
- * with nothing under it. Each of those reads as a field a ward is expected to fill in later, which
- * is how a record grows a column nobody agreed to.
+ * Until 2026-08-29 `Admission` carried no diagnosis and this board printed one sentence saying so:
+ * "No diagnosis is shown: this record does not hold one." The two tests here pinned that sentence
+ * and pinned the ABSENCE of any per-person diagnosis row — because the risk then was a screen
+ * growing an empty "Diagnosis: —" slot for a field the record did not have.
+ *
+ * The owner reversed the decision himself: "It can give a tentative diagnosis. This is because most
+ * referrals will require a diagnosis", and "Just create broad core categories used in Australia for
+ * mental health coding for now". So the record now holds `tentativeDiagnosis` — one of eleven
+ * ICD-10-AM Chapter V blocks, or `null` — and this board shows it.
+ *
+ * **The risk moved; it did not go away, and these tests moved with it.** Three things can now go
+ * wrong that could not before, and each has an assertion below:
+ *
+ *   1. The board shows a diagnosis WITHOUT saying it is tentative — the single most consequential
+ *      misreading available on this screen, because a broad block read as settled is a clinical
+ *      claim nobody made.
+ *   2. A value reaches the screen that is not one of the eleven — which would mean free text had
+ *      found a route in, and free text is the rule that keeps a patient's own words out of this
+ *      prototype entirely.
+ *   3. The unrecorded case renders as an empty slot — the ORIGINAL risk, unchanged: an em-dash or a
+ *      bare label still reads as a column a ward is expected to fill in.
  */
-describe("ward board people panel — no diagnosis, and no placeholder for one", () => {
-  it("mentions diagnosis exactly once, to say the record does not hold one", () => {
-    // **Widened from the panel to the whole board, which STRENGTHENS this rather than relaxing it.**
-    // The line moved out of the people panel in the three-zone rebuild — it now sits under the bed
-    // grid so it is on screen whether or not anybody has selected a tile, and so it prints — and a
-    // panel-scoped search would find nothing there and pass on an empty set of paragraphs. Scoped
-    // to the board it holds the same claim over strictly more of the page: exactly one mention, and
-    // it is this sentence.
+describe("ward board people panel — a TENTATIVE diagnosis, said to be tentative every time", () => {
+  /** Every phrase the eleven blocks can legitimately produce, built from the vocabulary itself so
+   *  this list cannot drift from it — and the absence line, which is the twelfth legitimate thing a
+   *  person's diagnosis line may say. */
+  const LEGITIMATE_LINES = new Set([
+    ...TENTATIVE_DIAGNOSIS_BLOCKS.map((block) => `Tentative diagnosis: ${block.label} (${block.code}).`),
+    "Tentative diagnosis: none recorded.",
+  ]);
+
+  it("qualifies every diagnosis on the page with one sentence, exactly once", () => {
+    // Scoped to the whole board rather than the people panel, as its predecessor was: the sentence
+    // sits under the bed grid so it is on screen whether or not a tile is selected, and so it
+    // prints. A panel-scoped search would find nothing there and pass on an empty set.
     const { container } = renderWardBoard(UNIT_ID);
     const board = container.querySelector<HTMLElement>('[data-testid="ward-board"]');
     if (board === null) throw new Error("The ward board did not render.");
 
-    const mentions = [...board.querySelectorAll("p")].filter((p) => /diagnos/i.test(p.textContent ?? ""));
-    expect(mentions).toHaveLength(1);
-    expect(mentions[0]?.textContent).toBe("No diagnosis is shown: this record does not hold one.");
+    const qualifiers = [...board.querySelectorAll("p")].filter(
+      (p) => (p.textContent ?? "").trim() === QUALIFYING_SENTENCE,
+    );
+    expect(qualifiers, "the board no longer says, once, that the diagnoses it shows are tentative").toHaveLength(1);
   });
 
-  it("renders no diagnosis field, label or placeholder on any person's entry", () => {
+  it("says 'tentative' on every diagnosis it prints, never a bare one", () => {
+    const { container } = renderWardBoard(UNIT_ID);
+    const board = container.querySelector<HTMLElement>('[data-testid="ward-board"]');
+    if (board === null) throw new Error("The ward board did not render.");
+
+    const mentions = [...board.querySelectorAll("p")]
+      .map((p) => (p.textContent ?? "").replace(/\s+/g, " ").trim())
+      .filter((text) => /diagnos/i.test(text));
+
+    // Non-vacuity: the board really prints diagnoses, so the loop below is not passing on an empty
+    // list. One qualifying sentence plus one line per person listed.
+    expect(mentions.length).toBeGreaterThan(panelRows(container).length);
+
+    for (const text of mentions) {
+      if (text === QUALIFYING_SENTENCE) continue;
+      expect(text, `"${text}" prints a diagnosis without saying it is tentative`).toMatch(/^Tentative diagnosis: /);
+    }
+  });
+
+  it("prints only the eleven declared blocks, with their codes — never free text and never a placeholder", () => {
+    const { container } = renderWardBoard(UNIT_ID);
+    const rows = panelRows(container);
+    expect(rows.length).toBeGreaterThan(0);
+
+    const seen: string[] = [];
+    for (const row of rows) {
+      const lines = [...row.querySelectorAll("p")]
+        .map((p) => (p.textContent ?? "").replace(/\s+/g, " ").trim())
+        .filter((text) => /diagnos/i.test(text));
+
+      // Exactly one such line per person: two would mean a second renderer of the same fact, which
+      // is how two screens come to disagree about one record.
+      expect(lines, `a person's entry carries ${lines.length} diagnosis lines`).toHaveLength(1);
+      const line = lines[0]!;
+      expect(LEGITIMATE_LINES, `"${line}" is not one of the declared blocks or the absence line`).toContain(line);
+      seen.push(line);
+
+      // The ORIGINAL risk, unchanged: an em-dash, an en-dash or a bare hyphen standing in for a
+      // value. The absence is stated in words or not at all.
+      expect(line).not.toMatch(/diagnosis\s*:?\s*[—–-]\s*$/i);
+    }
+
+    // Both paths are really exercised by this ward's seeded people — a fixture that lost either
+    // would leave one rendering branch untested while every assertion above still passed.
+    expect(seen.some((line) => line === "Tentative diagnosis: none recorded.")).toBe(true);
+    expect(seen.some((line) => line !== "Tentative diagnosis: none recorded.")).toBe(true);
+  });
+
+  it("still carries no name, date of birth, record number or address on any person's entry", () => {
+    // The part of the old guard that did NOT move. Widening the record to a broad block is not
+    // permission to widen it again, and this is the assertion that keeps the two apart.
     const { container } = renderWardBoard(UNIT_ID);
     const rows = panelRows(container);
     expect(rows.length).toBeGreaterThan(0);
 
     for (const row of rows) {
       const text = row.textContent ?? "";
-      expect(text).not.toMatch(/diagnos/i);
-      // The placeholder shapes specifically: an em-dash, an en-dash or "not recorded" standing in
-      // for a value. Nothing on a person's entry may be an empty slot awaiting content.
-      expect(text).not.toMatch(/(Diagnosis|Condition|Problem)\s*[:—–-]/i);
+      expect(text).not.toMatch(/\b(mrn|medical record|date of birth|dob|address)\b/i);
+      expect(text).not.toMatch(/(Name|Address|MRN)\s*[:—–-]/);
     }
-
-    // And the whole page, not just the panel — a diagnosis row added to a tile would pass a
-    // panel-scoped check.
-    const board = container.querySelector('[data-testid="ward-board"]');
-    const pageMentions = (board?.textContent ?? "").match(/diagnos/gi) ?? [];
-    expect(pageMentions).toHaveLength(1);
   });
 });

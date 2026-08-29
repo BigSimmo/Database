@@ -7,11 +7,14 @@ import {
   LEAVING_DESTINATIONS,
   PULL_RELEASE_REASONS,
   STAY_BANDS,
+  TENTATIVE_DIAGNOSIS_BLOCKS,
   admissionsForUnit,
   bedIsOccupied,
   daysInBed,
   isPastExpectedDischarge,
+  isTentativeDiagnosisBlock,
   stayBand,
+  tentativeDiagnosisPhrase,
   type Admission,
 } from "../src/components/ward-management/ward-admissions";
 import { BED_RELEASE_BLOCKERS } from "../src/components/ward-management/ward-change-reasons";
@@ -37,6 +40,9 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     referralId: "REF-1",
     sex: "Female",
     homeRegion: "Perth Metropolitan",
+    // A block, never a condition, and `null` is equally ordinary — the base admission here carries
+    // one so that a test overriding it to `null` is testing the absence deliberately.
+    tentativeDiagnosis: "F30–F39",
     state: "occupied",
     pulledAt: DAY_ZERO,
     arrivedAt: DAY_ZERO,
@@ -143,6 +149,82 @@ describe("admission vocabulary", () => {
     for (const blocker of BED_RELEASE_BLOCKERS) {
       expect(anAdmission({ blockReason: blocker }).blockReason).toBe(blocker);
     }
+  });
+
+  /**
+   * THE ELEVEN BLOCKS, pinned as an exact ordered list of code/heading pairs.
+   *
+   * These are the ICD-10-AM Chapter V block headings and they are the STANDARD'S, not this
+   * prototype's. Asserting them exactly is what stops a later author paraphrasing a heading into
+   * something friendlier, splitting one, or adding a twelfth: each of those is a change to what the
+   * screen claims the classification says, and none of them would move a code or fail any other
+   * test in this repository.
+   *
+   * F70–F79 reads "Intellectual disability" here on purpose. The printed heading in ICD-10 and in
+   * older ICD-10-AM editions is "Mental retardation"; the product owner supplied the current term
+   * and the substitution is deliberate. This assertion is what makes a well-meaning "correction"
+   * back to the code book go red rather than ship.
+   */
+  it("carries exactly the eleven ICD-10-AM Chapter V block headings, code and words together", () => {
+    expect(TENTATIVE_DIAGNOSIS_BLOCKS.map((block) => [block.code, block.label])).toEqual([
+      ["F00–F09", "Organic, including symptomatic, mental disorders"],
+      ["F10–F19", "Mental and behavioural disorders due to psychoactive substance use"],
+      ["F20–F29", "Schizophrenia, schizotypal and delusional disorders"],
+      ["F30–F39", "Mood (affective) disorders"],
+      ["F40–F48", "Neurotic, stress-related and somatoform disorders"],
+      ["F50–F59", "Behavioural syndromes associated with physiological disturbances and physical factors"],
+      ["F60–F69", "Disorders of adult personality and behaviour"],
+      // The deliberate departure from the source text. Do not "fix" this to "Mental retardation".
+      ["F70–F79", "Intellectual disability"],
+      ["F80–F89", "Disorders of psychological development"],
+      ["F90–F98", "Behavioural and emotional disorders with onset usually occurring in childhood and adolescence"],
+      ["F99", "Unspecified mental disorder"],
+    ]);
+  });
+
+  /** Every block is a BLOCK — a code covering a range, or the single unspecified code. A
+   *  four-character code (`F32.1`) would be a specific condition, which this record must never
+   *  hold, and it would pass an eleven-entry length check unnoticed. */
+  it("holds block codes only, never a specific four-character code", () => {
+    for (const block of TENTATIVE_DIAGNOSIS_BLOCKS) {
+      expect(block.code, `${block.code} is not a block code`).toMatch(/^F\d{2}(–F\d{2})?$/);
+      expect(block.code).not.toContain(".");
+    }
+  });
+
+  /** Chosen, never typed: the membership check is what makes that structural rather than a
+   *  convention, in both directions. */
+  it("accepts every declared block and rejects anything else", () => {
+    for (const block of TENTATIVE_DIAGNOSIS_BLOCKS) {
+      expect(isTentativeDiagnosisBlock(block.code)).toBe(true);
+    }
+    for (const notABlock of ["F32.1", "Depression", "F30-F39", "", "Bipolar affective disorder", "F100"]) {
+      expect(isTentativeDiagnosisBlock(notABlock), `"${notABlock}" was accepted as a block`).toBe(false);
+    }
+  });
+
+  /**
+   * ONE renderer for the phrase, so no screen builds its own and two screens cannot disagree about
+   * how a block reads. The code travels with the words in every phrase — the words alone are not
+   * checkable against the classification.
+   */
+  it("renders every block as its words followed by its code, and renders nothing for an absent one", () => {
+    for (const block of TENTATIVE_DIAGNOSIS_BLOCKS) {
+      expect(tentativeDiagnosisPhrase(block.code)).toBe(`${block.label} (${block.code})`);
+    }
+    // Absence yields no phrase at all — never a substituted "Unspecified", which is a real block
+    // somebody chose and must not be manufactured for somebody nobody recorded one for.
+    expect(tentativeDiagnosisPhrase(null)).toBeNull();
+    expect(tentativeDiagnosisPhrase(null)).not.toBe("Unspecified mental disorder (F99)");
+  });
+
+  /** The field itself: a declared block goes in and comes back unchanged, and `null` stays
+   *  `null` rather than being filled in on the way through. */
+  it("carries a tentative diagnosis block on the record, or null, unchanged", () => {
+    for (const block of TENTATIVE_DIAGNOSIS_BLOCKS) {
+      expect(anAdmission({ tentativeDiagnosis: block.code }).tentativeDiagnosis).toBe(block.code);
+    }
+    expect(anAdmission({ tentativeDiagnosis: null }).tentativeDiagnosis).toBeNull();
   });
 });
 
@@ -359,12 +441,25 @@ describe("admissionsForUnit", () => {
  * when it went from three fields to five. An allowlist that grows without anybody saying so is not
  * an allowlist.
  *
- * What makes this widening permissible is WHAT the two fields are about. A discharge date is a
+ * What makes that widening permissible is WHAT the two fields are about. A discharge date is a
  * PLAN; confirming it is the ward's own DECISION, and both new fields record the ward's act — when
  * it decided, and which ROLE decided — in exactly the category `dischargeDateSetAt` and
- * `dischargeDateSetBy` already occupy. Neither is a fact about the person in the bed, so this is
- * not a widening of what this record holds about anybody, and the forbidden-field test below is
- * unchanged and still binding.
+ * `dischargeDateSetBy` already occupy. Neither is a fact about the person in the bed.
+ *
+ * **AND WIDENED AGAIN, LATER THE SAME DAY, TO EIGHTEEN — `tentativeDiagnosis`.** This one IS a
+ * fact about the person, and it is the first. The owner reversed the standing no-diagnosis rule
+ * himself: "It can give a tentative diagnosis. This is because most referrals will require a
+ * diagnosis", and "Just create broad core categories used in Australia for mental health coding
+ * for now". What ships is a single value from `TENTATIVE_DIAGNOSIS_BLOCKS` — eleven ICD-10-AM
+ * Chapter V block headings — or `null`. Nothing finer, and no free-text route to it.
+ *
+ * **The forbidden-field test below was rewritten in the SAME change, and that is the load-bearing
+ * part of this widening.** It used to compare field names against the exact string `"diagnosis"`,
+ * which `tentativeDiagnosis` does not equal: adding the field would have left every assertion in
+ * this file green without anybody widening anything, and the guard would have been STEPPED AROUND
+ * rather than passed. It now matches on the diagnosis STEM, so the new field trips it, and the
+ * field is then let through by being named in `AUTHORISED_PERSON_FACTS` — one line, one owner, one
+ * date. A future `diagnosisDetail`, `provisionalDiagnosis` or `notes` still fails.
  */
 describe("Admission privacy — structural", () => {
   const ALLOWED_ADMISSION_FIELDS = [
@@ -373,6 +468,10 @@ describe("Admission privacy — structural", () => {
     "referralId",
     "sex",
     "homeRegion",
+    // WIDENED ON PURPOSE, 2026-08-29 (second widening of the day) — see this describe block's own
+    // doc comment. One field, and unlike the pair below it IS a fact about the person: a broad
+    // ICD-10-AM Chapter V block, chosen from eleven, or `null`.
+    "tentativeDiagnosis",
     "state",
     "pulledAt",
     "arrivedAt",
@@ -400,6 +499,8 @@ describe("Admission privacy — structural", () => {
       referralId: "REF-CANON",
       sex: "Male",
       homeRegion: "Kimberley",
+      // A BLOCK, never a condition and never anybody's words.
+      tentativeDiagnosis: "F20–F29",
       state: "occupied",
       pulledAt: DAY_ZERO,
       arrivedAt: DAY_ZERO + MINUTES_PER_DAY,
@@ -419,20 +520,97 @@ describe("Admission privacy — structural", () => {
   });
 
   /**
-   * Named, one by one, so the failure says WHICH forbidden field arrived. Checked against both
-   * halves: the runtime field list and a real constructed record.
+   * THE STEM DENYLIST — rewritten on 2026-08-29, in the same change that added
+   * `tentativeDiagnosis`, and STRENGTHENED by that rewrite rather than relaxed by it.
+   *
+   * It used to compare each declared field name against exact strings, one of which was
+   * `"diagnosis"`. `tentativeDiagnosis` is not equal to `"diagnosis"`, so the field could have been
+   * added, shipped and rendered without a single assertion in this file going red — the guard would
+   * have been walked around, not passed, and the widening above would have been a widening only in
+   * the comments. That is the exact failure this test exists to make impossible, so the matching is
+   * now on STEMS, case-insensitively, against the whole field name: any field whose name contains
+   * `diagnos`, `note`, `comment`, `name`, `dob`, `address`, `text`, `history` or `patient` trips it,
+   * wherever in the name it appears.
+   *
+   * One field is then let through, by name, in `AUTHORISED_PERSON_FACTS`. Adding a line there is
+   * the deliberate act — it costs an owner, a date and a reason, and it cannot be done by accident
+   * while adding a field. `provisionalDiagnosis`, `diagnosisDetail`, `notes`, `clinicalNote`,
+   * `freeTextDiagnosis` and `patientName` all still fail.
    */
-  it("holds no name, date of birth, record number, address, diagnosis or free text", () => {
-    const forbidden = ["notes", "note", "comment", "diagnosis", "name", "dob", "patientId", "address"];
-    const runtimeFields = new Set<string>(ADMISSION_FIELDS);
-    const builtFields = new Set(Object.keys(anAdmission()));
+  it("holds no name, date of birth, record number, address, free text, or diagnosis beyond the one authorised block", () => {
+    const forbiddenStems = [
+      "diagnos",
+      "notes",
+      "note",
+      "comment",
+      "name",
+      "dob",
+      "patient",
+      "address",
+      "text",
+      "history",
+    ];
 
-    for (const field of forbidden) {
-      expect(runtimeFields.has(field), `ADMISSION_FIELDS declares a forbidden field: ${field}`).toBe(false);
-      expect(builtFields.has(field), `a real Admission carries a forbidden field: ${field}`).toBe(false);
+    /**
+     * The ONLY fields permitted to match a stem above, each with the ruling that permitted it.
+     * A name here is a governance record, not a convenience: it is what a reviewer reads when
+     * asking why this record holds a fact about a person at all.
+     */
+    const AUTHORISED_PERSON_FACTS = new Map<string, string>([
+      [
+        "tentativeDiagnosis",
+        "Owner ruling 2026-08-29: a referral's broad ICD-10-AM Chapter V block, chosen from eleven, never typed.",
+      ],
+    ]);
+
+    const runtimeFields = [...ADMISSION_FIELDS];
+    const builtFields = Object.keys(anAdmission());
+
+    const offendersIn = (fields: readonly string[], source: string): string[] =>
+      fields
+        .filter((field) => forbiddenStems.some((stem) => field.toLowerCase().includes(stem)))
+        .filter((field) => !AUTHORISED_PERSON_FACTS.has(field))
+        .map((field) => `${source} declares an unauthorised person-fact field: ${field}`);
+
+    expect([
+      ...offendersIn(runtimeFields, "ADMISSION_FIELDS"),
+      ...offendersIn(builtFields, "a real Admission"),
+    ]).toEqual([]);
+
+    // The authorised exception is really THERE — an entry left in this map after the field it names
+    // was removed would quietly re-open the hole for the next field of that name.
+    for (const authorised of AUTHORISED_PERSON_FACTS.keys()) {
+      expect(runtimeFields, `${authorised} is authorised but not declared`).toContain(authorised);
+      expect(builtFields, `${authorised} is authorised but not built`).toContain(authorised);
     }
-    // Non-vacuity: the two sets are really populated, so the loop above is not passing on nothing.
-    expect(runtimeFields.size).toBe(ALLOWED_ADMISSION_FIELDS.length);
-    expect(builtFields.size).toBe(ALLOWED_ADMISSION_FIELDS.length);
+
+    // The stems really discriminate — a denylist that matched nothing, or everything, would be the
+    // "check that cannot fail" shape in either direction.
+    const trips = (field: string): boolean =>
+      forbiddenStems.some((stem) => field.toLowerCase().includes(stem)) && !AUTHORISED_PERSON_FACTS.has(field);
+    for (const wouldBeCaught of [
+      "notes",
+      "note",
+      "comment",
+      "diagnosis",
+      "provisionalDiagnosis",
+      "diagnosisDetail",
+      "freeTextDiagnosis",
+      "name",
+      "patientName",
+      "dob",
+      "address",
+      "clinicalHistory",
+    ]) {
+      expect(trips(wouldBeCaught), `the denylist would not catch a field named ${wouldBeCaught}`).toBe(true);
+    }
+    for (const mustNotTrip of ["id", "unitId", "referralId", "sex", "homeRegion", "state", "blockReason", "leftAt"]) {
+      expect(trips(mustNotTrip), `the denylist wrongly flags ${mustNotTrip}`).toBe(false);
+    }
+    expect(trips("tentativeDiagnosis"), "the authorised block field was not let through by name").toBe(false);
+
+    // Non-vacuity: the two sets are really populated, so the loops above are not passing on nothing.
+    expect(runtimeFields).toHaveLength(ALLOWED_ADMISSION_FIELDS.length);
+    expect(builtFields).toHaveLength(ALLOWED_ADMISSION_FIELDS.length);
   });
 });

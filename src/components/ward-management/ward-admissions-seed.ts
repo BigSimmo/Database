@@ -1,4 +1,8 @@
-import type { Admission, LeavingDestination } from "@/components/ward-management/ward-admissions";
+import type {
+  Admission,
+  LeavingDestination,
+  TentativeDiagnosisBlock,
+} from "@/components/ward-management/ward-admissions";
 import type { BedReleaseBlocker } from "@/components/ward-management/ward-change-reasons";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";
@@ -27,11 +31,15 @@ import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";
  *      The stay lengths, expected dates and transport delays below are invented operational
  *      numbers exactly like every bed count in `ward-sites.ts`; none of them is a legal clock and
  *      none may ever be read as one.
- *   2. **Chosen, never typed.** Every sex, home region, blocker and destination below comes from
- *      an existing fixed runtime array (`SEXES`, `HOME_REGIONS`, `BED_RELEASE_BLOCKERS`,
- *      `LEAVING_DESTINATIONS`). There is no free text anywhere in this file.
- *   3. **No diagnosis, no name, no date of birth, no record number, no address.** An `Admission`
- *      cannot express any of those, and nothing here works around that.
+ *   2. **Chosen, never typed.** Every sex, home region, blocker, destination and tentative
+ *      diagnosis below comes from an existing fixed runtime array (`SEXES`, `HOME_REGIONS`,
+ *      `BED_RELEASE_BLOCKERS`, `LEAVING_DESTINATIONS`, `TENTATIVE_DIAGNOSIS_BLOCKS`). There is no
+ *      free text anywhere in this file.
+ *   3. **A TENTATIVE diagnosis block and nothing finer; no name, no date of birth, no record
+ *      number, no address.** The owner reversed the previous no-diagnosis rule on 2026-08-29 —
+ *      see `Admission.tentativeDiagnosis`. What is seeded is one of eleven broad ICD-10-AM
+ *      Chapter V blocks, or nothing. An `Admission` cannot express anything finer, and nothing
+ *      here works around that.
  *
  * **This fixture carries no travel band and no distance.** Where somebody is from is recorded as a
  * region; how far that is from their bed is looked up through `ward-distance.ts` by whoever needs
@@ -82,6 +90,69 @@ const ARRIVAL_PART_DAY_MINUTES = 90;
 const DISCHARGE_DATE_SETTERS = ["Flow coordinator", "Nurse unit manager"] as const;
 
 /**
+ * THE TENTATIVE-DIAGNOSIS POOLS, one per kind of ward, and why they are pools rather than a value
+ * written beside every person.
+ *
+ * Each pool is AUTHORED for the cohort its wards serve — an older-adult ward leans on the organic
+ * block, a youth ward on the childhood-onset and developmental blocks, a secure adult ward on
+ * psychosis and substance use — and `unitOccupants` walks it by index, so every ward gets a spread
+ * rather than one repeated value. Writing a block beside each of the 250-odd occupants below would
+ * bury the sex and home-region values the whole fixture is checked against, and those two are the
+ * ones a reader must be able to scan.
+ *
+ * **This is not the derivation the file header refuses.** That refusal is about `sexMix`: a fixture
+ * that read a ward's recorded count back and topped itself up to match would make the consistency
+ * test a check that cannot fail. Nothing checks a ward against these pools, so nothing here is
+ * derived from the thing it is compared with — the pools are ordinary authored content, just
+ * authored once per ward kind instead of once per person.
+ *
+ * **Every pool contains a `null`, on purpose.** A person nobody recorded a tentative diagnosis for
+ * is an ordinary state and the screens have a separate thing to say about it; a fixture where every
+ * occupant carried a value would leave that path with no seeded case and every "not recorded"
+ * rendering untested.
+ *
+ * Between them the four pools use all eleven blocks in `TENTATIVE_DIAGNOSIS_BLOCKS`, so no block is
+ * declared and never seen.
+ */
+type DiagnosisPool = readonly (TentativeDiagnosisBlock | null)[];
+
+/** Open adult acute wards — mood and psychotic presentations first, with substance use and
+ *  personality-related admissions alongside, and the unspecified block for a referral that named
+ *  no category at all. */
+const ADULT_OPEN_DIAGNOSES: DiagnosisPool = [
+  "F30–F39",
+  "F20–F29",
+  "F40–F48",
+  "F10–F19",
+  null,
+  "F30–F39",
+  "F60–F69",
+  "F20–F29",
+  "F99",
+];
+
+/** Secure adult wards — weighted towards psychosis, which is what these beds mostly hold, with
+ *  intellectual disability represented because it is a real reason somebody is placed here. */
+const ADULT_SECURE_DIAGNOSES: DiagnosisPool = [
+  "F20–F29",
+  "F30–F39",
+  "F10–F19",
+  "F20–F29",
+  "F60–F69",
+  null,
+  "F70–F79",
+  "F20–F29",
+];
+
+/** Older-adult wards — the organic block is what distinguishes this cohort, and it recurs rather
+ *  than appearing once. */
+const OLDER_ADULT_DIAGNOSES: DiagnosisPool = ["F00–F09", "F30–F39", "F00–F09", "F20–F29", null, "F00–F09", "F10–F19"];
+
+/** The youth ward — childhood-onset behavioural and emotional disorders, developmental disorders,
+ *  and the eating-disorder block, none of which appear on an adult ward's pool. */
+const YOUTH_DIAGNOSES: DiagnosisPool = ["F90–F98", "F30–F39", "F40–F48", "F50–F59", null, "F80–F89", "F90–F98"];
+
+/**
  * One seeded occupant of a bed, written as a tuple so a whole ward reads as a list of people
  * rather than as pages of object literals.
  *
@@ -128,10 +199,18 @@ type OccupantExtras = {
  * pulled admission that has somehow already arrived. The whole-set coherence assertion in the test
  * file is the guard for anything later added as a literal rather than through this builder.
  */
-function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant[]): Admission[] {
+function unitOccupants(
+  unitId: string,
+  tag: string,
+  /** This ward's cohort pool, walked by index — see the pools' own doc comment for why the value
+   *  is not written beside each person. */
+  diagnoses: DiagnosisPool,
+  occupants: readonly Occupant[],
+): Admission[] {
   return occupants.map(([sex, homeRegion, stayDays, dischargeInDays, extras], index) => {
     const suffix = `${tag}-${String(index + 1).padStart(2, "0")}`;
     const blockReason = extras?.blockReason ?? null;
+    const tentativeDiagnosis = diagnoses[index % diagnoses.length];
 
     if (stayDays === null) {
       // The bed is gone; the person is not here. No stay, no plan, no blocker.
@@ -141,6 +220,7 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
         referralId: `RF-${suffix}`,
         sex,
         homeRegion,
+        tentativeDiagnosis,
         state: "pulled",
         pulledAt: WARD_ADMISSIONS_ANCHOR - PULL_TO_ARRIVAL_MINUTES - index * 30,
         arrivedAt: null,
@@ -170,6 +250,7 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
       referralId: `RF-${suffix}`,
       sex,
       homeRegion,
+      tentativeDiagnosis,
       state: "occupied",
       pulledAt: arrivedAt - PULL_TO_ARRIVAL_MINUTES,
       arrivedAt,
@@ -195,6 +276,10 @@ type Departure = {
   readonly unitId: string;
   readonly sex: Sex;
   readonly homeRegion: HomeRegion;
+  /** The block the referral tentatively named on the way in, or `null` where none was recorded.
+   *  Written out per departure rather than pooled: there are five of them and each is here to
+   *  carry a different `LeavingDestination`, so the list reads as five hand-authored cases. */
+  readonly tentativeDiagnosis: TentativeDiagnosisBlock | null;
   /** Whole days the completed stay lasted. */
   readonly stayDays: number;
   /** Minutes before the anchor that this person left. */
@@ -211,6 +296,7 @@ function departed(departure: Departure): Admission {
     referralId: departure.id.replace(/^AD-/, "RF-"),
     sex: departure.sex,
     homeRegion: departure.homeRegion,
+    tentativeDiagnosis: departure.tentativeDiagnosis,
     state: "left",
     pulledAt: arrivedAt - PULL_TO_ARRIVAL_MINUTES,
     arrivedAt,
@@ -231,13 +317,20 @@ function departed(departure: Departure): Admission {
 }
 
 /** Somebody accepted in principle with no bed given. Consumes nothing and counts in no mix. */
-function waiting(id: string, unitId: string, sex: Sex, homeRegion: HomeRegion): Admission {
+function waiting(
+  id: string,
+  unitId: string,
+  sex: Sex,
+  homeRegion: HomeRegion,
+  tentativeDiagnosis: TentativeDiagnosisBlock | null,
+): Admission {
   return {
     id,
     unitId,
     referralId: id.replace(/^AD-/, "RF-"),
     sex,
     homeRegion,
+    tentativeDiagnosis,
     state: "waitlisted",
     pulledAt: null,
     arrivedAt: null,
@@ -265,7 +358,7 @@ function waiting(id: string, unitId: string, sex: Sex, homeRegion: HomeRegion): 
  * band with a single instance makes a banding test pass on a coincidence.
  */
 const occupiedBeds: Admission[] = [
-  ...unitOccupants("rph-adult-secure", "RPHS", [
+  ...unitOccupants("rph-adult-secure", "RPHS", ADULT_SECURE_DIAGNOSES, [
     // CONFIRMED **AND** BLOCKED — the seed's most load-bearing single occupant. A stuck confirmed
     // discharge is the case the three-stage bed model exists for: it must still count as
     // confirmed, with blocked counted alongside it rather than subtracted from it. Without this
@@ -291,7 +384,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Kimberley", 75, 2],
     ["Female", "South West", 4, 5],
   ]),
-  ...unitOccupants("rph-older-adult", "RPHO", [
+  ...unitOccupants("rph-older-adult", "RPHO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Goldfields-Esperance", 9, null],
     ["Male", "Pilbara", 115, 1],
     ["Female", "Peel", 40, -1],
@@ -305,7 +398,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Goldfields-Esperance", 20, 2],
     ["Male", "Pilbara", 60, 8],
   ]),
-  ...unitOccupants("scgh-adult-open", "SCGA", [
+  ...unitOccupants("scgh-adult-open", "SCGA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Pilbara", null, null],
     ["Male", "Peel", 210, null],
     ["Female", "South West", 61, -1, { blockReason: "Awaiting transport" }],
@@ -326,7 +419,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Great Southern", 12, 4],
     ["Male", "Mid West", 45, 6],
   ]),
-  ...unitOccupants("scgh-older-adult", "SCGO", [
+  ...unitOccupants("scgh-older-adult", "SCGO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Kimberley", 130, -2],
     ["Male", "South West", 5, 9],
     ["Female", "Goldfields-Esperance", 20, 2],
@@ -343,7 +436,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Pilbara", 115, 1],
     ["Female", "Peel", 40, -1],
   ]),
-  ...unitOccupants("fsh-adult-secure", "FSHS", [
+  ...unitOccupants("fsh-adult-secure", "FSHS", ADULT_SECURE_DIAGNOSES, [
     ["Male", "Perth Metropolitan", 122, 6],
     ["Male", "Wheatbelt", 1, 7],
     ["Male", "Gascoyne", 26, 3],
@@ -359,7 +452,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Gascoyne", 33, 5, { blockReason: "Awaiting placement confirmation" }],
     ["Male", "Perth Metropolitan", 6, -3],
   ]),
-  ...unitOccupants("fsh-older-adult", "FSHO", [
+  ...unitOccupants("fsh-older-adult", "FSHO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Great Southern", 210, 10],
     ["Male", "Mid West", 17, 4],
     ["Female", "Kimberley", 75, 2],
@@ -372,7 +465,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Perth Metropolitan", 3, null],
     ["Female", "Great Southern", 12, 4],
   ]),
-  ...unitOccupants("arm-adult-open", "ARMA", [
+  ...unitOccupants("arm-adult-open", "ARMA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Perth Metropolitan", 12, null],
     ["Male", "Perth Metropolitan", 48, -4, { blockReason: "Awaiting receiving-service acceptance" }],
     ["Female", "Mid West", 45, 6],
@@ -390,7 +483,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "South West", 4, 5],
     ["Male", "Goldfields-Esperance", 9, null],
   ]),
-  ...unitOccupants("sjgm-adult-open", "SJGA", [
+  ...unitOccupants("sjgm-adult-open", "SJGA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Pilbara", 115, 1],
     ["Male", "Peel", 40, -1],
     ["Female", "Wheatbelt", 1, 7, { blockReason: "Awaiting service coordination" }],
@@ -406,7 +499,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Wheatbelt", 95, 3],
     ["Male", "Gascoyne", 33, 5],
   ]),
-  ...unitOccupants("rgh-adult-secure", "RGHS", [
+  ...unitOccupants("rgh-adult-secure", "RGHS", ADULT_SECURE_DIAGNOSES, [
     ["Female", "Perth Metropolitan", 6, -3],
     ["Male", "Great Southern", 210, 10],
     ["Female", "Mid West", 17, 4],
@@ -421,7 +514,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Great Southern", 12, 4],
     ["Female", "Mid West", 45, 6],
   ]),
-  ...unitOccupants("fre-adult-open", "FREA", [
+  ...unitOccupants("fre-adult-open", "FREA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Kimberley", 130, -2],
     ["Male", "South West", 5, 9],
     ["Female", "Goldfields-Esperance", 20, 2],
@@ -441,7 +534,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Gascoyne", 26, 3],
     ["Male", "Perth Metropolitan", 3, null],
   ]),
-  ...unitOccupants("fre-older-adult", "FREO", [
+  ...unitOccupants("fre-older-adult", "FREO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Great Southern", 12, 4],
     ["Male", "Mid West", 45, 6],
     ["Female", "Kimberley", 130, -2],
@@ -454,7 +547,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Perth Metropolitan", 6, -3],
     ["Female", "Great Southern", 210, 10],
   ]),
-  ...unitOccupants("bty-adult-secure", "BTYS", [
+  ...unitOccupants("bty-adult-secure", "BTYS", ADULT_SECURE_DIAGNOSES, [
     ["Female", "Mid West", 17, 4],
     ["Male", "Kimberley", 75, 2],
     ["Female", "South West", 4, 5],
@@ -470,7 +563,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "South West", 5, 9],
     ["Male", "Goldfields-Esperance", 20, 2],
   ]),
-  ...unitOccupants("bty-older-adult", "BTYO", [
+  ...unitOccupants("bty-older-adult", "BTYO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Pilbara", 60, 8],
     ["Male", "Peel", 2, null],
     ["Female", "Wheatbelt", 95, 3],
@@ -482,7 +575,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "South West", 4, 5],
     ["Male", "Goldfields-Esperance", 9, null],
   ]),
-  ...unitOccupants("bty-youth", "BTYY", [
+  ...unitOccupants("bty-youth", "BTYY", YOUTH_DIAGNOSES, [
     ["Male", "Wheatbelt", null, null],
     ["Female", "Pilbara", 115, 1],
     ["Male", "Peel", 40, -1],
@@ -491,7 +584,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Perth Metropolitan", 3, null],
     ["Male", "Great Southern", 12, 4],
   ]),
-  ...unitOccupants("gry-adult-secure", "GRYS", [
+  ...unitOccupants("gry-adult-secure", "GRYS", ADULT_SECURE_DIAGNOSES, [
     ["Female", "Mid West", 45, 6],
     ["Male", "Kimberley", 130, -2],
     ["Female", "South West", 5, 9],
@@ -506,7 +599,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Kimberley", 75, 2],
     ["Female", "South West", 4, 5],
   ]),
-  ...unitOccupants("gry-older-adult", "GRYO", [
+  ...unitOccupants("gry-older-adult", "GRYO", OLDER_ADULT_DIAGNOSES, [
     ["Female", "Goldfields-Esperance", 9, null],
     ["Male", "Pilbara", 115, 1],
     ["Female", "Peel", 40, -1],
@@ -517,7 +610,7 @@ const occupiedBeds: Admission[] = [
     ["Male", "Mid West", 45, 6],
     ["Female", "Kimberley", 130, -2],
   ]),
-  ...unitOccupants("alb-adult-open", "ALBA", [
+  ...unitOccupants("alb-adult-open", "ALBA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Great Southern", 150, 2],
     ["Female", "South West", 5, 9],
     ["Male", "Goldfields-Esperance", 20, 2],
@@ -526,7 +619,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Wheatbelt", 95, 3],
     ["Male", "Gascoyne", 33, 5],
   ]),
-  ...unitOccupants("bun-adult-open", "BUNA", [
+  ...unitOccupants("bun-adult-open", "BUNA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Perth Metropolitan", 6, -3],
     ["Male", "Great Southern", 210, 10],
     ["Female", "Mid West", 17, 4],
@@ -535,14 +628,14 @@ const occupiedBeds: Admission[] = [
     ["Male", "Goldfields-Esperance", 9, null],
     ["Female", "Pilbara", 115, 1],
   ]),
-  ...unitOccupants("brm-adult-secure", "BRMS", [
+  ...unitOccupants("brm-adult-secure", "BRMS", ADULT_SECURE_DIAGNOSES, [
     ["Male", "Kimberley", 7, -1],
     ["Male", "Peel", 40, -1],
     ["Male", "Wheatbelt", 1, 7],
     ["Male", "Gascoyne", 26, 3],
     ["Male", "Perth Metropolitan", 3, null],
   ]),
-  ...unitOccupants("ger-adult-open", "GERA", [
+  ...unitOccupants("ger-adult-open", "GERA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Mid West", 91, 5, { blockReason: "Awaiting family or carer arrangement" }],
     ["Female", "Great Southern", 12, 4],
     ["Female", "Mid West", 45, 6],
@@ -550,14 +643,14 @@ const occupiedBeds: Admission[] = [
     ["Female", "South West", 5, 9],
     ["Female", "Goldfields-Esperance", 20, 2],
   ]),
-  ...unitOccupants("kun-adult-open", "KUNA", [
+  ...unitOccupants("kun-adult-open", "KUNA", ADULT_OPEN_DIAGNOSES, [
     ["Female", "Kimberley", 4, 1],
     ["Female", "Pilbara", 60, 8],
     ["Male", "Peel", 2, null],
     ["Female", "Wheatbelt", 95, 3],
     ["Male", "Gascoyne", 33, 5],
   ]),
-  ...unitOccupants("sjgs-adult-open", "SJSA", [
+  ...unitOccupants("sjgs-adult-open", "SJSA", ADULT_OPEN_DIAGNOSES, [
     // A confirmed discharge on a second site, so no board test can pass by looking at one ward.
     ["Female", "Perth Metropolitan", 6, -3, { confirmedHoursAgo: 8 }],
     ["Male", "Great Southern", 210, 10],
@@ -568,7 +661,7 @@ const occupiedBeds: Admission[] = [
     ["Female", "Pilbara", 115, 1],
     ["Male", "Peel", 40, -1],
   ]),
-  ...unitOccupants("sjgs-adult-secure", "SJSS", [
+  ...unitOccupants("sjgs-adult-secure", "SJSS", ADULT_SECURE_DIAGNOSES, [
     ["Female", "Wheatbelt", 1, 7],
     ["Male", "Gascoyne", 26, 3],
     ["Female", "Perth Metropolitan", 3, null],
@@ -604,6 +697,7 @@ const departures: Admission[] = [
     unitId: "arm-adult-open",
     sex: "Female",
     homeRegion: "Perth Metropolitan",
+    tentativeDiagnosis: "F30–F39",
     stayDays: 23,
     leftMinutesAgo: 300,
     destination: "discharged-to-the-community",
@@ -613,6 +707,7 @@ const departures: Admission[] = [
     unitId: "rph-adult-secure",
     sex: "Male",
     homeRegion: "Kimberley",
+    tentativeDiagnosis: "F20–F29",
     stayDays: 41,
     leftMinutesAgo: 180,
     destination: "transferred-to-another-psychiatric-ward",
@@ -622,6 +717,7 @@ const departures: Admission[] = [
     unitId: "fre-adult-open",
     sex: "Female",
     homeRegion: "Wheatbelt",
+    tentativeDiagnosis: null,
     stayDays: 9,
     leftMinutesAgo: 900,
     destination: "transferred-to-a-general-hospital",
@@ -631,6 +727,7 @@ const departures: Admission[] = [
     unitId: "alb-adult-open",
     sex: "Male",
     homeRegion: "Great Southern",
+    tentativeDiagnosis: "F00–F09",
     stayDays: 112,
     leftMinutesAgo: 1200,
     destination: "moved-to-residential-care",
@@ -640,6 +737,7 @@ const departures: Admission[] = [
     unitId: "scgh-adult-open",
     sex: "Male",
     homeRegion: "Goldfields-Esperance",
+    tentativeDiagnosis: "F10–F19",
     stayDays: 6,
     leftMinutesAgo: 2600,
     destination: "left-against-advice",
@@ -652,9 +750,9 @@ const departures: Admission[] = [
  * `admissionsForUnit` returning them is a behaviour with no seeded case otherwise.
  */
 const waitlist: Admission[] = [
-  waiting("AD-WAIT-01", "scgh-adult-open", "Female", "Peel"),
-  waiting("AD-WAIT-02", "fsh-older-adult", "Male", "Perth Metropolitan"),
-  waiting("AD-WAIT-03", "bty-youth", "Female", "Goldfields-Esperance"),
+  waiting("AD-WAIT-01", "scgh-adult-open", "Female", "Peel", "F40–F48"),
+  waiting("AD-WAIT-02", "fsh-older-adult", "Male", "Perth Metropolitan", "F00–F09"),
+  waiting("AD-WAIT-03", "bty-youth", "Female", "Goldfields-Esperance", null),
 ];
 
 /**

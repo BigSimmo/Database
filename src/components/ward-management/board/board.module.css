@@ -232,6 +232,39 @@
 }
 
 /*
+ * THE TILES TAKE THE ROOM, and the three numbers below are chosen together rather than nudged
+ * until they looked right.
+ *
+ * Measured at 1440 before this pass: the grid was 672 × 280px of an 1150px-tall zone — twenty
+ * 89 × 88px tiles — while the left column ran 1362px. The middle zone was not merely shorter than
+ * its neighbour, it was less than a third of it, and the space the beds did not take was the empty
+ * region the owner was looking at. A ward board is read standing at it, so the day count and the
+ * band shade are wanted BIGGER, not the same size with more air around them: the room goes to the
+ * tiles.
+ *
+ * **`--wb-grid-max` is 46rem for a specific reason: the column count must not change when a tile is
+ * selected.** The middle track is 1048px wide with nothing selected and 696px with the slide-out
+ * open. Left uncapped, `auto-fill` would lay out eight columns and then five, so choosing a tile
+ * would reflow the grid under the reader's hand and move the very tile they had just clicked. At
+ * 46rem the grid is 736px unselected and 696px selected, and `128n <= width + gap` gives five
+ * columns at BOTH — the tiles change width by 8px and nothing changes place.
+ *
+ * Twenty beds are therefore always 5 × 4, roughly square, which is the shape the cap above exists
+ * to protect. Tiles go from 89 × 88 to about 133 × 132 — a little over twice the area — and the
+ * grid from 280px tall to about 552px, which is most of the height the left column gave back.
+ *
+ * The phone keeps the 5rem/5.5rem tiles: this only applies from 60rem up, where there is room.
+ */
+@media (min-width: 60rem) {
+  .screen {
+    --wb-tile-min: 7.5rem;
+    --wb-tile-height: 8.25rem;
+    /* Five tiles wide at the minimum tile size, selected or not — see the note above. */
+    --wb-grid-max: 46rem;
+  }
+}
+
+/*
  * THE TILE, which is now a `<button>` and no longer an `<li>`.
  *
  * The UA's own control styling is reset here rather than inherited — a button carries a font stack
@@ -368,6 +401,23 @@
   font-size: var(--text-3xl, 1.875rem);
   font-weight: 700;
   line-height: var(--wb-leading-figure);
+}
+
+/*
+ * The tile is a little over twice the area from 60rem up (see `.beds`), so the number on it grows
+ * with it. This is the figure the whole board exists to show and the one thing on it that has to be
+ * readable by somebody standing at the board rather than leaning into it.
+ *
+ * Declared HERE, after the base rule, and not inside the token block further up that sets the tile
+ * size: both selectors are one class, so the later one wins, and a media query earlier in the file
+ * would have been silently overridden by the base declaration below it. That is a real trap in this
+ * stylesheet rather than a hypothetical one — the tile-size block above is placed before `.beds`
+ * only because it sets custom properties, which cascade the same way and were checked the same way.
+ */
+@media (min-width: 60rem) {
+  .days {
+    font-size: var(--text-4xl, 2.25rem);
+  }
 }
 
 .daysUnit {
@@ -572,6 +622,20 @@
 .triageFigureLed {
   border-left-width: var(--wb-outline-heavy);
   border-left-color: var(--border-strong);
+}
+
+/*
+ * From 60rem up the six figures SHARE the bar's width instead of bunching at its left end. Measured
+ * at 1440 before this pass, they occupied about 600px of a 1336px bar and the remaining 370px was a
+ * gap between the last figure and the toggle — six figures in a cluster with a control floating off
+ * to the right, which is not what a bar reads as. `flex: 1 1 0` distributes them evenly, and each
+ * figure's own left rule is what keeps them legible as six separate readings rather than one row of
+ * loose numbers. Left alone below 60rem, where they must be free to wrap.
+ */
+@media (min-width: 60rem) {
+  .triageFigure {
+    flex: 1 1 0;
+  }
 }
 
 .triageLabel {
@@ -887,10 +951,28 @@
   font-size: var(--text-xs);
 }
 
+/*
+ * A GRID ACROSS THE PAGE, not a column down a sidebar — and the width is the whole point of the
+ * move rather than a side effect of it.
+ *
+ * Measured at 1440 before the change: this list was 746px tall inside the 272px flow column, which
+ * was 55% of that column's entire 1362px and, on its own, taller than the middle column beside it.
+ * The height was wrapping, not content: the longest recorded team name needs about 380px to sit on
+ * one line and had 272px. `minmax(24rem, 1fr)` is chosen so that every column is at least 384px —
+ * wide enough for that name — and the count therefore falls out of the viewport width rather than
+ * being fixed at a number that would be wrong on a narrower screen. At 1440 that is three columns
+ * and three rows; on a phone it collapses to one, which is what a phone has room for.
+ *
+ * **`min(24rem, 100%)`, not a bare `24rem` — found by rendering at 390 and looking, not by a test.**
+ * A bare minimum wider than the container does not shrink: the track stayed 384px inside a 358px
+ * panel and every team name ran off the right edge of the phone, so "Perth Metropolitan Community
+ * Mental Health Team (placeholde" was the last thing on the row. The `min()` floor lets the single
+ * column collapse to whatever the phone actually has.
+ */
 .destinationList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--wd-space-10, 0.625rem);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr));
+  gap: var(--wb-space-12) var(--wb-space-16);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -924,6 +1006,17 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
+}
+
+/* An absent team is set at the SAME weight as the ward's own headings rather than muted below the
+   team names around it. A missing contact is not a quieter fact than a present one — it is the row
+   a coordinator has to do something about — and rendering absence in the faintest ink on the panel
+   is how it went unnoticed as an empty gap before. */
+.destinationTeamAbsent {
+  margin: var(--wd-space-2, 0.125rem) 0 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
 }
 
 /*
