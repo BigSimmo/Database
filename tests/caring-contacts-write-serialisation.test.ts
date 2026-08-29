@@ -54,11 +54,11 @@ describe("the Postgres store's accidental same-team write serialisation", () => 
       .map((line) => line.trim())
       .filter((line) => line !== "");
 
-    // Exactly one statement, and it is the unconditional insert. A second line here is where a
-    // `select`-then-`insert`, a `Set` of seen teams, or an early return would go.
-    expect(statements).toEqual([
-      'await connection.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [team]);',
-    ]);
+    // Exactly one statement, and it is the unconditional insert with explicit row-level update lock.
+    const joinedStatements = statements.join(" ");
+    expect(joinedStatements).toBe(
+      'await connection.query( "insert into caring_contacts.teams (id) values ($1) on conflict (id) do update set id = excluded.id", [team], );',
+    );
   });
 
   it("keeps ensureTeam the first statement inside runWrite's transaction", () => {

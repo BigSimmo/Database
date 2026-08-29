@@ -1,11 +1,12 @@
 import dynamic from "next/dynamic";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-filter";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -25,29 +26,39 @@ const CaringContactsShell = dynamic(() =>
  * The team's caseload -- the first real screen of Phase 2B, and the shape every later list screen
  * copies.
  *
- * THREE AUDITED READS, no HTTP
- * ----------------------------
+ * EVERY READ IS AUDITED, AND NONE OF THEM IS HTTP
+ * ----------------------------------------------
  * `GET /api/caring-contacts/plans` already lists the team's plans, but this page is a Server
  * Component and reads the store directly, exactly as the Today page does. Going over HTTP from a
  * render would add a network hop, a second copy of the failure handling, and an access trail that
  * recorded the server calling itself.
  *
- * Both reads go through `auditedRead`, the same wrapper `readHandler` is built on, with the SAME
- * access identity each read already has on the API side, so the trail does not grow a second
- * vocabulary for the same read:
+ * EVERY read on this page goes through `auditedRead`, the same wrapper `readHandler` is built on,
+ * with the SAME access identity each read already has on the API side, so the trail does not grow a
+ * second vocabulary for the same read.
+ *
+ * Ruling 94, and this comment is the demonstration: it used to open "TWO AUDITED READS" and say
+ * "both reads", and when a third arrived the headline was corrected while the two sentences that
+ * depended on it were not -- three bullets under a "both", in the same block as the fixed count.
+ * The sentences above state the property instead, so adding a fourth read cannot make them false.
+ * The bullets below are a list of what is read, not a tally of how many:
  *
  *   * the service state -- `{ administrative, serviceState, "service" }`, because the safety
  *     banner is required on every screen (Ruling 56) and must be a state that was actually read;
  *   * the plans -- `{ search, plan, "all" }`, matching `plans/route.ts`'s `GET` exactly;
- *   * the patient names -- `{ search, patientDirectory, "names" }`. Its own row, deliberately, and
- *     not folded into the plans read: this is the one read on this page that releases patient
- *     identity, and an access trail that recorded it as part of a plan search could not later
- *     answer "who read patients' names, and when". Ruling 46 exists for that reason.
+ *   * the patient names -- `{ search, patientName, "all" }`. Its own row AND its own object type,
+ *     both deliberately: this is the read on this page that releases patient identity, and the
+ *     question the trail must be able to answer is "who read patients' names, and when". Folding it
+ *     into the plans read would lose it entirely; recording it as `patientDirectory` would not,
+ *     because that type already carries two referral reads and the trail's query surface filters on
+ *     `objectType` with no `objectId` filter at all -- the answer would be visible by eye and
+ *     unaskable. Ruling 46 says to add a member rather than overload one, and that is what
+ *     `access-audit.ts` now does.
  *
  * Every bad outcome fails closed and reaches `error.tsx`, which says nothing was sent and nothing
- * was changed. There is no honest fallback for either read: a caseload rendered beside a
+ * was changed. NO read on this page has an honest fallback -- a caseload rendered beside a
  * service-state read that failed would claim sending is running during an incident, and a caseload
- * rendered from a failed plans read would claim a caseload that was never read.
+ * rendered from a failed read of its own contents would claim a caseload that was never read.
  *
  * AN EMPTY LIST IS NOT A MISSING RESOURCE
  * --------------------------------------
@@ -68,11 +79,33 @@ const CaringContactsShell = dynamic(() =>
  * question the store asked, and hands the answer to the directory as `mayViewPlans` so the empty
  * list can say which of the two facts it is.
  *
- * ONLY NON-IDENTIFYING STATE IS A URL
- * -----------------------------------
- * `searchParams` is a promise in Next 16 and is awaited before use. The page reads only plan state;
- * patient-name search stays inside the directory's client boundary so patient information never
- * enters browser history or request logs. The role cookie already makes this route dynamic.
+ * THE PLAN-STATE FILTER IS A URL; THE NAME SEARCH IS NOT
+ * -----------------------------------------------------
+ * `searchParams` is a promise in Next 16 and is awaited before use. Reading it makes the route
+ * dynamic, which is already true here -- the role cookie does the same -- and is correct: a cached
+ * copy of a caseload would outlive the caseload.
+ *
+ * `readPatientsDirectoryAddress` reads the plan state and NOTHING ELSE that could name a patient.
+ * A caseload search matches the patient's name, and Ruling [111] does not allow one into a query
+ * string: "a query string is logged by every proxy between here and the browser. Nothing about a
+ * patient may travel here." The name search is local state inside the directory's client island and
+ * never reaches this page at all.
+ *
+ * IGNORING A BOOKMARKED `?q=<name>` WAS NOT ENOUGH, AND WAS WORSE THAN DOING NOTHING. Declining to
+ * honour the parameter leaves the name in the address bar, and `overlayUrl()` in
+ * `workspace-overlays.tsx` copies EVERY existing parameter into each history entry it pushes -- so
+ * an ignored name was re-written into a fresh history entry every time a coordinator opened an
+ * overlay. So the address is REWRITTEN rather than merely unread: any unrecognised parameter, by
+ * any name (`q`, `name`, `search`, anything), triggers a `redirect()` to the canonical address
+ * carrying only the recognised ones plus a non-identifying flag, and the screen then says a saved
+ * search term was not applied without ever echoing it.
+ *
+ * THE REDIRECT IS THE FIRST THING THIS PAGE DOES, and that placement is the guarantee rather than a
+ * tidiness preference: it happens before `resolveDemoActor`, before the store is opened and before
+ * every `auditedRead` below, so a dropped value cannot reach an access-trail record, an error
+ * message or a thrown `Error` on its way through. `redirect()` in a Server Component is a 307 that
+ * REPLACES the history entry (Next 16 `redirect` reference), so the bookmarked address carrying the
+ * name is not left behind as an entry of its own.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,
@@ -80,9 +113,20 @@ export default async function CaringContactsPatientsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isCaringContactsDemoEnabled()) notFound();
+
+  // Before anything is read, audited or thrown. See "IGNORING A BOOKMARKED ?q= WAS NOT ENOUGH".
+  const address = readPatientsDirectoryAddress(await searchParams);
+  if (address.droppedUnrecognisedParams) {
+    redirect(
+      address.canonicalQuery === ""
+        ? CARING_CONTACTS_ROUTES.patients
+        : `${CARING_CONTACTS_ROUTES.patients}?${address.canonicalQuery}`,
+    );
+  }
+  const filter = address.filter;
+
   const actor = await resolveDemoActor();
   const store = await caringContactsStore();
-  const filter = parsePatientsDirectoryFilter(await searchParams);
 
   // "service" names the one service-wide record, matching the object id the API route records
   // against -- the access trail needs one stable identifier for it, not a per-caller one.
@@ -144,7 +188,7 @@ export default async function CaringContactsPatientsPage({
   // be the wrong read -- it releases the mobile number, the identifiers and the ancestry alongside
   // the name.
   //
-  // Fails closed exactly as the two reads above do, and for the same reason rather than for
+  // Fails closed as every read on this page does, and for its own reason rather than for
   // symmetry: this read is the one that touches patient identity, so an unexplained failure of it
   // is the last thing that should be rendered past. `error.tsx` says nothing was sent and nothing
   // was changed, both of which are true. An actor whose role does not cover the read is not a
@@ -153,7 +197,7 @@ export default async function CaringContactsPatientsPage({
   const namesRead = await auditedRead<PatientNameProjection[]>(
     store,
     actor,
-    { kind: "search", objectType: "patientDirectory", objectId: "names" },
+    { kind: "search", objectType: "patientName", objectId: "all" },
     () => store.listPatientNames({ actor }),
   );
   if (namesRead.outcome === "failed") {
@@ -171,6 +215,15 @@ export default async function CaringContactsPatientsPage({
   const patientNames = namesRead.released;
 
   const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
+  // The same one-line question, asked of the name capability. A role restriction is a fact about
+  // the ACTOR -- known here with certainty, for every row at once -- whereas a de-identified episode
+  // is a fact about one record. The directory can state the first and must not guess the second, so
+  // it is decided here rather than inferred there from an empty `patientNames`: a coordinator whose
+  // team holds only cleared episodes also receives no names, and telling that clinician their role
+  // was the reason would be false.
+  const mayViewPatientNames = canPerformCaringContactAction(actor, READ_ACTIONS.patientName, {
+    teamId: actor.teamId,
+  }).allowed;
 
   return (
     <CaringContactsShell
@@ -178,7 +231,14 @@ export default async function CaringContactsPatientsPage({
       description="Every patient this team holds a caring-contact plan for, and where each plan has got to. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
       serviceState={serviceState}
     >
-      <PatientsDirectory records={records} patientNames={patientNames} filter={filter} mayViewPlans={mayViewPlans} />
+      <PatientsDirectory
+        records={records}
+        patientNames={patientNames}
+        filter={filter}
+        mayViewPlans={mayViewPlans}
+        mayViewPatientNames={mayViewPatientNames}
+        savedSearchNotApplied={address.searchNotApplied}
+      />
     </CaringContactsShell>
   );
 }

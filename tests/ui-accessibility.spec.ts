@@ -151,7 +151,7 @@ async function openScopeControl(page: Page) {
     await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 15_000 });
 
-  await menu.getByRole("menuitem", { name: "Scope", exact: true }).click({ timeout: 15_000 });
+  await menu.getByRole("button", { name: "Scope", exact: true }).click({ timeout: 15_000 });
   await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
     timeout: uiAssertionTimeoutMs,
   });
@@ -552,7 +552,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await menuTrigger.click();
     const menu = page.getByTestId("daily-actions-menu");
     await expect(menu).toBeVisible();
-    await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+    await expect(menu.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
     await expect(page.locator('input[type="file"]')).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();

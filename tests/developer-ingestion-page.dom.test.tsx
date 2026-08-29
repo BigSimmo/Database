@@ -53,12 +53,10 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     expect(screen.getByTestId("developer-ingestion-back")).toHaveAttribute("href", "/mockups/development");
 
     // The shell's own stamp is rendered at server-render time, before the
-    // client panel has fetched anything — so it must say "revision unknown",
+    // client panel has fetched anything — so it says "read live on demand" (#XKS6FD),
     // not invent a build-time content date the way every Phase 1/2 panel does.
-    // Falsifying edit: passing `resolveRepoFreshness(snapshot, now)` (or any
-    // non-null contentAt) to PanelPageShell in page.tsx turns this red.
     const shellStamp = screen.getByTestId("developer-hub-freshness");
-    expect(shellStamp).toHaveTextContent(/Ingestion jobs revision unknown/i);
+    expect(shellStamp).toHaveTextContent(/Ingestion jobs read live on demand/i);
 
     await screen.findByTestId("developer-ingestion-empty");
   });
@@ -79,7 +77,7 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     // above already falsifies an omission; asserting real content here also
     // falsifies a component that renders the testid but leaves it empty.
     expect(checkedAt).toHaveTextContent(/checked/i);
-    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/revision unknown/i);
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
   });
 });
 

@@ -222,6 +222,89 @@ async function installHoldingAnswerStream(page: Page) {
   });
 }
 
+/**
+ * The wait, with the evidence preview on it (#100 Phase 1).
+ *
+ * The preview rides the existing `progress` event as an optional `verifiedUnit`, and the
+ * client discards anything that fails `isDeliverableVerifiedUnit` — exact key allow-list,
+ * `images: []`, snippet under 900 characters — so these fixtures are built to that contract
+ * rather than to a convenient shape. Eight sources are sent to prove the rail's six-card cap
+ * and the line that counts it.
+ */
+function previewSource(index: number) {
+  return {
+    id: `chunk-${index + 1}`,
+    document_id: `doc-${index + 1}`,
+    title: `Synthetic monitoring guideline ${index + 1}`,
+    file_name: `guideline-${index + 1}.pdf`,
+    page_number: index + 2,
+    chunk_index: index,
+    section_heading: "Monitoring",
+    content: "Review the source passage and confirm the monitoring schedule before clinical use.",
+    image_ids: [],
+    similarity: 0.8 - index * 0.01,
+    images: [],
+    source_metadata: { document_status: "current", clinical_validation_status: "unverified" },
+  };
+}
+
+async function installEvidencePreviewAnswerStream(page: Page) {
+  const finalAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  const sources = Array.from({ length: 8 }, (_, index) => previewSource(index));
+  await page.addInitScript(
+    ({ answer, previewSources }) => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const rawUrl = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        const pathname = new URL(rawUrl, window.location.href).pathname;
+        if (pathname !== "/api/answer/stream") return originalFetch(input, init);
+
+        const encoder = new TextEncoder();
+        const events: Array<{ delay: number; event: string; data: unknown }> = [
+          { delay: 0, event: "progress", data: { stage: "scoping", message: "Preparing scope." } },
+          { delay: 150, event: "progress", data: { stage: "retrieving", message: "Searching documents." } },
+          {
+            delay: 400,
+            event: "progress",
+            data: {
+              stage: "ranking",
+              message: "Selecting evidence.",
+              selectedContextCount: 8,
+              verifiedUnit: {
+                schemaVersion: 1,
+                kind: "evidence_preview",
+                sequence: 0,
+                selectedContextCount: 8,
+                sources: previewSources,
+              },
+            },
+          },
+          { delay: 700, event: "progress", data: { stage: "generating", message: "Drafting answer." } },
+          // Held wide open: the whole point of the preview is that it is readable for the
+          // seconds generation takes, so the assertions below must run inside that window.
+          { delay: 4_000, event: "progress", data: { stage: "complete", message: "Ready.", elapsedMs: 4_000 } },
+          { delay: 4_100, event: "final", data: answer },
+        ];
+
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              for (const item of events) {
+                window.setTimeout(() => {
+                  controller.enqueue(encoder.encode(`event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`));
+                  if (item.event === "final") controller.close();
+                }, item.delay);
+              }
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } },
+        );
+      };
+    },
+    { answer: finalAnswer, previewSources: sources },
+  );
+}
+
 async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
   const firstAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
   await page.addInitScript(
@@ -535,6 +618,115 @@ test("the wait stands where the answer will, so arrival swaps content in place",
   // And exactly one prose placeholder on the page — the dashboard must not also
   // render AnswerSkeleton beside this one.
   expect(await page.locator('[role="status"][aria-label="Loading answer"]').count()).toBe(0);
+});
+
+test("the sources arrive during the wait and hand over to the answer's own rail", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installEvidencePreviewAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const progress = page.getByTestId("answer-progress");
+  const rail = progress.getByTestId("answer-evidence-preview");
+  const cards = rail.getByTestId("answer-evidence-preview-source");
+
+  // The whole point: source-backed content is on screen while the answer is still
+  // being written, not only when it lands.
+  await expect(rail).toBeVisible({ timeout: 8_000 });
+  await expect(progress).toHaveAttribute("data-progress-state", "active");
+
+  // Six of the eight sent — the render policy's primary-source cap.
+  await expect(cards).toHaveCount(6);
+
+  // The one number the wait prints, and it counts exactly the cards below it.
+  await expect(progress.getByTestId("answer-progress-line")).toContainText("6 sources found");
+
+  // Numbering is what arrival buys. The preview is retrieval order; the final list is
+  // rebuilt from what the answer cites, so a number assigned now can point at a
+  // different document once the answer lands.
+  for (const card of await cards.all()) {
+    await expect(card.locator("[aria-hidden='true']").first()).toHaveText("\u2022");
+  }
+  await expect(rail).toHaveAttribute("aria-label", /not yet numbered/i);
+
+  // Every card is a real link to the real page, so a reader who recognises a document
+  // can open it without waiting for the answer at all.
+  await expect(cards.first()).toHaveAttribute("href", "/documents/doc-1?page=2&chunk=chunk-1");
+
+  // Line, then the prose placeholder where the prose lands, then the sources where the
+  // answer's own rail lands. Every element already stands where its finished counterpart
+  // will, which is the entire "nothing jumps" claim.
+  const order = await progress.evaluate((section) => {
+    const top = (selector: string) => {
+      const node = section.querySelector<HTMLElement>(selector);
+      return node ? node.getBoundingClientRect().top : null;
+    };
+    return {
+      line: top('[data-testid="answer-progress-line"]'),
+      skeleton: top('[data-slot="answer-prose-skeleton"]'),
+      preview: top('[data-testid="answer-evidence-preview"]'),
+    };
+  });
+  expect(order.preview).not.toBeNull();
+  expect(order.skeleton ?? 0).toBeGreaterThan(order.line ?? 0);
+  expect(order.preview ?? 0).toBeGreaterThan(order.skeleton ?? 0);
+
+  // Arrival swaps content in place: the preview rail goes, the answer's own numbered
+  // rail stands in its position.
+  await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("answer-evidence-preview")).toHaveCount(0);
+  await expect(page.getByTestId("answer-source-rail")).toBeVisible();
+});
+
+test("the arriving sources are paced apart, and are simply present when motion is suppressed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installEvidencePreviewAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const cards = page.getByTestId("answer-evidence-preview").getByTestId("answer-evidence-preview-source");
+  await expect(cards.first()).toBeVisible({ timeout: 8_000 });
+
+  // Reduced motion first, because the suite runs that way by default (see the
+  // dual-mode note on contextOptions in playwright.config.ts). Suppressing motion must
+  // never withhold the content: the cards stop animating and are immediately, fully
+  // visible — not held invisible for the length of the cascade, which is exactly what a
+  // delay on a `both`-filled animation would do if the reduced-motion reset did not also
+  // zero the delay.
+  const suppressed = await cards.evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      name: getComputedStyle(node).animationName,
+      delay: getComputedStyle(node).animationDelay,
+      opacity: getComputedStyle(node).opacity,
+    })),
+  );
+  expect(suppressed).toHaveLength(6);
+  for (const card of suppressed) {
+    expect(card.name).toBe("none");
+    expect(card.delay).toBe("0s");
+    expect(card.opacity).toBe("1");
+  }
+
+  // With motion allowed, cards arrive one at a time rather than as a single block. The
+  // shared `.stagger-item` rung is 35ms, which reads as one movement across six cards;
+  // this rail overrides it so each card is separately noticeable.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const delays = await cards.evaluateAll((nodes) =>
+    nodes.map((node) => Number.parseFloat(getComputedStyle(node).animationDelay)),
+  );
+  expect(delays[0]).toBe(0);
+  expect(delays[1] ?? 0).toBeGreaterThan(0.035);
+  expect(delays[5] ?? 0).toBeGreaterThan(delays[1] ?? 0);
+  // …and the whole rail is still standing well before a normal generation wait ends.
+  expect(delays[5] ?? 0).toBeLessThan(1);
 });
 
 test("a completion frame cannot mark a previous answer complete when final is invalid", async ({ page }) => {

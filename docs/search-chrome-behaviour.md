@@ -839,7 +839,7 @@ The indicator under test changed when the answer wait was redrawn as a single qu
    - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the dot visibly breathes (a continuous opacity cycle, 2.4s) even if iOS system **Reduce Motion** is enabled in Accessibility settings.
 2. **Motion=System / Motion=Reduced:**
    - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the dot stops breathing and remains clearly visible at full opacity, rather than disappearing or rendering a blank box (`opacity: 0`).
-   - The status line beside it still reads out what is happening, and the arriving source rail (when `NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER` is enabled) appears without layout jumps.
+   - The status line beside it still reads out what is happening, and the arriving source rail appears without layout jumps. Its cards are staggered by `.answer-sources-arriving .stagger-item` when motion is allowed; under Reduce Motion every card must be present and fully opaque immediately, never held invisible for the length of the cascade.
 
 The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
 

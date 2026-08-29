@@ -9,7 +9,10 @@ import {
   answerProgressTookUnusualRoute,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
-import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import {
+  AnswerEvidencePreview,
+  visiblePreviewSourceLimit,
+} from "@/components/clinical-dashboard/answer-evidence-preview";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
@@ -308,10 +311,12 @@ export function AnswerProgress({
   const running = active && !finished;
   const slow = useSlowNotice(running, startedAt);
   const unusualRoute = answerProgressTookUnusualRoute(events);
-  // The only number the wait prints, and it counts the cards directly below it.
-  const previewMessage = latest
-    ? answerProgressPreviewMessage(evidencePreview?.sources.length ?? 0, latest.stage)
-    : null;
+  // The only number the wait prints, and it counts the cards directly below it — which is
+  // why it is the rail's visible cap, not the unit's length. A unit may carry up to twelve
+  // sources while the rail draws six, and a line reading "8 sources found" above six cards
+  // is a number the reader cannot reconcile with anything on screen.
+  const previewSourceCount = Math.min(evidencePreview?.sources.length ?? 0, visiblePreviewSourceLimit);
+  const previewMessage = latest ? answerProgressPreviewMessage(previewSourceCount, latest.stage) : null;
   const currentMessage = previewMessage ?? (latest ? answerProgressDisplayMessage(latest) : "Reading your question…");
   const details = events
     .map((event) => ({ ...event, displayMessage: answerProgressDisplayMessage(event) }))

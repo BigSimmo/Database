@@ -16,7 +16,7 @@ before any of them is written, so that four screens cannot each invent their own
 > **Renamed after this brief was written.** The brief originally said `empty-state.tsx` /
 > `EmptyState`. Ruling 88 renamed both: `src/components/ui-primitives.tsx` already exports an
 > `EmptyState`, and the design-system adoption generator matches test files to components by a
-> bare `EmptyState` regex with no import awareness — so the collision credited this task's
+> bare `\bEmptyState\b` regex with no import awareness — so the collision credited this task's
 > test as proof coverage for a shared primitive it never imports. The path is corrected here so
 > the reference resolves; the naming instruction above was mine and the collision was my defect.
 

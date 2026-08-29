@@ -1,6 +1,12 @@
 # Incremental delivery of verified answer content
 
-Status: **design accepted for staged implementation; no runtime behaviour changed**<br>
+Status: **Phase 1 shipped and enabled by default (2026-08-27); Phase 2 unbuilt and provider-gated**<br>
+Phase 1 rollout: both flags default ON — server emission `RAG_INCREMENTAL_EVIDENCE_PREVIEW`
+(`src/lib/env.ts`) and client rendering `NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER`
+(`src/lib/client-env.ts`, on unless the literal string `false`). Rollback order is unchanged:
+server emission first, then client rendering. The render path is exercised by
+`tests/answer-progress-ui-smoke.spec.ts` ("the sources arrive during the wait…" and "…paced
+apart…"), which closes the browser-proof gap `#100` recorded.<br>
 Tracks: [`#100`](outstanding-issues.md), [`#021`](outstanding-issues.md)<br>
 Origin: [`latency-audit-2026-07-28.md`](audit/latency-audit-2026-07-28.md#l0--structural-1)
 
@@ -114,8 +120,13 @@ This phase is provider-free and must land before either visible phase.
   source-governance refusal used by the authoritative final response. Only when it permits disclosure,
   build a preview through the existing client-source trimming policy and emit it as
   `progress.verifiedUnit`.
-- Render it in a clearly labelled “Selected evidence — answer still being verified” region. Do not
-  render it as answer prose or mark the answer complete.
+- Render it where the answer's own source rail will land, so arrival swaps content in place rather
+  than moving it. As shipped this is `AnswerEvidencePreview`, a rail of unnumbered cards under the
+  status line and prose placeholder — not the labelled “Selected evidence” panel this design first
+  described, which stacked a second loud block in the answer's position. Do not render it as answer
+  prose, do not mark the answer complete, and do not number the cards: the preview is retrieval
+  order while the final list is rebuilt from what the answer cites, so an early number can end up
+  pointing at a different document.
 - Preserve the current final source list, source governance warnings, feedback token, telemetry, and
   persistence behaviour.
 

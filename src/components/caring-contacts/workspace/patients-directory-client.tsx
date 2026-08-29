@@ -1,10 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { EyeOff, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import type { PlanState } from "@/lib/caring-contacts/model";
 import {
   PATIENTS_DIRECTORY_STATE_ORDER,
@@ -14,60 +14,76 @@ import {
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
 import type { PatientsDirectoryRow } from "./patients-directory-row";
-import { UnavailableDestination } from "./unavailable-destination";
 
 /**
- * The team's caseload, as a list of PLANS rather than of people.
+ * The team's caseload -- the CLIENT half, and the reason the boundary exists.
  *
- * What this screen may know, and why it is so little
- * -------------------------------------------------
- * A server wrapper derives `PatientsDirectoryRow` from the separately read plans and names. That DTO
- * contains exactly what this client island renders, searches or needs for its suppression wording;
- * mobile number, identifier list, ancestry, team, pathway and the raw contact schedule have nowhere
- * in the client value to be.
+ * WHY THIS FILE IS A CLIENT COMPONENT
+ * ----------------------------------
+ * Not for interactivity, and not because a `useState` search box is nicer. It exists so that a
+ * patient's NAME has somewhere to live that is not a URL.
  *
- * `getEpisode` remains the read this screen must never make. It is the one that releases all four
- * identifying fields together, and a caseload showing one of them has no business pulling four.
- * Task 5 headed each row with the synthetic identifier for exactly that reason; the owner's answer
- * (Ruling 91) was to narrow the read rather than to widen the screen, and this is that read
- * consumed. The approved design's names and initials are honest again as a result.
+ * Until this split, the caseload search was a `method="get"` form and the name a coordinator typed
+ * arrived as `?q=Jordan%20Nguyen`. That address reaches the browser's history on a possibly-shared
+ * ward computer and the access log of every proxy between the browser and the server. Ruling [111]
+ * forbids exactly that: "a query string is logged by every proxy between here and the browser.
+ * Nothing about a patient may travel here." The typed name is now ordinary React state in this
+ * module and is serialized into nothing at all -- not a query parameter, not a fragment, not a
+ * hash, because a hash of a name is still a name-derived identifier sitting in a log.
  *
+ * Ruling 13 -- the workspace's client payload held to a rounding error -- is a performance
+ * preference, and confidentiality outranks it. The yield is paid for by narrowing rather than
+ * widening: what crosses is `PatientsDirectoryRow`, already reduced to the fields this screen shows
+ * and already reduced by the server to the selected plan state, so this boundary carries less than
+ * the Server Component it replaced rendered into HTML. `ServiceState` is not in the row type, is
+ * not a prop here, and is named nowhere in this module's import graph.
+ *
+ * WHAT IS STILL A URL, AND WHAT THE SCREEN OWES THE COORDINATOR FOR THE DIFFERENCE
+ * -------------------------------------------------------------------------------
+ * The plan-state filter stays in the address. It is not identifying, it is worth reloading and
+ * sharing, and it survives both. The name search does neither, and that is a genuine loss rather
+ * than a detail: a reload keeps the state filter and clears the name, so a coordinator who reloaded
+ * would otherwise watch their list change with no reachable reason for it. Spec 4.4 says a state
+ * the system reached on its own must state, in place, why it happened and what would change it, so
+ * the note under the search control says exactly that -- and it is wired to the input with
+ * `aria-describedby`, because the person who most needs it is the one who cannot see it beside the
+ * box.
+ *
+ * The identifier search runs through the SAME control and the same local state, deliberately. One
+ * box searches names and synthetic identifiers together, as the approved design shows; splitting it
+ * so identifiers could stay on the server would have put two search boxes on one caseload and given
+ * a coordinator a way to type a name into the wrong one. A name must never reach the server as a
+ * query parameter on its way to matching an identifier, and the only way to guarantee that with one
+ * control is for that control to match on this side of the boundary.
+ *
+ * WHAT A ROW MAY SAY
+ * -----------------
  * A row still SHOWS the synthetic identifier alongside the name. It is what distinguishes two
  * patients who share a name, it is what the row's detail control is named by, and it is the only
  * thing left to head a row with when no name comes back -- which happens for a plan a retention
  * clearance has already de-identified, and for a role that may list plans without holding
- * `viewPatientRecord`. The row never claims a name it was not given.
+ * `viewPatientRecord`. The row never claims a name it was not given, and never guesses which of
+ * those two causes applies: the server does not know per row, so neither does this.
  *
- * Why only the state filter is a URL
- * ----------------------------------
- * Plan state is non-identifying and remains a set of ordinary `<Link>` navigations. Patient-name
- * search is deliberately local state in this one directory boundary: putting a name in a GET query
- * would copy patient information into browser history and request logs, which the workspace's
- * binding privacy contract forbids. The boundary receives only the already narrowed plan and name
- * projections; incident responder notes never enter it.
+ * Why the row's detail control IS a link
+ * -------------------------------------
+ * It was not one until Task 6. Ruling 52 held it as an unavailable control with a stated reason
+ * while `/caring-contacts/patients/[patientId]` did not exist, because an unbuilt destination is
+ * never a link into a route that would 404, and Ruling 89 requires the link and the screen to land
+ * together. That screen now exists, so the control is `<Link href={patientRoute(...)}>`.
  *
- * Ruling 94: that is the whole claim, and it is deliberately not a count. This paragraph previously
- * carried client-component tallies that went stale. The checkable property is narrower: this screen
- * adds one privacy-motivated boundary and does not widen the data projection passed into it.
- *
- * Why the row's detail control is not a link
- * -----------------------------------------
- * `patientRoute()` and `planRoute()` in `@/lib/caring-contacts-routes` are the hrefs these controls
- * take once Tasks 6-7 build those pages. Until then Ruling 52 applies exactly as it does in the
- * shell's navigation: an unbuilt destination is an unavailable control with a stated reason, never
- * a link into a route that would 404. Swapping the control for a `<Link href={patientRoute(...)}>`
- * is the whole of that later change.
+ * It stays keyed by PATIENT rather than by this row's plan, and that is a decision rather than an
+ * accident. The control says "patient record", and the destination is the patient's record: where
+ * a patient holds two plans, it lands on the overview's chooser and the clinician picks, which is
+ * exactly what Ruling 97 requires of a patient-keyed route.
  *
  * Three empty lists, three different facts
  * ---------------------------------------
  * `ListEmptyState` refuses to blur "nothing exists" and "a filter is hiding everything", and this
- * screen uses its third kind for a role that may not view plans at all. `listPlans` answers such an
- * actor with `[]`, exactly as it answers a team with no plans, so
- * a screen that only counted rows would tell an auditor their team has no patients -- a false
- * statement about a caseload, which is the defect the component exists to prevent. The capability
- * is therefore decided from the actor by the page and passed in as `mayViewPlans`, and that case
- * gets the `"not-permitted"` wording shape (a reason and a remedy), because it is a visibility rule
- * hiding the list rather than a claim that the list is empty.
+ * screen has a THIRD case: a role that may not view plans at all, which the server answers with no
+ * rows exactly as it answers a team holding none. `mayViewPlans` is decided from the actor and
+ * passed in so the empty list can say which of the two facts it is, and that case gets the
+ * `"not-permitted"` wording shape rather than a claim that the list is empty.
  */
 
 const PLAN_STATE_LABELS: Readonly<Record<PlanState, string>> = Object.freeze({
@@ -79,7 +95,13 @@ const PLAN_STATE_LABELS: Readonly<Record<PlanState, string>> = Object.freeze({
   completed: "Completed",
 });
 
-/** Every href on this screen contains non-identifying plan state only. */
+/**
+ * Every href this screen builds, and the whole of what a caseload address may contain.
+ *
+ * `PatientsDirectoryFilter` holds ONE field, the plan state, and it is non-identifying. There is no
+ * parameter here for the name search and there must never be one -- see the module note and Ruling
+ * [111]. Built from the route module, never from a path literal.
+ */
 export function patientsDirectoryHref(filter: PatientsDirectoryFilter): string {
   return filter.state === "all"
     ? CARING_CONTACTS_ROUTES.patients
@@ -87,14 +109,17 @@ export function patientsDirectoryHref(filter: PatientsDirectoryFilter): string {
 }
 
 /**
- * The search matches the patient's name as well as the three identifiers, but the query exists only
- * inside this client boundary. It is never serialized into a URL, server request or audit event.
+ * The search matches the patient's NAME as well as the three synthetic identifiers -- the approved
+ * design's "name or synthetic ID" -- and it runs entirely inside this client boundary. The query is
+ * never serialized into a URL, a server request or an audit event.
  *
- * `patientName` is null for a row with no name to match, and an empty haystack segment can never make a
- * non-empty query match, so no row is found by a name it does not have.
+ * The plan state is NOT re-checked here: the server filtered by it before building these rows, and
+ * a second copy of that rule is a second place for it to drift.
+ *
+ * `patientName` is null for a row with no name to match, and an empty haystack segment can never
+ * make a non-empty query match, so no row is found by a name it does not have.
  */
-function matchesFilter(row: PatientsDirectoryRow, filter: PatientsDirectoryFilter, query: string): boolean {
-  if (filter.state !== "all" && row.state !== filter.state) return false;
+function matchesQuery(row: PatientsDirectoryRow, query: string): boolean {
   if (query === "") return true;
   const needle = query.toLowerCase();
   return `${row.patientName ?? ""} ${row.patientId} ${row.planId} ${row.referralId}`.toLowerCase().includes(needle);
@@ -125,6 +150,7 @@ function suppressionExplanation(absorbed: number, other: number): { because: str
 
 const sectionId = "caring-contacts-patients-directory";
 const searchInputId = "caring-contacts-patients-search";
+const searchScopeNoteId = "caring-contacts-patients-search-scope";
 
 const filterChipClass =
   "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:text-[color:var(--text-heading)] forced-colors:border-[CanvasText]";
@@ -139,19 +165,41 @@ const rowActionClass =
   "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] sm:shrink-0";
 
 export type PatientsDirectoryClientProps = {
-  /** The allowlisted row projection for the selected non-identifying state. */
+  /**
+   * The narrow row projection for the selected plan state, already filtered and already reduced by
+   * the server. Nothing identifying beyond the patient's name has anywhere in this type to sit.
+   */
   rows: readonly PatientsDirectoryRow[];
-  /** Non-identifying total used only to explain filtering without serializing other rows. */
+  /**
+   * How many plans the team holds in total, before any filter. Non-identifying, and needed so the
+   * screen can say what a filter is hiding without being handed the rows it hides.
+   */
   totalPlanCount: number;
   filter: PatientsDirectoryFilter;
   /** False when the acting role does not include viewing plans -- see the module note. */
   mayViewPlans: boolean;
+  /** False when the acting role does not hold `viewPatientRecord`, decided by the page. */
+  mayViewPatientNames: boolean;
+  /**
+   * True when the address carried a saved search term that the page dropped. A BOOLEAN: the term
+   * itself never crosses this boundary, and neither does its name or its length.
+   */
+  savedSearchNotApplied: boolean;
 };
 
-export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewPlans }: PatientsDirectoryClientProps) {
+export function PatientsDirectoryClient({
+  rows,
+  totalPlanCount,
+  filter,
+  mayViewPlans,
+  mayViewPatientNames,
+  savedSearchNotApplied,
+}: PatientsDirectoryClientProps) {
+  // The one place the typed name lives. It is read by `matchesQuery` and rendered back into the
+  // input and the empty state, and it reaches nothing else -- no href, no form, no fetch.
   const [rawQuery, setRawQuery] = useState("");
   const query = rawQuery.trim();
-  const visible = mayViewPlans ? rows.filter((row) => matchesFilter(row, filter, query)) : [];
+  const visible = rows.filter((row) => matchesQuery(row, query));
   const filtering = filter.state !== "all" || query !== "";
 
   return (
@@ -194,11 +242,22 @@ export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewP
             ))}
           </nav>
 
-          {/* Patient names must never enter a URL, browser history, request log or audit event. */}
+          {/*
+            NOT a form. There is nothing to submit: the typed text filters the rows already in this
+            component, and submitting would be the exact defect this boundary removes — a patient's
+            name in a GET query, and therefore in browser history and every proxy log on the way.
+          */}
           <div role="search" className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+              {/*
+                The control must not advertise something it cannot do. With no names released, a
+                name search matches nothing on every row, so the label and the placeholder offer
+                only what the search can actually find.
+              */}
               <label htmlFor={searchInputId} className="sr-only">
-                Search by name, or by synthetic patient, plan or referral identifier
+                {mayViewPatientNames
+                  ? "Search by name, or by synthetic patient, plan or referral identifier"
+                  : "Search by synthetic patient, plan or referral identifier"}
               </label>
               <Search
                 aria-hidden="true"
@@ -209,8 +268,9 @@ export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewP
                 type="search"
                 value={rawQuery}
                 onChange={(event) => setRawQuery(event.currentTarget.value)}
+                aria-describedby={searchScopeNoteId}
                 autoComplete="off"
-                placeholder="Name or synthetic ID"
+                placeholder={mayViewPatientNames ? "Name or synthetic ID" : "Synthetic identifier"}
                 className={fieldClass}
               />
             </div>
@@ -220,6 +280,33 @@ export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewP
               </button>
             )}
           </div>
+
+          {/*
+            Spec 4.4, applied to the cost of the privacy fix rather than to a system-reached plan
+            state. Reloading keeps the plan-state filter and clears this search, and a coordinator
+            who did not know that would see their list change for no reachable reason.
+          */}
+          <p
+            id={searchScopeNoteId}
+            className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
+          >
+            This search stays in this browser tab. Reloading the page, or opening its web address anywhere else, clears
+            what you typed here and keeps the plan-state filter above, because the plan state is in the web address and
+            what you type here never is: a patient&rsquo;s name is never put into a web address, browser history or
+            server log.
+          </p>
+
+          {savedSearchNotApplied ? (
+            <div className="mt-4 min-w-0">
+              <SavedSearchNotAppliedNotice />
+            </div>
+          ) : null}
+
+          {mayViewPatientNames ? null : (
+            <div className="mt-4 min-w-0">
+              <NamesNotShownNotice />
+            </div>
+          )}
 
           {visible.length > 0 ? (
             <p className="mt-4 text-sm text-[color:var(--text-muted)]">
@@ -249,6 +336,85 @@ export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewP
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Stated once, above the list, when the acting role does not hold `viewPatientRecord`.
+ *
+ * Local to this screen rather than a shared component, deliberately: it is the first surface in the
+ * workspace that needs it, and one use is not a pattern. If a second screen needs the same notice it
+ * should move to `workspace/` then, with both call sites visible to whoever generalises it.
+ *
+ * Not `AutomatedState`: that component is for a state the SYSTEM reached on its own -- suppressed,
+ * paused, blocked -- and its `state` prop is documented as a closed transport or plan term. A role
+ * restriction is neither. It borrows the same why/what-changes-it shape, because spec 4.4's reason
+ * for that shape applies just as much here, and takes its accessible name from the string it
+ * renders rather than an id.
+ */
+function NamesNotShownNotice() {
+  const heading = "Names are not shown in this role";
+  return (
+    <div
+      role="note"
+      aria-label={heading}
+      className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
+    >
+      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
+        <EyeOff aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="min-w-0">{heading}</span>
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">Why: </span>
+        Viewing a patient record is not part of the role you are acting in, so every row below is headed by the
+        patient&rsquo;s synthetic identifier rather than their name. This says nothing about whether a name is held for
+        any of them.
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+        Nothing on this screen, and there is no control for it anywhere in this workspace yet. The role this
+        demonstration acts in is set outside the interface; a coordinator sees the names.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Shown when the address this page was reached by carried a saved search term, which the page
+ * dropped on the way in.
+ *
+ * IT NEVER ECHOES THE TERM, and it is not given it to echo -- the prop that reaches this component
+ * is a boolean. Echoing a dropped name back onto the screen would put it in a screenshot, a printed
+ * page and a support ticket, which is the same disclosure the address bar was closed against.
+ *
+ * Spec 4.4's shape, for the same reason `NamesNotShownNotice` borrows it: the coordinator opened a
+ * bookmark expecting a filtered list and got an unfiltered one, and a system that quietly declines
+ * to do what an address asked owes a reason and a remedy in place.
+ */
+function SavedSearchNotAppliedNotice() {
+  const heading = "A saved search was not applied";
+  return (
+    <div
+      role="note"
+      aria-label={heading}
+      className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
+    >
+      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
+        <EyeOff aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="min-w-0">{heading}</span>
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">Why: </span>
+        The web address you arrived on carried a search term. This screen never takes one from a web address, because a
+        patient&rsquo;s name must never travel in one, so the term was dropped from the address without being used and
+        is not shown here.
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+        Type what you were looking for into the search box above. A search here stays in this browser tab, so there is
+        nothing for a bookmark to save.
+      </p>
+    </div>
   );
 }
 
@@ -296,15 +462,19 @@ function DirectoryEmptyState({
         because={hiddenBecause(totalPlanCount, filter, query)}
         changedBy={`Clearing the filter shows all ${plural(totalPlanCount, "plan", "plans")} this team holds.`}
         action={
-          filter.state === "all" ? (
-            <button type="button" className={submitClass} onClick={clearSearch}>
-              Show every plan
-            </button>
-          ) : (
-            <Link href={CARING_CONTACTS_ROUTES.patients} data-internal-link="true" className={submitClass}>
-              Show every plan
-            </Link>
-          )
+          // ONE control for BOTH filters, because they now live in two different places and a
+          // remedy that cleared only one of them would be a promise the screen does not keep: the
+          // href drops the plan state from the address, and the handler drops the typed search
+          // from this tab. A `<Link>` alone would leave the name search filtering the list it had
+          // just navigated to.
+          <Link
+            href={CARING_CONTACTS_ROUTES.patients}
+            data-internal-link="true"
+            onClick={clearSearch}
+            className={submitClass}
+          >
+            Show every plan
+          </Link>
         }
       />
     );
@@ -336,12 +506,12 @@ function hiddenBecause(total: number, filter: PatientsDirectoryFilter, query: st
 /**
  * One plan's row.
  *
- * `patientName` is null when the names read held nothing for this plan -- a de-identified episode, or a
- * role without `viewPatientRecord`. The heading then falls back to the synthetic identifier and the
- * label above it says which of the two the heading is, so the row never presents an identifier as a
- * name or leaves a reader guessing. It deliberately does not try to say WHICH cause applies: the
- * screen is not told, and guessing between "this episode was de-identified" and "your role may not
- * see names" would be a claim nothing here can support.
+ * `patientName` is null when the names read held nothing for this plan -- a de-identified episode,
+ * or a role without `viewPatientRecord`. The heading then falls back to the synthetic identifier and
+ * the label above it says which of the two the heading is, so the row never presents an identifier
+ * as a name or leaves a reader guessing. It deliberately does not try to say WHICH cause applies:
+ * the screen is not told, and guessing between "this episode was de-identified" and "your role may
+ * not see names" would be a claim nothing here can support.
  */
 function PatientRow({ row }: { row: PatientsDirectoryRow }) {
   const suppressed = row.absorbedContactCount + row.otherSuppressedContactCount;
@@ -381,19 +551,13 @@ function PatientRow({ row }: { row: PatientsDirectoryRow }) {
           </p>
         </div>
         {/*
-          `label` is a destination NOUN, not an instruction. `UnavailableDestination` builds its
-          screen-reader note as "<label> is not built yet.", so a verb phrase there produced
-          "Open patient-plan-1 is not built yet." The visible text carries the identifier so that
-          one row's control is still distinguishable from the next.
+          The visible text carries the identifier so that one row's control is still
+          distinguishable from the next -- a screen reader listing this page's links otherwise
+          reads "Patient record" as many times as there are rows, with nothing to tell them apart.
         */}
-        <UnavailableDestination
-          id={`patient-row-${row.planId}`}
-          label={`The patient record for ${row.patientId}`}
-          reason="Every contact in this plan, what has been sent, and the decisions still waiting."
-          className={rowActionClass}
-        >
+        <Link href={patientRoute(row.patientId)} data-internal-link="true" className={rowActionClass}>
           <span className="truncate">Patient record &mdash; {row.patientId}</span>
-        </UnavailableDestination>
+        </Link>
       </div>
 
       {/*

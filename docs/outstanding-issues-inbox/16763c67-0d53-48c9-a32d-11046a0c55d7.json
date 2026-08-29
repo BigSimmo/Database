@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "16763c67-0d53-48c9-a32d-11046a0c55d7",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts: the interface-vocabulary scan cannot express a job title, so correct plain-words role labels fail while raw identifiers pass",
+    "detail": "Found in Phase 2B Task 7 fix round 1, 2026-08-25. `tests/caring-contacts-interface-vocabulary.test.ts` refuses \"lead\" as a whole word in any string under `src/components/caring-contacts/workspace/**` and `src/app/caring-contacts/**`, with no exemption for a job title. The consequence is inverted from the intent: the raw role identifiers `clinicalProgrammeLead` and `livedExperienceRepresentative` PASSED the scan — only because there is no word boundary inside `ProgrammeLead` — while the correct plain-words labels a clinician should read do NOT pass. So the scan currently rewards leaving developer identifiers on screen. `src/lib/caring-contacts/message-rules.ts` already solved exactly this problem for outgoing message text: `COMMERCIAL_LEAD_PATTERN` uses a negative lookbehind for `incident|programme|clinical|team|service` rather than an allowlist, and that file records why an allowlist of commercial modifiers was itself a defect. The interface scan could adopt the same pattern. Deliberately NOT done in Task 7: the implementer had already narrowed one safety guard in that round, and widening a second to admit a word it had just introduced is the wrong direction to argue from — recorded as restraint rather than oversight. Workaround in place: the wording now lives in the sealed domain beside the roles it names, following `service-state.ts`'s existing `APPROVAL_ROLE_WORDING`. Anyone taking this row should check that the workaround is not itself smuggling interface copy past a scan that should see it.",
+    "issueUlid": "01M0VQS45Z67HKJN20CCVMMNGJ"
+  }
+}

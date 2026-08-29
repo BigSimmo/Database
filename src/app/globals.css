@@ -627,6 +627,14 @@
   --duration-moderate: 200ms;
   --duration-slow: 240ms;
   --duration-deliberate: 300ms;
+  /* Stagger intervals — the gap between successive items entering a cascade. Deliberately
+     a separate scale from the duration ladder above and far below its shortest rung: the
+     ladder times an item's own entrance, while these time the space between entrances.
+     `--stagger-cascade` is the default for result grids and skeleton bars; the wider rung
+     is for short sequences where the default reads as a single movement rather than as
+     items arriving one at a time (the answer wait's six source cards). */
+  --stagger-cascade: 35ms;
+  --stagger-cascade-wide: 90ms;
   --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
   /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft.
@@ -4360,8 +4368,26 @@ html[data-motion="reduced"] .answer-progress-dot {
 
 .stagger-item {
   animation: cascade-fade-up var(--duration-moderate) var(--ease-out-soft) both;
-  /* 35ms stagger interval has no duration rung. */
-  animation-delay: calc(var(--stagger-index, 0) * 35ms);
+  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade));
+}
+
+/* The answer wait's source rail arrives one card at a time rather than as a single movement.
+   The default `--stagger-cascade` rung is right for a results grid the reader is about to
+   scan, but six cards in 175ms reads as one block appearing. On `--stagger-cascade-wide` the
+   last card lands around 450ms, so each is separately noticeable, and the whole rail is still
+   standing long before generation ends.
+
+   Scoped to this rail deliberately — the shared class also drives the prose skeleton bars
+   immediately above it and the search result grids, which keep the 35ms rung. Declared here,
+   unlayered and adjacent to the rule it overrides, because `.answer-sources-arriving` itself
+   lives in @layer components and a layered rule would lose to this unlayered one whatever its
+   specificity.
+
+   It cannot reintroduce motion when motion is suppressed: both reduced-motion paths below set
+   `animation: none !important` on `.stagger-item`, and that shorthand resets animation-delay
+   to 0s with it, so the cards stay immediately and fully visible. */
+.answer-sources-arriving .stagger-item {
+  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade-wide));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -116,10 +116,16 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // `[data-testid="ward-coordinator"]:visible` resolving to zero elements, while that element was
   // plainly present in the served markup. Added when Ward Flow moved under `/mockups/ward-flow`.
   const isWardFlowMockup = pathname === "/mockups/ward-flow" || pathname.startsWith("/mockups/ward-flow/");
+  const isDevelopmentMockup = pathname === "/mockups/development" || pathname.startsWith("/mockups/development/");
 
   /*
-   * Ward Flow is not wrapped at all — it BYPASSES the shell rather than rendering inside it with
-   * the chrome switched off, which is what every other entry above does.
+   * Ward Flow and Developer Hub are not wrapped at all — they BYPASS the shell rather than rendering inside
+   * it with the chrome switched off, which is what every other entry above does.
+   *
+   * Developer Hub owns its own administrator gate (`DeveloperAreaGate`), its own header
+   * (`DeveloperHubNavHeader`), and each page owns its own semantic `<main>` (`PanelPageShell`).
+   * Nesting it inside `GlobalMockupSearchShell` injects a duplicate `<main id="main-content">` landmark
+   * and causes double-rendering in the dev browser (#ZW43ZT).
    *
    * `GlobalMockupSearchShell` is a re-export of `GlobalSearchShell`, the clinical application's
    * own shell. Hiding its chrome hides the header and composer but still nests the prototype
@@ -134,7 +140,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
    * via the developer page, otherwise standalone app". A standalone app does not render inside
    * the shell of the application it stands apart from.
    */
-  if (isWardFlowMockup) {
+  if (isWardFlowMockup || isDevelopmentMockup) {
     return <>{children}</>;
   }
 

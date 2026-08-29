@@ -735,7 +735,7 @@ async function openScopeControl(page: Page) {
     await actionMenu.click();
     const actionsMenu = page.getByTestId("daily-actions-menu");
     await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await actionsMenu.getByRole("button", { name: /^Scope\b/ }).click();
   }
   await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 }
@@ -1069,7 +1069,7 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
 
 async function expectDocumentUploadUnavailable(page: Page) {
   const menu = await openDailyActions(page);
-  await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
@@ -1134,9 +1134,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (viewport.width < 640) {
         const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
         const dailyActions = await openDailyActions(page);
-        const searchAction = dailyActions.getByRole("menuitem", { name: "Search" });
+        const searchAction = dailyActions.getByRole("button", { name: "Search sources", exact: true });
         await expect(searchAction).toBeVisible();
-        await expect(dailyActions.getByRole("menuitem", { name: "View evidence" })).toBeVisible();
+        await expect(dailyActions.getByRole("button", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");

@@ -1332,7 +1332,11 @@
         "preview": ".design-sync/previews/Pagination.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/developer-review-state-page.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1758,6 +1762,7 @@
         "tests/answer-source-rail.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/caring-contacts-overlay-trigger.dom.test.tsx",
+        "tests/caring-contacts-plan-wizard.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
@@ -3450,7 +3455,18 @@
       "id": "caring-contacts-workspace",
       "disposition": "owned",
       "documentedDisposition": null,
-      "routes": ["src/app/caring-contacts/page.tsx", "src/app/caring-contacts/patients/page.tsx"],
+      "routes": [
+        "src/app/caring-contacts/guidance/page.tsx",
+        "src/app/caring-contacts/page.tsx",
+        "src/app/caring-contacts/patients/[patientId]/page.tsx",
+        "src/app/caring-contacts/patients/page.tsx",
+        "src/app/caring-contacts/plans/new/page.tsx",
+        "src/app/caring-contacts/reports/page.tsx",
+        "src/app/caring-contacts/schedule/page.tsx",
+        "src/app/caring-contacts/team/page.tsx",
+        "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+        "src/app/caring-contacts/templates/page.tsx"
+      ],
       "routeRoots": true,
       "proofApplicability": "required",
       "nonVisualRoute": null,
@@ -3490,6 +3506,16 @@
       "sanctionedSpecialPatterns": ["CaringContactsShell"],
       "roots": [
         {
+          "file": "src/app/caring-contacts/guidance/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
           "file": "src/app/caring-contacts/page.tsx",
           "exists": true,
           "imports": [],
@@ -3500,7 +3526,77 @@
           "sanctionedPatternsPresent": ["CaringContactsShell"]
         },
         {
+          "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
           "file": "src/app/caring-contacts/patients/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/plans/new/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/reports/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/schedule/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/team/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/templates/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3831,8 +3927,16 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/caring-contacts/guidance/page.tsx",
       "src/app/caring-contacts/page.tsx",
+      "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
+      "src/app/caring-contacts/plans/new/page.tsx",
+      "src/app/caring-contacts/reports/page.tsx",
+      "src/app/caring-contacts/schedule/page.tsx",
+      "src/app/caring-contacts/team/page.tsx",
+      "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+      "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx"
@@ -3901,8 +4005,16 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/caring-contacts/guidance/page.tsx",
       "src/app/caring-contacts/page.tsx",
+      "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
+      "src/app/caring-contacts/plans/new/page.tsx",
+      "src/app/caring-contacts/reports/page.tsx",
+      "src/app/caring-contacts/schedule/page.tsx",
+      "src/app/caring-contacts/team/page.tsx",
+      "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
+      "src/app/caring-contacts/templates/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx"
@@ -3913,7 +4025,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 75,
+    "inheritedCkbV2RootCount": 83,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -3922,8 +4034,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 39,
-    "rootCount": 76,
-    "productionRouteCount": 68,
-    "nextUiEntryCount": 128
+    "rootCount": 84,
+    "productionRouteCount": 76,
+    "nextUiEntryCount": 136
   }
 }

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "15dcd00c16cfa8328a0a578f392e221459034aed",
-    "committed_at": "2026-08-27T16:04:44+00:00"
+    "sha": "ad82d76afada11b4f5ca4b7cb689f51581df4483",
+    "committed_at": "2026-08-29T06:15:13+08:00"
   },
   "routes": {
     "modes": [
@@ -114,8 +114,48 @@
         "area": "product"
       },
       {
+        "path": "/caring-contacts/guidance",
+        "file": "src/app/caring-contacts/guidance/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/caring-contacts/patients",
         "file": "src/app/caring-contacts/patients/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/patients/[patientId]",
+        "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/plans/new",
+        "file": "src/app/caring-contacts/plans/new/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/reports",
+        "file": "src/app/caring-contacts/reports/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/schedule",
+        "file": "src/app/caring-contacts/schedule/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/team",
+        "file": "src/app/caring-contacts/team/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates",
+        "file": "src/app/caring-contacts/templates/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates/[pathwayId]",
+        "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "area": "product"
       },
       {
@@ -1186,8 +1226,16 @@
         "file": "src/app/api/caring-contacts/plans/[planId]/route.ts"
       },
       {
+        "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
+        "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/referrals",
         "file": "src/app/api/caring-contacts/referrals/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/schedule",
+        "file": "src/app/api/caring-contacts/schedule/route.ts"
       },
       {
         "path": "/api/caring-contacts/service-state",
@@ -1196,6 +1244,10 @@
       {
         "path": "/api/caring-contacts/session",
         "file": "src/app/api/caring-contacts/session/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/team",
+        "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
         "path": "/api/caring-contacts/training",
@@ -1272,10 +1324,6 @@
       {
         "path": "/api/documents/images/batch",
         "file": "src/app/api/documents/images/batch/route.ts"
-      },
-      {
-        "path": "/api/documents/signed-urls",
-        "file": "src/app/api/documents/signed-urls/route.ts"
       },
       {
         "path": "/api/eval-cases",
@@ -1372,11 +1420,11 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 190,
-      "product_pages": 55,
+      "pages": 198,
+      "product_pages": 63,
       "mockup_pages": 135,
       "redirects": 17,
-      "api": 58
+      "api": 60
     }
   },
   "documentation": {
@@ -1699,6 +1747,11 @@
       {
         "path": "docs/branch-review-ledger.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/brand/psychsift-logo.md",
+        "section": "brand",
         "catalogued": true
       },
       {
@@ -2132,12 +2185,207 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-pr-body.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
         "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2172,6 +2420,66 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2182,7 +2490,62 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-timeline-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2379,7 +2742,7 @@
       {
         "path": "docs/design-system/README.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/SPEC.md",
@@ -3806,6 +4169,9 @@
         "name": "audit"
       },
       {
+        "name": "brand"
+      },
+      {
         "name": "care-plan"
       },
       {
@@ -3852,10 +4218,10 @@
       }
     ],
     "counts": {
-      "documents": 482,
-      "catalogued": 107,
-      "uncatalogued": 375,
-      "sections": 19
+      "documents": 545,
+      "catalogued": 109,
+      "uncatalogued": 436,
+      "sections": 20
     }
   },
   "test_health": {
@@ -4002,6 +4368,14 @@
         "scope": "Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR",
         "outcome": "No fix pushed. mergeable_state=dirty is real: git merge origin/main conflicts only in generated data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json, both cleanly regenerable via npm run snapshot:issues / npm run snapshot:repo-awareness. Regenerated them, but the merge commit then fails the check-ledger-write-discipline.mjs pre-push guard: origin/main (PR #2417) queued 2 new pending ledger-inbox requests after this PR's branch point (474922a3-...json -> issue #TBW7BR, 5e8ec6a9-...json -> issue #BR2217), and this PR's merge commit would touch docs/outstanding-issues-inbox/applied/ (its own 33-item reconciliation) while leaving those 2 newer items unreconciled - flagged as a partial-batch reconciliation. Deciding whether #TBW7BR/#BR2217 should be marked done is outside this PR's declared 33-item scope and belongs to a dedicated npm run issues:reconcile operation, not an ad hoc merge fix, so per sweep policy for ambiguous reconciliation-content conflicts the merge was aborted (git reset --hard back to the original PR tip 0a370df3) rather than pushed with SKIP_LEDGER_WRITE_GUARD=1. Branch left exactly as found (0a370df3, matches origin). Review threads: get_review_comments returned 0 threads; the 4 PR comments are all bot rate-limit notices (Codex usage limit, CodeRabbit review limit, Cursor Bugbot usage limit, Supabase preview ignored-no-supabase-changes) with nothing actionable to reply to or resolve. Real CI: only PR Policy (pass) and PR mergeability (fail, caused by the same drift above) have run for this head; the main ci.yml required-checks aggregate (changes/static-pr/safety/coverage/build/ui-critical/db-reset-verify/pr-required) has not triggered yet on this SHA, so there is no other CI failure to diagnose. No merge to main, no force-push, no auto-merge toggle, no close, no provider-backed gate run.",
         "checks": "node scripts/ledger-inbox.mjs check (0 pending / 33 applied at PR head, 2 pending after main merge before abort); npm run check:outstanding-issues-snapshot (83 open, 0 pending at PR head); node scripts/check-outstanding-issues.mjs (512 rows, 83 open, 429 archived, passed on merged tree before abort); node scripts/check-ledger-write-discipline.mjs --base 32652318 --head <merge-commit> = FAILED (partial reconciliation, 2 items left pending) -> merge aborted; npx tsc -p tsconfig.typecheck.json --noEmit = 0 errors (on merged tree, discarded); npm run docs:check-index/check-inventory/check-scripts/check-links = all passed (on merged tree, discarded); npm run format = no changes (on merged tree, discarded); git merge-tree --write-tree origin/main 0a370df3 = conflicts confined to data/outstanding-issues-snapshot.json and data/repo-awareness-snapshot.json only"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "update_documentation_structure (PR #2444)",
+        "head": "c619671065422373f746f69bca5f94147767f877",
+        "scope": "PR 2444 review: main sync + CI fix + review thread",
+        "outcome": "before: PR policy/Static PR checks/Unit coverage failing, 1 unresolved review thread, behind main by 2 commits (clean merge). after: merged origin/main (no conflicts), regenerated docs/site-map.md to drop deleted signed-urls alias route (fixes docs:check-links + site-map.test.ts), fixed CodeRabbit Major finding — upload error-path storage_cleanup_jobs ledger now carries document_id when document deletion is not confirmed so the janitor live-document guard can protect it, added required PR-body Clinical Governance Preflight + Risk and rollout sections (fixes PR policy check). Thread resolved with fix commit reference.",
+        "checks": "npm run typecheck (clean), npm run lint (clean), npm run test:focused -- --files src/app/api/upload/route.ts (184 passed), npm run docs:check-links (passed), npm run sitemap:check (passed), npm run format (no changes needed). No provider-backed checks run."
       },
       {
         "date": "2026-08-26",
@@ -25029,8 +25403,8 @@
       }
     ],
     "counts": {
-      "records": 2645,
-      "refs": 1613
+      "records": 2646,
+      "refs": 1614
     }
   }
 }

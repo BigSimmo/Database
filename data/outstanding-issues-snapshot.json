@@ -10,7 +10,7 @@
     "p2": 49,
     "p3": 31,
     "queued": 7,
-    "pending": 7,
+    "pending": 38,
     "resolved": 431
   },
   "queue": [
@@ -825,10 +825,100 @@
   ],
   "pending": [
     {
+      "request_id": "06402493-54b3-4718-997e-74f72566ae5f",
+      "action": "add",
+      "summary": "Caring Contacts: the vocabulary scan rewards leaving developer identifiers on screen, and the sealed domain it pushes copy into is watched by no vocabulary scan at all",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "11e9136a-6db8-4d3f-84c1-4d39cf18774a",
+      "action": "cancel",
+      "summary": "Cancel request 16763c67-0d53-48c9-a32d-11046a0c55d7: Understates the problem. Filed as 'the interface scan cannot express a job title', but the Task 7 re-review found the larger half: src/lib/caring-contacts/** is outside EVERY prohibited-language scan in the repository, so wording moved there is unwatched by any vocabulary check rather than merely exempt from the 'lead' rule. The record also omits that the fix is a one-line reuse of an already-tested pattern, which makes it look harder than it is. Superseded by a replacement stating both. The underlying issue is real and unchanged.",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "16763c67-0d53-48c9-a32d-11046a0c55d7",
+      "action": "add",
+      "summary": "Caring Contacts: the interface-vocabulary scan cannot express a job title, so correct plain-words role labels fail while raw identifiers pass",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "17e26e25-5180-4ed4-9391-834ec456d605",
+      "action": "done",
+      "summary": "#G693BZ: Verified PanelSection extracted in panel-primitives.tsx and adopted across routes, documentation, test-health, review-state, and ledger pages.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
       "action": "done",
       "summary": "#GQ5X8T: NOT A PRODUCT REGRESSION — classified as environment-specific Windows/busy-host measurement noise. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. No product, budget, tolerance, request-count, or proven CLS change was made. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
       "created_at": "2026-08-26"
+    },
+    {
+      "request_id": "2f077536-00d5-46da-a7c2-63ad9d0221e5",
+      "action": "done",
+      "summary": "#76GGRG: Standardized Useful actions to role=group disclosure model with plain buttons and added Escape handling for mode picker.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "2fec44ad-0f30-459c-8caa-d289dded5c29",
+      "action": "add",
+      "summary": "Caring Contacts: a draft plan's contacts are already in state scheduled and listSendableContacts has no plan-state gate",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "35b8730d-b1f3-41bd-9bc2-7e485446391a",
+      "action": "done",
+      "summary": "#V27DZ1: Resolved Playwright strict-mode locator uniqueness on Ward Flow role screens by unifying root containers and verified with tests/ward-management-role.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "36b7dc6b-733e-4116-8a47-4ef35e86039f",
+      "action": "done",
+      "summary": "#WP76E6: Clarified automated supervisor queues vs manual intervention triggers in interaction-matrix.md and verified with caring-contacts-overlay-definitions.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "373b1aa3-596e-4d5f-bc4f-b05ad44a76f5",
+      "action": "add",
+      "summary": "Caring Contacts: the workspace's first client boundary has no browser evidence that it hydrates",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "39bc43fc-7bd7-4088-a7e4-4d29d3d418d5",
+      "action": "done",
+      "summary": "#4AM8Z0: Added Ramipril and Simvastatin to medication catalogue with full interaction, dosing, and contraindication profiles; rebuilt interaction index and asserted in tests/medication-badges.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "3ac44d1e-88b8-4676-97e5-aa83d615fc98",
+      "action": "done",
+      "summary": "#XKS6FD: Added first-class mode live to Freshness type and resolveLiveFreshness helper displaying read live status.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "3c840c08-2b35-49f1-affa-54e9b4c812ea",
+      "action": "add",
+      "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "44e5f87c-d30f-4334-9184-75c1544773ef",
+      "action": "done",
+      "summary": "#PM9SP1: Relabelled Therapy Compass copy from 'Decision support' to 'Source-grounded therapy reference' across workspace, screens, and app-modes",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "4e58bc6b-982a-4aca-b89f-d976ab47b61d",
+      "action": "done",
+      "summary": "#PDM6NG: Added static test suite tests/caring-contacts-workspace-screens.test.ts asserting all page routes under src/app/caring-contacts/ match WORKSPACE_SCREENS",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "4fad600d-b335-42ba-91a0-f35479aa52ae",
+      "action": "cancel",
+      "summary": "Cancel request 373b1aa3-596e-4d5f-bc4f-b05ad44a76f5: Scoped to hydration when filed after Task 7; Tasks 8 and 9 widened the consequence far beyond that, and the row as written understates what is unproven. Same root cause and same trigger to close, so superseded by one replacement stating the full cost rather than adding a second row.",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "6b49d272-6636-4004-b13d-3073b75b7339",
@@ -841,6 +931,18 @@
       "action": "add",
       "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
       "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "74818f95-4e71-4808-bec2-ff7ffb233ac1",
+      "action": "done",
+      "summary": "#Y0BDBJ: Implemented ReviewStateTable with 50-item responsive pagination reducing HTML payload from 1.73 MB to <100 KB.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
+      "action": "add",
+      "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "8324c7e4-18fb-4073-ba6b-ae46920f768d",
@@ -861,9 +963,93 @@
       "created_at": "2026-08-27"
     },
     {
+      "request_id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
+      "action": "done",
+      "summary": "#1CYR4V: Reconciled and pinned 640-767px overlay-modality breakpoint band across Sheet and OverlayHost with dom and workspace spec tests",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "9b9b8f4f-7f0a-4f91-944e-c11837e69994",
+      "action": "cancel",
+      "summary": "Cancel request b60f9982-f48c-4a70-ae92-99d88313cab3: The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged.",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",
+      "action": "done",
+      "summary": "#XEGPCD: Hardened ensureTeam with explicit row-level update lock on conflict (id) do update set id = excluded.id and pinned assertion in tests/caring-contacts-write-serialisation.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "a6215b70-c84e-41b3-8828-b170c00a1b49",
+      "action": "done",
+      "summary": "#FDST2Q: Implemented formatRelativeAge formatting sub-60-minute durations as just now or < 1 hour ago instead of 0 hours ago.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "af496d9a-fd58-4984-b216-efcf2495fd67",
+      "action": "done",
+      "summary": "#WG24JB: Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
+      "created_at": "2026-08-27"
+    },
+    {
       "request_id": "af8b8fb0-3930-43a6-8d06-c897866a86b9",
       "action": "add",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "b2e5f3fc-ab2d-4a14-a055-6742d6446784",
+      "action": "add",
+      "summary": "CI never runs the caring-contacts Postgres suite, so every row-level-security and cross-team assertion it makes against real SQL fires only on a developer's machine",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "b60f9982-f48c-4a70-ae92-99d88313cab3",
+      "action": "add",
+      "summary": "CI never runs the caring-contacts database suite, so its 193 tests and the PLAN_COLUMNS narrowing guard only fire on a developer's machine",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "bda0d7e0-7d0a-4946-9f22-8062959a6908",
+      "action": "add",
+      "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "c4bc5cb3-442e-42ed-9af4-29ae72f02fb6",
+      "action": "add",
+      "summary": "Caring Contacts: the plans list query fetches every patient's mobile number and identifiers on every caseload render",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "c66f01fb-e52a-40fa-a4b2-f4d1449ddb11",
+      "action": "done",
+      "summary": "#DTSABC: Authored Form 12A statutory Authority and Criteria prose from committed PDF and asserted in tests/forms.test.ts",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "dc7ad7ef-1a27-4305-b1f5-326ee08985eb",
+      "action": "add",
+      "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "dece668d-e5da-4d9f-bf44-d3abed47e492",
+      "action": "done",
+      "summary": "#HX1KSZ: Codified 3-way component-metric boundary rule in docs/design-system/GATES.md section 3 prohibition table without value conversions.",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "f6cffbd6-98e9-4233-8c2f-315e5fcc722a",
+      "action": "done",
+      "summary": "#F5EYAJ: Created connection and permission unavailable fallback components, wired routing in app/caring-contacts/error.tsx, and dynamically supplied blockReason in workspace-overlays.tsx",
+      "created_at": "2026-08-27"
+    },
+    {
+      "request_id": "fed7ba66-652e-4081-8845-3c3b70496507",
+      "action": "done",
+      "summary": "#ZW43ZT: Bypassed GlobalMockupSearchShell for /mockups/development in MockupsLayoutClient to eliminate duplicate dev main landmark collisions.",
       "created_at": "2026-08-27"
     }
   ]
