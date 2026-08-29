@@ -1,12 +1,13 @@
+import { MINUTES_PER_DAY, splitDuration } from "@/components/ward-management/ward-clock";
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import type { WardFlowState } from "../src/components/ward-management/ward-flow-reducer";
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import type { MovementStage } from "../src/components/ward-management/ward-model";
-import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
-import { eligibleCandidatesAmong } from "../src/components/ward-management/ward-derivations";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { eligibleCandidatesAmong, isOpen } from "../src/components/ward-management/ward-derivations";
 
 const NOW = NOW_ANCHOR;
 const MOVEMENT_ID = "WF-001";
@@ -496,7 +497,10 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 12 records are stage "placement_requested" today (WF-001, WF-012, WF-018, WF-301, WF-305,
     // WF-308, WF-312, WF-315, WF-319, WF-322, WF-326, WF-329) — measured directly against the real
     // fixture, not assumed.
-    expect(matched).toBe(12);
+    // 12 -> 14 on 2026-08-30. Both new long waits are `placement_requested` with no referral,
+    // decline or withdrawal, which is what a patient nobody has yet referred anywhere looks like -
+    // so they belong in this count and the coherence rule holds for both.
+    expect(matched, "the number of clean placement_requested movements changed").toBe(14);
   });
 
   it("never lets a movement carry a live referral outside the 'destination_review' stage REFER_TO_UNITS put it in", () => {
@@ -547,5 +551,53 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 1 record carries a withdrawn referral today (WF-006, accepted at rgh-adult-secure) —
     // measured directly against the real fixture.
     expect(matched).toBe(1);
+  });
+});
+
+describe("the fixture can demonstrate a wait longer than a day", () => {
+  /*
+   * WHY THIS EXISTS. `splitDuration` renders a day or more as "1d 6h" and `formatInstantWithDay`
+   * says "yesterday" - and until 2026-08-30 no seeded record could produce either, because
+   * `routineMovements` caps `openedAt` at `60 + ((index * 37) % 900)` minutes and every hand-seeded
+   * movement waited hours. A capability nothing exercises is indistinguishable from one that does
+   * not work, and the whole suite stays green either way. That is not hypothetical here: the
+   * out-of-area screen rendered stays as "5041h 30m" for as long as it did precisely because no
+   * assertion was ever about the format.
+   *
+   * So this asserts the DATA can reach the code path, which is a different claim from the code path
+   * being correct - `tests/ward-clock.test.ts` makes that one.
+   */
+  it("holds open movements that have waited more than a day, and says so in days", () => {
+    const longWaits = wardMovements
+      .filter(isOpen)
+      .map((movement) => ({ id: movement.id, minutes: NOW_ANCHOR - movement.openedAt }))
+      .filter((entry) => entry.minutes > MINUTES_PER_DAY);
+
+    expect(
+      longWaits.map((entry) => entry.id).sort(),
+      "the fixture no longer contains a wait longer than a day, so nothing on any screen can " +
+        "demonstrate the day-scale clock. Adding the capability without data that reaches it is how " +
+        "a feature everyone believes in ships broken: every test stays green because none of them " +
+        "can produce the case.",
+    ).toEqual(["WF-019", "WF-020"]);
+
+    for (const entry of longWaits) {
+      expect(
+        splitDuration(entry.minutes),
+        `${entry.id} waits ${entry.minutes} minutes and must render in days, not in hours`,
+      ).toMatch(/^\d+d( \d+h)?$/);
+    }
+  });
+
+  it("keeps one of them just over the boundary, where an hours-only formatter would look right", () => {
+    // WF-020 waits 29 hours. A formatter that truncated to hours would render "29h 00m", which is
+    // correct arithmetic and unreadable - and would look entirely plausible to a reviewer. The
+    // boundary case is the one that catches a half-fix; a three-day wait would not.
+    const wf020 = wardMovements.find((movement) => movement.id === "WF-020");
+    expect(wf020, "WF-020 is the boundary case this file names; it must exist").toBeDefined();
+    const minutes = NOW_ANCHOR - (wf020?.openedAt ?? NOW_ANCHOR);
+    expect(minutes).toBeGreaterThan(MINUTES_PER_DAY);
+    expect(minutes).toBeLessThan(2 * MINUTES_PER_DAY);
+    expect(splitDuration(minutes)).toBe("1d 5h");
   });
 });

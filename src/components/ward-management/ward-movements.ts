@@ -568,6 +568,69 @@ const seededMovements: Movement[] = [
     withdrawnReferrals: [],
     unwinds: [],
   },
+  /**
+   * THE TWO LONG WAITS, added 2026-08-30 — and they exist to make a capability reachable rather
+   * than to make the fixture prettier.
+   *
+   * Every other movement here waits hours. `routineMovements` caps at
+   * `60 + ((index * 37) % 900)` minutes, so the longest wait anywhere in this fixture was about
+   * SIXTEEN HOURS — which meant the day-scale clock work had nothing to display. `splitDuration`
+   * could render `1d 6h`, `formatInstantWithDay` could say "yesterday", and no seeded record could
+   * produce either. A capability nothing exercises is indistinguishable from one that does not
+   * work, and the whole suite stays green either way.
+   *
+   * These two are the demonstration's evidence that a wait can outlast a day. Both are
+   * `Voluntary`, deliberately: a voluntary patient waiting days for a bed is the access-block
+   * story this prototype is about, and it introduces no legal form, no statutory deadline and no
+   * Mental Health Act figure of any kind.
+   *
+   * They are hand-seeded rather than folded into the generator so the change is attributable. Widen
+   * `routineMovements` instead and every measured figure in this project moves at once, with no way
+   * to say which movement caused what.
+   */
+  {
+    id: "WF-019",
+    originEdId: "rgh-ed",
+    // Two days and fourteen hours. Long enough that no reader can mistake it for a bad afternoon.
+    openedAt: NOW_ANCHOR - (2 * 24 * 60 + 14 * 60),
+    urgency: 2,
+    cohort: "Adult",
+    security: "Secure",
+    sex: "Male",
+    specialling: false,
+    legalStatus: "Voluntary",
+    statusChanges: [],
+    urgencyChanges: [],
+    stage: "placement_requested",
+    owner: "ED mental health team",
+    referredUnitIds: [],
+    declines: [],
+    blocker: "No secure bed available within reach of home",
+    withdrawnReferrals: [],
+    unwinds: [],
+  },
+  {
+    id: "WF-020",
+    originEdId: "peel-ed",
+    // One day and five hours - deliberately just over the boundary, so a formatter that silently
+    // truncates to hours is caught by the difference between "1d 5h" and "29h 00m".
+    openedAt: NOW_ANCHOR - (24 * 60 + 5 * 60),
+    urgency: 3,
+    cohort: "Older adult",
+    security: "Open",
+    sex: "Female",
+    specialling: false,
+    legalStatus: "Voluntary",
+    statusChanges: [],
+    urgencyChanges: [],
+    stage: "placement_requested",
+    owner: "ED mental health team",
+    referredUnitIds: [],
+    declines: [],
+    blocker: "Waiting on an older-adult bed",
+    withdrawnReferrals: [],
+    unwinds: [],
+  },
 ];
 
 /**

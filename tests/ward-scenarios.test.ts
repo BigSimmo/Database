@@ -68,7 +68,7 @@ describe("ward scenarios", () => {
         "at strandedMovements first — it counts open movements with nowhere eligible to go on an " +
         "ordinary night, so a rise there means the network now strands patients it used to place, " +
         "and that is a clinical regression rather than a test that needs updating.",
-    ).toEqual({ openMovements: 41, eligiblePairs: 342, strandedMovements: 2 });
+    ).toEqual({ openMovements: 43, eligiblePairs: 353, strandedMovements: 2 });
   });
 
   it("the scarce night exhausts the network for at least one open movement", () => {
@@ -89,7 +89,7 @@ describe("ward scenarios", () => {
         "because the scarce scenario changes bed counts and never the movements; if it does not, " +
         "the scenario has started altering something it must not touch, and the last test in this " +
         "file says which attributes those are.",
-    ).toEqual({ openMovements: 41, eligiblePairs: 98, strandedMovements: 9 });
+    ).toEqual({ openMovements: 43, eligiblePairs: 102, strandedMovements: 9 });
 
     expect(
       Math.min(...counts),

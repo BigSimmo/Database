@@ -68,7 +68,8 @@ describe("Ward Flow synthetic prototype", () => {
   });
 
   it("uses only synthetic operational movement identifiers and minimised fields", () => {
-    expect(wardMovements).toHaveLength(48);
+    // 48 -> 50 on 2026-08-30: WF-019 and WF-020, the two movements waiting longer than a day.
+    expect(wardMovements, "the movement fixture changed size").toHaveLength(50);
     for (const movement of wardMovements) {
       expect(movement.id).toMatch(/^WF-\d{3}$/);
       expect(movement).not.toHaveProperty("name");

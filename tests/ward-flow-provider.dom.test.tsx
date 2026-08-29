@@ -49,7 +49,10 @@ describe("WardFlowProvider", () => {
         <Probe />
       </WardFlowProvider>,
     );
-    expect(screen.getByTestId("movements")).toHaveTextContent("48");
+    // 48 -> 50 on 2026-08-30: WF-019 and WF-020, the two movements that have waited longer than a
+    // day. Every other seeded wait caps at about sixteen hours, so until they existed the day-scale
+    // clock work had nothing on the fixture to display.
+    expect(screen.getByTestId("movements")).toHaveTextContent("50");
     // Was 22 before Phase 7 (spec "The front door") added `bty-youth` (East Metropolitan Youth
     // Unit) to the fixture in `ward-sites.ts`.
     expect(screen.getByTestId("units")).toHaveTextContent("23");

@@ -136,6 +136,12 @@ describe("GovernanceView", () => {
     expect(acceptance).toHaveTextContent("30 minfrom 1 of 27 recorded acceptances");
 
     const unitsContacted = screen.getByTestId("ward-governance-effectiveness-units-contacted");
-    expect(unitsContacted).toHaveTextContent("from 32 of 48 movements that referred at least one unit");
+    expect(unitsContacted, "the basis denominator no longer matches the fixture").toHaveTextContent(
+      "from 32 of 50 movements that referred at least one unit",
+    );
+    // 48 -> 50 on 2026-08-30 for WF-019 and WF-020, the two long waits. The NUMERATOR is unchanged
+    // at 32: neither has referred a unit, which is why they wait. A denominator moving while the
+    // numerator holds is exactly what adding two unplaced patients should do, and checking that
+    // rather than only re-running is what separates a verified figure from a re-baselined one.
   });
 });

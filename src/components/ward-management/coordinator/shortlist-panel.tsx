@@ -16,7 +16,7 @@ import {
   type ReleaseHoldReason,
   type UrgencyChangeReason,
 } from "@/components/ward-management/ward-change-reasons";
-import { clockState, formatInstant, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
+import { clockState, formatInstantWithDay, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import {
   candidateReason,
   destinationUnit,
@@ -927,7 +927,7 @@ export function ShortlistPanel({
                     {decline.reason.replace(/_/g, " ")}
                     {decline.note ? ` — ${decline.note}` : ""}
                   </span>
-                  <span>{formatInstant(decline.at)}</span>
+                  <span>{formatInstantWithDay(decline.at, now)}</span>
                 </li>
               );
             })}
@@ -948,7 +948,7 @@ export function ShortlistPanel({
         <h4 className={styles.shortlistSectionHeading}>Escalation</h4>
         {movement.escalation ? (
           <p className={styles.shortlistEscalationRecord} data-testid="ward-shortlist-escalation-record">
-            {`Escalated at ${formatInstant(movement.escalation.at)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
+            {`Escalated at ${formatInstantWithDay(movement.escalation.at, now)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
           </p>
         ) : null}
         {topEligible === undefined ? (
@@ -1032,7 +1032,7 @@ export function ShortlistPanel({
             instead (`rejections`), never claimed as a success on this footer. */}
         {overrideRecord && overrideSucceeded ? (
           <p className={styles.shortlistConfirmationRecord} data-testid="ward-shortlist-confirmation-record">
-            {`Overridden by a human coordinator — referred to ${overrideRecordUnits.join(", ")} at ${formatInstant(overrideRecord.at)} — reason: "${overrideRecord.reason}". No bed was allocated automatically.`}
+            {`Overridden by a human coordinator — referred to ${overrideRecordUnits.join(", ")} at ${formatInstantWithDay(overrideRecord.at, now)} — reason: "${overrideRecord.reason}". No bed was allocated automatically.`}
           </p>
         ) : null}
 
