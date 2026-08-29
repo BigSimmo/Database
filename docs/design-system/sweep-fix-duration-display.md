@@ -32,7 +32,7 @@ a minute count as a wait:
 All three previously called the file's own `plural(count, "minute", "minutes")` directly on a raw
 minute count with no upper-unit conversion. **No computed value changed.** The 60-minute escalation
 threshold (`thresholdMinutes`, wired from `UNCLAIMED_ESCALATION_MINUTES`) is still compared against
-the exact minute count and is still *worded* as "60 minutes" verbatim wherever it appears — that is
+the exact minute count and is still _worded_ as "60 minutes" verbatim wherever it appears — that is
 a rule statement, not a wait, and stays untouched. `oldestMinutesUnclaimed` and
 `oldestMinutesSinceScheduledSend` themselves are unchanged in the domain layer; only how they are
 said in the two renderings changed.
@@ -55,7 +55,7 @@ function; nothing here can let them drift from each other.
   a coordinator something is overdue. Nearest-rounding is honest on average and never off by more
   than half a unit either way.
 - **The hour→day handoff is cascaded, not cut at a fixed minute boundary.** Rounding a count just
-  under a day (e.g. 1439 minutes = 23h59m) straight to hours would round *up* to "24 hours" — true,
+  under a day (e.g. 1439 minutes = 23h59m) straight to hours would round _up_ to "24 hours" — true,
   but not something anyone says. So the day figure is computed, and shown, only once the hour figure
   would itself reach 24 (`hours >= 24`), and it is rounded from the **original minute count**, not
   from the already-rounded hour count, so the two roundings can't compound. This means 1439, 1440,
@@ -66,18 +66,18 @@ function; nothing here can let them drift from each other.
 
 ## Before / after, at several magnitudes
 
-| Minutes | Before             | After     |
-| ------- | ------------------ | --------- |
-| 0       | "0 minutes"        | "0 minutes" (unchanged) |
-| 1       | "1 minute"         | "1 minute" (unchanged)  |
-| 13      | "13 minutes"       | "13 minutes" (unchanged, confirmed live) |
-| 59      | "59 minutes"       | "59 minutes" (unchanged) |
-| 60      | "60 minutes"       | "1 hour" |
-| 90      | "90 minutes"       | "2 hours" |
-| 145     | "145 minutes"      | "2 hours" |
-| 1439    | "1439 minutes"     | "1 day" |
-| 1440    | "1440 minutes"     | "1 day" |
-| 44575   | "44575 minutes"    | "31 days" |
+| Minutes | Before          | After                                    |
+| ------- | --------------- | ---------------------------------------- |
+| 0       | "0 minutes"     | "0 minutes" (unchanged)                  |
+| 1       | "1 minute"      | "1 minute" (unchanged)                   |
+| 13      | "13 minutes"    | "13 minutes" (unchanged, confirmed live) |
+| 59      | "59 minutes"    | "59 minutes" (unchanged)                 |
+| 60      | "60 minutes"    | "1 hour"                                 |
+| 90      | "90 minutes"    | "2 hours"                                |
+| 145     | "145 minutes"   | "2 hours"                                |
+| 1439    | "1439 minutes"  | "1 day"                                  |
+| 1440    | "1440 minutes"  | "1 day"                                  |
+| 44575   | "44575 minutes" | "31 days"                                |
 
 ## Existing tests I had to change, and why
 
@@ -118,6 +118,7 @@ Unit tests for the helper, all boundaries requested (0, 1, 59, 60, 61, 90, 1439,
  Test Files  2 passed (2)
       Tests  37 passed (37)
 ```
+
 (`npx vitest run --reporter=dot tests/caring-contacts-duration-display.test.ts tests/caring-contacts-team-roster.dom.test.tsx`)
 
 Every existing Team-screen test file discovered from disk, plus every file mentioning the touched
@@ -127,6 +128,7 @@ fields (all four resolved to the same set):
  Test Files  4 passed (4)
       Tests  77 passed (77)
 ```
+
 (`npx vitest run --reporter=dot tests/caring-contacts-team-page.dom.test.tsx tests/caring-contacts-team-roster.dom.test.tsx tests/caring-contacts-team-route.test.ts tests/caring-contacts-team-workload.test.ts`)
 
 Lint, changed files only, zero warnings tolerated:
@@ -134,6 +136,7 @@ Lint, changed files only, zero warnings tolerated:
 ```
 npx eslint src/components/caring-contacts/workspace/team-roster.tsx src/lib/caring-contacts/duration-display.ts tests/caring-contacts-duration-display.test.ts tests/caring-contacts-team-roster.dom.test.tsx --max-warnings 0
 ```
+
 No output — clean.
 
 Live screen, `http://localhost:3350/caring-contacts/team` (this worktree's running dev server, port
