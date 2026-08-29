@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
 
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
@@ -60,7 +60,72 @@ const SOURCE_LABELS: Record<ReferralSource, string> = {
   inter_hospital: "Inter-hospital",
 };
 
+/**
+ * Phase R2.1: the one value that means "nobody has answered this question yet".
+ *
+ * It lives in THIS FORM'S OWN DRAFT STATE AND NOWHERE ELSE. It is never dispatched, never
+ * reaches `RECEIVE_REFERRAL`, never reaches the reducer and never reaches a `Referral` — the
+ * form cannot be sent while any field still holds it (see `answeredDraft` below, and the inert
+ * Send at the bottom of this file). So `Referral` is unchanged, the event is unchanged and the
+ * reducer is unchanged: this is a fact about a half-filled form, not a new clinical state.
+ *
+ * **Why not the empty string, which would have been the obvious choice.** `""` is already
+ * load-bearing for the origin-site picker. `tests/ward-referral-screens.dom.test.tsx` provokes a
+ * GENUINE reducer refusal — the repository's only proof that an intake refusal reaches the screen
+ * rather than being swallowed — by setting that select to a code no option carries, which leaves
+ * the DOM's own resolved value at `""` (no matching option -> selectedIndex -1 -> value ""), so
+ * `siteByCode("")` resolves to nothing and `RECEIVE_REFERRAL` refuses the event. Had `""` become
+ * the unanswered sentinel, Send would go inert on that value and the reducer would never be
+ * reached, so that proof would be destroyed.
+ *
+ * **Corrected 2026-08-30 (R2 review finding M1).** Commit `78133a738` overstated this in three
+ * places, here included: it said the test would have gone on PASSING while the proof was
+ * destroyed. It would not. That test ends by asserting `rejection-count` reads `"1"`, and with an
+ * inert Send nothing dispatches, so the count stays `"0"` and the test goes red either way. What
+ * the pre-click "Send is available" assertion added in that commit actually buys is a LEGIBLE
+ * failure — "Send went inert, so this test never reaches the reducer" — in place of a misleading
+ * one about rejection counts. That is worth keeping, and it is a smaller claim than was made.
+ *
+ * With the sentinel distinct from `""`, an origin site of `""` remains an ANSWER — an invalid one
+ * the reducer is left to refuse, exactly as before — and it stays unreachable by ordinary use of
+ * this screen, because no option on this form carries it.
+ *
+ * The value is deliberately not a member of `COHORTS`, `SEXES`, `HOME_REGIONS`,
+ * `REFERRAL_SOURCES`, `URGENCY_LEVELS` or any site code — asserted, not assumed, in that suite.
+ */
+export const UNANSWERED_VALUE = "not-answered";
+
+/** The leading option every picker carries while it is unanswered. Worded as a PROMPT, never as
+ *  a state: a "Not known" reading here would look like a sendable answer, and a sending "not
+ *  known" is deliberately NOT part of this work — it needs a model decision nobody has taken
+ *  (`involuntaryBedNeeded` would have to stop being a `boolean`, which the eligibility gate
+ *  reads, and `HOME_REGIONS` would have to gain an eleventh member that `ward-teams.ts` makes a
+ *  compile break on purpose so that a human decides). */
+export const UNANSWERED_OPTION_LABEL = "Choose one";
+
+/** The id `aria-describedby` on Send points at while Send is unavailable. */
+const UNAVAILABLE_REASON_ID = "ward-referral-intake-unavailable-reason";
+
+function isUnanswered(value: unknown): boolean {
+  return value === UNANSWERED_VALUE;
+}
+
 type ReferralDraft = {
+  ageBand: Cohort | typeof UNANSWERED_VALUE;
+  sex: Sex | typeof UNANSWERED_VALUE;
+  homeRegion: HomeRegion | typeof UNANSWERED_VALUE;
+  secureBedNeeded: boolean | typeof UNANSWERED_VALUE;
+  involuntaryBedNeeded: boolean | typeof UNANSWERED_VALUE;
+  source: ReferralSource | typeof UNANSWERED_VALUE;
+  urgency: UrgencyLevel | typeof UNANSWERED_VALUE;
+  /** Already a `string`, so the sentinel needs no widening here — but see `UNANSWERED_VALUE`'s
+   *  own comment for why that sentinel must not be `""`. */
+  originSiteCode: string;
+  transportNeeded: boolean;
+};
+
+/** The nine fields exactly as `RECEIVE_REFERRAL` takes them, once every question has an answer. */
+type AnsweredDraft = {
   ageBand: Cohort;
   sex: Sex;
   homeRegion: HomeRegion;
@@ -72,18 +137,94 @@ type ReferralDraft = {
   transportNeeded: boolean;
 };
 
+/**
+ * Every question Send waits on, in the order the form asks them, with the name the unavailability
+ * note calls each one.
+ *
+ * `transportNeeded` is deliberately absent. It is a fact about the REFERRAL rather than about the
+ * person; an unticked box there reads as "no transport arranged" rather than as a clinical claim
+ * about someone, and making it a third yes/no group would cost a tap this work is not authorised
+ * to spend. Recorded as a residual rather than quietly folded in here.
+ *
+ * The two need questions are named by short field names rather than by their full on-screen
+ * wording on purpose: that wording ("Needs a secure bed" …) is a clinical rule with its own test,
+ * and repeating it inside this sentence would put the same clinical phrase on the screen twice.
+ */
+const REQUIRED_FIELDS: readonly { readonly key: keyof ReferralDraft; readonly name: string }[] = [
+  { key: "ageBand", name: "Age band" },
+  { key: "sex", name: "Sex" },
+  { key: "homeRegion", name: "Home region" },
+  { key: "source", name: "Referral source" },
+  { key: "urgency", name: "Urgency" },
+  { key: "originSiteCode", name: "Origin site" },
+  { key: "secureBedNeeded", name: "Secure bed needed" },
+  { key: "involuntaryBedNeeded", name: "Involuntary bed needed" },
+];
+
+/** The same names, in the same order, for the suite that pins what the note may say. */
+export const REQUIRED_FIELD_NAMES: readonly string[] = REQUIRED_FIELDS.map((field) => field.name);
+
+function unansweredFieldNames(draft: ReferralDraft): string[] {
+  return REQUIRED_FIELDS.filter((field) => isUnanswered(draft[field.key])).map((field) => field.name);
+}
+
+/**
+ * The draft as `RECEIVE_REFERRAL` would take it, or `undefined` while any question is unanswered.
+ *
+ * This is the single place the sentinel is stopped from escaping the form, and there is
+ * deliberately no branch mapping an unanswered value onto a default on the way out. Mapping an
+ * unanswered `involuntaryBedNeeded` onto `false` would be the very defect this task removes,
+ * moved one layer down where nobody looks: `false` means "impose no legal-status constraint",
+ * which is a definite clinical answer nobody gave.
+ */
+function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
+  const { ageBand, sex, homeRegion, secureBedNeeded, involuntaryBedNeeded, source, urgency, originSiteCode } = draft;
+  if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
+  if (source === UNANSWERED_VALUE || urgency === UNANSWERED_VALUE || originSiteCode === UNANSWERED_VALUE) {
+    return undefined;
+  }
+  if (secureBedNeeded === UNANSWERED_VALUE || involuntaryBedNeeded === UNANSWERED_VALUE) return undefined;
+  return {
+    ageBand,
+    sex,
+    homeRegion,
+    secureBedNeeded,
+    involuntaryBedNeeded,
+    source,
+    urgency,
+    originSiteCode,
+    transportNeeded: draft.transportNeeded,
+  };
+}
+
+/**
+ * Phase R2.1. Every field arrives UNANSWERED.
+ *
+ * What this replaces: this function used to return all nine fields fully answered — age band,
+ * sex, home region and referral source each took option zero, and both need toggles took `false`.
+ * One tap then sent a complete-looking referral in which nothing downstream could tell a default
+ * from an answer, and a wrong age band eliminates every unit in the network through a plain
+ * equality gate — so a coordinator read a screenful of individually plausible refusals instead of
+ * "this was never answered". `urgency` was the one field somebody had thought about, and its old
+ * comment ("a blank form must never read as an assumption about how urgent this particular
+ * request is") was already the argument for every other field on the form.
+ *
+ * The two need toggles matter most: an untouched checkbox sent `false`, which is not "unknown" —
+ * it is the definite clinical claim that this person does not need a secure bed and does not need
+ * a bed that can hold them involuntarily. They are now yes/no questions with no answer until one
+ * is chosen, which needs no model change at all: what reaches the reducer is still a `boolean`,
+ * it is simply a boolean somebody picked.
+ */
 function initialDraft(): ReferralDraft {
   return {
-    ageBand: AGE_BAND_OPTIONS[0],
-    sex: SEX_OPTIONS[0],
-    homeRegion: HOME_REGION_OPTIONS[0],
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
-    source: SOURCE_OPTIONS[0],
-    // Neither the most nor the least urgent tier by default — a blank form must never read as
-    // an assumption about how urgent this particular request is.
-    urgency: 2,
-    originSiteCode: wardSites[0]?.code ?? "",
+    ageBand: UNANSWERED_VALUE,
+    sex: UNANSWERED_VALUE,
+    homeRegion: UNANSWERED_VALUE,
+    secureBedNeeded: UNANSWERED_VALUE,
+    involuntaryBedNeeded: UNANSWERED_VALUE,
+    source: UNANSWERED_VALUE,
+    urgency: UNANSWERED_VALUE,
+    originSiteCode: UNANSWERED_VALUE,
     transportNeeded: false,
   };
 }
@@ -138,28 +279,67 @@ export function ReferralIntakeForm() {
     } else {
       setLastRejection(undefined);
       setConfirmed(true);
+      /*
+       * Phase R2 review finding I2, owner ruling 2026-08-30: the next referral starts unanswered.
+       *
+       * Without this the draft survives the send, so referral #2 in a session arrives carrying
+       * the PREVIOUS PATIENT'S age band, sex, home region and both need answers, with Send
+       * already available — one tap away from raising a referral in which five facts belong to
+       * somebody else. That is strictly worse than the defaults R2.1 removed, because the values
+       * are not merely fabricated, they look like answers a clinician chose.
+       *
+       * The reset lives in the SUCCESS branch of this effect, not in `handleSubmit`, and that
+       * placement is the whole point: `handleSubmit` does not yet know whether the reducer
+       * accepted the event. Resetting there would wipe a clinician's eight answers on a REFUSAL,
+       * which is the one moment they most need them kept so the refusal can be corrected and
+       * re-sent.
+       *
+       * The confirmation above stays on screen beside the blank form: "sent" and "here is the
+       * next one" are both true, and the alternative — clearing the confirmation too — would
+       * leave a clinician with no evidence the send happened at all.
+       */
+      setDraft(initialDraft());
     }
     priorRejectionCountRef.current = rejections.length;
   }, [rejections, checkToken]);
 
+  // Phase R2.1. The outstanding questions, recomputed on every render from the draft itself
+  // rather than tracked in a second piece of state that could disagree with it.
+  const outstanding = unansweredFieldNames(draft);
+  const answered = answeredDraft(draft);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // The keyboard route to the same guard the inert Send below enforces for a tap: implicit
+    // submission never reaches a dispatch while a question is unanswered either.
+    if (!answered) return;
     priorRejectionCountRef.current = rejections.length;
     dispatch({
       type: "RECEIVE_REFERRAL",
       role: "community",
       now,
-      ageBand: draft.ageBand,
-      sex: draft.sex,
-      secureBedNeeded: draft.secureBedNeeded,
-      involuntaryBedNeeded: draft.involuntaryBedNeeded,
-      homeRegion: draft.homeRegion,
-      source: draft.source,
-      urgency: draft.urgency,
-      originSiteCode: draft.originSiteCode,
-      transportNeeded: draft.transportNeeded,
+      ageBand: answered.ageBand,
+      sex: answered.sex,
+      secureBedNeeded: answered.secureBedNeeded,
+      involuntaryBedNeeded: answered.involuntaryBedNeeded,
+      homeRegion: answered.homeRegion,
+      source: answered.source,
+      urgency: answered.urgency,
+      originSiteCode: answered.originSiteCode,
+      transportNeeded: answered.transportNeeded,
     });
     setCheckToken((token) => token + 1);
+  }
+
+  /**
+   * The inert activation for an unavailable Send (`docs/wiring-conventions.md`'s stated-reason
+   * shape). `aria-disabled` — unlike the native attribute — does not block activation, so without
+   * this the control would stay fully operable; and the native attribute is wrong here because it
+   * removes the tab stop, which is exactly where the reason below the button is announced from.
+   */
+  function ignoreUnavailableActivation(event: MouseEvent<HTMLButtonElement>) {
+    if (answered) return;
+    event.preventDefault();
   }
 
   return (
@@ -200,8 +380,18 @@ export function ReferralIntakeForm() {
               data-testid="ward-referral-intake-ageBand"
               className={styles.select}
               value={draft.ageBand}
-              onChange={(event) => setDraft((current) => ({ ...current, ageBand: event.target.value as Cohort }))}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  ageBand: event.target.value as Cohort | typeof UNANSWERED_VALUE,
+                }))
+              }
             >
+              {/* The unanswered state is a real leading option rather than a select with no
+                  option selected, so a clinician on a phone sees a prompt instead of a blank
+                  control — and so the state a screen reader announces is the state the form is
+                  actually in. Its presence and its position are pinned by the suite. */}
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {AGE_BAND_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -219,8 +409,11 @@ export function ReferralIntakeForm() {
               data-testid="ward-referral-intake-sex"
               className={styles.select}
               value={draft.sex}
-              onChange={(event) => setDraft((current) => ({ ...current, sex: event.target.value as Sex }))}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, sex: event.target.value as Sex | typeof UNANSWERED_VALUE }))
+              }
             >
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {SEX_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -239,9 +432,13 @@ export function ReferralIntakeForm() {
               className={styles.select}
               value={draft.homeRegion}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, homeRegion: event.target.value as HomeRegion }))
+                setDraft((current) => ({
+                  ...current,
+                  homeRegion: event.target.value as HomeRegion | typeof UNANSWERED_VALUE,
+                }))
               }
             >
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {HOME_REGION_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
@@ -260,9 +457,13 @@ export function ReferralIntakeForm() {
               className={styles.select}
               value={draft.source}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, source: event.target.value as ReferralSource }))
+                setDraft((current) => ({
+                  ...current,
+                  source: event.target.value as ReferralSource | typeof UNANSWERED_VALUE,
+                }))
               }
             >
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {SOURCE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {SOURCE_LABELS[option] ?? option}
@@ -281,7 +482,13 @@ export function ReferralIntakeForm() {
               className={styles.select}
               value={draft.urgency}
               onChange={(event) =>
-                setDraft((current) => ({ ...current, urgency: Number(event.target.value) as UrgencyLevel }))
+                setDraft((current) => ({
+                  ...current,
+                  urgency:
+                    event.target.value === UNANSWERED_VALUE
+                      ? UNANSWERED_VALUE
+                      : (Number(event.target.value) as UrgencyLevel),
+                }))
               }
             >
               {/* The option TEXT carries the tier's direction; the option VALUE stays the bare
@@ -290,6 +497,10 @@ export function ReferralIntakeForm() {
                   referral board rendered "Tier 2 · urgent" for the very same field — and this is
                   the one screen where a human, possibly a police officer on a phone, CHOOSES the
                   value rather than reading it back. */}
+              {/* R2.1: the tier no longer arrives pre-chosen. `Number("not-answered")` is NaN, so
+                  the sentinel is carried through the change handler above as itself rather than
+                  being coerced into a number nothing would recognise. */}
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {URGENCY_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {urgencyTierLabel(option)}
@@ -309,6 +520,10 @@ export function ReferralIntakeForm() {
               value={draft.originSiteCode}
               onChange={(event) => setDraft((current) => ({ ...current, originSiteCode: event.target.value }))}
             >
+              {/* See `UNANSWERED_VALUE`'s own comment: this picker is exactly why the sentinel is
+                  not `""`. An origin site of `""` stays a (bad) ANSWER the reducer refuses, which
+                  is the only refusal path this screen has any proof of. */}
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {wardSites.map((site) => (
                 <option key={site.code} value={site.code}>
                   {site.name} ({site.code})
@@ -317,25 +532,73 @@ export function ReferralIntakeForm() {
             </select>
           </div>
 
-          <label className={styles.toggleCard}>
-            <input
-              type="checkbox"
-              data-testid="ward-referral-intake-secureBedNeeded"
-              checked={draft.secureBedNeeded}
-              onChange={(event) => setDraft((current) => ({ ...current, secureBedNeeded: event.target.checked }))}
-            />
-            Needs a secure bed
-          </label>
+          {/*
+           * Phase R2.1. These two used to be checkboxes, and an untouched checkbox is not a
+           * question left open — it is a definite clinical "no" that nobody chose. They are now
+           * yes/no groups with neither answer selected until a clinician picks one.
+           *
+           * A radio pair rather than a third and fourth `<select>`, for two reasons. Clinically it
+           * is the cheaper control: one tap answers it where a picker costs two, and this form has
+           * to stay quicker to complete than what it replaces or the wards will not adopt it.
+           * Structurally it keeps the form at six comboboxes, which is what the accessible-name
+           * test counts — the FIELD SET has not grown, only the shape of two controls already here.
+           *
+           * The legends carry the wording rule unchanged: the requirement attaches to the REQUEST
+           * ("needs a bed that can hold someone involuntarily"), never to the person ("is
+           * involuntary"). That is a clinical rule with its own assertion, not incidental
+           * phrasing, so it is carried over verbatim rather than reworded for the new shape.
+           */}
+          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-secureBedNeeded">
+            <legend className={styles.fieldLegend}>Needs a secure bed</legend>
+            <div className={styles.choiceRow}>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-secureBedNeeded"
+                  data-testid="ward-referral-intake-secureBedNeeded-yes"
+                  checked={draft.secureBedNeeded === true}
+                  onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: true }))}
+                />
+                Yes
+              </label>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-secureBedNeeded"
+                  data-testid="ward-referral-intake-secureBedNeeded-no"
+                  checked={draft.secureBedNeeded === false}
+                  onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: false }))}
+                />
+                No
+              </label>
+            </div>
+          </fieldset>
 
-          <label className={styles.toggleCard}>
-            <input
-              type="checkbox"
-              data-testid="ward-referral-intake-involuntaryBedNeeded"
-              checked={draft.involuntaryBedNeeded}
-              onChange={(event) => setDraft((current) => ({ ...current, involuntaryBedNeeded: event.target.checked }))}
-            />
-            Needs a bed that can hold someone involuntarily
-          </label>
+          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-involuntaryBedNeeded">
+            <legend className={styles.fieldLegend}>Needs a bed that can hold someone involuntarily</legend>
+            <div className={styles.choiceRow}>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-involuntaryBedNeeded"
+                  data-testid="ward-referral-intake-involuntaryBedNeeded-yes"
+                  checked={draft.involuntaryBedNeeded === true}
+                  onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: true }))}
+                />
+                Yes
+              </label>
+              <label className={styles.choiceOption}>
+                <input
+                  type="radio"
+                  name="ward-referral-intake-involuntaryBedNeeded"
+                  data-testid="ward-referral-intake-involuntaryBedNeeded-no"
+                  checked={draft.involuntaryBedNeeded === false}
+                  onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: false }))}
+                />
+                No
+              </label>
+            </div>
+          </fieldset>
 
           <label className={styles.toggleCard}>
             <input
@@ -359,9 +622,40 @@ export function ReferralIntakeForm() {
             </p>
           ) : null}
 
-          <button type="submit" className={styles.submit} data-testid="ward-referral-intake-submit">
+          {/*
+           * Phase R2.1. Send is UNAVAILABLE, with the outstanding questions named, until every
+           * one of them has an answer.
+           *
+           * `aria-disabled="true"` plus an inert handler, never the native `disabled`
+           * (`docs/wiring-conventions.md`): the native attribute removes the tab stop, so a
+           * keyboard or screen-reader user could never land on the control and the reason
+           * `aria-describedby` points at would never be announced. The two attributes together
+           * are the shape `require-button-wiring` fails, because the native one wins on focus and
+           * the aria one then buys nothing.
+           *
+           * The note renders BELOW the button and disappears as the last question is answered, so
+           * the control never moves out from under a thumb that is already reaching for it.
+           */}
+          <button
+            type="submit"
+            className={styles.submit}
+            data-testid="ward-referral-intake-submit"
+            aria-disabled={answered ? undefined : "true"}
+            aria-describedby={answered ? undefined : UNAVAILABLE_REASON_ID}
+            onClick={ignoreUnavailableActivation}
+          >
             Send referral
           </button>
+
+          {answered ? null : (
+            <p
+              className={styles.unavailableReason}
+              id={UNAVAILABLE_REASON_ID}
+              data-testid="ward-referral-intake-unavailable"
+            >
+              Not yet answered: {outstanding.join(", ")}. Send stays unavailable until each has an answer.
+            </p>
+          )}
         </form>
       </main>
     </div>

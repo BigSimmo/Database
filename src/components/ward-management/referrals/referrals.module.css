@@ -190,6 +190,83 @@
   accent-color: var(--clinical-accent);
 }
 
+/* Phase R2.1: a yes/no question that starts with NEITHER answer chosen. Same card weight and the
+   same 48px tap target as a picker card — these two were checkboxes, and an untouched checkbox
+   sent a definite clinical "no" nobody had chosen. `.fieldCard` is not reused directly because a
+   <fieldset> with `display: grid` takes its <legend> out of flow in Chrome; here the legend is
+   laid out as an ordinary block above the two choices. */
+.choiceCard {
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-subtle);
+  margin: 0;
+  padding: var(--ri-space-12) var(--ri-space-14);
+}
+
+/* A <legend> is laid out into the fieldset's top border by default, so these two cards would sit
+   differently from the six picker cards above them — on a clinical form an unexplained difference
+   in how a card is drawn reads as a difference in meaning. Floating the legend takes it out of the
+   border and lays it out as an ordinary block, so a question card looks the same whichever control
+   it holds. */
+.choiceCard > .fieldLegend {
+  float: left;
+  width: 100%;
+}
+
+.choiceRow {
+  display: flex;
+  flex-wrap: wrap;
+  clear: both;
+  gap: var(--ri-space-8);
+  margin-top: var(--ri-space-8);
+}
+
+/* Grows to share the row on a phone, where a wide target is the point; capped on a desktop, where
+   a one-word answer stretched across half a 1440px screen reads as a mis-drawn control rather than
+   a generous one. Never below the 48px tap height at any width. */
+.choiceOption {
+  display: flex;
+  min-height: var(--ri-space-48);
+  max-width: 16rem;
+  flex: 1 1 8rem;
+  align-items: center;
+  gap: var(--ri-space-10);
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--ri-space-14);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
+.choiceOption input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  accent-color: var(--clinical-accent);
+}
+
+.choiceOption:focus-within {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+/* Why Send is unavailable, named field by field. Never colour alone and never a tooltip: it is
+   readable text in the same block as the control it explains. */
+.unavailableReason {
+  margin: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-bg);
+  padding: var(--ri-space-12) var(--ri-space-14);
+  color: var(--warning-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
 .rejection {
   margin: 0;
   border: 0.0625rem solid var(--danger-border);
@@ -234,6 +311,17 @@
   outline-offset: 0.125rem;
 }
 
+/* Unavailable, not gone. Keyed off `aria-disabled` rather than a second class because the native
+   `disabled` attribute is deliberately absent here — it would remove the tab stop, and with it
+   every route to the reason below — so `:disabled` would never match. The control keeps its full
+   48px tap target and stays focusable; it simply stops reading as the thing to press. */
+.submit[aria-disabled="true"] {
+  border-color: var(--border);
+  background: var(--surface-chrome);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 @media (min-width: 40rem) {
   .form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -242,7 +330,9 @@
 
   .rejection,
   .confirmation,
-  .submit {
+  .submit,
+  .unavailableReason,
+  .choiceCard {
     grid-column: 1 / -1;
   }
 }
