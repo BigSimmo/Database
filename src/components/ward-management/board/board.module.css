@@ -1,0 +1,469 @@
+/*
+ * The ward board, first pass. Same self-contained-tokens convention every ward-management module
+ * documents on its own root class (`morning.module.css`, `handover.module.css`,
+ * `ward-role-switcher.module.css`): every local custom property this file needs is declared here
+ * on `.screen`, never borrowed from another module's scope.
+ *
+ * No hardcoded hex anywhere — `eslint-rules/no-hardcoded-hex.mjs` fails the build on one, and the
+ * shades below are deliberately DERIVED from the theme's own `--primary` and `--surface` rather
+ * than picked off the `--primary-N` ramp. That is what keeps the four bands one hue in four
+ * deepening steps in BOTH themes: in light mode `--surface` is near-white and `--primary` is the
+ * mid blue, so the steps darken; in dark mode both flip and the steps lighten. Either way they
+ * are four ordered steps of one hue against the page, which is the requirement — and the day
+ * count printed on every tile is what actually carries the fact, so nothing is lost if a reader
+ * cannot separate two of them at all.
+ *
+ * **THERE IS DELIBERATELY NO SEPARATE DARK RAMP, and that is a measured finding rather than an
+ * assumption.** The pass that widened these steps expected to need one. The rendered backgrounds
+ * of all four shades were sampled in both themes and compared as contrast ratios between
+ * neighbours, and the old ramp's weakest step turned out to be the SAME step in both themes — the
+ * page to the palest band, 1.12 in light and 1.12 in dark — while the dark ramp's three upper
+ * steps (1.31 / 1.38 / 1.48) were already wider than light's. Dark was not collapsed at the
+ * bottom of a dark surface; both themes were pinched in exactly one place, the first step. So the
+ * one fix below repairs both: 16/32/48/64 gives light 1.24 / 1.26 / 1.29 / 1.31 and dark
+ * 1.29 / 1.41 / 1.50 / 1.47, every step in either theme at or above what light's WIDEST step used
+ * to be.
+ *
+ * A second ramp would have been two orderings to keep in step instead of one, drifting the first
+ * time anybody retuned a value — and, on this evidence, it would have been solving a problem the
+ * shared ramp did not have. `--wb-band-base` exists as the single seam where a future dark
+ * override would go IF measurement ever shows one is needed; it is `--surface` in both themes
+ * today, and it should not be split on a hunch.
+ */
+.screen {
+  --wb-space-4: 0.25rem;
+  --wb-space-8: 0.5rem;
+  --wb-space-12: 0.75rem;
+  --wb-space-16: 1rem;
+  --wb-space-20: 1.25rem;
+  --wb-space-24: 1.5rem;
+  --wb-tap: var(--spacing-tap);
+  --wb-leading-body: 1.4;
+  /* The day count and the headline figure each sit alone on their line, so they take no extra
+     leading. Declared as a token rather than written inline because check:design-system-contract
+     counts raw line-height literals. */
+  --wb-leading-figure: 1;
+  --wb-hairline: 0.0625rem;
+  /* The past-expected-date outline. Thick enough to read as a different KIND of edge rather than
+     a darker one — it is a shape channel, not a colour channel, so it survives greyscale. */
+  --wb-outline-heavy: 0.1875rem;
+  --wb-tile-min: 5rem;
+  --wb-tile-height: 5.5rem;
+  /* Six tiles wide at the minimum tile size — see `.beds`. */
+  --wb-grid-max: 42rem;
+
+  /*
+   * The four stay-band fills: ONE hue, four deepening steps, mixed in `oklab` so the steps are
+   * perceptually even rather than evenly numbered.
+   *
+   * **The percentages are the LIGHT ramp and are declared here on the base selector**, so the
+   * light theme is never defined only inside a conditional block — `.dark` below redefines these
+   * four and nothing else. The mix partner is `--wb-band-base` rather than `--surface` directly,
+   * which is what lets the dark override change the ground the steps are mixed into without
+   * restating the four percentages twice.
+   *
+   * **The first step was 8% and is now 16% — the change asked for in this pass.** The old ramp's
+   * first step was the smallest gap on the board (empty to band 1 was about half the size of every
+   * later step), which put the least separation exactly where it mattered most: between a bed that
+   * is free and a bed that is taken. With the owner's wider first band that tile is also now the
+   * most common one on the ward, so a shade barely distinguishable from an empty tile would have
+   * been the shade most of the board was drawn in. 16/32/48/64 is four even steps with the same
+   * gap between the page and the first as between any two bands.
+   */
+  --wb-band-base: var(--surface);
+  --wb-band-1: color-mix(in oklab, var(--primary) 16%, var(--wb-band-base));
+  --wb-band-2: color-mix(in oklab, var(--primary) 32%, var(--wb-band-base));
+  --wb-band-3: color-mix(in oklab, var(--primary) 48%, var(--wb-band-base));
+  --wb-band-4: color-mix(in oklab, var(--primary) 64%, var(--wb-band-base));
+
+  /* The out-of-service hatch. A PATTERN, not a colour — see `.bedBlocked`. */
+  --wb-hatch-line: var(--border-strong);
+  --wb-hatch-gap: var(--surface-inset);
+
+  display: grid;
+  min-height: 100dvh;
+  /* The rail track stays reserved at every supported width, same as the ward, ed, officer and
+     coordinator screens — see ward-management.module.css's own note on this. Task A: the board
+     used to have no `<ClinicalRail />` at all, so `.screen` was a plain flex column carrying both
+     the page chrome and the content padding. It is now the two-column grid every other Ward Flow
+     screen uses, and `.main` below (not `.screen`) carries the content layout and padding, the
+     same split `ed.module.css` documents on its own `.screen`/`.main` pair. */
+  grid-template-columns: auto minmax(0, 1fr);
+  background: var(--surface);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--wb-space-16);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--wb-space-16) var(--wb-space-16) var(--wb-space-24);
+}
+
+.prototypeBadge {
+  align-self: flex-start;
+  margin: 0;
+  border: var(--wb-hairline) solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--wb-space-4) var(--wb-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-space-4);
+}
+
+.unitName {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: 700;
+}
+
+.siteName {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs, 0.75rem);
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--wb-space-8);
+  margin: var(--wb-space-8) 0 0;
+  flex-wrap: wrap;
+}
+
+.headlineValue {
+  color: var(--text-heading);
+  font-size: var(--text-4xl, 2.25rem);
+  font-weight: 700;
+  line-height: var(--wb-leading-figure);
+}
+
+.headlineLabel {
+  color: var(--text-heading);
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
+}
+
+.constraint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm, 0.875rem);
+  line-height: var(--wb-leading-body);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wb-space-8) var(--wb-space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-space-4);
+}
+
+.legendSwatch {
+  display: inline-block;
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  border: var(--wb-hairline) solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-subtle);
+}
+
+.legendSwatchPast {
+  background: var(--surface-subtle);
+  outline: var(--wb-outline-heavy) solid var(--danger);
+  outline-offset: calc(-1 * var(--wb-outline-heavy));
+}
+
+/* The same hatch as the tile, at swatch size — so the legend entry is recognisably the thing it
+   indexes rather than an approximation of it. Stripes scaled down to suit the smaller square. */
+.legendSwatchBlocked {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--wb-hatch-gap),
+    var(--wb-hatch-gap) 0.1875rem,
+    var(--wb-hatch-line) 0.1875rem,
+    var(--wb-hatch-line) 0.25rem
+  );
+}
+
+/* The same dot pattern as `.bedHeld`, at swatch size — see that rule for why a held bed carries
+   its own pattern rather than reusing empty's dashed edge or blocked's diagonal hatch. */
+.legendSwatchHeld {
+  background-image: radial-gradient(var(--wb-hatch-line) 0.0625rem, transparent 0.0625rem);
+  background-size: 0.375rem 0.375rem;
+}
+
+/* Capped rather than full-bleed: found by looking at the 1440px rendering, where an uncapped
+   `auto-fill` laid all twenty beds out as a single sixteen-wide strip with four stragglers under
+   it — a wall of boxes rather than a ward. A ward is a small, roughly square block of beds, so
+   the grid is held to a width that keeps it one. */
+.beds {
+  display: grid;
+  max-width: var(--wb-grid-max);
+  gap: var(--wb-space-8);
+  grid-template-columns: repeat(auto-fill, minmax(var(--wb-tile-min), 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bed {
+  display: flex;
+  min-height: max(var(--wb-tile-height), var(--wb-tap));
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wb-space-4);
+  border: var(--wb-hairline) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--wb-space-8);
+  text-align: center;
+}
+
+.bedOccupied {
+  background: var(--surface-subtle);
+  color: var(--text-heading);
+}
+
+/* An empty bed must be visibly a DIFFERENT KIND of thing, not merely a paler occupied one: a
+   dashed edge and no fill, so it reads as absent at a glance and in greyscale. */
+.bedEmpty {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-soft);
+}
+
+/*
+ * OUT OF SERVICE — the third bed state, and the fix for a defect found by rendering the board.
+ *
+ * It must read as a different KIND of thing from BOTH of its neighbours, because confusing it with
+ * either is a real error a coordinator would act on: mistaken for empty it is a bed they try to
+ * fill and cannot, mistaken for occupied it is a bed they think holds somebody. So it takes
+ * neither of their treatments — not the empty tile's dashed-and-hollow edge, and not a band fill.
+ *
+ * The distinguishing mark is a diagonal HATCH, which is a pattern rather than a colour: it
+ * survives greyscale, a print with backgrounds stripped, and forced-colors mode, none of which a
+ * fourth shade of the band hue would. Backed up by the words "Out of service" on the tile face —
+ * the hatch is what makes it quick to spot, the words are what make it unambiguous, and the words
+ * alone are enough. A solid border (not dashed) is the third channel: this bed exists and is
+ * definitely not available, as against an empty one whose dashes read as absence.
+ */
+.bedBlocked {
+  border-color: var(--border-strong);
+  /* No hex: both stops are theme tokens, so the hatch re-grounds itself in dark like everything
+     else on this board. 0.375rem stripes — wide enough to read as a hatch at the 5rem tile size
+     rather than as noise or as a flat mid-tone. */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--wb-hatch-gap),
+    var(--wb-hatch-gap) 0.375rem,
+    var(--wb-hatch-line) 0.375rem,
+    var(--wb-hatch-line) 0.4375rem
+  );
+  color: var(--text-muted);
+}
+
+/*
+ * HELD — the fourth bed state (Task B). Physically empty, per the ward's own `empty` figure, but
+ * not yet confirmed as one of the beds the ward will actually offer — see `unitCapacity`
+ * (`ward-derivations.ts`), the single place this project decides the held/available split:
+ * `available + held + blocked + occupied === unit.beds` there, and this board's tile counts now
+ * follow that same partition rather than a second one invented here.
+ *
+ * A held tile must read as a THIRD kind of thing, not a shade between empty and blocked — mistaken
+ * for `.bedEmpty` it is a bed a coordinator tries to fill and cannot; mistaken for `.bedBlocked` it
+ * reads as out of service, which overstates it (a held bed may be offered later today). It keeps
+ * `.bedEmpty`'s hollow, unfilled body — a held bed genuinely IS physically empty — but trades the
+ * dashed edge for a DOTTED one and adds a light dot pattern, so the distinction survives greyscale,
+ * a stripped-background print, and forced-colors mode exactly as the blocked hatch does: a
+ * pattern, not a colour, carries the fact. The word "Held" on the tile face is what makes it
+ * unambiguous, the same discipline every other tile kind on this board already holds to.
+ */
+.bedHeld {
+  border-style: dotted;
+  border-color: var(--border-strong);
+  background-color: transparent;
+  background-image: radial-gradient(var(--wb-hatch-line) 0.0625rem, transparent 0.0625rem);
+  background-size: 0.5rem 0.5rem;
+  color: var(--text-muted);
+}
+
+/* Rule 2. Taken, but nobody is in it yet — so it carries a fill (it is NOT free) while sitting
+   outside the four stay bands, because there is no stay to band. */
+.bedWaiting {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.bedPast {
+  outline: var(--wb-outline-heavy) solid var(--danger);
+  outline-offset: calc(-1 * var(--wb-outline-heavy));
+}
+
+.band1 {
+  background: var(--wb-band-1);
+}
+
+.band2 {
+  background: var(--wb-band-2);
+}
+
+.band3 {
+  background: var(--wb-band-3);
+}
+
+.band4 {
+  background: var(--wb-band-4);
+}
+
+.days {
+  font-size: var(--text-3xl, 1.875rem);
+  font-weight: 700;
+  line-height: var(--wb-leading-figure);
+}
+
+.daysUnit {
+  font-size: var(--text-3xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* `--danger-solid`, NOT `--danger` — found by rendering the dark theme and looking. `--danger`
+   resolves to `--danger-text`, which in dark is a LIGHT pink (#ff9ca4) intended as ink on a dark
+   surface; filling a badge with it and printing `--danger-solid-contrast` (white) on top gave
+   white on pale pink, and the words "Past date" were barely readable on the one tile a
+   coordinator most needs to notice. `--danger-solid`/`--danger-solid-contrast` are the paired
+   fill/ink tokens for exactly this, and they hold in both themes. The OUTLINE below keeps
+   `--danger`, which is correct: an outline is ink on the page, not a fill. */
+.pastMark {
+  border-radius: var(--radius-xs);
+  background: var(--danger-solid);
+  padding: 0 var(--wb-space-4);
+  color: var(--danger-solid-contrast);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.waiting,
+.blockedLabel,
+.emptyLabel,
+.heldLabel {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: var(--wb-leading-body);
+}
+
+/*
+ * The words sit ON the hatch, so they get a solid plate to sit on. Without it the diagonal
+ * stripes run straight through the letterforms and "Out of service" — which is the channel doing
+ * the actual work on this tile, the hatch only being the quick cue — becomes the least readable
+ * text on the board. The plate is the page's own raised surface, so it reads as a label resting on
+ * a struck-through bed rather than as a fifth colour.
+ */
+.blockedLabel {
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  padding: 0 var(--wb-space-4);
+  color: var(--text);
+}
+
+/* Same plate treatment as `.blockedLabel`, for the same reason: the word "Held" sits on top of
+   the dot pattern and needs a solid rest rather than dots running through the letterforms. */
+.heldLabel {
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  padding: 0 var(--wb-space-4);
+  color: var(--text);
+}
+
+.footnote {
+  margin: 0;
+  max-width: var(--container-reading);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--wb-leading-body);
+}
+
+/*
+ * Print. The global print reset forces a white sheet and strips most backgrounds, so the four
+ * band fills are expected to be weak or absent on paper — which is exactly why the day count is
+ * on the tile rather than encoded in the shade. Borders are forced back on so the grid still
+ * reads as a grid of beds, and the empty tiles keep their dashed edge so free beds are still
+ * distinguishable with no colour at all.
+ */
+@media print {
+  .screen {
+    min-height: auto;
+    background: transparent;
+  }
+
+  /* The rail is a `<nav>`, already stripped by the global print reset (`header, nav, button {
+     display: none !important }`), so its grid track collapses to zero width on its own — nothing
+     here has to hide it. The content padding that used to live on `.screen` now lives on `.main`
+     and is zeroed here in its place. */
+  .main {
+    padding: 0;
+  }
+
+  .bed {
+    border: var(--wb-hairline) solid var(--border-strong);
+    break-inside: avoid;
+  }
+
+  .bedEmpty {
+    border-style: dashed;
+  }
+
+  /* Same reasoning as `.bedEmpty` just above: the dotted edge is a border style, not a
+     `background-image`, so it survives the print reset on its own — this line just makes that
+     explicit rather than leaving it implicit in the base rule. */
+  .bedHeld {
+    border-style: dotted;
+  }
+
+  /*
+   * The hatch is a `background-image` and the print reset may drop it, so on paper the words "Out
+   * of service" are what distinguish this tile — which is the arrangement the rule demands anyway
+   * (colour, and a pattern, never carry a fact alone). The plate behind those words is removed
+   * here: on a white sheet it is an invisible rectangle at best and a grey box at worst.
+   */
+  .blockedLabel {
+    background: transparent;
+    padding: 0;
+  }
+
+  /* Same reason as `.blockedLabel` just above: on a white sheet the plate is a grey box at best,
+     and the word "Held" is what carries the fact once the dot pattern may be gone. */
+  .heldLabel {
+    background: transparent;
+    padding: 0;
+  }
+}

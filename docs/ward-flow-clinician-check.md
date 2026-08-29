@@ -101,15 +101,65 @@ dishonestly.
 
 ## Other things worth a moment
 
-- **We stop at the end of today.** Anything expected after this evening is deliberately left out of
-  every count, and the screen says how many were left out. We took the view that beyond roughly a
-  day, a discharge prediction is a guess. Is a day the right horizon, or too short?
+- **We look 24 hours ahead, rolling.** Anything expected beyond that is left out of every count,
+  and the screen says how many were left out. This changed on 2026-08-29: we used to stop at the end
+  of the evening, which meant the window quietly shrank as the day went on — fourteen hours at the
+  morning handover, two by late evening. Since patients move at any hour, that described the clock
+  rather than how far ahead anyone can predict. **Is a rolling day the right horizon?**
 
 - **The board shows who confirmed a number and when** — as a role, never a person's name. Is
   knowing "which ward said this, and how long ago" enough to trust a number, or would you need more?
 
 - **Beds on leave are counted separately** and never mixed into the available figure, because a bed
   someone is coming back to is not a bed you can fill.
+
+---
+
+## Three more assumptions, added 2026-08-29
+
+These are newer than the rest of this page and **none has been seen by a ward clinician either.**
+They matter because the next part of the prototype — a board showing every bed on a ward — is built
+on them.
+
+**4. A bed is gone the moment the ward pulls the patient, not when they arrive.**
+
+We assume that once a ward says "send them", that bed is no longer available to anyone else — even
+if the person is still sitting in an emergency department waiting for an ambulance. So the ward's
+free-bed count drops at the moment of pulling, and the bed shows as taken but empty, with a clock on
+it saying how long it has stood empty.
+
+**Is that right?** And is the gap between pulling someone and them arriving a number worth seeing —
+we currently show it as "beds standing empty, longest four hours".
+
+**5. One expected discharge date per patient, set by the ward, drives everything else.**
+
+Rather than a ward flagging beds separately, we assume the ward puts a date against each patient and
+everything follows from it — the predicted discharge, the board, the counts. Confirming that someone
+is definitely going is a **separate act** from setting the date.
+
+**Is a date the thing a ward would actually keep up to date?** We have assumed one update a day, in
+under a minute for a twenty-bed ward, and that the only thing usually changing is who is leaving.
+
+**6. The ward tells us how many of its free beds will take a man, and how many a woman.**
+
+We could not work this out. A ward has one designation, so the system can only ever say "none of
+these beds will take a man" — never "one of the three will", which is the situation that actually
+matters. So we assume the ward states the two numbers itself, once a day, on the same sheet.
+
+**Is that a fair thing to ask a ward for daily, or is it already written somewhere we should read
+instead?**
+
+**Two more lists with the same provenance problem as the ones above** — proposed by us, approved by
+the product owner, seen by no charge nurse:
+
+_How long someone has been in a bed, as bands:_ under 2 weeks · 2 weeks to 1 month · 1 to 3 months ·
+over 3 months.
+
+_Why a coordinator overrode the suggested bed:_ receiving team agreed despite the mismatch · clinical
+urgency outweighs it · bed information known to be out of date · continuity with a previous admission
+· closer to home or family. **There is deliberately no "other" option** — the alternative was a free
+text box, and we would rather a coordinator picked the nearest reason than have anyone's words end up
+in this system.
 
 ---
 
@@ -124,6 +174,9 @@ Nothing written. Just, in conversation:
    all replace ours.
 3. Which of the three questions above still has the wrong answer in our version?
 4. Is there a stage we've missed entirely?
+5. **Is a bed really gone at the moment of pulling?** (question 4 above)
+6. **Would a ward keep one discharge date per patient up to date daily?** (question 5)
+7. **Is asking a ward for its two sex-acceptance numbers each day reasonable?** (question 6)
 
 **Changing this now is cheap.** Everything is invented data and nothing depends on it yet. The next
 part of the prototype is built entirely from these numbers, so the cost of getting it wrong rises

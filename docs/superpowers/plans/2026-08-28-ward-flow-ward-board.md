@@ -4,7 +4,7 @@
 
 **Goal:** One page per inpatient unit showing every bed as a bed — who is in it, how long, when they leave and where to — with a one-minute daily update that keeps it honest.
 
-**Architecture:** A new `Admission` record (the first person *inside* a bed) drives everything. The ward sets one expected discharge date per admission; the bed's predicted release, the discharge board, the arrows, the tile colours and the morning page's forward figures are all derived from it. The board reuses Phase 7's matching so the ward and the coordinator can never give different answers about the same person.
+**Architecture:** A new `Admission` record (the first person _inside_ a bed) drives everything. The ward sets one expected discharge date per admission; the bed's predicted release, the discharge board, the arrows, the tile colours and the morning page's forward figures are all derived from it. The board reuses Phase 7's matching so the ward and the coordinator can never give different answers about the same person.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript 6 strict, CSS modules, Vitest (unit + DOM), Playwright (journeys). No new dependencies.
 
@@ -21,17 +21,24 @@ Copied verbatim from the spec and from `AGENTS.md`. **Every task's requirements 
 - **No diagnosis.** Owner decision, 2026-08-28 (D5). The layout leaves space; adding it later costs one field and needs a recorded owner decision.
 - **Synthetic data only.** No name, date of birth, record number, address, or narrative history.
 - **Local and offline only.** Never `verify:release`, any `eval:*`, `check:supabase-project`, `test:live`, or anything touching OpenAI, Supabase, hosted CI or a live database.
-- **Never push, never open a pull request.** Every commit stays local on `claude/ward-flow-phases-6-7-design`.
+- **Never push, never open a pull request.** Every commit stays local on `claude/ward-flow-ward-board`. **`claude/ward-flow-phases-6-7-design` is the OTHER session's branch — never commit to it.**
 - **Never `git stash`.** The stack is shared across every worktree on this machine.
 - **No gate skipped, no assertion deleted, no test loosened.** If a change would reduce what can honestly be claimed, do not make it — record it instead.
 - **Every bed dimension is "does this bed accept this person", never an equality.** `bed.sexDesignation === referral.sex` excludes every undesignated bed — most of the network — and looks entirely reasonable in review.
-- **Owner's stay bands, verbatim:** under 1 week · 1–4 weeks · 1–3 months · over 3 months.
+- **Owner's stay bands, verbatim — as of 2026-08-29 12:25:** under 2 weeks · 2 weeks–1 month ·
+  1–3 months · over 3 months (ids `under-2-weeks` / `2-weeks-1-month` / `1-3-months` /
+  `over-3-months`; ceilings 14 / 30 / 90 / open), landed in `1d2f64c5f`.
+  **SUPERSEDED, and still written throughout the task bodies below:** under 1 week · 1–4 weeks,
+  ids `under-1-week` / `1-4-weeks`, ceilings 7 / 28. Every code sample further down this plan
+  predates the change and shows the old ids — they are left as written because a plan is a record
+  of what was decided when, not a live specification. **The code is the authority, not this file.**
+  See `docs/ward-flow-handover-2026-08-29.md` §6.
 - **Colour never carries a fact alone.** Every colour has the same fact beside it in words or numbers.
 - **One owner-pending list must not be invented** (D15). D9's list was ANSWERED on 2026-08-28 — reuse `BED_RELEASE_BLOCKERS`, never define a second vocabulary for the same fact.
 - **The bed model is THREE stages plus a flag** — `predicted | confirmed | released`, with `blocked` a flag (`blocker` + `blockedBy`) sitting on a predicted or confirmed release. `blocked` is never a state. A blocked-but-confirmed bed KEEPS counting as confirmed.
 - **`BedRelease.confidence` no longer exists.** It is `waitingOn`, from `BED_RELEASE_WAITING_ON`.
 - **A bed carrying a preparation note is still available** — still offered, still in `availableNow`, still in every figure.
-- **Prefix every shell command with `cd /d/Worktrees/Database/pr-2390-fix &&`.** The working directory silently reverts otherwise.
+- **Prefix every shell command with `cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 &&`.** The working directory silently reverts otherwise.
 
 ## Hard gate before Task 1
 
@@ -50,13 +57,101 @@ the quotations in this plan** — it has been overtaken once already and may hav
 
 ## Owner-pending — must not be filled in by an agent
 
-| Item | Spec | State |
-| ---- | ---- | ----- |
-| ~~Blocked-discharge reason list~~ | D9 | **ANSWERED 2026-08-28.** The owner approved it separately; it shipped as the eight-entry `BED_RELEASE_BLOCKERS`. This board REUSES that list and defines none of its own |
-| Receiving-window options at the pull | D15 | Not drafted. **The field is not built** until he supplies them. Task 3 leaves the event shape ready; no UI |
-| `sex` on an admission | D5 | Flagged as a small governance widening with the fallback named. Silence read as acceptance |
+| Item                                 | Spec | State                                                                                                                                                                    |
+| ------------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ~~Blocked-discharge reason list~~    | D9   | **ANSWERED 2026-08-28.** The owner approved it separately; it shipped as the eight-entry `BED_RELEASE_BLOCKERS`. This board REUSES that list and defines none of its own |
+| Receiving-window options at the pull | D15  | Not drafted. **The field is not built** until he supplies them. Task 3 leaves the event shape ready; no UI                                                               |
+| `sex` on an admission                | D5   | Flagged as a small governance widening with the fallback named. Silence read as acceptance                                                                               |
 
 ---
+
+---
+
+## ADDENDUM, 2026-08-29 — parallel execution, four owner decisions, and three lessons from Phase 8
+
+### Branch and scope
+
+This work now runs **simultaneously with Phase 8**, on branch `claude/ward-flow-ward-board`, cut
+from Phase 8's tip `15bdddda1`, in the pre-installed worktree
+`D:\Repos\Database\.claude\worktrees
+ostalgic-vaughan-7ee231`. No new worktree was created.
+
+**Only the logic layer runs in parallel.** Six tasks — 1, 3, 4, 5, 6, 7 — every one creating files
+that do not exist on Phase 8's branch. Everything else waits.
+
+| Runs now                                                                                          | Waits for Phase 8                                                                                  |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1 (occupancy record), 3 (seed), 4 (discharge dates), 5 (board figures), 6 (teams), 7 (statistics) | 2 (events/reducer/provider), 8–18 (components, page, nav, retiring the ward screen, journey, gate) |
+
+**The rule that makes it safe: never edit a file that already exists on Phase 8's branch.** Read
+from `ward-model.ts`, `ward-sites.ts`, `ward-bed-availability.ts` and `ward-distance.ts` as much as
+needed; write to none of them. Task 1 therefore puts the occupancy record **in its own new file**,
+not in `ward-model.ts` — which is also better structure, since that file is already large.
+
+**Merge Phase 8's branch into this one at every task boundary**, not at the end. Phase 8 has changed
+the shared model twice this week; drift is caught cheaply at each step and expensively at the end.
+
+### The four owner decisions, 2026-08-29
+
+1. **ONE record, not two.** The occupancy record is the single answer to "who is in this bed, since
+   when, and how far from home". It serves the ward board **and** Phase 8's out-of-area ledger.
+   Phase 8's `Referral.arrivedAt` (added in its Task 2, `ef4af1c85`) is superseded by it — one commit
+   old, cheap to unwind. **Phase 8 must be told**; until it is, do not assume its Tasks 3 and 5 read
+   from this record.
+2. **Ten WA regions stay.** Not the coarser metro/country grouping. Unchanged from what is built.
+3. **`sex` goes on the occupancy record** — confirmed, not merely unopposed. The ward's typed
+   male/female counts become derived, which is the point.
+4. **Parallel work approved**, on its own branch, logic layer only.
+
+Still outstanding: **the receiving-time options at the pull (D15).** Task 15 is not in this parallel
+set, so nothing is blocked.
+
+### Three lessons from Phase 8's ledger — all BINDING here
+
+**1. `mutate.sh` cannot fail, and this plan told you to use it.**
+
+`.superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh` lines 29–30 copy the backup
+over the source and then `diff` the backup against that copy — comparing a file with itself. Its
+"restore verified byte-identical" line proves only that `cp` succeeded. **A check that cannot fail,
+inside the tool every task uses to prove its checks can fail.** Its line-27 "sed matched nothing"
+guard is sound and unaffected.
+
+**Every mutation in this plan must instead:** record `git hash-object` for the file before mutating,
+restore, re-record, compare the two blob ids, **and** confirm `git status --porcelain` is empty.
+That last part is not belt-and-braces: a single-file comparison cannot catch a `sed` that also
+matched in a second file, which happened on this branch once and broke 33 tests nobody had
+considered. Ignore every `mutate.sh` invocation written in Tasks 1 and 2 above.
+
+**2. An assertion that searches for a satisfying example is not an invariant.**
+
+Phase 8's most valuable finding: its "distance is not a gate" test **survived a real distance gate**,
+because it searched the fixture for an out-of-area bed that accepts a referral and simply found a
+different pair the mutant still allowed. It passed as soon as _any_ example existed — including one
+the defect itself permitted. It is now stated as verdict invariance under home region, which no
+distance gate survives under any name.
+
+**Restate the behavioural tests in this plan as invariants**, not searches. Specifically:
+
+- **The preparation-note trap (Task 8):** assert that a unit's available count is **invariant** under
+  adding a preparation note to one of its beds. Do not search for a bed that is still offered — that
+  passes the moment any bed is.
+- **The blocked cross-cut (Task 4):** assert the confirmed count is **invariant** under blocking a
+  confirmed release, and that the blocked count rises. Not "find a blocked release that is still
+  counted".
+- **The sex constraint (Task 5):** assert the accepting-bed count is **invariant** under changing the
+  referral's sex when every bed is undesignated. Not "find an undesignated bed that accepts a man".
+- **Fixture-coverage assertions in Task 3 are exempt** — `some(...)` is correct there, because the
+  claim genuinely is "the fixture contains such a case".
+
+**3. One exported function, never two components agreeing** (Phase 8 ruling 20).
+
+"How many of these beds accept this person" is a **verdict, not arithmetic**. Two surfaces will show
+it — the ward board's headline and its bed grid — and two components each deciding what "accepts"
+means is how this project ended up with three screens holding one label and two of them disagreeing.
+`headlineAvailable` and `constraintSentence` (Task 5) must be the single source for both, and the
+count must derive from the **same verdict the tiles render**, structurally rather than
+coincidentally. It counts what is present, never what is missing; empty groups return zero and are
+still rendered.
 
 ## Speed model — how this phase runs fast without weakening anything
 
@@ -64,7 +159,7 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 
 **Rules for every implementer:**
 
-1. **Run only `npm run test:focused -- --files <your test paths>`.** Never `lint`, never `typecheck`, never `npm run test`, never `build`, never Playwright. The controller runs those once, at the end.
+1. **Run only `node scripts/run-vitest.mjs run <your test paths>`.** Never `lint`, never `typecheck`, never `npm run test`, never `build`, never Playwright. The controller runs those once, at the end.
 2. **A refusal saying "capacity is full", or exit 75, means BLOCKED — retry.** It is never a failure. Do not "fix" anything in response to it.
 3. **`GATE_RECEIPTS=refresh` only when fresh evidence is the point.** Results are memoised; a plain re-run can exit 0 having printed no test-count line at all, which proves nothing ran. Always quote the `N passed` line, never the exit code alone.
 4. **Test and implementation live in the same task.** Splitting them doubles the handoff cost and the context re-read.
@@ -75,14 +170,14 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 
 **Controller parallelism.** Implementers write to disjoint files concurrently; **the controller commits them one at a time with explicit paths.** Read-only reviewers run fully concurrently and are free — dispatch them in fan-out, never serially.
 
-| Wave | Tasks | Shape |
-| ---- | ----- | ----- |
-| A — the spine | 1, 2, 3 | **Serial.** Same four core files. Nothing else can start |
-| B — derivations | 4, 5, 6, 7 | **Parallel.** Four new files, no overlap |
-| C — components | 8, 9, 10 | **Parallel.** Three new files, no overlap |
-| D — assembly | 11, 12, 13 | **Serial.** Each consumes the last |
-| E — reach | 14, 15, 16 | **Parallel.** Route/nav, retirement, print+phone |
-| F — proof | 17, 18 | **Serial.** Journey, then the one reliability gate |
+| Wave            | Tasks      | Shape                                                    |
+| --------------- | ---------- | -------------------------------------------------------- |
+| A — the spine   | 1, 2, 3    | **Serial.** Same four core files. Nothing else can start |
+| B — derivations | 4, 5, 6, 7 | **Parallel.** Four new files, no overlap                 |
+| C — components  | 8, 9, 10   | **Parallel.** Three new files, no overlap                |
+| D — assembly    | 11, 12, 13 | **Serial.** Each consumes the last                       |
+| E — reach       | 14, 15, 16 | **Parallel.** Route/nav, retirement, print+phone         |
+| F — proof       | 17, 18     | **Serial.** Journey, then the one reliability gate       |
 
 **Review:** two-stage per task — a fresh reviewer reads the diff against the task brief, then a second reads it against the spec. Both read-only, both concurrent, both cheap.
 
@@ -92,35 +187,35 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 
 **Create:**
 
-| File | Responsibility |
-| ---- | -------------- |
-| `src/components/ward-management/ward-admissions.ts` | The `Admission` type, its states, stay banding, day counts, tile state |
-| `src/components/ward-management/ward-admissions-seed.ts` | The synthetic seed, separate for the same reason `ward-movements.ts` is separate from the model |
-| `src/components/ward-management/ward-discharge-dates.ts` | Date → `BedRelease` derivation, slippage, the statewide netting rule |
-| `src/components/ward-management/ward-teams.ts` | Region → synthetic community team |
-| `src/components/ward-management/ward-board-derivations.ts` | Headline figure, the constraint sentence, since-yesterday, arrow selection |
-| `src/components/ward-management/ward-statistics.ts` | The six ward-level figures |
-| `src/components/ward-management/board/bed-grid.tsx` | The beds, and only the beds |
-| `src/components/ward-management/board/board-left-column.tsx` | Referrals ⇄ discharges toggle |
-| `src/components/ward-management/board/board-patient-panel.tsx` | The right panel, never blank |
-| `src/components/ward-management/board/ward-board.tsx` | Assembles the three, owns selection |
-| `src/components/ward-management/board/daily-sheet.tsx` | The one-minute update |
-| `src/components/ward-management/board/board.module.css` | All board styling |
-| `src/components/ward-management/statistics/statistics-page.tsx` | The statewide comparison |
-| `src/components/ward-management/statistics/statistics.module.css` | Its styling |
-| `src/app/mockups/ward-flow/statistics/page.tsx` | Route |
+| File                                                              | Responsibility                                                                                  |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `src/components/ward-management/ward-admissions.ts`               | The `Admission` type, its states, stay banding, day counts, tile state                          |
+| `src/components/ward-management/ward-admissions-seed.ts`          | The synthetic seed, separate for the same reason `ward-movements.ts` is separate from the model |
+| `src/components/ward-management/ward-discharge-dates.ts`          | Date → `BedRelease` derivation, slippage, the statewide netting rule                            |
+| `src/components/ward-management/ward-teams.ts`                    | Region → synthetic community team                                                               |
+| `src/components/ward-management/ward-board-derivations.ts`        | Headline figure, the constraint sentence, since-yesterday, arrow selection                      |
+| `src/components/ward-management/ward-statistics.ts`               | The six ward-level figures                                                                      |
+| `src/components/ward-management/board/bed-grid.tsx`               | The beds, and only the beds                                                                     |
+| `src/components/ward-management/board/board-left-column.tsx`      | Referrals ⇄ discharges toggle                                                                   |
+| `src/components/ward-management/board/board-patient-panel.tsx`    | The right panel, never blank                                                                    |
+| `src/components/ward-management/board/ward-board.tsx`             | Assembles the three, owns selection                                                             |
+| `src/components/ward-management/board/daily-sheet.tsx`            | The one-minute update                                                                           |
+| `src/components/ward-management/board/board.module.css`           | All board styling                                                                               |
+| `src/components/ward-management/statistics/statistics-page.tsx`   | The statewide comparison                                                                        |
+| `src/components/ward-management/statistics/statistics.module.css` | Its styling                                                                                     |
+| `src/app/mockups/ward-flow/statistics/page.tsx`                   | Route                                                                                           |
 
 **Modify:**
 
-| File | Change |
-| ---- | ------ |
-| `ward-model.ts` | `Admission`, `ADMISSION_STATES`, `STAY_BANDS`, `LEAVING_DESTINATIONS`, `BED_RELEASE_BLOCKERS`, `PULL_RELEASE_REASONS`, plus `SEXES` and `URGENCY_LEVELS` (Phase 7 Task 4 flagged both as missing) |
-| `ward-flow-events.ts` | Eight new events |
-| `ward-flow-reducer.ts` | Their handlers, and admission creation on `PATIENT_ARRIVED` |
-| `ward-flow-provider.tsx` | Expose `admissions` |
-| `ward-nav.ts` | The statistics route |
-| `src/app/mockups/ward-flow/ward/[unitId]/page.tsx` | Render `WardBoard` |
-| `ward-screen.tsx` | Retired into the board (Task 15) |
+| File                                               | Change                                                                                                                                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ward-model.ts`                                    | `Admission`, `ADMISSION_STATES`, `STAY_BANDS`, `LEAVING_DESTINATIONS`, `BED_RELEASE_BLOCKERS`, `PULL_RELEASE_REASONS`, plus `SEXES` and `URGENCY_LEVELS` (Phase 7 Task 4 flagged both as missing) |
+| `ward-flow-events.ts`                              | Eight new events                                                                                                                                                                                  |
+| `ward-flow-reducer.ts`                             | Their handlers, and admission creation on `PATIENT_ARRIVED`                                                                                                                                       |
+| `ward-flow-provider.tsx`                           | Expose `admissions`                                                                                                                                                                               |
+| `ward-nav.ts`                                      | The statistics route                                                                                                                                                                              |
+| `src/app/mockups/ward-flow/ward/[unitId]/page.tsx` | Render `WardBoard`                                                                                                                                                                                |
+| `ward-screen.tsx`                                  | Retired into the board (Task 15)                                                                                                                                                                  |
 
 ---
 
@@ -129,11 +224,13 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 ### Task 1: The admission record
 
 **Files:**
+
 - Modify: `src/components/ward-management/ward-model.ts`
 - Create: `src/components/ward-management/ward-admissions.ts`
 - Test: `tests/ward-admission-model.test.ts`
 
 **Interfaces:**
+
 - Produces: `Admission`, `ADMISSION_STATES`, `AdmissionState`, `STAY_BANDS`, `StayBand`, `LEAVING_DESTINATIONS`, `LeavingDestination`, `BED_RELEASE_BLOCKERS`, `DischargeBlockReason`, `PULL_RELEASE_REASONS`, `PullReleaseReason`, `SEXES`, `URGENCY_LEVELS`; and from `ward-admissions.ts`: `stayBand(admission, now)`, `daysInBed(admission, now)`, `bedIsOccupied(admission)`, `isPastExpectedDischarge(admission, now)`, `admissionsForUnit(admissions, unitId)`.
 
 - [ ] **Step 1: Write the failing test**
@@ -143,7 +240,12 @@ The single biggest cost here is not thinking, it is **lock contention**. Lint, t
 import { describe, expect, it } from "vitest";
 import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { ADMISSION_STATES, STAY_BANDS, type Admission } from "@/components/ward-management/ward-model";
-import { bedIsOccupied, daysInBed, isPastExpectedDischarge, stayBand } from "@/components/ward-management/ward-admissions";
+import {
+  bedIsOccupied,
+  daysInBed,
+  isPastExpectedDischarge,
+  stayBand,
+} from "@/components/ward-management/ward-admissions";
 
 const base: Admission = {
   id: "AD-001",
@@ -219,10 +321,21 @@ describe("admission model", () => {
 
   it("carries no free-text or clinical field, ever", () => {
     const permitted = [
-      "id", "unitId", "referralId", "sex", "homeRegion", "state",
-      "pulledAt", "arrivedAt", "expectedDischargeAt", "dischargeDateMoves",
-      "dischargeDateSetAt", "dischargeDateSetBy", "blockReason",
-      "leavingDestination", "leftAt",
+      "id",
+      "unitId",
+      "referralId",
+      "sex",
+      "homeRegion",
+      "state",
+      "pulledAt",
+      "arrivedAt",
+      "expectedDischargeAt",
+      "dischargeDateMoves",
+      "dischargeDateSetAt",
+      "dischargeDateSetBy",
+      "blockReason",
+      "leavingDestination",
+      "leftAt",
     ].sort();
     expect(Object.keys(base).sort()).toEqual(permitted);
     for (const banned of ["notes", "note", "comment", "diagnosis", "name", "dob", "patientId", "address"]) {
@@ -235,7 +348,7 @@ describe("admission model", () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && npm run test:focused -- --files tests/ward-admission-model.test.ts
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && npm run test:focused -- --files tests/ward-admission-model.test.ts
 ```
 
 Expected: FAIL — `ward-admissions` does not exist, `ADMISSION_STATES` is not exported.
@@ -401,7 +514,7 @@ export function admissionsForUnit(admissions: Admission[], unitId: string): Admi
 - [ ] **Step 5: Run the test and watch it pass**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && npm run test:focused -- --files tests/ward-admission-model.test.ts
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && npm run test:focused -- --files tests/ward-admission-model.test.ts
 ```
 
 Expected: PASS. **Quote the `N passed` line.** Exit 0 alone is not proof — receipts are memoised.
@@ -411,7 +524,7 @@ Expected: PASS. **Quote the `N passed` line.** Exit 0 alone is not proof — rec
 For each mutation: apply, run, watch it go RED, quote the failure line, restore byte-identically.
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && bash .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh \
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && bash .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh \
   src/components/ward-management/ward-admissions.ts \
   'admission.state === "pulled" || admission.state === "occupied"' \
   'admission.state === "occupied"' \
@@ -423,7 +536,7 @@ Expected RED on `counts a pulled bed as occupied even though nobody has arrived`
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && git add src/components/ward-management/ward-model.ts src/components/ward-management/ward-admissions.ts tests/ward-admission-model.test.ts && git commit -m "feat(ward-flow): the admission record — a person inside a bed"
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && git add src/components/ward-management/ward-model.ts src/components/ward-management/ward-admissions.ts tests/ward-admission-model.test.ts && git commit -m "feat(ward-flow): the admission record — a person inside a bed"
 ```
 
 ---
@@ -431,10 +544,12 @@ cd /d/Worktrees/Database/pr-2390-fix && git add src/components/ward-management/w
 ### Task 2: The events and the reducer
 
 **Files:**
+
 - Modify: `src/components/ward-management/ward-flow-events.ts`, `ward-flow-reducer.ts`, `ward-flow-provider.tsx`
 - Test: `tests/ward-admission-reducer.test.ts`
 
 **Interfaces:**
+
 - Consumes: everything Task 1 produced.
 - Produces: events `WAITLIST_REFERRAL`, `REORDER_WAITLIST`, `PULL_PATIENT`, `RELEASE_PULL`, `SET_DISCHARGE_DATE`, `BLOCK_DISCHARGE`, `RECORD_LEAVING`, `CONFIRM_WARD_DAY`; reducer state gains `admissions: Admission[]` and `waitlists: Record<string, string[]>` (unit id → ordered referral ids); provider context gains `admissions` and `waitlists`.
 
@@ -451,7 +566,12 @@ const ward = { role: "ward" as const, now: 600 };
 describe("admission reducer", () => {
   it("a waitlisted referral does not consume a bed", () => {
     const before = initialWardFlowState();
-    const after = wardFlowReducer(before, { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    const after = wardFlowReducer(before, {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     expect(after.waitlists["bty-adult-secure"]).toContain("RF-001");
     expect(after.admissions.filter((a) => a.state === "pulled" || a.state === "occupied")).toHaveLength(
       before.admissions.filter((a) => a.state === "pulled" || a.state === "occupied").length,
@@ -459,8 +579,18 @@ describe("admission reducer", () => {
   });
 
   it("pulling removes an available bed immediately, before anyone arrives", () => {
-    const waitlisted = wardFlowReducer(initialWardFlowState(), { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
-    const pulled = wardFlowReducer(waitlisted, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    const waitlisted = wardFlowReducer(initialWardFlowState(), {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
+    const pulled = wardFlowReducer(waitlisted, {
+      type: "PULL_PATIENT",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     const admission = pulled.admissions.find((a) => a.referralId === "RF-001");
     expect(admission?.state).toBe("pulled");
     expect(admission?.pulledAt).toBe(600);
@@ -469,44 +599,99 @@ describe("admission reducer", () => {
 
   it("pulling withdraws the person from every other ward's waitlist", () => {
     let state = initialWardFlowState();
-    state = wardFlowReducer(state, { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
-    state = wardFlowReducer(state, { type: "WAITLIST_REFERRAL", ...ward, unitId: "rph-adult-secure", referralId: "RF-001" });
+    state = wardFlowReducer(state, {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
+    state = wardFlowReducer(state, {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "rph-adult-secure",
+      referralId: "RF-001",
+    });
     state = wardFlowReducer(state, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
     expect(state.waitlists["rph-adult-secure"] ?? []).not.toContain("RF-001");
   });
 
   it("releasing a pull returns the bed and records the reason", () => {
-    let state = wardFlowReducer(initialWardFlowState(), { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    let state = wardFlowReducer(initialWardFlowState(), {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     state = wardFlowReducer(state, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
-    state = wardFlowReducer(state, { type: "RELEASE_PULL", ...ward, admissionId: state.admissions.at(-1)!.id, reason: "transport_unavailable" });
+    state = wardFlowReducer(state, {
+      type: "RELEASE_PULL",
+      ...ward,
+      admissionId: state.admissions.at(-1)!.id,
+      reason: "transport_unavailable",
+    });
     expect(state.admissions.at(-1)?.state).toBe("left");
     expect(state.unwinds.some((u) => u.kind === "pull_released")).toBe(true);
   });
 
   it("refuses a pull-release reason outside the fixed list, by membership not truthiness", () => {
-    let state = wardFlowReducer(initialWardFlowState(), { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    let state = wardFlowReducer(initialWardFlowState(), {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     state = wardFlowReducer(state, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
     const id = state.admissions.at(-1)!.id;
-    const after = wardFlowReducer(state, { type: "RELEASE_PULL", ...ward, admissionId: id, reason: "ran_out_of_beds" as never });
+    const after = wardFlowReducer(state, {
+      type: "RELEASE_PULL",
+      ...ward,
+      admissionId: id,
+      reason: "ran_out_of_beds" as never,
+    });
     expect(after.admissions.find((a) => a.id === id)?.state).toBe("pulled");
     expect(after.rejections.at(-1)?.reason).toMatch(/reason/i);
   });
 
   it("setting a discharge date a second time counts as a move", () => {
-    let state = wardFlowReducer(initialWardFlowState(), { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    let state = wardFlowReducer(initialWardFlowState(), {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     state = wardFlowReducer(state, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
     const id = state.admissions.at(-1)!.id;
-    state = wardFlowReducer(state, { type: "SET_DISCHARGE_DATE", ...ward, admissionId: id, expectedDischargeAt: 5 * MINUTES_PER_DAY });
+    state = wardFlowReducer(state, {
+      type: "SET_DISCHARGE_DATE",
+      ...ward,
+      admissionId: id,
+      expectedDischargeAt: 5 * MINUTES_PER_DAY,
+    });
     expect(state.admissions.find((a) => a.id === id)?.dischargeDateMoves).toBe(0);
-    state = wardFlowReducer(state, { type: "SET_DISCHARGE_DATE", ...ward, admissionId: id, expectedDischargeAt: 9 * MINUTES_PER_DAY });
+    state = wardFlowReducer(state, {
+      type: "SET_DISCHARGE_DATE",
+      ...ward,
+      admissionId: id,
+      expectedDischargeAt: 9 * MINUTES_PER_DAY,
+    });
     expect(state.admissions.find((a) => a.id === id)?.dischargeDateMoves).toBe(1);
   });
 
   it("refuses to confirm the ward day while a discharge date sits in the past", () => {
-    let state = wardFlowReducer(initialWardFlowState(), { type: "WAITLIST_REFERRAL", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
+    let state = wardFlowReducer(initialWardFlowState(), {
+      type: "WAITLIST_REFERRAL",
+      ...ward,
+      unitId: "bty-adult-secure",
+      referralId: "RF-001",
+    });
     state = wardFlowReducer(state, { type: "PULL_PATIENT", ...ward, unitId: "bty-adult-secure", referralId: "RF-001" });
     const id = state.admissions.at(-1)!.id;
-    state = wardFlowReducer(state, { type: "SET_DISCHARGE_DATE", ...ward, admissionId: id, expectedDischargeAt: 1 * MINUTES_PER_DAY });
+    state = wardFlowReducer(state, {
+      type: "SET_DISCHARGE_DATE",
+      ...ward,
+      admissionId: id,
+      expectedDischargeAt: 1 * MINUTES_PER_DAY,
+    });
     const later = { role: "ward" as const, now: 10 * MINUTES_PER_DAY };
     const after = wardFlowReducer(state, { type: "CONFIRM_WARD_DAY", ...later, unitId: "bty-adult-secure" });
     expect(after.wardDayConfirmedAt["bty-adult-secure"]).toBeUndefined();
@@ -514,7 +699,11 @@ describe("admission reducer", () => {
   });
 
   it("confirms the ward day when no date has been left in the past", () => {
-    const state = wardFlowReducer(initialWardFlowState(), { type: "CONFIRM_WARD_DAY", ...ward, unitId: "bty-adult-secure" });
+    const state = wardFlowReducer(initialWardFlowState(), {
+      type: "CONFIRM_WARD_DAY",
+      ...ward,
+      unitId: "bty-adult-secure",
+    });
     expect(state.wardDayConfirmedAt["bty-adult-secure"]).toBe(600);
   });
 });
@@ -523,7 +712,7 @@ describe("admission reducer", () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && npm run test:focused -- --files tests/ward-admission-reducer.test.ts
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && npm run test:focused -- --files tests/ward-admission-reducer.test.ts
 ```
 
 Expected: FAIL — the event types do not exist.
@@ -567,7 +756,7 @@ In `ward-flow-provider.tsx`, add `admissions`, `waitlists` and `wardDayConfirmed
 - [ ] **Step 6: Run the test and watch it pass**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && npm run test:focused -- --files tests/ward-admission-reducer.test.ts tests/ward-flow-reducer.test.ts
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && npm run test:focused -- --files tests/ward-admission-reducer.test.ts tests/ward-flow-reducer.test.ts
 ```
 
 Expected: PASS, and **the existing reducer suite must still be green** — quote both `N passed` lines.
@@ -575,7 +764,7 @@ Expected: PASS, and **the existing reducer suite must still be green** — quote
 - [ ] **Step 7: Mutation-test the two rules most likely to be "corrected" later**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && bash .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh \
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && bash .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/mutate.sh \
   src/components/ward-management/ward-flow-reducer.ts \
   'PULL_RELEASE_REASONS.includes' 'Boolean' tests/ward-admission-reducer.test.ts
 ```
@@ -585,7 +774,7 @@ Expected RED on the membership test. Then mutate the `CONFIRM_WARD_DAY` past-dat
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && git add src/components/ward-management/ward-flow-events.ts src/components/ward-management/ward-flow-reducer.ts src/components/ward-management/ward-flow-provider.tsx tests/ward-admission-reducer.test.ts && git commit -m "feat(ward-flow): pull, waitlist, discharge date and the daily confirm"
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && git add src/components/ward-management/ward-flow-events.ts src/components/ward-management/ward-flow-reducer.ts src/components/ward-management/ward-flow-provider.tsx tests/ward-admission-reducer.test.ts && git commit -m "feat(ward-flow): pull, waitlist, discharge date and the daily confirm"
 ```
 
 ---
@@ -593,11 +782,13 @@ cd /d/Worktrees/Database/pr-2390-fix && git add src/components/ward-management/w
 ### Task 3: The seed fixture
 
 **Files:**
+
 - Create: `src/components/ward-management/ward-admissions-seed.ts`
 - Modify: `src/components/ward-management/ward-flow-reducer.ts` (load the seed in `initialWardFlowState`)
 - Test: `tests/ward-admissions-seed.test.ts`
 
 **Interfaces:**
+
 - Produces: `wardAdmissions: Admission[]`, `wardWaitlists: Record<string, string[]>`.
 
 The seed must make every rule testable and no rule vacuous — a fixture that makes a rule vacuous is a named defect class in this project.
@@ -638,7 +829,11 @@ describe("admission seed", () => {
   });
 
   it("contains at least one person past their own discharge date", () => {
-    expect(wardAdmissions.some((a) => a.expectedDischargeAt !== null && a.expectedDischargeAt < NOW_ANCHOR && a.state === "occupied")).toBe(true);
+    expect(
+      wardAdmissions.some(
+        (a) => a.expectedDischargeAt !== null && a.expectedDischargeAt < NOW_ANCHOR && a.state === "occupied",
+      ),
+    ).toBe(true);
   });
 
   it("contains at least one blocked discharge, or the headline figure is untestable", () => {
@@ -668,7 +863,7 @@ describe("admission seed", () => {
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && git add src/components/ward-management/ward-admissions-seed.ts src/components/ward-management/ward-flow-reducer.ts tests/ward-admissions-seed.test.ts && git commit -m "feat(ward-flow): seed the wards with occupancies that make every rule testable"
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && git add src/components/ward-management/ward-admissions-seed.ts src/components/ward-management/ward-flow-reducer.ts tests/ward-admissions-seed.test.ts && git commit -m "feat(ward-flow): seed the wards with occupancies that make every rule testable"
 ```
 
 ---
@@ -682,6 +877,7 @@ Four new files, no shared edits. Dispatch all four at once.
 **Files:** Create `src/components/ward-management/ward-discharge-dates.ts`; Test `tests/ward-discharge-dates.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Admission`, `bedIsOccupied`, `isPastExpectedDischarge` (Task 1).
 - Produces: `derivedBedReleases(admissions, now): BedRelease[]`, `statewideReleaseCount(admissions, now): number`, `dischargeDateAccuracy(admissions): { met: number; moved: number; total: number }`.
 
@@ -704,12 +900,13 @@ Commit: `feat(ward-flow): derive bed releases from the ward's own discharge date
 **Files:** Create `src/components/ward-management/ward-board-derivations.ts`; Test `tests/ward-board-derivations.test.ts`
 
 **Interfaces:**
+
 - Produces: `headlineAvailable(unit, admissions, now): number`, `constraintSentence(unit, admissions): string`, `sinceYesterday(admissions, now): { discharged: number; pulled: number; datesMoved: number }`, `arrowTargets(admissions, now): { region: HomeRegion; count: number; nearestDays: number }[]`, `derivedSexMix(admissions, unitId): Record<Sex, number>`.
 
 Required behaviours:
 
 - `headlineAvailable` = beds minus occupied-or-pulled, floored at zero, and it **must** come from `capacityBreakdown()` rather than recomputing. A unit whose figures cannot be resolved returns zero, never a guess.
-- `constraintSentence` produces the page's most valuable line: *"Only 1 will take a man. Only 1 can be watched one-to-one."* It reads `sexDesignation` as an **accepts** rule (an `Undesignated` bed accepts everyone) and `speciallingCapacity` directly. Test the trap explicitly: a unit that is entirely `Undesignated` must report that every free bed takes a man **and** a woman — an equality check would report zero.
+- `constraintSentence` produces the page's most valuable line: _"Only 1 will take a man. Only 1 can be watched one-to-one."_ It reads `sexDesignation` as an **accepts** rule (an `Undesignated` bed accepts everyone) and `speciallingCapacity` directly. Test the trap explicitly: a unit that is entirely `Undesignated` must report that every free bed takes a man **and** a woman — an equality check would report zero.
 - `arrowTargets` returns only admissions with a date within 7 days, grouped by region, ordered nearest first (spec D12).
 - `derivedSexMix` replaces the hand-maintained `Unit.sexMix`.
 
@@ -735,14 +932,14 @@ Commit: `feat(ward-flow): synthetic community teams, one per region`
 
 **Interfaces:** Produces `wardStatistics(unitId, admissions, now): WardStatistics` with the six spec D16 figures, and `allWardStatistics(units, admissions, now)`.
 
-| Figure | From |
-| ------ | ---- |
-| Average length of stay | `arrivedAt` → `leftAt` |
-| **Empty-bed time** | `pulledAt` → `arrivedAt` — the number nobody currently has |
-| Discharge dates met | Task 4's `dischargeDateAccuracy` |
-| Waitlist wait | waitlisted → pulled |
-| Ready to leave, cannot | admissions with `blockReason` |
-| Long stays | `stayBand === "over-3-months"` |
+| Figure                 | From                                                       |
+| ---------------------- | ---------------------------------------------------------- |
+| Average length of stay | `arrivedAt` → `leftAt`                                     |
+| **Empty-bed time**     | `pulledAt` → `arrivedAt` — the number nobody currently has |
+| Discharge dates met    | Task 4's `dischargeDateAccuracy`                           |
+| Waitlist wait          | waitlisted → pulled                                        |
+| Ready to leave, cannot | admissions with `blockReason`                              |
+| Long stays             | `stayBand === "over-3-months"`                             |
 
 Every figure returns `null` — never zero — when there is nothing to average. Zero and "no data" are different claims and this is the module where they get confused. Test that explicitly.
 
@@ -843,7 +1040,7 @@ Commit: `feat(ward-flow): the statewide flow statistics page`
 **Before deleting anything, enumerate every control on the existing screen and name where it went.** Write that table into the commit message. Then run the repository's dead-code gate, which fails closed on a symbol pinned by a test, named in a plan with unchecked tasks, or referenced as a string literal:
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && npm run check:dead-code-candidate -- --diff origin/main
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && npm run check:dead-code-candidate -- --diff origin/main
 ```
 
 Do not tune its thresholds or refusal list to make this diff pass.
@@ -859,7 +1056,7 @@ Print: one A4 sheet, designed as the handover sheet — who came in, who is goin
 Verify page count with the capture tool, not by eye:
 
 ```bash
-cd /d/Worktrees/Database/pr-2390-fix && node .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/capture.mjs /mockups/ward-flow/ward/bty-adult-secure
+cd /d/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231 && node .superpowers/sdd/2026-08-27-ward-flow-phase-7-front-door/capture.mjs /mockups/ward-flow/ward/bty-adult-secure
 ```
 
 Commit: `feat(ward-flow): the board prints as the ward handover sheet`
@@ -894,27 +1091,98 @@ A refusal citing capacity, or exit 75, is BLOCKED — retry. It is never a pass 
 
 ## Self-review against the spec
 
-| Spec | Task |
-| ---- | ---- |
-| D1 admission record | 1 |
-| D2 four states, bed lost at pull, failed pull | 1, 2 |
-| D3 ordered waitlist, cross-waitlist withdrawal | 2, 9 |
-| D4 one date drives releases, moves counted | 1, 2, 4 |
-| D5 permitted fields, no diagnosis, structural test | 1 |
-| D6 anonymous tiles | 8 |
-| D7 three signals, owner's bands, colour never alone | 1, 8 |
-| D8 leaving destination, statewide netting | 1, 4 |
-| D9 blocked figure, owner-pending list | 1, 10, 11 |
-| D10 daily confirm, staleness, past-date refusal | 2, 12 |
-| D11 layout, headline, constraint sentence, never-blank panel | 5, 10, 11 |
-| D12 arrows near discharge only | 5, 11 |
-| D13 select a referral, beds answer | 11 |
-| D14 synthetic teams | 6 |
-| D15 receiving window | **Not built — owner-pending.** Event shape ready in 2 |
-| D16 statistics strip and page | 7, 11, 14 |
-| D17 undo, no dialogs | 13 |
-| D18 phone list | 16 |
-| D19 print as handover sheet | 16 |
-| D20 board replaces ward screen, both roles | 11, 15 |
+| Spec                                                         | Task                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| D1 admission record                                          | 1                                                     |
+| D2 four states, bed lost at pull, failed pull                | 1, 2                                                  |
+| D3 ordered waitlist, cross-waitlist withdrawal               | 2, 9                                                  |
+| D4 one date drives releases, moves counted                   | 1, 2, 4                                               |
+| D5 permitted fields, no diagnosis, structural test           | 1                                                     |
+| D6 anonymous tiles                                           | 8                                                     |
+| D7 three signals, owner's bands, colour never alone          | 1, 8                                                  |
+| D8 leaving destination, statewide netting                    | 1, 4                                                  |
+| D9 blocked figure, owner-pending list                        | 1, 10, 11                                             |
+| D10 daily confirm, staleness, past-date refusal              | 2, 12                                                 |
+| D11 layout, headline, constraint sentence, never-blank panel | 5, 10, 11                                             |
+| D12 arrows near discharge only                               | 5, 11                                                 |
+| D13 select a referral, beds answer                           | 11                                                    |
+| D14 synthetic teams                                          | 6                                                     |
+| D15 receiving window                                         | **Not built — owner-pending.** Event shape ready in 2 |
+| D16 statistics strip and page                                | 7, 11, 14                                             |
+| D17 undo, no dialogs                                         | 13                                                    |
+| D18 phone list                                               | 16                                                    |
+| D19 print as handover sheet                                  | 16                                                    |
+| D20 board replaces ward screen, both roles                   | 11, 15                                                |
 
 **Gap accepted deliberately:** D15 is unbuilt pending the owner's options. Recorded here rather than guessed.
+
+---
+
+## CORRECTIONS, 2026-08-29 — four verified against git and source, not read from prose
+
+Found by a third session auditing this plan, and **each one re-verified here before being applied.**
+Two of the three corrections exchanged between sessions today turned out to be somebody asserting
+about code they had not opened, so nothing below was taken on trust.
+
+### C1 — Every task body named the wrong worktree and the wrong branch. FIXED ABOVE.
+
+The parallel-execution addendum moved this work to `claude/ward-flow-ward-board` in
+`nostalgic-vaughan-7ee231` and **never edited the eighteen command blocks underneath it.** Verified:
+twelve occurrences of `pr-2390-fix`, zero of the correct worktree, and the Global Constraints named
+Phase 8's branch as the one to commit to.
+
+**A task followed verbatim would have `cd`'d into the other session's worktree and committed this
+work onto their branch** — the exact collision this plan's own safety rule exists to prevent, sitting
+inside the instructions.
+
+**The lesson, which is worth more than the fix:** an addendum that changes where work happens must
+edit the task bodies, not sit above them. A reader following step 5 of task 9 never sees the header.
+
+### C2 — `npm run test:focused` cannot run a new test file. FIXED ABOVE.
+
+It fails closed on any `tests/` path and directs the caller to the full 961-file suite on the
+**exclusive** lock — which would serialise every worktree on the machine, the precise cost the Speed
+model exists to avoid. `node scripts/run-vitest.mjs run <files>` takes the shared lease instead.
+
+### C3 — The fold conflicts on three files, and the naive resolution is silently destructive
+
+Verified by counting `dischargeConfirmedAt` on both branches:
+
+| File                                 | This branch | Phase 8 |
+| ------------------------------------ | ----------- | ------- |
+| `ward-admissions.ts`                 | 2           | 0       |
+| `ward-admissions-seed.ts`            | 4           | 0       |
+| `tests/ward-admission-model.test.ts` | 4           | 0       |
+
+**Why file-by-file resolution is dangerous here rather than merely wrong.** `dischargeConfirmedAt` is
+the only route to a `confirmed` release (DB-2). The third file is the **structural test asserting the
+record's exact field set** — the guard against exactly this loss. Resolving all three in Phase 8's
+favour deletes the fields _and_ the assertion that they must exist, **and the suite goes green**,
+because the test that would have failed is the one being deleted.
+
+**BINDING RULE, agreed with both other sessions: take THIS branch's copy of all three wholesale, then
+repair Phase 8's test literals.** Never file by file, and never assert the fold is clean because the
+tests pass — here they would.
+
+### C4 — Nothing at runtime can confirm a discharge. Task 2 needs a ninth event.
+
+Verified: `dischargeConfirmedAt` is **read** in `ward-discharge-dates.ts` and **written nowhere**.
+Task 2's eight events are `WAITLIST_REFERRAL`, `REORDER_WAITLIST`, `PULL_PATIENT`, `RELEASE_PULL`,
+`SET_DISCHARGE_DATE`, `BLOCK_DISCHARGE`, `RECORD_LEAVING`, `CONFIRM_WARD_DAY` — and `CONFIRM_WARD_DAY`
+confirms the ward's **daily return**, not a discharge. Only the seed sets the field.
+
+**So the board would demo correctly and be inert in use** — the most expensive shape of defect this
+project produces, because every screenshot and every test looks right.
+
+**Task 2 gains `CONFIRM_DISCHARGE`** — `{ type, role, now, admissionId }` — setting
+`dischargeConfirmedAt: now` and `dischargeConfirmedBy` to the acting **role**. It is DB-4's "going
+today" action, and Task 10's three patient actions must dispatch it. Its test must assert a
+`"confirmed"` release appears **after dispatching the event**, never from a seeded confirmation —
+a seeded fixture cannot distinguish a working event from an absent one.
+
+### Still outstanding from that audit, not yet applied
+
+Seven owner decisions with no task delivering them (DB-1, DB-3, DB-5 to DB-8, DB-10), DB-4's screen
+ordering never reaching the wave table, and the daily-sheet stopwatch that success criterion 1 depends
+on and no task performs. **These are gaps in coverage rather than errors**, and they are folded in
+when the screen tasks are re-planned after the merge — the wave table is rewritten then anyway.

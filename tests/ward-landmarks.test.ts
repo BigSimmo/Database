@@ -50,6 +50,7 @@ import { OfficerScreen } from "@/components/ward-management/officer/officer-scre
 import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -133,6 +134,10 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
   { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
+  {
+    route: `${ROUTE_PREFIX}/board/[unitId]`,
+    render: () => createElement(WardBoard, { unitId: "rph-adult-secure" }),
+  },
   {
     route: `${ROUTE_PREFIX}/patients/[patientId]`,
     render: () => createElement(WardPatientWorkspace, { patientId: "WF-001" }),

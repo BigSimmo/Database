@@ -84,6 +84,13 @@ export const WARD_NAV: readonly WardNavItem[] = [
     group: "role",
     exampleOnly: true,
   },
+  {
+    id: "board",
+    href: "/mockups/ward-flow/board/rph-adult-secure",
+    label: "Ward board — RPH Adult Secure",
+    group: "role",
+    exampleOnly: true,
+  },
   { id: "officer", href: "/mockups/ward-flow/transport/officer", label: "Officer", group: "role" },
   {
     id: "ed",

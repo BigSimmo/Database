@@ -103,6 +103,16 @@ type Occupant = readonly [
 type OccupantExtras = {
   /** What is holding this bed up, drawn from `BED_RELEASE_BLOCKERS`. */
   readonly blockReason?: BedReleaseBlocker;
+  /**
+   * Hours before the anchor at which the ward CONFIRMED this discharge is happening — the ward's
+   * own decision, as distinct from the plan `dischargeInDays` records. Absent means nobody has
+   * confirmed anything, which is the ordinary state and is what most occupants below carry.
+   *
+   * Only meaningful alongside a `dischargeInDays`: a decision to discharge with no date to
+   * discharge ON has nothing for a bed release to be dated by, so the builder refuses to record
+   * one rather than inventing an instant for it.
+   */
+  readonly confirmedHoursAgo?: number;
 };
 
 /**
@@ -138,6 +148,8 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
         dischargeDateMoves: 0,
         dischargeDateSetAt: null,
         dischargeDateSetBy: null,
+        dischargeConfirmedAt: null,
+        dischargeConfirmedBy: null,
         blockReason: null,
         leavingDestination: null,
         leftAt: null,
@@ -146,6 +158,11 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
 
     const arrivedAt = WARD_ADMISSIONS_ANCHOR - stayDays * MINUTES_PER_DAY - ARRIVAL_PART_DAY_MINUTES;
     const hasDate = dischargeInDays !== null;
+    // A confirmation is only recorded where there is a date to confirm — see `confirmedHoursAgo`.
+    // The pair moves together: an instant with no role, or a role with no instant, is a decision
+    // that cannot be acted on or one attributed to a ward that never made it.
+    const confirmedHoursAgo = hasDate ? extras?.confirmedHoursAgo : undefined;
+    const isConfirmed = confirmedHoursAgo !== undefined;
 
     return {
       id: `AD-${suffix}`,
@@ -160,6 +177,11 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
       dischargeDateMoves: hasDate ? index % 3 : 0,
       dischargeDateSetAt: hasDate ? WARD_ADMISSIONS_ANCHOR - (6 + (index % 5) * 5) * 60 : null,
       dischargeDateSetBy: hasDate ? DISCHARGE_DATE_SETTERS[index % DISCHARGE_DATE_SETTERS.length] : null,
+      dischargeConfirmedAt: isConfirmed ? WARD_ADMISSIONS_ANCHOR - confirmedHoursAgo * 60 : null,
+      // A ROLE, from the same two the date-setters are drawn from, and deliberately the OTHER one:
+      // setting a date and deciding the discharge is happening are two acts, and a fixture where
+      // the same role always did both would make a screen that confuses them look correct.
+      dischargeConfirmedBy: isConfirmed ? DISCHARGE_DATE_SETTERS[(index + 1) % DISCHARGE_DATE_SETTERS.length] : null,
       blockReason,
       leavingDestination: null,
       leftAt: null,
@@ -196,6 +218,12 @@ function departed(departure: Departure): Admission {
     dischargeDateMoves: 1,
     dischargeDateSetAt: leftAt - 2 * MINUTES_PER_DAY,
     dischargeDateSetBy: DISCHARGE_DATE_SETTERS[0],
+    // A completed admission records the departure that HAPPENED (`leftAt`, `leavingDestination`).
+    // A confirmation is a decision about a discharge still to come, so back-filling one here would
+    // be a fact invented after the event, and `derivedBedReleases` reads a departed admission as
+    // `"released"` regardless.
+    dischargeConfirmedAt: null,
+    dischargeConfirmedBy: null,
     blockReason: null,
     leavingDestination: departure.destination,
     leftAt,
@@ -217,6 +245,8 @@ function waiting(id: string, unitId: string, sex: Sex, homeRegion: HomeRegion): 
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
     dischargeDateSetBy: null,
+    dischargeConfirmedAt: null,
+    dischargeConfirmedBy: null,
     blockReason: null,
     leavingDestination: null,
     leftAt: null,
@@ -236,8 +266,14 @@ function waiting(id: string, unitId: string, sex: Sex, homeRegion: HomeRegion): 
  */
 const occupiedBeds: Admission[] = [
   ...unitOccupants("rph-adult-secure", "RPHS", [
-    ["Female", "South West", 34, -2, { blockReason: "Awaiting accommodation" }],
-    ["Male", "Kimberley", 5, 3],
+    // CONFIRMED **AND** BLOCKED — the seed's most load-bearing single occupant. A stuck confirmed
+    // discharge is the case the three-stage bed model exists for: it must still count as
+    // confirmed, with blocked counted alongside it rather than subtracted from it. Without this
+    // one line that rule has no seeded case and a derivation that quietly dropped blocked releases
+    // out of the confirmed count would pass every test in this repository.
+    ["Female", "South West", 34, -2, { blockReason: "Awaiting accommodation", confirmedHoursAgo: 26 }],
+    // Confirmed and NOT blocked, so the blocked cross-cut above is compared against something.
+    ["Male", "Kimberley", 5, 3, { confirmedHoursAgo: 4 }],
     ["Male", "Peel", null, null],
     ["Female", "Perth Metropolitan", 3, null],
     ["Male", "Great Southern", 12, 4],
@@ -522,7 +558,8 @@ const occupiedBeds: Admission[] = [
     ["Male", "Gascoyne", 33, 5],
   ]),
   ...unitOccupants("sjgs-adult-open", "SJSA", [
-    ["Female", "Perth Metropolitan", 6, -3],
+    // A confirmed discharge on a second site, so no board test can pass by looking at one ward.
+    ["Female", "Perth Metropolitan", 6, -3, { confirmedHoursAgo: 8 }],
     ["Male", "Great Southern", 210, 10],
     ["Female", "Mid West", 17, 4],
     ["Male", "Kimberley", 75, 2],
