@@ -885,7 +885,8 @@ a test asserts.
 **This reverses Phase 6's D5 and D6 outright, and it was chosen with the cost stated.** Not narrowed, not
 qualified — the fixed 08:00 view goes, and the page is live everywhere.
 
-**What D3 was protecting, so nobody restores it later believing it was lost by accident:** a page that
+**What P6-D5 and P6-D6 were protecting, so nobody restores the frozen view later believing it was
+lost by accident:** a page that
 holds still can be printed, pinned up and argued over, and the numbers do not move while a handover is
 discussing them. That concern was real and remains real. **The owner was shown it as the explicit cost
 of this option and took it anyway.** Do not reinstate the freeze without a recorded decision from him.
