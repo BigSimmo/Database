@@ -220,7 +220,11 @@ describe("the escalation states why it happened and what would change it (spec 4
 
     const group = screen.getByRole("group", { name: /unclaimed work escalated/i });
     expect(group).toHaveTextContent("60 minutes");
-    expect(group).toHaveTextContent("145 minutes");
+    // 145 minutes is displayed as a duration ("2 hours"), not the raw minute count -- the fix this
+    // suite exists to prove (design sweep, 2026-08-29). The threshold above stays a raw minute count
+    // on purpose: it is a rule ("escalates at 60 minutes"), not a wait, and this screen's own words
+    // for it are untouched by that fix.
+    expect(group).toHaveTextContent("2 hours");
     expect(textOf(group)).toContain("a coordinator claiming the plan");
     // The reason must be IN the page, never held in a title attribute where a keyboard user reaches
     // it only by hovering.
@@ -286,7 +290,9 @@ describe("the escalation states why it happened and what would change it (spec 4
       unclaimed: { ...noUnclaimed(), oldestMinutesUnclaimed: 145 },
     });
 
-    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain("145 minutes");
+    // 145 minutes renders as "2 hours" (see the escalation test above); the absence is checked
+    // against that rendered form, not the raw minute count that never reaches the page.
+    expect(textOf(screen.getByTestId("caring-contacts-team-unclaimed"))).not.toContain("2 hours");
   });
 });
 
@@ -314,7 +320,8 @@ describe("both ages are named for what they measure, and neither is called a que
     });
 
     const unclaimed = screen.getByTestId("caring-contacts-team-unclaimed");
-    expect(unclaimed).toHaveTextContent("The oldest has been waiting 145 minutes");
+    // 145 minutes renders as "2 hours", the readable duration, not the raw minute count.
+    expect(unclaimed).toHaveTextContent("The oldest has been waiting 2 hours");
     const text = textOf(screen.getByTestId("caring-contacts-team"));
     // The positive control for the refusal below: the screen DOES say what the figure is, so the
     // absence is about the retracted claim rather than about a footer that failed to render.
@@ -378,8 +385,11 @@ describe("both ages are named for what they measure, and neither is called a que
     });
 
     // The positive control: both ages are on the screen, so these absences are about the WORDS.
+    // 145 minutes (the unclaimed age) renders as "2 hours"; 45 minutes (the backlog age) stays under
+    // an hour and so is still exact minutes -- both are the readable-duration fix, at two different
+    // points on the same scale.
     const text = textOf(screen.getByTestId("caring-contacts-team"));
-    expect(text).toContain("the oldest has been waiting 145 minutes");
+    expect(text).toContain("the oldest has been waiting 2 hours");
     expect(text).toContain("45 minutes since its scheduled send");
     expect(text).not.toContain("queue age");
     expect(text).not.toContain("waiting time");
