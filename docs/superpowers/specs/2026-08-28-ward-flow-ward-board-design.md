@@ -854,6 +854,15 @@ saying `08:14` and `15:22` are then visibly two moments rather than two competin
 small-print timestamp does not discharge this requirement** — if it can be missed, the safeguard is
 not present and D3's concern returns in full.
 
+**It must carry the DATE as well as the time, and the reason is this decision's own argument turned
+back on it.** The case for printing live is that a printed sheet still holds still, because it is
+paper. Paper also **persists past the day it was printed**. A sheet stamped `15:22` and pinned to a
+wall is read again at 09:00 the next morning, and at that moment the stamp distinguishes nothing — it
+reads as "today at 15:22", which has not happened yet. Two sheets an hour apart are visibly two
+moments; two sheets a day apart, stamped with time only, are indistinguishable. That is D3's failure
+returning through the single door a time-only stamp leaves open. **Date and time, both in the
+heading.**
+
 **It supersedes the change notice DB-7 required.** DB-7 asked for a line on the page explaining that
 the 24-hour window had widened, so a jumped figure would not read as wards discharging better. With
 every sheet stamped with its own moment, a sheet from before and a sheet from after are visibly
