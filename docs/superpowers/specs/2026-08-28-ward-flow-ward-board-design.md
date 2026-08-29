@@ -954,3 +954,35 @@ importers and were all alive.
 refuses is a recorded decision — _this symbol is deliberately dead because the owner reversed D3 on
 2026-08-29_ — not a gate change. Run it **early**, not at the end, and `git fetch --deepen=2000`
 first: on a shallow clone it can date nothing and its judgement is weaker than it looks.
+
+### DB-14 — The receiving-time options (OWNER-APPROVED, 2026-08-29)
+
+When a ward pulls a patient it states, in one tap, when it can take the handover. The transport
+officer sees it as the drop-off window (DB-6).
+
+```
+Any time
+Business hours only
+Not overnight
+After the afternoon handover
+Tomorrow, not today
+```
+
+**Provenance, stated precisely because it differs from the other approved lists.** These five were
+**drafted by this session and approved by the owner**, not supplied by him in his own words — unlike
+`BED_RELEASE_BLOCKERS`, `BED_RELEASE_WAITING_ON` and `BED_PREPARATION_NOTES`, which are his. He was
+offered the alternative of writing them himself and chose the drafts.
+
+**What that changes and what it does not.** The verbatim rule applies exactly as it does to the other
+three: no agent may tidy, shorten, reorder or remove an entry. But the confidence behind these five is
+lower — they are a plausible vocabulary rather than an observed one, and **the first clinician or
+coordinator to read them is likely to correct at least one.** Expect that rather than defending them.
+
+**Implementation:** a fixed runtime array with a membership check, like every other vocabulary here.
+The field is set at the pull and nowhere else. Until a ward has stated one, the officer's drop-off
+column reads **"not yet recorded"** — never blank, and never implying the ward said "any time"
+(DB-6). Silence and a stated window are different facts, the same distinction DB-2 draws for
+"Nothing outstanding".
+
+**This closes the last owner-pending item on the ward board.** The two remaining open items are the
+clinician check (held at his instruction until this phase closes) and the roadmap's ordering line.
