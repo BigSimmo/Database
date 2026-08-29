@@ -258,12 +258,32 @@ image"}` — never a possibly-empty variable alone.
   Do not re-draw the paths by hand: they are the exact output of the construction recorded in
   `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
   are one path plus its point reflection — which is the only reason the cut between them stays
-  parallel. `app/icon.svg` deliberately uses the mark's small-size cut (a wider gap), because that
-  is the file browsers render at 16–32 px.
-- **The tile colour is not the brand's.** `BRAND_LIGHT.tile` / `BRAND_DARK.tile` are pinned to
-  `--clinical-accent` per theme by `tests/design-token-contract.test.ts`, so the mark rides the
-  application's accent rather than the brand sheet's Deep Navy. Putting the mark on navy means
-  moving that accent, which is an application-wide decision — not a brand-asset one.
+  parallel. `app/icon.svg` and `favicon.ico` deliberately use the mark's **small-size set**, because
+  they are the files browsers render at 16–32 px: the widened cut (`BRAND_STROKE_PATH_SMALL`), the
+  point slid out of its cradle (`BRAND_POINT_SMALL`), and the centring that the wider ink box needs
+  (`BRAND_GLYPH_TRANSFORM_SMALL`). Those three travel together — mixing one with the other
+  variant's placement puts the glyph off-centre in the tile — and `brandMarkInner(colors, true)`
+  selects all three from the single `small` flag so a caller cannot pick them apart.
+- **The brand sheet is mirrored into `public/`.** `docs/brand/preview.html` is the generated
+  construction record; `public/brand/preview.html` is a byte-identical copy so the Developer Hub's
+  "Brand and design" card can link to it as a static file (`/brand/preview.html`). It is the one
+  hub panel that is not an app route, so `HubPanel.external` marks it, `PanelCard` renders it as a
+  real anchor rather than a `<Link>` (the client router has no entry for a file), and
+  `tests/developer-hub-panels.test.ts` both excludes it from the route-existence check and holds
+  the two copies identical by hash — a stale copy would show a retired mark to the one reader most
+  likely to trust it. Regenerate the doc, then copy it over the served one.
+- **In the app the mark has no tile.** `BrandMark` draws the symbol alone, filled
+  `--clinical-accent`, standing directly on the page ground — so on a white page it reads as a
+  mark rather than an app-store tile pasted into the chrome. It uses
+  `BRAND_GLYPH_TRANSFORM_BARE`, which scales the glyph to fill its box, so it occupies the same
+  slot the tiled version did. The tiled form survives only where the format has no transparency
+  to fall back on: `favicon.ico`, `apple-icon`, and the PWA raster icons.
+- **The tile is the ground, the ink is the brand.** `BRAND_*.ink` is pinned to `--clinical-accent`
+  and `BRAND_*.tile` to `--surface-raised`, per theme, by `tests/design-token-contract.test.ts`.
+  So the symbol rides the application's accent and the tile only ever matches the surface behind
+  it. The brand sheet's Deep Navy tile lives on in `public/brand/psychsift-mark.svg` for use off
+  the app; putting the in-app mark on navy would mean moving the accent, which is an
+  application-wide decision, not a brand-asset one.
 
 ## 11. What NOT to do
 

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { DocumentSearchMockupPage } from "@/components/document-search-mockups";
 
 export const metadata: Metadata = {
-  title: "Document Search Evidence Lens Mockup - Clinical KB",
+  title: "Document Search Evidence Lens Mockup - PsychSift",
   description: "Document search evidence lens mockup with selected source proof in view.",
 };
 

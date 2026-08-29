@@ -15,10 +15,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: DifferentialDiagnosisRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const record = getDifferentialRecord(slug);
-  if (!record) return { title: "Differential diagnosis not found - Clinical KB" };
+  if (!record) return { title: "Differential diagnosis not found - PsychSift" };
 
   return {
-    title: `${record.title} - Differential diagnosis - Clinical KB`,
+    title: `${record.title} - Differential diagnosis - PsychSift`,
     description: record.subtitle,
   };
 }

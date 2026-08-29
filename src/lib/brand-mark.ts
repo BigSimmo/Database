@@ -21,8 +21,20 @@ export const BRAND_VIEWBOX = "0 0 512 512";
 /** Rounded tile: a corner radius of 3/16 of the side. */
 export const BRAND_TILE = { x: 0, y: 0, size: 512, rx: 96 } as const;
 
-/** Places the 100-unit glyph inside the tile, centred on its ink bounding box. */
-export const BRAND_GLYPH_TRANSFORM = "translate(111.2867 51.2) scale(4.0804)";
+/** Places the 100-unit glyph inside the tile, centred on its ink bounding box,
+ *  at 80% of the tile height so the rounded corners keep their margin. */
+export const BRAND_GLYPH_TRANSFORM = "translate(143.1125 51.2) scale(4.0804)";
+
+/** The small-size variant sits wider, because its point is slid out of the
+ *  cradle (see BRAND_POINT_SMALL) and so the ink bounding box it is centred on
+ *  is 10 units wider. Same scale, different centring. */
+export const BRAND_GLYPH_TRANSFORM_SMALL = "translate(122.7103 51.2) scale(4.0804)";
+
+/** The same glyph with no tile behind it, scaled so its ink fills the box top to
+ *  bottom. Used by the in-app mark, where the symbol stands on the page ground
+ *  and the surrounding layout — not a tile — provides the breathing room. The
+ *  mark therefore occupies exactly the slot the tiled version used to. */
+export const BRAND_GLYPH_TRANSFORM_BARE = "translate(114.8907 0) scale(5.1006)";
 
 /** The upper stroke. Four arcs and the straight cut, meeting at two cusps. */
 export const BRAND_STROKE_PATH =
@@ -40,18 +52,36 @@ export const BRAND_STROKE_PATH_SMALL =
  *  stroke's facing edge exactly onto the lower one; see the brand doc. */
 export const BRAND_COUNTER_TRANSFORM = "translate(55.1029 100.3813) scale(-1.07)";
 
-/** The settled point. */
-export const BRAND_POINT = { cx: 60.4716, cy: 17.3581, r: 10.4586 } as const;
+/** The settled point, cradled in the S's throat. Its centre is exactly the
+ *  centre of the throat arc (17.7232 at (44.8724, 20.0286)), so the crescent of
+ *  white between the point and the curve that cups it is a constant 7.2646
+ *  units all the way round — the same constant-width idea as the straight cut
+ *  between the two strokes. Move it off that centre and the crescent starts to
+ *  taper. */
+export const BRAND_POINT = { cx: 44.8724, cy: 20.0286, r: 10.4586 } as const;
 
-/** Brand colours per theme. These mirror --clinical-accent and
- *  --clinical-accent-contrast per theme in globals.css. They cannot read the
- *  tokens (the favicon and the generated PNG icon routes render outside any
- *  stylesheet), so they must be re-derived by hand whenever the accent moves —
- *  then `npm run brand:update` regenerates app/icon.svg, which
- *  `npm run brand:check` verifies in verify:cheap, and the design-token
+/** The small-size point: the same circle slid 10 units out of the cradle, so
+ *  the crescent opens from 7.26 to 11.55 units and the point still separates
+ *  from the S at 20–32 px instead of fusing into it. The counterpart of the
+ *  widened cut in BRAND_STROKE_PATH_SMALL, and used by the same surfaces. At
+ *  16 px the crescent is still under two pixels and the two do merge; that is
+ *  the size, not the placement. */
+export const BRAND_POINT_SMALL = { cx: 54.8724, cy: 20.0286, r: 10.4586 } as const;
+
+/** Brand colours per theme. The symbol carries the colour and the ground stays
+ *  out of its way: `ink` mirrors --clinical-accent, and `tile` mirrors the page
+ *  ground it sits on (--surface-raised). So on a white page the mark reads as
+ *  the bare symbol with no box around it, which is how it is meant to be seen;
+ *  the tile exists only because a .ico and a raster app icon have no
+ *  transparency to fall back on and must paint some ground.
+ *
+ *  These cannot read the tokens (the favicon and the generated PNG icon routes
+ *  render outside any stylesheet), so they must be re-derived by hand whenever
+ *  the accent moves — then `npm run brand:update` regenerates app/icon.svg,
+ *  which `npm run brand:check` verifies in verify:cheap, and the design-token
  *  contract test fails if they ever disagree with the token. */
-export const BRAND_LIGHT = { tile: "#1d6fb8", ink: "#ffffff" } as const;
-export const BRAND_DARK = { tile: "#74bdf0", ink: "#08203a" } as const;
+export const BRAND_LIGHT = { tile: "#ffffff", ink: "#1d6fb8" } as const;
+export const BRAND_DARK = { tile: "#171b1e", ink: "#74bdf0" } as const;
 
 export type BrandColors = { tile: string; ink: string };
 
@@ -60,11 +90,15 @@ export type BrandColors = { tile: string; ink: string };
  *  the exported constants above. */
 export function brandMarkInner({ tile, ink }: BrandColors, small = false): string {
   const t = BRAND_TILE;
+  // The small-size variant is a set: the widened cut, the point slid out of the
+  // cradle, and the centring that its wider ink box needs. Mixing one with the
+  // other's placement puts the glyph off-centre in the tile.
   const stroke = small ? BRAND_STROKE_PATH_SMALL : BRAND_STROKE_PATH;
-  const p = BRAND_POINT;
+  const p = small ? BRAND_POINT_SMALL : BRAND_POINT;
+  const place = small ? BRAND_GLYPH_TRANSFORM_SMALL : BRAND_GLYPH_TRANSFORM;
   return (
     `<rect x="${t.x}" y="${t.y}" width="${t.size}" height="${t.size}" rx="${t.rx}" fill="${tile}" />` +
-    `<g transform="${BRAND_GLYPH_TRANSFORM}" fill="${ink}">` +
+    `<g transform="${place}" fill="${ink}">` +
     `<path d="${stroke}" />` +
     `<path d="${stroke}" transform="${BRAND_COUNTER_TRANSFORM}" />` +
     `<circle cx="${p.cx}" cy="${p.cy}" r="${p.r}" />` +
@@ -84,7 +118,7 @@ export function brandMarkSvg(colors: BrandColors = BRAND_LIGHT): string {
  *  app/icon.svg by scripts/generate-brand-assets.ts (verified in verify:cheap). */
 export function brandIconSvg(): string {
   const t = BRAND_TILE;
-  const p = BRAND_POINT;
+  const p = BRAND_POINT_SMALL;
   return `<svg viewBox="${BRAND_VIEWBOX}" xmlns="http://www.w3.org/2000/svg">
   <style>
     .tile { fill: ${BRAND_LIGHT.tile}; }
@@ -95,7 +129,7 @@ export function brandIconSvg(): string {
     }
   </style>
   <rect class="tile" x="${t.x}" y="${t.y}" width="${t.size}" height="${t.size}" rx="${t.rx}" />
-  <g class="ink" transform="${BRAND_GLYPH_TRANSFORM}">
+  <g class="ink" transform="${BRAND_GLYPH_TRANSFORM_SMALL}">
     <path d="${BRAND_STROKE_PATH_SMALL}" />
     <path d="${BRAND_STROKE_PATH_SMALL}" transform="${BRAND_COUNTER_TRANSFORM}" />
     <circle cx="${p.cx}" cy="${p.cy}" r="${p.r}" />

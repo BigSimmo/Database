@@ -64,7 +64,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
 
     render(<PatientSafetyPlan />);
-    expect(screen.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i)).toBeVisible();
+    expect(screen.getByText(/Copying, printing, or saving a PDF moves the plan outside PsychSift/i)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Print / PDF" }));
 
     expect(printSpy).toHaveBeenCalledTimes(1);

@@ -299,7 +299,7 @@ async function createFixture(
         cross_tenant_run_id: runId,
         synthetic_fixture: true,
         source_kind: "document",
-        publisher: "Clinical KB staging tenancy harness",
+        publisher: "PsychSift staging tenancy harness",
         jurisdiction: "Western Australia",
         publication_date: now.slice(0, 10),
         review_date: now.slice(0, 10),

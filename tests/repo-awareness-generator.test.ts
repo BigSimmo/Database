@@ -133,7 +133,7 @@ describe("listDocumentPaths", () => {
 });
 
 const README = `
-# Clinical KB Documentation Index
+# PsychSift Documentation Index
 
 - [testing.md](testing.md) — how tests run
 - [design-system/SPEC.md](design-system/SPEC.md) — the design system

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 
 export const metadata: Metadata = {
-  title: "Search clinical forms | Clinical KB",
+  title: "Search clinical forms | PsychSift",
   description: "Search the WA MHA 2014 forms register by code, title and clinical purpose.",
 };
 

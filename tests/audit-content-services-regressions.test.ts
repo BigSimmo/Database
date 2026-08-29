@@ -187,25 +187,25 @@ describe("content and services audit regressions", () => {
     ]);
 
     expect(firstFormMetadata).toEqual({
-      title: `${firstForm.title} - Forms - Clinical KB`,
+      title: `${firstForm.title} - Forms - PsychSift`,
       description: firstForm.subtitle,
     });
     expect(secondFormMetadata).toEqual({
-      title: `${secondForm.title} - Forms - Clinical KB`,
+      title: `${secondForm.title} - Forms - PsychSift`,
       description: secondForm.subtitle,
     });
     expect(firstServiceMetadata).toEqual({
-      title: `${firstService.title} - Services - Clinical KB`,
+      title: `${firstService.title} - Services - PsychSift`,
       description: firstService.subtitle,
     });
     expect(secondServiceMetadata).toEqual({
-      title: `${secondService.title} - Services - Clinical KB`,
+      title: `${secondService.title} - Services - PsychSift`,
       description: secondService.subtitle,
     });
     expect(firstFormMetadata.title).not.toEqual(secondFormMetadata.title);
     expect(firstServiceMetadata.title).not.toEqual(secondServiceMetadata.title);
-    expect(registryOnlyFormMetadata.title).toBe("Form record - Forms - Clinical KB");
-    expect(registryOnlyServiceMetadata.title).toBe("Service record - Services - Clinical KB");
+    expect(registryOnlyFormMetadata.title).toBe("Form record - Forms - PsychSift");
+    expect(registryOnlyServiceMetadata.title).toBe("Service record - Services - PsychSift");
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
