@@ -381,7 +381,7 @@ it) from clinical discovery entirely.
 - **Route/role map:** `docs/ward-management-mode-map.md`
 - **Model:** `src/components/ward-management/ward-clock.ts` (the only module that reads the
   wall clock), `ward-model.ts` (domain types only), `ward-eligibility.ts` (the eight
-  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 22 units),
+  placement gates), `ward-sites.ts` (17 sites, 8 emergency departments, 23 units),
   `ward-movements.ts` (48 movements, 6 bed releases), `ward-derivations.ts` (shared pure UI
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode

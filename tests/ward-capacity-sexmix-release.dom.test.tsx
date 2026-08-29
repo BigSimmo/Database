@@ -45,7 +45,7 @@ function ReleaseWr001() {
  * updates both together. rph-adult-secure is the review's own worked example: seeded beds 20,
  * empty 2, allocatable 1, sexMix 9 Female + 9 Male = 18 = occupied (18) before any dispatch.
  * Releasing WR-001 (seeded confirmed at this unit) lowers occupied to 17 while sexMix stays
- * 9+9=18, breaking the identity the fixture otherwise holds for all 22 units at seed. The model
+ * 9+9=18, breaking the identity the fixture otherwise holds for all 23 units at seed. The model
  * cannot know which sex left, so the fix is not to guess a decrement — it is to say, in visible
  * text, that the figure may no longer be current.
  */

@@ -22,11 +22,27 @@ describe("ward scenarios", () => {
    * units, never the number of eligible ones, and reading it as eligibility produced a confident
    * wrong answer that survived into a design document.
    *
-   * Measured directly on 2026-08-25 at NOW_ANCHOR, counting `eligibility(...).eligible` across all
-   * 22 units: 41 open movements, 337 eligible movement/unit pairs, distribution
-   * {0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9} — and **two movements, WF-009 and WF-308, already have
-   * nowhere eligible on the standard night.** Both are the fixture as authored, not something the
-   * scarce scenario introduced.
+   * RE-MEASURED on 2026-08-29 at NOW_ANCHOR, counting `eligibility(...).eligible` across all
+   * 23 units for every open movement — the same computation `eligibleCounts("standard")` below
+   * performs, run against the current fixture: 41 open movements, 342 eligible movement/unit
+   * pairs, distribution {0:2, 4:11, 5:3, 6:4, 7:2, 11:1, 12:9, 14:9} — and **two movements,
+   * WF-009 and WF-308, already have nowhere eligible on the standard night.** Both are the
+   * fixture as authored, not something the scarce scenario introduced.
+   *
+   * It replaces a 2026-08-25 measurement of 337 pairs over 22 units with distribution
+   * {0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9}. That record was taken two days before Phase 7 seeded
+   * the 23rd unit, so the "22" had gone stale — but changing only the 22 to a 23 would have been
+   * WRONG, not merely incomplete, and the reason is worth keeping: **the 23rd unit accounts for
+   * none of the difference.** Recomputing this total with `bty-youth` removed still gives 342, and
+   * no open movement is eligible for it at all — the network's only Youth unit, and nothing open
+   * is a youth movement. The five extra pairs come from the gates and the fixture moving since,
+   * across Phase 5 to Phase 8 (legal status became a capability, `involuntaryBedNeeded` was wired
+   * into the legal-status gate, bed category and the three-stage bed model landed, `homeRegion`
+   * was seeded). So the old figure was stale in substance and not only in its stated basis.
+   *
+   * The assertions below are thresholds, so none of this was red and none of it was vacuous —
+   * which is exactly why a stale record here could sit unnoticed. If you change the fixture or a
+   * gate, re-measure and re-date this; do not adjust a number and leave the date.
    */
   it("the standard night leaves most open movements real choice, but already strands two", () => {
     const counts = eligibleCounts("standard");

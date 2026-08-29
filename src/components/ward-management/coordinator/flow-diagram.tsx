@@ -125,7 +125,7 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
 
 /**
  * The reshape the spec asks for: demand enters left from the eight emergency departments,
- * passes through a statewide-flow hub in the centre, and lands right on the 22 inpatient units,
+ * passes through a statewide-flow hub in the centre, and lands right on the 23 inpatient units,
  * grouped by health service. Departments are always shown (ordered worst-first by `edPressure`)
  * and always connected to the hub -- that part of the network exists regardless of what a
  * coordinator has selected. Routes from the hub to specific units only appear once a movement is
