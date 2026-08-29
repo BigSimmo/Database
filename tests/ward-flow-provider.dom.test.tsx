@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MINUTES_PER_DAY, wallClockNow } from "@/components/ward-management/ward-clock";
+import { absoluteWallClockMinutes, MINUTES_PER_DAY, wallClockNow } from "@/components/ward-management/ward-clock";
 import { WardFlowProvider, useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
@@ -9,7 +9,11 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 // so this proves the provider's own accumulation logic, not a stand-in for it.
 vi.mock("@/components/ward-management/ward-clock", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/components/ward-management/ward-clock")>();
-  return { ...actual, wallClockNow: vi.fn(actual.wallClockNow) };
+  return {
+    ...actual,
+    wallClockNow: vi.fn(actual.wallClockNow),
+    absoluteWallClockMinutes: vi.fn(actual.absoluteWallClockMinutes),
+  };
 });
 
 function Probe() {
@@ -108,45 +112,55 @@ describe("WardFlowProvider", () => {
     afterEach(() => {
       vi.useRealTimers();
       vi.mocked(wallClockNow).mockReset();
+      vi.mocked(absoluteWallClockMinutes).mockReset();
     });
 
-    it("keeps accumulating elapsed minutes past a full day instead of resetting on an exact-24h reading", () => {
-      // Reproduces the reported defect directly: 50 ticks of 30 minutes-of-day each (never more
-      // than a single midnight rollover per tick, matching the real 30s cadence's own safety
-      // margin) total 1,500 minutes — just past one full day (1,440). The OLD implementation
-      // compared every reading against the ORIGINAL mount instant: at tick 48 (1,440 minutes
-      // later) the wall clock reads the same minute-of-day as the mount, `raw` lands on exactly
-      // 0, and elapsed silently resets to 0 instead of continuing to grow.
-      const startMinute = 600; // 10:00
-      const stepMinutes = 30;
-      const ticks = 50; // 50 * 30 = 1,500 minutes, past one full day.
-      const mockedWallClockNow = vi.mocked(wallClockNow);
-      mockedWallClockNow.mockImplementation(() => startMinute);
+    it("keeps accumulating elapsed minutes past a full day, which is now true by construction", () => {
+      /*
+       * REWRITTEN 2026-08-30. The property is unchanged and the mechanism is gone.
+       *
+       * The original defect: `wallClockNow()` returns a minute of the day, so a dashboard mounted for
+       * exactly 24 hours read the same value again, the difference landed on zero, and elapsed time
+       * silently reset - moving every deadline, wait and expired hold on every screen backward by up
+       * to a day. It was fixed by accumulating each 30s delta so no comparison ever reached back to
+       * the original mount instant.
+       *
+       * The provider now reads `absoluteWallClockMinutes()`, which carries the date. Two readings
+       * cannot alias, so elapsed time is a plain subtraction and the rollover class cannot occur at
+       * all. This test therefore no longer reproduces a rollover - there is none to reproduce - and
+       * asserts the surviving property directly: 1,500 minutes of real time, past a full day, must
+       * read as 1,500 minutes.
+       *
+       * It still bites. Regress the provider to a minute-of-day clock and the mocked absolute reading
+       * stops being consulted, elapsed collapses to zero, and the final assertion fails.
+       */
+      const startMinute = 600; // 10:00, the minute-of-day the demo anchors onto
+      const mountAbsolute = 29_000_000; // an arbitrary absolute minute; only the difference matters
+      const elapsedMinutes = 1_500; // past one full day (1,440)
+
+      vi.mocked(wallClockNow).mockImplementation(() => startMinute);
+      vi.mocked(absoluteWallClockMinutes).mockImplementation(() => mountAbsolute);
 
       render(
         <WardFlowProvider>
           <Probe />
         </WardFlowProvider>,
       );
-      // CHANGED 2026-08-30 by Task 1, and this assertion is now the clearest evidence the
-      // clock re-anchors at all: an unpinned provider mounting while the wall clock reads
-      // 10:00 shows 10:00, where it used to show the fixture's authored 10:42 whatever the
-      // real time was. Expressed against `startMinute`, the mock this test already controls,
-      // rather than re-baselined to whatever the new code happens to print.
+      // The re-anchor: an unpinned provider mounting while the wall clock reads 10:00 shows 10:00,
+      // not the fixture's authored 10:42.
       expect(screen.getByTestId("now")).toHaveTextContent(String(startMinute));
 
-      for (let tick = 1; tick <= ticks; tick += 1) {
-        const reading = (startMinute + tick * stepMinutes) % MINUTES_PER_DAY;
-        mockedWallClockNow.mockImplementation(() => reading);
-        act(() => {
-          vi.advanceTimersByTime(30_000);
-        });
-      }
+      vi.mocked(absoluteWallClockMinutes).mockImplementation(() => mountAbsolute + elapsedMinutes);
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
 
-      // The property under test is unchanged - elapsed minutes keep accumulating past a full
-      // day rather than resetting at the exact-24h reading. Only the anchor they accumulate
-      // FROM has moved, from the authored NOW_ANCHOR to the wall clock at mount.
-      expect(screen.getByTestId("now")).toHaveTextContent(String(startMinute + ticks * stepMinutes));
+      expect(
+        screen.getByTestId("now"),
+        "elapsed time did not survive a span longer than a day. The provider must read an absolute " +
+          "clock; a minute-of-day reading aliases every 24 hours and silently resets elapsed time to " +
+          "zero, moving every deadline and wait on every screen backward by up to a day.",
+      ).toHaveTextContent(String(startMinute + elapsedMinutes));
     });
   });
 });
