@@ -404,6 +404,85 @@
   color: var(--text);
 }
 
+/*
+ * The board body: the bed grid and the destinations panel side by side on a wide screen, stacked
+ * on a phone. `minmax(0, 1fr)` on the grid track rather than `1fr` — without the zero minimum a
+ * grid child refuses to shrink below its content and the panel gets pushed off the viewport
+ * instead of the tiles reflowing.
+ */
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wd-space-16, 1rem);
+  align-items: start;
+}
+
+@media (min-width: 60rem) {
+  .body {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+  }
+}
+
+.destinations {
+  min-width: 0;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-chrome);
+  padding: var(--wd-space-14, 0.875rem);
+}
+
+.destinationsHeading {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.destinationsIntro {
+  margin: var(--wd-space-4, 0.25rem) 0 var(--wd-space-12, 0.75rem);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.destinationList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wd-space-10, 0.625rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * A left rule rather than a fill. The panel's ordering is its meaning — soonest first — and a
+ * pattern on the edge survives greyscale, a stripped-background print and forced-colors, none of
+ * which a background tint does. Same reasoning as the blocked tile's hatch.
+ */
+.destination {
+  border-left: 0.1875rem solid var(--border-strong, var(--border));
+  padding-left: var(--wd-space-10, 0.625rem);
+}
+
+.destinationRegion {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.destinationCount {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-xs);
+}
+
+.destinationTeam {
+  margin: var(--wd-space-2, 0.125rem) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
 .footnote {
   margin: 0;
   max-width: var(--container-reading);

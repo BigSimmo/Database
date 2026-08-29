@@ -9,13 +9,19 @@ import {
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
-import { constraintSentence, headlineAvailable } from "@/components/ward-management/ward-board-derivations";
+import {
+  ARROW_HORIZON_DAYS,
+  arrowTargets,
+  constraintSentence,
+  headlineAvailable,
+} from "@/components/ward-management/ward-board-derivations";
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { unitCapacity } from "@/components/ward-management/ward-derivations";
 import { derivedBedReleases } from "@/components/ward-management/ward-discharge-dates";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { BedRelease, Site, Unit } from "@/components/ward-management/ward-model";
 import { wardSites } from "@/components/ward-management/ward-sites";
+import { teamForRegion } from "@/components/ward-management/ward-teams";
 
 import styles from "./board.module.css";
 
@@ -207,6 +213,19 @@ export function WardBoard({ unitId }: { unitId: string }) {
   // footnote must describe exactly what got drawn, not a second, unclamped copy of the figure.
   const heldTileCount = tiles.filter((tile) => tile.kind === "held").length;
 
+  /*
+   * Scoped to THIS unit with the same helper `buildTiles` uses, so the panel and the grid can
+   * never disagree about who is in a bed.
+   *
+   * **Written first as `arrowTargets(admissions, now)` and caught by rendering the page, not by a
+   * test.** `admissions` is the whole network's 267 records, so the panel read every ward in the
+   * state: it offered "Kimberley 28 people" on a twenty-bed ward and totalled about 180 against
+   * eighteen occupants. Nothing failed — `arrowTargets` was correct and its nine assertions still
+   * passed, because the defect was in the CALL and every one of them supplies its own admissions.
+   * A derivation's tests cannot see a caller handing it the wrong set.
+   */
+  const targets = arrowTargets(admissionsForUnit(admissions, unit.id), now);
+
   return (
     <div className={styles.screen} data-testid="ward-board">
       <ClinicalRail />
@@ -275,6 +294,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
         </li>
       </ul>
 
+      <div className={styles.body}>
       <ol className={styles.beds} data-testid="ward-board-beds">
         {tiles.map((tile, index) => (
           <li
@@ -316,6 +336,64 @@ export function WardBoard({ unitId }: { unitId: string }) {
           </li>
         ))}
       </ol>
+
+      {/*
+       * WHERE THESE BEDS FREE UP TO — the right-hand panel, from `arrowTargets`, which existed
+       * fully tested with zero consumers until now. Checked before building on it rather than
+       * assumed: nine references in `tests/ward-board-derivations.test.ts`, none anywhere in `src`.
+       * That is the module-contract-awaiting-a-consumer case AGENTS.md distinguishes from debris,
+       * and this is the consumer.
+       *
+       * **There are deliberately no drawn arrows, and that is a correctness decision rather than a
+       * simplification.** Connector geometry on the coordinator's diagrams is measured in
+       * JavaScript from the live screen layout and never re-measured for print, so a printed route
+       * line points at whichever ward has since moved under it — proven on paper this session, and
+       * the reason those connectors are now hidden in print entirely. Drawing eighteen bed-to-region
+       * arrows would import that failure and add a spaghetti of lines nobody can follow. The
+       * connection is carried by a shared REGION NAME on both sides instead: the tile says where
+       * its occupant is going, this panel says who is expecting them. Words survive greyscale, a
+       * stripped-background print and forced-colors; measured coordinates survive none of it.
+       *
+       * Scoped to `ARROW_HORIZON_DAYS`, so this is a short list a flow meeting can read, not a
+       * second copy of the bed list. Someone with no expected date is absent entirely rather than
+       * defaulted — nobody has said when they are leaving, so the board says nothing.
+       */}
+      {targets.length > 0 && (
+        <aside className={styles.destinations} aria-labelledby="ward-board-destinations-heading">
+          <h2 id="ward-board-destinations-heading" className={styles.destinationsHeading}>
+            Where these beds free up to
+          </h2>
+          <p className={styles.destinationsIntro}>
+            Expected within {ARROW_HORIZON_DAYS} days, soonest first.
+          </p>
+          <ol className={styles.destinationList} data-testid="ward-board-destinations">
+            {targets.map((target) => {
+              const team = teamForRegion(target.region);
+              return (
+                <li
+                  key={target.region}
+                  className={styles.destination}
+                  data-testid={`ward-board-destination-${target.region}`}
+                >
+                  <p className={styles.destinationRegion}>{target.region}</p>
+                  <p className={styles.destinationCount}>
+                    {target.count} {target.count === 1 ? "person" : "people"}
+                    {" · "}
+                    {target.nearestDays === 0
+                      ? "soonest due now or overdue"
+                      : `soonest in ${target.nearestDays} day${target.nearestDays === 1 ? "" : "s"}`}
+                  </p>
+                  {/* `teamForRegion` returns null for a region with no recorded team rather than a
+                      placeholder string, so a missing team reads as absent instead of as a team
+                      called "Unknown" that somebody might try to telephone. */}
+                  {team !== null && <p className={styles.destinationTeam}>{team}</p>}
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
+      )}
+      </div>
 
       <p className={styles.footnote} data-testid="ward-board-footnote">
         {tiles.length} tile{tiles.length === 1 ? "" : "s"}, one per recorded bed. A tile carries no bed number — an

@@ -670,7 +670,11 @@ export function WardNetworkWorkspace() {
                     <span className={styles.elapsed}>{elapsedLabel(candidate, now)}</span>
                   </span>
                   <span className={styles.queueMeta}>
-                    <span className={styles.tier} data-tier={candidate.urgency}>
+                    <span
+                      className={styles.tier}
+                      data-tier={candidate.urgency}
+                      data-label={urgencyTierLabel(candidate.urgency)}
+                    >
                       {candidate.urgency}
                     </span>
                     {candidate.cohort} · {candidate.security} ward
@@ -910,8 +914,19 @@ export function WardNetworkWorkspace() {
                   <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
                 </h2>
               </header>
+              {/* `data-label` is read by nothing on screen — same job as the bed chips' own
+                  `data-label` above. This badge is an 18px square whose tier is carried by its
+                  fill colour and a bare digit, so on paper (where the fill is inked away and a
+                  mono printer would flatten it regardless) "1" alone is indistinguishable from a
+                  rank. The print block swaps in this label, and takes it from `urgencyTierLabel`
+                  so the printed words are the same ones the coordinator's queue and the referral
+                  board already use. */}
               <p className={styles.patientLine}>
-                <span className={styles.tier} data-tier={patient.urgency}>
+                <span
+                  className={styles.tier}
+                  data-tier={patient.urgency}
+                  data-label={urgencyTierLabel(patient.urgency)}
+                >
                   {patient.urgency}
                 </span>
                 {patient.cohort} · {patient.security} ward · {movementHealthService(patient) ?? "Unknown"} service
@@ -995,7 +1010,11 @@ export function WardNetworkWorkspace() {
               </div>
 
               <p className={styles.tierNote}>
-                <span className={styles.tier} data-tier={patient.urgency}>
+                <span
+                  className={styles.tier}
+                  data-tier={patient.urgency}
+                  data-label={urgencyTierLabel(patient.urgency)}
+                >
                   {patient.urgency}
                 </span>
                 <b>Urgency tier leads.</b> Eligibility only orders candidates inside a tier. It is not clinical

@@ -1125,4 +1125,70 @@
   .cluster {
     break-inside: avoid;
   }
+
+  /* ----------------------------------------------------------------------
+   * THE REFERRAL MATCH PANEL — the shortlist and its comparison table.
+   *
+   * Unlike the diagram, none of this was missing from the paper: it printed, and it printed
+   * badly. Two faults, both of the same family the diagram had.
+   *
+   * FAULT ONE — it kept theme colour while the diagram beside it went to ink, so one printed
+   * sheet carried two visual languages for the same facts: the same bed chips rendered black on
+   * the diagram and green/amber/red in the table two inches below.
+   *
+   * FAULT TWO — printed from a dark-themed screen the panel was faint, and worst exactly where it
+   * mattered. `.compareTable td strong` is `--net-heading`, which in dark is near-white: the
+   * ELIGIBILITY verdict — the single cell a coordinator reads this table for — was the palest
+   * thing on the page. The subject line naming who the shortlist is for was barely darker.
+   *
+   * Same treatment as the canvas, for the same reasons, so the sheet reads as one document.
+   * ---------------------------------------------------------------------- */
+  .shortlistPanel {
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .shortlistPanel * {
+    background: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+  }
+
+  /* Nothing is lost with the tone colours: every toned cell already carries its own words
+     ("Different health service", "Exact match", "Not yet booked"), and each keeps the bold weight
+     that separated it from the untoned cells. The eligibility verdict is a word too. */
+
+  /* A horizontally scrolling box has no meaning on paper — it clips the columns past the fold
+     instead of scrolling them. Same substitution the global reset makes for `main`/`section`. */
+  .tableScroll {
+    overflow-x: visible;
+  }
+
+  /*
+   * The urgency badge, which is the one thing here that colour alone WAS carrying. It is an
+   * 18px square holding a bare digit, tinted by tier; inked, "1" beside "Adult · Open ward ·
+   * East Metro service" is indistinguishable from a rank or a column number. So on paper the
+   * square becomes ordinary text and the digit is replaced by the badge's own
+   * `data-label` — `urgencyTierLabel`'s "Tier 1 · most urgent", the same wording the
+   * coordinator's priority queue prints, rather than words invented here.
+   *
+   * Guarded on `[data-label]`: if that attribute is ever dropped, the digit prints as it does
+   * today instead of the badge silently vanishing into a zero font size.
+   */
+  .tier {
+    display: inline;
+    width: auto;
+    height: auto;
+  }
+
+  .tier[data-label] {
+    font-size: 0;
+  }
+
+  .tier[data-label]::after {
+    content: attr(data-label);
+    font-size: var(--text-3xs);
+    font-weight: 700;
+  }
 }

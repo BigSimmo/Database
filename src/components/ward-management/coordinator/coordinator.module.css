@@ -2079,4 +2079,190 @@
   .diagramServiceGroup {
     break-inside: avoid;
   }
+
+  /* ----------------------------------------------------------------------
+   * THE EMERGENCY DEPARTMENT PRESSURE STRIP.
+   *
+   * The first box on page 1, and it had the same defect as the queue with the sentence attached
+   * to it. Its eight department cards are `<button>`s and its title is a `<header>`, so all that
+   * printed was the bare rule "Ordered worst first: breached deadlines, then longest wait."
+   * inside an otherwise empty rectangle.
+   *
+   * That sentence is THIS list's rule — it describes how `edPressure` ranks the eight emergency
+   * departments, not how the queue below ranks movements. With the cards gone it was orphaned
+   * onto the queue's box beneath it and read as an introduction to a list it never described.
+   * Restoring the cards puts the sentence back above the list it belongs to.
+   *
+   * And an empty box under that promise asserts, on page 1 of a bed-flow sheet, that no
+   * emergency department has anyone waiting. Every department in the fixture has between four
+   * and seven people waiting.
+   * ---------------------------------------------------------------------- */
+  .pressureCard,
+  .pressureCardSelected {
+    display: grid !important;
+    break-inside: avoid;
+  }
+
+  .pressureStrip {
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .pressureStrip * {
+    background: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /*
+   * Selection prints as weight, not as fill — the queue's reasoning, and it binds harder here.
+   * A selected department card is the one whose movements the reader had FILTERED the queue to.
+   * Printed as a highlight among seven others it reads as "this is the department we are acting
+   * on", which is a decision this sheet has not made. The `outline` (which exists so selection
+   * survives on a danger-tinted card, see the screen rule above) is dropped for the same reason.
+   */
+  .pressureCardSelected {
+    border-width: 0.125rem;
+    outline: none;
+  }
+
+  /*
+   * A breaching department keeps a second channel once its danger tint is inked away, the same
+   * solid rule the queue's breached-deadline line uses. The tint exists because "the worst card
+   * must say why it is worst" (Task 4 ruling) — and the card does say it, in words, whenever the
+   * count is non-zero. The rule makes those words findable at a glance without colour.
+   */
+  .pressureCard .pressureBreach,
+  .pressureCardSelected .pressureBreach {
+    border-inline-start: 0.125rem solid currentColor;
+    padding-inline-start: var(--co-space-6);
+  }
+
+  /* ----------------------------------------------------------------------
+   * REGION HEADINGS — all four of them, in one rule.
+   *
+   * `.regionHeader` is a `<header>`, so the global reset deleted the title and count from every
+   * region on this screen: "Emergency department pressure", "Priority queue", "Statewide flow"
+   * and "Explainable shortlist". A printed region that does not say what it is asks the reader
+   * to infer it from the contents, which is exactly the inference an empty or partial region
+   * makes wrongly.
+   *
+   * This deliberately covers all four rather than the one surface being worked on. A heading
+   * restored for the region you happened to be looking at, and missing from the region you did
+   * not, is how the flow diagram shipped headingless in the first place.
+   * ---------------------------------------------------------------------- */
+  .regionHeader {
+    display: flex !important;
+  }
+
+  /* ----------------------------------------------------------------------
+   * THE PRIORITY QUEUE.
+   *
+   * The worst thing on the printed page, and worse than a missing ward. Every row is a
+   * `<button>`, so the global `button { display: none !important }` reset emptied the list — and
+   * `.regionHeader` is a `<header>`, so the box lost its title and its "41 open movements" count
+   * as well. What printed was an unlabelled empty rectangle directly beneath the sentence
+   * "Ordered worst first: breached deadlines, then longest wait."
+   *
+   * A missing ward is an absence a reader may notice. THIS IS AN ABSENCE THAT ASSERTS: an empty
+   * ordered list under that sentence reads as "nobody is waiting", handed out on paper, by a
+   * system whose entire purpose is to show that people are waiting and why. Forty-one people were
+   * in that list.
+   *
+   * THE ORDER SURVIVES ON THE PAGE, and it did not need a rank column invented for it. `queueOrder`
+   * (`ward-priority.ts`) sorts by `urgency` ascending, then `operationalScore` descending — and
+   * every row already prints BOTH keys as text: the tier pill carries its own direction from
+   * `urgencyTierLabel` ("Tier 1 · most urgent"), and the score prints as "Operational 87". So a
+   * reader can see why the top row is the top row, and can check the ordering rather than having
+   * to trust it. Position is not the only signal here, so nothing had to be added to make it
+   * legible — the rows only had to be allowed to print.
+   * ---------------------------------------------------------------------- */
+
+  /* The rows themselves. Their heading comes from the shared `.regionHeader` rule below, which
+     covers all four regions rather than this one. */
+  .queueRow,
+  .queueRowSelected {
+    display: grid !important;
+    break-inside: avoid;
+  }
+
+  /* `Clear filter` and `Clear unit selection` are NOT restored. They are actions, and an action
+     on paper is a control a reader cannot press. The filter NOTICE around the button is an
+     ordinary `<p>` and still prints, which is the part that matters: a filtered queue that
+     printed without saying it was filtered would be the same false assertion in a quieter voice. */
+
+  /* Two more caps, the same shape as `.screen` above. `.queueRegion` is capped at 26rem so the
+     stacked layout's page length stays sane on screen, and `.queueList` scrolls inside it — so
+     even with the rows restored, paper would have shown about four of the forty-one and silently
+     dropped the rest. A truncated list that looks complete is the same defect as an empty one. */
+  .queueRegion {
+    max-height: none !important;
+  }
+
+  .queueList {
+    min-height: 0 !important;
+    overflow-y: visible !important;
+  }
+
+  /*
+   * Ink, on the same terms as the diagram above: `CanvasText` under a pinned light scheme, so a
+   * queue printed from a dark-themed screen is black rather than the near-white `--text` it
+   * inherits from `.screen`. Every distinction on these rows survives the loss of colour, because
+   * none of them was carried by colour alone — the tier is a word, the score is a labelled
+   * number, and the breach line says in words that a deadline has passed.
+   */
+  .queueRegion {
+    color-scheme: light;
+    background: transparent !important;
+    color: CanvasText !important;
+  }
+
+  .queueRegion * {
+    background: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+    outline-color: currentColor !important;
+  }
+
+  /*
+   * SELECTION prints as weight, never as a highlight — the same reasoning the ward nodes above
+   * use, and it matters more here. `aria-pressed` on a queue row means "this is the movement the
+   * reader had open", nothing else; the accent fill is dropped by most printers and, where it
+   * survives, a single filled row in an ordered list of people waiting reads as a decision about
+   * which of them is being acted on. This page has made no such decision.
+   */
+  .queueRowSelected {
+    border-width: 0.125rem;
+    box-shadow: none;
+  }
+
+  /* The tier pill is a pill because it needs to read as a distinct field among four other lines
+     on a 14rem screen row. Inked, its fill is gone and only the horizontal padding is left, which
+     prints as an indent that makes the tier read as subordinate to the id above it. Flattened to
+     plain text on the same left edge as every other line on the row. */
+  .queueRow .queueTier,
+  .queueRowSelected .queueTier {
+    padding: 0;
+  }
+
+  /*
+   * The breached-deadline line keeps a second channel once its danger tone is inked away. This is
+   * the one line on a row that a coordinator must not miss (`WF-001` outranks `WF-006` despite
+   * waiting six hours less, because its form deadline has passed), and on screen that urgency is
+   * carried by colour plus weight. A solid rule survives greyscale, a stripped background and
+   * forced-colors exactly as the board's blocked-tile hatch does; the words remain what make it
+   * unambiguous.
+   *
+   * NOT EXERCISED BY TODAY'S FIXTURE: no open movement carries a form with a past `dueAt` (see
+   * `priority-queue.tsx` — only 4A/4C still carry one at all), so `legalBreached` is false on
+   * every row and this rule renders nowhere in the captures below. It was verified by applying
+   * the class to a live row in the browser, not by inference.
+   */
+  .queueRow .queueLegalBreach,
+  .queueRowSelected .queueLegalBreach {
+    border-inline-start: 0.125rem solid currentColor;
+    padding-inline-start: var(--co-space-6);
+  }
 }
