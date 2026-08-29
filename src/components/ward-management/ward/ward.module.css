@@ -108,6 +108,18 @@
   font-size: var(--text-xs);
 }
 
+.boardLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wd-tap-target, 3rem);
+  margin-top: var(--wd-space-8);
+  color: var(--text-link, var(--text-heading));
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.1875rem;
+}
+
 .sectionHeading {
   margin: 0 0 var(--wd-space-8);
   color: var(--text-heading);

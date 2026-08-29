@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 import {
@@ -493,6 +494,17 @@ export function WardScreen({ unitId }: WardScreenProps) {
             {site ? `${site.name} (${site.code})` : unit.siteCode} &middot; {unit.cohort} &middot; {unit.security}
             {unit.authorised ? "" : " · Not authorised under the Mental Health Act 2014"}
           </p>
+          {/*
+           * The board is a view OF this ward, so its link lives on this ward's own screen rather
+           * than in the rail. `ward-nav.ts` lists exactly ONE seeded board as a worked example, the
+           * same convention `ward/` and `ed/` use for their dynamic routes — which left the other
+           * 22 wards' boards reachable only by typing an address. By this project's own definition
+           * that is 22 orphans, and the reachability guard cannot see a single one of them because
+           * it does not follow dynamic routes.
+           */}
+          <Link className={styles.boardLink} href={`/mockups/ward-flow/board/${unit.id}`}>
+            See every bed on this ward
+          </Link>
         </header>
 
         <section aria-label="Bed capacity" className={styles.bedSection}>
