@@ -179,6 +179,21 @@ Phase 8 owns, so the screens wait for the fold.
   the bands back in good faith, citing this document. **Date a verbatim list, or it eventually
   instructs someone to undo the decision it was written to preserve.** Left visible rather than
   silently replaced, because the failure is more useful than the correction.
+
+  **Three overlapping layers held that stale line in place, not one**, and the reconstruction took
+  two sessions being wrong in opposite directions first. The word *verbatim* on the line; the §6
+  heading above it; and §7 item 3 — "Verbatim rule unchanged; no agent may alter them" — which
+  probably but not certainly governs it, since its subject is "the three approved lists" and nothing
+  here defines the stay bands as one of the three. Note that §7 item 3 explicitly anticipates these
+  lists CHANGING, and the document still went stale anyway: a rule that says "expect this to change"
+  is not a mechanism for noticing when it has.
+
+  **How the third layer was nearly lost from this record:** it was reported with the wrong section
+  number, and I then "corrected" that to *no such rule exists* on the strength of
+  `grep -n "verbatim"` — which is case-sensitive, and §7 item 3 capitalises it. One hit became two
+  under `grep -in`. Each of us had produced the version that better fitted our own account, and
+  neither had checked the thing that made it better. **Search case-insensitively before reporting an
+  absence, and treat "my grep found one" and "there is one" as different claims.**
 - **The ward states its sex-acceptance counts daily.** No per-bed designations.
 - **Ten WA regions stay.** Screens lead with region; travel distance is a footnote, because most
   patients have no band (the table covers 6 of 10 regions).
