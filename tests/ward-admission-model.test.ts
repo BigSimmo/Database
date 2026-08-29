@@ -61,7 +61,31 @@ describe("admission vocabulary", () => {
   });
 
   it("STAY_BANDS ids are exactly the four bands the product owner supplied, shortest first", () => {
-    expect(STAY_BANDS.map((band) => band.id)).toEqual(["under-1-week", "1-4-weeks", "1-3-months", "over-3-months"]);
+    expect(STAY_BANDS.map((band) => band.id)).toEqual([
+      "under-2-weeks",
+      "2-weeks-1-month",
+      "1-3-months",
+      "over-3-months",
+    ]);
+  });
+
+  /**
+   * The BOUNDARIES, pinned as data and not only as the banding behaviour below.
+   *
+   * These four ceilings are the product owner's, supplied verbatim, and the previous set
+   * (7 / 28 / 90) was replaced wholesale rather than added to. Asserted as an exact ordered list
+   * so a retuned boundary — the change most likely to be made quietly, because no band id moves
+   * and every banding test can be adjusted to match — has to be made against a stated expectation
+   * instead. There is exactly one set of bands in this feature; a second one anywhere is the
+   * defect.
+   */
+  it("carries exactly the ceilings the product owner supplied", () => {
+    expect(STAY_BANDS.map((band) => [band.id, band.upToDays])).toEqual([
+      ["under-2-weeks", 14],
+      ["2-weeks-1-month", 30],
+      ["1-3-months", 90],
+      ["over-3-months", null],
+    ]);
   });
 
   /**
@@ -211,22 +235,32 @@ describe("stayBand", () => {
     return stayBand(admission, DAY_ZERO + days * MINUTES_PER_DAY)?.id ?? null;
   }
 
-  it("bands a 5-day stay as under-1-week", () => {
-    expect(bandIdAfterDays(5)).toBe("under-1-week");
+  it("bands a 5-day stay as under-2-weeks", () => {
+    expect(bandIdAfterDays(5)).toBe("under-2-weeks");
   });
 
   /**
-   * BOUNDARY. Exactly seven days has left the first band, not stayed in it: `upToDays` is the
+   * The value that moved. Under the previous bands a 13-day stay was already two bands up
+   * (`1-4-weeks`); under the owner's it is still in the first. Asserted explicitly because it is
+   * the whole point of the change — the first boundary now sits AFTER most stays have cleared
+   * rather than before, so the palest shade stops holding nearly everybody.
+   */
+  it("keeps a 13-day stay in the first band, where the previous 1-week boundary did not", () => {
+    expect(bandIdAfterDays(13)).toBe("under-2-weeks");
+  });
+
+  /**
+   * BOUNDARY. Exactly fourteen days has left the first band, not stayed in it: `upToDays` is the
    * ceiling the band stops BELOW. An off-by-one here would under-report every stay sitting
    * exactly on a boundary, on every screen at once.
    */
-  it("bands a stay of exactly 7 days as 1-4-weeks, not under-1-week", () => {
-    expect(bandIdAfterDays(7)).toBe("1-4-weeks");
+  it("bands a stay of exactly 14 days as 2-weeks-1-month, not under-2-weeks", () => {
+    expect(bandIdAfterDays(14)).toBe("2-weeks-1-month");
   });
 
   it("bands the other two boundaries the same way", () => {
-    expect(bandIdAfterDays(27)).toBe("1-4-weeks");
-    expect(bandIdAfterDays(28)).toBe("1-3-months");
+    expect(bandIdAfterDays(29)).toBe("2-weeks-1-month");
+    expect(bandIdAfterDays(30)).toBe("1-3-months");
     expect(bandIdAfterDays(89)).toBe("1-3-months");
     expect(bandIdAfterDays(90)).toBe("over-3-months");
   });

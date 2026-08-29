@@ -50,8 +50,8 @@ import styles from "./board.module.css";
  *  `--wb-band-*` tokens in `board.module.css`. Keyed by band id rather than by array index so a
  *  reordering of `STAY_BANDS` cannot silently re-map a shade onto the wrong band. */
 const BAND_CLASS: Record<StayBandId, string> = {
-  "under-1-week": styles.band1,
-  "1-4-weeks": styles.band2,
+  "under-2-weeks": styles.band1,
+  "2-weeks-1-month": styles.band2,
   "1-3-months": styles.band3,
   "over-3-months": styles.band4,
 };

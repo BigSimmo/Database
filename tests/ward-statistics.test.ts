@@ -7,7 +7,7 @@ import {
   wardStatistics,
   type DischargeDateOutcomes,
 } from "../src/components/ward-management/ward-statistics";
-import type { Admission } from "../src/components/ward-management/ward-admissions";
+import { stayBand, type Admission } from "../src/components/ward-management/ward-admissions";
 import { MINUTES_PER_DAY } from "../src/components/ward-management/ward-clock";
 
 /**
@@ -164,21 +164,41 @@ describe("wardStatistics — average length of stay", () => {
 
 describe("wardStatistics — long stays reuse stayBand, never re-band it locally", () => {
   /**
-   * `over-3-months` is the ONLY band this figure counts, and the boundary values (7, 28, 90 days)
+   * `over-3-months` is the ONLY band this figure counts, and the boundary values (14, 30, 90 days)
    * are the exact ones `ward-admissions.ts`'s own `STAY_BANDS` and `tests/ward-admission-model.test.ts`
    * pin — reused here rather than re-derived, so this test would catch a divergence between the
    * two rather than just re-proving the same arithmetic a second time.
+   *
+   * **This figure is the one thing the band change was NOT allowed to move, and this is where that
+   * is checked rather than assumed.** The product owner replaced the first two boundaries (1 week
+   * and 4 weeks became 2 weeks and 1 month) and left the third alone at 90 days, so `over-3-months`
+   * keeps both its id and its ceiling and the long-stay count is arithmetically the same set of
+   * people it was before. Verified, not inferred: the four stays below span all four of the NEW
+   * bands and exactly one of them counts.
+   *
+   * The second stay was 7 days when this test was written against the previous bands, which put it
+   * in the second band. Under the owner's bands 7 days is in the FIRST, so it stopped representing
+   * a distinct band and this test quietly covered three bands while claiming four. It is 20 days
+   * now — squarely inside `2-weeks-1-month` — which is the coverage the test name promises.
    */
   it("counts exactly the admissions whose stayBand is over-3-months, not the other three bands", () => {
     const now = DAY_ZERO + 200 * MINUTES_PER_DAY;
     const daysAgo = (days: number) => now - days * MINUTES_PER_DAY;
 
-    const underAWeek = anAdmission({ id: "ADM-under-week", state: "occupied", arrivedAt: daysAgo(5) });
-    const oneToFourWeeks = anAdmission({ id: "ADM-1-4-weeks", state: "occupied", arrivedAt: daysAgo(7) });
+    const underTwoWeeks = anAdmission({ id: "ADM-under-2-weeks", state: "occupied", arrivedAt: daysAgo(5) });
+    const twoWeeksToAMonth = anAdmission({ id: "ADM-2-weeks-1-month", state: "occupied", arrivedAt: daysAgo(20) });
     const oneToThreeMonths = anAdmission({ id: "ADM-1-3-months", state: "occupied", arrivedAt: daysAgo(89) });
     const overThreeMonths = anAdmission({ id: "ADM-over-3-months", state: "occupied", arrivedAt: daysAgo(100) });
 
-    const statistics = wardStatistics(UNIT, [underAWeek, oneToFourWeeks, oneToThreeMonths, overThreeMonths], now);
+    // The four really are four different bands — asserted rather than trusted, because the whole
+    // value of the count below is that it discriminates.
+    expect(
+      [underTwoWeeks, twoWeeksToAMonth, oneToThreeMonths, overThreeMonths].map(
+        (admission) => stayBand(admission, now)?.id ?? null,
+      ),
+    ).toEqual(["under-2-weeks", "2-weeks-1-month", "1-3-months", "over-3-months"]);
+
+    const statistics = wardStatistics(UNIT, [underTwoWeeks, twoWeeksToAMonth, oneToThreeMonths, overThreeMonths], now);
 
     expect(statistics.longStays).toBe(1);
   });

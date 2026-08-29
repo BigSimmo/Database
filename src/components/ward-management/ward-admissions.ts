@@ -53,14 +53,14 @@ import type { HomeRegion, Sex } from "@/components/ward-management/ward-model";
 export const ADMISSION_STATES = ["waitlisted", "pulled", "occupied", "left"] as const;
 export type AdmissionState = (typeof ADMISSION_STATES)[number];
 
-export type StayBandId = "under-1-week" | "1-4-weeks" | "1-3-months" | "over-3-months";
+export type StayBandId = "under-2-weeks" | "2-weeks-1-month" | "1-3-months" | "over-3-months";
 
 export type StayBand = {
   id: StayBandId;
   label: string;
   /**
    * The exclusive ceiling in days: a stay belongs to the first band whose ceiling it is strictly
-   * BELOW, so exactly 7 days has already left `under-1-week`. `null` marks the single open-ended
+   * BELOW, so exactly 14 days has already left `under-2-weeks`. `null` marks the single open-ended
    * band, which must be last — a `null` ceiling anywhere earlier would swallow every longer stay
    * and `stayBand` would stop discriminating without a band id changing.
    */
@@ -76,6 +76,20 @@ export type StayBand = {
  * has any legal meaning whatsoever, and a band boundary must never be read, rendered or reused as
  * though a statute set it.
  *
+ * **Why these boundaries and not the previous 1 week / 4 weeks / 3 months** — the owner's own
+ * reasoning, recorded because the next implementer to look at a band boundary should find the
+ * argument rather than re-derive it. A shade only informs if it splits the population somewhere
+ * meaningful. Acute psychiatric stays typically clear within a fortnight, so a one-week boundary
+ * sat BEFORE most people had left: the palest band held nearly everyone, and a colour nearly every
+ * tile carries tells a coordinator nothing. Moving the first boundary to a fortnight puts it where
+ * the population actually divides, and the three bands above it describe the stays that are
+ * genuinely unusual for this ward.
+ *
+ * **This set replaces the previous one everywhere — there is never a second set.** The tile
+ * colouring and the ward statistics both read THESE bands, from here. A tile shaded by one set of
+ * boundaries while a statistic counts by another is the failure this feature has refused at every
+ * decision point, and it is refused by there being exactly one array.
+ *
  * **There is deliberately no "target" band, and none may be added.** A band saying a stay is
  * longer than it should be would be a threshold nobody agreed to, applied to a person, on a
  * screen a ward reads every morning. Adding one is a recorded product decision from the owner by
@@ -84,9 +98,9 @@ export type StayBand = {
  * replaces them.
  */
 export const STAY_BANDS: readonly StayBand[] = [
-  { id: "under-1-week", label: "Under 1 week", upToDays: 7 },
-  { id: "1-4-weeks", label: "1 to 4 weeks", upToDays: 28 },
-  { id: "1-3-months", label: "1 to 3 months", upToDays: 90 },
+  { id: "under-2-weeks", label: "Under 2 weeks", upToDays: 14 },
+  { id: "2-weeks-1-month", label: "2 weeks – 1 month", upToDays: 30 },
+  { id: "1-3-months", label: "1–3 months", upToDays: 90 },
   { id: "over-3-months", label: "Over 3 months", upToDays: null },
 ];
 
@@ -345,12 +359,12 @@ export function daysInBed(admission: Admission, now: Instant): number | null {
  * The band this stay falls in, or `null` when there is no stay to band.
  *
  * `null` for someone who has not arrived — a pulled-but-empty bed has no stay yet, and banding it
- * as `under-1-week` would present a person as having just arrived somewhere they have not reached.
- * An absent stay is shown as absent, the same discipline `ward-distance.ts` holds for an
+ * as `under-2-weeks` would present a person as having just arrived somewhere they have not
+ * reached. An absent stay is shown as absent, the same discipline `ward-distance.ts` holds for an
  * unrecorded travel band: a gap is a gap, never the first entry in a list.
  *
- * A stay belongs to the first band whose `upToDays` it is strictly below, so exactly 7 days has
- * already left `under-1-week`. The final band's `null` ceiling catches everything longer.
+ * A stay belongs to the first band whose `upToDays` it is strictly below, so exactly 14 days has
+ * already left `under-2-weeks`. The final band's `null` ceiling catches everything longer.
  */
 export function stayBand(admission: Admission, now: Instant): StayBand | null {
   const days = daysInBed(admission, now);
