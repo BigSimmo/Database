@@ -2,8 +2,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { render, screen } from "@testing-library/react";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
+
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 import { AutomatedState } from "@/components/caring-contacts/workspace/automated-state";
 import { ServiceStateBanner } from "@/components/caring-contacts/workspace/service-state-banner";
@@ -257,6 +258,24 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the companion test below proves its source and everything it reaches never name that
   // module or type; and it is here deliberately rather than to clear a red test.
   "overlays/overlay-trigger.tsx",
+  // The trigger for the overlays whose decision control is an EXIT rather than a confirmation,
+  // `delivery-detail` among them. It is a client component for an ORDINARY interactive reason: it
+  // renders a button and the opening happens on click.
+  //
+  // It used to be described here as structural instead — a Server Component cannot pass a function
+  // across this boundary, `WorkspaceOverlayCommit`'s `record` member is a function position, so an
+  // exit row's commit had to be CONSTRUCTED on the client side of the seam. That reasoning was
+  // sound and it is no longer this module's: the two implementations of this component were
+  // collapsed into one and the surviving behaviour stages NO commit at all, because a no-op record
+  // commit is indistinguishable at the host from a screen that merely satisfied the compiler. What
+  // survives of it is the part that still holds — a screen passes an overlay id and a label, both
+  // plain data, so the screens above stay Server Components.
+  //
+  // Added on the same three conditions as the entries above: its props are an overlay id, a class
+  // name and children — no state object, and nothing derived from the record; the companion test
+  // below proves its source and everything it reaches never name that module or type; and it is
+  // here deliberately, as the alternative to a silent no-op, rather than to clear a red test.
+  "overlays/exit-only-overlay-trigger.tsx",
   // Decides WHEN the condensed stop bar is shown, and never what it says. A scroll position
   // and two element rectangles are browser facts, so this one cannot be answered on the
   // server — and the header is not the height of its token (87.5px at 320/390, 65px above,
@@ -266,12 +285,65 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // that module or type; and it toggles one attribute on an element the server rendered from
   // the note-free facts type, so the bar's wording never enters the client module graph.
   "service-stop-scroll-watcher.tsx",
-  // Patient-name filtering must remain out of GET URLs and request logs, so this directory island
-  // owns only the local search input. Its server wrapper converts plans and names into an explicit
-  // scalar DTO first; the exact-key regression test proves no raw plan, contact schedule or service
-  // state crosses the boundary. The companion graph check below proves this module and everything
-  // it imports never name the service-state module or type.
+  // Phase 2B Task 7's activation wizard, and the first client boundary in this workspace that
+  // exists because of an OWNER DECISION rather than a browser capability (Ruling [109]). A
+  // half-finished sign-up must survive a page refresh, which no Server Component and no URL
+  // parameter can do — and a URL parameter is separately forbidden for this data, because the
+  // patient's name and mobile number arrive at stage 3 and a query string is logged by every proxy
+  // between here and the browser.
+  //
+  // Added on the same three conditions as every entry above. Its props are a referral id, a
+  // synthetic patient id, a team id, the acting actor id and roles, the referral's pathway version
+  // id, and the approved pathway versions — no state object, and nothing derived from the record.
+  // The companion test below proves its whole module graph never names the service-state module or
+  // type. And `tests/caring-contacts-new-plan-page.dom.test.tsx` goes further than either: it stops
+  // the service with a distinctive incident note and asserts on the element tree the page returns,
+  // so the note reaching this boundary under ANY prop name is a red test rather than a reading.
+  "plan-wizard/plan-wizard.tsx",
+  // The Patients caseload's search box, and the SECOND boundary in this workspace that exists
+  // because of a confidentiality rule rather than a browser capability (the first is the wizard
+  // above, Ruling [109]). The directory's search matches the patient's NAME, and while it was a
+  // `method="get"` form that name arrived as `?q=Jordan%20Nguyen` -- in the address bar of a
+  // possibly-shared ward computer's history, and in the access log of every proxy in between.
+  // Ruling [111] forbids exactly that: "a query string is logged by every proxy between here and
+  // the browser. Nothing about a patient may travel here." So the typed text is React state in
+  // this module and reaches no URL in any form. Ruling 13's payload preference yields to the
+  // confidentiality contract, and `origin/main` reached the same split independently.
+  //
+  // Added on the same three conditions as every entry above. Its props are the narrow
+  // `PatientsDirectoryRow` projection, a plan count, a validated plan state and two booleans --
+  // no state object, and nothing derived from the record. The companion test below proves this
+  // file and its whole module graph never name the service-state module or type. And the payload
+  // it carries is SMALLER than the Server Component it replaced rendered into HTML: the rows are
+  // reduced to the row type and pre-filtered to the selected plan state on the server side.
   "patients-directory-client.tsx",
+  // Phase 2B Task 11b's plan actions: the frozen matrix's `pause`, `withdrawal` and `reassignment`
+  // rows, and the resume that pause owes. A client boundary for a STRUCTURAL reason rather than an
+  // interactive one — and since the exit-only trigger above stopped constructing a commit, this is
+  // the module where that reasoning still applies: `WorkspaceOverlayCommit`'s `record` member is a
+  // function position, and a Server Component cannot pass a function across this boundary at all --
+  // so a mutating row's commit has to be constructed on the client side of the seam. Its four
+  // controls also perform writes, which is a client capability by definition.
+  //
+  // Added on the same three conditions as every entry above. Its props are one plain-data context --
+  // a plan id, a plan state, a version number, role identifiers and role WORDING the sealed domain
+  // resolved, and four booleans -- with no state object and nothing derived from the record. The
+  // companion test below proves its whole module graph never names the service-state module or type.
+  // And it is here deliberately, as the only way these three rows can be wired at all, rather than
+  // to clear a red test.
+  "plan-actions.tsx",
+  // Phase 2B Task 14's contact-move control, and the second boundary in this workspace that exists
+  // because of BROWSER FACTS rather than a preference: a coordinator types a time, the connection is
+  // a property of the device at the instant a move is confirmed, and the confirm is a click. The
+  // frozen matrix requires connectivity, permission and version state to be rechecked AT COMMIT
+  // time, which is by definition after a click.
+  //
+  // Added on the same three conditions as every entry above. Its props are a plan id, a contact id,
+  // a synthetic patient id, an AWST calendar day, one instant, a version number, an actor id and a
+  // team id -- no state object, and nothing derived from the record. It deliberately does NOT name
+  // `schedule-view.ts`, which would reach the repository and through it the service-state module;
+  // the companion test below proves that for its whole module graph rather than for its own file.
+  "contact-time-adjustment.tsx",
   // Offline and network-drop fallback view. Takes only an optional `retry` callback function;
   // passes zero patient or service-state props across the boundary.
   "connection-unavailable.tsx",
@@ -409,54 +481,99 @@ function guardedModuleGraph(entry: string): string[] {
   return [...seen];
 }
 
-function serviceStateReferences(source: string, fileName: string) {
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    /* setParentNodes */ false,
-    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-  let moduleReference = false;
-  let identifier = false;
+/*
+ * The scan below reads CODE rather than prose.
+ *
+ * Narrowed in Phase 2B Task 7, and narrowing rather than weakening: a type only reaches a client
+ * component through an import, an annotation or a prop — all of them code. A comment cannot carry
+ * one. What comments CAN do is describe the rule, and this guard was rejecting exactly that:
+ * `list-empty-state.tsx` explains its own design by comparing itself to `ServiceStateBanner`, and
+ * `plan-wizard.tsx` opens by stating that the record never crosses its boundary. Both are the
+ * documentation this file's own rules ask for, and both read as offences to a raw text match.
+ *
+ * The alternative was to delete those explanations to make a check green, which is the failure mode
+ * `tests/route-reachability.test.ts` records in its own words: documenting a rule is not breaking
+ * it, and a check that cannot tell the two apart is a check that gets silenced. The check still
+ * fails on real usage, and `plan-wizard.tsx` still deliberately avoids naming the type at all.
+ *
+ * Round 1, finding M-4: the first version stripped block comments with a regex that knew nothing
+ * about string literals, so a `"/*"` inside an ordinary string would have blanked real code up to
+ * the next terminator — a silent false negative inside a safety guard. `stripSourceComments` scans
+ * character by character and copies literals through untouched; its own proof is below.
+ */
 
-  const visit = (node: ts.Node): void => {
-    if (ts.isIdentifier(node) && node.text === "ServiceState") identifier = true;
-    if (
-      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier) &&
-      node.moduleSpecifier.text.includes("service-state")
-    ) {
-      moduleReference = true;
-    }
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.some((argument) => ts.isStringLiteral(argument) && argument.text.includes("service-state"))
-    ) {
-      moduleReference = true;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
-  return { module: moduleReference, identifier };
-}
+/** A line break, named so these fixtures can be written as arrays rather than as escaped strings. */
+const NEWLINE = String.fromCharCode(10);
 
-describe("the service-state path stays on the server", () => {
-  it("distinguishes architecture prose from executable service-state references", () => {
-    expect(serviceStateReferences("// ServiceState from the service-state module", "comment-only.ts")).toEqual({
-      module: false,
-      identifier: false,
-    });
-    expect(
-      serviceStateReferences(
-        'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
-        "real-reference.ts",
-      ),
-    ).toEqual({ module: true, identifier: true });
+describe("the comment stripper the two source guards are built on", () => {
+  // Round 1, finding M-4. A guard is only as good as the text it reads, and the regex this
+  // replaced would have blanked real code the moment a scanned file contained a `/*` inside a
+  // string. These are the cases that distinguish the two implementations.
+  it("removes comments", () => {
+    // A line comment on its own line, which is the only line-comment shape this strips — see the
+    // trailing-comment case below, which is deliberately left alone.
+    expect(stripSourceComments(["  // ServiceState", "const b = 2;"].join(NEWLINE))).not.toMatch(/ServiceState/);
+    expect(stripSourceComments(["  // ServiceState", "const b = 2;"].join(NEWLINE))).toMatch(/const b = 2;/);
+    expect(stripSourceComments("/* ServiceState */ const a = 1;")).not.toMatch(/ServiceState/);
+    expect(stripSourceComments("/* ServiceState */ const a = 1;")).toMatch(/const a = 1;/);
   });
 
+  it("keeps code that follows a comment-opening sequence inside a string literal", () => {
+    // The defect, stated as a test: the regex matched from this `/*` to the NEXT `*/` anywhere in
+    // the file, so everything between — imports included — vanished from the guard's view.
+    const source = [
+      'const opener = "/*";',
+      'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+      'const closer = "*/";',
+    ].join(NEWLINE);
+
+    const stripped = stripSourceComments(source);
+
+    expect(stripped, "a real import was hidden by a string containing a comment opener").toMatch(/ServiceState/);
+    expect(stripped).toMatch(/caring-contacts\/service-state/);
+  });
+
+  it("leaves a TRAILING line comment alone, which is deliberate conservatism rather than an oversight", () => {
+    // A line comment is stripped only when the line BEGINS with `//`. That property was in the
+    // regex this replaced and was kept on purpose: hardening the block-comment case is not a
+    // licence to widen the line-comment one, and leaving text in makes a guard louder, never
+    // quieter. So `import … // service-state` still fires — and it should, because a note that a
+    // module is service-state-adjacent is worth a human reading.
+    const stripped = stripSourceComments('import type { Thing } from "x"; // service-state lives next door');
+    expect(stripped).toMatch(/service-state lives next door/);
+  });
+
+  it("pins the one place it errs UNSAFELY, so a green suite cannot be read as closing it", () => {
+    // Round 2, item 4. A trailing `//` comment is deliberately NOT stripped as a comment — but the
+    // `/*` inside it still opens the block branch, so the code after it is removed from what the
+    // guard reads. A silent false negative: the same class of bug `stripSourceComments` was written
+    // to fix, one layer down.
+    //
+    // THIS TEST PINS A LIMITATION, NOT A GUARANTEE. It exists so the limitation is visible in the
+    // suite rather than only in a header comment, and so that tightening the behaviour is a
+    // deliberate act that rewrites this case rather than a change nobody notices. Do not read it as
+    // saying the behaviour is correct.
+    const source = [
+      "const a = 1; // an aside mentioning /* a block opener",
+      'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+      "const b = 2; /* a real block */",
+    ].join(NEWLINE);
+
+    const stripped = stripSourceComments(source);
+
+    expect(stripped, "the known limitation has changed — see the header, and update it deliberately").not.toMatch(
+      /ServiceState/,
+    );
+  });
+
+  it("copies template literals and their interpolations through untouched", () => {
+    const stripped = stripSourceComments("const a = `before ${ServiceState} // not a comment` ;");
+    expect(stripped).toMatch(/ServiceState/);
+    expect(stripped).toMatch(/not a comment/);
+  });
+});
+
+describe("the service-state path stays on the server", () => {
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
       .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
@@ -497,12 +614,11 @@ describe("the service-state path stays on the server", () => {
 
       for (const file of guardedModuleGraph(entry)) {
         const label = path.relative(process.cwd(), file).split(path.sep).join("/");
-        const moduleSource = readFileSync(file, "utf8");
-        // Parse executable syntax so architecture comments may describe the boundary without
-        // masquerading as an import or type reference inside the client graph.
-        const references = serviceStateReferences(moduleSource, file);
-        expect(references.module, `${label} (reached from ${name}) references the service-state module`).toBe(false);
-        expect(references.identifier, `${label} (reached from ${name}) names ServiceState`).toBe(false);
+        const moduleSource = stripSourceComments(readFileSync(file, "utf8"));
+        expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
+          /service-state/,
+        );
+        expect(moduleSource, `${label} (reached from ${name}) names ServiceState`).not.toMatch(/ServiceState/);
       }
     }
   });

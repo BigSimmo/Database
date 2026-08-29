@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
+import { CARING_CONTACTS_OVERLAY_PARAM, canonicalCaringContactsQuery } from "@/lib/caring-contacts/workspace-address";
+
 import type { WorkspaceOverlayDefinition } from "./definitions";
 import {
   clearStagedWorkspaceOverlayCommit,
@@ -48,8 +50,14 @@ import { OverlayHost } from "./overlay-host";
  *    and adding a Suspense boundary to the shell for it — would buy nothing.
  */
 
-/** The one query parameter that names an open overlay. */
-export const WORKSPACE_OVERLAY_PARAM = "overlay";
+/**
+ * The one query parameter that names an open overlay.
+ *
+ * Re-exported from the sealed `workspace-address` module rather than declared here, so the overlay
+ * writer below and the address allowlist it now builds from cannot name it differently. Every
+ * existing importer of this constant is unaffected.
+ */
+export const WORKSPACE_OVERLAY_PARAM = CARING_CONTACTS_OVERLAY_PARAM;
 
 /**
  * `pushState` fires no event of its own, so the writer below announces its own
@@ -93,11 +101,39 @@ function noOnlineStatus(): boolean {
   return true;
 }
 
+/**
+ * The address of a history entry this module writes.
+ *
+ * IT CANONICALISES RATHER THAN COPIES, and that is a patient-confidentiality fix rather than a
+ * tidy-up. This function used to build each entry from `new URLSearchParams(window.location.search)`
+ * -- every parameter already on the address, carried into every entry it pushed. The shell mounts
+ * this module on EVERY workspace route, so a bookmarked `?q=<name>` opened on any of them was
+ * written into a fresh history entry every time a coordinator opened an overlay: one name in the
+ * address bar became one name per overlay open, in the history of a possibly-shared ward computer.
+ * Ruling [111] forbids a patient's name in an address at all, and copying one is not a smaller
+ * version of putting one there.
+ *
+ * THE FIX LIVES HERE, in the one function both `pushState` and `replaceState` go through, rather
+ * than in each route's page. The defect was never route-specific -- it was this copy -- so a
+ * per-route fix would be four copies of one answer and would miss the fifth route somebody adds.
+ * `canonicalCaringContactsQuery` names what may be kept (`workspace-address.ts`) instead of
+ * deleting what may not, so a parameter nobody has thought of yet is dropped rather than carried.
+ *
+ * WHAT IT DOES NOT GUARANTEE, stated because the difference from the Patients page is a finding.
+ * That page strips by a server `redirect()` before any read, so a dropped value never reaches an
+ * access record and the arrival entry itself is replaced. This runs in the browser and only when an
+ * overlay opens or closes, so on the other routes a bookmarked name is still in the address bar on
+ * arrival, is still in that request's server log, and stays on the entry the coordinator arrived on
+ * until the first overlay interaction rewrites it. This stops the multiplication and the leak into
+ * every subsequent entry; it does not give those routes the Patients page's property. See the
+ * report for the recommendation.
+ *
+ * The hash is carried through unchanged, as it always was. Nothing in this workspace writes one, a
+ * hash is never sent to the server, and stripping it would break any in-page anchor -- but a
+ * bookmarked `#<name>` would survive this function, which is the residual worth knowing about.
+ */
 function overlayUrl(id: string | null) {
-  const params = new URLSearchParams(window.location.search);
-  if (id === null) params.delete(WORKSPACE_OVERLAY_PARAM);
-  else params.set(WORKSPACE_OVERLAY_PARAM, id);
-  const query = params.toString();
+  const query = canonicalCaringContactsQuery(window.location.search, { overlay: id });
   return `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
 }
 

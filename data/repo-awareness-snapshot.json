@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "3b6fa2a83fde1284cac7bdd7a016584a81b4d337",
-    "committed_at": "2026-08-28T20:44:01+00:00"
+    "sha": "ad82d76afada11b4f5ca4b7cb689f51581df4483",
+    "committed_at": "2026-08-29T06:15:13+08:00"
   },
   "routes": {
     "modes": [
@@ -114,8 +114,48 @@
         "area": "product"
       },
       {
+        "path": "/caring-contacts/guidance",
+        "file": "src/app/caring-contacts/guidance/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/caring-contacts/patients",
         "file": "src/app/caring-contacts/patients/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/patients/[patientId]",
+        "file": "src/app/caring-contacts/patients/[patientId]/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/plans/new",
+        "file": "src/app/caring-contacts/plans/new/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/reports",
+        "file": "src/app/caring-contacts/reports/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/schedule",
+        "file": "src/app/caring-contacts/schedule/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/team",
+        "file": "src/app/caring-contacts/team/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates",
+        "file": "src/app/caring-contacts/templates/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/templates/[pathwayId]",
+        "file": "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "area": "product"
       },
       {
@@ -1186,8 +1226,16 @@
         "file": "src/app/api/caring-contacts/plans/[planId]/route.ts"
       },
       {
+        "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
+        "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/referrals",
         "file": "src/app/api/caring-contacts/referrals/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/schedule",
+        "file": "src/app/api/caring-contacts/schedule/route.ts"
       },
       {
         "path": "/api/caring-contacts/service-state",
@@ -1196,6 +1244,10 @@
       {
         "path": "/api/caring-contacts/session",
         "file": "src/app/api/caring-contacts/session/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/team",
+        "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
         "path": "/api/caring-contacts/training",
@@ -1368,11 +1420,11 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 190,
-      "product_pages": 55,
+      "pages": 198,
+      "product_pages": 63,
       "mockup_pages": 135,
       "redirects": 17,
-      "api": 57
+      "api": 60
     }
   },
   "documentation": {
@@ -2133,12 +2185,207 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-pr-body.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
         "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -2173,6 +2420,66 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
         "section": "caring-contacts",
         "catalogued": false
@@ -2183,7 +2490,62 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-timeline-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -3856,9 +4218,9 @@
       }
     ],
     "counts": {
-      "documents": 483,
+      "documents": 545,
       "catalogued": 109,
-      "uncatalogued": 374,
+      "uncatalogued": 436,
       "sections": 20
     }
   },

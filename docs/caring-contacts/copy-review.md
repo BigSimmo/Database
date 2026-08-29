@@ -65,9 +65,17 @@ sign-off. "Example Aftercare Team" is the name of the service. The two numbers a
 fictional numbers that cannot connect to anybody: `+61 491 570 157` is the staffed programme
 phone, `+61 491 570 158` is the crisis line.
 
-**Length:** 252 characters, which is two SMS segments — the maximum this programme allows.
-Adding roughly nine characters would push it to three and the message would be rejected. I
-verified this by running the counting code, not by trusting a comment.
+**Length:** 252 septets, which is two SMS segments — the maximum this programme allows.
+
+**CORRECTED 2026-08-27.** This paragraph originally read _"adding roughly nine characters would push
+it to three and the message would be rejected"_, and said it had been verified by running the counting
+code. It is wrong, and it is the origin of a figure relayed into three other documents. Recomputed from
+the module: the two-segment ceiling is **306 septets**, the message with its name slot empty costs
+**247**, and with the specimen name `Rowan` it costs **252** — **54 septets** short of rejection, not
+nine characters. What IS true, and is the fact the original was reaching for, is that all 54 are already
+allocated to the preferred-name slot (cap **59 septets**; 247 + 59 = 306), so the room for new **fixed**
+wording is zero. **A stated verification that produced a wrong number is worse than an unverified
+claim**, because every later reader treats it as settled.
 
 ⚠ **Flag:** a patient reads the literal words "Fictional Support Line" before a crisis number.
 Correct for a prototype; nothing in the code forces it to be replaced before a real send.

@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  validatePluginProductName,
+  userFacingPluginMetadata,
   discoverSkillDefinitions,
   discoverRepositorySkillFiles,
   loadSkillCatalog,
@@ -145,5 +147,33 @@ describe("Database skill catalog", () => {
     );
     expect(selfTest.status, `${selfTest.stdout}\n${selfTest.stderr}`).toBe(0);
     expect(selfTest.stdout).toContain("prompt-perfector isolation self-test passed: 14/14");
+  });
+});
+
+describe("the plugin's user-facing product name", () => {
+  // The plugin was renamed to PsychSift everywhere a person reads it while its
+  // lowercase ids and paths stayed put. Nothing enforced that split, so the
+  // marketplace card, the plugin's interface block and the routed skill's own
+  // description kept advertising the retired name after the product was
+  // renamed — which also makes a request phrased with the current name less
+  // likely to route to this plugin, since selection matches on description.
+  it("is clean across every surface a person or a skill router reads", () => {
+    expect(validatePluginProductName().errors).toEqual([]);
+  });
+
+  it("still fails when a surface reverts to the retired name", () => {
+    // Guards the guard: a check that cannot fail is not a check. Uses a file
+    // that genuinely still carries the string — AGENTS.md documents the rename
+    // and quotes the old name — so nothing has to be written to disk.
+    const { errors } = validatePluginProductName(["AGENTS.md"]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("retired product name");
+  });
+
+  it("names only user-facing files, never the ids and paths that must not move", () => {
+    expect(userFacingPluginMetadata.length).toBeGreaterThan(0);
+    for (const file of userFacingPluginMetadata) {
+      expect(fs.existsSync(path.join(path.resolve(import.meta.dirname, ".."), file)), file).toBe(true);
+    }
   });
 });

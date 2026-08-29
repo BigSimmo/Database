@@ -31,6 +31,8 @@ import {
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+
 const TEAM_NORTH = "TEAM-NORTH";
 const TEAM_SOUTH = "TEAM-SOUTH";
 
@@ -51,6 +53,10 @@ const PATIENT_BEARING_TABLES: readonly string[] = Object.freeze([
   // the same way: a preference or training record leaking across teams still names a person.
   "notification_preferences",
   "training_records",
+  // Holds no patient content -- a closed value, an actor and an instant -- but it points directly
+  // at one patient's plan, and an attestation readable across teams would say who a team is
+  // contacting.
+  "plan_assurances",
 ]);
 
 let pool: Pool;
@@ -132,6 +138,346 @@ describe("caring-contact migrations", () => {
        where table_schema = 'caring_contacts' and table_name = 'cultural_identity_reports'`,
     );
     expect(projection.map((row) => row.column_name)).toContain("cultural_identity");
+  });
+
+  it("holds the moved-first-contact reason nullable, undefaulted, and bounded", async () => {
+    // Migration 0005. Three properties, each of which would be a real defect if it were otherwise:
+    //
+    //   * NULLABLE and UNDEFAULTED, because plans created before this column existed hold no reason
+    //     and no placeholder was written into them. A default would make a fabricated sentence
+    //     indistinguishable from one a clinician typed, on a clinical record.
+    //   * BOUNDED, so unbounded free text cannot reach the column by a route that bypassed the
+    //     domain's own refusal. The number here is the backstop for
+    //     `FIRST_CONTACT_REASON_MAX_LENGTH`; the enforcement lives in schedule.ts, where the
+    //     refusal can be named.
+    //   * BLANK REFUSED, because the domain trims and writes null when nothing was required, so ''
+    //     can only ever be a caller's bug.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plans'
+         and column_name = 'first_contact_reason'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-REASON", patientId: "PATIENT-REASON" });
+
+    const setReason = async (value: string) =>
+      runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-REASON",
+          outcome: "allowed",
+          idempotencyKey: `reason-${value.length}`,
+        });
+        await client.query("update caring_contacts.plans set first_contact_reason = $1 where id = $2", [
+          value,
+          "PLAN-REASON",
+        ]);
+      });
+
+    // Positive control: an ordinary reason is accepted, so the two refusals below are the check
+    // constraint acting rather than the update never reaching the table.
+    await expect(setReason("Patient asked to wait until she is home from her sister's.")).resolves.toBeUndefined();
+
+    await expect(setReason("x".repeat(501))).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason("")).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason("   ")).rejects.toThrow(/plans_first_contact_reason_shape/);
+
+    // Review round 1, minor M-2. The check used bare `btrim()`, which strips SPACES ONLY, so these
+    // two passed a constraint whose own comment said a blank was refused -- the comment and the
+    // behaviour disagreed, and the two cases above could not tell. Whitespace is now classified
+    // with `[[:space:]]`.
+    await expect(setReason(String.fromCharCode(9, 9))).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason(String.fromCharCode(10))).rejects.toThrow(/plans_first_contact_reason_shape/);
+
+    // The cap is measured after surrounding whitespace is discounted, so padding cannot refuse a
+    // reason the domain would have accepted -- the domain stores trimmed text and this must agree.
+    await expect(setReason(`  ${"x".repeat(500)}  `)).resolves.toBeUndefined();
+  });
+
+  it("holds the preferred name nullable, undefaulted, unbackfilled, and bounded", async () => {
+    // Migration 0007. Four properties, each a real defect if it were otherwise:
+    //
+    //   * NULLABLE and UNDEFAULTED, because plans created before this column existed hold no
+    //     preferred name and no placeholder was written into them. A default -- least of all one
+    //     derived from `patient_name` -- would fabricate a clinical record.
+    //   * NOT BACKFILLED, so an existing row still reads null rather than a value nobody supplied.
+    //   * THE EMPTY STRING IS ACCEPTED, because that is what a retention clearance writes, exactly
+    //     as it does for `patient_name`. This is the one place 0007 deliberately differs from 0005:
+    //     there, `''` can only be a caller's bug; here it is the cleared value, and refusing it
+    //     would make `markRetentionCleared` fail against a real database.
+    //   * BOUNDED, so unbounded free text cannot reach a column a patient-visible message is
+    //     substituted from by a route that bypassed the domain's own refusal.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plans'
+         and column_name = 'preferred_name'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-PREFERRED", patientId: "PATIENT-PREFERRED" });
+
+    // NO BACKFILL, proven on a row this migration never touched: the seed writes no preferred name,
+    // so anything other than null here would be a default or a backfill acting.
+    const { rows: seeded } = await pool.query<{ preferred_name: string | null }>(
+      "select preferred_name from caring_contacts.plans where id = $1",
+      ["PLAN-PREFERRED"],
+    );
+    expect(seeded[0].preferred_name).toBeNull();
+
+    const setPreferredName = async (value: string) =>
+      runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-PREFERRED",
+          outcome: "allowed",
+          idempotencyKey: `preferred-${value.length}`,
+        });
+        await client.query("update caring_contacts.plans set preferred_name = $1 where id = $2", [
+          value,
+          "PLAN-PREFERRED",
+        ]);
+      });
+
+    // Positive control: an ordinary preferred name is accepted, so the refusal below is the check
+    // constraint acting rather than the update never reaching the table.
+    await expect(setPreferredName("Rowan")).resolves.toBeUndefined();
+
+    // The clearance's own value. `markRetentionCleared` writes this against a real database, so a
+    // constraint that refused it would break de-identification rather than protect anything.
+    await expect(setPreferredName("")).resolves.toBeUndefined();
+
+    await expect(setPreferredName("x".repeat(500))).rejects.toThrow(/plans_preferred_name_shape/);
+  });
+
+  it("files a replay record against the plan it is about, without making it depend on that plan", async () => {
+    // Migration 0008. Four properties, each a real defect if it were otherwise:
+    //
+    //   * THE COLUMN EXISTS AND IS NULLABLE AND UNDEFAULTED. A replay record written for a service
+    //     stop or a training write names no plan, and every record written before this migration
+    //     names none either. A default would claim one.
+    //   * NOT BACKFILLED, so a record that predates the column still reads null rather than a plan
+    //     somebody guessed for it.
+    //   * NOT A FOREIGN KEY, and this is the property most likely to be "tidied" later. A replay
+    //     record must OUTLIVE its plan -- deleting it would free the key and let a retry execute a
+    //     clinical write a second time -- and a REFUSED `createPlan` is recorded too, naming a plan
+    //     id that was never inserted. A reference would turn that named refusal into a raised error.
+    //   * INDEXED FOR THE CLEARANCE'S OWN LOOKUP, team first, because row-level security adds the
+    //     team predicate to every statement against this table.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'idempotency_records'
+         and column_name = 'plan_id'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    const { rows: constraints } = await pool.query<{ conname: string; definition: string }>(
+      `select c.conname, pg_catalog.pg_get_constraintdef(c.oid) as definition from pg_catalog.pg_constraint c
+         join pg_catalog.pg_class t on t.oid = c.conrelid
+         join pg_catalog.pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'caring_contacts' and t.relname = 'idempotency_records' and c.contype = 'f'`,
+    );
+    // The positive control lives inside the same query rather than beside it: this table DOES carry
+    // a foreign key, on `team_id` since 0001. So the empty filter below is `plan_id` specifically
+    // having no reference, not the query failing to find this table's keys at all.
+    expect(constraints.map((row) => row.conname)).toContain("idempotency_records_team_id_fkey");
+    expect(constraints.filter((row) => row.definition.includes("plan_id"))).toEqual([]);
+
+    const { rows: indexes } = await pool.query<{ indexdef: string }>(
+      `select indexdef from pg_catalog.pg_indexes
+        where schemaname = 'caring_contacts' and indexname = 'idempotency_records_team_plan_idx'`,
+    );
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0].indexdef).toContain("(team_id, plan_id)");
+
+    // And a record naming a plan that does not exist is ACCEPTED, which is what a refused
+    // `createPlan` produces. The insert runs as the application role inside a team session, so it
+    // is subject to the same policy the store writes under rather than to the migration role's
+    // bypass. The team is registered first, because `team_id` IS a foreign key -- which is the
+    // distinction this case is about: one column on this table references, the other does not.
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-REPLAY", patientId: "PATIENT-REPLAY" });
+    await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+      // The team row itself, which every other test here gets as a side effect of `seedPlan`. This
+      // test deliberately seeds NO plan -- that is its whole subject -- so it must create the team
+      // on its own or `idempotency_records_team_id_fkey` refuses the insert before `plan_id` is
+      // ever reached, and the orphan-plan assertion below would never run.
+      await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [
+        TEAM_NORTH,
+      ]);
+      await client.query(
+        `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result, plan_id)
+         values ($1, $2, $3, $4::jsonb, $5)`,
+        [
+          TEAM_NORTH,
+          "refused-create",
+          "fingerprint-1",
+          JSON.stringify({ ok: false, reason: "not-found" }),
+          "PLAN-NEVER-CREATED",
+        ],
+      );
+    });
+    const { rows: orphan } = await pool.query<{ plan_id: string | null }>(
+      "select plan_id from caring_contacts.idempotency_records where idempotency_key = $1",
+      ["refused-create"],
+    );
+    expect(orphan.map((row) => row.plan_id)).toEqual(["PLAN-NEVER-CREATED"]);
+
+    // NO BACKFILL, proven on a row written without the column: anything other than null here would
+    // be a default or a backfill acting.
+    await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+      await client.query(
+        `insert into caring_contacts.idempotency_records (team_id, idempotency_key, fingerprint, result)
+         values ($1, $2, $3, $4::jsonb)`,
+        [TEAM_NORTH, "no-plan", "fingerprint-2", JSON.stringify({ ok: true, value: null })],
+      );
+    });
+    const { rows: unfiled } = await pool.query<{ plan_id: string | null }>(
+      "select plan_id from caring_contacts.idempotency_records where idempotency_key = $1",
+      ["no-plan"],
+    );
+    expect(unfiled.map((row) => row.plan_id)).toEqual([null]);
+  });
+
+  it("classifies every column that holds free text about a patient, on the column itself", async () => {
+    // Migration 0008, and the finding behind it: `service_stops.note` carries
+    // "Treat it as patient data" and a recorded owner disposition, while `discrepancy_note` --
+    // a clinician's account of what happened to one named patient's message -- carried nothing.
+    // Somebody classified one column and not the other, and the next reader had to derive it.
+    //
+    // Asserted on `col_description` rather than by grepping the migration text, so a classification
+    // is a property of the database a DBA can read with `\\d+` rather than a comment in a file.
+    const describeColumn = async (table: string, column: string): Promise<string | null> => {
+      const { rows } = await pool.query<{ description: string | null }>(
+        `select pg_catalog.col_description(c.oid, a.attnum) as description
+           from pg_catalog.pg_class c
+           join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+           join pg_catalog.pg_attribute a on a.attrelid = c.oid
+          where n.nspname = 'caring_contacts' and c.relname = $1 and a.attname = $2`,
+        [table, column],
+      );
+      expect(rows).toHaveLength(1);
+      return rows[0].description;
+    };
+
+    // The two columns this migration classifies, each named as patient data in the same words
+    // `service_stops.note` uses.
+    expect(await describeColumn("contact_dispatches", "discrepancy_note")).toContain("Treat it as patient data");
+    expect(await describeColumn("plan_reassignments", "reason")).toContain("Treat it as patient data");
+    // And the replay payload, which is the one nobody would look for: it is not FOR patient data and
+    // holds it anyway, verbatim, for every write.
+    expect(await describeColumn("idempotency_records", "result")).toContain("Treat it as patient data");
+
+    // The positive control for those three: a column that is NOT patient data carries a comment
+    // that does not say so. Without it, a `col_description` that returned the same string for every
+    // column would satisfy all three assertions above.
+    const createdAt = await describeColumn("plans", "created_at");
+    expect(createdAt).toContain("free for a coordinator to take");
+    expect(createdAt).not.toContain("Treat it as patient data");
+  });
+
+  it("holds the plan assurances as a closed, undefaulted, team-scoped attestation", async () => {
+    // Migration 0006. Four properties, each a real defect if it were otherwise:
+    //
+    //   * THE VALUE SET IS CLOSED, and closed to the SAME set the domain knows. A check constraint
+    //     naming a different list from `PLAN_ASSURANCES` would let a write store an assurance no
+    //     screen can render, or refuse one the wizard sends.
+    //   * `attested_at` IS UNDEFAULTED, so a write that forgot the instant cannot look like one
+    //     that recorded it. `default now()` would make those two indistinguishable.
+    //   * `actor_id` IS NOT NULL. An attestation that cannot say who made it is not evidence, and
+    //     an anonymous row is worse than an absent one because it reads as proof.
+    //   * ONE ROW PER ASSURANCE PER PLAN, so one check cannot be recorded as two.
+    const { rows: columns } = await pool.query<{
+      column_name: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      `select column_name, is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plan_assurances'`,
+    );
+    const byColumn = new Map(columns.map((row) => [row.column_name, row]));
+    expect(byColumn.get("attested_at")?.is_nullable).toBe("NO");
+    expect(byColumn.get("attested_at")?.column_default).toBeNull();
+    expect(byColumn.get("actor_id")?.is_nullable).toBe("NO");
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-ATTEST", patientId: "PATIENT-ATTEST" });
+
+    const attest = async (assurance: string, planId = "PLAN-ATTEST", teamId = TEAM_NORTH) =>
+      runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: planId,
+          outcome: "allowed",
+          idempotencyKey: `attest-${planId}-${assurance}`,
+        });
+        await client.query(
+          `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
+           values ($1, $2, $3, 'ACTOR-NORTH', now())`,
+          [planId, teamId, assurance],
+        );
+      });
+
+    // Every value the domain knows is accepted, and the loop is what keeps the two lists equal:
+    // adding a value to `PLAN_ASSURANCES` without adding it to the constraint fails here.
+    for (const assurance of PLAN_ASSURANCE_VALUES) {
+      await expect(attest(assurance)).resolves.toBeUndefined();
+    }
+
+    // Positive control above means this refusal is the check constraint acting rather than the
+    // insert never reaching the table.
+    await expect(attest("patient-said-yes-probably")).rejects.toThrow(/plan_assurances_assurance_check/);
+
+    // A repeat of one already written is refused by the key, so a single check cannot be recorded
+    // twice by a route that bypassed the domain's own named refusal.
+    await expect(attest(PLAN_ASSURANCE_VALUES[0])).rejects.toThrow(/plan_assurances_pkey/);
+  });
+
+  it("refuses an attestation attached to another team's plan", async () => {
+    // The composite foreign key, and the reason 0003 gives for `plan_assignments`: foreign-key
+    // checks bypass row-level security, so a bare `plan_id` reference would let TEAM-SOUTH attach a
+    // row to TEAM-NORTH's plan while claiming its own team -- visible to the wrong team and
+    // invisible to the right one.
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-CROSS", patientId: "PATIENT-CROSS" });
+
+    await expect(
+      runInTeamSession(pool, { teamId: TEAM_SOUTH, auditToken: nextAuditToken() }, async (client) => {
+        await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [
+          TEAM_SOUTH,
+        ]);
+        await insertAuditEvent(client, {
+          teamId: TEAM_SOUTH,
+          actorId: "ACTOR-SOUTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-CROSS",
+          outcome: "allowed",
+          idempotencyKey: "attest-cross",
+        });
+        await client.query(
+          `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
+           values ($1, $2, $3, 'ACTOR-SOUTH', now())`,
+          ["PLAN-CROSS", TEAM_SOUTH, PLAN_ASSURANCE_VALUES[0]],
+        );
+      }),
+    ).rejects.toThrow(/plan_assurances_plan_fk/);
   });
 
   it("enables and forces row-level security on every patient-bearing table", async () => {

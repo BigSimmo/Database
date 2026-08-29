@@ -29,10 +29,10 @@ import "server-only";
 
 import { systemClock } from "@/lib/caring-contacts/clock";
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
-import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 
 import { assertNotClinicalKbProject, caringContactsDatabaseUrl } from "./config";
+import { createDemoWorkspaceStore } from "./demo-seed";
 import { createCaringContactsPool } from "./pool";
 
 export const CARING_CONTACTS_STORE_GLOBAL_KEY = "__caringContactsCachedStore";
@@ -50,7 +50,13 @@ export async function caringContactsStore(): Promise<CaringContactRepository> {
 async function buildStore(): Promise<CaringContactRepository> {
   const url = caringContactsDatabaseUrl();
   if (!url) {
-    return createInMemoryRepository(systemClock());
+    // The demo population lives on THIS branch and only this one. `createDemoWorkspaceStore`
+    // constructs the in-memory repository itself, so the seed has no parameter through which a
+    // database-backed store could arrive, and nothing below this `if` can reach it -- see
+    // ./demo-seed.ts and tests/caring-contacts-demo-seed.test.ts, which fails if the Postgres
+    // branch ever calls it. It returns the store unpopulated where the demo is unavailable, so a
+    // production process still gets an empty store rather than synthetic content.
+    return createDemoWorkspaceStore(systemClock());
   }
 
   // Kept alongside createCaringContactsPool's own internal check -- defence in depth on the one

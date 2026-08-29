@@ -43,9 +43,10 @@ is not reading. **A3:** a patient told "no one reads replies" who then receives 
 reasonably conclude somebody did read it. "and this reply is automatic" closes that.
 
 **Do NOT change `PATIENT_VISIBLE_NO_REPLY_NOTICE` or `EXACT_PATIENT_VISIBLE_MESSAGE`.** Message A is
-252 septets against a 2-segment ceiling — roughly nine characters of headroom — so the "something
-automatic comes back" fact deliberately lives only in the reply message, which has room. This was
-decided, not overlooked.
+252 septets against a 2-segment ceiling of 306 — ~~roughly nine characters of headroom~~, **corrected
+2026-08-27 to 54 septets, all of them allocated to the preferred-name slot, leaving zero for new fixed
+wording** — so the "something automatic comes back" fact deliberately lives only in the reply message,
+which has room. This was decided, not overlooked. The instruction was right; its stated reason was not.
 
 **Verified for you, so you do not have to guess:** the replacement is **210 septets, 2 segments,
 GSM-7 valid** (current is 218). Your test must assert the segment count rather than trust this line.
