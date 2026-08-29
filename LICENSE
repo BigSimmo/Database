@@ -1,140 +1,213 @@
 PROPRIETARY SOFTWARE AND CONTENT NOTICE
 
-Copyright (c) 2026 BigSimmo and the applicable rightsholders.
+Copyright (c) 2026 BigSimmo, for material owned by or validly assigned to the
+Repository Owner. Other rightsholders retain their respective rights.
 All rights reserved.
 
 Effective date: 29 August 2026
 
-1. Scope
+IMPORTANT: This notice is not an open-source licence. It reserves rights; it
+does not establish that the Repository Owner owns every item in the repository.
 
-This notice applies to the source code, object code, documentation, designs,
-images, data, database structures, prompts, workflows, tests, and other
-materials in this repository (collectively, the "Work") to the extent that
-BigSimmo or another identified rightsholder owns the relevant rights.
+1. Definitions and ownership boundary
 
-2. No open-source or general-use licence
+"Repository Owner" means the person or legal entity that lawfully owns the
+relevant rights and controls this repository through the GitHub account
+identified as BigSimmo. "BigSimmo" is a repository identifier, not a substitute
+for the owner's legal identity in an assignment or other signed agreement.
 
-The Work is publicly visible for inspection, but it is not open source and is
-not in the public domain. Except for the limited rights described in section 3
-or express prior written permission from the relevant rightsholder, no licence
-or permission is granted, whether by implication, estoppel, exhaustion, or
-otherwise.
+"Owner Material" means only the source code, object code, documentation,
+designs, images, original data, selection, coordination or arrangement of data,
+database structures, prompts, workflows, tests, and other material in this
+repository for which the Repository Owner owns or validly controls the relevant
+rights.
+
+"Third-Party Material" means material for which another person owns or controls
+rights, including dependencies, fonts, official forms and publications,
+licensed skill content, trade marks, service marks, and material identified in
+THIRD_PARTY_NOTICES.md or an accompanying notice.
+
+"Work" means the repository as a collection of Owner Material and Third-Party
+Material. This notice governs Owner Material only. It does not claim ownership
+of Third-Party Material, facts, ideas, methods, systems, discoveries, or other
+subject matter that applicable law does not protect.
+
+2. Rights reserved
+
+The Repository Owner reserves every copyright and related right in Owner
+Material, including rights to reproduce, publish, communicate, adapt, translate,
+perform, display, distribute, and create derivative works, and rights in the
+selection, coordination, and arrangement of any protected compilation or
+database.
+
+To the extent the Repository Owner owns or controls them, all patent, design,
+database, semiconductor-topography, trade mark, trade dress, passing-off,
+confidential-information, trade-secret, publicity, personality, and other
+proprietary rights are also reserved. This reservation neither creates a right
+that does not exist nor represents that any patent, design, or trade mark has
+been applied for or registered.
+
+Moral rights and similar personal rights remain with their lawful holders except
+to the extent of a valid consent or waiver permitted by applicable law.
+
+3. No open-source or general-use licence
+
+The Work is publicly visible for inspection, but Owner Material is proprietary,
+is not open source, and is not dedicated to the public domain. Except for the
+limited rights described in section 4, a mandatory legal right, or express prior
+written permission from the Repository Owner, no licence or permission is
+granted in Owner Material, whether by implication, estoppel, acquiescence,
+exhaustion, or otherwise.
 
 Without such permission, you must not use, execute, reproduce, copy, modify,
 adapt, translate, create derivative works from, publish, distribute,
 communicate, display, perform, transmit, sublicense, sell, rent, host, deploy,
-commercialise, or otherwise exploit any part of the Work.
+commercialise, or otherwise exploit Owner Material.
 
 This prohibition includes, without limitation:
 
-- incorporating the Work into another product, service, repository, dataset,
-  model, or publication;
+- incorporating Owner Material into another product, service, repository,
+  dataset, model, or publication;
 - scraping, bulk extraction, mirroring, or systematic collection;
-- using the Work or any substantial part of it to train, fine-tune, evaluate,
-  benchmark, ground, or otherwise develop an artificial-intelligence or
-  machine-learning system; and
+- using Owner Material or a substantial part of it to train, fine-tune,
+  evaluate, benchmark, ground, retrieve for, or otherwise develop or operate an
+  artificial-intelligence or machine-learning system; and
 - removing, concealing, or altering any copyright, authorship, provenance,
   trade mark, confidentiality, or proprietary-rights notice.
 
-3. GitHub and mandatory legal rights
+No patent, design, trade mark, trade-secret, or other non-copyright licence is
+granted by this notice. Use of the names "BigSimmo", "Database", "Clinical KB",
+or any associated branding must not imply endorsement, affiliation, or origin.
 
-Nothing in this notice limits rights that the repository owner has granted to
+4. GitHub, third-party licences, and mandatory legal rights
+
+Nothing in this notice limits rights that the Repository Owner has granted to
 GitHub or GitHub users under GitHub's applicable terms solely as necessary to
 provide and use GitHub's platform features, including viewing and forking a
-public repository through GitHub. No additional right to use the Work outside
-those platform features is granted.
+public repository through GitHub. No additional right to use Owner Material
+outside those platform features is granted.
 
-Nothing in this notice restricts an exception, limitation, defence, or other
-right that cannot lawfully be excluded under applicable law. Any such use is
-limited to the minimum extent required by that law.
+Third-Party Material remains subject to its own notices and licence terms.
+Where a third-party licence grants a right, this notice does not withdraw that
+right or impose this notice on that material.
 
-4. Privacy, confidential information, and systems
+Nothing in this notice restricts an exception, limitation, defence, consumer
+guarantee, or other right that cannot lawfully be excluded. Any reliance on
+such a right is limited to its lawful scope.
 
-Public availability of the Work does not grant permission to access any
-non-public system, service, account, credential, database, record, or data, or
-to collect, use, disclose, re-identify, or otherwise process personal,
-confidential, clinical, or regulated information. All applicable privacy,
-confidentiality, data-protection, computer-misuse, and professional-obligation
-laws remain in force.
+5. Public disclosure, privacy, and systems
+
+Publishing material in a public repository may prevent it from being a trade
+secret or confidential information and may affect patent or registered-design
+novelty. This notice does not reverse public disclosure, restore secrecy, or
+guarantee registrability in any jurisdiction.
+
+Public availability does not grant permission to access any non-public system,
+service, account, credential, database, record, or data, or to collect, use,
+disclose, re-identify, or otherwise process personal, confidential, clinical,
+or regulated information. All applicable privacy, confidentiality,
+data-protection, computer-misuse, and professional-obligation laws remain in
+force.
 
 If personal information, credentials, or other sensitive material is exposed
 in this repository inadvertently, do not use or redistribute it. Report it
 privately in accordance with SECURITY.md and, subject to any legal preservation
 obligation, delete copies under your control.
 
-5. Contributions
+6. Contributions and chain of title
 
-Unless a separate written agreement applies, by intentionally submitting a
-contribution to this repository on or after the effective date, you:
+The Repository Owner does not accept an external contribution for incorporation
+into Owner Material unless, before merge or incorporation, the contributor and
+the Repository Owner execute a separate written agreement that:
 
-- represent that you have the right to submit it;
-- grant BigSimmo a perpetual, irrevocable, worldwide, royalty-free,
-  transferable, and sublicensable licence to use, reproduce, modify, adapt,
-  create derivative works from, publish, distribute, communicate, display,
-  perform, license, commercialise, and otherwise exploit that contribution for
-  any purpose; and
-- agree that the contribution may be included in the Work under this notice.
+- identifies both parties by their legal names and identifies the contribution;
+- assigns to the Repository Owner all assignable intellectual-property rights
+  in the contribution, including present and future copyright to the extent
+  permitted by law;
+- contains any moral-rights consent or waiver permitted by applicable law;
+- confirms the contributor has authority to make the assignment; and
+- identifies all Third-Party Material and material generated or suggested by an
+  artificial-intelligence system.
 
-This contribution licence does not transfer ownership of your contribution.
-To the maximum extent permitted by law, you consent to acts or omissions in
-relation to the contribution that might otherwise infringe moral rights; where
-consent cannot lawfully be given, you agree not to assert those rights against
-BigSimmo or its licensees to the extent permitted by law.
+Opening an issue or pull request, authoring a commit, accepting this notice, or
+making material publicly visible does not by itself transfer ownership. A
+repository notice cannot retroactively assign rights in an existing
+contribution. See CONTRIBUTING.md.
 
-6. Third-party materials
+If an external contribution is incorporated without the required assignment,
+then, to the extent a valid contract is formed and unless a separate agreement
+provides otherwise, the contributor grants the Repository Owner a perpetual,
+irrevocable, worldwide, royalty-free, transferable, sublicensable,
+non-exclusive licence to use, reproduce, modify, adapt, create derivative works
+from, publish, distribute, communicate, display, perform, license,
+commercialise, and otherwise exploit that contribution for any purpose. This
+fallback licence does not transfer ownership.
 
-This notice does not replace or override the rights or licence terms of any
-third-party material. Third-party material remains subject to its own notices
-and terms. You are responsible for identifying and complying with them. No
-rightsholder may grant rights that it does not own or control.
+7. Artificial-intelligence material
 
-7. Enforcement and remedies
+Material generated or suggested by an artificial-intelligence system may not
+be copyrightable, may not be unique, and may resemble third-party material.
+Provider terms, a provider's assignment of its rights, or the Repository
+Owner's possession of output does not by itself prove human authorship,
+originality, non-infringement, or exclusive ownership. The rights reservation
+in this notice reaches such material only to the extent protectable rights
+lawfully exist and are owned or controlled by the Repository Owner.
 
-Unauthorised use may infringe copyright or other rights and, where binding
-terms apply, may also constitute a breach of contract. The relevant
-rightsholder reserves every remedy available under applicable law, including
-injunctive or equitable relief, damages, an account of profits, delivery up or
-destruction of infringing material, and recovery of costs where available.
-No delay or failure to enforce a right is a waiver of that or any other right.
+8. Contract status
 
-8. No warranty
+The copyright and other rights reservations in this notice do not depend on a
+reader accepting a contract. Provisions that operate as contractual terms bind
+only a person who validly agrees to them under applicable law. Viewing a public
+repository, without more, is not represented here as acceptance of a contract.
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE WORK IS PROVIDED "AS IS" AND
-"AS AVAILABLE", WITHOUT ANY REPRESENTATION, WARRANTY, CONDITION, GUARANTEE,
-OR UNDERTAKING OF ANY KIND, EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE,
-INCLUDING AS TO TITLE, NON-INFRINGEMENT, MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE, ACCURACY, SECURITY, AVAILABILITY, OR CLINICAL OR
-REGULATORY SUITABILITY.
+9. Enforcement and remedies
 
-9. Limitation of liability
+Unauthorised use of Owner Material may infringe copyright or other rights and,
+where binding terms apply, may also constitute a breach of contract. The
+relevant rightsholder reserves every remedy available under applicable law,
+including injunctive or equitable relief, damages, an account of profits,
+delivery up or destruction of infringing material, and recovery of costs where
+available. No delay or failure to enforce a right is a waiver of that or any
+other right.
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE RIGHTSHOLDERS WILL NOT BE LIABLE
-FOR ANY LOSS, DAMAGE, COST, OR CLAIM ARISING FROM OR RELATING TO THE WORK OR
+10. No warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, OWNER MATERIAL IS PROVIDED "AS IS" AND
+"AS AVAILABLE", WITHOUT ANY REPRESENTATION, WARRANTY, CONDITION, GUARANTEE, OR
+UNDERTAKING OF ANY KIND, EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING AS
+TO TITLE, NON-INFRINGEMENT, MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+ACCURACY, SECURITY, AVAILABILITY, OR CLINICAL OR REGULATORY SUITABILITY.
+
+11. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE RIGHTSHOLDERS WILL NOT BE LIABLE FOR
+ANY LOSS, DAMAGE, COST, OR CLAIM ARISING FROM OR RELATING TO OWNER MATERIAL OR
 ITS ACCESS OR USE, WHETHER DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE, AND WHETHER ARISING IN CONTRACT, TORT
 (INCLUDING NEGLIGENCE), EQUITY, STATUTE, OR OTHERWISE. NOTHING IN THIS NOTICE
-EXCLUDES LIABILITY THAT CANNOT LAWFULLY BE EXCLUDED.
+EXCLUDES LIABILITY, A CONSUMER GUARANTEE, OR ANOTHER RIGHT THAT CANNOT LAWFULLY
+BE EXCLUDED.
 
-10. Governing law and jurisdiction
+12. Governing law and jurisdiction
 
 To the extent a dispute is contractual and no separate written agreement
 governs it, this notice and that dispute are governed by the laws of Western
 Australia and the applicable laws of the Commonwealth of Australia, without
-regard to conflict-of-laws rules. The parties submit to the exclusive
-jurisdiction of the courts of Western Australia and courts competent to hear
-appeals from them. A rightsholder may seek urgent injunctive or protective
-relief in any court of competent jurisdiction.
+regard to conflict-of-laws rules. A person validly bound by those terms submits
+to the exclusive jurisdiction of the courts of Western Australia and courts
+competent to hear appeals from them. A rightsholder may seek urgent injunctive
+or protective relief in any court of competent jurisdiction.
 
-11. Severability and precedence
+13. Severability and precedence
 
-If any provision is held invalid or unenforceable, it is to be read down to the
-minimum extent necessary, and the remaining provisions continue in effect.
-A separate written agreement signed by the relevant rightsholder prevails to
-the extent of any inconsistency with this notice.
+If a contractual provision is held invalid or unenforceable, it is to be read
+down to the minimum extent necessary, and the remaining provisions continue in
+effect. A separate written agreement signed by the relevant rightsholder
+prevails to the extent of any inconsistency with this notice.
 
-12. Permissions
+14. Permissions
 
-Requests for a commercial or other licence must be made to the repository
-owner through the private contact method identified in SECURITY.md. Permission
-is effective only when granted expressly in writing by the relevant
-rightsholder.
+Requests for a commercial or other licence must be made to the Repository Owner
+through the private contact method identified in SECURITY.md. Permission is
+effective only when granted expressly in writing by the rightsholder that owns
+or controls the relevant rights.
