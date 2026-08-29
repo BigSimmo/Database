@@ -2,9 +2,10 @@
 
 ## Decision
 
-The mobile-root timing signal recorded during PR #2313 is **not a product regression**. It is an
-environment-specific Windows/busy-host measurement signal, amplified by an unsynchronised pre/post
-comparison. No product or budget change is justified.
+The mobile-root timing signal recorded during PR #2313 was **not reproduced on pinned Linux CI**.
+The retained Ubuntu evidence excludes a repeatable cross-platform regression, but it cannot
+distinguish Windows/busy-host measurement noise from a Windows-specific client regression. The
+unsynchronised pre/post comparison does not justify a product or budget change.
 
 ## Signal under investigation
 
@@ -73,13 +74,15 @@ mobile-root LCP was `2221.675–2300.923 ms`; the Windows `7422–8032 ms` state
 
 ## Classification and stop decision
 
-A real regression in the retained PR code would predict a consistent Linux increase comparable to
-the Windows `+493 ms` / `+20.3%` signal. The synchronized Linux distribution instead differs from its
-baseline by `+13.6 ms` at the median, while TBT is slightly lower and the full LCP range is only
-`40.1 ms` wide. The old signal is therefore classified as **environment-specific measurement noise**,
-not a product regression.
+A cross-platform regression in the retained PR code would predict a consistent Linux increase
+comparable to the Windows LCP median change of `+521.645 ms` / `+7.4%` (`7073.383 ms` to
+`7595.028 ms`). The synchronized Linux distribution instead differs from its baseline by `+13.6 ms`
+at the median, while TBT is slightly lower and the full LCP range is only `40.1 ms` wide. The old
+signal is therefore classified as **not reproduced on pinned Linux**. These measurements do not
+exclude a Windows-specific client regression.
 
 No code, baseline, tolerance, request-count remedy, or proven CLS fix is changed. The appropriate
-repository action is to resolve `#GQ5X8T` with this evidence. A future recurrence should be reopened
-only when a pinned Linux run on the exact current head shows a repeatable breach and retains the LCP
-breakdown needed to identify an owner.
+repository action is to resolve the Linux-control request in `#GQ5X8T` with this qualified evidence.
+The performance question should be reopened if either a pinned Linux run on the exact current head
+shows a repeatable breach or a synchronized quiet-host Windows control reproduces the slowdown. Any
+new measurement should retain the LCP breakdown needed to identify an owner.
