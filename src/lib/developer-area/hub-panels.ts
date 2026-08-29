@@ -8,6 +8,10 @@ export type HubPanel = {
   /** 1 = built now. 2–4 = declared placeholder; flipping the phase and adding an href is the whole change. */
   phase: 1 | 2 | 3 | 4;
   href?: string;
+  /** The href is a static file under `public/`, not an app route. Rendered as a
+   *  plain anchor rather than a <Link>, and excluded from the route-existence
+   *  check — which reads the route manifest and would not find it. */
+  external?: boolean;
 };
 
 export const HUB_PANELS: readonly HubPanel[] = [
@@ -104,6 +108,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "reference",
     phase: 1,
     href: "/mockups/development/routes",
+  },
+  // A static sheet, not a route: it is the generated brand preview, mirrored
+  // from docs/brand/preview.html into public/ so the hub can link to it.
+  // `tests/developer-hub-panels.test.ts` holds the two copies byte-identical,
+  // so the link can never show a stale mark.
+  {
+    id: "brand",
+    name: "Brand and design",
+    summary: "The mark's construction, every size and lockup, clear space and misuse",
+    group: "reference",
+    phase: 1,
+    href: "/brand/preview.html",
+    external: true,
   },
   // Three real prototype cards, not one generic self-linking "Prototypes" card.
   // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the

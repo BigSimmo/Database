@@ -264,6 +264,14 @@ image"}` — never a possibly-empty variable alone.
   (`BRAND_GLYPH_TRANSFORM_SMALL`). Those three travel together — mixing one with the other
   variant's placement puts the glyph off-centre in the tile — and `brandMarkInner(colors, true)`
   selects all three from the single `small` flag so a caller cannot pick them apart.
+- **The brand sheet is mirrored into `public/`.** `docs/brand/preview.html` is the generated
+  construction record; `public/brand/preview.html` is a byte-identical copy so the Developer Hub's
+  "Brand and design" card can link to it as a static file (`/brand/preview.html`). It is the one
+  hub panel that is not an app route, so `HubPanel.external` marks it, `PanelCard` renders it as a
+  real anchor rather than a `<Link>` (the client router has no entry for a file), and
+  `tests/developer-hub-panels.test.ts` both excludes it from the route-existence check and holds
+  the two copies identical by hash — a stale copy would show a retired mark to the one reader most
+  likely to trust it. Regenerate the doc, then copy it over the served one.
 - **In the app the mark has no tile.** `BrandMark` draws the symbol alone, filled
   `--clinical-accent`, standing directly on the page ground — so on a white page it reads as a
   mark rather than an app-store tile pasted into the chrome. It uses
