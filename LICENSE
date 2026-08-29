@@ -1,0 +1,140 @@
+PROPRIETARY SOFTWARE AND CONTENT NOTICE
+
+Copyright (c) 2026 BigSimmo and the applicable rightsholders.
+All rights reserved.
+
+Effective date: 29 August 2026
+
+1. Scope
+
+This notice applies to the source code, object code, documentation, designs,
+images, data, database structures, prompts, workflows, tests, and other
+materials in this repository (collectively, the "Work") to the extent that
+BigSimmo or another identified rightsholder owns the relevant rights.
+
+2. No open-source or general-use licence
+
+The Work is publicly visible for inspection, but it is not open source and is
+not in the public domain. Except for the limited rights described in section 3
+or express prior written permission from the relevant rightsholder, no licence
+or permission is granted, whether by implication, estoppel, exhaustion, or
+otherwise.
+
+Without such permission, you must not use, execute, reproduce, copy, modify,
+adapt, translate, create derivative works from, publish, distribute,
+communicate, display, perform, transmit, sublicense, sell, rent, host, deploy,
+commercialise, or otherwise exploit any part of the Work.
+
+This prohibition includes, without limitation:
+
+- incorporating the Work into another product, service, repository, dataset,
+  model, or publication;
+- scraping, bulk extraction, mirroring, or systematic collection;
+- using the Work or any substantial part of it to train, fine-tune, evaluate,
+  benchmark, ground, or otherwise develop an artificial-intelligence or
+  machine-learning system; and
+- removing, concealing, or altering any copyright, authorship, provenance,
+  trade mark, confidentiality, or proprietary-rights notice.
+
+3. GitHub and mandatory legal rights
+
+Nothing in this notice limits rights that the repository owner has granted to
+GitHub or GitHub users under GitHub's applicable terms solely as necessary to
+provide and use GitHub's platform features, including viewing and forking a
+public repository through GitHub. No additional right to use the Work outside
+those platform features is granted.
+
+Nothing in this notice restricts an exception, limitation, defence, or other
+right that cannot lawfully be excluded under applicable law. Any such use is
+limited to the minimum extent required by that law.
+
+4. Privacy, confidential information, and systems
+
+Public availability of the Work does not grant permission to access any
+non-public system, service, account, credential, database, record, or data, or
+to collect, use, disclose, re-identify, or otherwise process personal,
+confidential, clinical, or regulated information. All applicable privacy,
+confidentiality, data-protection, computer-misuse, and professional-obligation
+laws remain in force.
+
+If personal information, credentials, or other sensitive material is exposed
+in this repository inadvertently, do not use or redistribute it. Report it
+privately in accordance with SECURITY.md and, subject to any legal preservation
+obligation, delete copies under your control.
+
+5. Contributions
+
+Unless a separate written agreement applies, by intentionally submitting a
+contribution to this repository on or after the effective date, you:
+
+- represent that you have the right to submit it;
+- grant BigSimmo a perpetual, irrevocable, worldwide, royalty-free,
+  transferable, and sublicensable licence to use, reproduce, modify, adapt,
+  create derivative works from, publish, distribute, communicate, display,
+  perform, license, commercialise, and otherwise exploit that contribution for
+  any purpose; and
+- agree that the contribution may be included in the Work under this notice.
+
+This contribution licence does not transfer ownership of your contribution.
+To the maximum extent permitted by law, you consent to acts or omissions in
+relation to the contribution that might otherwise infringe moral rights; where
+consent cannot lawfully be given, you agree not to assert those rights against
+BigSimmo or its licensees to the extent permitted by law.
+
+6. Third-party materials
+
+This notice does not replace or override the rights or licence terms of any
+third-party material. Third-party material remains subject to its own notices
+and terms. You are responsible for identifying and complying with them. No
+rightsholder may grant rights that it does not own or control.
+
+7. Enforcement and remedies
+
+Unauthorised use may infringe copyright or other rights and, where binding
+terms apply, may also constitute a breach of contract. The relevant
+rightsholder reserves every remedy available under applicable law, including
+injunctive or equitable relief, damages, an account of profits, delivery up or
+destruction of infringing material, and recovery of costs where available.
+No delay or failure to enforce a right is a waiver of that or any other right.
+
+8. No warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE WORK IS PROVIDED "AS IS" AND
+"AS AVAILABLE", WITHOUT ANY REPRESENTATION, WARRANTY, CONDITION, GUARANTEE,
+OR UNDERTAKING OF ANY KIND, EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE,
+INCLUDING AS TO TITLE, NON-INFRINGEMENT, MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, ACCURACY, SECURITY, AVAILABILITY, OR CLINICAL OR
+REGULATORY SUITABILITY.
+
+9. Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE RIGHTSHOLDERS WILL NOT BE LIABLE
+FOR ANY LOSS, DAMAGE, COST, OR CLAIM ARISING FROM OR RELATING TO THE WORK OR
+ITS ACCESS OR USE, WHETHER DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE, AND WHETHER ARISING IN CONTRACT, TORT
+(INCLUDING NEGLIGENCE), EQUITY, STATUTE, OR OTHERWISE. NOTHING IN THIS NOTICE
+EXCLUDES LIABILITY THAT CANNOT LAWFULLY BE EXCLUDED.
+
+10. Governing law and jurisdiction
+
+To the extent a dispute is contractual and no separate written agreement
+governs it, this notice and that dispute are governed by the laws of Western
+Australia and the applicable laws of the Commonwealth of Australia, without
+regard to conflict-of-laws rules. The parties submit to the exclusive
+jurisdiction of the courts of Western Australia and courts competent to hear
+appeals from them. A rightsholder may seek urgent injunctive or protective
+relief in any court of competent jurisdiction.
+
+11. Severability and precedence
+
+If any provision is held invalid or unenforceable, it is to be read down to the
+minimum extent necessary, and the remaining provisions continue in effect.
+A separate written agreement signed by the relevant rightsholder prevails to
+the extent of any inconsistency with this notice.
+
+12. Permissions
+
+Requests for a commercial or other licence must be made to the repository
+owner through the private contact method identified in SECURITY.md. Permission
+is effective only when granted expressly in writing by the relevant
+rightsholder.

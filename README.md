@@ -348,5 +348,14 @@ a security problem. Threat models and the privacy assessment live under `docs/`
 
 ## License
 
-Proprietary — all rights reserved. This repository is private and is not licensed for
-redistribution or reuse (`package.json` declares `"license": "UNLICENSED"`).
+Copyright (c) 2026 BigSimmo and the applicable rightsholders. All rights
+reserved.
+
+This repository is publicly visible for inspection, but it is proprietary, is
+not open source, and is not in the public domain. No permission is granted to
+use, run, copy, modify, redistribute, deploy, commercialise, scrape, or use the
+work for AI or machine-learning development except as required by GitHub's
+applicable terms, applicable law, or express prior written permission.
+
+See [`LICENSE`](LICENSE) for the complete proprietary rights notice. The
+`"license": "UNLICENSED"` declaration in `package.json` is intentional.
