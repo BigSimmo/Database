@@ -66,10 +66,34 @@ const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
   blocked: { label: "Blocked", detail: "Not available" },
 };
 
-/** Left column carries the WA country service; right column carries the three metro services. */
+/**
+ * Which side of the whole-network overview each health service's cluster sits on.
+ *
+ * The LEFT column is the one layout decision taken here, and it is roadmap 14's "country sites
+ * present at all": the WA country service sits beside North Metro at the top of the picture rather
+ * than below three metro clusters.
+ *
+ * Phase 8, Task 9 (spec D11, step 4). The RIGHT column is now DERIVED — everything else
+ * `wardServiceOrder` knows about — where it used to be a hand-written copy of three of that list's
+ * five entries. `wardServiceOrder` is already this screen's canonical service list (`measure()`
+ * walks it to draw the demand trunks), so the copy was a second list that had to agree with it and
+ * could drift. That drift has exactly one symptom: a service added to the model but not to the copy
+ * renders no cluster, and every unit in it is simply not on the screen. **A unit missing from the
+ * whole-network overview reads as "no such bed exists"**, which is the worst thing a bed-finding
+ * screen can say, and it arrives through layout rather than through any claim about distance.
+ *
+ * Deriving one list from the other removes that particular way in. It is NOT by itself a proof that
+ * every unit is drawn — `wardServiceOrder` is still hand-written, and a unit whose site is missing
+ * from the site table would still vanish. The proof is the test: the overview's card set is pinned
+ * to `allUnits()` in `tests/ward-network-referral-placement.dom.test.tsx`.
+ *
+ * Today's picture is unchanged: the filter yields East Metro, South Metro, Private, in that order.
+ */
+const LEFT_COLUMN_SERVICES: readonly HealthService[] = ["North Metro", "WACHS"];
+
 const columnServices: { left: readonly HealthService[]; right: readonly HealthService[] } = {
-  left: ["North Metro", "WACHS"],
-  right: ["East Metro", "South Metro", "Private"],
+  left: LEFT_COLUMN_SERVICES,
+  right: wardServiceOrder.filter((service) => !LEFT_COLUMN_SERVICES.includes(service)),
 };
 
 /**

@@ -712,3 +712,237 @@ describe("network diagram, the travel-band arrangement", () => {
     ).not.toMatch(comparative);
   });
 });
+
+/**
+ * Phase 8, Task 9 (spec D11, step 4). The whole-network overview, now that placement is the primary
+ * job this screen does.
+ *
+ * The overview is what is left over when nobody is being placed — it is subordinate, and it is not
+ * removed. Everything below is a guard over what the overview must go on being while it is the
+ * secondary picture, because the ways it could quietly stop being that all look like tidying:
+ *
+ *  - **Every unit, always.** A ward that vanishes from the whole-network overview reads as "no such
+ *    bed exists". That is the worst thing a bed-finding screen can say, and on this screen it would
+ *    arrive through layout rather than through any claim about distance — a service list that drifted
+ *    from the model, or a picture narrowed to the units something happened to route to.
+ *  - **Reachable.** Secondary must mean "the other picture", never "the picture you can no longer
+ *    get back to".
+ *  - **Routing decorates it and does not arrange it.** Line weight is roadmap 14's own commitment and
+ *    it survives here, subordinate: the connector lines say which units the selected movement is
+ *    shortlisted for, and they must never become an ordering of the picture. An overview that put the
+ *    routed wards first would be a ranking nobody decided to build.
+ *  - **One clock.** The time control is roadmap 14's too, it lives in the ward shell's own sidebar,
+ *    and it drives the shared `now` through the reducer. A second clock here would let two screens
+ *    disagree about the same moment silently, and one eligibility gate is time-dependent.
+ */
+describe("network diagram, the whole-network overview", () => {
+  const CARD_PREFIX = "ward-network-card-";
+
+  /** The overview's unit nodes in DOM order — order included on purpose, because two of the claims
+   *  below are about arrangement rather than membership. */
+  function overviewUnitIdsInOrder(root: HTMLElement) {
+    return Array.from(root.querySelectorAll(`[data-testid^="${CARD_PREFIX}"]`)).map((node) =>
+      (node.getAttribute("data-testid") ?? "").slice(CARD_PREFIX.length),
+    );
+  }
+
+  /** The units the selected movement's shortlist draws a route to, sorted — a set, because which
+   *  units are routed is the fact, and their order is the thing being proved independent of it. */
+  function routedUnitIds(root: HTMLElement) {
+    return Array.from(root.querySelectorAll(`[data-testid^="${CARD_PREFIX}"][data-routed="true"]`))
+      .map((node) => (node.getAttribute("data-testid") ?? "").slice(CARD_PREFIX.length))
+      .sort();
+  }
+
+  const sortedUnitIds = () =>
+    allUnits()
+      .map((unit) => unit.id)
+      .sort();
+
+  /*
+   * MUTATION that must redden this test — the one the brief names, because it is the shape of the
+   * defect rather than a random break:
+   *
+   *     {units
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *   → {units
+   *       .filter((unit) => routedIds.has(unit.id))
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *
+   * A picture narrowed to the wards something happened to route to looks tidier and says something
+   * false: every ward it dropped is a real bed, and its absence reads as there being none.
+   */
+  it("renders every unit in the network, not only the ones a route is drawn to", () => {
+    const units = allUnits();
+    // Non-vacuity floor: "every unit" claims very little on a three-unit network.
+    expect(units.length, "the network is too small for 'every unit' to mean anything").toBeGreaterThan(3);
+
+    const { container } = renderNetwork();
+
+    // A movement is the subject on mount, so the overview is the picture standing on the canvas.
+    // Without this the assertions below could be satisfied by some other layout's cards.
+    expect(
+      container.querySelector('[data-layout="services"]'),
+      "the overview is not the picture on the canvas when no referral is selected",
+    ).not.toBeNull();
+
+    const rendered = overviewUnitIdsInOrder(container);
+    // A SET EQUALITY, never a count and never a search for a satisfying example: it fails on a
+    // narrowed picture, on a duplicated node, and on a single unit dropped from the site table.
+    expect([...rendered].sort(), "the overview's unit nodes are not exactly the units in the network").toEqual(
+      sortedUnitIds(),
+    );
+    expect(rendered, "a unit is drawn on the overview more than once").toHaveLength(units.length);
+
+    // The routed split is populated on BOTH sides. Without this the mutation above could not bite:
+    // if every unit were routed, dropping the unrouted ones would change nothing and this test would
+    // read as a guard while guarding nothing.
+    const routed = routedUnitIds(container);
+    expect(routed.length, "no unit is routed, so a picture narrowed to the routed ones would be empty").toBeGreaterThan(
+      0,
+    );
+    expect(
+      routed.length,
+      "every unit is routed, so a picture narrowed to the routed ones would be identical",
+    ).toBeLessThan(units.length);
+  });
+
+  /*
+   * MUTATION that must redden this test:
+   *
+   *     setSelectedReferralId((current) => (current === referral.id ? null : referral.id));
+   *   → setSelectedReferralId(referral.id);
+   *
+   * That is the version of "placement is primary" that goes one step too far: once a referral has
+   * taken the diagram there is no way back to the whole network, and the secondary picture has been
+   * removed rather than subordinated.
+   */
+  it("stays reachable once a referral has taken the diagram, and comes back whole", () => {
+    const { container } = renderNetwork();
+
+    const before = overviewUnitIdsInOrder(container);
+    expect(before, "the overview drew no units to begin with").toHaveLength(allUnits().length);
+
+    fireEvent.click(within(container).getByTestId(`ward-network-referral-${SUBJECT.id}`));
+    // Placement takes the canvas rather than sharing it — the two pictures draw the same nodes, so
+    // both at once would put every unit on the screen twice.
+    expect(container.querySelector('[data-layout="bands"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-layout="services"]'),
+      "both pictures are on the canvas at once, so every unit is drawn twice",
+    ).toBeNull();
+
+    fireEvent.click(within(container).getByTestId(`ward-network-referral-${SUBJECT.id}`));
+    expect(
+      container.querySelector('[data-layout="services"]'),
+      "the overview is not reachable once a referral has taken the diagram",
+    ).not.toBeNull();
+
+    const after = overviewUnitIdsInOrder(container);
+    expect([...after].sort(), "the overview came back missing units").toEqual(sortedUnitIds());
+    // Order too, not only membership: an overview that came back rearranged is a different picture
+    // from the one the coordinator left.
+    expect(after, "the overview came back in a different order from the one it left in").toEqual(before);
+  });
+
+  /*
+   * MUTATION that must redden this test: order each cluster's units routed-first, in
+   * `WardNetworkWorkspace`'s service-column branch —
+   *
+   *     {units
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *       .map((unit) => (
+   *   → {units
+   *       .filter((unit) => siteByCode(unit.siteCode)?.service === service)
+   *       .slice()
+   *       .sort((a, b) => Number(routedIds.has(b.id)) - Number(routedIds.has(a.id)))
+   *       .map((unit) => (
+   *
+   * Nothing is hidden by that and every unit is still drawn, which is exactly why the completeness
+   * test above cannot see it. It is a ranking all the same: the overview would be arranged by which
+   * beds one selected movement happens to be shortlisted for, and the top of each cluster would read
+   * as the answer to a question nobody asked here.
+   */
+  it("lets the selected movement's routing decorate the overview and never arrange it", () => {
+    const { container } = renderNetwork();
+
+    const firstOrder = overviewUnitIdsInOrder(container);
+    const firstRouted = routedUnitIds(container);
+
+    const queueRows = Array.from(container.querySelectorAll('[data-testid^="ward-network-queue-"]'));
+    expect(queueRows.length, "the movement queue holds fewer than two movements to compare").toBeGreaterThan(1);
+
+    // Searched rather than named: this needs two movements whose routed SETS differ, and which
+    // movements those are is a property of the seed rather than something to pin a spelling of. If
+    // the routed set never changed, "the order did not change either" would be trivially true.
+    let secondOrder: string[] | null = null;
+    for (const row of queueRows) {
+      fireEvent.click(row);
+      if (routedUnitIds(container).join("|") !== firstRouted.join("|")) {
+        secondOrder = overviewUnitIdsInOrder(container);
+        break;
+      }
+    }
+
+    expect(
+      secondOrder,
+      "no movement in the queue routes to a different set of units, so a routing-ordered overview would be invisible here",
+    ).not.toBeNull();
+    expect(secondOrder, "selecting a different movement rearranged the overview").toEqual(firstOrder);
+  });
+
+  /*
+   * MUTATION that must redden this test: give the network its own clock, e.g. add
+   *
+   *     const ownClock = Date.now();
+   *
+   * inside `WardNetworkWorkspace`. Two screens reading two clocks disagree about the same moment
+   * without either looking wrong, and `referralEligibility`'s capacity-freshness gate is
+   * time-dependent, so the disagreement would reach a verdict about a bed.
+   */
+  it("reads the one Ward Flow clock and holds none of its own", () => {
+    function AdvanceSharedClockHarness() {
+      const { now, dispatch } = useWardFlow();
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="advance-shared-clock"
+            onClick={() => dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes: 60 })}
+          >
+            Advance
+          </button>
+          <WardModeWorkspace mode="network" />
+        </>
+      );
+    }
+
+    const { container } = render(
+      <WardFlowProvider initialNow={NOW_ANCHOR}>
+        <AdvanceSharedClockHarness />
+      </WardFlowProvider>,
+    );
+
+    // The shared clock is moved through the reducer, exactly as the ward shell's own time control
+    // moves it — never by re-rendering this screen with a different prop, which would prove only
+    // that the component re-renders.
+    const queueRow = () => container.querySelector('[data-testid^="ward-network-queue-"]');
+    const before = queueRow()?.textContent ?? "";
+    expect(before, "the overview drew no movement rows, so there is no clock-derived text to read").not.toBe("");
+
+    fireEvent.click(within(container).getByTestId("advance-shared-clock"));
+    expect(queueRow()?.textContent ?? "", "the overview did not follow the one Ward Flow clock").not.toBe(before);
+
+    // And the component holds no clock of its own to disagree with it. A source read rather than a
+    // behavioural one because a second clock that happened to agree today would be invisible on the
+    // screen and would drift the moment the shared one moved. The character class is deliberate:
+    // this file has had a backslash escape turn into a literal control byte three times this phase.
+    const secondClock = /ADVANCE_CLOCK|RESET_SCENARIO|SET_SCENARIO|Date[.]now|new Date/;
+    // Positive control, so a pattern that had stopped matching anything could not read as clean.
+    expect("const ownClock = Date.now();", "the second-clock pattern no longer matches one").toMatch(secondClock);
+    expect(
+      readFileSync(NETWORK_COMPONENT, "utf8"),
+      "the network diagram has a clock of its own, so two screens can disagree about the same moment",
+    ).not.toMatch(secondClock);
+  });
+});
