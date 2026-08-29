@@ -5,7 +5,7 @@ import { DictionaryCataloguePage } from "@/components/dictionary/dictionary-cata
 import { LoadingPanel } from "@/components/ui-primitives";
 
 export const metadata: Metadata = {
-  title: "Clinical terms | Clinical KB",
+  title: "Clinical terms | PsychSift",
   description: "Search or browse 96 source-governed clinical terms and their governed abbreviations.",
 };
 

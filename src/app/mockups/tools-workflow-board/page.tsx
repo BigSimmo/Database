@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { ToolsPageMockupPage } from "@/components/tools-page-mockups";
 
 export const metadata: Metadata = {
-  title: "Tools Workflow Board Mockup - Clinical KB",
-  description: "Workflow-grouped Tools page mockup for Clinical KB.",
+  title: "Tools Workflow Board Mockup - PsychSift",
+  description: "Workflow-grouped Tools page mockup for PsychSift.",
 };
 
 export default function ToolsWorkflowBoardMockupRoute() {

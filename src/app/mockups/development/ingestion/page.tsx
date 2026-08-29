@@ -5,7 +5,7 @@ import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell
 import { resolveLiveFreshness } from "@/lib/developer-area/freshness";
 
 export const metadata: Metadata = {
-  title: "Ingestion · Developer · Clinical KB",
+  title: "Ingestion · Developer · PsychSift",
   description: "Whether an uploaded document actually indexed — queued, processing, finished, or stuck — read live.",
 };
 

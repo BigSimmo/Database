@@ -89,7 +89,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
     if (pathname === "/api/local-project-id") {
       await route.fulfill({
         json: {
-          appName: "Clinical KB",
+          appName: "PsychSift",
           projectId: "route-coverage-fixture",
           identityPath: "/api/local-project-id",
           localServer: { safeLocalOrigin: true },

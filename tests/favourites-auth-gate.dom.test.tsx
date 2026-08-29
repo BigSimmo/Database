@@ -281,8 +281,8 @@ describe("favourites auth gate DOM", () => {
     const { rerender } = render(<ToolsSearchResultsPage canAccessFavourites={false} />);
 
     expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute("href", "/?mode=answer");
-    expect(screen.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open PsychSift Search" })).toHaveAttribute("href", "/?mode=answer");
+    expect(screen.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
     expect(screen.getAllByText("Safety-first").length).toBeGreaterThan(0);
     expect(screen.queryByRole("radio", { name: /Saved/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Saved workflows" })).toBeNull();

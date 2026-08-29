@@ -10,13 +10,13 @@ export const repositorySkillSurfaces = [
   { name: "Codex", root: skillsRoot },
   { name: "Claude", root: path.join(repositoryRoot, ".claude", "skills") },
   { name: "Cursor", root: path.join(repositoryRoot, ".cursor", "skills") },
-  { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
+  { name: "PsychSift plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
 ];
 export const expectedRepositorySkillSurfaceCounts = {
   Codex: 43,
   Claude: 8,
   Cursor: 15,
-  "Clinical KB plugin": 1,
+  "PsychSift plugin": 1,
 };
 
 function wordCount(value) {
@@ -353,11 +353,53 @@ export function renderSkillCatalog(catalog = loadSkillCatalog(), discovered = di
   return lines.join("\n").trimEnd();
 }
 
+/** Files whose *user-facing* text is read by a person or matched by
+ *  description-based skill selection: marketplace cards, the plugin's interface
+ *  block, and the routed skill's own frontmatter. The retired product name here
+ *  is not cosmetic — it advertises a product that no longer exists, and it makes
+ *  a request phrased with the current name less likely to route to this plugin.
+ *  Lowercase identifiers (`clinical-kb`, its directory, its keywords) are
+ *  deliberately NOT covered: they are addresses, and renaming them breaks
+ *  resolution for no reader's benefit. */
+export const userFacingPluginMetadata = [
+  ".agents/plugins/marketplace.json",
+  ".agents/plugins/api_marketplace.json",
+  "plugins/clinical-kb/.codex-plugin/plugin.json",
+  "plugins/clinical-kb/skills/clinical-kb-workflow/SKILL.md",
+  "plugins/clinical-kb/README.md",
+];
+
+/** The product's retired name. `Clinical KB Database` is the live Supabase
+ *  project and is excluded by the negative lookahead — it is the database's
+ *  real name, pinned by AGENTS.md, not a product name. */
+const RETIRED_PRODUCT_NAME = /Clinical KB(?! Database)/g;
+
+export function validatePluginProductName(files = userFacingPluginMetadata) {
+  const errors = [];
+  for (const relative of files) {
+    const absolute = path.join(repositoryRoot, relative);
+    if (!fs.existsSync(absolute)) {
+      errors.push(`${relative} is listed as user-facing plugin metadata but does not exist`);
+      continue;
+    }
+    const content = fs.readFileSync(absolute, "utf8");
+    const hits = content.match(RETIRED_PRODUCT_NAME);
+    if (hits) {
+      errors.push(
+        `${relative} still advertises the retired product name "Clinical KB" (${hits.length} occurrence(s)) — ` +
+          `rename the user-facing text to PsychSift, leaving lowercase ids, paths and keywords alone`,
+      );
+    }
+  }
+  return { errors };
+}
+
 function run(argv = process.argv.slice(2)) {
   const catalog = loadSkillCatalog();
   const validation = validateSkillCatalog(catalog);
   const repositoryValidation = validateRepositorySkillPolicies();
-  const errors = [...validation.errors, ...repositoryValidation.errors];
+  const productName = validatePluginProductName();
+  const errors = [...validation.errors, ...repositoryValidation.errors, ...productName.errors];
   if (errors.length) {
     console.error(errors.map((error) => `- ${error}`).join("\n"));
     process.exitCode = 1;

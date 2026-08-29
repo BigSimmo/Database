@@ -31,7 +31,7 @@ describe("deriveDocumentSearchUnavailable", () => {
       deployedClinicalKb: true,
     });
     expect(result?.status).toBe("error");
-    expect(result?.message).toMatch(/Clinical KB could not be reached/i);
+    expect(result?.message).toMatch(/PsychSift could not be reached/i);
   });
 
   it("distinguishes the deployed and local API messages", () => {

@@ -4,7 +4,9 @@
 // from the in-app mark or the favicon.
 import { BRAND_LIGHT, brandMarkSvg, type BrandColors } from "@/lib/brand-mark";
 
-/** Teal field used behind full-bleed (apple / maskable) icons. */
+/** Opaque field behind full-bleed (apple / maskable) icons. These formats
+ *  cannot be transparent, so they paint the light surface the mark stands on
+ *  and let the accent-coloured symbol carry the identity. */
 export const BRAND_ICON_FIELD = BRAND_LIGHT.tile;
 
 /** Single-colour palette for manifest `monochrome` icons: platforms read only

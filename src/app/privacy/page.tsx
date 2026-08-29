@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { PrivacyQuietSignalPage } from "@/components/privacy-quiet-signal-page";
 
 export const metadata: Metadata = {
-  title: "How Clinical KB handles your data",
-  description: "Learn what Clinical KB processes, where data is handled, and how long information is retained.",
+  title: "How PsychSift handles your data",
+  description: "Learn what PsychSift processes, where data is handled, and how long information is retained.",
 };
 
 /**

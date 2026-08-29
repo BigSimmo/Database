@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { CaringContactRoutePage } from "./route-page";
 
 export const metadata: Metadata = {
-  title: "Caring Contact prototype · Clinical KB",
+  title: "Caring Contact prototype · PsychSift",
   description: "A fully synthetic, one-way Caring Contact coordination prototype.",
 };
 
