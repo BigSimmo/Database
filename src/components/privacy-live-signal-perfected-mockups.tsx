@@ -72,13 +72,13 @@ const SECTIONS: Section[] = [
     heading: "What this tool is",
     short: "Tool",
     gist: "Clinical reference KB — not a patient-record system",
-    body: "Clinical KB is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
+    body: "PsychSift is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
   },
   {
     heading: "What is collected",
     short: "Collected",
     gist: "Questions, docs, telemetry — safety-plan work stays in-tab",
-    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
+    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by PsychSift.",
   },
   {
     heading: "How questions are handled",
@@ -102,7 +102,7 @@ const SECTIONS: Section[] = [
     heading: "Retention",
     short: "Retention",
     gist: "30-day queries · 90-day logs · hourly cache purge",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",

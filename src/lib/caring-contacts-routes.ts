@@ -13,7 +13,7 @@
  *
  * This module is plain string data with no React and no client code, so the
  * tools catalogue can name the workspace's front door without pulling any of
- * the workspace itself into the Clinical KB dashboard's bundle.
+ * the workspace itself into the PsychSift dashboard's bundle.
  *
  * It gained ONE import to stay that way rather than in spite of it.
  * `CARING_CONTACTS_PLAN_QUERY_PARAM` and `CARING_CONTACTS_REFERRAL_QUERY_PARAM`

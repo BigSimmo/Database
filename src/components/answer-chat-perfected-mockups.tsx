@@ -1287,7 +1287,7 @@ export function AnswerChatPerfectedMockupsPage() {
               <ShieldCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              Clinical KB · answer page · direction A, finished
+              PsychSift · answer page · direction A, finished
             </p>
           </div>
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-heading)] sm:text-3xl">

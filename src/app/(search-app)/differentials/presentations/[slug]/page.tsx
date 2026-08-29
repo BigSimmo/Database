@@ -20,9 +20,9 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: DifferentialPresentationRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const workflow = getPresentationWorkflow(slug);
-  if (!workflow) return { title: "Differential presentation not found - Clinical KB" };
+  if (!workflow) return { title: "Differential presentation not found - PsychSift" };
   return {
-    title: `${workflow.title} - Differential presentation - Clinical KB`,
+    title: `${workflow.title} - Differential presentation - PsychSift`,
     description: workflow.subtitle,
   };
 }

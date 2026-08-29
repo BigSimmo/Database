@@ -778,7 +778,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       labelledBy={guideAccessibleNameId}
-      title="Clinical KB Guide Centre"
+      title="PsychSift Guide Centre"
       descriptionContent={
         <p className={cn("text-sm leading-6 text-[color:var(--text-muted)]", headerCompact && "max-sm:sr-only")}>
           Learn how to ask, scope, and verify.
@@ -832,7 +832,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
       closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
       <span id={guideAccessibleNameId} className="sr-only">
-        Clinical KB guide
+        PsychSift guide
       </span>
       <div
         ref={contentStartRef}

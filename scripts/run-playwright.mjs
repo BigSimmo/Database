@@ -19,7 +19,7 @@ import {
 } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
-  console.error(`Clinical KB Playwright checks require Node 24.x. Current runtime: ${process.versions.node}.`);
+  console.error(`PsychSift Playwright checks require Node 24.x. Current runtime: ${process.versions.node}.`);
   process.exit(1);
 }
 
@@ -216,7 +216,7 @@ async function waitForServer(baseUrl, server) {
     }
     await sleep(500);
   }
-  throw new Error(`Timed out waiting for the Playwright-owned Clinical KB server at ${baseUrl}.`);
+  throw new Error(`Timed out waiting for the Playwright-owned PsychSift server at ${baseUrl}.`);
 }
 
 function stopOwnedProcessTree(child) {

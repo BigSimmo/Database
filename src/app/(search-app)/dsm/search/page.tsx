@@ -4,7 +4,7 @@ import { DsmSearchPage } from "@/components/dsm/dsm-search-page";
 import { dsmCategories, listDsmDiagnosisSummaries } from "@/lib/dsm";
 
 export const metadata: Metadata = {
-  title: "Search DSM diagnoses | Clinical KB",
+  title: "Search DSM diagnoses | PsychSift",
   description:
     "Search the local DSM diagnosis catalogue by title, ICD code, category, criteria, and clinical features.",
 };

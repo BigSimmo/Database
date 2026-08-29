@@ -58,13 +58,13 @@ const geistMono = localFont({
 });
 
 const baseMetadata: Metadata = {
-  applicationName: "Clinical KB",
-  title: "Clinical KB",
+  applicationName: "PsychSift",
+  title: "PsychSift",
   description: "Private medical guideline RAG knowledge base",
   robots: PRIVATE_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
-    title: "Clinical KB",
+    title: "PsychSift",
     statusBarStyle: "black-translucent",
   },
 };

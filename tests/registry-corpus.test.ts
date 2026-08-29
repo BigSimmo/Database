@@ -237,7 +237,7 @@ describe("registry corpus", () => {
     expect(document?.metadata).toMatchObject({
       source_kind: "registry_record",
       registry_record_kind: "service",
-      publisher: "Clinical KB registry",
+      publisher: "PsychSift registry",
       clinical_validation_evidence: {
         status: "locally_reviewed",
         evidence_type: "registry_governance_record",

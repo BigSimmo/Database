@@ -2280,11 +2280,22 @@ export function MasterSearchHeader({
             <div data-testid="shared-home-brand" className="hidden min-w-0 items-center gap-3 lg:flex">
               <BrandMark className="h-10 w-10" />
               <span className="min-w-0">
-                <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
-                  Clinical KB
+                {/* The name leads and the strapline supports, which is a weight and a
+                    colour apart, not just a size. The wordmark takes the display
+                    tracking the rest of the interface's headings use — at 18px/800 the
+                    untracked default reads loose. The strapline drops from 600 to 500:
+                    at 600 it sat almost level with the name and the two lines competed.
+                    The colour stays --text-muted and the size stays 12px, both measured
+                    rather than chosen — on this surface --text-soft composites to
+                    #8894a6 and gives 3.07:1 against the header, under the 4.5:1 floor,
+                    and 11px made the block bottom-light for no gain. Tracking stays on
+                    the ladder's zero step; positive tracking belongs to uppercase
+                    labels, and this is a sentence. */}
+                <span className="block truncate text-lg font-extrabold leading-5 tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+                  PsychSift
                 </span>
-                <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                  Source-backed clinical search
+                <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                  From question to source
                 </span>
               </span>
             </div>

@@ -16,7 +16,7 @@ import type { ServiceState } from "@/lib/caring-contacts/service-state";
  * The workspace's lazy route boundary (Ruling 13). Same spelling and same reason as
  * `src/app/caring-contacts/page.tsx` and the templates library beside this file: nothing outside
  * this route segment imports the workspace, and dynamically importing the shell keeps the Client
- * Components beneath it out of the Clinical KB dashboard's chunks. That file's module note carries
+ * Components beneath it out of the PsychSift dashboard's chunks. That file's module note carries
  * the argument in full; one copy of it is the source of truth and two copies would drift.
  */
 const CaringContactsShell = dynamic(() =>

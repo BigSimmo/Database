@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { MasterEvidenceDetail } from "@/components/master-document-flow-mockups";
 
 export const metadata: Metadata = {
-  title: "Evidence Detail Mockup - Clinical KB",
+  title: "Evidence Detail Mockup - PsychSift",
   description: "Functional evidence object mockup for tables, quotes, images, and source page context.",
 };
 

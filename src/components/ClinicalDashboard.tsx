@@ -1629,13 +1629,13 @@ function ClinicalDashboardContent({
 
   function searchNetworkFailure(label: string) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
-    const origin = typeof window !== "undefined" ? window.location.origin : "Clinical KB";
+    const origin = typeof window !== "undefined" ? window.location.origin : "PsychSift";
     return makeSearchError(
       offline
         ? `${label} could not run because the browser is offline.`
         : isDeployedClinicalKb()
-          ? `${label} could not reach Clinical KB at ${origin}. Check your connection and try again shortly.`
-          : `${label} could not reach Clinical KB at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
+          ? `${label} could not reach PsychSift at ${origin}. Check your connection and try again shortly.`
+          : `${label} could not reach PsychSift at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
       undefined,
       true,
     );

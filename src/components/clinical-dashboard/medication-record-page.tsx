@@ -495,7 +495,7 @@ export function MedicationRecordPage({
           )}
         </div>
         <InformationPageFooter className="mt-4 pb-1">
-          Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
+          PsychSift provides evidence summaries, not medical advice. Verify clinical decisions.
         </InformationPageFooter>
       </InformationPageShell>
     </>

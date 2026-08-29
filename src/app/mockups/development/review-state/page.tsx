@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ReviewStatePageContent } from "@/components/developer-area/hub/review-state-page-content";
 
 export const metadata: Metadata = {
-  title: "Review state · Developer · Clinical KB",
+  title: "Review state · Developer · PsychSift",
   description: "Every immutable review record: which ref was reviewed, at which head, with what outcome.",
 };
 

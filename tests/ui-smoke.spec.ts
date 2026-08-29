@@ -217,7 +217,7 @@ async function mockLocalProjectIdentity(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -830,7 +830,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: /Appearance Auto/ })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
   return menu;
 }
@@ -858,7 +858,7 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
 }
 
 async function openGuide(page: Page) {
-  const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
+  const dialog = page.getByRole("dialog", { name: "PsychSift guide" });
   const settings = accountSettingsDialog(page);
   const viewport = page.viewportSize();
 
@@ -1096,7 +1096,7 @@ async function openDailyActions(page: Page, triggerName: string | RegExp = /^Ope
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB UI smoke coverage", () => {
+test.describe("PsychSift UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
   test("Supabase connection hints reach the document head without provider traffic", async ({ page }) => {
@@ -1138,7 +1138,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(searchAction).toBeVisible();
         await expect(dailyActions.getByRole("button", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
-        await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+        await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
         await expect(dailyActionsTrigger).toBeFocused();
@@ -1723,7 +1723,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
     const unsafeLocalProjectPayload = {
-      appName: "Clinical KB",
+      appName: "PsychSift",
       projectId: "test-project",
       identityPath: "/api/local-project-id",
       localServer: {
@@ -2377,8 +2377,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "How PsychSift handles your data" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Before you use PsychSift" })).toBeVisible();
       await expect(page.getByTestId("privacy-trust-brief")).toBeVisible();
       await expect(page.getByTestId("privacy-draft-disclaimer")).toBeVisible();
 
