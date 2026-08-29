@@ -307,9 +307,7 @@ describe("blockedReleaseCount — the cross-cut, never a bucket subtraction", ()
 
     const confirmedAndBlocked: Admission = { ...confirmedNotBlocked, blockReason: BED_RELEASE_BLOCKERS[0] };
 
-    const confirmedAfter = derivedBedReleases([confirmedAndBlocked], now).filter(
-      (r) => r.state === "confirmed",
-    ).length;
+    const confirmedAfter = derivedBedReleases([confirmedAndBlocked], now).filter((r) => r.state === "confirmed").length;
     const blockedAfter = blockedReleaseCount([confirmedAndBlocked], now);
 
     // THE INVARIANT: the confirmed stage keeps its release...

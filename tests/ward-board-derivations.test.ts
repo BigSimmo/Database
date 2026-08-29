@@ -275,11 +275,7 @@ describe("arrowTargets", () => {
       admission({ id: "WA-B", homeRegion: "Peel", expectedDischargeAt: NOW + 1 * MINUTES_PER_DAY }),
       admission({ id: "WA-C", homeRegion: "Mid West", expectedDischargeAt: NOW + 3 * MINUTES_PER_DAY }),
     ];
-    expect(arrowTargets(admissions, NOW).map((target) => target.region)).toEqual([
-      "Peel",
-      "Mid West",
-      "Pilbara",
-    ]);
+    expect(arrowTargets(admissions, NOW).map((target) => target.region)).toEqual(["Peel", "Mid West", "Pilbara"]);
   });
 
   it("keeps an already-overdue plan at the front rather than dropping it", () => {

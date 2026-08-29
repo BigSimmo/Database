@@ -1,8 +1,4 @@
-import {
-  admissionsForUnit,
-  bedIsOccupied,
-  type Admission,
-} from "@/components/ward-management/ward-admissions";
+import { admissionsForUnit, bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
@@ -284,8 +280,7 @@ export type SinceYesterday = {
 export function sinceYesterday(admissions: readonly Admission[], now: Instant): SinceYesterday {
   if (!Number.isFinite(now)) return { discharged: 0, pulled: 0, datesMoved: 0 };
   const windowStart = now - MINUTES_PER_DAY;
-  const inWindow = (at: Instant | null): boolean =>
-    at !== null && Number.isFinite(at) && at > windowStart && at <= now;
+  const inWindow = (at: Instant | null): boolean => at !== null && Number.isFinite(at) && at > windowStart && at <= now;
 
   let discharged = 0;
   let pulled = 0;

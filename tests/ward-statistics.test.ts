@@ -2,7 +2,11 @@
 import { describe, expect, it } from "vitest";
 
 import { allUnits } from "../src/components/ward-management/ward-sites";
-import { allWardStatistics, wardStatistics, type DischargeDateOutcomes } from "../src/components/ward-management/ward-statistics";
+import {
+  allWardStatistics,
+  wardStatistics,
+  type DischargeDateOutcomes,
+} from "../src/components/ward-management/ward-statistics";
 import type { Admission } from "../src/components/ward-management/ward-admissions";
 import { MINUTES_PER_DAY } from "../src/components/ward-management/ward-clock";
 
@@ -174,11 +178,7 @@ describe("wardStatistics — long stays reuse stayBand, never re-band it locally
     const oneToThreeMonths = anAdmission({ id: "ADM-1-3-months", state: "occupied", arrivedAt: daysAgo(89) });
     const overThreeMonths = anAdmission({ id: "ADM-over-3-months", state: "occupied", arrivedAt: daysAgo(100) });
 
-    const statistics = wardStatistics(
-      UNIT,
-      [underAWeek, oneToFourWeeks, oneToThreeMonths, overThreeMonths],
-      now,
-    );
+    const statistics = wardStatistics(UNIT, [underAWeek, oneToFourWeeks, oneToThreeMonths, overThreeMonths], now);
 
     expect(statistics.longStays).toBe(1);
   });

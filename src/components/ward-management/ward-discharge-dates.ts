@@ -241,9 +241,7 @@ export function blockedReleaseCount(admissions: Admission[], now: Instant): numb
  * `dischargeDateMoves` defaults to `0` for an admission that never had a date at all — reading a
  * bare `0` as "met" would silently count every undated departure as a successful prediction.
  */
-export function dischargeDateAccuracy(
-  admissions: Admission[],
-): { met: number; moved: number; total: number } | null {
+export function dischargeDateAccuracy(admissions: Admission[]): { met: number; moved: number; total: number } | null {
   let met = 0;
   let moved = 0;
   for (const admission of admissions) {

@@ -9,10 +9,7 @@ import {
   type Admission,
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
-import {
-  WARD_ADMISSIONS_ANCHOR,
-  wardAdmissions,
-} from "@/components/ward-management/ward-admissions-seed";
+import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { OUT_OF_AREA_BANDS, travelBand } from "@/components/ward-management/ward-distance";
 import { HOME_REGIONS, SEXES, type Sex, type Unit } from "@/components/ward-management/ward-model";
@@ -105,9 +102,8 @@ describe("seeded admissions — integrity", () => {
       .map((unit) => ({
         unitId: unit.id,
         beds: unit.beds,
-        occupying: wardAdmissions.filter(
-          (admission) => admission.unitId === unit.id && bedIsOccupied(admission),
-        ).length,
+        occupying: wardAdmissions.filter((admission) => admission.unitId === unit.id && bedIsOccupied(admission))
+          .length,
       }))
       .filter((row) => row.occupying > row.beds);
     expect(overfilled).toEqual([]);
@@ -233,17 +229,14 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
   it("contains a bed given away to somebody who has not arrived", () => {
     expect(
       wardAdmissions.some(
-        (admission) =>
-          admission.state === "pulled" && admission.pulledAt !== null && admission.arrivedAt === null,
+        (admission) => admission.state === "pulled" && admission.pulledAt !== null && admission.arrivedAt === null,
       ),
     ).toBe(true);
   });
 
   it("contains somebody still in a bed past the ward's own expected date", () => {
     expect(
-      wardAdmissions.some(
-        (admission) => admission.state === "occupied" && isPastExpectedDischarge(admission, NOW),
-      ),
+      wardAdmissions.some((admission) => admission.state === "occupied" && isPastExpectedDischarge(admission, NOW)),
     ).toBe(true);
   });
 
@@ -266,9 +259,7 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
     expect(confirmed.length).toBeGreaterThan(0);
     for (const admission of confirmed) {
       expect(admission.dischargeConfirmedBy, `${admission.id} confirmed by nobody`).not.toBeNull();
-      expect(CONFIRMING_ROLES, `${admission.id} confirmed by a non-role`).toContain(
-        admission.dischargeConfirmedBy,
-      );
+      expect(CONFIRMING_ROLES, `${admission.id} confirmed by a non-role`).toContain(admission.dischargeConfirmedBy);
       // A confirmed discharge still needs the ward's own date: the derived release has nowhere
       // else to get a real `expectedAt` from, and one must never be fabricated.
       expect(admission.expectedDischargeAt, `${admission.id} confirmed with no expected date`).not.toBeNull();
@@ -291,18 +282,15 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
   });
 
   it("contains somebody with no expected discharge date at all", () => {
-    expect(
-      wardAdmissions.some(
-        (admission) => bedIsOccupied(admission) && admission.expectedDischargeAt === null,
-      ),
-    ).toBe(true);
+    expect(wardAdmissions.some((admission) => bedIsOccupied(admission) && admission.expectedDischargeAt === null)).toBe(
+      true,
+    );
   });
 
   it("contains an admission that has ended, carrying both a leaving instant and a destination", () => {
     expect(
       wardAdmissions.some(
-        (admission) =>
-          admission.state === "left" && admission.leftAt !== null && admission.leavingDestination !== null,
+        (admission) => admission.state === "left" && admission.leftAt !== null && admission.leavingDestination !== null,
       ),
     ).toBe(true);
   });
@@ -318,9 +306,7 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
     expect(notARelease).toHaveLength(1);
     const [transfer] = notARelease;
     expect(
-      wardAdmissions.some(
-        (admission) => admission.state === "left" && admission.leavingDestination === transfer.id,
-      ),
+      wardAdmissions.some((admission) => admission.state === "left" && admission.leavingDestination === transfer.id),
     ).toBe(true);
   });
 });
@@ -349,9 +335,7 @@ describe("seeded admissions — what the out-of-area ledger needs", () => {
   });
 
   it("contains somebody who has left an out-of-area bed", () => {
-    expect(wardAdmissions.some((admission) => admission.state === "left" && isOutOfArea(admission))).toBe(
-      true,
-    );
+    expect(wardAdmissions.some((admission) => admission.state === "left" && isOutOfArea(admission))).toBe(true);
   });
 });
 

@@ -181,9 +181,7 @@ function unitOccupants(unitId: string, tag: string, occupants: readonly Occupant
       // A ROLE, from the same two the date-setters are drawn from, and deliberately the OTHER one:
       // setting a date and deciding the discharge is happening are two acts, and a fixture where
       // the same role always did both would make a screen that confuses them look correct.
-      dischargeConfirmedBy: isConfirmed
-        ? DISCHARGE_DATE_SETTERS[(index + 1) % DISCHARGE_DATE_SETTERS.length]
-        : null,
+      dischargeConfirmedBy: isConfirmed ? DISCHARGE_DATE_SETTERS[(index + 1) % DISCHARGE_DATE_SETTERS.length] : null,
       blockReason,
       leavingDestination: null,
       leftAt: null,
