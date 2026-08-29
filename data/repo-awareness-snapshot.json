@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "403a43f0696c23ae80e1035b6488402c897588dd",
-    "committed_at": "2026-08-29T06:44:08+08:00"
+    "sha": "899917421f2bf5ac42a5b820cc075fbd7ef05963",
+    "committed_at": "2026-08-29T16:08:49+08:00"
   },
   "routes": {
     "modes": [
@@ -894,6 +894,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/board/[unitId]",
+        "file": "src/app/mockups/ward-flow/board/[unitId]/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/capacity",
         "file": "src/app/mockups/ward-flow/capacity/page.tsx",
         "area": "mockup"
@@ -1417,9 +1422,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 199,
+      "pages": 200,
       "product_pages": 55,
-      "mockup_pages": 144,
+      "mockup_pages": 145,
       "redirects": 17,
       "api": 58
     }
@@ -3542,7 +3547,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-editing-guide.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-handover-2026-08-28.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow-handover-2026-08-29.md",
         "section": "root",
         "catalogued": false
       },
@@ -3852,6 +3867,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow-phase-8-mutation-coverage-limits.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-9-decisions.md",
         "section": "root",
         "catalogued": false
@@ -3957,9 +3977,9 @@
       }
     ],
     "counts": {
-      "documents": 494,
+      "documents": 497,
       "catalogued": 106,
-      "uncatalogued": 388,
+      "uncatalogued": 391,
       "sections": 19
     }
   },
