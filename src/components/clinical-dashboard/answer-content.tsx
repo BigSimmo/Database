@@ -513,8 +513,16 @@ export function NaturalLanguageAnswer({
               <button
                 type="button"
                 onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                // Compact-meta disclosure (not a primary CTA). Copy below already uses tap.
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                // Compact-meta disclosure (not a primary CTA), TOKENS.md §2 "disclosure"
+                // row: 40px `--spacing-compact-meta`, the floor the service owner ruled
+                // acceptable for named compact roles on 2026-08-29. It was `min-h-7`
+                // (28px), 12px under even that floor. The `::before` hit-expansion its
+                // DocumentTagCloud siblings use is unavailable here: the wrapping
+                // `<section>` is `overflow-hidden` (it clips the detail block to the
+                // pill radius), and overflow clipping removes the expanded region from
+                // hit testing as well as from paint — the classes would have read as
+                // compliant while expanding nothing.
+                className="inline-flex min-h-compact-meta w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"
               >

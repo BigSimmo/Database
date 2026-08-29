@@ -27,6 +27,8 @@ import {
   findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   listPrimitiveRecipeSourcePaths,
+  minHeightPixels,
+  SUB_TAP_MIN_HEIGHT_PREFILTER,
   rawColorContractSource,
   readPrimitiveRecipeSources,
   UI_PRIMITIVES_BARREL,
@@ -144,6 +146,100 @@ describe("design-system contract helpers", () => {
     // of a control whose hit area belongs to a tap-sized wrapper, so flagging
     // it would pad the baseline with non-defects (GATES.md §5).
     expect(find('<input type="checkbox" className="h-4 w-4" />')).toEqual([]);
+  });
+
+  it("resolves the two named density tokens to the pixel values globals.css declares", async () => {
+    // The floors in `design-system-contract-utils.mjs` are numbers. Left
+    // unpinned they are this file's private opinion about `@theme`, and a
+    // redefinition of either token would silently desynchronise the gate from
+    // the stylesheet it is supposed to be enforcing. Read the declarations.
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const globals = readFileSync(join(process.cwd(), "src", "app", "globals.css"), "utf8");
+    const declaredPixels = (name: string) => {
+      const match = globals.match(new RegExp(`--${name}: *([0-9.]+)rem;`));
+      if (!match) throw new Error(`globals.css declares no --${name}`);
+      return Number(match[1]) * 16;
+    };
+
+    expect(declaredPixels("spacing-tap")).toBe(48);
+    expect(declaredPixels("spacing-compact-meta")).toBe(40);
+    expect(minHeightPixels("min-h-tap")).toBe(declaredPixels("spacing-tap"));
+    expect(minHeightPixels("min-h-compact-meta")).toBe(declaredPixels("spacing-compact-meta"));
+
+    // The rest of the scale, so the resolver's other branches stay pinned too.
+    expect(minHeightPixels("min-h-9")).toBe(36);
+    expect(minHeightPixels("min-h-px")).toBe(1);
+    expect(minHeightPixels("min-h-[2.5rem]")).toBe(40);
+    expect(minHeightPixels("min-h-[42px]")).toBe(42);
+    expect(minHeightPixels("min-h-screen")).toBeNull();
+  });
+
+  it("treats min-h-compact-meta as the named 40px compact role on every band (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // The owner's 2026-08-29 ruling: 40px is acceptable for the compact roles
+    // TOKENS.md §2 already names, so the named token passes at the base band too.
+    expect(find('<button className="inline-flex min-h-compact-meta px-3">Domain</button>')).toEqual([]);
+    expect(find('<a className="inline-flex min-h-compact-meta px-2.5">Jump</a>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:min-h-compact-meta">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-compact-meta lg:min-h-tap">Save</button>')).toEqual([]);
+
+    // The licence belongs to the documented role marker, not to the number 40.
+    // These are the same 40px and are still base-band violations.
+    expect(find('<button className="min-h-10 px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[2.5rem] px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<button className="min-h-[40px] px-3">Reset</button>')).toEqual(["src/example.tsx:1"]);
+
+    // Nor does the compact role license 36px `--row-compact` at any band, and a
+    // sub-floor base band is not rescued by a compact-meta band above it.
+    expect(find('<button className="min-h-compact-meta sm:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+    expect(find('<summary className="min-h-9 sm:min-h-compact-meta">Details</summary>')).toEqual(["src/example.tsx:1"]);
+
+    // Non-interactive elements are layout, compact-meta or not.
+    expect(find('<h3 className="flex min-h-compact-meta items-center">Filters</h3>')).toEqual([]);
+  });
+
+  it("prefilters in every min-h token that can resolve below the 48px tap floor (Gate 2)", () => {
+    // The prefilter decides which files the tap-floor scan opens at all, so an
+    // omission there is not a saving, it is an exemption no test can see. A
+    // mutation removing the compact-role floor passed 56/56 green on 2026-08-29
+    // purely because the prefilter had already excluded `min-h-compact-meta`
+    // from measurement. This asserts the invariant instead of commenting it.
+    const belowTapFloor = [
+      "min-h-0",
+      "min-h-2.5",
+      "min-h-8",
+      "min-h-9",
+      "min-h-10",
+      "min-h-px",
+      "min-h-compact-meta",
+      "min-h-[2.5rem]",
+      "min-h-[40px]",
+    ];
+    for (const token of belowTapFloor) {
+      const resolved = minHeightPixels(token);
+      expect({ token, resolved }).toEqual({ token, resolved: expect.any(Number) });
+      expect({ token, belowFloor: (resolved as number) < 48 }).toEqual({ token, belowFloor: true });
+      expect({ token, admitted: SUB_TAP_MIN_HEIGHT_PREFILTER.test(`<button className="${token}" />`) }).toEqual({
+        token,
+        admitted: true,
+      });
+    }
+
+    // `min-h-tap` is the one safe omission: at the floor, it can never be the
+    // violating token, so a file carrying nothing else has nothing to find.
+    expect(minHeightPixels("min-h-tap")).toBe(48);
+    expect(SUB_TAP_MIN_HEIGHT_PREFILTER.test('<button className="min-h-tap" />')).toBe(false);
+  });
+
+  it("does not let the cheap prefilter hide a min-h-px control (Gate 2)", () => {
+    // `minHeightPixels` resolves `min-h-px` to 1px, but the prefilter admitted
+    // only digits and arbitrary values, so that branch was unreachable through
+    // the exported entry point: a 1px tap target scanned clean.
+    expect(
+      findInteractiveTapFloorDeclarationsInSource("src/example.tsx", '<button className="min-h-px">X</button>'),
+    ).toEqual(["src/example.tsx:1"]);
   });
 
   it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {

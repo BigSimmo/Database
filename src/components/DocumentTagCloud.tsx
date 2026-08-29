@@ -163,7 +163,27 @@ export function DocumentTagCloud({
             type="button"
             onClick={() => setExpanded(true)}
             className={cn(
-              // Compact-meta show-more, not a primary CTA. relative+::before expands hit.
+              // Compact-meta show-more, not a primary CTA. `relative` + the absolute
+              // `::before` expands the hit area, but NOT by the 12px `-inset-y-3` names.
+              // An absolutely positioned child resolves against its containing block's
+              // PADDING box, and this chip has a 1px border, so each side gains 11px, not
+              // 12. Measured in the running app on 2026-08-29 (real element with identical
+              // insets, `getBoundingClientRect`): 50px effective on this branch, and 46px
+              // on the `compact` branch — which is 2px UNDER the 48px tap floor. Paper
+              // arithmetic said 52/48 and was wrong by a border width on both.
+              // KNOWN GATE DEBT, deliberately not excluded. `interactiveTapFloorDeclarations`
+              // counts these two because it reads the declared `min-h-*` and cannot see a
+              // pseudo-element, and the 2026-08-29 round-2 sweep decided against teaching it
+              // the `before:-inset-y-*` idiom. Two things a class string cannot show made a
+              // strict rule impossible: the border width above, and ancestor clipping — an
+              // `overflow-hidden` ancestor removes the expanded region from hit testing
+              // entirely (measured: 0px expansion), which is why the sibling disclosure in
+              // `answer-content.tsx` could not use this idiom at all. A rule doing
+              // `min-h + 2 × inset` would have scored the compact branch a passing 48 when
+              // it is really 46, i.e. it would have excluded a true violation.
+              // RESIDUAL for the owner: widening to `before:-inset-y-3.5` lifts compact to
+              // 50px with no visual change; `min-h-compact-meta` is the cleaner remedy if
+              // this chip is ever reworked. Not changed here — out of the round-2 brief.
               "relative w-fit rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
               compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
             )}
@@ -192,7 +212,27 @@ export function DocumentTagCloud({
           type="button"
           onClick={() => setExpanded(true)}
           className={cn(
-            // Compact-meta show-more, not a primary CTA. relative+::before expands hit.
+            // Compact-meta show-more, not a primary CTA. `relative` + the absolute
+            // `::before` expands the hit area, but NOT by the 12px `-inset-y-3` names.
+            // An absolutely positioned child resolves against its containing block's
+            // PADDING box, and this chip has a 1px border, so each side gains 11px, not
+            // 12. Measured in the running app on 2026-08-29 (real element with identical
+            // insets, `getBoundingClientRect`): 50px effective on this branch, and 46px
+            // on the `compact` branch — which is 2px UNDER the 48px tap floor. Paper
+            // arithmetic said 52/48 and was wrong by a border width on both.
+            // KNOWN GATE DEBT, deliberately not excluded. `interactiveTapFloorDeclarations`
+            // counts these two because it reads the declared `min-h-*` and cannot see a
+            // pseudo-element, and the 2026-08-29 round-2 sweep decided against teaching it
+            // the `before:-inset-y-*` idiom. Two things a class string cannot show made a
+            // strict rule impossible: the border width above, and ancestor clipping — an
+            // `overflow-hidden` ancestor removes the expanded region from hit testing
+            // entirely (measured: 0px expansion), which is why the sibling disclosure in
+            // `answer-content.tsx` could not use this idiom at all. A rule doing
+            // `min-h + 2 × inset` would have scored the compact branch a passing 48 when
+            // it is really 46, i.e. it would have excluded a true violation.
+            // RESIDUAL for the owner: widening to `before:-inset-y-3.5` lifts compact to
+            // 50px with no visual change; `min-h-compact-meta` is the cleaner remedy if
+            // this chip is ever reworked. Not changed here — out of the round-2 brief.
             "relative inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] before:absolute before:-inset-y-3 before:-inset-x-1 before:content-['']",
             compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
           )}

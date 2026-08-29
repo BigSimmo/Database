@@ -256,7 +256,13 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
  * unprefixed read concludes it is fine. Two floors apply, because §2's density
  * table sanctions exactly one step-down and bans the other:
  *
- * - Base band must be the full 48px tap floor (`--spacing-tap`).
+ * - Base band must be the full 48px tap floor (`--spacing-tap`), UNLESS the token
+ *   winning that band is `min-h-compact-meta` itself. That token is §2's named
+ *   compact role (metadata, disclosure, filter chips, table micro-actions,
+ *   catalogue chips), and the service owner ruled on 2026-08-29 that 40px is
+ *   acceptable for those roles rather than 48px everywhere. The licence is
+ *   attached to the documented role marker, not to the number: `min-h-10` and
+ *   `min-h-[2.5rem]` are also 40px and still fail at base band.
  * - A `sm:`/`md:`/`lg:`/`xl:`/`2xl:` band may release to 40px — the named
  *   `min-h-compact-meta` desktop step-down for metadata/disclosure roles — but
  *   never below it. 36px is `--row-compact`, and "never reuse `--row-compact`
@@ -350,9 +356,16 @@ function jsxClassAlternatives(attribute) {
   return classExpressionAlternatives(initializer.expression);
 }
 
-function minHeightPixels(token) {
+/**
+ * A `min-h-*` utility resolved to pixels, or `null` when this checker cannot
+ * resolve it. Exported so the two named tokens can be pinned against their own
+ * `@theme` declarations in `globals.css` — without that, "compact-meta is 40px"
+ * would be a number this file asserts about itself and no test could falsify.
+ */
+export function minHeightPixels(token) {
   const normalized = token.replace(/^!/, "");
   if (normalized === "min-h-tap") return 48;
+  if (normalized === "min-h-compact-meta") return COMPACT_META_PX;
   if (normalized === "min-h-px") return 1;
   const spacing = normalized.match(/^min-h-(\d+(?:\.\d+)?)$/);
   if (spacing) return Number(spacing[1]) * 4;
@@ -365,11 +378,19 @@ function minHeightPixels(token) {
 /** `--spacing-tap`. The floor on the base band, and on a primary at every band. */
 const TAP_FLOOR_PX = 48;
 /**
- * `--spacing-compact-meta`. TOKENS.md §2 names `sm:min-h-compact-meta` /
- * `lg:min-h-compact-meta` as the one sanctioned desktop step-down, so a
- * prefixed band may sit here — but 36px (`--row-compact`) is banned outright.
+ * `--spacing-compact-meta` as `globals.css` `@theme` resolves it: `2.5rem`.
+ * Previously unresolvable, which made the token invisible rather than legal:
+ * `minHeightPixels` returned `null` for it and every `sm:min-h-compact-meta`
+ * migrated by the round-1 tap-floor sweep was dropped before any floor applied.
+ * A gate that cannot read the token it sanctions is not measuring the token.
  */
-const RESPONSIVE_STEP_DOWN_FLOOR_PX = 40;
+const COMPACT_META_PX = 40;
+/**
+ * TOKENS.md §2 names `sm:min-h-compact-meta` / `lg:min-h-compact-meta` as the one
+ * sanctioned desktop step-down, so a prefixed band may sit at compact-meta — but
+ * 36px (`--row-compact`) is banned outright.
+ */
+const RESPONSIVE_STEP_DOWN_FLOOR_PX = COMPACT_META_PX;
 /** Tailwind min-width breakpoints, base first. Index doubles as the band order. */
 const MIN_WIDTH_BREAKPOINT_BANDS = ["sm", "md", "lg", "xl", "2xl"];
 
@@ -408,18 +429,20 @@ function minHeightBandIndex(variants) {
 }
 
 /**
- * The value winning at `band` is the one declared at the highest band at or
+ * The declaration winning at `band` is the one made at the highest band at or
  * below it; ties inside a band go to the last declaration, as the cascade does.
+ * Returns the whole declaration, not just its value, because the floor that
+ * applies depends on *which* token won — see `compactRole` below.
  */
 function effectiveAtBand(declarations, band) {
-  let effective = null;
+  let winner = null;
   let winningBand = -1;
   for (const declaration of declarations) {
     if (declaration.band > band || declaration.band < winningBand) continue;
-    effective = declaration.value;
+    winner = declaration;
     winningBand = declaration.band;
   }
-  return effective;
+  return winner;
 }
 
 function hasSubFloorEffectiveMinHeight(classText) {
@@ -438,7 +461,7 @@ function hasSubFloorEffectiveMinHeight(classText) {
     if (!normalized.startsWith("min-h-")) continue;
     const pixels = minHeightPixels(normalized);
     if (pixels === null) continue;
-    minHeights.push({ band, value: pixels });
+    minHeights.push({ band, value: pixels, compactRole: normalized === "min-h-compact-meta" });
   }
   if (minHeights.length === 0) return false;
 
@@ -451,16 +474,46 @@ function hasSubFloorEffectiveMinHeight(classText) {
     // open — and padding it back to 48px would restore a dead 48px block on
     // desktop. Narrow on purpose: it needs `pointer-events-none` winning in the
     // SAME band, so an interactive band is never excused by a neighbour's.
-    if (effectiveAtBand(pointerEvents, band) === true) continue;
-    const floor = band === 0 ? TAP_FLOOR_PX : RESPONSIVE_STEP_DOWN_FLOOR_PX;
-    if (effective < floor) return true;
+    if (effectiveAtBand(pointerEvents, band)?.value === true) continue;
+    // Which floor applies depends on which token won the band. `min-h-compact-meta`
+    // IS the named compact role — TOKENS.md §2 lists metadata, disclosure, filter
+    // chips, table micro-actions and catalogue chips, and the service owner ruled
+    // on 2026-08-29 that 40px is acceptable for exactly those roles rather than
+    // 48px everywhere. So the token carries a 40px floor on every band, including
+    // the base one. The *number* does not inherit that licence: a raw
+    // `min-h-10` / `min-h-[2.5rem]` at base band still fails, because the ruling
+    // attaches to the documented role marker, not to the value 40.
+    const floor = effective.compactRole ? COMPACT_META_PX : band === 0 ? TAP_FLOOR_PX : RESPONSIVE_STEP_DOWN_FLOOR_PX;
+    if (effective.value < floor) return true;
   }
   return false;
 }
 
+/**
+ * Cheap prefilter for the tap-floor scan. Its invariant: it must admit every
+ * file holding a `min-h-*` token that `minHeightPixels` can resolve BELOW the
+ * highest floor (48px), because only such a token can produce a violation, and
+ * whether it actually does is decided by the band evaluation — not by this
+ * regex. That is the numeric scale, arbitrary values, `min-h-px` (1px), and
+ * `min-h-compact-meta` (40px). Only `min-h-tap` (48px) is safely omitted: it
+ * sits at or above every floor, so a file containing nothing else has nothing
+ * to find.
+ *
+ * Exported because both omissions this replaced were unfalsifiable rules rather
+ * than savings, and a comment could not have caught either. `min-h-px` made the
+ * 1px branch of `minHeightPixels` unreachable from the entry point below.
+ * `min-h-compact-meta` was worse: it exempted the token from measurement
+ * outright, so `bedside-sheet.tsx`'s two base-band compact-meta jump chips were
+ * never scanned, and the compact-role floor could not be proven by any test —
+ * a mutation removing that floor passed the suite green on 2026-08-29. The
+ * invariant is now asserted against `minHeightPixels` in
+ * `tests/design-system-contract-utils.test.ts`.
+ */
+export const SUB_TAP_MIN_HEIGHT_PREFILTER = /\bmin-h-(?:[0-9]|1[01]|px\b|\[|compact-meta\b)/;
+
 export function findInteractiveTapFloorDeclarationsInSource(relativePath, sourceText) {
   if (!relativePath.endsWith(".tsx")) return [];
-  if (!/\bmin-h-(?:[0-9]|1[01]|\[)/.test(sourceText)) return [];
+  if (!SUB_TAP_MIN_HEIGHT_PREFILTER.test(sourceText)) return [];
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const findings = [];
 
