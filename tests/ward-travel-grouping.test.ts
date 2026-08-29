@@ -391,6 +391,7 @@ describe("the out-of-area ledger", () => {
       id: "AD-TEST",
       unitId: "fsh-adult-secure",
       referralId: "RF-TEST",
+      awayAtEmergencyDepartmentSince: null,
       sex: "Female",
       homeRegion: "Perth Metropolitan",
       // `null` on purpose: nothing in this file reads or asserts on the tentative diagnosis, so a

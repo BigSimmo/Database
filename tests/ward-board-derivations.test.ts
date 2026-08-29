@@ -66,6 +66,7 @@ function admission(overrides: Partial<Admission> = {}): Admission {
     state: "occupied",
     pulledAt: null,
     arrivedAt: NOW - MINUTES_PER_DAY * 2,
+    awayAtEmergencyDepartmentSince: null,
     expectedDischargeAt: null,
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,

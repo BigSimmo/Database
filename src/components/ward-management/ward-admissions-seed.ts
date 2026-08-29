@@ -172,6 +172,16 @@ type OccupantExtras = {
   /** What is holding this bed up, drawn from `BED_RELEASE_BLOCKERS`. */
   readonly blockReason?: BedReleaseBlocker;
   /**
+   * Hours before the anchor at which this person left the ward for an emergency department.
+   * Absent means they are on the ward, which is every occupant but the two that carry it.
+   *
+   * **Only meaningful on an occupied bed, and it does not change the bed.** The ward is holding
+   * the bed because they are coming back — see `Admission.awayAtEmergencyDepartmentSince`. Two
+   * people carry it so the board has something to draw and a test has a real record to find; a
+   * marker no seeded person triggers is a marker nobody has ever seen rendered.
+   */
+  readonly awayAtEdHoursAgo?: number;
+  /**
    * Hours before the anchor at which the ward CONFIRMED this discharge is happening — the ward's
    * own decision, as distinct from the plan `dischargeInDays` records. Absent means nobody has
    * confirmed anything, which is the ordinary state and is what most occupants below carry.
@@ -221,6 +231,7 @@ function unitOccupants(
         state: "pulled",
         pulledAt: WARD_ADMISSIONS_ANCHOR - PULL_TO_ARRIVAL_MINUTES - index * 30,
         arrivedAt: null,
+        awayAtEmergencyDepartmentSince: null,
         expectedDischargeAt: null,
         dischargeDateMoves: 0,
         dischargeDateSetAt: null,
@@ -251,6 +262,8 @@ function unitOccupants(
       state: "occupied",
       pulledAt: arrivedAt - PULL_TO_ARRIVAL_MINUTES,
       arrivedAt,
+      awayAtEmergencyDepartmentSince:
+        extras?.awayAtEdHoursAgo === undefined ? null : WARD_ADMISSIONS_ANCHOR - extras.awayAtEdHoursAgo * 60,
       expectedDischargeAt: hasDate ? WARD_ADMISSIONS_ANCHOR + dischargeInDays * MINUTES_PER_DAY : null,
       dischargeDateMoves: hasDate ? index % 3 : 0,
       dischargeDateSetAt: hasDate ? WARD_ADMISSIONS_ANCHOR - (6 + (index % 5) * 5) * 60 : null,
@@ -297,6 +310,7 @@ function departed(departure: Departure): Admission {
     state: "left",
     pulledAt: arrivedAt - PULL_TO_ARRIVAL_MINUTES,
     arrivedAt,
+    awayAtEmergencyDepartmentSince: null,
     expectedDischargeAt: leftAt,
     dischargeDateMoves: 1,
     dischargeDateSetAt: leftAt - 2 * MINUTES_PER_DAY,
@@ -331,6 +345,7 @@ function waiting(
     state: "waitlisted",
     pulledAt: null,
     arrivedAt: null,
+    awayAtEmergencyDepartmentSince: null,
     expectedDischargeAt: null,
     dischargeDateMoves: 0,
     dischargeDateSetAt: null,
@@ -365,8 +380,13 @@ const occupiedBeds: Admission[] = [
     // Confirmed and NOT blocked, so the blocked cross-cut above is compared against something.
     ["Male", "Kimberley", 5, 3, { confirmedHoursAgo: 4 }],
     ["Male", "Peel", null, null],
-    ["Female", "Perth Metropolitan", 3, null],
-    ["Male", "Great Southern", 12, 4],
+    // AWAY AT AN EMERGENCY DEPARTMENT, and the bed is still theirs. Two people in the whole
+    // network carry this — one long enough to be a conversation, one recent — because the board
+    // marker is a claim about a person's whereabouts, and a marker no seeded person triggers has
+    // never been seen rendered by anybody. Nothing about capacity moves: the bed stays occupied
+    // because the ward is holding it.
+    ["Female", "Perth Metropolitan", 3, null, { awayAtEdHoursAgo: 6 }],
+    ["Male", "Great Southern", 12, 4, { awayAtEdHoursAgo: 1 }],
     ["Female", "Mid West", 45, 6],
     ["Male", "Kimberley", 130, -2],
     ["Female", "South West", 5, 9],

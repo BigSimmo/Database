@@ -111,6 +111,26 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     }
   });
 
+  it("says on its face that it does not advance, because every other screen now does", () => {
+    /*
+     * Owner decision, 2026-08-30: label the board as a fixed snapshot rather than make it live.
+     *
+     * The reason this is a TEST and not just a sentence in the markup: the note is the entire
+     * mitigation. The defect it covers — a board showing 10:42 while every neighbouring screen
+     * shows the real time — is invisible to every other assertion in this suite, because they all
+     * render this board alone and it is perfectly self-consistent. Nothing here can see the
+     * disagreement, so nothing here would notice the note being deleted by someone tidying up.
+     *
+     * Asserted on the two claims a reader needs rather than on the sentence, so a reword survives
+     * and a deletion does not: that it does not advance, and that other screens differ.
+     */
+    renderWardBoard(UNIT_ID);
+    const note = screen.getByTestId("ward-board-fixed-note").textContent ?? "";
+
+    expect(note).toMatch(/does not advance/i);
+    expect(note).toMatch(/other screens/i);
+  });
+
   it("prints NO calendar date, now that it could print a real one", () => {
     /*
      * This test got STRONGER when the clock gained a date (`b1198cf6e`), and it is worth saying

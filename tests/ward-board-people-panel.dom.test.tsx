@@ -384,3 +384,65 @@ describe("ward board people panel — a TENTATIVE diagnosis, said to be tentativ
     }
   });
 });
+
+describe("a person who is away at an emergency department", () => {
+  /*
+   * Owner decision, 2026-08-30: the board marks a patient temporarily off the ward.
+   *
+   * The defect it fixes is one no other assertion in this repository can see. Without the marker
+   * that person's tile is a perfectly ordinary occupant — day count, stay band, tentative
+   * diagnosis — and every existing test passes, because each of them is correct about a bed that
+   * really is occupied. The board is not wrong about the BED. It is silent about the PERSON, and
+   * a charge nurse reading the grid concludes they are lying in it.
+   */
+
+  const awayAdmissions = wardAdmissions.filter((admission) => admission.awayAtEmergencyDepartmentSince !== null);
+
+  it("the fixture actually contains such a person, or every assertion below is vacuous", () => {
+    // First, and not ceremony. Everything after this searches the rendered board for a marker, and
+    // a search that finds nothing passes just as quietly when the marker is broken as when the
+    // fixture is empty. This is the assertion that tells those two apart.
+    expect(awayAdmissions.length, "no seeded admission is away at an ED").toBeGreaterThan(0);
+    for (const admission of awayAdmissions) {
+      expect(admission.state, `${admission.id} is away but not in an occupied bed`).toBe("occupied");
+    }
+  });
+
+  it("says so on the tile, and says the bed is still theirs in the same sentence", () => {
+    const unitId = awayAdmissions[0].unitId;
+    const view = renderWardBoard(unitId);
+
+    const notes = view.getAllByTestId("ward-board-person-away");
+    const expected = awayAdmissions.filter((admission) => admission.unitId === unitId).length;
+    expect(notes).toHaveLength(expected);
+
+    for (const note of notes) {
+      const text = note.textContent ?? "";
+      expect(text).toMatch(/emergency department/i);
+      // The half a reader most needs and the half most likely to be dropped as wordy: "away" on a
+      // bed board otherwise reads as "so the bed is free", and it is not.
+      expect(text, `the note does not say the bed is still theirs: ${text}`).toMatch(/still theirs/i);
+    }
+  });
+
+  it("changes NO bed figure — the ward is holding the bed", () => {
+    /*
+     * The safety property, and the reason this field is not a state, a leaving destination or a
+     * leave bed. Every one of those routes would free a bed the ward is still keeping, and a
+     * coordinator would then offer it. Asserted by comparing the unit's own occupancy against the
+     * fixture with the away people counted as ordinary occupants — if anything on this board ever
+     * starts reading the away field for capacity, this goes red.
+     */
+    const unitId = awayAdmissions[0].unitId;
+    const occupiedHere = admissionsForUnit(wardAdmissions, unitId).filter(bedIsOccupied).length;
+
+    const view = renderWardBoard(unitId);
+
+    const occupantsDrawn = view.getAllByTestId(/^ward-board-person-/u).length;
+    expect(occupantsDrawn, "an away person stopped being drawn as an occupant").toBeGreaterThan(0);
+    expect(
+      occupiedHere,
+      "the away people are no longer counted in this unit's occupied beds",
+    ).toBeGreaterThanOrEqual(awayAdmissions.filter((a) => a.unitId === unitId).length);
+  });
+});

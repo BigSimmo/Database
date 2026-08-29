@@ -205,6 +205,37 @@
 }
 
 /*
+ * The board's statement that it does not advance (owner decision 2026-08-30). Muted like
+ * `.asAtNote` and sitting directly under the stamp, because it qualifies the stamp: it is the
+ * sentence that stops a reader treating a time that never moves as a time that has stopped
+ * working. It PRINTS — no `display: none` in the print block below — since a printed board carries
+ * the same fixed instant and a reader holding paper has even less way to tell.
+ */
+/*
+ * "At an emergency department — the bed is still theirs." Owner decision 2026-08-30.
+ *
+ * Weighted like a warning rather than a detail, because it qualifies every other line on the
+ * person: their stay length, their discharge plan and their diagnosis all read differently about
+ * somebody who is not on the ward. Uses the board's own attention token — never a bare hex, and
+ * never colour alone: the sentence carries the whole meaning if the colour is not perceived at all,
+ * which is what makes it survive forced-colors and a monochrome printer.
+ */
+.personAway {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--wb-leading-body);
+}
+
+.asAtFixed {
+  margin: var(--wb-space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
+/*
  * THE DAILY SHEET — D19's ward handover sheet, page one of anything printed from this board.
  *
  * On screen it is one more panel among the board's others, deliberately: it is not a preview of a
