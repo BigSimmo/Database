@@ -46,21 +46,58 @@ describe("ward scenarios", () => {
    */
   it("the standard night leaves most open movements real choice, but already strands two", () => {
     const counts = eligibleCounts("standard");
-    expect(counts.length).toBeGreaterThan(30);
-    // Non-vacuity floor: the standard night must stay a night with genuine choice on it, so this
-    // goes red if the fixture or the gates ever degrade it toward the scarce night.
-    expect(counts.reduce((sum, count) => sum + count, 0)).toBeGreaterThan(300);
-    // ...but it is NOT a night on which everyone has somewhere to go, and the escalation board
-    // exists partly because of these two. Pinned exactly, so a regression that strands more
-    // patients fails here rather than passing quietly.
-    expect(counts.filter((count) => count === 0)).toHaveLength(2);
+
+    // ABSOLUTE, not floors — changed 2026-08-30, and the reason is the point. This read
+    // `toBeGreaterThan(30)` and `toBeGreaterThan(300)`, and a fixture that had quietly shrunk to 31
+    // movements and 301 pairs would satisfy both exactly as 41 and 342 do. A floor set below the
+    // real value cannot see the fixture decaying toward it, which is precisely the decay the doc
+    // comment above records happening to the 2026-08-25 measurement — unnoticed for four days
+    // because nothing here was ever red.
+    //
+    // All three figures travel in ONE assertion so a failure prints all three actuals side by side.
+    // Which of them moved IS the diagnosis: fewer movements is a fixture change, fewer pairs with
+    // the same movements is a gate change, and more stranded is a clinical regression.
+    expect(
+      {
+        openMovements: counts.length,
+        eligiblePairs: counts.reduce((sum, count) => sum + count, 0),
+        strandedMovements: counts.filter((count) => count === 0).length,
+      },
+      "The standard night's shape has changed. These are MEASURED values, not targets: re-measure " +
+        "them and RE-DATE the doc comment above, rather than editing a number here to match. Look " +
+        "at strandedMovements first — it counts open movements with nowhere eligible to go on an " +
+        "ordinary night, so a rise there means the network now strands patients it used to place, " +
+        "and that is a clinical regression rather than a test that needs updating.",
+    ).toEqual({ openMovements: 41, eligiblePairs: 342, strandedMovements: 2 });
   });
 
   it("the scarce night exhausts the network for at least one open movement", () => {
     const counts = eligibleCounts("scarce");
-    expect(counts.length).toBeGreaterThan(30);
-    expect(Math.min(...counts)).toBe(0);
-    expect(counts.filter((count) => count === 0).length).toBeGreaterThanOrEqual(1);
+
+    // Same treatment, same reason. The three assertions this replaces were `length > 30`,
+    // `min === 0` and `zeros >= 1` — every one of them satisfied by a network with one movement
+    // left and nowhere to put it. They are folded into the absolute below, which is strictly
+    // stronger on each: nothing has been loosened or dropped.
+    expect(
+      {
+        openMovements: counts.length,
+        eligiblePairs: counts.reduce((sum, count) => sum + count, 0),
+        strandedMovements: counts.filter((count) => count === 0).length,
+      },
+      "The scarce night's shape has changed. Measured values, not targets — re-measure and re-date " +
+        "rather than adjusting a number. openMovements must match the standard night's 41 exactly, " +
+        "because the scarce scenario changes bed counts and never the movements; if it does not, " +
+        "the scenario has started altering something it must not touch, and the last test in this " +
+        "file says which attributes those are.",
+    ).toEqual({ openMovements: 41, eligiblePairs: 98, strandedMovements: 9 });
+
+    expect(
+      Math.min(...counts),
+      "The scarce night no longer exhausts the network for anybody. That is this test's whole " +
+        "subject: the scarce scenario exists to produce the case where a patient has nowhere to go, " +
+        "and if the minimum is above zero the scenario has stopped demonstrating the thing the " +
+        "escalation and out-of-area screens are built to answer.",
+    ).toBe(0);
   });
 
   it("the scarce night is strictly tighter than the standard night, movement for movement", () => {
