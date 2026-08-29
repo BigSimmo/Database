@@ -75,11 +75,20 @@ const SOURCE_LABELS: Record<ReferralSource, string> = {
  * rather than being swallowed — by setting that select to a code no option carries, which leaves
  * the DOM's own resolved value at `""` (no matching option -> selectedIndex -1 -> value ""), so
  * `siteByCode("")` resolves to nothing and `RECEIVE_REFERRAL` refuses the event. Had `""` become
- * the unanswered sentinel, Send would go inert on that value, the reducer would never be reached,
- * and that proof would be destroyed **while the test still passed for a different reason**. With
- * the sentinel distinct from `""`, an origin site of `""` remains an ANSWER — an invalid one the
- * reducer is left to refuse, exactly as before — and it stays unreachable by ordinary use of this
- * screen, because no option on this form carries it.
+ * the unanswered sentinel, Send would go inert on that value and the reducer would never be
+ * reached, so that proof would be destroyed.
+ *
+ * **Corrected 2026-08-30 (R2 review finding M1).** Commit `78133a738` overstated this in three
+ * places, here included: it said the test would have gone on PASSING while the proof was
+ * destroyed. It would not. That test ends by asserting `rejection-count` reads `"1"`, and with an
+ * inert Send nothing dispatches, so the count stays `"0"` and the test goes red either way. What
+ * the pre-click "Send is available" assertion added in that commit actually buys is a LEGIBLE
+ * failure — "Send went inert, so this test never reaches the reducer" — in place of a misleading
+ * one about rejection counts. That is worth keeping, and it is a smaller claim than was made.
+ *
+ * With the sentinel distinct from `""`, an origin site of `""` remains an ANSWER — an invalid one
+ * the reducer is left to refuse, exactly as before — and it stays unreachable by ordinary use of
+ * this screen, because no option on this form carries it.
  *
  * The value is deliberately not a member of `COHORTS`, `SEXES`, `HOME_REGIONS`,
  * `REFERRAL_SOURCES`, `URGENCY_LEVELS` or any site code — asserted, not assumed, in that suite.
@@ -270,6 +279,26 @@ export function ReferralIntakeForm() {
     } else {
       setLastRejection(undefined);
       setConfirmed(true);
+      /*
+       * Phase R2 review finding I2, owner ruling 2026-08-30: the next referral starts unanswered.
+       *
+       * Without this the draft survives the send, so referral #2 in a session arrives carrying
+       * the PREVIOUS PATIENT'S age band, sex, home region and both need answers, with Send
+       * already available — one tap away from raising a referral in which five facts belong to
+       * somebody else. That is strictly worse than the defaults R2.1 removed, because the values
+       * are not merely fabricated, they look like answers a clinician chose.
+       *
+       * The reset lives in the SUCCESS branch of this effect, not in `handleSubmit`, and that
+       * placement is the whole point: `handleSubmit` does not yet know whether the reducer
+       * accepted the event. Resetting there would wipe a clinician's eight answers on a REFUSAL,
+       * which is the one moment they most need them kept so the refusal can be corrected and
+       * re-sent.
+       *
+       * The confirmation above stays on screen beside the blank form: "sent" and "here is the
+       * next one" are both true, and the alternative — clearing the confirmation too — would
+       * leave a clinician with no evidence the send happened at all.
+       */
+      setDraft(initialDraft());
     }
     priorRejectionCountRef.current = rejections.length;
   }, [rejections, checkToken]);

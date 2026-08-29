@@ -119,9 +119,23 @@ function NewestReferralFacts() {
        *  "is there a newest one" is true before this form has done anything at all and would make
        *  a did-nothing-happen assertion vacuous. A test captures this before acting and compares. */}
       <span data-testid="referral-count">{referrals.length}</span>
+      {/*
+       * R2 review finding C1. Every id the reducer currently holds, so a test can name THE
+       * REFERRAL IT CREATED — the one id that was not there before it clicked — rather than
+       * reasoning about "the newest record on screen".
+       *
+       * This exists because the facts span below was read with a substring matcher while the
+       * seed's own last row (`RF-008` in `ward-movements.ts`) already carries
+       * `secureBedNeeded: true, involuntaryBedNeeded: false`. A test asserting exactly that
+       * string was therefore satisfied BEFORE its click and stayed satisfied after any dispatch,
+       * right, wrong or absent. Reading the ids, and pinning the created one into the facts
+       * string below, is what stops that shape returning: the seed cannot produce an id no
+       * earlier render held.
+       */}
+      <span data-testid="referral-ids">{referrals.map((referral) => referral.id).join(",")}</span>
       <span data-testid="newest-referral-facts">
         {newest
-          ? `secure=${String(newest.secureBedNeeded)} involuntary=${String(newest.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${newest.sex} urgency=${String(newest.urgency)}`
+          ? `id=${newest.id} secure=${String(newest.secureBedNeeded)} involuntary=${String(newest.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${newest.sex} urgency=${String(newest.urgency)}`
           : "none"}
       </span>
     </>
@@ -130,6 +144,36 @@ function NewestReferralFacts() {
 
 function referralCount(): string {
   return screen.getByTestId("referral-count").textContent ?? "";
+}
+
+/** Every referral id the reducer holds right now, in its own order. */
+function referralIds(): string[] {
+  const rendered = screen.getByTestId("referral-ids").textContent ?? "";
+  return rendered === "" ? [] : rendered.split(",");
+}
+
+/** The newest referral's facts as the REDUCER holds them, read WHOLE. Compared with `toBe` at
+ *  every call site and never with `toHaveTextContent`, which is a normalised substring match —
+ *  see `referral-ids` above for what that cost. */
+function newestReferralFacts(): string {
+  return screen.getByTestId("newest-referral-facts").textContent ?? "";
+}
+
+/** The facts string a referral raised through `answerEveryQuestion()` must carry, given the id it
+ *  was actually assigned and the two need answers chosen. Built from the very constants
+ *  `REQUIRED_QUESTIONS` answers with, so a picker whose value never reached the reducer — or
+ *  reached it as something else — fails here rather than being read past. */
+function expectedFactsFor(createdId: string, secure: boolean, involuntary: boolean): string {
+  return `id=${createdId} secure=${String(secure)} involuntary=${String(involuntary)} ageBand=${COHORTS[0]} sex=${SEXES[0]} urgency=${String(URGENCY_LEVELS[0])}`;
+}
+
+/** The one id that appeared between a captured "before" list and now: the referral this test
+ *  created. Asserted to be exactly one, so "nothing happened" and "two things happened" both fail
+ *  here instead of being read past. */
+function theOneNewReferralId(idsBefore: readonly string[], why: string): string {
+  const created = referralIds().filter((id) => !idsBefore.includes(id));
+  expect(created, why).toHaveLength(1);
+  return created[0];
 }
 
 function renderForm() {
@@ -220,6 +264,64 @@ function clickExpectingNoError(element: HTMLElement, why: string) {
   expect(thrown, why).toEqual([]);
 }
 
+/**
+ * The floor under `clickExpectingNoError` (R2 review finding M2).
+ *
+ * That helper is an ABSENCE pin: it proves a click threw nothing. An absence pin passes just as
+ * happily when its mechanism has stopped working as when the property holds, and nothing in this
+ * repository reproduced the capture. If a React or jsdom upgrade stops routing a listener's
+ * exception to the window's `error` event, the helper silently becomes a bare `fireEvent.click`,
+ * every inertness test above stays green, and the exact defect the helper was written for — a
+ * crash indistinguishable from a guard — comes back unnoticed.
+ *
+ * So: throw on purpose, and require the helper to catch it. This test failing does not mean the
+ * form is broken; it means the eight inertness tests above have quietly stopped proving anything.
+ *
+ * The outer listener is not decoration. jsdom reports an uncaught listener exception to the
+ * virtual console unless the `error` event's default is prevented, and the runner turns that into
+ * an unhandled error against this file. Registered before the helper's own listener, it marks the
+ * deliberate failure handled without suppressing the helper's capture, which runs after it.
+ */
+describe("clickExpectingNoError", () => {
+  it("captures a handler that throws, so every inertness test below is standing on something", () => {
+    function DeliberatelyThrowingControl() {
+      return (
+        <button
+          type="button"
+          data-testid="deliberately-throwing-control"
+          onClick={() => {
+            throw new Error("deliberate probe failure");
+          }}
+        >
+          Throw
+        </button>
+      );
+    }
+
+    render(<DeliberatelyThrowingControl />);
+
+    const markHandled = (event: ErrorEvent) => event.preventDefault();
+    window.addEventListener("error", markHandled);
+    let captured: unknown;
+    try {
+      clickExpectingNoError(screen.getByTestId("deliberately-throwing-control"), "the probe's own why string");
+    } catch (error) {
+      captured = error;
+    } finally {
+      window.removeEventListener("error", markHandled);
+    }
+
+    expect(
+      captured,
+      "clickExpectingNoError let a handler that threw pass as a quiet no-op — its window `error` capture is inert, and every inertness assertion that relies on it now proves nothing",
+    ).toBeInstanceOf(Error);
+    expect(
+      String((captured as Error).message),
+      "clickExpectingNoError failed for some reason other than the error it was supposed to capture",
+    ).toContain("deliberate probe failure");
+  });
+});
+
 function optionValues(select: HTMLElement): string[] {
   return within(select)
     .getAllByRole("option")
@@ -252,6 +354,25 @@ describe("ReferralIntakeForm", () => {
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     }
     expect(screen.getByTestId("ward-referral-intake-submit")).toBeInTheDocument();
+
+    /*
+     * R2 review finding M3. Seven of the nine ids above sit on the control itself; the two need
+     * questions carry theirs on the wrapping `<fieldset>` (R2.1 moved them there when the
+     * checkboxes became radio pairs). For those two, the loop above is satisfied by a container
+     * that need not contain a control at all — an empty fieldset passes it. Nothing is actually
+     * unguarded today, because `answers nothing for the clinician` reads `.checked` off these
+     * same inputs, but this test's own title says "renders exactly one control for every field",
+     * and for two fields it had stopped checking that. Pin the real radios.
+     */
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+      const group = screen.getByTestId(`ward-referral-intake-${field}`);
+      for (const answer of ["yes", "no"]) {
+        const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`);
+        expect(radio.tagName, `${field}'s "${answer}" is not an element you can answer with`).toBe("INPUT");
+        expect(radio, `${field}'s "${answer}" is not a radio`).toHaveAttribute("type", "radio");
+        expect(group, `${field}'s "${answer}" radio is outside the group its testid names`).toContainElement(radio);
+      }
+    }
 
     // Every data-testid on the page is unique — a duplicate is a guaranteed strict-mode
     // failure in the browser test (this already happened once this phase). getByTestId
@@ -435,8 +556,15 @@ describe("ReferralIntakeForm", () => {
     // was: `""` is still a resolved ANSWER rather than the form's unanswered sentinel (which is
     // `UNANSWERED_VALUE`, deliberately not `""` — see that constant's own comment), so Send stays
     // available and the reducer still gets the event. Had `""` become the sentinel, Send would go
-    // inert here, the reducer would never be reached, and this guard would have quietly stopped
-    // guarding while still reporting green.
+    // inert here and the reducer would never be reached, so this guard would have stopped
+    // guarding.
+    //
+    // CORRECTED 2026-08-30 (R2 review finding M1): this used to end "...while still reporting
+    // green", which is not true. The last assertion in this test requires `rejection-count` to
+    // read "1"; with an inert Send nothing dispatches, the count stays "0", and the test goes red
+    // on its own. The sentinel-is-not-`""` decision is right, and the pre-click assertion below
+    // is worth keeping — but what it buys is a legible failure instead of a misleading one, not
+    // the difference between catching the mutation and missing it.
     answerEveryQuestion();
     fireEvent.change(screen.getByTestId("ward-referral-intake-originSiteCode"), {
       target: { value: "no-such-site" },
@@ -500,8 +628,12 @@ describe("ReferralIntakeForm", () => {
    * answer — which the form would then send. The empty string is listed explicitly because it is
    * the obvious choice and the one value that must not be used: the refusal test above provokes a
    * genuine reducer refusal through an origin site of `""`, and a sentinel of `""` would make
-   * Send inert there, so the reducer would never be reached and that proof would be lost while
-   * the test still passed for a different reason.
+   * Send inert there, so the reducer would never be reached and that proof would be lost.
+   *
+   * CORRECTED 2026-08-30 (R2 review finding M1): this used to add "while the test still passed
+   * for a different reason". It would not have — that test's own `rejection-count` assertion goes
+   * red under exactly that change. The mutation is caught either way; what is at stake is whether
+   * the failure names the real cause. See the same correction on `UNANSWERED_VALUE` itself.
    */
   it("uses an unanswered sentinel no list on this form can offer, and that is not the empty string", () => {
     expect(UNANSWERED_VALUE).not.toBe("");
@@ -631,15 +763,168 @@ describe("ReferralIntakeForm", () => {
    *
    * Both answers appear in one referral so this cannot pass on a form that sends a constant, and
    * both are read off reducer state, which is where they would matter.
+   *
+   * REWRITTEN 2026-08-30, R2 review finding C1 — this test could not fail. It read
+   * `expect(screen.getByTestId("newest-referral-facts")).toHaveTextContent("secure=true
+   * involuntary=false")`, and `toHaveTextContent` is a normalised SUBSTRING match against
+   * whatever the newest referral happens to be. The provider seeds `structuredClone(referrals)`
+   * and the seed's last row, `RF-008`, is already `secureBedNeeded: true,
+   * involuntaryBedNeeded: false` — so that substring was on screen before the click, and
+   * `RECEIVE_REFERRAL` appends, so it stayed on screen after a correct dispatch too. It passed
+   * whether the dispatch was right, wrong or entirely absent, and it was the only test asserting
+   * that a chosen need answer reaches the reducer at all.
+   *
+   * Two legs replace it, and neither is satisfiable by the fixture:
+   *   1. the absolute before/after `referralCount()` comparison its eight siblings already use —
+   *      absolute, not a ratio, because a file that fails to parse subtracts its own tests from
+   *      the denominator and a ratio stays perfect; and
+   *   2. an assertion about THE REFERRAL THIS TEST CREATED, found by the id that was not present
+   *      before the click, compared WHOLE with `toBe`. The seed cannot supply an id no earlier
+   *      render held, and it cannot supply this referral's age band, sex and urgency either.
+   * Nothing was loosened to get here — the facts assertion is exact where it used to be a
+   * substring, and it now pins five facts where it pinned two.
    */
   it("sends the need answers a clinician chose, both ways, rather than an inherited no", () => {
     renderForm();
+
+    const idsBefore = referralIds();
+    const referralsBefore = referralCount();
 
     answerEveryQuestion();
     chooseNeed("secureBedNeeded", "yes");
     fireEvent.click(submitButton());
 
-    expect(screen.getByTestId("newest-referral-facts")).toHaveTextContent("secure=true involuntary=false");
+    expect(referralCount(), "no referral was queued at all, so nothing this test asserts below is about the form").toBe(
+      String(Number(referralsBefore) + 1),
+    );
+
+    const createdId = theOneNewReferralId(idsBefore, "the click created no new referral, or more than one");
+    expect(newestReferralFacts(), "the chosen secure-bed answer did not reach the reducer").toBe(
+      expectedFactsFor(createdId, true, false),
+    );
+  });
+
+  /**
+   * R2 review finding I1. The same property for the OTHER need question, which no test in this
+   * repository had ever answered "Yes" — `chooseNeed(…, "yes")` appeared once, for
+   * `secureBedNeeded`, so a mutation making the involuntary "Yes" control send `false` left the
+   * whole suite green. Whether a bed must be able to hold someone involuntarily is the most
+   * consequential single fact this form carries.
+   *
+   * Deliberately the mirror image of the test above rather than a second case of it: `secure`
+   * false and `involuntary` true is a combination the seed does not contain at its last row
+   * either, so both directions of both questions are now exercised through the radios.
+   */
+  it("sends a chosen 'Yes' to the involuntary-bed question, the answer no test had ever sent", () => {
+    renderForm();
+
+    const idsBefore = referralIds();
+    const referralsBefore = referralCount();
+
+    answerEveryQuestion();
+    chooseNeed("involuntaryBedNeeded", "yes");
+    fireEvent.click(submitButton());
+
+    expect(referralCount(), "no referral was queued at all, so nothing this test asserts below is about the form").toBe(
+      String(Number(referralsBefore) + 1),
+    );
+
+    const createdId = theOneNewReferralId(idsBefore, "the click created no new referral, or more than one");
+    expect(newestReferralFacts(), "the chosen involuntary-bed answer did not reach the reducer").toBe(
+      expectedFactsFor(createdId, false, true),
+    );
+  });
+
+  /**
+   * R2 review finding I2, owner ruling 2026-08-30: after a successful send the form starts the
+   * next referral unanswered.
+   *
+   * Without the reset, referral #2 of a session inherits patient A's age band, sex, home region
+   * and both need answers, with Send already available — one tap from raising a referral in which
+   * five facts about a person belong to somebody else. That is worse than the defaults R2.1
+   * removed, because the values look like answers a clinician chose.
+   *
+   * Both halves are asserted: that every control is genuinely back to unanswered, and that Send
+   * is unavailable again — the second is what proves the first is not merely cosmetic, because a
+   * blank-looking form whose draft still held the old answers would still send them.
+   */
+  it("starts the next referral unanswered rather than carrying the previous patient's answers", () => {
+    renderForm();
+
+    answerEveryQuestion();
+    chooseNeed("secureBedNeeded", "yes");
+    chooseNeed("involuntaryBedNeeded", "yes");
+    fireEvent.click(screen.getByTestId("ward-referral-intake-transportNeeded"));
+    fireEvent.click(submitButton());
+    expect(
+      screen.getByTestId("ward-referral-intake-confirmation"),
+      "the first referral was never sent, so this test proves nothing about the second",
+    ).toBeInTheDocument();
+
+    for (const field of ["ageBand", "sex", "homeRegion", "source", "urgency", "originSiteCode"]) {
+      const select = screen.getByTestId(`ward-referral-intake-${field}`) as HTMLSelectElement;
+      expect(select.value, `${field} still holds the previous patient's answer`).toBe(UNANSWERED_VALUE);
+    }
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+      for (const answer of ["yes", "no"]) {
+        const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`) as HTMLInputElement;
+        expect(radio.checked, `${field} still holds the previous patient's "${answer}"`).toBe(false);
+      }
+    }
+    const transport = screen.getByTestId("ward-referral-intake-transportNeeded") as HTMLInputElement;
+    expect(transport.checked, "transport needed still holds the previous request's answer").toBe(false);
+
+    // And it is genuinely unanswered rather than merely blank-looking: Send is unavailable again,
+    // names the questions it is waiting on, and a bare second tap raises nothing.
+    expect(submitButton()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("ward-referral-intake-unavailable")).toBeInTheDocument();
+
+    const referralsBeforeSecondTap = referralCount();
+    clickExpectingNoError(
+      submitButton(),
+      "activating Send on the freshly reset form threw instead of quietly doing nothing",
+    );
+    expect(
+      referralCount(),
+      "a second tap on Send raised a duplicate referral carrying the previous patient's facts",
+    ).toBe(referralsBeforeSecondTap);
+    expect(screen.getByTestId("rejection-count")).toHaveTextContent("0");
+  });
+
+  /**
+   * R2 review finding I2, the other half of the ruling: a REFUSED send keeps every answer.
+   *
+   * The reset lives in the success branch of the form's own effect and not in `handleSubmit`,
+   * because `handleSubmit` does not yet know whether the reducer accepted the event. Resetting
+   * there would wipe eight answers at the one moment a clinician most needs them — a refusal they
+   * have to correct and re-send. Moving the reset earlier is the obvious simplification of this
+   * code, and this is what stops it being taken silently.
+   */
+  it("keeps every answer when the reducer refuses the referral, so a refusal can be corrected", () => {
+    renderForm();
+
+    answerEveryQuestion();
+    fireEvent.change(screen.getByTestId("ward-referral-intake-originSiteCode"), {
+      target: { value: "no-such-site" },
+    });
+    fireEvent.click(submitButton());
+    expect(
+      screen.getByTestId("ward-referral-intake-rejection"),
+      "the reducer did not refuse, so this test proves nothing about what a refusal keeps",
+    ).toBeInTheDocument();
+
+    for (const field of ["ageBand", "sex", "homeRegion", "source", "urgency"]) {
+      const select = screen.getByTestId(`ward-referral-intake-${field}`) as HTMLSelectElement;
+      expect(select.value, `a refusal threw away the ${field} answer`).not.toBe(UNANSWERED_VALUE);
+    }
+    expect(
+      (screen.getByTestId("ward-referral-intake-secureBedNeeded-no") as HTMLInputElement).checked,
+      "a refusal threw away the secure-bed answer",
+    ).toBe(true);
+    expect(
+      (screen.getByTestId("ward-referral-intake-involuntaryBedNeeded-no") as HTMLInputElement).checked,
+      "a refusal threw away the involuntary-bed answer",
+    ).toBe(true);
   });
 });
 
