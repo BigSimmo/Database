@@ -17,7 +17,12 @@ vi.mock("next/link", () => ({
 
 import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
-import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import {
+  ReferralIntakeForm,
+  REQUIRED_FIELD_NAMES,
+  UNANSWERED_OPTION_LABEL,
+  UNANSWERED_VALUE,
+} from "@/components/ward-management/referrals/referral-intake";
 import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
@@ -101,11 +106,38 @@ function RejectionCount() {
   return <span data-testid="rejection-count">{rejections.length}</span>;
 }
 
+/** Phase R2.1. The two need answers as the REDUCER received them, so a test can prove the form
+ *  sent the answer a clinician chose rather than one it inherited. Read off reducer state for the
+ *  same reason `RejectionCount` is: what the form renders back to itself is not evidence about
+ *  what it dispatched. */
+function NewestReferralFacts() {
+  const { referrals } = useWardFlow();
+  const newest = referrals[referrals.length - 1];
+  return (
+    <>
+      {/* The COUNT, not merely the newest record: the seed already holds eight referrals, so
+       *  "is there a newest one" is true before this form has done anything at all and would make
+       *  a did-nothing-happen assertion vacuous. A test captures this before acting and compares. */}
+      <span data-testid="referral-count">{referrals.length}</span>
+      <span data-testid="newest-referral-facts">
+        {newest
+          ? `secure=${String(newest.secureBedNeeded)} involuntary=${String(newest.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${newest.sex} urgency=${String(newest.urgency)}`
+          : "none"}
+      </span>
+    </>
+  );
+}
+
+function referralCount(): string {
+  return screen.getByTestId("referral-count").textContent ?? "";
+}
+
 function renderForm() {
   return render(
     <WardFlowProvider initialNow={NOW_ANCHOR}>
       <ReferralIntakeForm />
       <RejectionCount />
+      <NewestReferralFacts />
     </WardFlowProvider>,
   );
 }
@@ -122,10 +154,94 @@ const EXPECTED_FIELD_TESTIDS = [
   "ward-referral-intake-transportNeeded",
 ];
 
+/**
+ * Phase R2.1. Every question the form now waits on, in form order: how a test answers it, the
+ * name the unavailability note must call it, and — for the pickers — a value that is real.
+ *
+ * The names are WRITTEN OUT here rather than imported from the component, and one test below
+ * pins the component's own `REQUIRED_FIELD_NAMES` against this list. An expectation derived from
+ * the very array the screen renders from would move with it, so adding a tenth question or
+ * renaming one would pass silently; written out, either is a decision somebody takes in a test.
+ */
+const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () => void }[] = [
+  { name: "Age band", answer: () => selectAnswer("ageBand", COHORTS[0]) },
+  { name: "Sex", answer: () => selectAnswer("sex", SEXES[0]) },
+  { name: "Home region", answer: () => selectAnswer("homeRegion", HOME_REGIONS[0]) },
+  { name: "Referral source", answer: () => selectAnswer("source", REFERRAL_SOURCES[0]) },
+  { name: "Urgency", answer: () => selectAnswer("urgency", String(URGENCY_LEVELS[0])) },
+  { name: "Origin site", answer: () => selectAnswer("originSiteCode", wardSites[0].code) },
+  { name: "Secure bed needed", answer: () => chooseNeed("secureBedNeeded", "no") },
+  { name: "Involuntary bed needed", answer: () => chooseNeed("involuntaryBedNeeded", "no") },
+];
+
+function selectAnswer(field: string, value: string) {
+  fireEvent.change(screen.getByTestId(`ward-referral-intake-${field}`), { target: { value } });
+}
+
+function chooseNeed(field: "secureBedNeeded" | "involuntaryBedNeeded", answer: "yes" | "no") {
+  fireEvent.click(screen.getByTestId(`ward-referral-intake-${field}-${answer}`));
+}
+
+/** Answers every required question. `except`, when given, names the ONE left unanswered. */
+function answerEveryQuestion(except?: string) {
+  for (const question of REQUIRED_QUESTIONS) {
+    if (question.name === except) continue;
+    question.answer();
+  }
+}
+
+function submitButton(): HTMLElement {
+  return screen.getByTestId("ward-referral-intake-submit");
+}
+
+/**
+ * Activate a control and assert it did NOT throw.
+ *
+ * FOUND BY MUTATION, and the reason this exists rather than a bare `fireEvent.click`: deleting
+ * BOTH of the form's inertness guards left every test below green. With the guards gone
+ * `handleSubmit` threw a TypeError before it could reach `dispatch`, jsdom reported it and
+ * carried on, and the OUTCOME was identical to the guard working — no new referral, no rejection.
+ * A crash and a guard are not the same thing, and nothing here could tell them apart.
+ *
+ * jsdom routes an exception thrown inside an event listener to the window's `error` event, so
+ * capturing that around the click is what distinguishes them.
+ */
+function clickExpectingNoError(element: HTMLElement, why: string) {
+  const thrown: string[] = [];
+  const capture = (event: ErrorEvent) => {
+    thrown.push(String(event.error ?? event.message));
+  };
+  window.addEventListener("error", capture);
+  try {
+    fireEvent.click(element);
+  } finally {
+    window.removeEventListener("error", capture);
+  }
+  expect(thrown, why).toEqual([]);
+}
+
 function optionValues(select: HTMLElement): string[] {
   return within(select)
     .getAllByRole("option")
     .map((option) => (option as HTMLOptionElement).value);
+}
+
+/**
+ * The option values a picker offers BELOW its leading unanswered prompt, having first asserted
+ * that the prompt is there and is first.
+ *
+ * Why every option-list assertion below now goes through this rather than comparing the whole
+ * list: the six `toEqual(runtime array)` pins were exact, so a leading placeholder reddens all
+ * six. Rewriting them this way keeps every one of them — this is the four-time defect class where
+ * a hand-maintained option list silently drifts from the runtime one — and pins one property MORE
+ * than before, namely that the unanswered state is first and is spelled the one way. A relaxation
+ * would have been `toContain`, or dropping the length check; neither is what happens here.
+ */
+function answerOptionValues(select: HTMLElement): string[] {
+  const options = within(select).getAllByRole("option") as HTMLOptionElement[];
+  expect(options[0]?.value, "the first option is not the unanswered prompt").toBe(UNANSWERED_VALUE);
+  expect(options[0]?.textContent).toBe(UNANSWERED_OPTION_LABEL);
+  return optionValues(select).slice(1);
 }
 
 describe("ReferralIntakeForm", () => {
@@ -160,42 +276,42 @@ describe("ReferralIntakeForm", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-ageBand");
-    expect(optionValues(select)).toEqual([...COHORTS]);
+    expect(answerOptionValues(select)).toEqual([...COHORTS]);
   });
 
   it("offers every home region from HOME_REGIONS", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-homeRegion");
-    expect(optionValues(select)).toEqual([...HOME_REGIONS]);
+    expect(answerOptionValues(select)).toEqual([...HOME_REGIONS]);
   });
 
   it("offers every referral source from REFERRAL_SOURCES", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-source");
-    expect(optionValues(select)).toEqual([...REFERRAL_SOURCES]);
+    expect(answerOptionValues(select)).toEqual([...REFERRAL_SOURCES]);
   });
 
   it("offers every real network site as an origin option", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-originSiteCode");
-    expect(optionValues(select)).toEqual(wardSites.map((site) => site.code));
+    expect(answerOptionValues(select)).toEqual(wardSites.map((site) => site.code));
   });
 
   it("offers every sex from SEXES — Task 5's fix for the same defect class COHORTS already closed", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-sex");
-    expect(optionValues(select)).toEqual([...SEXES]);
+    expect(answerOptionValues(select)).toEqual([...SEXES]);
   });
 
   it("offers every urgency tier from URGENCY_LEVELS", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-urgency");
-    expect(optionValues(select)).toEqual(URGENCY_LEVELS.map(String));
+    expect(answerOptionValues(select)).toEqual(URGENCY_LEVELS.map(String));
   });
 
   /**
@@ -219,9 +335,13 @@ describe("ReferralIntakeForm", () => {
     renderForm();
 
     const select = screen.getByTestId("ward-referral-intake-urgency");
-    const optionText = within(select)
+    // R2.1: the leading option is the unanswered prompt, pinned here as itself so that a picker
+    // which lost the tier labels entirely cannot pass on a shorter array.
+    const allOptionText = within(select)
       .getAllByRole("option")
       .map((option) => option.textContent);
+    expect(allOptionText[0]).toBe(UNANSWERED_OPTION_LABEL);
+    const optionText = allOptionText.slice(1);
 
     expect(optionText).toEqual(URGENCY_LEVELS.map((level) => urgencyTierLabel(level)));
 
@@ -276,10 +396,25 @@ describe("ReferralIntakeForm", () => {
     expect(screen.queryByText(/\bis a risk\b/i)).not.toBeInTheDocument();
   });
 
+  /**
+   * Phase R2.1 REWROTE this test, and the rewrite is the change working rather than a weakened
+   * guard.
+   *
+   * What it used to do: click Send having changed NOTHING AT ALL, and assert a queued referral
+   * and a confirmation. It was the clearest statement anywhere in the repository of the defect
+   * this phase removes — a form that submits successfully with no input, because `initialDraft()`
+   * pre-answered every field. It was pinned to behaviour that has been deliberately deleted, so
+   * it had to go red; the rewrite answers every question deliberately instead of inheriting the
+   * defaults, and asserts exactly what it asserted before about the result.
+   *
+   * Nothing was loosened to get here: the zero-answer path it used to cover is now covered
+   * harder, one question at a time, by the inertness tests below.
+   */
   it("submits a well-formed referral with no rejection, using the fixed community role", () => {
     renderForm();
 
-    fireEvent.click(screen.getByTestId("ward-referral-intake-submit"));
+    answerEveryQuestion();
+    fireEvent.click(submitButton());
 
     expect(screen.getByTestId("rejection-count")).toHaveTextContent("0");
     expect(screen.queryByTestId("ward-referral-intake-rejection")).not.toBeInTheDocument();
@@ -295,16 +430,216 @@ describe("ReferralIntakeForm", () => {
     // value ""). `siteByCode("")` then resolves to nothing, and RECEIVE_REFERRAL's own
     // membership check (ward-flow-reducer.ts) refuses the event — a real reducer refusal, not
     // a fabricated one.
+    //
+    // R2.1 added the first line below and nothing else. The refusal path is reached exactly as it
+    // was: `""` is still a resolved ANSWER rather than the form's unanswered sentinel (which is
+    // `UNANSWERED_VALUE`, deliberately not `""` — see that constant's own comment), so Send stays
+    // available and the reducer still gets the event. Had `""` become the sentinel, Send would go
+    // inert here, the reducer would never be reached, and this guard would have quietly stopped
+    // guarding while still reporting green.
+    answerEveryQuestion();
     fireEvent.change(screen.getByTestId("ward-referral-intake-originSiteCode"), {
       target: { value: "no-such-site" },
     });
-    fireEvent.click(screen.getByTestId("ward-referral-intake-submit"));
+    //
+    // Send being AVAILABLE here is the load-bearing assertion, and it is checked before the click
+    // rather than inferred from the result: it is what proves this test still reaches the reducer.
+    // (React re-selects the first option in the DOM when a controlled `<select>`'s value matches
+    // none of them, so the control on screen now reads as the prompt while the draft holds `""`.
+    // That is unreachable through ordinary use — no option carries `""` — and it is the draft, not
+    // the rendered option, that is dispatched.)
+    expect(
+      submitButton(),
+      "Send went inert, so this test never reaches the reducer and proves nothing about refusals",
+    ).not.toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(submitButton());
 
     expect(screen.getByTestId("rejection-count")).toHaveTextContent("1");
     const rejection = screen.getByTestId("ward-referral-intake-rejection");
     expect(rejection).toBeInTheDocument();
     expect(rejection).toHaveTextContent(/must resolve to a real site/i);
     expect(screen.queryByTestId("ward-referral-intake-confirmation")).not.toBeInTheDocument();
+  });
+
+  /* --------------------------------------------------------------------------------------------
+   * Phase R2.1 — nothing is answered for the clinician, and Send says which questions are open.
+   * ------------------------------------------------------------------------------------------ */
+
+  /**
+   * The defect this phase removes, stated as a property rather than as a story: `initialDraft()`
+   * pre-answered every field, so one tap sent a complete-looking referral in which nothing
+   * downstream could tell a default from an answer.
+   *
+   * Every assertion names its own field, so a default that comes back for ONE question fails
+   * saying which one. "A referral was submitted successfully" would not.
+   */
+  it("answers nothing for the clinician — every question starts unanswered", () => {
+    renderForm();
+
+    for (const field of ["ageBand", "sex", "homeRegion", "source", "urgency", "originSiteCode"]) {
+      const select = screen.getByTestId(`ward-referral-intake-${field}`) as HTMLSelectElement;
+      expect(select.value, `${field} arrives pre-answered — a default is a wrong answer nobody chose`).toBe(
+        UNANSWERED_VALUE,
+      );
+    }
+
+    // The two need questions were checkboxes, and an untouched checkbox is not an open question:
+    // it sent `false`, the definite clinical claim that this person needs neither a secure bed
+    // nor a bed that can hold them involuntarily.
+    for (const field of ["secureBedNeeded", "involuntaryBedNeeded"]) {
+      for (const answer of ["yes", "no"]) {
+        const radio = screen.getByTestId(`ward-referral-intake-${field}-${answer}`) as HTMLInputElement;
+        expect(radio.checked, `${field} arrives already answered "${answer}" — nobody chose that`).toBe(false);
+      }
+    }
+  });
+
+  /**
+   * Non-vacuity for the sentinel itself. Every assertion above compares a control's value against
+   * `UNANSWERED_VALUE`, and all of them would still pass if that value happened to BE a real
+   * answer — which the form would then send. The empty string is listed explicitly because it is
+   * the obvious choice and the one value that must not be used: the refusal test above provokes a
+   * genuine reducer refusal through an origin site of `""`, and a sentinel of `""` would make
+   * Send inert there, so the reducer would never be reached and that proof would be lost while
+   * the test still passed for a different reason.
+   */
+  it("uses an unanswered sentinel no list on this form can offer, and that is not the empty string", () => {
+    expect(UNANSWERED_VALUE).not.toBe("");
+    expect([...COHORTS] as string[]).not.toContain(UNANSWERED_VALUE);
+    expect([...SEXES] as string[]).not.toContain(UNANSWERED_VALUE);
+    expect([...HOME_REGIONS] as string[]).not.toContain(UNANSWERED_VALUE);
+    expect([...REFERRAL_SOURCES] as string[]).not.toContain(UNANSWERED_VALUE);
+    expect(URGENCY_LEVELS.map(String)).not.toContain(UNANSWERED_VALUE);
+    expect(wardSites.map((site) => site.code)).not.toContain(UNANSWERED_VALUE);
+  });
+
+  /**
+   * The questions Send waits on and the names it calls them by, written out. `REQUIRED_QUESTIONS`
+   * above is this suite's own list; this assertion is what keeps the component's list equal to it,
+   * so a ninth question, a removed one, a renamed one or a reordered one is a decision somebody
+   * takes here rather than something a diff reveals later.
+   */
+  it("waits on exactly these eight questions, named in the order the form asks them", () => {
+    expect([...REQUIRED_FIELD_NAMES]).toEqual([
+      "Age band",
+      "Sex",
+      "Home region",
+      "Referral source",
+      "Urgency",
+      "Origin site",
+      "Secure bed needed",
+      "Involuntary bed needed",
+    ]);
+    expect(REQUIRED_QUESTIONS.map((question) => question.name)).toEqual([...REQUIRED_FIELD_NAMES]);
+  });
+
+  /** The absolute pin on what the note says while nothing is answered: the whole sentence,
+   *  written out. Never "complete the form" — the question a clinician has is WHICH questions are
+   *  open, and the answer has to be readable without hovering and without colour. */
+  it("names every outstanding question on a blank form, in words, below the button", () => {
+    renderForm();
+
+    const note = screen.getByTestId("ward-referral-intake-unavailable");
+    expect(note.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "Not yet answered: Age band, Sex, Home region, Referral source, Urgency, Origin site, Secure bed needed, " +
+        "Involuntary bed needed. Send stays unavailable until each has an answer.",
+    );
+
+    // Below the button, never above it: the note appears and disappears as questions are answered,
+    // and one above Send would move the control out from under a thumb already reaching for it.
+    expect(submitButton().compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Reachable from the control itself, so a screen-reader user who tabs onto Send is told why it
+    // is unavailable rather than meeting a control that silently does nothing.
+    expect(submitButton()).toHaveAttribute("aria-describedby", note.getAttribute("id"));
+  });
+
+  /**
+   * `aria-disabled` plus an inert handler, never native `disabled` — the native attribute removes
+   * the tab stop, so the reason above could never be reached by keyboard. Asserted as the ABSENCE
+   * of the native attribute rather than only the presence of the aria one, because the two
+   * together behave exactly like `disabled` alone while looking as though they were thought about.
+   */
+  it("keeps Send reachable while it is unavailable, never natively disabled", () => {
+    renderForm();
+
+    expect(submitButton()).toHaveAttribute("aria-disabled", "true");
+    expect(submitButton()).not.toHaveAttribute("disabled");
+    expect(submitButton()).not.toBeDisabled();
+  });
+
+  /**
+   * One test per question, so a default that returns for ONE of them fails by name.
+   *
+   * Each answers every question but one and proves three things about that state: Send is
+   * unavailable, activating it dispatches NOTHING (read off reducer state, never off the form's
+   * own DOM), and the note names exactly the question that is open — not a count, not "complete
+   * the form", and not a list that still includes questions already answered.
+   */
+  for (const outstanding of REQUIRED_QUESTIONS) {
+    it(`will not send, and says so, while ${outstanding.name} alone is unanswered`, () => {
+      renderForm();
+
+      answerEveryQuestion(outstanding.name);
+      const referralsBefore = referralCount();
+
+      expect(submitButton()).toHaveAttribute("aria-disabled", "true");
+      const note = screen.getByTestId("ward-referral-intake-unavailable");
+      expect(note.textContent?.replace(/\s+/g, " ").trim()).toBe(
+        `Not yet answered: ${outstanding.name}. Send stays unavailable until each has an answer.`,
+      );
+
+      clickExpectingNoError(
+        submitButton(),
+        `activating Send while ${outstanding.name} was unanswered threw instead of quietly doing nothing`,
+      );
+
+      // Nothing reached the reducer at all: no new referral, and no rejection either. A rejection
+      // would mean the sentinel had escaped the form and been refused downstream, which is the
+      // one thing this design must never do.
+      expect(referralCount(), `${outstanding.name} was unanswered and a referral was queued anyway`).toBe(
+        referralsBefore,
+      );
+      expect(screen.getByTestId("rejection-count")).toHaveTextContent("0");
+      expect(screen.queryByTestId("ward-referral-intake-confirmation")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("ward-referral-intake-rejection")).not.toBeInTheDocument();
+    });
+  }
+
+  /** The other half of the pair above: answering the last outstanding question is what makes Send
+   *  available, so the inertness cannot be something that never lifts. */
+  it("makes Send available, and sends, once the last question is answered", () => {
+    renderForm();
+
+    const last = REQUIRED_QUESTIONS[REQUIRED_QUESTIONS.length - 1];
+    answerEveryQuestion(last.name);
+    expect(submitButton()).toHaveAttribute("aria-disabled", "true");
+
+    last.answer();
+
+    expect(submitButton()).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByTestId("ward-referral-intake-unavailable")).not.toBeInTheDocument();
+
+    fireEvent.click(submitButton());
+    expect(screen.getByTestId("ward-referral-intake-confirmation")).toBeInTheDocument();
+    expect(screen.getByTestId("rejection-count")).toHaveTextContent("0");
+  });
+
+  /**
+   * The clinical point of making the two need questions unanswered: what reaches the reducer is
+   * the answer somebody CHOSE, and a chosen "No" is a different fact from an untouched box.
+   *
+   * Both answers appear in one referral so this cannot pass on a form that sends a constant, and
+   * both are read off reducer state, which is where they would matter.
+   */
+  it("sends the need answers a clinician chose, both ways, rather than an inherited no", () => {
+    renderForm();
+
+    answerEveryQuestion();
+    chooseNeed("secureBedNeeded", "yes");
+    fireEvent.click(submitButton());
+
+    expect(screen.getByTestId("newest-referral-facts")).toHaveTextContent("secure=true involuntary=false");
   });
 });
 

@@ -8,7 +8,7 @@ import {
 } from "@/components/ward-management/ward-distance";
 import { HOME_REGIONS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { allUnits, unitById } from "@/components/ward-management/ward-sites";
+import { allUnits, unitById, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
  * Task 7 (Phase 7, "The front door"). One journey: a referral is raised from the PHONE-WIDTH
@@ -53,6 +53,38 @@ const RAISED = {
   source: "police",
   urgency: "1",
 } as const;
+
+/**
+ * Phase R2.1. The intake form no longer answers anything for the clinician, so every journey
+ * below answers every question before Send becomes available.
+ *
+ * Both journeys used to lean on the defaults — one left the two need toggles and the origin site
+ * untouched, the other left five of the eight questions untouched — and both submitted
+ * successfully anyway. They were pinned to the behaviour this phase deliberately removes; each
+ * now states the referral it is raising instead of inheriting one.
+ *
+ * The two need questions are answered "No" in both, which is exactly what the untouched
+ * checkboxes used to send, so the acceptance arithmetic these journeys assert is unchanged — the
+ * difference is that the "no" is now chosen rather than assumed. The origin site is taken from
+ * the site table rather than typed, so no hospital code lives in this file.
+ */
+async function answerEveryIntakeQuestion(
+  page: Page,
+  answers: { ageBand: string; sex: string; homeRegion: string; source: string; urgency: string },
+) {
+  await page.getByTestId("ward-referral-intake-ageBand").selectOption(answers.ageBand);
+  await page.getByTestId("ward-referral-intake-sex").selectOption(answers.sex);
+  await page.getByTestId("ward-referral-intake-homeRegion").selectOption(answers.homeRegion);
+  await page.getByTestId("ward-referral-intake-source").selectOption(answers.source);
+  await page.getByTestId("ward-referral-intake-urgency").selectOption(answers.urgency);
+  await page.getByTestId("ward-referral-intake-originSiteCode").selectOption(wardSites[0].code);
+  await page.getByTestId("ward-referral-intake-secureBedNeeded-no").check();
+  await page.getByTestId("ward-referral-intake-involuntaryBedNeeded-no").check();
+  // Send only becomes available once the last question is answered, so this is both a wait and an
+  // assertion: a journey that had missed one would fail here rather than time out on a click.
+  await expect(page.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByTestId("ward-referral-intake-unavailable")).toHaveCount(0);
+}
 
 /** Phase 8: the four travel bands plus the not-recorded group. Written out here rather than
  *  derived, for the same reason `tests/ward-travel-grouping.test.ts` writes its own copy out: a
@@ -225,11 +257,11 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // --- Step 2: raise the referral. Every control is a picker or a toggle; there is no free-text
     // input on this screen and there must never be one (binding constraint: no free text
     // anywhere, and no fact about the person beyond the permitted few). ---
-    await page.getByTestId("ward-referral-intake-ageBand").selectOption(RAISED.ageBand);
-    await page.getByTestId("ward-referral-intake-sex").selectOption(RAISED.sex);
-    await page.getByTestId("ward-referral-intake-homeRegion").selectOption(RAISED.homeRegion);
-    await page.getByTestId("ward-referral-intake-source").selectOption(RAISED.source);
-    await page.getByTestId("ward-referral-intake-urgency").selectOption(RAISED.urgency);
+    // R2.1: nothing on this form arrives answered, and Send stays unavailable — with the
+    // outstanding questions named on screen — until every one of them has an answer.
+    await expect(page.getByTestId("ward-referral-intake-submit")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByTestId("ward-referral-intake-unavailable")).toBeVisible();
+    await answerEveryIntakeQuestion(page, RAISED);
     await page.getByTestId("ward-referral-intake-transportNeeded").check();
 
     await page.getByTestId("ward-referral-intake-submit").click();
@@ -428,8 +460,10 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // Raise a referral from the far home region, through the board's own "New referral" link.
     await page.getByTestId("ward-referral-board-new").click();
     await expect(page.getByTestId("ward-referral-intake-screen")).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId("ward-referral-intake-ageBand").selectOption(unit.cohort);
-    await page.getByTestId("ward-referral-intake-homeRegion").selectOption(homeRegion);
+    // Age band and home region are what this journey is actually about; the rest are answered
+    // because R2.1 requires every question to be, and the `FAR_PLACEMENT` search has already
+    // excluded sex-designated and forensic units, so none of them changes the acceptance below.
+    await answerEveryIntakeQuestion(page, { ...RAISED, ageBand: unit.cohort, homeRegion });
     await page.getByTestId("ward-referral-intake-submit").click();
     await expect(page.getByTestId("ward-referral-intake-confirmation")).toBeVisible();
     await expect(page.getByTestId("ward-referral-intake-rejection")).toHaveCount(0);
