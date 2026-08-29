@@ -210,9 +210,18 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     page,
   }) => {
     await page.setViewportSize({ width: 641, height: 900 });
-    await page.goto("/mockups/ward-flow/discharges", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("ward-discharge-board")).toBeVisible({ timeout: 15_000 });
+    await page.goto("/mockups/ward-flow/discharges", { waitUntil: "load" });
     await page.waitForLoadState("networkidle");
+    // The streamed-content guard `tests/ui-ward-referrals.spec.ts` uses, and for the same reason:
+    // React's streaming leaves a hidden staging copy of the whole screen in the document for a
+    // moment, so every testid on this page resolves to two elements and a strict-mode locator
+    // throws. Measuring geometry against a staged duplicate would be meaningless even if it did
+    // not throw, so this waits for the staging subtree to go rather than retrying through it.
+    await expect(
+      page.locator('div[hidden][id^="S:"]'),
+      "React's streamed content is still staged, so the whole screen is duplicated in the document",
+    ).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByTestId("ward-discharge-board")).toBeVisible({ timeout: 15_000 });
 
     const scrollers = page.locator('[data-testid^="ward-discharge-table-"]');
     const scrollerCount = await scrollers.count();
