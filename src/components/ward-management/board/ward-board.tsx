@@ -9,6 +9,7 @@ import {
   isPastExpectedDischarge,
   stayBand,
   STAY_BANDS,
+  tentativeDiagnosisPhrase,
   type Admission,
   type StayBandId,
 } from "@/components/ward-management/ward-admissions";
@@ -134,7 +135,12 @@ function findUnit(unitId: string): { unit: Unit; site: Site } | undefined {
  * of service do not stop being out of service because the ward is over-full, and the held/available
  * counts floor at zero rather than going negative and cancelling them out.
  */
-function buildTiles(unit: Unit, admissions: readonly Admission[], bedReleases: readonly BedRelease[], now: Instant): Tile[] {
+function buildTiles(
+  unit: Unit,
+  admissions: readonly Admission[],
+  bedReleases: readonly BedRelease[],
+  now: Instant,
+): Tile[] {
   const occupants = admissionsForUnit(admissions, unit.id).filter(bedIsOccupied);
 
   const tiles: Tile[] = occupants.map((admission) => {
@@ -200,6 +206,15 @@ type Occupant = {
   pastDate: boolean;
   sex: Sex;
   homeRegion: HomeRegion;
+  /**
+   * The tentative diagnosis AS IT READS — words and block code together, from
+   * `tentativeDiagnosisPhrase` — or `null` where the record holds none.
+   *
+   * Carried already-phrased rather than as the bare code, so this component never assembles its own
+   * wording and the one renderer in `ward-admissions.ts` is the only place a block turns into a
+   * sentence. A bare "F30–F39" on a ward board would be a string a reader cannot check.
+   */
+  tentativeDiagnosis: string | null;
   /** Whole days from `now` to the ward's own expected date — NEGATIVE when it has passed, `null`
    *  when nobody has set one. */
   expectedDays: number | null;
@@ -273,6 +288,7 @@ function buildOccupants(unit: Unit, admissions: readonly Admission[], now: Insta
       pastDate: isPastExpectedDischarge(admission, now),
       sex: admission.sex,
       homeRegion: admission.homeRegion,
+      tentativeDiagnosis: tentativeDiagnosisPhrase(admission.tentativeDiagnosis),
       expectedDays: daysUntilExpected(admission, now),
       dischargeDateMoves: admission.dischargeDateMoves,
       dischargeDateSetBy: admission.dischargeDateSetBy,
@@ -494,6 +510,24 @@ function PersonEntry({ occupant, idPrefix }: { occupant: Occupant; idPrefix: str
       <p className={styles.personWho}>
         {occupant.sex}, from {occupant.homeRegion}
       </p>
+      {/*
+       * THE TENTATIVE DIAGNOSIS, and the word "tentative" leads the line rather than trailing it.
+       * A reader scanning a column of people takes the first words of each line, so a qualification
+       * at the end is the half that gets skipped — and a broad ICD-10-AM block read as settled is
+       * exactly the misreading this whole field had to be justified against.
+       *
+       * BOTH states are stated, never one. Silence for the unrecorded case would leave a reader
+       * unable to tell "nobody wrote one down" from "this board does not show them", and the second
+       * of those was true until 2026-08-29, so the ambiguity is live. "Not recorded" is also not a
+       * finding: it never reads as "no mental illness" and never as an empty slot a ward is expected
+       * to fill in — the same distinction `blockReason` above draws between silence and a ward's
+       * own answer.
+       */}
+      <p className={styles.personLine}>
+        {occupant.tentativeDiagnosis !== null
+          ? `Tentative diagnosis: ${occupant.tentativeDiagnosis}.`
+          : "Tentative diagnosis: none recorded."}
+      </p>
       <p className={styles.personExpected}>{expectedPhrase(occupant.expectedDays)}</p>
       {/* Provenance only where there IS a date. With none, "set by nobody, never moved"
           would describe a plan that does not exist. */}
@@ -693,639 +727,655 @@ export function WardBoard({ unitId }: { unitId: string }) {
     <div className={styles.screen} data-testid="ward-board">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
-      <p className={styles.prototypeBadge}>Synthetic prototype — not a medical device</p>
+        <p className={styles.prototypeBadge}>Synthetic prototype — not a medical device</p>
 
-      {/*
-       * A `<div>`, NOT a `<header>` — found by printing the page and looking, not by a test.
-       * The global print reset in `globals.css` carries `header, nav, button { display: none
-       * !important }` to strip workspace chrome from a printed sheet. This block is a page
-       * header, not workspace chrome, so as a `<header>` it vanished in print and a printed ward
-       * board carried no ward name, no hospital and no headline figure at all — a sheet of
-       * anonymous numbered boxes that could have come from any ward in the state. Other pages
-       * fight that rule back with a `display: block !important` override; not using the element
-       * is simpler and cannot be undone by a later reset. Nothing here is a landmark: the page's
-       * one landmark is the `<main>` above.
-       */}
-      <div className={styles.header}>
-        <h1 className={styles.unitName} data-testid="ward-board-unit-name">
-          {unit.name}
-        </h1>
-        <p className={styles.siteName} data-testid="ward-board-site-name">
-          {site.name}
-        </p>
-        <p className={styles.headline} data-testid="ward-board-headline">
-          <span className={styles.headlineValue}>{available}</span>
-          <span className={styles.headlineLabel}>
-            bed{available === 1 ? "" : "s"} you can fill today
-          </span>
-        </p>
-        {/* `constraintSentence` returns null — never an empty string — when nothing is
+        {/*
+         * A `<div>`, NOT a `<header>` — found by printing the page and looking, not by a test.
+         * The global print reset in `globals.css` carries `header, nav, button { display: none
+         * !important }` to strip workspace chrome from a printed sheet. This block is a page
+         * header, not workspace chrome, so as a `<header>` it vanished in print and a printed ward
+         * board carried no ward name, no hospital and no headline figure at all — a sheet of
+         * anonymous numbered boxes that could have come from any ward in the state. Other pages
+         * fight that rule back with a `display: block !important` override; not using the element
+         * is simpler and cannot be undone by a later reset. Nothing here is a landmark: the page's
+         * one landmark is the `<main>` above.
+         */}
+        <div className={styles.header}>
+          <h1 className={styles.unitName} data-testid="ward-board-unit-name">
+            {unit.name}
+          </h1>
+          <p className={styles.siteName} data-testid="ward-board-site-name">
+            {site.name}
+          </p>
+          <p className={styles.headline} data-testid="ward-board-headline">
+            <span className={styles.headlineValue}>{available}</span>
+            <span className={styles.headlineLabel}>bed{available === 1 ? "" : "s"} you can fill today</span>
+          </p>
+          {/* `constraintSentence` returns null — never an empty string — when nothing is
             constraining, so nothing is rendered rather than a blank line that reads as a sentence
             which failed to load. */}
-        {constraint !== null && (
-          <p className={styles.constraint} data-testid="ward-board-constraint">
-            {constraint}
-          </p>
-        )}
-      </div>
-
-      {/*
-       * THE TRIAGE BAR — the day's six figures for this one ward, in the home page's own words.
-       *
-       * **Every label comes from `CAPACITY_FIGURE_LABELS`** (`ward-morning-rollup.ts`), the single
-       * capacity vocabulary spec D3/D14 requires to be identical at service, hospital and ward
-       * level. Retyping "Available now" here would pass every test today and cost the cheap rename
-       * tomorrow — and, worse, would let this board and the morning page start calling one figure
-       * two things. The values come from `capacityBreakdown` for THIS unit, which is the same
-       * function the morning page's ward rollup calls, so the two surfaces are one arithmetic.
-       *
-       * **The toggle changes emphasis; it never hides a figure.** All six are on the bar in every
-       * state. A control able to take the blocked-releases figure off a coordinator's screen is a
-       * control able to hide the one thing they most need to chase, so the toggle instead selects
-       * which of Confirmed today / Predicted today the "Going out today" list below is built from —
-       * the owner's own "daily discharges … and toggles to daily expects". The selected figure is
-       * marked in WORDS ("shown in Going out") as well as by weight, because a mark carried by
-       * weight alone is a mark a greyscale sheet loses.
-       */}
-      <section className={styles.triage} aria-labelledby="ward-board-triage-heading" data-testid="ward-board-triage">
-        <h2 id="ward-board-triage-heading" className={styles.triageHeading}>
-          Today on this ward
-        </h2>
-        <dl className={styles.triageFigures}>
-          {figures.map(({ key, value }) => {
-            const led =
-              (outgoingBasis === "confirmed" && key === "confirmedToday") ||
-              (outgoingBasis === "predicted" && key === "predictedToday");
-            return (
-              <div
-                key={key}
-                className={`${styles.triageFigure}${led ? ` ${styles.triageFigureLed}` : ""}`}
-                data-testid={`ward-board-figure-${key}`}
-                data-figure-led={led ? "true" : "false"}
-              >
-                <dt className={styles.triageLabel}>{CAPACITY_FIGURE_LABELS[key]}</dt>
-                <dd className={styles.triageValue}>{value}</dd>
-                {led && <dd className={styles.triageLedNote}>shown in Going out</dd>}
-              </div>
-            );
-          })}
-        </dl>
-        <div
-          className={styles.triageToggle}
-          role="group"
-          aria-label="Which of today's departures the Going out list shows"
-        >
-          <span className={styles.triageToggleLabel}>Going out shows</span>
-          {OUTGOING_BASES.map((basis) => (
-            <button
-              key={basis}
-              type="button"
-              className={`${styles.triageToggleButton}${outgoingBasis === basis ? ` ${styles.triageToggleButtonOn}` : ""}`}
-              aria-pressed={outgoingBasis === basis}
-              onClick={() => setOutgoingBasis(basis)}
-              data-testid={`ward-board-basis-${basis}`}
-            >
-              {OUTGOING_BASIS_LABEL[basis]}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/*
-       * THE THREE ZONES, and the reading they are arranged to give: LEFT who is coming in and what
-       * is going out, MIDDLE the beds themselves, RIGHT whichever one the reader has chosen. Left
-       * to right that is in → in a bed → out, which is the flow this whole prototype is about.
-       *
-       * The right zone is a SLIDE-OUT rather than a permanent column: it is absent until a tile is
-       * chosen, so it costs no width on a screen where nobody has chosen one, and it takes its own
-       * grid track rather than sitting over the beds — a panel that covered the grid would force a
-       * reader to close it to do the thing they opened it for. On a phone there is no third column
-       * at all and it falls into the flow directly beneath the grid, which is the same arrangement
-       * without the overlay a phone sheet would impose.
-       */}
-      <div className={`${styles.zones}${selectedTile !== null ? ` ${styles.zonesOpen}` : ""}`} onKeyDown={onZoneKeyDown}>
-        <div className={styles.flowColumn}>
-          {/*
-           * COMING IN. Two states with a real difference between them: `"pulled"` means this ward
-           * has ALREADY given the bed away and the person is travelling — the grid draws that bed
-           * as "Empty, waiting" and it is gone from the ward's count — while `"waitlisted"` means
-           * accepted in principle with nothing held. Merging them would let a reader plan against
-           * a bed that is already spoken for.
-           */}
-          <section
-            className={styles.flowPanel}
-            aria-labelledby="ward-board-incoming-heading"
-            data-testid="ward-board-incoming"
-          >
-            <h2 id="ward-board-incoming-heading" className={styles.flowHeading}>
-              Coming in
-            </h2>
-            <p className={styles.flowIntro} data-testid="ward-board-incoming-count">
-              {incoming.length === 0
-                ? "Nobody is recorded as coming in to this ward."
-                : `${incoming.length} recorded as coming in.`}
-            </p>
-            {incoming.length > 0 && (
-              <ol className={styles.flowList} data-testid="ward-board-incoming-list">
-                {incoming.map((person) => (
-                  <li
-                    key={person.key}
-                    className={styles.flowRow}
-                    data-testid={`ward-board-incoming-${person.key}`}
-                    data-incoming-state={person.state}
-                  >
-                    <p className={styles.flowRowLead}>
-                      {person.state === "pulled" ? "Bed already given away" : "Waiting — no bed given"}
-                    </p>
-                    <p className={styles.flowRowLine}>
-                      {person.sex}, from {person.homeRegion}
-                    </p>
-                    {person.state === "pulled" && (
-                      <p className={styles.flowRowLine}>{bedGonePhrase(person.bedGoneHours)}</p>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )}
-            {/* Said rather than left as an absence a reader might read as "not yet loaded". The
-                record holds when a bed was given away and nothing else about the journey. */}
-            <p className={styles.flowNote}>
-              No arrival time is shown: the record holds when a bed was given away, and nothing about when anybody will
-              get here.
-            </p>
-          </section>
-
-          {/*
-           * GOING OUT TODAY, on whichever of the two bases the triage bar's toggle selects. The row
-           * count here EQUALS the figure on the bar above by construction — `outgoingToday` applies
-           * the same filter `capacityBreakdown` counts with — so a reader can check the board
-           * against itself without trusting either.
-           */}
-          <section
-            className={styles.flowPanel}
-            aria-labelledby="ward-board-outgoing-heading"
-            data-testid="ward-board-outgoing"
-          >
-            <h2 id="ward-board-outgoing-heading" className={styles.flowHeading}>
-              Going out today
-            </h2>
-            {/* The basis is stated in WORDS as well as by the toggle's pressed state, so a printed
-                sheet — where the toggle is gone with every other button — still says which of the
-                two lists it is. */}
-            <p className={styles.flowIntro} data-testid="ward-board-outgoing-count">
-              Showing {OUTGOING_BASIS_LABEL[outgoingBasis]}: {outgoing.length} bed{outgoing.length === 1 ? "" : "s"}.
-            </p>
-            {outgoing.length === 0 ? (
-              <p className={styles.flowRowLine}>No bed on this ward carries that today.</p>
-            ) : (
-              <ol className={styles.flowList} data-testid="ward-board-outgoing-list">
-                {outgoing.map((release) => {
-                  const band = releaseBand(release, now);
-                  return (
-                    <li key={release.id} className={styles.flowRow} data-testid={`ward-board-outgoing-${release.id}`}>
-                      <p className={styles.flowRowLead}>
-                        {band === "beyond-today" ? "Expected today" : RELEASE_BAND_PHRASE[band]}
-                      </p>
-                      {/* A ROLE, never a personal name — `BedRelease.confirmedBy`'s own rule. */}
-                      <p className={styles.flowRowLine}>Reported by {release.confirmedBy}</p>
-                      {release.blocker !== null && (
-                        <p className={styles.flowRowBlocker}>
-                          Held up by: {release.blocker}
-                          {release.blockedBy !== null ? ` — recorded by ${release.blockedBy}` : ""}.
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-            {/* The honest limit of this list, stated on it. A `BedRelease` deliberately carries
-                NOTHING about the departing patient — not an id, not a sex, not a destination — so
-                these rows are beds and can never become people without breaking that. */}
-            <p className={styles.flowNote}>
-              These are beds, not people: a bed release records nothing at all about who is leaving. A person&apos;s own
-              discharge plan is on their tile&apos;s panel, and on the printed sheet.
-            </p>
-          </section>
-
-          {/* SINCE YESTERDAY — `sinceYesterday`'s first consumer. The last whole day, which carries
-              no clinical or legal meaning and is simply the window between one morning and the
-              next. */}
-          <section
-            className={styles.flowPanel}
-            aria-labelledby="ward-board-since-heading"
-            data-testid="ward-board-since-yesterday"
-          >
-            <h2 id="ward-board-since-heading" className={styles.flowHeading}>
-              Since yesterday
-            </h2>
-            <ul className={styles.sinceList}>
-              <li className={styles.sinceItem} data-testid="ward-board-since-discharged">
-                <span className={styles.sinceValue}>{movement.discharged}</span> left this ward
-              </li>
-              <li className={styles.sinceItem} data-testid="ward-board-since-pulled">
-                <span className={styles.sinceValue}>{movement.pulled}</span> bed{movement.pulled === 1 ? "" : "s"} given
-                away
-              </li>
-              <li className={styles.sinceItem} data-testid="ward-board-since-dates-moved">
-                <span className={styles.sinceValue}>{movement.datesMoved}</span> expected date
-                {movement.datesMoved === 1 ? "" : "s"} moved
-              </li>
-            </ul>
-            {/* `discharged` counts departures of every destination and must never be summed across
-                wards as beds returned to the network — see `sinceYesterday`'s own doc comment. */}
-            <p className={styles.flowNote}>
-              A transfer to another psychiatric ward counts here: this ward gets its bed back, the state does not.
-            </p>
-          </section>
-        </div>
-
-        <div className={styles.gridColumn}>
-          {/* The legend explains the shades. It is not what makes the board readable without colour —
-              the day count on every tile does that — it just saves a reader working the ranges out. */}
-          <ul className={styles.legend} data-testid="ward-board-legend">
-            {STAY_BANDS.map((band) => (
-              <li key={band.id} className={styles.legendItem}>
-                <span className={`${styles.legendSwatch} ${BAND_CLASS[band.id]}`} aria-hidden="true" />
-                {band.label}
-              </li>
-            ))}
-            <li className={styles.legendItem}>
-              <span className={`${styles.legendSwatch} ${styles.legendSwatchPast}`} aria-hidden="true" />
-              Past the ward&apos;s own expected date
-            </li>
-            {/* Listed beside the stay bands because a reader counting fillable beds needs to know
-                this tile exists. The tile says so in words on its own face too — this is the index,
-                not the explanation. */}
-            <li className={styles.legendItem}>
-              <span className={`${styles.legendSwatch} ${styles.legendSwatchBlocked}`} aria-hidden="true" />
-              Out of service — not fillable
-            </li>
-            {/* Task B. Same reasoning as the blocked entry just above: the tile itself says "Held" in
-                words, this is only the index. */}
-            <li className={styles.legendItem}>
-              <span className={`${styles.legendSwatch} ${styles.legendSwatchHeld}`} aria-hidden="true" />
-              Empty, not yet offered — not fillable
-            </li>
-          </ul>
-
-          {/*
-           * THE TILES ARE NOW BUTTONS, and two things follow that are not negotiable.
-           *
-           * **The print restore.** `globals.css`'s print reset carries `header, nav, button {
-           * display: none !important }`, so an unrestored tile button vanishes from paper and the
-           * printed board is an empty grid — the exact defect this branch spent today fixing on
-           * four other surfaces. `board.module.css`'s print block forces `.bed` back to
-           * `display: flex !important`; a class selector outranks the bare element selector, so the
-           * restore holds without touching the global reset.
-           *
-           * **Still no bed identity.** The button's accessible name is the tile's own content — a
-           * day count, or the word Empty / Held / Out of service — and never an ordinal. Nothing
-           * numbers these tiles and nothing may: the order is seed order, not a floor plan.
-           */}
-          <ol className={styles.beds} data-testid="ward-board-beds">
-            {tiles.map((tile, index) => {
-              const selected = tile.key === selectedKey;
-              return (
-                <li
-                  key={tile.key}
-                  className={styles.bedSlot}
-                  data-testid={`ward-board-bed-${index + 1}`}
-                  data-bed-kind={tile.kind}
-                >
-                  <button
-                    type="button"
-                    id={tileDomId(tile.key)}
-                    className={tileClassName(tile, selected)}
-                    aria-pressed={selected}
-                    aria-controls={selected ? "ward-board-detail" : undefined}
-                    onClick={() => (selected ? closeDetail() : setSelectedKey(tile.key))}
-                  >
-                    {tile.kind === "occupied" && (
-                      <>
-                        <span className={styles.days} data-testid={`ward-board-bed-${index + 1}-days`}>
-                          {tile.days}
-                        </span>
-                        <span className={styles.daysUnit}>day{tile.days === 1 ? "" : "s"}</span>
-                        {/* The band in words, for the screen reader only: the visible number already
-                            states it, and printing both on a 390px-wide tile would crowd out the
-                            number this whole tile exists to show. */}
-                        <span className="sr-only">{tile.bandLabel}</span>
-                        {tile.pastDate && (
-                          <span className={styles.pastMark} data-testid={`ward-board-bed-${index + 1}-past`}>
-                            Past date
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {/* Rule 2 on screen: taken, but nobody is in it yet. */}
-                    {tile.kind === "waiting" && <span className={styles.waiting}>Empty, waiting</span>}
-                    {/* Rule 1 on screen for the third bed state: the words say it, not the fill. A
-                        coordinator reading this board in greyscale, in forced-colors, or on paper
-                        must still be able to tell an unfillable bed from a fillable one, and "Out of
-                        service" is what does that — the hatched fill only makes it quicker. */}
-                    {tile.kind === "blocked" && <span className={styles.blockedLabel}>Out of service</span>}
-                    {/* Task B on screen: physically empty, but not yet one of the beds this ward is
-                        offering — a different fact from "Empty" (fillable now) and from "Out of
-                        service" (never fillable today). The word is what makes it unambiguous; the
-                        dotted edge and dot pattern only make it quicker to spot. */}
-                    {tile.kind === "held" && <span className={styles.heldLabel}>Held</span>}
-                    {tile.kind === "empty" && <span className={styles.emptyLabel}>Empty</span>}
-                    {/* Selection in WORDS, beside the heavier edge that carries it visually. A sheet
-                        that has made no decision must not show a filled element — a fill reads as a
-                        decision taken — and a weight alone is a mark a greyscale reader can miss. */}
-                    {selected && <span className={styles.selectedMark}>Selected</span>}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-
-          {/*
-           * The arithmetic a ward can do in its head, kept ON SCREEN even though the per-person list
-           * has moved to the slide-out and the printed sheet. "18 of this ward's 20 beds are taken"
-           * beside a grid of 20 tiles is the check that catches a panel fed the wrong collection —
-           * the sibling panel that shipped "Kimberley 28 people" on a twenty-bed ward this morning
-           * was invisible in a list and would have been obvious here. Both numbers come from the
-           * same two values the grid and the printed list are built from, so no third figure exists
-           * to drift.
-           */}
-          <p className={styles.occupancy} data-testid="ward-board-people-count">
-            {occupants.length} of this ward&apos;s {unit.beds} bed{unit.beds === 1 ? "" : "s"}{" "}
-            {occupants.length === 1 ? "is" : "are"} taken. Soonest expected out first; anyone with no date set is last.
-          </p>
-          {/* The one honest line about the absence, and the whole of it. It states what the record
-              holds, not what a future record might hold — nothing here is a field awaiting content.
-              It sits under the grid rather than inside the slide-out so it is on the page whether or
-              not anybody has selected a tile, and so it prints. */}
-          <p className={styles.peopleAbsence}>No diagnosis is shown: this record does not hold one.</p>
-          {/*
-           * THE EMPTY-SELECTION STATE, and it is deliberately not a blank panel and not somebody
-           * chosen for the reader. Auto-selecting an occupant would read as the system having
-           * picked a person out of the ward, which is a judgement this board does not make and
-           * could not justify; leaving an empty box on screen reads as a panel that failed to load.
-           * So the slide-out is simply absent, and the grid says in words that nothing is chosen and
-           * that nothing will be chosen on the reader's behalf.
-           */}
-          {selectedTile === null && (
-            <p className={styles.selectHint} data-testid="ward-board-select-hint">
-              Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+          {constraint !== null && (
+            <p className={styles.constraint} data-testid="ward-board-constraint">
+              {constraint}
             </p>
           )}
         </div>
 
         {/*
-         * THE SLIDE-OUT. Present only while something is selected, so it costs no width otherwise,
-         * and it takes its own grid track rather than covering the beds it describes — a reader who
-         * has just chosen a tile wants to compare it with the others, and a panel over the grid
-         * would make them close it to do that.
+         * THE TRIAGE BAR — the day's six figures for this one ward, in the home page's own words.
          *
-         * NOT modal and NOT a focus trap: Tab leaves it into the rest of the page, Escape closes it
-         * from anywhere in the zones, and focus returns to the exact tile that opened it. The tile's
-         * own `aria-pressed` is what says which one is open.
+         * **Every label comes from `CAPACITY_FIGURE_LABELS`** (`ward-morning-rollup.ts`), the single
+         * capacity vocabulary spec D3/D14 requires to be identical at service, hospital and ward
+         * level. Retyping "Available now" here would pass every test today and cost the cheap rename
+         * tomorrow — and, worse, would let this board and the morning page start calling one figure
+         * two things. The values come from `capacityBreakdown` for THIS unit, which is the same
+         * function the morning page's ward rollup calls, so the two surfaces are one arithmetic.
+         *
+         * **The toggle changes emphasis; it never hides a figure.** All six are on the bar in every
+         * state. A control able to take the blocked-releases figure off a coordinator's screen is a
+         * control able to hide the one thing they most need to chase, so the toggle instead selects
+         * which of Confirmed today / Predicted today the "Going out today" list below is built from —
+         * the owner's own "daily discharges … and toggles to daily expects". The selected figure is
+         * marked in WORDS ("shown in Going out") as well as by weight, because a mark carried by
+         * weight alone is a mark a greyscale sheet loses.
          */}
-        {selectedTile !== null && (
-          <aside
-            className={styles.detail}
-            id="ward-board-detail"
-            aria-labelledby="ward-board-detail-heading"
-            data-testid="ward-board-detail"
-            data-detail-kind={selectedTile.kind}
-          >
-            <div className={styles.detailBar}>
-              <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
-                {selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
-                  ? "Who is in this bed"
-                  : selectedTile.kind === "empty"
-                    ? "An empty bed"
-                    : selectedTile.kind === "held"
-                      ? "A held bed"
-                      : "A bed out of service"}
-              </h2>
-              <button
-                type="button"
-                className={styles.detailClose}
-                onClick={closeDetail}
-                data-testid="ward-board-detail-close"
-              >
-                Close
-              </button>
-            </div>
-
-            {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
-              selectedOccupant !== null ? (
-                <div className={styles.person} data-testid="ward-board-detail-person">
-                  <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
-                  {/* Rule 2 spelled out where a reader is looking at one person rather than at the
-                      grid: this bed is gone from the ward's count, and the person is not here. */}
-                  {selectedTile.kind === "waiting" && (
-                    <p className={styles.personLine}>
-                      This ward has already given this bed away. It is taken, not free, and nobody has arrived.
-                    </p>
-                  )}
+        <section className={styles.triage} aria-labelledby="ward-board-triage-heading" data-testid="ward-board-triage">
+          <h2 id="ward-board-triage-heading" className={styles.triageHeading}>
+            Today on this ward
+          </h2>
+          <dl className={styles.triageFigures}>
+            {figures.map(({ key, value }) => {
+              const led =
+                (outgoingBasis === "confirmed" && key === "confirmedToday") ||
+                (outgoingBasis === "predicted" && key === "predictedToday");
+              return (
+                <div
+                  key={key}
+                  className={`${styles.triageFigure}${led ? ` ${styles.triageFigureLed}` : ""}`}
+                  data-testid={`ward-board-figure-${key}`}
+                  data-figure-led={led ? "true" : "false"}
+                >
+                  <dt className={styles.triageLabel}>{CAPACITY_FIGURE_LABELS[key]}</dt>
+                  <dd className={styles.triageValue}>{value}</dd>
+                  {led && <dd className={styles.triageLedNote}>shown in Going out</dd>}
                 </div>
+              );
+            })}
+          </dl>
+          <div
+            className={styles.triageToggle}
+            role="group"
+            aria-label="Which of today's departures the Going out list shows"
+          >
+            <span className={styles.triageToggleLabel}>Going out shows</span>
+            {OUTGOING_BASES.map((basis) => (
+              <button
+                key={basis}
+                type="button"
+                className={`${styles.triageToggleButton}${outgoingBasis === basis ? ` ${styles.triageToggleButtonOn}` : ""}`}
+                aria-pressed={outgoingBasis === basis}
+                onClick={() => setOutgoingBasis(basis)}
+                data-testid={`ward-board-basis-${basis}`}
+              >
+                {OUTGOING_BASIS_LABEL[basis]}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/*
+         * THE THREE ZONES, and the reading they are arranged to give: LEFT who is coming in and what
+         * is going out, MIDDLE the beds themselves, RIGHT whichever one the reader has chosen. Left
+         * to right that is in → in a bed → out, which is the flow this whole prototype is about.
+         *
+         * The right zone is a SLIDE-OUT rather than a permanent column: it is absent until a tile is
+         * chosen, so it costs no width on a screen where nobody has chosen one, and it takes its own
+         * grid track rather than sitting over the beds — a panel that covered the grid would force a
+         * reader to close it to do the thing they opened it for. On a phone there is no third column
+         * at all and it falls into the flow directly beneath the grid, which is the same arrangement
+         * without the overlay a phone sheet would impose.
+         */}
+        <div
+          className={`${styles.zones}${selectedTile !== null ? ` ${styles.zonesOpen}` : ""}`}
+          onKeyDown={onZoneKeyDown}
+        >
+          <div className={styles.flowColumn}>
+            {/*
+             * COMING IN. Two states with a real difference between them: `"pulled"` means this ward
+             * has ALREADY given the bed away and the person is travelling — the grid draws that bed
+             * as "Empty, waiting" and it is gone from the ward's count — while `"waitlisted"` means
+             * accepted in principle with nothing held. Merging them would let a reader plan against
+             * a bed that is already spoken for.
+             */}
+            <section
+              className={styles.flowPanel}
+              aria-labelledby="ward-board-incoming-heading"
+              data-testid="ward-board-incoming"
+            >
+              <h2 id="ward-board-incoming-heading" className={styles.flowHeading}>
+                Coming in
+              </h2>
+              <p className={styles.flowIntro} data-testid="ward-board-incoming-count">
+                {incoming.length === 0
+                  ? "Nobody is recorded as coming in to this ward."
+                  : `${incoming.length} recorded as coming in.`}
+              </p>
+              {incoming.length > 0 && (
+                <ol className={styles.flowList} data-testid="ward-board-incoming-list">
+                  {incoming.map((person) => (
+                    <li
+                      key={person.key}
+                      className={styles.flowRow}
+                      data-testid={`ward-board-incoming-${person.key}`}
+                      data-incoming-state={person.state}
+                    >
+                      <p className={styles.flowRowLead}>
+                        {person.state === "pulled" ? "Bed already given away" : "Waiting — no bed given"}
+                      </p>
+                      <p className={styles.flowRowLine}>
+                        {person.sex}, from {person.homeRegion}
+                      </p>
+                      {person.state === "pulled" && (
+                        <p className={styles.flowRowLine}>{bedGonePhrase(person.bedGoneHours)}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {/* Said rather than left as an absence a reader might read as "not yet loaded". The
+                record holds when a bed was given away and nothing else about the journey. */}
+              <p className={styles.flowNote}>
+                No arrival time is shown: the record holds when a bed was given away, and nothing about when anybody
+                will get here.
+              </p>
+            </section>
+
+            {/*
+             * GOING OUT TODAY, on whichever of the two bases the triage bar's toggle selects. The row
+             * count here EQUALS the figure on the bar above by construction — `outgoingToday` applies
+             * the same filter `capacityBreakdown` counts with — so a reader can check the board
+             * against itself without trusting either.
+             */}
+            <section
+              className={styles.flowPanel}
+              aria-labelledby="ward-board-outgoing-heading"
+              data-testid="ward-board-outgoing"
+            >
+              <h2 id="ward-board-outgoing-heading" className={styles.flowHeading}>
+                Going out today
+              </h2>
+              {/* The basis is stated in WORDS as well as by the toggle's pressed state, so a printed
+                sheet — where the toggle is gone with every other button — still says which of the
+                two lists it is. */}
+              <p className={styles.flowIntro} data-testid="ward-board-outgoing-count">
+                Showing {OUTGOING_BASIS_LABEL[outgoingBasis]}: {outgoing.length} bed{outgoing.length === 1 ? "" : "s"}.
+              </p>
+              {outgoing.length === 0 ? (
+                <p className={styles.flowRowLine}>No bed on this ward carries that today.</p>
               ) : (
-                /* Unreachable while the grid and the list are built from the same two calls, and
+                <ol className={styles.flowList} data-testid="ward-board-outgoing-list">
+                  {outgoing.map((release) => {
+                    const band = releaseBand(release, now);
+                    return (
+                      <li key={release.id} className={styles.flowRow} data-testid={`ward-board-outgoing-${release.id}`}>
+                        <p className={styles.flowRowLead}>
+                          {band === "beyond-today" ? "Expected today" : RELEASE_BAND_PHRASE[band]}
+                        </p>
+                        {/* A ROLE, never a personal name — `BedRelease.confirmedBy`'s own rule. */}
+                        <p className={styles.flowRowLine}>Reported by {release.confirmedBy}</p>
+                        {release.blocker !== null && (
+                          <p className={styles.flowRowBlocker}>
+                            Held up by: {release.blocker}
+                            {release.blockedBy !== null ? ` — recorded by ${release.blockedBy}` : ""}.
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {/* The honest limit of this list, stated on it. A `BedRelease` deliberately carries
+                NOTHING about the departing patient — not an id, not a sex, not a destination — so
+                these rows are beds and can never become people without breaking that. */}
+              <p className={styles.flowNote}>
+                These are beds, not people: a bed release records nothing at all about who is leaving. A person&apos;s
+                own discharge plan is on their tile&apos;s panel, and on the printed sheet.
+              </p>
+            </section>
+
+            {/* SINCE YESTERDAY — `sinceYesterday`'s first consumer. The last whole day, which carries
+              no clinical or legal meaning and is simply the window between one morning and the
+              next. */}
+            <section
+              className={styles.flowPanel}
+              aria-labelledby="ward-board-since-heading"
+              data-testid="ward-board-since-yesterday"
+            >
+              <h2 id="ward-board-since-heading" className={styles.flowHeading}>
+                Since yesterday
+              </h2>
+              <ul className={styles.sinceList}>
+                <li className={styles.sinceItem} data-testid="ward-board-since-discharged">
+                  <span className={styles.sinceValue}>{movement.discharged}</span> left this ward
+                </li>
+                <li className={styles.sinceItem} data-testid="ward-board-since-pulled">
+                  <span className={styles.sinceValue}>{movement.pulled}</span> bed{movement.pulled === 1 ? "" : "s"}{" "}
+                  given away
+                </li>
+                <li className={styles.sinceItem} data-testid="ward-board-since-dates-moved">
+                  <span className={styles.sinceValue}>{movement.datesMoved}</span> expected date
+                  {movement.datesMoved === 1 ? "" : "s"} moved
+                </li>
+              </ul>
+              {/* `discharged` counts departures of every destination and must never be summed across
+                wards as beds returned to the network — see `sinceYesterday`'s own doc comment. */}
+              <p className={styles.flowNote}>
+                A transfer to another psychiatric ward counts here: this ward gets its bed back, the state does not.
+              </p>
+            </section>
+          </div>
+
+          <div className={styles.gridColumn}>
+            {/* The legend explains the shades. It is not what makes the board readable without colour —
+              the day count on every tile does that — it just saves a reader working the ranges out. */}
+            <ul className={styles.legend} data-testid="ward-board-legend">
+              {STAY_BANDS.map((band) => (
+                <li key={band.id} className={styles.legendItem}>
+                  <span className={`${styles.legendSwatch} ${BAND_CLASS[band.id]}`} aria-hidden="true" />
+                  {band.label}
+                </li>
+              ))}
+              <li className={styles.legendItem}>
+                <span className={`${styles.legendSwatch} ${styles.legendSwatchPast}`} aria-hidden="true" />
+                Past the ward&apos;s own expected date
+              </li>
+              {/* Listed beside the stay bands because a reader counting fillable beds needs to know
+                this tile exists. The tile says so in words on its own face too — this is the index,
+                not the explanation. */}
+              <li className={styles.legendItem}>
+                <span className={`${styles.legendSwatch} ${styles.legendSwatchBlocked}`} aria-hidden="true" />
+                Out of service — not fillable
+              </li>
+              {/* Task B. Same reasoning as the blocked entry just above: the tile itself says "Held" in
+                words, this is only the index. */}
+              <li className={styles.legendItem}>
+                <span className={`${styles.legendSwatch} ${styles.legendSwatchHeld}`} aria-hidden="true" />
+                Empty, not yet offered — not fillable
+              </li>
+            </ul>
+
+            {/*
+             * THE TILES ARE NOW BUTTONS, and two things follow that are not negotiable.
+             *
+             * **The print restore.** `globals.css`'s print reset carries `header, nav, button {
+             * display: none !important }`, so an unrestored tile button vanishes from paper and the
+             * printed board is an empty grid — the exact defect this branch spent today fixing on
+             * four other surfaces. `board.module.css`'s print block forces `.bed` back to
+             * `display: flex !important`; a class selector outranks the bare element selector, so the
+             * restore holds without touching the global reset.
+             *
+             * **Still no bed identity.** The button's accessible name is the tile's own content — a
+             * day count, or the word Empty / Held / Out of service — and never an ordinal. Nothing
+             * numbers these tiles and nothing may: the order is seed order, not a floor plan.
+             */}
+            <ol className={styles.beds} data-testid="ward-board-beds">
+              {tiles.map((tile, index) => {
+                const selected = tile.key === selectedKey;
+                return (
+                  <li
+                    key={tile.key}
+                    className={styles.bedSlot}
+                    data-testid={`ward-board-bed-${index + 1}`}
+                    data-bed-kind={tile.kind}
+                  >
+                    <button
+                      type="button"
+                      id={tileDomId(tile.key)}
+                      className={tileClassName(tile, selected)}
+                      aria-pressed={selected}
+                      aria-controls={selected ? "ward-board-detail" : undefined}
+                      onClick={() => (selected ? closeDetail() : setSelectedKey(tile.key))}
+                    >
+                      {tile.kind === "occupied" && (
+                        <>
+                          <span className={styles.days} data-testid={`ward-board-bed-${index + 1}-days`}>
+                            {tile.days}
+                          </span>
+                          <span className={styles.daysUnit}>day{tile.days === 1 ? "" : "s"}</span>
+                          {/* The band in words, for the screen reader only: the visible number already
+                            states it, and printing both on a 390px-wide tile would crowd out the
+                            number this whole tile exists to show. */}
+                          <span className="sr-only">{tile.bandLabel}</span>
+                          {tile.pastDate && (
+                            <span className={styles.pastMark} data-testid={`ward-board-bed-${index + 1}-past`}>
+                              Past date
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {/* Rule 2 on screen: taken, but nobody is in it yet. */}
+                      {tile.kind === "waiting" && <span className={styles.waiting}>Empty, waiting</span>}
+                      {/* Rule 1 on screen for the third bed state: the words say it, not the fill. A
+                        coordinator reading this board in greyscale, in forced-colors, or on paper
+                        must still be able to tell an unfillable bed from a fillable one, and "Out of
+                        service" is what does that — the hatched fill only makes it quicker. */}
+                      {tile.kind === "blocked" && <span className={styles.blockedLabel}>Out of service</span>}
+                      {/* Task B on screen: physically empty, but not yet one of the beds this ward is
+                        offering — a different fact from "Empty" (fillable now) and from "Out of
+                        service" (never fillable today). The word is what makes it unambiguous; the
+                        dotted edge and dot pattern only make it quicker to spot. */}
+                      {tile.kind === "held" && <span className={styles.heldLabel}>Held</span>}
+                      {tile.kind === "empty" && <span className={styles.emptyLabel}>Empty</span>}
+                      {/* Selection in WORDS, beside the heavier edge that carries it visually. A sheet
+                        that has made no decision must not show a filled element — a fill reads as a
+                        decision taken — and a weight alone is a mark a greyscale reader can miss. */}
+                      {selected && <span className={styles.selectedMark}>Selected</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {/*
+             * The arithmetic a ward can do in its head, kept ON SCREEN even though the per-person list
+             * has moved to the slide-out and the printed sheet. "18 of this ward's 20 beds are taken"
+             * beside a grid of 20 tiles is the check that catches a panel fed the wrong collection —
+             * the sibling panel that shipped "Kimberley 28 people" on a twenty-bed ward this morning
+             * was invisible in a list and would have been obvious here. Both numbers come from the
+             * same two values the grid and the printed list are built from, so no third figure exists
+             * to drift.
+             */}
+            <p className={styles.occupancy} data-testid="ward-board-people-count">
+              {occupants.length} of this ward&apos;s {unit.beds} bed{unit.beds === 1 ? "" : "s"}{" "}
+              {occupants.length === 1 ? "is" : "are"} taken. Soonest expected out first; anyone with no date set is
+              last.
+            </p>
+            {/*
+             * THE LINE THAT QUALIFIES EVERY DIAGNOSIS ON THIS PAGE, and it replaced — deliberately,
+             * on 2026-08-29 — the sentence that used to stand here saying the record held none.
+             *
+             * The owner reversed that decision ("It can give a tentative diagnosis. This is because
+             * most referrals will require a diagnosis"), so the honest line is no longer about an
+             * absence; it is about what the values ARE. It stays in exactly this position, under the
+             * grid rather than inside the slide-out, for the reason the old line was put here: it is
+             * on the page whether or not anybody has selected a tile, and it prints.
+             *
+             * It is the ONE place the qualification is stated in full, and every per-person line
+             * repeats the word "tentative" rather than relying on a reader having scrolled past this.
+             */}
+            <p className={styles.peopleAbsence}>
+              Any diagnosis shown is tentative: a broad category a referral gave on the way in, not a diagnosis this
+              ward has confirmed.
+            </p>
+            {/*
+             * THE EMPTY-SELECTION STATE, and it is deliberately not a blank panel and not somebody
+             * chosen for the reader. Auto-selecting an occupant would read as the system having
+             * picked a person out of the ward, which is a judgement this board does not make and
+             * could not justify; leaving an empty box on screen reads as a panel that failed to load.
+             * So the slide-out is simply absent, and the grid says in words that nothing is chosen and
+             * that nothing will be chosen on the reader's behalf.
+             */}
+            {selectedTile === null && (
+              <p className={styles.selectHint} data-testid="ward-board-select-hint">
+                Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+              </p>
+            )}
+          </div>
+
+          {/*
+           * THE SLIDE-OUT. Present only while something is selected, so it costs no width otherwise,
+           * and it takes its own grid track rather than covering the beds it describes — a reader who
+           * has just chosen a tile wants to compare it with the others, and a panel over the grid
+           * would make them close it to do that.
+           *
+           * NOT modal and NOT a focus trap: Tab leaves it into the rest of the page, Escape closes it
+           * from anywhere in the zones, and focus returns to the exact tile that opened it. The tile's
+           * own `aria-pressed` is what says which one is open.
+           */}
+          {selectedTile !== null && (
+            <aside
+              className={styles.detail}
+              id="ward-board-detail"
+              aria-labelledby="ward-board-detail-heading"
+              data-testid="ward-board-detail"
+              data-detail-kind={selectedTile.kind}
+            >
+              <div className={styles.detailBar}>
+                <h2 id="ward-board-detail-heading" className={styles.detailHeading}>
+                  {selectedTile.kind === "occupied" || selectedTile.kind === "waiting"
+                    ? "Who is in this bed"
+                    : selectedTile.kind === "empty"
+                      ? "An empty bed"
+                      : selectedTile.kind === "held"
+                        ? "A held bed"
+                        : "A bed out of service"}
+                </h2>
+                <button
+                  type="button"
+                  className={styles.detailClose}
+                  onClick={closeDetail}
+                  data-testid="ward-board-detail-close"
+                >
+                  Close
+                </button>
+              </div>
+
+              {selectedTile.kind === "occupied" || selectedTile.kind === "waiting" ? (
+                selectedOccupant !== null ? (
+                  <div className={styles.person} data-testid="ward-board-detail-person">
+                    <PersonEntry occupant={selectedOccupant} idPrefix="ward-board-selected-person" />
+                    {/* Rule 2 spelled out where a reader is looking at one person rather than at the
+                      grid: this bed is gone from the ward's count, and the person is not here. */}
+                    {selectedTile.kind === "waiting" && (
+                      <p className={styles.personLine}>
+                        This ward has already given this bed away. It is taken, not free, and nobody has arrived.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  /* Unreachable while the grid and the list are built from the same two calls, and
                    said rather than rendered blank if it ever is: an empty panel would read as a
                    loading failure, and inventing a person to fill it is the one thing this board
                    must never do. */
-                <p className={styles.personLine}>No record could be read for this bed.</p>
-              )
-            ) : (
-              <div data-testid="ward-board-detail-bed-class">
-                <p className={styles.detailLead}>
-                  {selectedTile.kind === "empty"
-                    ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
-                    : selectedTile.kind === "held"
-                      ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
-                      : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
-                </p>
-                {/* The constraint the header already carries, repeated here only where it bites: a
+                  <p className={styles.personLine}>No record could be read for this bed.</p>
+                )
+              ) : (
+                <div data-testid="ward-board-detail-bed-class">
+                  <p className={styles.detailLead}>
+                    {selectedTile.kind === "empty"
+                      ? `One of this ward's ${emptyTileCount} bed${emptyTileCount === 1 ? "" : "s"} a coordinator can fill right now.`
+                      : selectedTile.kind === "held"
+                        ? `One of this ward's ${heldTileCount} bed${heldTileCount === 1 ? "" : "s"} that are empty but not yet confirmed as ones this ward will offer.`
+                        : `One of this ward's ${blockedTileCount} bed${blockedTileCount === 1 ? "" : "s"} that are out of service and cannot be filled today.`}
+                  </p>
+                  {/* The constraint the header already carries, repeated here only where it bites: a
                     reader looking at a fillable bed is exactly the reader who needs to know what
                     will and will not go in it. `constraintSentence` returns null rather than an
                     empty string when nothing constrains. */}
-                {selectedTile.kind === "empty" && constraint !== null && (
-                  <p className={styles.personLine}>{constraint}</p>
-                )}
-                {/*
-                 * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
-                 * `unitCapacity`'s held/available split is derived from two more counts; no record
-                 * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
-                 * told, on the panel, that they have selected a class of bed and not a location.
-                 */}
-                <p className={styles.detailNotLocation}>
-                  Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is one
-                  of a count and not a place on the ward.
-                </p>
-              </div>
-            )}
-          </aside>
-        )}
-      </div>
-
-      {/*
-       * WHERE THESE BEDS FREE UP TO — from `arrowTargets`, which existed fully tested with zero
-       * consumers until this board became its first.
-       *
-       * **It has moved out of the left column, and the reason is a measured one rather than a
-       * preference.** In a 17rem sidebar it was 746px tall — 55% of a 1362px column, and by itself
-       * taller than the whole middle column beside it (439px) — because the longest team name,
-       * "Goldfields-Esperance Community Mental Health Team (placeholder)", needs roughly 380px to
-       * sit on one line and had 272px to do it in. Eight entries each wrapped to two lines, and the
-       * panel's height was almost entirely the cost of that wrapping. **The content is wide; the
-       * column was not.** Nothing here was shortened, generalised or dropped to fix it: all eight
-       * regions, their counts, their soonest days and their team names are on the page exactly as
-       * before, in a full-width band where each one fits on a single line.
-       *
-       * The alternative considered and REJECTED was stating the naming convention once in the intro
-       * and dropping the per-row team name. It reads well against today's fixture — every value in
-       * `COMMUNITY_TEAMS` is "<Region> Community Mental Health Team (placeholder)" — but that file's
-       * own comment says the product owner may later supply real team names, at which point a
-       * sentence claiming the convention becomes a false statement on a clinical screen that no test
-       * would catch. A layout must not depend on a fixture happening to be formulaic.
-       *
-       * It sits BELOW the three zones rather than inside one, for the same reason the triage bar
-       * sits above them: this is a ward-level aggregate, not a per-bed or per-column fact. The
-       * left-to-right reading is untouched — coming in and going out are still LEFT, the beds
-       * MIDDLE, the chosen bed RIGHT — and this band is the tail of the "Going out today" list,
-       * read last, which is where a departure story ends.
-       *
-       * **There are deliberately no drawn arrows, and that is a correctness decision rather than
-       * a simplification.** Connector geometry on the coordinator's diagrams is measured in
-       * JavaScript from the live screen layout and never re-measured for print, so a printed
-       * route line points at whichever ward has since moved under it — proven on paper this
-       * session, and the reason those connectors are now hidden in print entirely. Drawing
-       * eighteen bed-to-region arrows would import that failure and add a spaghetti of lines
-       * nobody can follow. The connection is carried by a shared REGION NAME on both sides
-       * instead. Words survive greyscale, a stripped-background print and forced-colors;
-       * measured coordinates survive none of it.
-       *
-       * Scoped to `ARROW_HORIZON_DAYS`, so this is a short list a flow meeting can read, not a
-       * second copy of the bed list. Someone with no expected date is absent entirely rather
-       * than defaulted — nobody has said when they are leaving, so the board says nothing.
-       */}
-      {targets.length > 0 && (
-        <aside className={styles.destinations} aria-labelledby="ward-board-destinations-heading">
-          <h2 id="ward-board-destinations-heading" className={styles.destinationsHeading}>
-            Where these beds free up to
-          </h2>
-          <p className={styles.destinationsIntro}>Expected within {ARROW_HORIZON_DAYS} days, soonest first.</p>
-          <ol className={styles.destinationList} data-testid="ward-board-destinations">
-            {targets.map((target) => {
-              const team = teamForRegion(target.region);
-              return (
-                <li
-                  key={target.region}
-                  className={styles.destination}
-                  data-testid={`ward-board-destination-${target.region}`}
-                >
-                  <p className={styles.destinationRegion}>{target.region}</p>
-                  <p className={styles.destinationCount}>
-                    {target.count} {target.count === 1 ? "person" : "people"}
-                    {" · "}
-                    {target.nearestDays === 0
-                      ? "soonest due now or overdue"
-                      : `soonest in ${target.nearestDays} day${target.nearestDays === 1 ? "" : "s"}`}
+                  {selectedTile.kind === "empty" && constraint !== null && (
+                    <p className={styles.personLine}>{constraint}</p>
+                  )}
+                  {/*
+                   * THE LINE THAT KEEPS SELECTION HONEST. `Unit.blocked` is a count and
+                   * `unitCapacity`'s held/available split is derived from two more counts; no record
+                   * anywhere says WHICH bed. So a reader who has just clicked one of these tiles is
+                   * told, on the panel, that they have selected a class of bed and not a location.
+                   */}
+                  <p className={styles.detailNotLocation}>
+                    Which bed is not recorded. An admission records the ward it is on and never a bed, so this tile is
+                    one of a count and not a place on the ward.
                   </p>
-                  {/* `teamForRegion` returns null for a region with no recorded team rather than a
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
+
+        {/*
+         * WHERE THESE BEDS FREE UP TO — from `arrowTargets`, which existed fully tested with zero
+         * consumers until this board became its first.
+         *
+         * **It has moved out of the left column, and the reason is a measured one rather than a
+         * preference.** In a 17rem sidebar it was 746px tall — 55% of a 1362px column, and by itself
+         * taller than the whole middle column beside it (439px) — because the longest team name,
+         * "Goldfields-Esperance Community Mental Health Team (placeholder)", needs roughly 380px to
+         * sit on one line and had 272px to do it in. Eight entries each wrapped to two lines, and the
+         * panel's height was almost entirely the cost of that wrapping. **The content is wide; the
+         * column was not.** Nothing here was shortened, generalised or dropped to fix it: all eight
+         * regions, their counts, their soonest days and their team names are on the page exactly as
+         * before, in a full-width band where each one fits on a single line.
+         *
+         * The alternative considered and REJECTED was stating the naming convention once in the intro
+         * and dropping the per-row team name. It reads well against today's fixture — every value in
+         * `COMMUNITY_TEAMS` is "<Region> Community Mental Health Team (placeholder)" — but that file's
+         * own comment says the product owner may later supply real team names, at which point a
+         * sentence claiming the convention becomes a false statement on a clinical screen that no test
+         * would catch. A layout must not depend on a fixture happening to be formulaic.
+         *
+         * It sits BELOW the three zones rather than inside one, for the same reason the triage bar
+         * sits above them: this is a ward-level aggregate, not a per-bed or per-column fact. The
+         * left-to-right reading is untouched — coming in and going out are still LEFT, the beds
+         * MIDDLE, the chosen bed RIGHT — and this band is the tail of the "Going out today" list,
+         * read last, which is where a departure story ends.
+         *
+         * **There are deliberately no drawn arrows, and that is a correctness decision rather than
+         * a simplification.** Connector geometry on the coordinator's diagrams is measured in
+         * JavaScript from the live screen layout and never re-measured for print, so a printed
+         * route line points at whichever ward has since moved under it — proven on paper this
+         * session, and the reason those connectors are now hidden in print entirely. Drawing
+         * eighteen bed-to-region arrows would import that failure and add a spaghetti of lines
+         * nobody can follow. The connection is carried by a shared REGION NAME on both sides
+         * instead. Words survive greyscale, a stripped-background print and forced-colors;
+         * measured coordinates survive none of it.
+         *
+         * Scoped to `ARROW_HORIZON_DAYS`, so this is a short list a flow meeting can read, not a
+         * second copy of the bed list. Someone with no expected date is absent entirely rather
+         * than defaulted — nobody has said when they are leaving, so the board says nothing.
+         */}
+        {targets.length > 0 && (
+          <aside className={styles.destinations} aria-labelledby="ward-board-destinations-heading">
+            <h2 id="ward-board-destinations-heading" className={styles.destinationsHeading}>
+              Where these beds free up to
+            </h2>
+            <p className={styles.destinationsIntro}>Expected within {ARROW_HORIZON_DAYS} days, soonest first.</p>
+            <ol className={styles.destinationList} data-testid="ward-board-destinations">
+              {targets.map((target) => {
+                const team = teamForRegion(target.region);
+                return (
+                  <li
+                    key={target.region}
+                    className={styles.destination}
+                    data-testid={`ward-board-destination-${target.region}`}
+                  >
+                    <p className={styles.destinationRegion}>{target.region}</p>
+                    <p className={styles.destinationCount}>
+                      {target.count} {target.count === 1 ? "person" : "people"}
+                      {" · "}
+                      {target.nearestDays === 0
+                        ? "soonest due now or overdue"
+                        : `soonest in ${target.nearestDays} day${target.nearestDays === 1 ? "" : "s"}`}
+                    </p>
+                    {/* `teamForRegion` returns null for a region with no recorded team rather than a
                       placeholder string, so a missing team must never be swallowed by the panel's
                       general shape. It used to render as NOTHING, which reads as a row that happens
                       to be shorter; it is now said in words, because "there is nobody to ring about
                       this region" is exactly the kind of fact a coordinator chasing a discharge
                       needs to see rather than infer from a gap. */}
-                  {team !== null ? (
-                    <p className={styles.destinationTeam}>{team}</p>
-                  ) : (
-                    <p className={styles.destinationTeamAbsent}>No community team is recorded for this region.</p>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </aside>
-      )}
+                    {team !== null ? (
+                      <p className={styles.destinationTeam}>{team}</p>
+                    ) : (
+                      <p className={styles.destinationTeamAbsent}>No community team is recorded for this region.</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </aside>
+        )}
 
-      {/*
-       * WHO IS IN THESE BEDS — every occupant with their discharge plan, and on paper only.
-       *
-       * **This is the 281bdf83f deliverable, kept whole rather than lost to the slide-out.** That
-       * commit's panel listed every occupant with when they are expected out, who set the date, how
-       * many times it has moved, whether the ward has confirmed it and what is holding it up. The
-       * owner has replaced it ON SCREEN with a per-selection panel, which is his call; none of that
-       * makes the printed sheet worse, and a sheet carrying only whoever was last clicked would be
-       * a page whose content depends on an interaction that left no mark on it. So the screen shows
-       * one person on request and the paper shows all of them, which is what each medium is good
-       * at: the screen is interactive and the sheet is not.
-       *
-       * It is `display: none` on screen and restored in the print block — the only hidden content on
-       * this board, and hidden in the direction that ADDS to the sheet rather than removing from it.
-       * The rendered rows are what the existing suite in `tests/ward-board-people-panel.dom.test.tsx`
-       * asserts against (rows + blocked + held + empty === `unit.beds`, ordering, provenance, no
-       * diagnosis), so every one of those invariants still has a live subject after the rebuild.
-       *
-       * The list is NOT truncated and must not become so. Eighteen people is a long sheet, and a
-       * "top 5" with the rest hidden is worse than no list, because nobody reading it can tell that
-       * anything is missing.
-       */}
-      <aside className={styles.people} aria-labelledby="ward-board-people-heading">
-        <h2 id="ward-board-people-heading" className={styles.peopleHeading}>
-          Who is in these beds
-        </h2>
-        <p className={styles.peopleIntro}>
-          Every occupant of this ward, soonest expected out first; anyone with no date set is last.
-        </p>
-        {/* An empty list under a heading reads as a panel that failed to load rather than as a ward
+        {/*
+         * WHO IS IN THESE BEDS — every occupant with their discharge plan, and on paper only.
+         *
+         * **This is the 281bdf83f deliverable, kept whole rather than lost to the slide-out.** That
+         * commit's panel listed every occupant with when they are expected out, who set the date, how
+         * many times it has moved, whether the ward has confirmed it and what is holding it up. The
+         * owner has replaced it ON SCREEN with a per-selection panel, which is his call; none of that
+         * makes the printed sheet worse, and a sheet carrying only whoever was last clicked would be
+         * a page whose content depends on an interaction that left no mark on it. So the screen shows
+         * one person on request and the paper shows all of them, which is what each medium is good
+         * at: the screen is interactive and the sheet is not.
+         *
+         * It is `display: none` on screen and restored in the print block — the only hidden content on
+         * this board, and hidden in the direction that ADDS to the sheet rather than removing from it.
+         * The rendered rows are what the existing suite in `tests/ward-board-people-panel.dom.test.tsx`
+         * asserts against (rows + blocked + held + empty === `unit.beds`, ordering, provenance, no
+         * diagnosis), so every one of those invariants still has a live subject after the rebuild.
+         *
+         * The list is NOT truncated and must not become so. Eighteen people is a long sheet, and a
+         * "top 5" with the rest hidden is worse than no list, because nobody reading it can tell that
+         * anything is missing.
+         */}
+        <aside className={styles.people} aria-labelledby="ward-board-people-heading">
+          <h2 id="ward-board-people-heading" className={styles.peopleHeading}>
+            Who is in these beds
+          </h2>
+          <p className={styles.peopleIntro}>
+            Every occupant of this ward, soonest expected out first; anyone with no date set is last.
+          </p>
+          {/* An empty list under a heading reads as a panel that failed to load rather than as a ward
             with nobody in it, so the absence is said in words. `constraintSentence` returns null for
             the same reason a few lines up. */}
-        {occupants.length === 0 && <p className={styles.personLine}>Nobody is recorded in a bed on this ward.</p>}
-        <ol className={styles.peopleList} data-testid="ward-board-people">
-          {occupants.map((occupant) => (
-            <li
-              key={occupant.key}
-              className={`${styles.person}${occupant.key === selectedKey ? ` ${styles.personSelected}` : ""}`}
-              data-testid={`ward-board-person-${occupant.key}`}
-            >
-              {/* Selection on paper is WEIGHT and a word, never a fill: on a sheet that has made no
+          {occupants.length === 0 && <p className={styles.personLine}>Nobody is recorded in a bed on this ward.</p>}
+          <ol className={styles.peopleList} data-testid="ward-board-people">
+            {occupants.map((occupant) => (
+              <li
+                key={occupant.key}
+                className={`${styles.person}${occupant.key === selectedKey ? ` ${styles.personSelected}` : ""}`}
+                data-testid={`ward-board-person-${occupant.key}`}
+              >
+                {/* Selection on paper is WEIGHT and a word, never a fill: on a sheet that has made no
                   decision a filled element reads as a decision made. */}
-              {occupant.key === selectedKey && <p className={styles.personSelectedMark}>Selected on screen</p>}
-              <PersonEntry occupant={occupant} idPrefix="ward-board-person" />
-            </li>
-          ))}
-        </ol>
-      </aside>
+                {occupant.key === selectedKey && <p className={styles.personSelectedMark}>Selected on screen</p>}
+                <PersonEntry occupant={occupant} idPrefix="ward-board-person" />
+              </li>
+            ))}
+          </ol>
+        </aside>
 
-      <p className={styles.footnote} data-testid="ward-board-footnote">
-        {tiles.length} tile{tiles.length === 1 ? "" : "s"}, one per recorded bed. A tile carries no bed number — an
-        admission records the ward it is on, never a bed. “Empty, waiting” is a bed this ward has already given away to
-        somebody who has not arrived yet; it is taken, not free.
-        {/* Only said on a ward that HAS one. Rendered unconditionally it read "this ward records 0
+        <p className={styles.footnote} data-testid="ward-board-footnote">
+          {tiles.length} tile{tiles.length === 1 ? "" : "s"}, one per recorded bed. A tile carries no bed number — an
+          admission records the ward it is on, never a bed. “Empty, waiting” is a bed this ward has already given away
+          to somebody who has not arrived yet; it is taken, not free.
+          {/* Only said on a ward that HAS one. Rendered unconditionally it read "this ward records 0
             of them, and which particular beds are out of service is not recorded" — a paragraph
             explaining, at length, a tile the reader cannot see and this ward does not have. Found
             by rendering `rph-adult-secure`, which has no blocked beds, not by looking at `fsh`
             where the sentence happened to make sense. */}
-        {unit.blocked > 0 && (
-          <>
-            {" "}
-            “Out of service” beds cannot be filled either — this ward records {unit.blocked} of them, and which
-            particular {unit.blocked === 1 ? "bed is" : "beds are"} out of service is not recorded, so the tiles marked
-            here are a count and not a location.
-          </>
-        )}
-        {/* Task B, same "only said on a ward that HAS one" discipline as the blocked sentence just
+          {unit.blocked > 0 && (
+            <>
+              {" "}
+              “Out of service” beds cannot be filled either — this ward records {unit.blocked} of them, and which
+              particular {unit.blocked === 1 ? "bed is" : "beds are"} out of service is not recorded, so the tiles
+              marked here are a count and not a location.
+            </>
+          )}
+          {/* Task B, same "only said on a ward that HAS one" discipline as the blocked sentence just
             above — `rph-adult-secure` has one held bed, `fsh-adult-secure` has none, and this ward
             board must not describe a tile the reader cannot see. `heldTileCount` is what was
             actually drawn (already clamped into the physically-empty pool), never the raw,
             unclamped `unitCapacity(...).held` figure — the footnote must describe the screen, not
             a number that could disagree with it. */}
-        {heldTileCount > 0 && (
-          <>
-            {" "}
-            “Held” beds are empty but not yet confirmed as ones this ward will offer — this ward has {heldTileCount} of
-            them right now, and which particular {heldTileCount === 1 ? "bed is" : "beds are"} held is not recorded, so
-            the tiles marked here are a count and not a location.
-          </>
-        )}
-      </p>
+          {heldTileCount > 0 && (
+            <>
+              {" "}
+              “Held” beds are empty but not yet confirmed as ones this ward will offer — this ward has {
+                heldTileCount
+              }{" "}
+              of them right now, and which particular {heldTileCount === 1 ? "bed is" : "beds are"} held is not
+              recorded, so the tiles marked here are a count and not a location.
+            </>
+          )}
+        </p>
       </main>
     </div>
   );

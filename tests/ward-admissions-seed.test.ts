@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   LEAVING_DESTINATIONS,
   STAY_BANDS,
+  TENTATIVE_DIAGNOSIS_BLOCKS,
   bedIsOccupied,
   isPastExpectedDischarge,
+  isTentativeDiagnosisBlock,
   stayBand,
   type Admission,
   type StayBandId,
@@ -279,6 +281,79 @@ describe("seeded admissions — coverage (a rule with no case is an untestable r
         (admission) => typeof admission.dischargeConfirmedAt === "number" && admission.blockReason !== null,
       ),
     ).toBe(true);
+  });
+
+  /**
+   * THE FIELD ADDED ON 2026-08-29 BY OWNER RULING, checked over the WHOLE set rather than by
+   * finding one good example.
+   *
+   * Two things, and the first is the one that matters. **Chosen, never typed**: every seeded value
+   * is either `null` or a member of `TENTATIVE_DIAGNOSIS_BLOCKS`. A fixture is the easiest place in
+   * this codebase for a free-text string to enter a typed union — a hand-edited line, a paraphrase
+   * of a heading, a four-character code — and `isTentativeDiagnosisBlock` run over every record is
+   * what makes that impossible rather than discouraged.
+   *
+   * **`typeof === "string"`, not `!== null`**: a record that never declared the field reads back as
+   * `undefined`, which is `!== null`, and would then be handed to the membership check as a
+   * non-string. The same trap the confirmation-pair test above documents.
+   */
+  it("gives every admission a declared block or nothing — never a value outside the eleven", () => {
+    const wrong: string[] = [];
+    for (const admission of wardAdmissions) {
+      const value = admission.tentativeDiagnosis;
+      if (value === null) continue;
+      if (typeof value !== "string") {
+        wrong.push(`${admission.id}: tentativeDiagnosis is not declared`);
+        continue;
+      }
+      if (!isTentativeDiagnosisBlock(value)) wrong.push(`${admission.id}: "${value}" is not a declared block`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  /**
+   * COVERAGE, and both halves of it are load-bearing.
+   *
+   * A block declared in the vocabulary but never seeded is a rendering path with no data behind it:
+   * every screen test showing diagnoses would pass without ever drawing that block. And a fixture
+   * where everybody carried a value would leave the "none recorded" branch — the ordinary state —
+   * with no seeded case at all, which is the branch a reader is most likely to see wrong.
+   */
+  it("seeds all eleven blocks somewhere, and leaves some people with none recorded", () => {
+    const seeded = new Set(
+      wardAdmissions.map((admission) => admission.tentativeDiagnosis).filter((value) => value !== null),
+    );
+    const missing = TENTATIVE_DIAGNOSIS_BLOCKS.map((block) => block.code).filter((code) => !seeded.has(code));
+    expect(missing, "these blocks are declared but never seeded").toEqual([]);
+
+    const unrecorded = wardAdmissions.filter((admission) => admission.tentativeDiagnosis === null);
+    expect(unrecorded.length, "no seeded person is missing a tentative diagnosis").toBeGreaterThan(0);
+    // And not everybody — a fixture where nobody had one would satisfy the line above while
+    // leaving every rendered block untested.
+    expect(unrecorded.length).toBeLessThan(wardAdmissions.length);
+  });
+
+  /**
+   * The cohort claim the pools were authored for, asserted where it is checkable without inventing
+   * a clinical rule: the youth ward and the older-adult wards must not draw from one adult pool.
+   * Stated as a difference between two seeded sets rather than as a list of "correct" blocks —
+   * which block belongs on which ward is the owner's judgement, not this test's.
+   */
+  it("gives the youth ward a different set of blocks from the older-adult wards", () => {
+    const blocksOn = (predicate: (unitId: string) => boolean) =>
+      new Set(
+        wardAdmissions
+          .filter((admission) => predicate(admission.unitId) && admission.tentativeDiagnosis !== null)
+          .map((admission) => admission.tentativeDiagnosis),
+      );
+
+    const youth = blocksOn((unitId) => unitId.endsWith("-youth"));
+    const olderAdult = blocksOn((unitId) => unitId.endsWith("-older-adult"));
+
+    // Non-vacuity: both cohorts really have seeded people carrying blocks.
+    expect(youth.size, "the youth ward seeds no tentative diagnosis at all").toBeGreaterThan(0);
+    expect(olderAdult.size, "no older-adult ward seeds a tentative diagnosis").toBeGreaterThan(0);
+    expect([...youth].sort()).not.toEqual([...olderAdult].sort());
   });
 
   it("contains somebody with no expected discharge date at all", () => {

@@ -30,6 +30,10 @@ function anAdmission(overrides: Partial<Admission> = {}): Admission {
     referralId: "REF-1",
     sex: "Female",
     homeRegion: "Perth Metropolitan",
+    // `null` on purpose: nothing in this file reads or asserts on the tentative diagnosis, so
+    // a value here would be a fact nobody uses. The field is present because `Admission`
+    // declares it non-optional — a record where nobody wrote one down is present-and-empty.
+    tentativeDiagnosis: null,
     state: "occupied",
     pulledAt: DAY_ZERO,
     arrivedAt: DAY_ZERO,
