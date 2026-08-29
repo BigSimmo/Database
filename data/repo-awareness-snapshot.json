@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "ad82d76afada11b4f5ca4b7cb689f51581df4483",
-    "committed_at": "2026-08-29T06:15:13+08:00"
+    "sha": "9e27b7b779443eb9d140c5eaf562af578f5ec6e4",
+    "committed_at": "2026-08-29T09:39:53+08:00"
   },
   "routes": {
     "modes": [
@@ -2780,6 +2780,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
+        "section": "evidence",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
         "section": "evidence",
         "catalogued": false
@@ -4218,9 +4223,9 @@
       }
     ],
     "counts": {
-      "documents": 545,
+      "documents": 546,
       "catalogued": 109,
-      "uncatalogued": 436,
+      "uncatalogued": 437,
       "sections": 20
     }
   },
