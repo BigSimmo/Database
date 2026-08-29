@@ -28,6 +28,8 @@ import {
   hasLegacyTapClass,
   listPrimitiveRecipeSourcePaths,
   minHeightPixels,
+  minWidthBandIndexByVariant,
+  minWidthBands,
   SUB_TAP_MIN_HEIGHT_PREFILTER,
   rawColorContractSource,
   readPrimitiveRecipeSources,
@@ -231,6 +233,154 @@ describe("design-system contract helpers", () => {
     // violating token, so a file carrying nothing else has nothing to find.
     expect(minHeightPixels("min-h-tap")).toBe(48);
     expect(SUB_TAP_MIN_HEIGHT_PREFILTER.test('<button className="min-h-tap" />')).toBe(false);
+  });
+
+  it("derives its band table from both @theme layers instead of restating them (Gate 2)", async () => {
+    // THE deliverable of this round. A hardcoded `["sm","md","lg","xl","2xl"]`
+    // silently unmeasured every breakpoint this repository declares for itself:
+    // `min-h-tap phone:min-h-9` — a 36px tap target above 640px — scanned clean,
+    // because `phone` was not in the list and an unknown variant was skipped
+    // rather than flagged. Re-derive the expectation here from the stylesheets
+    // themselves, so the day someone adds a sixth `--breakpoint-*` token, or
+    // Tailwind ships a new default, this fails rather than the gate going
+    // quietly blind again.
+    const { readFileSync } = await import("node:fs");
+    const { createRequire } = await import("node:module");
+    const { join } = await import("node:path");
+
+    const declaredWidths = new Map<string, number>();
+    const sources = [
+      createRequire(join(process.cwd(), "package.json")).resolve("tailwindcss/theme.css"),
+      join(process.cwd(), "src", "app", "globals.css"),
+    ];
+    for (const file of sources) {
+      // Only `@theme` blocks generate variants: the `:root`-scoped `--bp-*`
+      // aliases in `ckb-v2-tokens.css` are plain custom properties, and a naive
+      // whole-file scan that swept those in would assert the wrong set.
+      for (const block of readFileSync(file, "utf8").matchAll(/@theme[^{]*\{([\s\S]*?)\n\}/g)) {
+        for (const match of block[1].matchAll(/--breakpoint-([a-z0-9-]+): *([0-9.]+)(px|rem);/g)) {
+          declaredWidths.set(match[1], match[3] === "rem" ? Number(match[2]) * 16 : Number(match[2]));
+        }
+      }
+    }
+    expect(declaredWidths.size).toBeGreaterThanOrEqual(10);
+
+    const expectedBands = [
+      { minWidthPx: 0, variants: [] as string[] },
+      ...[...new Set([...declaredWidths.values()].sort((a, b) => a - b))].map((minWidthPx) => ({
+        minWidthPx,
+        variants: [...declaredWidths]
+          .filter(([, width]) => width === minWidthPx)
+          .map(([name]) => name)
+          .sort()
+          .flatMap((name) => [name, `min-${name}`]),
+      })),
+    ];
+    expect(minWidthBands()).toEqual(expectedBands);
+
+    // And the whole declared set is reachable through the variant lookup, in
+    // every spelling Tailwind emits.
+    for (const name of declaredWidths.keys()) {
+      expect({ name, known: minWidthBandIndexByVariant().has(name) }).toEqual({ name, known: true });
+      expect({ name, known: minWidthBandIndexByVariant().has(`min-${name}`) }).toEqual({ name, known: true });
+      expect({ name, known: minWidthBandIndexByVariant().has(`max-${name}`) }).toEqual({ name, known: true });
+    }
+  });
+
+  it("floors a responsive step-down at every breakpoint variant this repo generates (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // Enumerated from the derived table, not from a list written here: a variant
+    // that stops being measured cannot slip past by also being deleted from the
+    // expectation. `min-h-9` is 36px — `--row-compact`, banned outright as a tap
+    // target by TOKENS.md §2 — so every one of these must be a finding.
+    for (const variant of minWidthBandIndexByVariant().keys()) {
+      const source = `<button className="min-h-tap ${variant}:min-h-9">Save</button>`;
+      expect({ variant, findings: find(source) }).toEqual({ variant, findings: ["src/example.tsx:1"] });
+    }
+
+    // The named repo breakpoints specifically — the five that were invisible.
+    for (const variant of ["phone", "tablet", "desktop", "filter-label-collapse", "filter-label-restore"]) {
+      expect({ variant, findings: find(`<button className="min-h-tap ${variant}:min-h-8">Save</button>`) }).toEqual({
+        variant,
+        findings: ["src/example.tsx:1"],
+      });
+    }
+
+    // Still a floor, not a ban on prefixed declarations: the sanctioned
+    // compact-meta step-down passes under the repo names exactly as under `sm`.
+    expect(find('<button className="min-h-tap phone:min-h-compact-meta">Save</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap desktop:min-h-12">Save</button>')).toEqual([]);
+    expect(find('<div className="min-h-tap phone:min-h-9">Panel</div>')).toEqual([]);
+  });
+
+  it("resolves equal-width breakpoint names to one band, and the base band to index 0 (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+    const bandOf = (variant: string) => minWidthBandIndexByVariant().get(variant);
+
+    // `--breakpoint-phone/tablet/desktop` are exact aliases of Tailwind's
+    // `sm`/`md`/`lg` (640/768/1024px). They generate media queries with identical
+    // conditions, so they are one band — not two that can supersede each other.
+    expect(bandOf("phone")).toBe(bandOf("sm"));
+    expect(bandOf("tablet")).toBe(bandOf("md"));
+    expect(bandOf("desktop")).toBe(bandOf("lg"));
+    expect(bandOf("min-phone")).toBe(bandOf("sm"));
+
+    // The base band is entry 0 of the table, not `sm` minus one. Two of this
+    // repo's breakpoints (414px, 430px) sit BELOW `sm`, so any arithmetic that
+    // treated `sm` as band 1 is now silently off by two.
+    expect(minWidthBands()[0]).toEqual({ minWidthPx: 0, variants: [] });
+    expect(bandOf("filter-label-collapse")).toBe(1);
+    expect(bandOf("filter-label-restore")).toBe(2);
+    expect(bandOf("sm")).toBe(3);
+    expect(minWidthBands()).toHaveLength(8);
+
+    // Every band is evaluated, including the highest: a step-down at `2xl` alone
+    // is a finding, which is only true if the loop bound covers the last entry.
+    expect(find('<button className="min-h-tap 2xl:min-h-9">Save</button>')).toEqual(["src/example.tsx:1"]);
+
+    // A max-width variant folds onto the base band rather than being dropped:
+    // this repo ships seven live `max-sm:min-h-*` declarations, and the old
+    // "unknown variant, skip the token" rule left every one unmeasured.
+    expect(bandOf("max-sm")).toBe(0);
+    expect(find('<button className="max-sm:min-h-8">Compact</button>')).toEqual(["src/example.tsx:1"]);
+  });
+
+  it("does not resolve a tie inside one band by class order (Gate 2)", () => {
+    const find = (source: string) => findInteractiveTapFloorDeclarationsInSource("src/example.tsx", source);
+
+    // Measured against Tailwind 4.3.3 by compiling the real stylesheet: for
+    // `sm:min-h-9` + `phone:min-h-12` the emitted order is the `phone` block then
+    // the `sm` block REGARDLESS of the order the classes appear in, so `sm`'s
+    // 36px wins and the control is sub-floor above 640px. Class order therefore
+    // cannot decide a tie, and the emission order that does is an undocumented
+    // implementation detail a minor upgrade may flip. Both orderings are treated
+    // as unresolved and every candidate in the band is floored.
+    expect(find('<button className="min-h-tap sm:min-h-9 phone:min-h-12">Save</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+    expect(find('<button className="min-h-tap phone:min-h-12 sm:min-h-9">Save</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+    expect(find('<button className="min-h-tap phone:min-h-9 sm:min-h-12">Save</button>')).toEqual([
+      "src/example.tsx:1",
+    ]);
+
+    // Not a ban on two declarations per element — only on two in ONE band.
+    expect(find('<button className="min-h-tap phone:min-h-12 desktop:min-h-compact-meta">Save</button>')).toEqual([]);
+
+    // Because aliases share a band, the inertness excuse now spans them: a
+    // `sm:pointer-events-none` header really is inert where `phone:min-h-0`
+    // shrinks it, since both are the same 640px media condition.
+    expect(find('<button className="min-h-tap sm:pointer-events-none sm:min-h-0">Header</button>')).toEqual([]);
+    expect(find('<button className="min-h-tap sm:pointer-events-none phone:min-h-0">Header</button>')).toEqual([]);
+
+    // But the excuse is read as conservatively as the floor: a band carrying
+    // both `pointer-events-none` and `pointer-events-auto` is not unambiguously
+    // inert, so the floor stays in force there.
+    expect(
+      find('<button className="min-h-tap sm:pointer-events-none phone:pointer-events-auto phone:min-h-0">H</button>'),
+    ).toEqual(["src/example.tsx:1"]);
   });
 
   it("does not let the cheap prefilter hide a min-h-px control (Gate 2)", () => {

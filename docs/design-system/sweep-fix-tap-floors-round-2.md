@@ -65,6 +65,9 @@ The owner subsequently asked for it to be closed with the one-token remedy propo
 
 ## 2. `answer-content.tsx:517` — fixed
 
+> **SUPERSEDED by §10.** This change broke a committed browser contract and has been reverted.
+> The 28px control is recorded debt again, and the count is 3, not 2.
+
 `src/components/clinical-dashboard/answer-content.tsx`, the source-only disclosure header. It was
 `min-h-7` (28px) with no hit expansion — genuinely 20px under the floor.
 
@@ -300,3 +303,298 @@ via var -> []
 So `sub-floor interactive min-heights 2` counts the two "+N more" buttons only, and understates the
 real number in this file. Left alone deliberately: resolving local class variables would change
 findings across the repo and needs its own baseline pass.
+
+## 10. CORRECTION: `answer-content.tsx` is reverted — two committed contracts collide there
+
+**§2 above is superseded.** The `min-h-7` → `min-h-compact-meta` change it reports as fixed broke a
+committed browser contract and reached CI. It has been reverted, and `interactiveTapFloorDeclarations`
+is back to **3**. That is the correct outcome, not a regression: the debt is visible and recorded
+again rather than traded away for a broken safety contract.
+
+### What broke
+
+`tests/ui-smoke.spec.ts:3232`, test `source-only answer keeps support rows honest`:
+
+```
+expect(disclosureBox!.height).toBeLessThanOrEqual(30)
+Expected: <= 30
+Received:    42
+```
+
+The 30 → 42 growth is exactly what §6 of this report predicted and reported. §6 ran Vitest and
+eslint and explicitly did not run the browser gate, so the one contract the change actually broke
+was the one never exercised. The lesson is not "the threshold is too tight" — it is that a geometry
+change on a rendered surface is only proven by rendering it.
+
+### Why the threshold must not move
+
+The test runs at a **390px phone viewport** against the **source-only answer** — the degraded state
+shown when generated clinical numbers could not be matched to their cited sources. Its comment
+records a deliberate decision: source-only owns the one on-screen warning, and the governed compact
+wording is folded into this disclosure instead of repeating above the prose. The `<= 30` sits
+between two `>= 7` gap assertions; together they pin that safety warning as a single compact line
+that cannot dominate the answer.
+
+So two committed contracts meet on one control and cannot both hold:
+
+| Contract            | Wants                                                                                                                 | Source                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Tap floor           | the toggle ≥ 40px (`min-h-compact-meta`, the owner's compact-role floor; "disclosure" is a TOKENS.md §2 compact role) | `interactiveTapFloorDeclarations`                         |
+| Source-only density | the disclosure section ≤ 30px tall at 390px                                                                           | `ui-smoke` "source-only answer keeps support rows honest" |
+
+Raising a CI threshold to clear a density contract on a clinical safety surface is not a CI fix.
+Which contract yields is a design decision, and it belongs to the owner.
+
+### Measured, in Chromium, at the 390px test viewport
+
+Probed live rather than reasoned about. The harness was a temporary test that has been deleted; the
+file is byte-identical to `HEAD` (`git hash-object tests/ui-smoke.spec.ts` =
+`a2cfe3c539133614196f593e74e167a18567b9ad`, `git diff --stat` empty). Its measurements:
+
+```
+TAPFLOOR_PROBE {
+  "before":           {"sectionH":30,"buttonH":28,"up":1,"down":0,"hitHeight":29,"overflow":"hidden"},
+  "withPseudo":       {"sectionH":30,"buttonH":28,"up":1,"down":0,"hitHeight":29},
+  "withPseudoNoClip": {"sectionH":30,"buttonH":28,"up":7,"down":5,"hitHeight":40}
+}
+```
+
+`up`/`down` are how many pixels above and below the button's border box still return the button from
+`document.elementFromPoint` — real hit reach, not painted area.
+
+**Answer to (2) — yes, it is sub-floor on a phone specifically.** At 390px the toggle is **28px**
+tall with a **29px** hit height (the extra pixel is the section's own border). That is 20px under the
+48px production tap floor and 12px under the 40px compact-meta floor, on the exact viewport the test
+pins.
+
+**Answer to (1) — the `::before` route is still dead as the markup stands, but something _could_
+work, and it is the owner's call, so I stopped.**
+
+- `withPseudo` adds the DocumentTagCloud `::before` idiom with the markup unchanged. Hit height stays
+  **29px — zero expansion.** The section carries `overflow-hidden`, and overflow clipping removes the
+  expanded region from hit testing as well as from paint. The previous round's finding holds, now
+  measured on this exact element rather than inferred.
+- `withPseudoNoClip` is the same `::before` with the section's clip removed. Section height stays
+  **30px** while hit height reaches **40px**. So the two contracts are not geometrically impossible —
+  they are only impossible while the section clips.
+
+That remedy is not a token swap, and I did not implement it:
+
+1. `overflow-hidden` is load-bearing. It clips the button's hover fill and the expanded detail block
+   to the pill radius across the `transition-[border-radius]` between `rounded-full` and
+   `rounded-lg`. Removing it needs the radius moved onto the children and visual proof in both
+   states, on a clinical safety surface.
+2. It reaches **40px, not 48px**. The measured expansion is bounded by the neighbours: `up` 7 and
+   `down` 5 are the gaps to the prose above and the source rail below, which the same test pins at
+   `>= 7`. Reaching 48px needs ~10px per side, which would steal taps from the prose and the rail —
+   the identical neighbour-theft defect §8 measured and rejected for the tag chips.
+
+So the honest statement is: **no change confined to this control's classes can satisfy both
+contracts. One structural change can, at the cost of the pill clipping, and it only reaches the
+compact-meta floor.** The choice is between (a) keeping 28px as recorded debt, (b) restructuring the
+clip to buy a 40px hit area, or (c) relaxing the 30px density pin. All three are owner decisions.
+
+The reasoning is written into `answer-content.tsx` beside the class, ending "Do NOT raise the test
+threshold", so the next session meets it before it meets the gate.
+
+### Baseline
+
+`scripts/design-system-contract-baseline.json`: `interactiveTapFloorDeclarations` 2 → **3**, with
+`src/components/clinical-dashboard/answer-content.tsx: 1` pinned per-path.
+
+## 11. Round 3: the gate measured five of this repository's ten breakpoints
+
+### The defect
+
+`MIN_WIDTH_BREAKPOINT_BANDS` was the literal `["sm", "md", "lg", "xl", "2xl"]`. Any other variant
+made `minHeightBandIndex` return `null`, and the caller then `continue`d — so the declaration was not
+merely mis-banded, it was **skipped entirely**. This repository declares five breakpoints of its own
+in `src/app/globals.css`, so all five were unmeasured. Measured before the fix:
+
+```
+sm                       ["src/x.tsx:1"]
+md                       ["src/x.tsx:1"]
+lg                       ["src/x.tsx:1"]
+xl                       ["src/x.tsx:1"]
+2xl                      ["src/x.tsx:1"]
+phone                    []
+tablet                   []
+desktop                  []
+filter-label-collapse    []
+filter-label-restore     []
+```
+
+`min-h-tap phone:min-h-9` — a genuine 36px tap target on every viewport above 640px — passed the gate.
+That is the fourth blind spot found in this one checker, and it was in a fix that had just shipped.
+
+### Derived, not restated
+
+The list is now **read from the two `@theme` layers that actually generate the variants**: Tailwind's
+own `node_modules/tailwindcss/theme.css` (`sm`..`2xl`) and `src/app/globals.css` (the five repo names,
+which may also redefine an inherited one). Parsing is postcss, restricted to `@theme` at-rules — the
+`:root`-scoped `--bp-*` aliases in `ckb-v2-tokens.css` are plain custom properties and generate no
+variants, so a whole-file scan would have asserted the wrong set. `rem` and `px` both resolve;
+`--breakpoint-*: initial` clears the namespace and `--breakpoint-<name>: initial` clears one name;
+anything else throws rather than being skipped, because an unresolvable breakpoint is an exemption no
+test can see.
+
+A hardcoded list is what created this defect, so deriving closes the class rather than the instance:
+a sixth `--breakpoint-*` token is measured the moment it is declared. The derivation is reliable here
+— both files are on disk at gate time, postcss is already a dependency of this module, and the
+repository root is resolved from `import.meta.url` rather than `process.cwd()` so the gate cannot
+lose a layer by being invoked from a subdirectory.
+
+Resulting table:
+
+```
+0   0px      (base)
+1   414px    filter-label-collapse, min-filter-label-collapse
+2   430px    filter-label-restore, min-filter-label-restore
+3   640px    phone, min-phone, sm, min-sm
+4   768px    md, min-md, tablet, min-tablet
+5   1024px   desktop, min-desktop, lg, min-lg
+6   1280px   xl, min-xl
+7   1536px   2xl, min-2xl
+```
+
+### The band-index shift
+
+Two of the new breakpoints (414px, 430px) sit **below** `sm`, so inserting them in width order shifts
+every existing index — `sm` is band 3 now, not band 1. The old code spread the base band across two
+pieces of arithmetic that had to agree: `minHeightBandIndex` returned `index + 1`, and the loop was
+bounded `band <= MIN_WIDTH_BREAKPOINT_BANDS.length`.
+
+Rather than adjust the offsets, the base band is now **entry 0 of the table itself** —
+`{ minWidthPx: 0, variants: [] }`, with `BASE_BAND_INDEX = 0` and a constructor assertion that entry 0
+really is the unprefixed band. A band index is therefore always a plain index into the array, and the
+loop is a plain `band < bands.length`. There is no `+ 1` left to be wrong. A magic offset that happens
+to work today is how the next blind spot gets built, so the relationship is structural instead of
+incidental. `tests/design-system-contract-utils.test.ts` pins both ends: `bandOf("sm")` is 3, and a
+lone `2xl:min-h-9` is still a finding — which is only true if the loop reaches the last entry.
+
+### Aliases share a band — and a tie inside a band is NOT resolved by class order
+
+`phone`/`tablet`/`desktop` are exact aliases of `sm`/`md`/`lg` (640/768/1024px), so they emit media
+queries with identical conditions and are grouped by **width**, not by name.
+
+The existing rule was "ties inside a band go to the last declaration, as the cascade does". I set out
+to follow it and **measured that it is wrong**, by compiling the real stylesheet with the repo's own
+Tailwind 4.3.3 and reading the emitted order:
+
+```
+["sm:min-h-9","phone:min-h-12"] => @media (width >= 640px) { | .phone\:min-h-12 { | @media (width >= 40rem) { | .sm\:min-h-9 {
+["phone:min-h-12","sm:min-h-9"] => @media (width >= 640px) { | .phone\:min-h-12 { | @media (width >= 40rem) { | .sm\:min-h-9 {
+["phone:min-h-9","sm:min-h-12"] => @media (width >= 640px) { | .phone\:min-h-9 { | @media (width >= 40rem) { | .sm\:min-h-12 {
+["sm:min-h-12","phone:min-h-9"] => @media (width >= 640px) { | .phone\:min-h-9 { | @media (width >= 40rem) { | .sm\:min-h-12 {
+```
+
+The `sm` block is emitted **after** the `phone` block in all four runs — the order the classes appear
+in does not move it. So for `min-h-tap sm:min-h-9 phone:min-h-12` the real winner is `sm:min-h-9` and
+the control is **36px above 640px**, while the source-order rule read the later `phone:min-h-12` as
+the winner and passed it. Within one variant the emitted order is by value ascending, likewise
+independent of class order.
+
+Class order therefore cannot decide a tie, and the emission order that does is an undocumented
+Tailwind implementation detail a minor upgrade may flip. **A tie is treated as unresolved and every
+candidate in the band is floored.** This is strictly conservative: it catches the real defect above,
+and it also flags the mirror case whose height is only accidentally correct today. Two conflicting
+`min-h-*` declarations in one width band is the defect either way. The `pointer-events-none` inertness
+excuse is read the same way — only an unambiguously inert band is excused.
+
+### Two further spellings, found while measuring
+
+- **`min-<breakpoint>:`** is Tailwind's explicit min-width form and this repo ships it
+  (`min-filter-label-collapse:` in `result-filter-control.tsx`). Registered alongside the bare name,
+  so the hole is not one rename away.
+- **`max-<breakpoint>:`** is a max-width variant — not a min-width band, and this table cannot order
+  it. It was being **dropped**, which is the same defect as `phone:`, and the repository has seven
+  live `max-sm:min-h-*` declarations. Every max-width variant covers width 0 up to its breakpoint, so
+  it always applies at the narrowest viewports — the base band, and exactly where a tap floor matters.
+  It is folded there: conservative in the one safe direction, unable to miss a control that is short
+  on a phone. It deliberately does not model the band above the breakpoint, where the variant stops
+  applying; a finding is raised once either way. **A fuller max-width model is not attempted here** —
+  ordering a max-width rule against an overlapping min-width one needs its own measurement, and
+  guessing it would be the fifth blind spot rather than the close of the fourth.
+
+### After
+
+```
+== every declared min-width variant, `min-h-tap <V>:min-h-9` ==
+sm                       ["src/x.tsx:1"]
+md                       ["src/x.tsx:1"]
+lg                       ["src/x.tsx:1"]
+xl                       ["src/x.tsx:1"]
+2xl                      ["src/x.tsx:1"]
+phone                    ["src/x.tsx:1"]
+tablet                   ["src/x.tsx:1"]
+desktop                  ["src/x.tsx:1"]
+filter-label-collapse    ["src/x.tsx:1"]
+filter-label-restore     ["src/x.tsx:1"]
+
+== alias cascade ==
+<button className="min-h-tap sm:min-h-9 phone:min-h-12">Save</button>                 ["src/x.tsx:1"]
+<button className="min-h-tap phone:min-h-12 sm:min-h-9">Save</button>                 ["src/x.tsx:1"]
+<button className="min-h-tap phone:min-h-9 sm:min-h-12">Save</button>                 ["src/x.tsx:1"]
+<button className="min-h-tap phone:min-h-12 desktop:min-h-compact-meta">Save</button> []
+<button className="min-h-tap phone:min-h-compact-meta">Save</button>                  []
+<button className="max-sm:min-h-8">Compact</button>                                   ["src/x.tsx:1"]
+<div className="min-h-tap phone:min-h-9">Panel</div>                                  []
+```
+
+The last two lines matter as much as the first ten: the sanctioned compact-meta step-down still
+passes under the repo names, and a short height on a non-interactive element is still layout.
+
+### Production count: unchanged at 3
+
+```
+Design-system contract passed (1079 production files; raw colors 0; literal shadows 0; legacy tap
+classes 0; sub-floor interactive min-heights 3; edge conflicts 5; 1px shadow spreads 0).
+```
+
+No newly-visible controls. The 3 are the two DocumentTagCloud "+N more" buttons and the reverted
+`answer-content.tsx` disclosure from §10 — none of them from the newly-modelled variants. Verified
+independently rather than assumed: the five repo breakpoint names appear exactly **once** in `src/`
+(`result-filter-control.tsx:261`, an `sr-only` label rule), and the only prefixed `min-h` below the
+floor at a modelled variant is `xl:min-h-7` twice in
+`differential-presentation-workflow-page.tsx:304,319` — both on a `<span>` and a component wrapper,
+correctly not tap targets. So the gate closes a hole that is currently unexploited, which is the
+cheapest possible moment to close it.
+
+## 12. Round 3 mutation tests
+
+Each rule was mutated with the failure message predicted **before** running. Every mutation was
+restored and the restoration proven by blob hash.
+
+| #   | Mutation                                                                                            | Predicted                                                                             | Observed                                                                                                                                                                                         | Match                                   |
+| --- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| M1  | Drop the `globals.css` `@theme` layer from the derivation (regress to Tailwind defaults only)       | 3 fail: band table 6 vs 8; `phone` no longer a finding; `bandOf("phone")` undefined   | 4 fail — `expected [ …(6) ] to deeply equal [ …(8) ]`; `expected { variant: 'phone', findings: [] } to deeply equal { variant: 'phone', …(1) }`; `expected undefined to be 1`; plus the tie test | superset (under-predicted the tie test) |
+| M2  | Reintroduce the `+ 1` base-band offset in `minHeightBandIndex`                                      | `2xl` pushed past the loop bound, so a lone `2xl:min-h-9` stops being a finding       | 2 fail — `expected { variant: '2xl', findings: [] } to deeply equal { variant: '2xl', …(1) }`; `expected [] to deeply equal [ 'src/example.tsx:1' ]`                                             | exact                                   |
+| M3  | Group bands by name instead of width (aliases stop sharing a band)                                  | band table 11 vs 8; `bandOf("phone") !== bandOf("sm")`; a tie ordering stops flagging | 3 fail — `expected [ …(11) ] to deeply equal [ …(8) ]`; `expected 3 to be 4`; `expected [ 'src/example.tsx:1' ] to deeply equal []`                                                              | exact                                   |
+| M4  | Restore "last declaration wins" for a tie                                                           | exactly 1 fail: the tie test, `[]` where a finding is required                        | 1 fail — `expected [] to deeply equal [ 'src/example.tsx:1' ]`                                                                                                                                   | exact                                   |
+| M5  | Drop the `max-<breakpoint>` registration                                                            | `max-` unknown in the lookup; `bandOf("max-sm")` undefined                            | 2 fail — `expected { name: 'sm', known: false } to deeply equal { name: 'sm', known: true }`; `expected undefined to be +0`                                                                      | exact                                   |
+| M6  | Drop the `min-<breakpoint>` spelling                                                                | band variants differ; `bandOf("min-phone")` undefined                                 | 2 fail — `expected [ …(8) ] to deeply equal [ …(8) ]`; `expected undefined to be 3`                                                                                                              | exact                                   |
+| M7  | End-to-end: change one real control in `form-detail-page.tsx` from `sm:min-h-10` to `phone:min-h-9` | gate red, 3 → 4, plus the per-path line                                               | `- interactiveTapFloorDeclarations increased from 3 to 4`; `- interactiveTapFloorDeclarations at src/components/forms/form-detail-page.tsx increased from 0 to 1`                                | exact                                   |
+
+M7 is the one that matters most: round 2 learned that a rule can be correct in the helper and
+unreachable from the entry point (the prefilter silently exempted `min-h-compact-meta`, and a mutation
+deleting the compact floor passed 56/56 green). M7 proves the new bands are reachable from
+`check:design-system-contract` on a real production file, not only from a unit test.
+
+Restoration proof:
+
+```
+utils:              23509320eff3f8b87847c9132e77234e9d8ccc44  (unchanged across M1-M6; pre-format blob, prettier ran after the mutation window)
+form-detail-page:   346d35d98267437cf1b9d8b94ca01c98ae7f7d00  (restored after M7, git diff --stat empty)
+ui-smoke.spec.ts:   a2cfe3c539133614196f593e74e167a18567b9ad  (= HEAD, probe harness removed)
+```
+
+## 13. Round 3 verification
+
+| Check                                                                                                                                                        | Decisive line                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check:design-system-contract`                                                                                                                       | `Design-system contract passed (1079 production files; … sub-floor interactive min-heights 3; edge conflicts 5; 1px shadow spreads 0).` |
+| `npx vitest run` on `design-system-contract-utils.test.ts` plus the 7 other files covering `answer-content` / these helpers, discovered by grepping `tests/` | `Test Files  8 passed (8)` / `Tests  140 passed (140)`                                                                                  |
+| `npm run test:e2e -- tests/ui-smoke.spec.ts --project=chromium --grep "source-only answer keeps support rows honest"`                                        | `ok 1 [chromium] › tests\ui-smoke.spec.ts:3187:7 › … › source-only answer keeps support rows honest (3.9s)` / `2 passed (9.2s)`         |
+
+The browser gate is the one round 2 skipped, and it is the one that caught the regression. It was run
+on the reverted tree; nothing under `src/` changed after that run.

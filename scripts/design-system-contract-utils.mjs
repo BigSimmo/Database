@@ -1,5 +1,7 @@
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import ts from "@typescript/typescript6";
 import postcss from "postcss";
@@ -391,8 +393,156 @@ const COMPACT_META_PX = 40;
  * 36px (`--row-compact`) is banned outright.
  */
 const RESPONSIVE_STEP_DOWN_FLOOR_PX = COMPACT_META_PX;
-/** Tailwind min-width breakpoints, base first. Index doubles as the band order. */
-const MIN_WIDTH_BREAKPOINT_BANDS = ["sm", "md", "lg", "xl", "2xl"];
+/**
+ * The repository root, resolved from this module rather than `process.cwd()`,
+ * because the band table below is read at gate time from two stylesheets and a
+ * gate that silently loses a breakpoint when invoked from a subdirectory is the
+ * same class of defect this table exists to close.
+ */
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * The two `@theme` layers that between them declare every `--breakpoint-*` token
+ * Tailwind turns into a min-width variant. Order is cascade order: Tailwind's
+ * `@theme default` block first, then the repository's, which may add names or
+ * redefine an inherited one.
+ *
+ * Both are READ, not restated. A hardcoded band list is what produced this
+ * checker's fourth blind spot: `MIN_WIDTH_BREAKPOINT_BANDS = ["sm","md","lg","xl","2xl"]`
+ * silently dropped `phone`, `tablet`, `desktop`, `filter-label-collapse` and
+ * `filter-label-restore`, so `min-h-tap phone:min-h-9` — a 36px tap target above
+ * 640px — scanned clean. Deriving the table closes the class rather than the
+ * instance: a sixth `--breakpoint-*` token is measured the moment it is declared.
+ */
+const BREAKPOINT_THEME_SOURCES = [
+  { origin: "tailwindcss/theme.css", resolve: () => createRequire(import.meta.url).resolve("tailwindcss/theme.css") },
+  { origin: "src/app/globals.css", resolve: () => path.join(REPO_ROOT, "src", "app", "globals.css") },
+];
+
+/** `1rem` in the app's root font size, for `--breakpoint-*: 40rem` style declarations. */
+const ROOT_FONT_SIZE_PX = 16;
+
+/**
+ * Every `--breakpoint-<name>` declared inside an `@theme` block of one stylesheet,
+ * resolved to pixels. Throws rather than skipping an unresolvable value: an
+ * unmeasured breakpoint is an exemption no test can see, which is exactly how the
+ * five repo tokens went unenforced.
+ */
+function themeBreakpointPixels(cssText, origin) {
+  const declared = new Map();
+  postcss.parse(cssText, { from: undefined }).walkAtRules(/^theme$/, (atRule) => {
+    atRule.walkDecls(/^--breakpoint-/, (declaration) => {
+      const name = declaration.prop.slice("--breakpoint-".length);
+      const value = declaration.value.trim();
+      // Tailwind's own reset idioms: `--breakpoint-*: initial` clears the whole
+      // namespace, `--breakpoint-<name>: initial` clears one name.
+      if (value === "initial") {
+        if (name === "*") declared.clear();
+        else declared.delete(name);
+        return;
+      }
+      const match = value.match(/^(\d+(?:\.\d+)?)(px|rem)$/);
+      if (!match) {
+        throw new Error(`${origin} declares --breakpoint-${name}: ${value}, which this gate cannot resolve to pixels`);
+      }
+      declared.set(name, match[2] === "rem" ? Number(match[1]) * ROOT_FONT_SIZE_PX : Number(match[1]));
+    });
+  });
+  return declared;
+}
+
+/**
+ * Every min-width band this repository actually generates, narrowest first.
+ *
+ * **The base band is entry 0 of this array, not an offset applied at the call
+ * site.** The previous shape returned `index + 1` from the variant lookup and
+ * bounded its loop with `<= bands.length`, so the base band lived only in two
+ * matching pieces of arithmetic. Adding a breakpoint BELOW `sm` — this repo has
+ * two, at 414px and 430px — shifts every index, and a `+ 1` that happens to work
+ * today is how the next blind spot gets built. Making the base band a real entry
+ * makes the relationship structural: a band index is always a plain index into
+ * this array, and the loop is a plain `< length`.
+ *
+ * **Equal-width names share one band.** `phone`/`tablet`/`desktop` are exact
+ * aliases of `sm`/`md`/`lg` (640/768/1024px), so they generate media queries with
+ * identical conditions and must resolve to the same band — otherwise
+ * `min-h-tap sm:min-h-9 phone:min-h-12` would read as two independent bands and
+ * the 36px one would be treated as superseded when it is not.
+ */
+/** The unprefixed band. Index into `minWidthBands()`, not an offset. */
+const BASE_BAND_INDEX = 0;
+
+function buildMinWidthBands() {
+  const widths = new Map();
+  for (const { origin, resolve } of BREAKPOINT_THEME_SOURCES) {
+    const file = resolve();
+    for (const [name, pixels] of themeBreakpointPixels(fs.readFileSync(file, "utf8"), origin)) {
+      widths.set(name, pixels);
+    }
+  }
+  if (widths.size === 0) {
+    throw new Error("no --breakpoint-* tokens found in either @theme layer; the tap-floor band table would be empty");
+  }
+  const byWidth = new Map();
+  for (const [name, pixels] of [...widths].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))) {
+    if (!byWidth.has(pixels)) byWidth.set(pixels, []);
+    byWidth.get(pixels).push(name);
+  }
+  const bands = [
+    { minWidthPx: 0, variants: [] },
+    ...[...byWidth.entries()]
+      .sort((a, b) => a[0] - b[0])
+      // Tailwind 4 generates two spellings of the same min-width variant for
+      // every breakpoint: the bare `sm:` and the explicit `min-sm:`. This repo
+      // ships the explicit form (`min-filter-label-collapse:` in
+      // `result-filter-control.tsx`), so registering only the bare one would
+      // leave the same hole one rename away.
+      .map(([minWidthPx, variants]) => ({ minWidthPx, variants: variants.flatMap((name) => [name, `min-${name}`]) })),
+  ];
+  if (bands[BASE_BAND_INDEX].minWidthPx !== 0 || bands[BASE_BAND_INDEX].variants.length !== 0) {
+    throw new Error("band 0 must be the unprefixed base band");
+  }
+  return bands;
+}
+
+let minWidthBandsCache = null;
+let minWidthBandIndexByVariantCache = null;
+
+/**
+ * The ordered band table, read once per process. Exported so a test can pin it
+ * against an independent re-read of both `@theme` layers — without that, "these
+ * are the breakpoints" is a claim this file makes about itself.
+ */
+export function minWidthBands() {
+  minWidthBandsCache ??= buildMinWidthBands();
+  return minWidthBandsCache;
+}
+
+/**
+ * Variant name to band index. Aliases and the `min-` spelling map onto the same
+ * index; every `max-<breakpoint>:` variant maps onto the base band.
+ *
+ * **Why `max-*` folds into the base band rather than being dropped.** A
+ * max-width variant is not a min-width band and this table cannot order it, but
+ * dropping it is what the old code did to `phone:` and it is the same defect:
+ * `max-sm:min-h-8` on a `<button>` was skipped outright, and this repo has seven
+ * live `max-sm:min-h-*` declarations. Every max-width variant covers width 0 up
+ * to its breakpoint, so it always applies at the narrowest viewports — which is
+ * the base band, and precisely where a tap floor matters. Folding it there is
+ * conservative in the one direction that is safe: it can report a control whose
+ * short height is confined to narrow viewports, and it cannot miss one. It
+ * deliberately does NOT model the band above the breakpoint, where the variant
+ * stops applying; a finding raised at the base band is raised once either way.
+ */
+export function minWidthBandIndexByVariant() {
+  minWidthBandIndexByVariantCache ??= new Map([
+    ...minWidthBands().flatMap((band, index) => band.variants.map((variant) => [variant, index])),
+    ...minWidthBands().flatMap((band) =>
+      band.variants.map((variant) => [`max-${variant.replace(/^min-/, "")}`, BASE_BAND_INDEX]),
+    ),
+  ]);
+  return minWidthBandIndexByVariantCache;
+}
 
 /**
  * Split a utility into its variant prefixes and the utility itself, on `:` at
@@ -418,31 +568,49 @@ function splitVariantPrefixes(token) {
 
 /**
  * The band a `min-h-*` token establishes, or `null` when it establishes none.
- * `0` is the base band; `1..5` are `sm`..`2xl`. A token with any non-breakpoint
- * variant returns `null` — it is conditional on state, not on viewport width.
+ * The value is a plain index into `minWidthBands()`, `BASE_BAND_INDEX` for an
+ * unprefixed token. A token with any non-breakpoint variant returns `null` — it
+ * is conditional on state (`hover:`, `dark:`, `motion-reduce:`), not on viewport
+ * width, so no band-ordered floor can be reasoned about from it.
  */
 function minHeightBandIndex(variants) {
-  if (variants.length === 0) return 0;
+  if (variants.length === 0) return BASE_BAND_INDEX;
   if (variants.length > 1) return null;
-  const band = MIN_WIDTH_BREAKPOINT_BANDS.indexOf(variants[0]);
-  return band === -1 ? null : band + 1;
+  return minWidthBandIndexByVariant().get(variants[0]) ?? null;
 }
 
 /**
- * The declaration winning at `band` is the one made at the highest band at or
- * below it; ties inside a band go to the last declaration, as the cascade does.
- * Returns the whole declaration, not just its value, because the floor that
- * applies depends on *which* token won — see `compactRole` below.
+ * Every declaration that could win at `band`: those made at the highest band at
+ * or below it. Returns whole declarations, not just values, because the floor
+ * that applies depends on *which* token won — see `compactRole` below.
+ *
+ * **More than one is returned only on a genuine tie, and a tie is not resolved
+ * by source order.** The old rule was "ties inside a band go to the last
+ * declaration, as the cascade does". Compiling the real stylesheet with
+ * Tailwind 4.3.3 falsified it in both directions: for
+ * `min-h-tap sm:min-h-9 phone:min-h-12` the emitted order is the `phone` block
+ * then the `sm` block **whatever order the classes appear in**, so `sm:min-h-9`
+ * wins and the control is 36px above 640px — while the source-order rule read
+ * the later `phone:min-h-12` as the winner and passed it. Within one variant the
+ * emitted order is by value ascending, likewise independent of class order.
+ * Class order therefore cannot decide a tie, and the emission order that does is
+ * an undocumented Tailwind implementation detail that a minor upgrade may flip.
+ *
+ * So a tie is treated as unresolved and every candidate is floored. That is
+ * strictly conservative: it flags the real defect above, and it also flags the
+ * mirror case whose height is merely *accidentally* correct today. Two
+ * conflicting `min-h-*` declarations in one width band is the defect either way.
  */
-function effectiveAtBand(declarations, band) {
-  let winner = null;
+function effectiveDeclarationsAtBand(declarations, band) {
+  let winners = [];
   let winningBand = -1;
   for (const declaration of declarations) {
     if (declaration.band > band || declaration.band < winningBand) continue;
-    winner = declaration;
+    if (declaration.band > winningBand) winners = [];
+    winners.push(declaration);
     winningBand = declaration.band;
   }
-  return winner;
+  return winners;
 }
 
 function hasSubFloorEffectiveMinHeight(classText) {
@@ -465,16 +633,21 @@ function hasSubFloorEffectiveMinHeight(classText) {
   }
   if (minHeights.length === 0) return false;
 
-  for (let band = 0; band <= MIN_WIDTH_BREAKPOINT_BANDS.length; band += 1) {
-    const effective = effectiveAtBand(minHeights, band);
-    if (effective === null) continue;
+  const bands = minWidthBands();
+  for (let band = BASE_BAND_INDEX; band < bands.length; band += 1) {
+    const effective = effectiveDeclarationsAtBand(minHeights, band);
+    if (effective.length === 0) continue;
     // A band that turns the element inert has no tap target to floor. This is
     // the deliberate phone-only-disclosure shape — `sm:pointer-events-none
     // sm:min-h-0` on a header that becomes static copy once the panel is always
     // open — and padding it back to 48px would restore a dead 48px block on
     // desktop. Narrow on purpose: it needs `pointer-events-none` winning in the
     // SAME band, so an interactive band is never excused by a neighbour's.
-    if (effectiveAtBand(pointerEvents, band)?.value === true) continue;
+    // The inertness excuse is read the same conservative way: only an
+    // unambiguously inert band is excused, so a tie between
+    // `pointer-events-none` and `pointer-events-auto` leaves the floor in force.
+    const inert = effectiveDeclarationsAtBand(pointerEvents, band);
+    if (inert.length > 0 && inert.every((declaration) => declaration.value === true)) continue;
     // Which floor applies depends on which token won the band. `min-h-compact-meta`
     // IS the named compact role — TOKENS.md §2 lists metadata, disclosure, filter
     // chips, table micro-actions and catalogue chips, and the service owner ruled
@@ -483,8 +656,14 @@ function hasSubFloorEffectiveMinHeight(classText) {
     // the base one. The *number* does not inherit that licence: a raw
     // `min-h-10` / `min-h-[2.5rem]` at base band still fails, because the ruling
     // attaches to the documented role marker, not to the value 40.
-    const floor = effective.compactRole ? COMPACT_META_PX : band === 0 ? TAP_FLOOR_PX : RESPONSIVE_STEP_DOWN_FLOOR_PX;
-    if (effective.value < floor) return true;
+    for (const declaration of effective) {
+      const floor = declaration.compactRole
+        ? COMPACT_META_PX
+        : band === BASE_BAND_INDEX
+          ? TAP_FLOOR_PX
+          : RESPONSIVE_STEP_DOWN_FLOOR_PX;
+      if (declaration.value < floor) return true;
+    }
   }
   return false;
 }
