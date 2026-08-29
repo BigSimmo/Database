@@ -385,6 +385,15 @@ row is untouched by definition.
 > **A triage bar is also added**, carrying the home page's six capacity figures scoped to this ward,
 > from the same exported labels so the board cannot drift from the home page's vocabulary.
 >
+> **And it TOGGLES — a control, not just a row of numbers.** The owner's words were "daily discharges
+> and toggles to daily expects", which names a control specifically. Six figures shown at once and a
+> control that switches between views are different interactions, and recording only the figures
+> would have quietly dropped half of what he asked for. Caught by the ledger session reading the
+> marking against his wording; the requirement appears in his FIRST message and not his second, which
+> is exactly how a stated requirement gets refined away by a later message answering a different
+> question. **If the six figures ever make the toggle unnecessary, say so here in a line — do not
+> leave the difference silent.**
+>
 > **No decision number yet, deliberately.** Decision identity belongs to the ledger session and it
 > has not seen the owner state this; numbering it here is how a register acquires an entry nobody
 > made. The owner's wording above is what it will be numbered from.
