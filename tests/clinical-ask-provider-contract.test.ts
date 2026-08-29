@@ -18,7 +18,9 @@ describe("Clinical Ask provider placement", () => {
 
   it("forwards Clinical Ask follow-ups into the dashboard-owned composer draft", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toContain("<ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />");
+    expect(dashboard).toMatch(
+      /<ClinicalAskWorkspace[\s\S]*?onDraftChange=\{stageAnswerFollowUpDraft\}[\s\S]*?onRun=\{runModeClinicalAsk\}/,
+    );
     expect(dashboard).toMatch(
       /function stageAnswerFollowUpDraft\(draft: string\) \{\s*setQuery\(draft\);\s*focusComposerInput\(\);/,
     );

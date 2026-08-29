@@ -70,6 +70,7 @@ export type ClinicalAskHandoff = {
 export type ClinicalAskPublicErrorCode =
   | "invalid_request"
   | "identifiable_input_blocked"
+  | "mode_unavailable"
   | "unauthorized"
   | "rate_limited"
   | "retrieval_unavailable"

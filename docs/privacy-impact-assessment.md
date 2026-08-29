@@ -487,15 +487,17 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 
 ### Mode-aware Clinical Ask privacy boundary
 
-Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it adds typed/dictated
-questions, editable transcripts, non-identifying Case Context, clarification answers,
-request-scoped external authority extracts, and cited answers. Draft, transcript, context, clarification, and response
-remain ephemeral and tab-scoped; audio is disposed after transcription, cancellation, clear, account change, or
-unmount. Identifier-shape detection is a blocking warning aid, not de-identification and not a guarantee that clinical
-text contains no personal information.
+Clinical Ask remains dormant by default. When the server enables a governed mode, the shared composer can route a
+clearly question-like typed input into Smart Clinical Ask. The current user interface has no microphone or dictation
+control. Typed questions, non-identifying Case Context, clarification answers, request-scoped external authority
+extracts, and cited answers remain ephemeral and tab-scoped. Identifier-shape detection is a blocking warning aid, not
+de-identification and not a guarantee that clinical text contains no personal information.
 
 Raw Clinical Ask question, transcript, Case Context, audio, answer, and external extracts are excluded from URLs,
 history, browser storage, logs, content-free telemetry, structured feedback, public errors, and default copy output.
+Offline and mode-unavailable outcomes retain the question only in tab memory; no automatic ordinary-search fallback
+may place it in recents or navigation state. Retry is manual, and returning to search clears the question before
+focusing the ordinary composer.
 External authority access remains server-only, allowlisted, redirect-checked, attributable, metered, and discarded
 after the request; citations and retrieval dates remain visible. These application controls do not prove provider zero
 retention, approved cross-border/region terms, hosted migration state, authority approval, clinical evaluation,

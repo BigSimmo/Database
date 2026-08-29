@@ -90,7 +90,7 @@ function streamHeaders(serverTiming?: string | null) {
 }
 
 function errorStream(
-  code: "identifiable_input_blocked" | "internal_error",
+  code: "identifiable_input_blocked" | "mode_unavailable" | "internal_error",
   message: string,
   serverTiming?: string | null,
 ) {
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
     }
     const serverTiming = buildServerTimingHeader(preambleServerTimingEntries({ authMs, rateLimitMs }));
     if (!clinicalAskModeEnabled(body.mode)) {
-      return errorStream("internal_error", "Clinical Ask is not available for this mode.", serverTiming);
+      return errorStream("mode_unavailable", "Smart answers are not available for this mode.", serverTiming);
     }
     if (containsIdentifier(body)) {
       return errorStream(

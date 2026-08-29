@@ -11,6 +11,8 @@ import {
   useClinicalAskSession,
 } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
+import { useClinicalAskDashboardChrome } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import type { AppModeId } from "@/lib/app-modes";
 import type { ClinicalAskFinalPayload } from "@/lib/clinical-ask/contracts";
 
 type PendingRun = {
@@ -18,11 +20,11 @@ type PendingRun = {
   resolve(payload: ClinicalAskFinalPayload): void;
 };
 
-function RunnerHarness({ query }: { query: string }) {
+function RunnerHarness({ query, online = true }: { query: string; online?: boolean }) {
   const session = useClinicalAskSession();
   const run = useClinicalAskRunner({
     clinicalAskMode: "services",
-    clinicalAskOnline: true,
+    clinicalAskOnline: online,
     clinicalAskSession: session,
     query,
   });
@@ -32,8 +34,34 @@ function RunnerHarness({ query }: { query: string }) {
         Run
       </button>
       <output data-testid="runner-state">
-        {JSON.stringify({ submitted: session.submitted, response: session.response })}
+        {JSON.stringify({
+          draft: session.draft,
+          submittedQuestion: session.submittedQuestion,
+          submitted: session.submitted,
+          response: session.response,
+        })}
       </output>
+    </>
+  );
+}
+
+function ModeResetHarness({ mode }: { mode: AppModeId }) {
+  const { clinicalAskMode, clinicalAskSession } = useClinicalAskDashboardChrome({
+    accountId: "account-a",
+    searchMode: mode,
+    query: "Synthetic question",
+    clinicalAskAvailableModeIds: ["services", "forms"],
+  });
+  return (
+    <>
+      <button
+        type="button"
+        disabled={!clinicalAskMode}
+        onClick={() => clinicalAskMode && clinicalAskSession.setDraft("Synthetic question", clinicalAskMode)}
+      >
+        Seed mode
+      </button>
+      <output data-testid="mode-state">{JSON.stringify({ mode: clinicalAskSession.mode })}</output>
     </>
   );
 }
@@ -100,5 +128,72 @@ describe("useClinicalAskRunner", () => {
     });
     await waitFor(() => expect(screen.getByTestId("runner-state")).toHaveTextContent('"submitted":false'));
     expect(screen.getByTestId("runner-state")).toHaveTextContent('"code":"provider_unavailable"');
+  });
+
+  it("keeps an offline question in tab memory without calling the stream", () => {
+    render(
+      <ClinicalAskSessionProvider>
+        <RunnerHarness query="Which service is appropriate after discharge?" online={false} />
+      </ClinicalAskSessionProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    expect(streamClinicalAsk).not.toHaveBeenCalled();
+    expect(screen.getByTestId("runner-state")).toHaveTextContent(
+      '"submittedQuestion":"Which service is appropriate after discharge?"',
+    );
+    expect(screen.getByTestId("runner-state")).toHaveTextContent('"code":"provider_unavailable"');
+    expect(screen.getByTestId("runner-state")).toHaveTextContent('"retryable":true');
+  });
+
+  it("retains mode-unavailable failures instead of falling back to ordinary search", async () => {
+    streamClinicalAsk.mockImplementation(async (_request, _signal, onEvent) => {
+      onEvent({
+        type: "error",
+        code: "mode_unavailable",
+        retryable: false,
+        message: "Smart answers are not available for this mode.",
+      });
+      return {
+        response: {
+          state: "failed",
+          mode: "services",
+          code: "mode_unavailable",
+          retryable: false,
+          message: "Smart answers are not available for this mode.",
+        },
+        feedback: null,
+      };
+    });
+    render(
+      <ClinicalAskSessionProvider>
+        <RunnerHarness query="Which service is appropriate after discharge?" />
+      </ClinicalAskSessionProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+
+    await waitFor(() => expect(screen.getByTestId("runner-state")).toHaveTextContent('"mode_unavailable"'));
+    expect(screen.getByTestId("runner-state")).toHaveTextContent(
+      '"submittedQuestion":"Which service is appropriate after discharge?"',
+    );
+  });
+
+  it("clears tab-scoped Clinical Ask state when the active mode changes", async () => {
+    const view = render(
+      <ClinicalAskSessionProvider>
+        <ModeResetHarness mode="services" />
+      </ClinicalAskSessionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Seed mode" }));
+    expect(screen.getByTestId("mode-state")).toHaveTextContent('"mode":"services"');
+
+    view.rerender(
+      <ClinicalAskSessionProvider>
+        <ModeResetHarness mode="forms" />
+      </ClinicalAskSessionProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("mode-state")).toHaveTextContent('"mode":null'));
   });
 });

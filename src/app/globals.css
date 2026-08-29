@@ -5155,6 +5155,34 @@ html.theme-transitioning *:after {
   border-block-end: 1px solid var(--border);
   padding-block: var(--spacing-icon-xs);
 }
+.clinical-ask-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-icon-xs);
+  margin-block-start: var(--spacing-icon-xs);
+}
+.clinical-ask-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.smart-search-intent-cue {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--radius-sm);
+  border: 1px solid var(--clinical-accent-border);
+  border-radius: var(--radius-pill);
+  padding: var(--radius-xs) var(--spacing-icon-xs);
+  background: var(--clinical-accent-soft);
+  color: var(--clinical-accent);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+@media (max-width: 639px) {
+  .smart-search-intent-cue {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .clinical-ask-workspace * {
     scroll-behavior: auto !important;

@@ -208,6 +208,7 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import {
   privateScopeReadyForRoute,
   readSearchNavigationContext,
@@ -297,6 +298,7 @@ function ClinicalDashboardContent({
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
+  clinicalAskAvailableModeIds = [],
 }: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -571,10 +573,11 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
+    clinicalAskAvailableModeIds,
   });
   const {
     status: authStatus,
@@ -2195,6 +2198,11 @@ function ClinicalDashboardContent({
       run: true,
       ...navigationContext,
     });
+    if (clinicalAskMode && resolveSmartSearchSubmissionIntent(clinicalAskMode, trimmedQuery) === "clinical-ask") {
+      setModeSearchSubmitted(true);
+      runModeClinicalAsk(trimmedQuery);
+      return;
+    }
     if (trimmedQuery && !isDashboardModeHref(modeDestination)) {
       rememberRecentQuery(trimmedQuery);
       router.push(modeDestination);
@@ -2681,6 +2689,14 @@ function ClinicalDashboardContent({
   function stageAnswerFollowUpDraft(draft: string) {
     setQuery(draft);
     focusComposerInput();
+  }
+
+  function returnClinicalAskToSearch() {
+    clinicalAskSession.clear();
+    setQuery("");
+    setModeSearchSubmitted(false);
+    router.replace(appModeSelectionHref(searchMode, { queryMode, scopeFilters }));
+    window.requestAnimationFrame(focusComposerInput);
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
@@ -3335,7 +3351,7 @@ function ClinicalDashboardContent({
           documentTotal={indexedDocumentTotal}
           query={query}
           searchMode={searchMode}
-          loading={loading}
+          loading={loading || (clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.submitted)}
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
@@ -3345,6 +3361,7 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskAvailable={Boolean(clinicalAskMode)}
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3674,8 +3691,13 @@ function ClinicalDashboardContent({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                <ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />
-                {showSharedHome ? (
+                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ClinicalAskWorkspace
+                    onDraftChange={stageAnswerFollowUpDraft}
+                    onRun={runModeClinicalAsk}
+                    onReturnToSearch={returnClinicalAskToSearch}
+                  />
+                ) : showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind

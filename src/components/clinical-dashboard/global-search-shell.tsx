@@ -71,7 +71,8 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
@@ -136,6 +137,7 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 const focusHydrationRetryDelayMs = 300;
 type GlobalSearchShellProps = {
   children: ReactNode;
+  clinicalAskAvailableModeIds?: readonly ClinicalAskModeId[];
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
@@ -269,6 +271,7 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           // nothing submitted. Keystroke drafts must not auto-run there — same
           // contract as bare `/` — or every composer edit fires `/api/search`.
           autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
+          clinicalAskAvailableModeIds={props.clinicalAskAvailableModeIds}
         />
       </SettingsStateProvider>
     );
@@ -459,7 +462,8 @@ function GlobalStandaloneSearchShellBody({
     isTherapyPhoneDockRoute(pathname) &&
     pathname !== "/therapy-compass/compare" &&
     readTherapyCompareSlugCount(searchParams) > 0;
-  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const clinicalAskMode =
+    isClinicalAskModeId(searchMode) && props.clinicalAskAvailableModeIds?.includes(searchMode) ? searchMode : null;
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -825,10 +829,24 @@ function GlobalStandaloneSearchShellBody({
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
   }, [mainElement, chromeVisible]);
 
-  const renderSearchShellChrome = ({ clinicalAskSession }: ClinicalAskShellBindings) => {
+  const renderSearchShellChrome = ({ clinicalAskSession, runModeClinicalAsk }: ClinicalAskShellBindings) => {
     const startNewChat = () => startNewAnswerChat(clinicalAskSession.clear);
     const stageClinicalAskDraft = (draft: string) => {
       setQuery(draft);
+      focusComposerInput(inputRef);
+    };
+    const submitSearchWithSmart = (queryOverride?: string) => {
+      const submittedQuery = (queryOverride ?? query).trim();
+      if (clinicalAskMode && resolveSmartSearchSubmissionIntent(clinicalAskMode, submittedQuery) === "clinical-ask") {
+        runModeClinicalAsk(submittedQuery);
+        return;
+      }
+      submitSearch(queryOverride);
+    };
+    const returnToSearch = () => {
+      clinicalAskSession.clear();
+      setQuery("");
+      router.replace(appModeHomeHref(searchMode, { focus: true }));
       focusComposerInput(inputRef);
     };
     if (!chromeVisible) {
@@ -921,7 +939,8 @@ function GlobalStandaloneSearchShellBody({
                 setMobileMenuOpen(false);
                 openAccountSetup("favourites");
               }}
-              onAsk={submitSearch}
+              onAsk={submitSearchWithSmart}
+              clinicalAskAvailable={Boolean(clinicalAskMode)}
               onClearQuery={() => {
                 setQuery("");
                 if (isStandaloneModeHome || searchMode === "calculators") {
@@ -1107,10 +1126,13 @@ function GlobalStandaloneSearchShellBody({
               {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
               <SearchCommandProvider value={searchCommandContextValue}>
-                {clinicalAskWorkspaceVisible(clinicalAskSession) ? (
-                  <ClinicalAskWorkspace onDraftChange={stageClinicalAskDraft} />
-                ) : null}
-                {pendingModeNavigation ? (
+                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ClinicalAskWorkspace
+                    onDraftChange={stageClinicalAskDraft}
+                    onRun={runModeClinicalAsk}
+                    onReturnToSearch={returnToSearch}
+                  />
+                ) : pendingModeNavigation ? (
                   <div
                     aria-busy="true"
                     aria-live="polite"

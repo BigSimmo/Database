@@ -257,40 +257,32 @@ test.describe("Header element overlap coverage", () => {
     });
   }
 
-  test("desktop smart search keeps rotating text above and prompts below the composer", async ({ page }) => {
+  test("desktop dormant search keeps prompts below the composer without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
     const rotatingText = page.getByTestId("smart-search-rotating-text");
     const promptRow = page.getByTestId("smart-search-prompt-row");
-    await expect(rotatingText).toBeVisible();
-    await expect(rotatingText).toContainText("Smart search");
+    await expect(rotatingText).toHaveCount(0);
     await expect(promptRow).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
 
     const geometry = await page.evaluate(() => {
-      const hint = document.querySelector('[data-testid="smart-search-rotating-text"]');
       const prompt = document.querySelector('[data-testid="smart-search-prompt-row"]');
       const pill = document.querySelector(".answer-footer-search-pill");
-      if (!hint || !prompt || !pill) return null;
-      const hintRect = hint.getBoundingClientRect();
+      if (!prompt || !pill) return null;
       const promptRect = prompt.getBoundingClientRect();
       const pillRect = pill.getBoundingClientRect();
       return {
-        hintBottom: hintRect.bottom,
-        pillTop: pillRect.top,
         pillBottom: pillRect.bottom,
         promptTop: promptRect.top,
       };
     });
 
-    expect(geometry, "smart search hint, composer, and prompt row must render").not.toBeNull();
-    expect(geometry!.hintBottom, "rotating text should sit above the smart search bar").toBeLessThanOrEqual(
-      geometry!.pillTop + 1,
-    );
-    expect(geometry!.promptTop, "smart prompts should sit below the smart search bar").toBeGreaterThanOrEqual(
+    expect(geometry, "composer and prompt row must render").not.toBeNull();
+    expect(geometry!.promptTop, "prompts should sit below the search bar").toBeGreaterThanOrEqual(
       geometry!.pillBottom - 1,
     );
 
@@ -300,30 +292,17 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
-  test("phone smart search replaces desktop rows with one tappable ticker", async ({ page }) => {
+  test("phone dormant search omits Smart hints and keeps desktop prompts hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
-    await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
+    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
-
-    const ticker = page.getByTestId("smart-search-phone-ticker");
-    await expect(ticker).toBeVisible();
-    await expect(ticker).toContainText("Try this");
-    await expect(ticker).toContainText("Tap to search");
-
-    const tickerBox = await ticker.boundingBox();
-    expect(tickerBox, "phone suggestion ticker must render").not.toBeNull();
-    expect(tickerBox!.height, "phone ticker must meet the tap-target floor").toBeGreaterThanOrEqual(48);
-
-    const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
-    expect(suggestion).toBeTruthy();
-    await ticker.click();
-    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");
+    await expect(page.getByTestId("smart-search-phone-ticker")).toHaveCount(0);
   });
 
-  test("phone suggestion ticker renders on /documents mode home", async ({ page }) => {
+  test("phone Documents home does not advertise governed Smart answers", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await page.goto("/documents", { waitUntil: "domcontentloaded" });
@@ -334,9 +313,6 @@ test.describe("Header element overlap coverage", () => {
     }).toPass({ timeout: 30_000 });
 
     const ticker = page.getByTestId("smart-search-phone-ticker");
-    await expect(ticker).toBeVisible();
-    const tickerBox = await ticker.boundingBox();
-    expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
-    expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);
+    await expect(ticker).toHaveCount(0);
   });
 });
