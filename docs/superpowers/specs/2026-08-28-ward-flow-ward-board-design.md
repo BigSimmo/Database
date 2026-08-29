@@ -911,3 +911,41 @@ class of untruth. One live picture, stamped with the moment it was taken, cannot
 **Sequencing: at the fold, with DB-7 and DB-10, one visual pass covering all three.** They touch the
 same page and the same file, and the risk in every one of them is what a person reads off a sheet
 rather than what a test asserts.
+
+### DB-12 — "Live" is not the wall clock, and the stamp must read the same instant the figures do
+
+**A correction to DB-10 and DB-11's safeguard, found by the Phase 8 session before either was built.**
+
+Every Ward Flow screen takes its `now` from the shared provider, **not from the system clock**, and a
+demo time control moves it. So a "live" page is not live in the ordinary sense — it is **as at
+whatever the control says.**
+
+**The failure this creates lands exactly where the safeguard was placed.** If the stamp reads the wall
+clock while the figures read the provider, the sheet asserts a moment that is not the moment being
+shown — in the heading, which DB-10 deliberately made the load-bearing element. Someone scrubs the
+control to the evening, prints, and holds a sheet stamped with the real time and figures from a
+different one. **A stamp that can lie is worse than no stamp**, because DB-11 removed the freeze on
+the strength of it.
+
+**The rule: the stamp reads the same instant the figures read.** One line, and invisible to every test
+that does not move the control — which is most of them. **A test must move the time control and assert
+the stamp moved with it.** Without that test this is a one-character regression away at any point.
+
+This is also why the demo control must never become a second clock: two notions of "now" on one page
+is the same defect one layer down.
+
+### DB-13 — The dead-code gate will probably refuse DB-11's deletion. Do not tune it.
+
+`npm run check:dead-code-candidate` fails closed on precisely this shape, and DB-11 hits at least
+three of its refusal conditions: `MorningView` and `FrozenMorning` will be **named in a Phase 6
+plan/spec whose task boxes are unchecked**, they are **pinned by committed tests** (the frozen-view
+tests, by definition), and they may appear as **string literals** somewhere under `src`/`tests`.
+
+**The refusal is correct behaviour, not an obstacle.** A cleanup sweep in this repo targeted ~1,644
+lines on a "nothing imports it" basis and was walked back seven times; four survivors had zero
+importers and were all alive.
+
+**Do not tune the threshold or the refusal list to make this diff pass.** The honest route when it
+refuses is a recorded decision — *this symbol is deliberately dead because the owner reversed D3 on
+2026-08-29* — not a gate change. Run it **early**, not at the end, and `git fetch --deepen=2000`
+first: on a shallow clone it can date nothing and its judgement is weaker than it looks.
