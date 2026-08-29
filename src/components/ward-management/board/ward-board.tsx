@@ -908,61 +908,6 @@ export function WardBoard({ unitId }: { unitId: string }) {
             </p>
           </section>
 
-          {/*
-           * WHERE THESE BEDS FREE UP TO — from `arrowTargets`, which existed fully tested with zero
-           * consumers until this board became its first. Placed in the LEFT zone rather than beside
-           * the grid because outgoing is this zone's business: it is the aggregate tail of the
-           * "Going out today" list above it — the same departures, grouped by where the people are
-           * headed instead of by when the bed frees — and the two read as one story in one column.
-           *
-           * **There are deliberately no drawn arrows, and that is a correctness decision rather than
-           * a simplification.** Connector geometry on the coordinator's diagrams is measured in
-           * JavaScript from the live screen layout and never re-measured for print, so a printed
-           * route line points at whichever ward has since moved under it — proven on paper this
-           * session, and the reason those connectors are now hidden in print entirely. Drawing
-           * eighteen bed-to-region arrows would import that failure and add a spaghetti of lines
-           * nobody can follow. The connection is carried by a shared REGION NAME on both sides
-           * instead. Words survive greyscale, a stripped-background print and forced-colors;
-           * measured coordinates survive none of it.
-           *
-           * Scoped to `ARROW_HORIZON_DAYS`, so this is a short list a flow meeting can read, not a
-           * second copy of the bed list. Someone with no expected date is absent entirely rather
-           * than defaulted — nobody has said when they are leaving, so the board says nothing.
-           */}
-          {targets.length > 0 && (
-            <aside className={styles.destinations} aria-labelledby="ward-board-destinations-heading">
-              <h2 id="ward-board-destinations-heading" className={styles.destinationsHeading}>
-                Where these beds free up to
-              </h2>
-              <p className={styles.destinationsIntro}>Expected within {ARROW_HORIZON_DAYS} days, soonest first.</p>
-              <ol className={styles.destinationList} data-testid="ward-board-destinations">
-                {targets.map((target) => {
-                  const team = teamForRegion(target.region);
-                  return (
-                    <li
-                      key={target.region}
-                      className={styles.destination}
-                      data-testid={`ward-board-destination-${target.region}`}
-                    >
-                      <p className={styles.destinationRegion}>{target.region}</p>
-                      <p className={styles.destinationCount}>
-                        {target.count} {target.count === 1 ? "person" : "people"}
-                        {" · "}
-                        {target.nearestDays === 0
-                          ? "soonest due now or overdue"
-                          : `soonest in ${target.nearestDays} day${target.nearestDays === 1 ? "" : "s"}`}
-                      </p>
-                      {/* `teamForRegion` returns null for a region with no recorded team rather than
-                          a placeholder string, so a missing team reads as absent instead of as a
-                          team called "Unknown" that somebody might try to telephone. */}
-                      {team !== null && <p className={styles.destinationTeam}>{team}</p>}
-                    </li>
-                  );
-                })}
-              </ol>
-            </aside>
-          )}
-
           {/* SINCE YESTERDAY — `sinceYesterday`'s first consumer. The last whole day, which carries
               no clinical or legal meaning and is simply the window between one morning and the
               next. */}
@@ -1217,6 +1162,88 @@ export function WardBoard({ unitId }: { unitId: string }) {
           </aside>
         )}
       </div>
+
+      {/*
+       * WHERE THESE BEDS FREE UP TO — from `arrowTargets`, which existed fully tested with zero
+       * consumers until this board became its first.
+       *
+       * **It has moved out of the left column, and the reason is a measured one rather than a
+       * preference.** In a 17rem sidebar it was 746px tall — 55% of a 1362px column, and by itself
+       * taller than the whole middle column beside it (439px) — because the longest team name,
+       * "Goldfields-Esperance Community Mental Health Team (placeholder)", needs roughly 380px to
+       * sit on one line and had 272px to do it in. Eight entries each wrapped to two lines, and the
+       * panel's height was almost entirely the cost of that wrapping. **The content is wide; the
+       * column was not.** Nothing here was shortened, generalised or dropped to fix it: all eight
+       * regions, their counts, their soonest days and their team names are on the page exactly as
+       * before, in a full-width band where each one fits on a single line.
+       *
+       * The alternative considered and REJECTED was stating the naming convention once in the intro
+       * and dropping the per-row team name. It reads well against today's fixture — every value in
+       * `COMMUNITY_TEAMS` is "<Region> Community Mental Health Team (placeholder)" — but that file's
+       * own comment says the product owner may later supply real team names, at which point a
+       * sentence claiming the convention becomes a false statement on a clinical screen that no test
+       * would catch. A layout must not depend on a fixture happening to be formulaic.
+       *
+       * It sits BELOW the three zones rather than inside one, for the same reason the triage bar
+       * sits above them: this is a ward-level aggregate, not a per-bed or per-column fact. The
+       * left-to-right reading is untouched — coming in and going out are still LEFT, the beds
+       * MIDDLE, the chosen bed RIGHT — and this band is the tail of the "Going out today" list,
+       * read last, which is where a departure story ends.
+       *
+       * **There are deliberately no drawn arrows, and that is a correctness decision rather than
+       * a simplification.** Connector geometry on the coordinator's diagrams is measured in
+       * JavaScript from the live screen layout and never re-measured for print, so a printed
+       * route line points at whichever ward has since moved under it — proven on paper this
+       * session, and the reason those connectors are now hidden in print entirely. Drawing
+       * eighteen bed-to-region arrows would import that failure and add a spaghetti of lines
+       * nobody can follow. The connection is carried by a shared REGION NAME on both sides
+       * instead. Words survive greyscale, a stripped-background print and forced-colors;
+       * measured coordinates survive none of it.
+       *
+       * Scoped to `ARROW_HORIZON_DAYS`, so this is a short list a flow meeting can read, not a
+       * second copy of the bed list. Someone with no expected date is absent entirely rather
+       * than defaulted — nobody has said when they are leaving, so the board says nothing.
+       */}
+      {targets.length > 0 && (
+        <aside className={styles.destinations} aria-labelledby="ward-board-destinations-heading">
+          <h2 id="ward-board-destinations-heading" className={styles.destinationsHeading}>
+            Where these beds free up to
+          </h2>
+          <p className={styles.destinationsIntro}>Expected within {ARROW_HORIZON_DAYS} days, soonest first.</p>
+          <ol className={styles.destinationList} data-testid="ward-board-destinations">
+            {targets.map((target) => {
+              const team = teamForRegion(target.region);
+              return (
+                <li
+                  key={target.region}
+                  className={styles.destination}
+                  data-testid={`ward-board-destination-${target.region}`}
+                >
+                  <p className={styles.destinationRegion}>{target.region}</p>
+                  <p className={styles.destinationCount}>
+                    {target.count} {target.count === 1 ? "person" : "people"}
+                    {" · "}
+                    {target.nearestDays === 0
+                      ? "soonest due now or overdue"
+                      : `soonest in ${target.nearestDays} day${target.nearestDays === 1 ? "" : "s"}`}
+                  </p>
+                  {/* `teamForRegion` returns null for a region with no recorded team rather than a
+                      placeholder string, so a missing team must never be swallowed by the panel's
+                      general shape. It used to render as NOTHING, which reads as a row that happens
+                      to be shorter; it is now said in words, because "there is nobody to ring about
+                      this region" is exactly the kind of fact a coordinator chasing a discharge
+                      needs to see rather than infer from a gap. */}
+                  {team !== null ? (
+                    <p className={styles.destinationTeam}>{team}</p>
+                  ) : (
+                    <p className={styles.destinationTeamAbsent}>No community team is recorded for this region.</p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
+      )}
 
       {/*
        * WHO IS IN THESE BEDS — every occupant with their discharge plan, and on paper only.
