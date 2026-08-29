@@ -267,6 +267,20 @@ const WARD_DYNAMIC_ROUTE_INSTANCES: ReadonlyMap<string, () => number> = new Map(
  * whatever that selection implies. That is described in each entry and is deliberately NOT
  * counted, because nothing here can see how many instances such a builder actually covers.
  */
+/**
+ * The ward count the record below quotes for what the INDEX covers, computed from the same source
+ * the scan's own figure is computed from — `WARD_DYNAMIC_ROUTE_INSTANCES` maps the ward route to
+ * `() => allUnits().length`.
+ *
+ * An expression rather than a literal, and that is the whole reason it exists. The leading
+ * "1 of N instances reachable without state" in that entry is recomputed by `coverageSentence` and
+ * pinned by the coverage test, so a twenty-fourth ward turns it red — but a second figure beside a
+ * pinned one, written as a literal, is how a record goes half-stale: whoever clears that red edits
+ * the number the test names and leaves the other standing as a false claim. Two figures where one
+ * is checked and one is decorative is not a record.
+ */
+const WARD_INDEX_COVERED_UNITS = allUnits().length;
+
 const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
   [
     "/mockups/ward-flow/ward/[unitId]",
@@ -286,8 +300,9 @@ const WARD_DYNAMIC_ROUTE_ORPHANS: ReadonlyMap<string, string> = new Map([
     "1 of 23 instances reachable without state — ward-nav.ts's one seeded example (rph-adult-secure), " +
       "carried as exampleOnly, is still the only CONCRETE ward href in the source, and this scan counts " +
       "concrete hrefs only. The navigation itself no longer orphans anything: /mockups/ward-flow/wards " +
-      "(WardIndex) lists every ward in the network, grouped by health service, and links each one — 23 " +
-      "of 23, established by rendering that page and counting its links rather than by this scan, in " +
+      "(WardIndex) lists every ward in the network, grouped by health service, and links each one — " +
+      `${WARD_INDEX_COVERED_UNITS} of ${WARD_INDEX_COVERED_UNITS}, established by rendering that page and ` +
+      "counting its links rather than by this scan, in " +
       "the 'Ward index' describe block in this file. ward-role-switcher.tsx also builds ward hrefs, but " +
       "only over `wardCandidates`: empty with no movement focused, otherwise the focused movement's " +
       "accepted unit or its referred units, so nought to three and only after a selection.",
@@ -758,8 +773,9 @@ describe("Every Ward Flow route carries the 'Ward Flow views' in-page nav (D8)",
  * had been written a shade more loosely would have counted the rail's example as the index's
  * twenty-third ward and reported full coverage while the page missed one. So:
  *
- *   1. The search is confined to `<main id="main-content">` — the region the index owns. The rail
- *      is outside it, structurally, not merely by name.
+ *   1. The search is confined to the `<main id="main-content">` ELEMENT — opening tag to closing
+ *      tag, both bounds asserted; see `mainRegionOf`, which says exactly what that does and does
+ *      not guarantee. The rail renders outside that element, so it is excluded by containment.
  *   2. Inside that region only anchors carrying the index's own `data-testid` count.
  *
  * `linkCountIn` below is the companion floor: it counts the testid on its own, so a pattern that
@@ -782,13 +798,78 @@ function linkCountIn(markup: string): number {
   return (mainRegionOf(markup).match(/data-testid="ward-index-link"/g) ?? []).length;
 }
 
-/** The `<main id="main-content">` slice. Asserted rather than assumed: a slice taken from an index
- *  of -1 silently returns the whole document, which would undo the scoping above without failing. */
+/**
+ * The `<main id="main-content">` ELEMENT's own markup — its opening tag through to the first
+ * `</main>` after it, end bound included.
+ *
+ * Both bounds are asserted rather than assumed, and for the same reason: `indexOf` returns -1 when
+ * it finds nothing, and a slice taken from -1 — or one left to run to the end of the string —
+ * silently widens the scan to markup this region does not own, without failing.
+ *
+ * What the bounding does and does not guarantee, stated as what the code does. Because the slice is
+ * closed at both ends by the element's own tags, anything rendered outside `<main>` — before it or
+ * after it — is excluded by CONTAINMENT. Until the end bound existed the exclusion was document
+ * order alone: everything from `<main>` onward was returned, and the `ClinicalRail` fell outside
+ * only because the component happens to render it first. One reorder would have re-admitted the
+ * rail's own seeded ward link, which is the exact false pass this scoping was written to prevent.
+ * The one thing here NOT enforced by an assertion is that `<main>` does not nest — it cannot in
+ * valid HTML, and this component renders exactly one — so the first `</main>` after the opening tag
+ * is its closing tag.
+ */
 function mainRegionOf(markup: string): string {
   const start = markup.indexOf('<main id="main-content"');
   expect(start, 'the rendered page has no <main id="main-content"> to scope the link scan to').toBeGreaterThan(-1);
-  return markup.slice(start);
+  const end = markup.indexOf("</main>", start);
+  expect(end, "the rendered page has no </main> to bound the link scan at").toBeGreaterThan(start);
+  return markup.slice(start, end);
 }
+
+/**
+ * Every visible text fragment inside the region the index owns, in document order, trimmed, with
+ * the empty ones dropped. Tags and comments are replaced by a boundary rather than deleted, so two
+ * neighbouring text nodes stay two fragments instead of running together into a string that would
+ * match no allowlist entry. Entities are decoded because the assertions below are about what a
+ * reader sees: React writes an apostrophe as `&#x27;`, which carries the digits 2 and 7 and would
+ * otherwise trip the digit check on its own.
+ */
+function renderedCopyIn(markup: string): string[] {
+  return mainRegionOf(markup)
+    .replace(/<[^>]*>/g, "\n")
+    .split("\n")
+    .map((fragment) =>
+      fragment
+        .replace(/&#x27;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .trim(),
+    )
+    .filter((fragment) => fragment.length > 0);
+}
+
+/**
+ * Every fixed sentence `ward-index.tsx` renders, written out. Not a sample and not a prefix list —
+ * the allowlist below is only an allowlist if this is the whole of the page's non-derived copy, so
+ * a sentence the component renders and this list omits is a failure, which is the point. The last
+ * three are the conditional branches: the empty-service note, and the two the not-placed group
+ * carries.
+ */
+const WARD_INDEX_FIXED_COPY: readonly string[] = [
+  "Synthetic prototype",
+  "This page is",
+  "not a medical device",
+  ". Every ward listed here is invented, and nothing on it has been checked against a real service.",
+  "All wards",
+  "Every ward in this prototype's network, by health service.",
+  "This is a way in, not a bed state. It shows what each ward is and links to it — no bed numbers, no availability " +
+    "and nothing about who is in a bed. The capacity and morning bed state boards answer those questions, and a " +
+    "ward's own screen answers them for that ward.",
+  "No ward in this prototype belongs to this health service.",
+  "Not placed in a health service",
+  "This prototype holds no site for these wards' site codes, so it cannot say which health service they belong to. " +
+    "They are listed here rather than left off the page, and each one still links to its ward screen.",
+];
 
 function renderWardIndex(units?: Unit[]): string {
   // `units` passed explicitly as possibly-undefined rather than as a conditional object: the union
@@ -821,6 +902,21 @@ describe("Ward index — every ward in the network has a way in", () => {
     // The two independent counts must agree, or the href pattern above has stopped seeing anchors
     // the page is still rendering.
     expect(linkCountIn(markup), "the href scan and the testid count disagree").toBe(linked.length);
+  });
+
+  it("the ward route's orphan record quotes the coverage THIS block measures, not a literal beside it", () => {
+    // The record carries two figures. The leading "1 of N instances reachable without state" is
+    // recomputed by `coverageSentence` and pinned in the dynamic-routes block above. The trailing
+    // one is the index's own coverage, which only this block can measure — so it is pinned here,
+    // against the links actually read out of the rendered markup. Without this the second figure
+    // was decorative: whoever cleared the red on a twenty-fourth ward would edit the checked
+    // number and leave the other standing as a false record.
+    const record = WARD_DYNAMIC_ROUTE_ORPHANS.get(`${ROUTE_PREFIX}/ward/[unitId]`);
+    expect(record, "no WARD_DYNAMIC_ROUTE_ORPHANS entry for the ward route").toBeDefined();
+    expect(
+      record,
+      `the ward route's orphan record does not state the coverage this block measures (${linked.length} of ${WARD_INDEX_COVERED_UNITS})`,
+    ).toContain(`${linked.length} of ${WARD_INDEX_COVERED_UNITS}`);
   });
 
   it("groups the wards under the health services in wardServiceOrder, in that order", () => {
@@ -857,16 +953,60 @@ describe("Ward index — every ward in the network has a way in", () => {
     expect(markup).not.toContain('data-testid="ward-index-unplaced"');
   });
 
-  it("is an index and not a second bed board — it states no capacity, availability or occupancy", () => {
+  it("is an index and not a second bed board — its rendered copy is only what this test allows", () => {
     // The owner's restraint decision, given a shape that can fail. Two surfaces answering one
     // question in wording that can drift is this project's most reliable defect; the index answers
     // "what is this ward and how do I get to it", and nothing else.
-    const forbidden = ["Beds", "beds", "Available", "available", "Occupied", "occupied", "Allocatable", "Empty beds"];
-    const present = forbidden.filter((word) => markup.includes(word));
-    expect(present, `the ward index has grown capacity wording: ${present.join(", ")}`).toEqual([]);
+    //
+    // An ALLOWLIST, and that shape is the point. A blocklist of capacity words is unbounded by
+    // construction: this test used to block eight words and waved through `capacity`, `free`,
+    // `vacant`, `full`, `pressure` and any bare digit, so `Capacity 12 of 20` on a ward card
+    // passed it while `docs/codebase-index.md` and the component's own doc comment both called the
+    // restraint "guarded by test". What the page renders is finite — the fixed sentences above,
+    // the service headings from `wardServiceOrder`, and per ward its own `name`, `cohort` and
+    // `security` — so the test can state that set and fail on everything else, which no word
+    // nobody thought of can evade. A new sentence on this page is now a deliberate edit here,
+    // which is what "deliberately not a second dashboard" has to mean to be worth anything.
+    const units = allUnits();
+    // Both states the page can render, not just the live one: the not-placed group's own copy was
+    // covered by neither guard before, because it never appears in the live markup.
+    const withOrphan = renderWardIndex([...units, { ...units[0], id: "wi-test-unplaced", siteCode: "no-such-site" }]);
+    const liveCopy = renderedCopyIn(markup);
+    const fragments = [...liveCopy, ...renderedCopyIn(withOrphan)];
+
+    // Non-vacuity floor first, tied to the fixture rather than to a literal: the live page renders
+    // a name and a descriptor per ward on top of its fixed copy, so a page that rendered nothing —
+    // against which every assertion below passes — cannot clear this.
+    expect(liveCopy.length, "the ward index rendered no copy at all").toBeGreaterThan(units.length);
+
+    const allowed = new Set<string>([
+      ...WARD_INDEX_FIXED_COPY,
+      ...wardServiceOrder,
+      // Per ward: its own three plain fields. Both the joined form and the separate text nodes,
+      // because whether React emits `{cohort} · {security}` as one fragment or three is its
+      // choice, not this page's claim.
+      ...units.flatMap((unit) => [unit.name, unit.cohort, unit.security, `${unit.cohort} · ${unit.security}`]),
+      "·",
+    ]);
+    const unexpected = fragments.filter((fragment) => !allowed.has(fragment));
+    expect(unexpected, `the ward index renders copy this test does not allow: ${unexpected.join(" | ")}`).toEqual([]);
+
+    // And no digit anywhere in that copy. Every figure the page could grow — a bed count, an
+    // occupancy, a percentage, a legal timeframe — arrives as a digit, so this forbids the class
+    // rather than the words for it. Today the page's rendered copy contains no digit at all.
+    const withDigits = fragments.filter((fragment) => /[0-9]/.test(fragment));
+    expect(withDigits, `the ward index rendered copy carries a figure: ${withDigits.join(" | ")}`).toEqual([]);
 
     // Non-vacuity: the words it SHOULD carry are there, so this is not passing on an empty page.
     expect(markup).toContain("All wards");
     expect(markup).toContain("no bed numbers");
+
+    // Kept, and labelled for what it is: a BLOCKLIST, and therefore partial — it stops the words
+    // listed and nothing else. It earns its place only by scanning the WHOLE document, rail
+    // included, where everything above is scoped to the region the index owns. Do not read it as
+    // the guard behind the restraint claim; the allowlist is.
+    const forbidden = ["Beds", "beds", "Available", "available", "Occupied", "occupied", "Allocatable", "Empty beds"];
+    const present = forbidden.filter((word) => markup.includes(word));
+    expect(present, `the ward index has grown capacity wording: ${present.join(", ")}`).toEqual([]);
   });
 });
