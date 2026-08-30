@@ -14,7 +14,12 @@ import {
   type CancelTransportReason,
   type ReleaseHoldReason,
 } from "@/components/ward-management/ward-change-reasons";
-import { formatInstant, formatInstantWithDay, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
+import {
+  formatInstant,
+  formatInstantWithDay,
+  formatRemaining,
+  minutesUntil,
+} from "@/components/ward-management/ward-clock";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import {
   BED_RELEASE_BLOCKED_FIGURE_LABEL,
