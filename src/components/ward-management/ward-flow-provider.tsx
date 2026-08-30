@@ -111,9 +111,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
    */
   const [anchorOffsetMinutes] = useState<number>(() => (initialNow !== undefined ? 0 : wallClockNow() - NOW_ANCHOR));
 
-  const [state, dispatch] = useReducer(wardFlowReducer, anchorOffsetMinutes, (offset) =>
-    seedWardFlowStateAt(offset),
-  );
+  const [state, dispatch] = useReducer(wardFlowReducer, anchorOffsetMinutes, (offset) => seedWardFlowStateAt(offset));
 
   /**
    * The moment this session opened, and the day 0 that every `Instant` counts from. Captured once:

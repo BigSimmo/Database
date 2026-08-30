@@ -565,8 +565,14 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
    * Owner ruling FD-25: a WARD answers a referral addressed to it. The coordinator keeps the role
    * too — it overrides, and an override nobody can exercise is not an override.
    */
-  ACCEPT_REFERRAL: ["ward", "coordinator"],
-  DECLINE_REFERRAL: ["ward", "coordinator"],
+  // `ed` added 2026-08-30 under FD-3 as SUPERSEDED by the owner: "every referral is declinable,
+  // and NO CODE PATH MAY RENDER A REFERRAL WITH NO DECLINE AFFORDANCE". The ED hub acts as
+  // `ed`, so without it an emergency department could not answer a referral addressed to it,
+  // and the available workaround was to dispatch as `ward` — which writes a false `decidedBy`.
+  // ⚠️ The widening is scoped in the reducer: a role answers its OWN destination kind and
+  // nothing else, so this list alone does not let an ED decide on a ward bed.
+  ACCEPT_REFERRAL: ["ward", "coordinator", "ed"],
+  DECLINE_REFERRAL: ["ward", "coordinator", "ed"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec
   // says only "role-gated like every other referral event", and the control sits on the
   // coordinator's own match view. The owner may want `community` here as well (a community team

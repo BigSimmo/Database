@@ -7,7 +7,12 @@ import {
 } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { referralState } from "@/components/ward-management/ward-referrals";
-import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
+import {
+  EVENT_ROLE,
+  WARD_FLOW_ROLE_LABELS,
+  type WardFlowEvent,
+  type WardFlowRole,
+} from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
   BED_RELEASE_WAITING_ON,
@@ -27,6 +32,7 @@ import type {
   Movement,
   MovementStage,
   Referral,
+  ReferralDestinationKind,
   Rejection,
   Unit,
 } from "@/components/ward-management/ward-model";
@@ -1362,6 +1368,39 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "ACCEPT_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      /*
+       * ⚠️ THE ROLE MUST MATCH THE DESTINATION IT IS ANSWERING — the narrowing half of `FD-3`.
+       *
+       * `FD-3` was superseded by the owner ("every referral is declinable, and NO CODE PATH MAY
+       * RENDER A REFERRAL WITH NO DECLINE AFFORDANCE"), so `ed` joined this event's permitted roles
+       * — the ED hub acts as `ed`, and without it an emergency department could not answer a
+       * referral addressed to it. Before that, the available workaround was to dispatch as `ward`
+       * or `coordinator`, which compiles, works, and writes a FALSE `decidedBy`: the record would
+       * say a ward refused a patient an emergency department refused. That is the exact defect
+       * `decidedBy` exists to prevent, and nothing would have failed.
+       *
+       * ⚠️ **But the widening alone is too wide.** With `ed` merely added, an emergency department
+       * could accept or refuse a PSYCHIATRIC WARD destination — deciding on a bed in a ward it has
+       * nothing to do with — and the resulting record reads as a legitimate refusal. The same hole
+       * already existed for `ward`, which could answer an emergency department's destination.
+       *
+       * So a role answers its own kind and nothing else. The coordinator is exempt because it is
+       * the only role that sees the whole picture (`CO-D2`), which is the same reason it may cancel
+       * a transport it did not book. `community_team` has no acting role yet; when one arrives it
+       * joins this map rather than widening the lists.
+       */
+      const answerableBy: Partial<Record<WardFlowRole, ReferralDestinationKind>> = {
+        ward: "psychiatric_ward",
+        ed: "emergency_department",
+      };
+      const ownKind = answerableBy[event.role];
+      if (ownKind !== undefined && ownKind !== event.destinationKind) {
+        return reject(
+          state,
+          event,
+          `${event.type} was raised by role ${event.role}, which may only answer ${ownKind.replace(/_/g, " ")} destinations, not ${event.destinationKind.replace(/_/g, " ")}`,
+        );
+      }
       const addressing = referral.destinations.find(
         (candidate) => candidate.destination.kind === event.destinationKind,
       );
@@ -1454,6 +1493,39 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "DECLINE_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      /*
+       * ⚠️ THE ROLE MUST MATCH THE DESTINATION IT IS ANSWERING — the narrowing half of `FD-3`.
+       *
+       * `FD-3` was superseded by the owner ("every referral is declinable, and NO CODE PATH MAY
+       * RENDER A REFERRAL WITH NO DECLINE AFFORDANCE"), so `ed` joined this event's permitted roles
+       * — the ED hub acts as `ed`, and without it an emergency department could not answer a
+       * referral addressed to it. Before that, the available workaround was to dispatch as `ward`
+       * or `coordinator`, which compiles, works, and writes a FALSE `decidedBy`: the record would
+       * say a ward refused a patient an emergency department refused. That is the exact defect
+       * `decidedBy` exists to prevent, and nothing would have failed.
+       *
+       * ⚠️ **But the widening alone is too wide.** With `ed` merely added, an emergency department
+       * could accept or refuse a PSYCHIATRIC WARD destination — deciding on a bed in a ward it has
+       * nothing to do with — and the resulting record reads as a legitimate refusal. The same hole
+       * already existed for `ward`, which could answer an emergency department's destination.
+       *
+       * So a role answers its own kind and nothing else. The coordinator is exempt because it is
+       * the only role that sees the whole picture (`CO-D2`), which is the same reason it may cancel
+       * a transport it did not book. `community_team` has no acting role yet; when one arrives it
+       * joins this map rather than widening the lists.
+       */
+      const answerableBy: Partial<Record<WardFlowRole, ReferralDestinationKind>> = {
+        ward: "psychiatric_ward",
+        ed: "emergency_department",
+      };
+      const ownKind = answerableBy[event.role];
+      if (ownKind !== undefined && ownKind !== event.destinationKind) {
+        return reject(
+          state,
+          event,
+          `${event.type} was raised by role ${event.role}, which may only answer ${ownKind.replace(/_/g, " ")} destinations, not ${event.destinationKind.replace(/_/g, " ")}`,
+        );
+      }
       const addressing = referral.destinations.find(
         (candidate) => candidate.destination.kind === event.destinationKind,
       );
@@ -1670,11 +1742,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
          * it was accepted, writing `reason: undefined` into the unwind record. TR-D6 says this must
          * not be weakened to optional; an unenforced requirement already is.
          */
-        return reject(
-          state,
-          event,
-          `CANCEL_TRANSPORT reason must be chosen from CANCEL_TRANSPORT_REASONS`,
-        );
+        return reject(state, event, `CANCEL_TRANSPORT reason must be chosen from CANCEL_TRANSPORT_REASONS`);
       }
       // Never closes the movement — the patient stays open, only the transport job unwinds. The
       // cancelled job remains named in the audit trail while a clean replacement follows the

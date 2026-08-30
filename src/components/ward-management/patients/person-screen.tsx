@@ -48,8 +48,8 @@ export function PersonScreen({ patientId }: { patientId: string }) {
         <div className={styles.governanceBanner} data-testid="ward-person-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This screen is <strong>not a medical device</strong>. Every person in this prototype is invented, and nothing
-            here has been checked against a real record.
+            This screen is <strong>not a medical device</strong>. Every person in this prototype is invented, and
+            nothing here has been checked against a real record.
           </p>
         </div>
 
@@ -106,7 +106,11 @@ export function PersonScreen({ patientId }: { patientId: string }) {
 
             <section className={styles.actions}>
               <h2 className={styles.sectionHeading}>What you can do</h2>
-              <Link className={styles.primaryButton} href="/mockups/ward-flow/referrals/new" data-testid="ward-person-refer">
+              <Link
+                className={styles.primaryButton}
+                href="/mockups/ward-flow/referrals/new"
+                data-testid="ward-person-refer"
+              >
                 Refer this person
               </Link>
               {/*
@@ -121,8 +125,8 @@ export function PersonScreen({ patientId }: { patientId: string }) {
                 somebody went looking for the person's referral and it was not there.
               */}
               <p className={styles.note} data-testid="ward-person-refer-note">
-                A referral started here is not yet attached to this person. This prototype has no way to join the two, so
-                the referral will carry only the facts you enter on it.
+                A referral started here is not yet attached to this person. This prototype has no way to join the two,
+                so the referral will carry only the facts you enter on it.
               </p>
             </section>
           </>

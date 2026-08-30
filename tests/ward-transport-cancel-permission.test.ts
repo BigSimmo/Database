@@ -123,10 +123,7 @@ describe("who may cancel a transport", () => {
         "mind' from 'it never went through' — they re-book, or wait for a vehicle nobody is " +
         "sending. TR-D6 excludes this role by name.",
     ).toBe(1);
-    expect(
-      unwinds(after, movementId),
-      "the job must be untouched, not merely reported as refused",
-    ).toEqual([]);
+    expect(unwinds(after, movementId), "the job must be untouched, not merely reported as refused").toEqual([]);
   });
 
   it("refuses ANY ward, not only the receiving one — a ward is never the booking team here", () => {

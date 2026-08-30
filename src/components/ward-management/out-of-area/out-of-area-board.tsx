@@ -141,11 +141,11 @@ export function OutOfAreaBoard({ admissions }: { admissions?: Admission[] }) {
          */}
         <p className={styles.provenance} data-testid="ward-out-of-area-provenance">
           This is not a live statewide count. Everyone here starts from this prototype&apos;s own seeded records.
-          Somebody who has left their bed is not on this list, and neither is anybody who has not yet arrived. Nothing on
-          these screens takes anyone off it. A patient who ARRIVES during this session is added straight away, because
-          arrival records a person in a bed — but the emergency-department pathway records no home region, and a distance
-          from an unknown home is not a distance, so they raise the second figure below rather than joining the list of
-          people far from home.
+          Somebody who has left their bed is not on this list, and neither is anybody who has not yet arrived. Nothing
+          on these screens takes anyone off it. A patient who ARRIVES during this session is added straight away,
+          because arrival records a person in a bed — but the emergency-department pathway records no home region, and a
+          distance from an unknown home is not a distance, so they raise the second figure below rather than joining the
+          list of people far from home.
         </p>
 
         <section className={styles.section} data-testid="ward-out-of-area-entries">

@@ -10,10 +10,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import {
-  OutOfAreaBoard,
-  sinceArrivalLabel,
-} from "@/components/ward-management/out-of-area/out-of-area-board";
+import { OutOfAreaBoard, sinceArrivalLabel } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { seedWardFlowState, seedWardFlowStateAt } from "@/components/ward-management/ward-flow-reducer";
 import { outOfAreaLedger } from "@/components/ward-management/ward-referrals";
 import { allUnits } from "@/components/ward-management/ward-sites";
@@ -82,10 +79,7 @@ describe("the out-of-area board reads live admissions, not the frozen seed", () 
 
   it("⚠️ DOES NOT IMPORT THE ADMISSIONS SEED AT ALL — the only durable form of this guard", async () => {
     const { readFileSync } = await import("node:fs");
-    const source = readFileSync(
-      "src/components/ward-management/out-of-area/out-of-area-board.tsx",
-      "utf8",
-    );
+    const source = readFileSync("src/components/ward-management/out-of-area/out-of-area-board.tsx", "utf8");
     expect(
       source.includes("ward-admissions-seed"),
       "this screen must take its admissions from the provider, which re-anchors them to the same " +

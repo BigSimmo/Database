@@ -44,9 +44,7 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 describe("the network stage strip reconciles with the queue", () => {
   const open = wardMovements.filter(isOpen);
   const left = wardMovements.filter((movement) => !isOpen(movement));
-  const closedBeforeArriving = wardMovements.filter(
-    (movement) => movement.closure && movement.stage !== "arrived",
-  );
+  const closedBeforeArriving = wardMovements.filter((movement) => movement.closure && movement.stage !== "arrived");
 
   function renderNetwork() {
     return render(

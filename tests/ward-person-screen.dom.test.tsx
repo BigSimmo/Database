@@ -106,7 +106,10 @@ describe("a person's own screen", () => {
     const destructure = source.match(/const\s*\{([^}]*)\}\s*=\s*useWardFlow\(\)/);
     expect(destructure, "the screen must read state through useWardFlow, or this guard sees nothing").not.toBeNull();
 
-    const taken = (destructure?.[1] ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+    const taken = (destructure?.[1] ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
     expect(taken.length, "an empty destructure would make the subset check below vacuous").toBeGreaterThan(0);
     for (const name of taken) {
       expect(
@@ -140,9 +143,7 @@ describe("a person's own screen", () => {
     expect(screen.queryByTestId("ward-person-identity")).toBeNull();
     // The specific failure this guards: rendering `patients[0]` for an unrecognised id, which looks
     // like a working screen and is a different human being.
-    expect(screen.getByTestId("ward-person-screen").textContent ?? "").not.toContain(
-      patientDisplayName(someone),
-    );
+    expect(screen.getByTestId("ward-person-screen").textContent ?? "").not.toContain(patientDisplayName(someone));
   });
 
   it("carries the synthetic-prototype banner every ward screen carries", () => {

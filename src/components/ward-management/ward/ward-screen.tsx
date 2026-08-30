@@ -457,8 +457,6 @@ export function WardScreen({ unitId }: WardScreenProps) {
     setReleaseReason(undefined);
   }
 
-
-
   return (
     <div className={styles.screen} data-testid="ward-unit-screen">
       <ClinicalRail />

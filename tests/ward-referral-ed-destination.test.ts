@@ -52,11 +52,7 @@ describe("the emergency-department destination", () => {
   });
 
   it("keeps THREE destination kinds — purpose did not become a fourth", () => {
-    expect([...REFERRAL_DESTINATION_KINDS]).toEqual([
-      "psychiatric_ward",
-      "emergency_department",
-      "community_team",
-    ]);
+    expect([...REFERRAL_DESTINATION_KINDS]).toEqual(["psychiatric_ward", "emergency_department", "community_team"]);
     expect(
       REFERRAL_DESTINATION_KINDS,
       "a kind naming a purpose (ed_psychiatry, ed_medical) is the fold this axis exists to prevent",
