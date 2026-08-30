@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SearchChunksArgs } from "../src/lib/rag/rag-contracts";
 import type { RagAnswer } from "../src/lib/types";
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -47,7 +48,183 @@ class DeleteQuery implements PromiseLike<{ data: null; error: null }> {
   }
 }
 
+afterEach(() => {
+  vi.doUnmock("@/lib/supabase/admin");
+  vi.resetModules();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+function installAnswerCacheEntrypointHarness(sharedPayload?: Record<string, unknown>) {
+  const documentBuilder = {
+    select: () => documentBuilder,
+    eq: () => documentBuilder,
+    is: () => documentBuilder,
+    or: () => documentBuilder,
+    in: () => documentBuilder,
+    order: () => documentBuilder,
+    limit: () => documentBuilder,
+    abortSignal: () => documentBuilder,
+    then: (
+      resolve: (value: { data: Array<{ id: string; updated_at: string; metadata: object }>; error: null }) => unknown,
+    ) =>
+      Promise.resolve({
+        data: [{ id: "doc-1", updated_at: "2026-08-30T00:00:00.000Z", metadata: {} }],
+        error: null,
+      }).then(resolve),
+  };
+  const responseBuilder = {
+    select: () => responseBuilder,
+    delete: () => responseBuilder,
+    insert: () => responseBuilder,
+    eq: () => responseBuilder,
+    is: () => responseBuilder,
+    in: () => responseBuilder,
+    gt: () => responseBuilder,
+    order: () => responseBuilder,
+    limit: () => responseBuilder,
+    abortSignal: () => responseBuilder,
+    maybeSingle: async () => ({ data: sharedPayload ? { payload: sharedPayload } : null, error: null }),
+    then: (resolve: (value: { data: null; error: null }) => unknown) =>
+      Promise.resolve({ data: null, error: null }).then(resolve),
+  };
+  const from = vi.fn((table: string) => (table === "documents" ? documentBuilder : responseBuilder));
+  vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
+  return { from };
+}
+
 describe("RAG cache invalidation", () => {
+  it("preserves decomposed telemetry through the real local-answer cache entrypoint", async () => {
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "60000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+    installAnswerCacheEntrypointHarness();
+    const cache = await import("../src/lib/rag/rag-cache");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
+    const args = {
+      query: "cached decomposed local plan",
+      ownerId,
+      accessScope: { ownerId, includePublic: true as const },
+      ragQueryPlanVersion: "rag-query-plan-v1",
+      ragQueryPlanMode: "legacy" as const,
+      ragQueryPlanKind: "decomposed" as const,
+      ragSubquestionCount: 3,
+    };
+    await cache.setCachedAnswer(args, sampleAnswer("Local cached answer."));
+
+    const answer = await answerQuestionWithScope({
+      query: args.query,
+      ownerId,
+      accessScope: args.accessScope,
+      logQuery: false,
+      observationContext: {
+        interactionId: "11111111-1111-4111-8111-111111111111",
+        rolloutMode: "legacy",
+      },
+    });
+
+    expect(answer.routingReason).toContain("answer_cache_hit");
+    expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+    });
+  });
+
+  it("preserves decomposed telemetry through the real shared-answer cache entrypoint", async () => {
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "60000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+    installAnswerCacheEntrypointHarness({
+      answer: sampleAnswer("Shared cached answer."),
+      queryPlanDiagnostics: { queryPlanKind: "decomposed", subquestionCount: 3 },
+    });
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
+
+    const answer = await answerQuestionWithScope({
+      query: "cached decomposed shared plan",
+      ownerId,
+      accessScope: { ownerId, includePublic: true },
+      logQuery: false,
+      observationContext: {
+        interactionId: "22222222-2222-4222-8222-222222222222",
+        rolloutMode: "legacy",
+      },
+    });
+
+    expect(answer.routingReason).toContain("shared_answer_cache_hit");
+    expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+    });
+  });
+
+  it("performs no local, shared, or deferred cache writes in shadow mode", async () => {
+    vi.resetModules();
+    const from = vi.fn(() => {
+      throw new Error("shadow cache writes must not touch storage");
+    });
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
+
+    const { getCachedAnswer, setCachedAnswer, setCachedSearch } = await import("../src/lib/rag/rag-cache");
+    const args = {
+      query: "compare clozapine and olanzapine monitoring",
+      ownerId,
+      accessScope: { ownerId, includePublic: true as const },
+      ragQueryPlanVersion: "rag-query-plan-v1",
+      ragQueryPlanMode: "shadow" as const,
+      ragQueryPlanKind: "decomposed" as const,
+      ragSubquestionCount: 3,
+    };
+
+    await setCachedAnswer(args, sampleAnswer());
+    await setCachedSearch(
+      args,
+      [],
+      {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+      },
+      [],
+    );
+
+    expect(await getCachedAnswer(args, Date.now(), { indexingVersionAtRequestStart: "unused" })).toBeNull();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("partitions query-plan versions and modes without exposing candidate subqueries", async () => {
+    vi.resetModules();
+    const { withRagRequestContext } = await import("../src/lib/rag/rag-context-snapshot");
+    const { ragCacheDependencyVersion, retrievalPlanCacheQuery, scopedAnswerCacheKey } =
+      await import("../src/lib/rag/rag-cache");
+    const requestArgs: SearchChunksArgs = {
+      query: "lithium monitoring",
+      ownerId,
+      accessScope: { ownerId, includePublic: true as const },
+    };
+    const request = withRagRequestContext(requestArgs);
+    const legacyV1 = {
+      ...request,
+      ragQueryPlanVersion: "rag-query-plan-v1",
+      ragQueryPlanMode: "legacy" as const,
+    };
+    const shadowV1 = { ...legacyV1, ragQueryPlanMode: "shadow" as const };
+    const shadowV2 = { ...shadowV1, ragQueryPlanVersion: "rag-query-plan-v2" };
+
+    expect(ragCacheDependencyVersion).toBe("rag-cache-v21");
+    expect(scopedAnswerCacheKey(legacyV1)).not.toBe(scopedAnswerCacheKey(shadowV1));
+    expect(scopedAnswerCacheKey(shadowV1)).not.toBe(scopedAnswerCacheKey(shadowV2));
+    const searchKeys = [legacyV1, shadowV1, shadowV2].map((args) =>
+      retrievalPlanCacheQuery(args, undefined, ["candidate subquestion secret"]),
+    );
+    expect(new Set(searchKeys).size).toBe(3);
+    expect(searchKeys.every((key) => !key.includes("candidate subquestion secret"))).toBe(true);
+  });
+
   it("removes only the matching hashed site-aware answer and in-flight identities", async () => {
     vi.resetModules();
     vi.doMock("@/lib/supabase/admin", () => ({

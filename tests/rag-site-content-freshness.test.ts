@@ -670,7 +670,7 @@ describe("RAG request site-content snapshot", () => {
     expect(excessCanaries).not.toHaveProperty("actorId");
   });
 
-  it("keeps the exact disabled legacy cache identities unchanged", async () => {
+  it("binds disabled legacy cache identities to the v21 query-plan namespace", async () => {
     const {
       snapshot: { withRagRequestContext },
       cache: ragCacheModule,
@@ -681,10 +681,10 @@ describe("RAG request site-content snapshot", () => {
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
     expect(ragCacheModule.scopedAnswerCacheKey(legacy)).toBe(
-      `rag-cache-v20|owner:owner-a+public|all-documents|auto|generation:${generation}|clozapine monitoring`,
+      `rag-cache-v21|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring`,
     );
     expect(ragCacheModule.retrievalPlanCacheQuery(legacy, "table_threshold", ["clozapine anc"])).toBe(
-      "redacted-cache:9b74fb85dda1a597eee46a1e8a523be138dfafb627b8d3dd3d3e253848734fc8",
+      "redacted-cache:1dc4b0888f8c0c097fd1d3eaab011a6ec0af81e9c342a7e9f3bc844d4dc303c5",
     );
     const cache = ragCacheModule as CacheModule;
     expect(cache.sharedAnswerNormalizedQuery).toBeTypeOf("function");
@@ -693,7 +693,9 @@ describe("RAG request site-content snapshot", () => {
       .replace(/\s+/g, " ")
       .trim();
     expect(cache.sharedAnswerNormalizedQuery?.(legacy)).toBe(
-      queryCacheKeyForStorage(`${normalizedSharedQuery}|generation:${generation}`),
+      queryCacheKeyForStorage(
+        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy`,
+      ),
     );
   });
 });
@@ -1170,7 +1172,7 @@ describe("site-aware RAG cache isolation", () => {
       scope_key: "public-only|document-original",
       normalized_query: expectedSharedQuery,
       indexing_version: "test-rag-version:document-original:2026-08-29T00:00:00.000Z:",
-      dependency_version: "rag-cache-v20",
+      dependency_version: "rag-cache-v21",
       payload: {
         results: [
           expect.objectContaining({

@@ -6,6 +6,7 @@ import type {
   RagReconciliationOutcome,
 } from "@/lib/rag/rag-programme-eval";
 import type { RagObservationContext } from "@/lib/rag/rag-contracts";
+import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
 import type {
   RagAnswer,
   RagInsufficiencyReason,
@@ -286,6 +287,7 @@ function coverageCountsForAnswer(answer: RagAnswer): CoverageCounts {
 }
 
 function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagProgrammeTelemetryInput {
+  const queryPlan = ragAnswerQueryPlanDiagnostics(answer);
   const candidates = emptyProgrammeCounts();
   const selected = emptyProgrammeCounts();
   candidates.uploaded_local = Math.max(answer.retrievalDiagnostics?.candidateCount ?? answer.sources.length, 0);
@@ -293,8 +295,8 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
   return {
     interactionId: context.interactionId,
     rolloutMode: context.rolloutMode,
-    queryPlanKind: "single",
-    subquestionCount: 1,
+    queryPlanKind: queryPlan?.queryPlanKind ?? "single",
+    subquestionCount: queryPlan?.subquestionCount ?? 1,
     materialAmbiguity: Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
     coverageCounts: coverageCountsForAnswer(answer),
     candidateCounts: candidates,

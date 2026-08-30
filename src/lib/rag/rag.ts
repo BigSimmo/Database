@@ -100,7 +100,7 @@ export {
 } from "@/lib/rag/rag-extractive-answer";
 import {
   assertGlobalSearchAllowed,
-  buildRetrievalQueryVariants,
+  buildRagRetrievalVariantPlan,
   fetchEnabledRagAliases,
   normalizeRetrievalVariant,
   ownerScopeForDocumentFilteredRetrieval,
@@ -134,6 +134,8 @@ import {
   scopedAnswerCacheKey,
   setCachedAnswer,
   setCachedSearch,
+  restoreRagAnswerQueryPlanArgs,
+  withRagAnswerQueryPlanDiagnostics,
 } from "@/lib/rag/rag-cache";
 import { withRagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export {
@@ -149,6 +151,7 @@ import {
   recordCoalescedAnswerWaiter,
 } from "@/lib/observability/answer-coalescing-metrics";
 import { buildRagSourceBlock, neutralizeIdentityField } from "@/lib/rag/rag-source-block";
+import { buildRagQueryPlan, ragQueryPlanVersion } from "@/lib/rag/rag-query-plan";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag/rag-source-block";
 import {
   buildClinicalTextSearchQuery,
@@ -1582,11 +1585,6 @@ function finishSearch<T extends { telemetry: SearchTelemetry }>(timing: SearchTi
   search.telemetry.search_total_latency_ms = Date.now() - timing.startedAt;
   return search;
 }
-/**
- * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
- * @param args - Retrieval options, including the query, scope, search mode, and embedding preferences.
- * @returns The ranked search results and telemetry describing the retrieval process.
- */
 export async function searchChunksWithTelemetry(
   args: SearchChunksArgs,
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry }> {
@@ -1594,13 +1592,14 @@ export async function searchChunksWithTelemetry(
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
-  args = withRagRequestContext(args);
+  args = {
+    ...withRagRequestContext(args),
+    ragQueryPlanVersion,
+    ragQueryPlanMode: args.ragQueryPlanMode ?? "legacy",
+  };
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   if (hasAdversarialManipulationIntent(retrievalQuery)) {
-    // Refuse prompt-injection and secret-exfiltration requests before creating a
-    // provider client, consulting either cache, or issuing any Supabase query.
-    // These requests are never cached so a stale or poisoned entry cannot make
-    // a later refusal depend on shared state.
+    // Refuse adversarial requests before provider, cache, or Supabase access.
     const telemetry = createSearchTelemetry(retrievalQuery, "unsupported_or_general");
     telemetry.embedding_skipped = true;
     telemetry.embedding_skip_reason = "adversarial_manipulation_refused";
@@ -1609,14 +1608,12 @@ export async function searchChunksWithTelemetry(
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
   }
   const supabase = createAdminClient();
-  // When the provider is source-only (offline mode, or auto mode without a usable key) we must
-  // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
+  // Source-only retrieval never calls embeddings.
   const sourceOnlyRetrieval = isSourceOnlyMode();
   if (args.forceEmbedding && sourceOnlyRetrieval) {
     throw new Error("forceEmbedding requires embedding-capable retrieval; source-only mode cannot exercise vectors.");
   }
-  // A3: shared across every withMemoryBoostedCandidates call in this request so the same
-  // owner/query memory cards are fetched at most once per (query, embedding-present, count).
+  // Share memory-card reads across this request.
   const memoryCardCache: MemoryCardCache = new Map();
   const chunkLoadCache = createChunkLoadCache();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
@@ -1626,10 +1623,7 @@ export async function searchChunksWithTelemetry(
     : args.documentId
       ? [args.documentId]
       : undefined;
-  // Finding #11: give the classifier fallback the exact owner scope retrieval will use, so
-  // corpus grounding sees the same corpus. If owner-scope derivation throws (anonymous prod
-  // call without allowGlobalSearch), grounding is skipped and the retrieval path below raises
-  // the proper owner-scope error itself.
+  // Classifier grounding uses retrieval's exact scope; retrieval owns any scope error.
   const corpusGroundingScope = (() => {
     try {
       return {
@@ -1666,12 +1660,22 @@ export async function searchChunksWithTelemetry(
   ]);
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
+  const queryPlan = buildRagQueryPlan(retrievalQuery, queryAnalysis);
+  const retrievalVariantPlan = buildRagRetrievalVariantPlan(
+    retrievalQuery,
+    queryAnalysis,
+    ragAliases,
+    queryPlan,
+    args.ragQueryPlanMode ?? "legacy",
+    args.signal,
+  );
   const queryClassification = {
     queryClass: queryAnalysis.queryClass,
     confidence: queryAnalysis.confidence,
     reasons: queryAnalysis.reasons,
   };
   const telemetry = createSearchTelemetry(retrievalQuery, queryClassification.queryClass);
+  Object.assign(telemetry, retrievalVariantPlan.diagnostics);
   if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
   let semanticRerankAttempted = false;
@@ -1697,18 +1701,14 @@ export async function searchChunksWithTelemetry(
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
 
-  const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
+  const queryVariants = retrievalVariantPlan.servedVariants;
   telemetry.retrieval_query_variant_count = queryVariants.length;
   const cached = await measureSearchPhase(searchTiming, "local_cache_lookup", () =>
     getCachedSearch(args, queryClassification.queryClass, queryVariants, {
       indexingVersionAtRequestStart: indexingVersionAtRetrievalStart,
     }),
   );
-  // Only consult the shared cache when the process-local cache missed (preserves
-  // the original short-circuit), then record the hit-rate counter ONCE with full
-  // knowledge of both layers: a request served by either cache is a hit, so a
-  // cold process that falls through to a warm shared cache is not miscounted as a
-  // miss (deep /api/health cache hit-rate — docs/observability-slos.md §4).
+  // Consult shared cache only after a local miss; either layer counts as one hit.
   const sharedCached = cached
     ? null
     : await measureSearchPhase(searchTiming, "shared_cache_lookup", () =>
@@ -1735,12 +1735,7 @@ export async function searchChunksWithTelemetry(
     !args.forceEmbedding &&
     shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)
   ) {
-    // Item 10 follow-up (RC6): a typo can make an on-topic query ("schizophrenai management") look
-    // unsupported and short-circuit before any layer runs. Before giving up, trigram-correct the
-    // query against the known clinical-term vocabulary; if it changes, re-run the whole retrieval
-    // once on the corrected text so classification + every layer benefits (not just the text fallback
-    // in searchTextChunkCandidates). Only reached for would-be-unsupported queries, so it adds no
-    // hot-path cost; `typoCorrected` guards against recursion.
+    // RC6: correct a would-be unsupported typo once before retrieval short-circuits.
     if (!args.typoCorrected && !sourceOnlyRetrieval) {
       const { data: corrected } = await supabase.rpc("correct_clinical_query_terms", {
         input_query: retrievalQuery,
@@ -2445,16 +2440,19 @@ function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
     scoreExplanations: buildAnswerScoreExplanations(results),
   };
 }
-/** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
-/** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   throwIfAborted(args.signal);
-  args = withRagRequestContext(args);
+  args = {
+    ...withRagRequestContext(args),
+    ragQueryPlanVersion,
+    ragQueryPlanMode: args.observationContext?.rolloutMode ?? args.ragQueryPlanMode ?? "legacy",
+  };
   const startedAt = Date.now();
   const coalescingEnabled =
+    args.ragQueryPlanMode !== "shadow" &&
     answerCacheAllowedForOwner(args.ownerId) &&
     isRagCacheAccessAllowed(args) &&
     !args.skipCache &&
@@ -2482,12 +2480,9 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       return observeRagAnswer(answer, args.observationContext);
     } catch {
       throwIfAborted(args.signal);
-      // The in-flight request we coalesced onto failed — most often because the ORIGINATING
-      // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
-      // not propagate another caller's failure to this still-connected request: fall through to
-      // one replacement run. Recheck the map first: another still-connected
-      // waiter may already have installed that replacement while this rejected
-      // promise's microtasks were draining.
+      // An originating caller's abort/failure must not fail this connected waiter.
+      // Recheck first: another waiter may have installed a replacement while the
+      // rejected promise's microtasks drained.
       const replacement = inflightKey ? answerInflight.get(inflightKey) : undefined;
       if (replacement && replacement !== existing) {
         existing = replacement;
@@ -2497,20 +2492,18 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
     }
   }
 
-  // Only coalescible requests belong in this process-local signal. Requests
-  // that intentionally bypass cache/coalescing must not make a replica look
-  // ineffective, and neither keys nor clinical content leave this function.
   if (inflightKey) recordAnswerOrigination();
-  const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
-    if (inflightKey) {
-      answerInflight.delete(inflightKey);
-      recordAnswerOriginationFinished();
-    }
-  });
+  const pending = answerQuestionWithScopeUncoalesced(args, startedAt)
+    .then((answer) => withRagAnswerQueryPlanDiagnostics(answer, args))
+    .finally(() => {
+      if (inflightKey) {
+        answerInflight.delete(inflightKey);
+        recordAnswerOriginationFinished();
+      }
+    });
   if (inflightKey) answerInflight.set(inflightKey, pending);
   return observeRagAnswer(await pending, args.observationContext);
 }
-/** Answer question with scope uncoalesced. */
 async function answerQuestionWithScopeUncoalesced(
   args: AnswerQuestionWithScopeArgs,
   startedAt: number,
@@ -2542,6 +2535,7 @@ async function answerQuestionWithScopeUncoalesced(
     ? null
     : await getCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart });
   if (cachedAnswer) {
+    restoreRagAnswerQueryPlanArgs(cachedAnswer, args);
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
     const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({
@@ -2569,6 +2563,7 @@ async function answerQuestionWithScopeUncoalesced(
     ? null
     : await getSharedCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart });
   if (sharedCachedAnswer) {
+    restoreRagAnswerQueryPlanArgs(sharedCachedAnswer, args);
     void setCachedAnswer(args, sharedCachedAnswer, { indexingVersionAtRetrievalStart }).catch(() => undefined);
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);
     const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
@@ -2594,9 +2589,6 @@ async function answerQuestionWithScopeUncoalesced(
     });
   }
   const searchStartedAt = Date.now();
-  // Cache-version refresh plus the local/shared answer-cache lookups above run before any
-  // phase timer, so without this number the pre-retrieval window is invisible in
-  // route_budget accounting even though it spends the same 25s budget as generation.
   const preRetrievalLatencyMs = searchStartedAt - startedAt;
   const retrievalDeadline = createAnswerRouteDeadline({
     routeMode: "strong",
@@ -2620,11 +2612,15 @@ async function answerQuestionWithScopeUncoalesced(
         signal: retrievalDeadline.signal,
         cacheContext,
         ragRequestContext: args.ragRequestContext,
+        ragQueryPlanVersion: args.ragQueryPlanVersion,
+        ragQueryPlanMode: args.ragQueryPlanMode,
       }),
     );
   } finally {
     retrievalDeadline.dispose();
   }
+  args.ragQueryPlanKind = search.telemetry.query_plan_kind;
+  args.ragSubquestionCount = search.telemetry.subquestion_count;
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =
@@ -2753,6 +2749,10 @@ async function answerQuestionWithScopeUncoalesced(
       (gatedRoute.fallbackReason ? gatedRoute.fallbackReason : initialRetrievalDiagnostics.retrievalReason) ?? null,
   };
   const searchTelemetryDecisionMetadata = () => ({
+    query_plan_kind: search.telemetry.query_plan_kind ?? null,
+    subquestion_count: search.telemetry.subquestion_count ?? null,
+    query_plan_reason_codes: search.telemetry.query_plan_reason_codes ?? null,
+    candidate_retrieval_query_variant_count: search.telemetry.candidate_retrieval_query_variant_count ?? null,
     retrieval_plan: search.telemetry.retrieval_plan ?? null,
     retrieval_intent: search.telemetry.retrieval_intent ?? null,
     retrieval_selection: search.telemetry.retrieval_selection ?? null,

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildRagQueryMetadata,
   buildRagProgrammeTelemetry,
+  carryRagProgrammeTelemetry,
   observeRagAnswer,
   ragProgrammeTelemetryForAnswer,
   type RagProgrammeTelemetryInput,
 } from "../src/lib/rag/rag-programme-telemetry";
+import { cloneAnswer, withRagAnswerQueryPlanDiagnostics } from "../src/lib/rag/rag-cache";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { buildAnswerLogRow } from "../src/lib/answer-telemetry";
 import { buildGovernedAnswerClientResponse } from "../src/lib/answer-response";
@@ -171,6 +173,47 @@ describe("RAG programme telemetry projection", () => {
     expect(ragProgrammeTelemetryForAnswer(second)?.interaction_id).toBe(secondId);
     expect(JSON.stringify(second)).not.toContain(INTERACTION_ID);
     expect(JSON.stringify(second)).not.toContain(secondId);
+  });
+
+  it("preserves bounded decomposed shadow facts across answer clones and telemetry carry", () => {
+    const planned = withRagAnswerQueryPlanDiagnostics(
+      {
+        answer: "Shadow-planned governed answer.",
+        grounded: true,
+        confidence: "high",
+        citations: [],
+        sources: [],
+        routingMode: "extractive",
+      } satisfies RagAnswer,
+      { ragQueryPlanKind: "decomposed", ragSubquestionCount: 3 },
+    );
+    const observed = observeRagAnswer(planned, {
+      interactionId: INTERACTION_ID,
+      rolloutMode: "shadow",
+    });
+    const cachedOrCoalesced = observeRagAnswer(cloneAnswer(observed), {
+      interactionId: "22222222-2222-4222-8222-222222222222",
+      rolloutMode: "shadow",
+    });
+    const governedCopy = carryRagProgrammeTelemetry(cachedOrCoalesced, {
+      ...cachedOrCoalesced,
+      answer: "Governed copy.",
+    });
+
+    expect(ragProgrammeTelemetryForAnswer(observed)).toMatchObject({
+      rollout_mode: "shadow",
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+    });
+    expect(ragProgrammeTelemetryForAnswer(cachedOrCoalesced)).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+    });
+    expect(ragProgrammeTelemetryForAnswer(governedCopy)).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+    });
+    expect(JSON.stringify(ragProgrammeTelemetryForAnswer(governedCopy))).not.toContain("Shadow-planned");
   });
 
   it("preserves retrieval facts while recomputing a generated danger-source refusal", () => {

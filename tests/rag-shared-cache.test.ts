@@ -393,6 +393,62 @@ describe("shared RAG search cache", () => {
     expect(result?.kind === "hit" && result.telemetry.corpus_grounding).toBe("in_corpus_topic");
   });
 
+  it("drops non-canonical query-plan diagnostics from shared-cache hydration", async () => {
+    vi.resetModules();
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      is: () => builder,
+      in: () => builder,
+      or: () => builder,
+      gt: () => builder,
+      order: () => builder,
+      limit: () => builder,
+      maybeSingle: async () => ({
+        data: {
+          payload: {
+            results: [],
+            telemetry: {
+              query_plan_kind: "decomposed",
+              subquestion_count: 3,
+              query_plan_reason_codes: ["broad_management_decomposition", "patient-name-canary"],
+              candidate_retrieval_query_variant_count: 99,
+            },
+          },
+        },
+        error: null,
+      }),
+    };
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        RAG_SEARCH_CACHE_TTL_MS: 60_000,
+        RAG_SEARCH_CACHE_SIZE: 200,
+        RAG_PERSIST_RAW_QUERY_TEXT: false,
+        RAG_QUERY_HASH_SECRET: "test-query-hash-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/deep-memory", () => ({ ragDeepMemoryVersion: "test-rag-version" }));
+    vi.doMock("@/lib/clinical-search", () => ({ buildClinicalTextSearchQuery: (query: string) => query.trim() }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => builder }) }));
+
+    const { getSharedCachedSearch } = await import("../src/lib/rag/rag-cache");
+    const result = await getSharedCachedSearch({ query: "lithium monitoring", ownerId }, undefined, [], {
+      indexingVersionAtRequestStart: "index-v1",
+    });
+
+    expect(result?.kind).toBe("hit");
+    if (result?.kind !== "hit") throw new Error("Expected a cache hit.");
+    expect(result.telemetry).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+      query_plan_reason_codes: ["broad_management_decomposition"],
+    });
+    expect(result.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
+    expect(JSON.stringify(result.telemetry)).not.toContain("patient-name-canary");
+  });
+
   it("does not serve generation-fallback answers from shared cache and removes them", async () => {
     vi.resetModules();
     const fallback = {

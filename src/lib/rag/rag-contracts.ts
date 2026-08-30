@@ -45,6 +45,13 @@ export type SearchChunksArgs = {
   ragContextSnapshotInput?: RagContextSnapshotInput;
   /** Internal: the exact frozen request snapshot shared by nested retrieval/cache calls. */
   ragRequestContext?: RagRequestContext;
+  /** Internal bounded query-plan contract version; raw subquestions never enter cache identity. */
+  ragQueryPlanVersion?: string;
+  /** Internal programme mode for shadow diagnostics and cache partitioning. */
+  ragQueryPlanMode?: RagProgrammeMode;
+  /** Internal bounded diagnostics carried into answer cache/programme observation. */
+  ragQueryPlanKind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  ragSubquestionCount?: number;
 };
 
 export type SearchTelemetry = {
@@ -59,6 +66,10 @@ export type SearchTelemetry = {
   text_candidate_count?: number;
   embedding_field_count?: number;
   retrieval_query_variant_count?: number;
+  query_plan_kind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  subquestion_count?: number;
+  query_plan_reason_codes?: string[];
+  candidate_retrieval_query_variant_count?: number;
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;

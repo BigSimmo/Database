@@ -9,6 +9,7 @@ import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
+import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import {
@@ -26,13 +27,18 @@ import {
   ragQueryClassifierPromptVersion,
 } from "@/lib/rag/rag-versioning";
 
+export type RagAnswerQueryPlanDiagnostics = Readonly<{
+  queryPlanKind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  subquestionCount: number;
+}>;
+const answerQueryPlanDiagnostics = new WeakMap<RagAnswer, RagAnswerQueryPlanDiagnostics>();
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 export const answerInflight = new Map<string, Promise<RagAnswer>>();
 const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-const ragCacheDependencyVersion = "rag-cache-v20";
+export const ragCacheDependencyVersion = "rag-cache-v21";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
@@ -175,18 +181,33 @@ export function answerGenerationFingerprint() {
   });
 }
 
-export function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode" | "ragRequestContext">) {
+export function sharedAnswerNormalizedQuery(
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "queryMode" | "ragRequestContext" | "ragQueryPlanVersion" | "ragQueryPlanMode"
+  >,
+) {
   const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   return queryCacheKeyForStorage(
-    `${query}|generation:${answerGenerationFingerprint()}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
+    `${query}|generation:${answerGenerationFingerprint()}|queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}|queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}${snapshotCacheKey ? `|snapshot:${snapshotCacheKey}` : ""}`,
   );
 }
 
 export function scopedAnswerCacheKey(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "ragRequestContext"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
   >,
 ) {
   const snapshotCacheKey = requestSnapshotCacheKey(args);
@@ -194,6 +215,8 @@ export function scopedAnswerCacheKey(
     ragCacheDependencyVersion,
     scopeKey(args),
     modeKey(args),
+    `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
+    `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
     `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
   ];
@@ -204,8 +227,59 @@ export function scopedAnswerCacheKey(
   return identity.join("|");
 }
 
+function boundedAnswerQueryPlanDiagnostics(
+  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount"> | null | undefined,
+): RagAnswerQueryPlanDiagnostics | undefined {
+  const diagnostics = sanitizeRagQueryPlanDiagnostics({
+    query_plan_kind: input?.ragQueryPlanKind,
+    subquestion_count: input?.ragSubquestionCount,
+  });
+  return diagnostics.query_plan_kind !== undefined && diagnostics.subquestion_count !== undefined
+    ? { queryPlanKind: diagnostics.query_plan_kind, subquestionCount: diagnostics.subquestion_count }
+    : undefined;
+}
+
+function markAnswerQueryPlanDiagnostics(answer: RagAnswer, diagnostics: RagAnswerQueryPlanDiagnostics | undefined) {
+  if (diagnostics) answerQueryPlanDiagnostics.set(answer, diagnostics);
+  return answer;
+}
+
+function storedAnswerQueryPlanDiagnostics(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const stored = value as Record<string, unknown>;
+  return boundedAnswerQueryPlanDiagnostics({
+    ragQueryPlanKind: stored.queryPlanKind as SearchChunksArgs["ragQueryPlanKind"],
+    ragSubquestionCount: stored.subquestionCount as number,
+  });
+}
+
+export function ragAnswerQueryPlanDiagnostics(answer: RagAnswer): RagAnswerQueryPlanDiagnostics | undefined {
+  return answerQueryPlanDiagnostics.get(answer);
+}
+
+export function restoreRagAnswerQueryPlanArgs(
+  answer: RagAnswer,
+  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount">,
+) {
+  const diagnostics = answerQueryPlanDiagnostics.get(answer);
+  if (diagnostics) {
+    args.ragQueryPlanKind = diagnostics.queryPlanKind;
+    args.ragSubquestionCount = diagnostics.subquestionCount;
+  }
+}
+
+export function withRagAnswerQueryPlanDiagnostics(
+  answer: RagAnswer,
+  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount">,
+) {
+  return markAnswerQueryPlanDiagnostics(
+    answer,
+    boundedAnswerQueryPlanDiagnostics(input) ?? answerQueryPlanDiagnostics.get(answer),
+  );
+}
+
 export function cloneAnswer(answer: RagAnswer) {
-  return structuredClone(answer);
+  return markAnswerQueryPlanDiagnostics(structuredClone(answer), answerQueryPlanDiagnostics.get(answer));
 }
 
 /** Anonymous callers share no stable identity, so their PHI-bearing answers must never be cached or coalesced. */
@@ -335,6 +409,10 @@ type SiteAwareWriteArgs = Pick<
   | "lexicalOnly"
   | "signal"
   | "ragRequestContext"
+  | "ragQueryPlanVersion"
+  | "ragQueryPlanMode"
+  | "ragQueryPlanKind"
+  | "ragSubquestionCount"
 >;
 
 type SiteAwareWriteDescriptor = Readonly<{
@@ -385,6 +463,10 @@ function captureSiteAwareWriteArgs(args: SiteAwareWriteArgs): Readonly<SiteAware
     lexicalOnly: args.lexicalOnly,
     signal: args.signal,
     ragRequestContext: args.ragRequestContext,
+    ragQueryPlanVersion: args.ragQueryPlanVersion,
+    ragQueryPlanMode: args.ragQueryPlanMode,
+    ragQueryPlanKind: args.ragQueryPlanKind,
+    ragSubquestionCount: args.ragSubquestionCount,
   });
 }
 
@@ -422,7 +504,18 @@ function sharedCacheRowIdentity(
 export async function getCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode" | "ragRequestContext"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
@@ -490,17 +583,28 @@ export async function setCachedAnswer(
     | "forceEmbedding"
     | "signal"
     | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
   >,
   answer: RagAnswer,
   options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || !isRagCacheAccessAllowed(args)) return;
+  if (
+    args.ragQueryPlanMode === "shadow" ||
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return;
+  const queryPlanDiagnostics = boundedAnswerQueryPlanDiagnostics(args) ?? answerQueryPlanDiagnostics.get(answer);
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   if (snapshotCacheKey) {
     const proof = options?.publicCacheWriteProof;
     if (!proof || !cacheWriteProofAllows(args, "answer", answer.sources ?? [], proof)) return;
     if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
-    const capturedAnswer = deepFreeze(cloneAnswer(answer));
+    const capturedAnswer = deepFreeze(markAnswerQueryPlanDiagnostics(cloneAnswer(answer), queryPlanDiagnostics));
     const descriptor = createSiteAwareAnswerWriteDescriptor(args);
     if (!cacheWriteProofAllows(descriptor.args, "answer", capturedAnswer.sources ?? [], proof)) return;
     const indexingVersionAtRetrievalStart = options?.indexingVersionAtRetrievalStart;
@@ -543,7 +647,7 @@ export async function setCachedAnswer(
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
-    answer: cloneAnswer(answer),
+    answer: markAnswerQueryPlanDiagnostics(cloneAnswer(answer), queryPlanDiagnostics),
     indexingVersion,
   });
 
@@ -581,6 +685,8 @@ export function retrievalPlanCacheQuery(
     | "forceEmbedding"
     | "lexicalOnly"
     | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -592,6 +698,8 @@ export function retrievalPlanCacheQuery(
     `class:${queryClass ?? "unknown"}`,
     `query:${normalizedQuery}`,
     `variants:${variantHash}`,
+    `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
+    `queryPlanMode:${args.ragQueryPlanMode ?? "legacy"}`,
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
@@ -712,6 +820,7 @@ export async function setCachedSearch(
   options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
   throwIfAborted(args.signal);
+  if (args.ragQueryPlanMode === "shadow") return;
   if (
     args.skipCache ||
     env.RAG_SEARCH_CACHE_TTL_MS <= 0 ||
@@ -914,6 +1023,12 @@ export async function getSharedCachedSearch(
         text_candidate_count: payload.telemetry?.text_candidate_count,
         embedding_field_count: payload.telemetry?.embedding_field_count,
         retrieval_query_variant_count: payload.telemetry?.retrieval_query_variant_count ?? 0,
+        ...sanitizeRagQueryPlanDiagnostics({
+          query_plan_kind: payload.telemetry?.query_plan_kind,
+          subquestion_count: payload.telemetry?.subquestion_count,
+          query_plan_reason_codes: payload.telemetry?.query_plan_reason_codes,
+          candidate_retrieval_query_variant_count: payload.telemetry?.candidate_retrieval_query_variant_count,
+        }),
         text_fast_path_latency_ms: 0,
         text_candidate_budget: payload.telemetry?.text_candidate_budget,
         text_fast_path_reason: payload.telemetry?.text_fast_path_reason ?? null,
@@ -973,6 +1088,8 @@ export async function getSharedCachedAnswer(
     | "forceEmbedding"
     | "signal"
     | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
@@ -996,7 +1113,11 @@ export async function getSharedCachedAnswer(
     ).maybeSingle();
     if (error || !data?.payload) return null;
     throwIfAborted(args.signal);
-    const answer = cloneAnswer((data.payload as { answer: RagAnswer }).answer);
+    const payload = data.payload as { answer: RagAnswer; queryPlanDiagnostics?: unknown };
+    const answer = markAnswerQueryPlanDiagnostics(
+      cloneAnswer(payload.answer),
+      storedAnswerQueryPlanDiagnostics(payload.queryPlanDiagnostics),
+    );
     if (isGenerationFallbackAnswer(answer)) {
       await deleteSharedCachedAnswerRow({ ...args, accessScope: retrievalAccessScopeForArgs(args) }, indexingVersion);
       return null;
@@ -1165,6 +1286,10 @@ async function setSharedCachedAnswer(
     | "queryMode"
     | "forceEmbedding"
     | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
   >,
   answer: RagAnswer,
   indexingVersion: string,
@@ -1181,7 +1306,10 @@ async function setSharedCachedAnswer(
   await replaceLegacySharedCacheRow(
     "answer",
     args,
-    { answer: cloneAnswer(answer) },
+    {
+      answer: cloneAnswer(answer),
+      queryPlanDiagnostics: answerQueryPlanDiagnostics.get(answer) ?? boundedAnswerQueryPlanDiagnostics(args),
+    },
     env.RAG_ANSWER_CACHE_TTL_MS,
     indexingVersion,
     sharedAnswerNormalizedQuery(args),
@@ -1201,7 +1329,11 @@ async function setSharedSiteAwareCachedAnswer(
   )
     return;
   const isolatedAnswer = deepFreeze(cloneAnswer(answer as RagAnswer));
-  const payload = deepFreeze({ answer: isolatedAnswer });
+  const payload = deepFreeze({
+    answer: isolatedAnswer,
+    queryPlanDiagnostics:
+      answerQueryPlanDiagnostics.get(answer as RagAnswer) ?? boundedAnswerQueryPlanDiagnostics(descriptor.args),
+  });
   await replaceSharedCacheRow(rowIdentity, payload, env.RAG_ANSWER_CACHE_TTL_MS, descriptor.signal);
 }
 
@@ -1225,7 +1357,15 @@ async function deleteSharedCacheRowByIdentity(identity: SharedCacheRowIdentity) 
 async function deleteSharedCachedAnswerRow(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "ragRequestContext"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
   >,
   indexingVersion: string,
 ) {
