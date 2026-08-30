@@ -718,7 +718,14 @@ describe("a referral addressed to several destinations", () => {
     secureBedNeeded: false,
     involuntaryBedNeeded: false,
   };
-  const ED: ReferralDestination = { kind: "emergency_department" };
+  // `edId` and `purpose` are required on every ED destination (FD-15/FD-11): a referral to an
+  // emergency department always says WHICH one and WHY. See the arm's own doc comment for why
+  // purpose is a field rather than a fourth kind.
+  const ED: ReferralDestination = {
+    kind: "emergency_department",
+    edId: "peel-ed",
+    purpose: "psychiatric_review",
+  };
   const COMMUNITY: ReferralDestination = { kind: "community_team" };
 
   it("holds every destination the referrer chose, each queued and each with its own record", () => {
