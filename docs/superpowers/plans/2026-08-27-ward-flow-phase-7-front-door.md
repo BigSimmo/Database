@@ -396,6 +396,15 @@ nothing ran.
 
 ## Task 9: The morning page gains a demand figure
 
+> **Task 9 runs BEFORE Task 8, deliberately, and the numbers are not a mistake to be tidied.**
+> Task 8 is the verification sweep and the screenshot pass; it is last because it proves the
+> phase, and a sweep run before the last change proves the wrong tree. Task 9 was added after the
+> numbering was fixed and slotted where it had to execute. **Noted rather than renumbered
+> 2026-08-30 (process audit P3-24):** this plan is a record of work already done, and renumbering
+> a record back-dates it — see the fact-versus-record rule in
+> `docs/ward-flow-changeable-data-rule.md`. Read the ORDER ON THE PAGE as the execution order;
+> the number is an identifier, not a position.
+
 **Files:**
 
 - Modify: `src/components/ward-management/ward-morning-rollup.ts` (the derivation)

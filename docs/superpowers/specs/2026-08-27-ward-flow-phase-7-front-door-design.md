@@ -209,7 +209,17 @@ be silent and would produce wrong matching in both directions.
 
 ### D5 — What a referral carries
 
-**Facts about the person — exactly three, and no others, ever:**
+**Facts about the person. Every one is a chosen option from a fixed list — never a typed value,
+a number, a date or free text. That is the property that makes the privacy claim checkable, and
+it is why the list is allowed to grow:**
+
+> **This heading said "exactly three, and no others, ever" while listing four**, and the fourth
+> entry explained that it had made the list four. Corrected 2026-08-30 (process audit P2-17).
+> A rule that COUNTS breaks the moment the thing legitimately grows — there is no third option —
+> and this one broke against a field the owner asked for. The replacement constrains what KIND of
+> field may exist rather than how many, per the referral-record rule in
+> `docs/ward-flow-mission-and-refusals.md`. A new field is allowed when it is a chosen option and
+> is recorded as a decision; adding one silently is the breach.
 
 - `ageBand` — Older adult · Adult · Youth
 - `sex` — Female · Male
@@ -566,7 +576,7 @@ are provider-backed and forbidden by the standing constraints.
 4. A coordinator can decline a referral, with a reason, and the reason describes the service or the
    network rather than the person.
 5. No referral is ever matched against a bed that is only expected.
-6. The record holds exactly three facts about any person, and no free text anywhere.
+6. Every fact the record holds about a person is a chosen option from a fixed list, and there is no free text anywhere.
 7. If the four bed states turn out to be wrong, nothing in this phase changes.
 
 ---
