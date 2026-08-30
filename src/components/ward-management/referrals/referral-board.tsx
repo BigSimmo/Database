@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { formatInstant, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
+import { formatInstantWithDay, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-management/ward-model";
@@ -16,6 +16,11 @@ import {
   referralWaitLabel,
   referralPersonFacts,
   referralSexCell,
+  acceptedAddressing,
+  declinedAddressings,
+  referralDecidedAt,
+  referralDestinationLabel,
+  referralState,
 } from "@/components/ward-management/ward-referrals";
 
 import { ReferralMatchView } from "./referral-match";
@@ -30,13 +35,15 @@ import styles from "./referrals.module.css";
  */
 
 function decidedWaitLabel(referral: Referral): string {
-  if (referral.decidedAt === undefined) return "No decision time recorded";
-  return `${splitDuration(Math.max(0, referral.decidedAt - referral.raisedAt))} before decision`;
+  const decidedAt = referralDecidedAt(referral);
+  if (decidedAt === undefined) return "No decision time recorded";
+  return `${splitDuration(Math.max(0, decidedAt - referral.raisedAt))} before decision`;
 }
 
 function outcomeLabel(referral: Referral): string {
-  if (referral.state === "accepted") return "Accepted";
-  if (referral.state === "declined") return "Declined";
+  const state = referralState(referral);
+  if (state === "accepted") return "Accepted";
+  if (state === "declined") return "Declined";
   return "Queued";
 }
 
@@ -52,14 +59,27 @@ function outcomeLabel(referral: Referral): string {
  * a missing unit or reason reads as "Not recorded", never as a guess or an empty cell.
  */
 function outcomeDetail(referral: Referral, units: Unit[]): string {
-  if (referral.state === "accepted") {
-    const unit = units.find((candidate) => candidate.id === referral.acceptedUnitId);
+  const accepted = acceptedAddressing(referral);
+  if (accepted) {
+    // A ward acceptance names the bed; the other three are answered by a team, so the destination
+    // itself is the whole answer and saying "Unit not recorded" there would invent a gap.
+    if (accepted.destination.kind !== "psychiatric_ward") {
+      return referralDestinationLabel(accepted.destination);
+    }
+    const unit = units.find((candidate) => candidate.id === accepted.acceptedUnitId);
     return unit ? unit.name : "Unit not recorded";
   }
-  if (referral.state === "declined") {
-    const reason = referral.declineReason;
-    if (reason === undefined) return "Reason not recorded";
-    return DECLINE_REASON_LABELS[reason as ReferralDeclineReason] ?? reason;
+  const declined = declinedAddressings(referral);
+  if (declined.length > 0) {
+    // EVERY refusal, not the first. Several destinations can decline while the referral stays
+    // live (FD-24), and showing one would hide refusals that were actually given.
+    return declined
+      .map((addressing) => {
+        const reason = addressing.declineReason;
+        const label = reason ? (DECLINE_REASON_LABELS[reason] ?? reason) : "Reason not recorded";
+        return `${referralDestinationLabel(addressing.destination)}: ${label}`;
+      })
+      .join(" · ");
   }
   return "Not recorded";
 }
@@ -129,7 +149,7 @@ export function ReferralBoard() {
         </header>
 
         <QueuedSection queued={queued} now={now} selectedId={selectedReferralId} onSelect={setSelectedReferralId} />
-        <DecidedSection decided={decided} units={units} />
+        <DecidedSection decided={decided} units={units} now={now} />
 
         {selectedReferral ? (
           <ReferralMatchView
@@ -246,7 +266,7 @@ function QueuedSection({
   );
 }
 
-function DecidedSection({ decided, units }: { decided: Referral[]; units: Unit[] }) {
+function DecidedSection({ decided, units, now }: { decided: Referral[]; units: Unit[]; now: Instant }) {
   return (
     <section className={styles.section} data-testid="ward-referral-board-decided">
       <h2 className={styles.sectionHeading}>Recently decided ({decided.length})</h2>
@@ -291,7 +311,11 @@ function DecidedSection({ decided, units }: { decided: Referral[]; units: Unit[]
                       {outcomeDetail(referral, units)}
                     </td>
                     <td>{decidedWaitLabel(referral)}</td>
-                    <td>{referral.decidedAt !== undefined ? formatInstant(referral.decidedAt) : "Not recorded"}</td>
+                    <td>
+                      {referralDecidedAt(referral) !== undefined
+                        ? formatInstantWithDay(referralDecidedAt(referral)!, now)
+                        : "Not recorded"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -323,7 +347,9 @@ function DecidedSection({ decided, units }: { decided: Referral[]; units: Unit[]
                   </p>
                   <p className={styles.cardService}>
                     {decidedWaitLabel(referral)} ·{" "}
-                    {referral.decidedAt !== undefined ? formatInstant(referral.decidedAt) : "Not recorded"}
+                    {referralDecidedAt(referral) !== undefined
+                      ? formatInstantWithDay(referralDecidedAt(referral)!, now)
+                      : "Not recorded"}
                   </p>
                 </div>
               </li>

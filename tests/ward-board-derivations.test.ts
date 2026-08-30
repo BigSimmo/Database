@@ -10,7 +10,6 @@ import {
   type CapacityFigure,
   type Referral,
   type Unit,
-  type WardReferral,
 } from "@/components/ward-management/ward-model";
 import {
   ARROW_HORIZON_DAYS,
@@ -140,24 +139,30 @@ describe("the accepts rule is never an equality", () => {
    * everywhere and the invariance test above would go red for a reason nobody could read.
    */
   it("reads a gate the shared verdict actually publishes", () => {
-    const probe: WardReferral = {
+    const probe: Referral = {
       id: "WR-PROBE",
       ageBand: "Adult",
-      destination: {
-        kind: "psychiatric_ward",
-        sex: "Female",
-        secureBedNeeded: false,
-        involuntaryBedNeeded: false,
-      },
+      destinations: [
+        {
+          destination: {
+            kind: "psychiatric_ward",
+            sex: "Female",
+            secureBedNeeded: false,
+            involuntaryBedNeeded: false,
+          },
+          state: "queued",
+        },
+      ],
       homeRegion: HOME_REGIONS[0],
       source: "community",
       raisedAt: NOW,
       urgency: 2,
       originSiteCode: "TST",
       transportNeeded: false,
-      state: "queued",
     };
-    const gateNames = referralEligibility(probe, testUnit(), NOW).gates.map((gate) => gate.gate);
+    const probeWard = probe.destinations[0].destination;
+    if (probeWard.kind !== "psychiatric_ward") throw new Error("the probe must be a ward question");
+    const gateNames = referralEligibility(probe, probeWard, testUnit(), NOW).gates.map((gate) => gate.gate);
     expect(gateNames).toContain("sex_designation");
   });
 

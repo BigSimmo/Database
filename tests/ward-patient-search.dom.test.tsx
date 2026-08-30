@@ -1,3 +1,4 @@
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -45,7 +46,7 @@ const { movements } = seedWardFlowState();
 const openCount = movements.filter(isOpen).length;
 /** The waiting referrals the search now also covers — see the heading assertion below for why the
  *  heading counts these and the table does not. */
-const queuedReferrals = seedWardFlowState().referrals.filter((referral) => referral.state === "queued");
+const queuedReferrals = seedWardFlowState().referrals.filter((referral) => referralState(referral) === "queued");
 
 describe("PatientSearchPage", () => {
   it("renders the root, the three labelled fields, and the results section", () => {

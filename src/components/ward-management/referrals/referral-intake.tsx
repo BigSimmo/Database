@@ -351,12 +351,17 @@ export function ReferralIntakeForm() {
       role: "community",
       now,
       ageBand: answered.ageBand,
-      destination: {
-        kind: "psychiatric_ward",
-        sex: answered.sex,
-        secureBedNeeded: answered.secureBedNeeded,
-        involuntaryBedNeeded: answered.involuntaryBedNeeded,
-      },
+      // One destination for now: this form asks only the ward questions. Multi-select across the
+      // four destinations (FD-21) is a form change, not a model one -- the event already takes a
+      // list, so the day the form offers the choice nothing below it has to move.
+      destinations: [
+        {
+          kind: "psychiatric_ward",
+          sex: answered.sex,
+          secureBedNeeded: answered.secureBedNeeded,
+          involuntaryBedNeeded: answered.involuntaryBedNeeded,
+        },
+      ],
       homeRegion: answered.homeRegion,
       source: answered.source,
       urgency: answered.urgency,

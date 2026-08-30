@@ -21,7 +21,6 @@ import {
   type Referral,
   type Sex,
   type Unit,
-  type WardReferral,
   type WardReferralDestination,
 } from "../src/components/ward-management/ward-model";
 import {
@@ -55,28 +54,58 @@ const NOW = 10 * 60 + 42;
 /** Ward referrals throughout: travel bands are computed for bed placement, which only a ward
  *  referral has. Flat overrides, routed into `destination` here, for the same reason as
  *  `ward-referral-matching.test.ts` -- the call sites' meaning must not move with the shape. */
-type ReferralOverrides = Partial<Omit<WardReferral, "destination">> & Partial<Omit<WardReferralDestination, "kind">>;
+type ReferralOverrides = Partial<Omit<Referral, "destinations">> & Partial<Omit<WardReferralDestination, "kind">>;
 
-function referral(overrides: ReferralOverrides = {}): WardReferral {
+function referral(overrides: ReferralOverrides = {}): Referral {
   const { sex, secureBedNeeded, involuntaryBedNeeded, ...rest } = overrides;
   return {
     id: "RF-TEST",
     ageBand: "Adult",
-    destination: {
-      kind: "psychiatric_ward",
-      sex: sex ?? "Female",
-      secureBedNeeded: secureBedNeeded ?? false,
-      involuntaryBedNeeded: involuntaryBedNeeded ?? false,
-    },
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex: sex ?? "Female",
+          secureBedNeeded: secureBedNeeded ?? false,
+          involuntaryBedNeeded: involuntaryBedNeeded ?? false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW - 30,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
-    state: "queued",
     ...rest,
   };
+}
+
+/**
+ * Runs the bed gates for a referral built above.
+ *
+ * Exists because `referralEligibility` now takes the WARD DESTINATION as well as the referral —
+ * the criteria live on the arm, and a referral may be addressed to several places. This unwraps
+ * the one ward destination these fixtures carry and THROWS if there is not one, so a fixture that
+ * stopped being a ward referral fails loudly here rather than quietly skipping the gates.
+ */
+/** `referralCandidates` for a fixture referral, unwrapping its ward destination the same way
+ *  `verdictFor` does — and throwing for the same reason. */
+function candidatesFor(subject: Referral, units: Unit[], now: number) {
+  const ward = subject.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  if (!ward || ward.destination.kind !== "psychiatric_ward") {
+    throw new Error(`${subject.id} has no psychiatric ward destination, so it has no bed candidates`);
+  }
+  return referralCandidates(subject, ward.destination, units, now);
+}
+
+function verdictFor(subject: Referral, unitArg: Unit, now: number) {
+  const ward = subject.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  if (!ward || ward.destination.kind !== "psychiatric_ward") {
+    throw new Error(`${subject.id} has no psychiatric ward destination, so it has no bed gates to run`);
+  }
+  return referralEligibility(subject, ward.destination, unitArg, now);
 }
 
 /** The grouping's own key order, derived from `TRAVEL_BANDS` so no test hand-writes a parallel
@@ -117,7 +146,7 @@ function regionWhere(predicate: (bands: (string | undefined)[]) => boolean): Hom
 describe("grouping candidates by travel band", () => {
   it("returns exactly five groups, in TRAVEL_BANDS order followed by not_recorded", () => {
     const subject = referral();
-    const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, allUnits(), NOW));
+    const groups = groupCandidatesByTravelBand(subject, candidatesFor(subject, allUnits(), NOW));
     expect(groups).toHaveLength(EXPECTED_GROUP_COUNT);
     expect(groups.map((group) => String(group.band))).toEqual(GROUP_ORDER);
   });
@@ -135,7 +164,7 @@ describe("grouping candidates by travel band", () => {
     const emptyBand = emptyBandOf(bandsAcrossNetwork(homeRegion!))!;
 
     const subject = referral({ homeRegion: homeRegion! });
-    const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, allUnits(), NOW));
+    const groups = groupCandidatesByTravelBand(subject, candidatesFor(subject, allUnits(), NOW));
     expect(groups).toHaveLength(EXPECTED_GROUP_COUNT);
     expect(groups.map((group) => String(group.band))).toEqual(GROUP_ORDER);
     // The band no unit in the whole network sits in still gets a group, and that group is empty.
@@ -155,7 +184,7 @@ describe("grouping candidates by travel band", () => {
     ).not.toBeNull();
 
     const subject = referral({ homeRegion: homeRegion! });
-    const candidates = referralCandidates(subject, allUnits(), NOW);
+    const candidates = candidatesFor(subject, allUnits(), NOW);
     const grouped = flatten(groupCandidatesByTravelBand(subject, candidates));
 
     expect(grouped).toHaveLength(candidates.length);
@@ -170,7 +199,7 @@ describe("grouping candidates by travel band", () => {
     let found: { homeRegion: HomeRegion; expected: string[] } | null = null;
     for (const homeRegion of HOME_REGIONS) {
       const subject = referral({ homeRegion });
-      const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, units, NOW));
+      const groups = groupCandidatesByTravelBand(subject, candidatesFor(subject, units, NOW));
       const populated = groups.find((group) => group.candidates.length >= 2);
       if (!populated) continue;
       const members = new Set(populated.candidates.map((candidate) => candidate.unit.id));
@@ -183,7 +212,7 @@ describe("grouping candidates by travel band", () => {
     ).not.toBeNull();
 
     const subject = referral({ homeRegion: found!.homeRegion });
-    const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, units, NOW));
+    const groups = groupCandidatesByTravelBand(subject, candidatesFor(subject, units, NOW));
     const populated = groups.find((group) => group.candidates.length >= 2)!;
     expect(populated.candidates.length).toBeGreaterThanOrEqual(2);
     // The site table's own order — what `allUnits()` returns, and the order the morning page uses.
@@ -195,7 +224,7 @@ describe("grouping candidates by travel band", () => {
     const comparative =
       /furthest|most remote|hardest|nearest|closest|best|worst|recommend|optimal|preferred|suggested/i;
     const subject = referral();
-    const groups = groupCandidatesByTravelBand(subject, referralCandidates(subject, allUnits(), NOW));
+    const groups = groupCandidatesByTravelBand(subject, candidatesFor(subject, allUnits(), NOW));
     const headings = groups.map((group) =>
       group.band === "not_recorded" ? NOT_RECORDED_LABEL : TRAVEL_BAND_LABELS[group.band],
     );
@@ -215,7 +244,7 @@ describe("grouping candidates by travel band", () => {
       "the network shrank — re-check that this floor still means 'every unit', not 'one site's worth'",
     ).toBeGreaterThanOrEqual(10);
     const subject = referral();
-    const candidates = referralCandidates(subject, units, NOW);
+    const candidates = candidatesFor(subject, units, NOW);
     expect(candidates).toHaveLength(units.length);
     expect(flatten(groupCandidatesByTravelBand(subject, candidates))).toHaveLength(units.length);
   });
@@ -271,7 +300,7 @@ describe("distance groups the list and never gates it", () => {
             homeRegion,
             originSiteCode,
             band: unitTravelBand(subject, candidate),
-            verdict: referralEligibility(subject, candidate, NOW),
+            verdict: verdictFor(subject, candidate, NOW),
           };
         });
         const reference = swept[0];
@@ -358,7 +387,7 @@ describe("distance groups the list and never gates it", () => {
     const seen = new Set<string>();
     for (const candidate of allUnits()) {
       for (const homeRegion of HOME_REGIONS) {
-        for (const gate of referralEligibility(referral({ homeRegion }), candidate, NOW).gates) seen.add(gate.gate);
+        for (const gate of verdictFor(referral({ homeRegion }), candidate, NOW).gates) seen.add(gate.gate);
       }
     }
     expect(seen.size, "no gates were collected — this sweep proves nothing").toBeGreaterThan(0);
@@ -923,7 +952,7 @@ describe("only ward-distance.ts reads the travel-band fixture", () => {
 
 describe("the counts a band group heading carries", () => {
   const subject = referral();
-  const candidatesOf = () => referralCandidates(subject, allUnits(), NOW);
+  const candidatesOf = () => candidatesFor(subject, allUnits(), NOW);
 
   it("counts the verdicts the rows actually carry, never a fresh recomputation", () => {
     // The structural claim, tested by making a recomputation and the rendered rows disagree on
@@ -974,7 +1003,7 @@ describe("the counts a band group heading carries", () => {
     const emptyBand = emptyBandOf(bandsAcrossNetwork(homeRegion!))!;
 
     const local = referral({ homeRegion: homeRegion! });
-    const groups = groupCandidatesByTravelBand(local, referralCandidates(local, allUnits(), NOW));
+    const groups = groupCandidatesByTravelBand(local, candidatesFor(local, allUnits(), NOW));
     const empty = groups.find((group) => group.band === emptyBand)!;
     // "None within an hour" is the answer a coordinator came for. Zero, not absent.
     expect(travelBandGroupCounts(empty)).toEqual({ units: 0, accepting: 0 });

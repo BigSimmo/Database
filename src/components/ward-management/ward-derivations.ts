@@ -5,6 +5,7 @@
  * these three files can drift out of sync if a formula changes, so a change here changes every
  * consumer at once rather than needing three coordinated edits.
  */
+import { referralState } from "@/components/ward-management/ward-referrals";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Truck } from "lucide-react";
 
@@ -796,7 +797,7 @@ export function searchPatients(
   if (movementFilterSet) return movementHalf;
 
   const referralHalf: PatientSearchResult[] = referralList
-    .filter((referral) => referral.state === "queued")
+    .filter((referral) => referralState(referral) === "queued")
     .filter((referral) => referralMatches(referral, needle))
     .map((referral) => ({ kind: "referral", referral }));
 

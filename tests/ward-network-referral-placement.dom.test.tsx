@@ -491,12 +491,14 @@ describe("network diagram, the travel-band arrangement", () => {
               role: "community",
               now,
               ageBand: "Adult",
-              destination: {
-                kind: "psychiatric_ward",
-                sex: "Female",
-                secureBedNeeded: false,
-                involuntaryBedNeeded: false,
-              },
+              destinations: [
+                {
+                  kind: "psychiatric_ward",
+                  sex: "Female",
+                  secureBedNeeded: false,
+                  involuntaryBedNeeded: false,
+                },
+              ],
               homeRegion,
               source: "community",
               urgency: 2,

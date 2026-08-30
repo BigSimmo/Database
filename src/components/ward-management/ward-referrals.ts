@@ -19,7 +19,9 @@ import type {
   ReferralDeclineReason,
   ReferralDestination,
   Unit,
-  WardReferral,
+  WardReferralDestination,
+  ReferralAddressing,
+  ReferralState,
 } from "@/components/ward-management/ward-model";
 
 /**
@@ -34,6 +36,70 @@ import type {
  * read as a recommendation, and D10 is explicit that this view shows candidates and a human
  * decides — it never allocates, never ranks, never suggests which bed is best.
  */
+/**
+ * The referral's own state, DERIVED from its destinations rather than stored beside them.
+ *
+ * Two homes for one fact is how a referral comes to say "queued" while a destination it holds says
+ * "accepted", and nothing notices — so there is one home, and this reads it.
+ *
+ *   accepted — any destination accepted. FD-22 then cancels the rest, so there is never a second.
+ *   declined — EVERY destination declined. One ward saying no is not a declined referral (FD-24);
+ *              that is the case this function exists to get right.
+ *   queued   — anything else, including a referral with one decline and two still waiting.
+ *
+ * `cancelled` is deliberately not a referral state. A destination is cancelled by somebody else's
+ * acceptance; the referral that happened to is accepted, which is the more useful thing to say.
+ */
+export function referralState(referral: Referral): ReferralState {
+  if (referral.destinations.some((addressing) => addressing.state === "accepted")) return "accepted";
+  if (
+    referral.destinations.length > 0 &&
+    referral.destinations.every((addressing) => addressing.state === "declined")
+  ) {
+    return "declined";
+  }
+  return "queued";
+}
+
+/**
+ * When this referral was decided: the LATEST decision across its destinations.
+ *
+ * Latest rather than earliest, because the board sorts "most recently decided first" and a
+ * referral is not finished with until its last destination has answered or been cancelled. A
+ * referral with no decided destination has no decided time, and says so with `undefined` rather
+ * than a zero that would sort as the beginning of the demo day.
+ */
+export function referralDecidedAt(referral: Referral): Instant | undefined {
+  const times = referral.destinations
+    .map((addressing) => addressing.decidedAt)
+    .filter((at): at is Instant => at !== undefined);
+  return times.length > 0 ? Math.max(...times) : undefined;
+}
+
+/** The destination that accepted, if one has. At most one exists: FD-22 cancels the rest at the
+ *  moment of acceptance, and `ACCEPT_REFERRAL` refuses a second. */
+export function acceptedAddressing(referral: Referral): ReferralAddressing | undefined {
+  return referral.destinations.find((addressing) => addressing.state === "accepted");
+}
+
+/** Every destination that declined, in the order the referral holds them. Plural because FD-24
+ *  lets several decline while the referral stays live, and a screen showing only the first would
+ *  be hiding refusals that were actually given. */
+export function declinedAddressings(referral: Referral): ReferralAddressing[] {
+  return referral.destinations.filter((addressing) => addressing.state === "declined");
+}
+
+/** Every destination cancelled by somebody else accepting (FD-22). Never a decision by anyone —
+ *  see `ReferralAddressing`. */
+export function cancelledAddressings(referral: Referral): ReferralAddressing[] {
+  return referral.destinations.filter((addressing) => addressing.state === "cancelled");
+}
+
+/** Where a referral was sent, for display. Never a decision — see `referralState` for that. */
+export function referralDestinationLabels(referral: Referral): string[] {
+  return referral.destinations.map((addressing) => referralDestinationLabel(addressing.destination));
+}
+
 /** Human label for where a referral is addressed. Exhaustive by `switch` on the union, so a fifth
  *  destination cannot be added without this failing to compile. */
 export function referralDestinationLabel(destination: ReferralDestination): string {
@@ -42,8 +108,6 @@ export function referralDestinationLabel(destination: ReferralDestination): stri
       return "Psychiatric ward";
     case "emergency_department":
       return "Emergency department";
-    case "medical_ward":
-      return "Medical ward";
     case "community_team":
       return "Community team";
   }
@@ -61,23 +125,26 @@ export function referralDestinationLabel(destination: ReferralDestination): stri
  * "not held here" becomes a crash or an empty cell nobody can explain.
  */
 export function referralPersonFacts(referral: Referral): string[] {
-  return referral.destination.kind === "psychiatric_ward"
-    ? [referral.ageBand, referral.destination.sex, referral.homeRegion]
+  const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  return ward && ward.destination.kind === "psychiatric_ward"
+    ? [referral.ageBand, ward.destination.sex, referral.homeRegion]
     : [referral.ageBand, referral.homeRegion];
 }
 
 /** The sex cell for a table with a fixed Sex column. An em dash where the fact is not held, which
  *  is a different statement from an empty cell and reads as one. */
 export function referralSexCell(referral: Referral): string {
-  return referral.destination.kind === "psychiatric_ward" ? referral.destination.sex : "—";
+  const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  return ward && ward.destination.kind === "psychiatric_ward" ? ward.destination.sex : "—";
 }
 
 export function referralCandidates(
-  referral: WardReferral,
+  referral: Referral,
+  ward: WardReferralDestination,
   units: Unit[],
   now: Instant,
 ): { unit: Unit; verdict: EligibilityVerdict }[] {
-  return units.map((unit) => ({ unit, verdict: referralEligibility(referral, unit, now) }));
+  return units.map((unit) => ({ unit, verdict: referralEligibility(referral, ward, unit, now) }));
 }
 
 export type ReferralCandidate = { unit: Unit; verdict: EligibilityVerdict };
@@ -92,7 +159,7 @@ export type ReferralCandidate = { unit: Unit; verdict: EligibilityVerdict };
  */
 export function referralQueueOrder(referrals: Referral[]): Referral[] {
   return referrals
-    .filter((referral) => referral.state === "queued")
+    .filter((referral) => referralState(referral) === "queued")
     .sort((a, b) => a.urgency - b.urgency || a.raisedAt - b.raisedAt);
 }
 
@@ -105,8 +172,8 @@ export function referralQueueOrder(referrals: Referral[]): Referral[] {
  */
 export function recentlyDecidedReferrals(referrals: Referral[]): Referral[] {
   return referrals
-    .filter((referral) => referral.state !== "queued")
-    .sort((a, b) => (b.decidedAt ?? -Infinity) - (a.decidedAt ?? -Infinity));
+    .filter((referral) => referralState(referral) !== "queued")
+    .sort((a, b) => (referralDecidedAt(b) ?? -Infinity) - (referralDecidedAt(a) ?? -Infinity));
 }
 
 /**

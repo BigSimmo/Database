@@ -15,6 +15,7 @@ import type {
   LegalStatus,
   ReferralDeclineReason,
   ReferralDestination,
+  ReferralDestinationKind,
   ReferralSource,
   Security,
   Sex,
@@ -394,13 +395,17 @@ export type WardFlowEvent =
        * the ward arm's `sex`, `secureBedNeeded` and `involuntaryBedNeeded`, which sat flat on this
        * event until 2026-08-30.
        *
-       * **The event carries the destination because otherwise the union would be decorative.** If
+       * One to `PARALLEL_REFERRAL_CAP` of them, chosen in ONE act (FD-21). The reducer refuses an
+       * empty list, more than the cap, and two of the same kind — asking one kind twice is asking
+       * twice, not addressing two destinations.
+       *
+       * **The event carries the destinations because otherwise the union would be decorative.** If
        * this event could only express bed criteria, every referral it created would be a ward
        * referral by construction, and the three arms that carry no bed criteria would be
        * unreachable — a type distinction nothing could ever produce. Making the caller name the
        * destination is what puts the choice at the front door, where the referrer makes it.
        */
-      destination: ReferralDestination;
+      destinations: ReferralDestination[];
       /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;
@@ -415,11 +420,20 @@ export type WardFlowEvent =
       type: "ACCEPT_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The queued referral the coordinator is deciding on. */
+      /** The referral being decided. */
       referralId: string;
-      /** The unit the coordinator is placing this referral with. Refused unless
-       *  `referralEligibility` (ward-eligibility.ts) says this unit accepts this referral. */
-      unitId: string;
+      /**
+       * WHICH of the referral's destinations is answering (FD-21). A referral may be addressed to
+       * several at once, so "accept this referral" is no longer a complete instruction — without
+       * this the reducer would have to guess which destination replied, and the only guess
+       * available (the ward, because it is the one with a unit) would have made the other three
+       * unable to answer at all.
+       */
+      destinationKind: ReferralDestinationKind;
+      /** The accepting unit. REQUIRED for `psychiatric_ward` and meaningless for the other three,
+       *  which are answered by a person or a team and have no bed to name. Refused unless
+       *  `referralEligibility` (ward-eligibility.ts) says that unit accepts this referral. */
+      unitId?: string;
     }
   | {
       type: "RECORD_LOCAL_BED_SOUGHT";
@@ -440,8 +454,11 @@ export type WardFlowEvent =
       type: "DECLINE_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The queued referral the coordinator is deciding on. */
+      /** The referral being decided. */
       referralId: string;
+      /** WHICH destination is declining — see `ACCEPT_REFERRAL`'s own comment. A decline locks
+       *  nobody out and leaves every other destination live (FD-24), so it must say which one. */
+      destinationKind: ReferralDestinationKind;
       /** Chosen from `REFERRAL_DECLINE_REASONS`, never free text — refused by a membership check,
        *  not a truthiness test (Phase 5 shipped a truthiness test in this exact position). */
       reason: ReferralDeclineReason;

@@ -9,7 +9,6 @@ import {
   type HomeRegion,
   type LeaveBed,
   type Referral,
-  type WardReferral,
   type Sex,
   type Unit,
 } from "@/components/ward-management/ward-model";
@@ -93,7 +92,7 @@ const SEX_DESIGNATION_GATE = "sex_designation";
  * mode announces itself instead of quietly zeroing the board.
  */
 function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], now: Instant): boolean {
-  const probe: WardReferral = {
+  const probe: Referral = {
     id: `board-probe-${unit.id}-${sex}`,
     // The probe is a QUESTION, not a person: it is constructed here, read by one pure function,
     // and discarded. It is never stored, never rendered, and never derived from anybody. Every
@@ -103,22 +102,28 @@ function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], n
     // Typed `WardReferral` rather than `Referral` because it asks a question only a ward can be
     // asked: whether a BED accepts this sex. The type now says so.
     ageBand: unit.cohort,
-    destination: {
-      kind: "psychiatric_ward",
-      sex,
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
-    },
+    destinations: [
+      {
+        destination: {
+          kind: "psychiatric_ward",
+          sex,
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+        state: "queued",
+      },
+    ],
     homeRegion: HOME_REGIONS[0],
     source: "community",
     raisedAt: now,
     urgency: 2,
     originSiteCode: unit.siteCode,
     transportNeeded: false,
-    state: "queued",
   };
+  const probeWard = probe.destinations[0].destination;
+  if (probeWard.kind !== "psychiatric_ward") throw new Error("the board probe must be a ward question");
   const unitWithDerivedMix: Unit = { ...unit, sexMix: derivedSexMix(admissions, unit.id) };
-  const gate = referralEligibility(probe, unitWithDerivedMix, now).gates.find(
+  const gate = referralEligibility(probe, probeWard, unitWithDerivedMix, now).gates.find(
     (candidate) => candidate.gate === SEX_DESIGNATION_GATE,
   );
   return gate?.pass ?? false;

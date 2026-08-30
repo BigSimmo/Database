@@ -12,7 +12,14 @@ import {
   wardFlowReducer,
   type WardFlowState,
 } from "../src/components/ward-management/ward-flow-reducer";
-import { REFERRAL_DECLINE_REASONS, type Referral } from "../src/components/ward-management/ward-model";
+import {
+  PARALLEL_REFERRAL_CAP,
+  REFERRAL_DECLINE_REASONS,
+  type Referral,
+  type ReferralAddressing,
+  type ReferralDestination,
+} from "../src/components/ward-management/ward-model";
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -27,6 +34,23 @@ function referral(state: WardFlowState, id: string): Referral {
   return found;
 }
 
+/**
+ * The WARD destination of a referral, and what it answered.
+ *
+ * The decision fields moved off `Referral` onto each destination when a referral gained several
+ * (FD-21), so "what did this referral decide" is no longer a question with one answer. Every
+ * referral in this file is addressed to a ward only, so this reads the one that exists — and
+ * throws rather than returning undefined, so a fixture that stops being a ward referral fails
+ * here by name instead of turning every assertion below into a comparison against `undefined`.
+ */
+function ward(state: WardFlowState, id: string): ReferralAddressing {
+  const found = referral(state, id).destinations.find(
+    (addressing) => addressing.destination.kind === "psychiatric_ward",
+  );
+  if (!found) throw new Error(`referral ${id} has no psychiatric ward destination`);
+  return found;
+}
+
 /** A referral draft matched against `scgh-adult-open` on purpose — see the reducer test below
  *  ("passes every gate") for why that unit is a reliable, deterministic match: Adult cohort,
  *  Undesignated (accepts either sex), non-forensic, allocatable 2 (so sex_mix passes regardless
@@ -38,12 +62,14 @@ function receiveReferral(state: WardFlowState, now = NOW) {
     role: "community",
     now,
     ageBand: "Adult",
-    destination: {
-      kind: "psychiatric_ward",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
-    },
+    destinations: [
+      {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
+    ],
     homeRegion: "Perth Metropolitan",
     source: "community",
     urgency: 2,
@@ -59,11 +85,11 @@ describe("RECEIVE_REFERRAL", () => {
     expect(after.rejections).toEqual([]);
     expect(after.referrals).toHaveLength(before.referrals.length + 1);
     const created = after.referrals.at(-1)!;
-    expect(created.state).toBe("queued");
+    expect(referralState(created)).toBe("queued");
     expect(created.ageBand).toBe("Adult");
     // The whole arm, not its three fields one at a time: this now also pins that the referral was
     // addressed to a psychiatric ward and carries no field belonging to another destination.
-    expect(created.destination).toEqual({
+    expect(created.destinations[0].destination).toEqual({
       kind: "psychiatric_ward",
       sex: "Female",
       secureBedNeeded: false,
@@ -75,9 +101,9 @@ describe("RECEIVE_REFERRAL", () => {
     expect(created.originSiteCode).toBe("SCGH");
     expect(created.transportNeeded).toBe(false);
     expect(created.raisedAt).toBe(NOW);
-    expect(created.acceptedUnitId).toBeUndefined();
-    expect(created.declineReason).toBeUndefined();
-    expect(created.decidedAt).toBeUndefined();
+    expect(created.destinations[0].acceptedUnitId).toBeUndefined();
+    expect(created.destinations[0].declineReason).toBeUndefined();
+    expect(created.destinations[0].decidedAt).toBeUndefined();
   });
 
   // Controller ruling P1: the id source is a monotonic counter (`frontDoorReferralSequence`),
@@ -109,12 +135,14 @@ describe("RECEIVE_REFERRAL", () => {
       role: "coordinator",
       now: NOW,
       ageBand: "Adult",
-      destination: {
-        kind: "psychiatric_ward",
-        sex: "Female",
-        secureBedNeeded: false,
-        involuntaryBedNeeded: false,
-      },
+      destinations: [
+        {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
+      ],
       homeRegion: "Perth Metropolitan",
       source: "community",
       urgency: 2,
@@ -142,12 +170,14 @@ describe("RECEIVE_REFERRAL", () => {
         role: "community",
         now: NOW,
         ageBand: "Adult",
-        destination: {
-          kind: "psychiatric_ward",
-          sex: "Female",
-          secureBedNeeded: false,
-          involuntaryBedNeeded: false,
-        },
+        destinations: [
+          {
+            kind: "psychiatric_ward",
+            sex: "Female",
+            secureBedNeeded: false,
+            involuntaryBedNeeded: false,
+          },
+        ],
         homeRegion: "Perth Metropolitan",
         source: "community",
         urgency: 2,
@@ -177,11 +207,12 @@ describe("RECEIVE_REFERRAL", () => {
     // queued and then matched almost nothing, with a plausible-looking reason per unit, instead
     // of being refused where it entered.
     it("refuses a sex outside SEXES, by membership rather than truthiness", () => {
-      // `sex` moved onto the ward arm, so the malformed value has to be planted where the
-      // field now lives -- planting it at the old flat path would test nothing, because
-      // nothing reads there any more and the event would simply be well-formed.
+      // `sex` moved onto the ward arm INSIDE a list, so the malformed value has to be planted
+      // where the field now lives. Planting it at either older path -- flat on the event, or on a
+      // single `destination` -- tests nothing: the reducer reads neither, so the event would be
+      // well-formed and the referral would queue, which is exactly what this test exists to catch.
       const after = withBadField({
-        destination: { kind: "psychiatric_ward", sex: "F", secureBedNeeded: false, involuntaryBedNeeded: false },
+        destinations: [{ kind: "psychiatric_ward", sex: "F", secureBedNeeded: false, involuntaryBedNeeded: false }],
       });
       expect(after.referrals).toEqual(seeded().referrals);
       expect(after.rejections).toHaveLength(1);
@@ -235,6 +266,7 @@ describe("ACCEPT_REFERRAL", () => {
     const before = received;
     const after = wardFlowReducer(before, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: created.id,
@@ -242,15 +274,15 @@ describe("ACCEPT_REFERRAL", () => {
     });
     expect(after.rejections).toEqual([]);
     const decided = referral(after, created.id);
-    expect(decided.state).toBe("accepted");
-    expect(decided.acceptedUnitId).toBe("scgh-adult-open");
-    expect(decided.decidedAt).toBe(NOW);
+    expect(referralState(decided)).toBe("accepted");
+    expect(decided.destinations[0].acceptedUnitId).toBe("scgh-adult-open");
+    expect(decided.destinations[0].decidedAt).toBe(NOW);
     // H4 fix: was `.toBeTruthy()`, which "Dr Jane Smith" would also pass — `decidedBy`'s own doc
     // comment says "a role, never a person", so the exact value is asserted, not merely its
     // presence. NOT coordinator-only since FD-25: the value follows the ACTING role, which the
     // ward-accepts test below is what actually proves.
-    expect(decided.decidedBy).toBe("Flow coordinator");
-    expect(decided.declineReason).toBeUndefined();
+    expect(decided.destinations[0].decidedBy).toBe("Flow coordinator");
+    expect(decided.destinations[0].declineReason).toBeUndefined();
 
     // Spec D14, asserted explicitly rather than left implicit: acceptance never creates a
     // Movement. Both the count AND the content are unchanged, so a future change that appends a
@@ -273,6 +305,7 @@ describe("ACCEPT_REFERRAL", () => {
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "ward",
       now: NOW,
       referralId: created.id,
@@ -280,9 +313,9 @@ describe("ACCEPT_REFERRAL", () => {
     });
     expect(after.rejections, "a ward may accept a referral addressed to it since FD-25").toEqual([]);
     const decided = referral(after, created.id);
-    expect(decided.state).toBe("accepted");
+    expect(referralState(decided)).toBe("accepted");
     expect(
-      decided.decidedBy,
+      decided.destinations[0].decidedBy,
       "the ward accepted, so the ward is who decided. Recording the coordinator would put a party " +
         "that took no part in the decision into the one field naming who answered.",
     ).toBe("Ward manager");
@@ -291,12 +324,13 @@ describe("ACCEPT_REFERRAL", () => {
     // because the lookup returns one string for everybody.
     const byCoordinator = wardFlowReducer(received, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: created.id,
       unitId: "scgh-adult-open",
     });
-    expect(referral(byCoordinator, created.id).decidedBy).toBe("Flow coordinator");
+    expect(ward(byCoordinator, created.id).decidedBy).toBe("Flow coordinator");
   });
 
   it("refuses (visibly) a role that is neither ward nor coordinator, rather than silently doing nothing", () => {
@@ -304,12 +338,13 @@ describe("ACCEPT_REFERRAL", () => {
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "community",
       now: NOW,
       referralId: created.id,
       unitId: "scgh-adult-open",
     });
-    expect(referral(after, created.id).state).toBe("queued");
+    expect(referralState(referral(after, created.id))).toBe("queued");
     expect(after.rejections).toHaveLength(1);
     expect(after.rejections[0].reason).toMatch(/role/i);
     expect(after.rejections[0].attempted).toBe("ACCEPT_REFERRAL");
@@ -323,12 +358,13 @@ describe("ACCEPT_REFERRAL", () => {
     const before = seeded();
     const after = wardFlowReducer(before, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-001",
       unitId: "scgh-adult-open",
     });
-    expect(referral(after, "RF-001").state).toBe("queued");
+    expect(referralState(referral(after, "RF-001"))).toBe("queued");
     expect(after.rejections).toHaveLength(1);
     // Named as the exact gate identifier, not a bare substring — `toContain("age")` also matches
     // "manage", "message" and "storage" (H6), so it would survive a mutation that swapped in the
@@ -342,16 +378,19 @@ describe("ACCEPT_REFERRAL", () => {
   it("refuses a decision on a referral that is not queued (already accepted)", () => {
     const before = seeded();
     // RF-002 is already accepted in the seed fixture (ward-movements.ts).
-    expect(referral(before, "RF-002").state).toBe("accepted");
+    expect(referralState(referral(before, "RF-002"))).toBe("accepted");
     const after = wardFlowReducer(before, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-002",
       unitId: "scgh-adult-open",
     });
     expect(after.rejections).toHaveLength(1);
-    expect(after.rejections[0].reason).toContain("already decided");
+    expect(after.rejections[0].reason).toContain("already been accepted elsewhere");
+    // A referral that is accepted is finished for placement (FD-22), so a second acceptance is
+    // refused on the REFERRAL, not on the destination -- a different refusal from the one below.
     // Untouched — a refused decision does not overwrite the earlier one.
     expect(referral(after, "RF-002")).toEqual(referral(before, "RF-002"));
   });
@@ -359,21 +398,25 @@ describe("ACCEPT_REFERRAL", () => {
   it("refuses a decision on a referral that is not queued (already declined)", () => {
     const before = seeded();
     // RF-004 is already declined in the seed fixture.
-    expect(referral(before, "RF-004").state).toBe("declined");
+    expect(referralState(referral(before, "RF-004"))).toBe("declined");
     const after = wardFlowReducer(before, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-004",
       unitId: "scgh-adult-open",
     });
     expect(after.rejections).toHaveLength(1);
-    expect(after.rejections[0].reason).toContain("already decided");
+    expect(after.rejections[0].reason).toContain("has already answered");
+    // RF-004's ward declined, so the referral itself is still open as far as FD-24 is concerned;
+    // what is refused here is asking the SAME destination twice.
   });
 
   it("refuses an unknown referral id", () => {
     const after = wardFlowReducer(seeded(), {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-DOES-NOT-EXIST",
@@ -390,6 +433,7 @@ describe("DECLINE_REFERRAL", () => {
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: created.id,
@@ -397,12 +441,12 @@ describe("DECLINE_REFERRAL", () => {
     });
     expect(after.rejections).toEqual([]);
     const decided = referral(after, created.id);
-    expect(decided.state).toBe("declined");
-    expect(decided.declineReason).toBe("no_suitable_bed");
-    expect(decided.decidedAt).toBe(NOW);
+    expect(referralState(decided)).toBe("declined");
+    expect(decided.destinations[0].declineReason).toBe("no_suitable_bed");
+    expect(decided.destinations[0].decidedAt).toBe(NOW);
     // H4 fix — same reasoning as ACCEPT_REFERRAL's own test above.
-    expect(decided.decidedBy).toBe("Flow coordinator");
-    expect(decided.acceptedUnitId).toBeUndefined();
+    expect(decided.destinations[0].decidedBy).toBe("Flow coordinator");
+    expect(decided.destinations[0].acceptedUnitId).toBeUndefined();
   });
 
   it("refuses (visibly) a role that is neither ward nor coordinator, rather than silently doing nothing", () => {
@@ -410,12 +454,13 @@ describe("DECLINE_REFERRAL", () => {
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "community",
       now: NOW,
       referralId: created.id,
       reason: "no_suitable_bed",
     });
-    expect(referral(after, created.id).state).toBe("queued");
+    expect(referralState(referral(after, created.id))).toBe("queued");
     expect(after.rejections).toHaveLength(1);
     expect(after.rejections[0].reason).toMatch(/role/i);
     expect(after.rejections[0].attempted).toBe("DECLINE_REFERRAL");
@@ -430,49 +475,53 @@ describe("DECLINE_REFERRAL", () => {
     const created = received.referrals.at(-1)!;
     const after = wardFlowReducer(received, {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       // A non-empty string a truthiness test would let through.
       referralId: created.id,
       reason: "clinically_unsuitable" as unknown as (typeof REFERRAL_DECLINE_REASONS)[number],
     });
-    expect(referral(after, created.id).state).toBe("queued");
+    expect(referralState(referral(after, created.id))).toBe("queued");
     expect(after.rejections).toHaveLength(1);
     expect(after.rejections[0].reason).toContain("REFERRAL_DECLINE_REASONS");
   });
 
   it("refuses a decision on a referral that is not queued (already accepted)", () => {
     const before = seeded();
-    expect(referral(before, "RF-003").state).toBe("accepted");
+    expect(referralState(referral(before, "RF-003"))).toBe("accepted");
     const after = wardFlowReducer(before, {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-003",
       reason: "no_suitable_bed",
     });
     expect(after.rejections).toHaveLength(1);
-    expect(after.rejections[0].reason).toContain("already decided");
+    expect(after.rejections[0].reason).toContain("already been accepted elsewhere");
     expect(referral(after, "RF-003")).toEqual(referral(before, "RF-003"));
   });
 
   it("refuses a decision on a referral that is not queued (already declined)", () => {
     const before = seeded();
-    expect(referral(before, "RF-004").state).toBe("declined");
+    expect(referralState(referral(before, "RF-004"))).toBe("declined");
     const after = wardFlowReducer(before, {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-004",
       reason: "no_suitable_bed",
     });
     expect(after.rejections).toHaveLength(1);
-    expect(after.rejections[0].reason).toContain("already decided");
+    expect(after.rejections[0].reason).toContain("has already answered");
   });
 
   it("refuses an unknown referral id", () => {
     const after = wardFlowReducer(seeded(), {
       type: "DECLINE_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: "RF-DOES-NOT-EXIST",
@@ -490,13 +539,14 @@ describe("DECLINE_REFERRAL", () => {
       const before = state.rejections.length;
       state = wardFlowReducer(state, {
         type: "DECLINE_REFERRAL",
+        destinationKind: "psychiatric_ward",
         role: "coordinator",
         now: NOW,
         referralId: created.id,
         reason,
       });
       expect(state.rejections.length, `reason ${reason} was refused`).toBe(before);
-      expect(referral(state, created.id).declineReason).toBe(reason);
+      expect(ward(state, created.id).declineReason).toBe(reason);
     }
   });
 });
@@ -509,7 +559,7 @@ describe("DECLINE_REFERRAL", () => {
 describe("RECORD_LOCAL_BED_SOUGHT", () => {
   function queuedWithoutRecord(state: WardFlowState): Referral {
     const found = state.referrals.find(
-      (candidate) => candidate.state === "queued" && candidate.localBedSought === undefined,
+      (candidate) => referralState(candidate) === "queued" && candidate.localBedSought === undefined,
     );
     if (!found) throw new Error("the seed holds no queued referral without a local-bed record");
     return found;
@@ -536,13 +586,14 @@ describe("RECORD_LOCAL_BED_SOUGHT", () => {
     expect(created.localBedSought).toBeUndefined();
     const accepted = wardFlowReducer(received, {
       type: "ACCEPT_REFERRAL",
+      destinationKind: "psychiatric_ward",
       role: "coordinator",
       now: NOW,
       referralId: created.id,
       unitId: "scgh-adult-open",
     });
     expect(accepted.rejections).toEqual([]);
-    expect(referral(accepted, created.id).state).toBe("accepted");
+    expect(referralState(referral(accepted, created.id))).toBe("accepted");
     expect(referral(accepted, created.id).localBedSought).toBeUndefined();
   });
 
@@ -563,7 +614,7 @@ describe("RECORD_LOCAL_BED_SOUGHT", () => {
 
   it("refuses an already-decided referral, naming the state", () => {
     const before = seeded();
-    const decided = before.referrals.find((candidate) => candidate.state === "accepted")!;
+    const decided = before.referrals.find((candidate) => referralState(candidate) === "accepted")!;
     const after = wardFlowReducer(before, {
       type: "RECORD_LOCAL_BED_SOUGHT",
       role: "coordinator",
@@ -637,5 +688,244 @@ describe("seeding", () => {
     const second = seeded();
     expect(first.referrals[0]).not.toBe(second.referrals[0]);
     expect(first.referrals).toEqual(second.referrals);
+  });
+});
+
+/**
+ * FD-21, FD-22 and FD-24 — the lifecycle a referral gained when it could be addressed to several
+ * places at once. None of this was expressible before 2026-08-30, so none of it is covered by the
+ * tests above: they were all written when a referral had exactly one thing to decide.
+ */
+describe("a referral addressed to several destinations", () => {
+  function receiveMulti(state: WardFlowState, kinds: ReferralDestination[]) {
+    return wardFlowReducer(state, {
+      type: "RECEIVE_REFERRAL",
+      role: "community",
+      now: NOW,
+      ageBand: "Adult",
+      destinations: kinds,
+      homeRegion: "Perth Metropolitan",
+      source: "community",
+      urgency: 2,
+      originSiteCode: "SCGH",
+      transportNeeded: false,
+    });
+  }
+
+  const WARD: ReferralDestination = {
+    kind: "psychiatric_ward",
+    sex: "Female",
+    secureBedNeeded: false,
+    involuntaryBedNeeded: false,
+  };
+  const ED: ReferralDestination = { kind: "emergency_department" };
+  const COMMUNITY: ReferralDestination = { kind: "community_team" };
+
+  it("holds every destination the referrer chose, each queued and each with its own record", () => {
+    const after = receiveMulti(seeded(), [WARD, ED, COMMUNITY]);
+    expect(after.rejections).toEqual([]);
+    const created = after.referrals.at(-1)!;
+    expect(created.destinations.map((addressing) => addressing.destination.kind)).toEqual([
+      "psychiatric_ward",
+      "emergency_department",
+      "community_team",
+    ]);
+    expect(created.destinations.every((addressing) => addressing.state === "queued")).toBe(true);
+    expect(referralState(created)).toBe("queued");
+  });
+
+  it("refuses an empty list and the same kind twice, each by its own reason", () => {
+    const empty = receiveMulti(seeded(), []);
+    expect(empty.rejections.at(-1)?.reason).toContain("at least one destination");
+
+    const twice = receiveMulti(seeded(), [WARD, { ...WARD }]);
+    expect(twice.rejections.at(-1)?.reason).toContain("same destination kind twice");
+    expect(twice.referrals).toEqual(seeded().referrals);
+
+    // Three kinds exist and the cap is three, so a too-long list of DIFFERENT kinds is not
+    // constructible today; the duplicate refusal above is what actually bounds it. Asserted so the
+    // cap is the number the model states rather than a figure invented in this test.
+    expect(PARALLEL_REFERRAL_CAP).toBe(3);
+  });
+
+  it("cancels every destination still waiting when the first one accepts (FD-22)", () => {
+    const after = receiveMulti(seeded(), [WARD, ED, COMMUNITY]);
+    const created = after.referrals.at(-1)!;
+    const accepted = wardFlowReducer(after, {
+      type: "ACCEPT_REFERRAL",
+      role: "ward",
+      now: NOW + 5,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+      unitId: "scgh-adult-open",
+    });
+    expect(accepted.rejections).toEqual([]);
+
+    const decided = accepted.referrals.find((candidate) => candidate.id === created.id)!;
+    const byKind = new Map(decided.destinations.map((a) => [a.destination.kind, a]));
+    expect(byKind.get("psychiatric_ward")!.state).toBe("accepted");
+    expect(
+      [byKind.get("emergency_department")!.state, byKind.get("community_team")!.state],
+      "the ward accepting must end the other two asks without anybody coordinating it",
+    ).toEqual(["cancelled", "cancelled"]);
+    expect(referralState(decided)).toBe("accepted");
+
+    // A cancellation is a consequence, not a decision: it has a time, and nobody to attribute it to.
+    for (const kind of ["emergency_department", "community_team"] as const) {
+      expect(byKind.get(kind)!.decidedAt).toBe(NOW + 5);
+      expect(byKind.get(kind)!.decidedBy, "nobody decided a cancellation").toBeUndefined();
+    }
+  });
+
+  it("refuses a second acceptance rather than letting two places both believe they took the person", () => {
+    const after = receiveMulti(seeded(), [WARD, ED]);
+    const created = after.referrals.at(-1)!;
+    const once = wardFlowReducer(after, {
+      type: "ACCEPT_REFERRAL",
+      role: "ward",
+      now: NOW + 5,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+      unitId: "scgh-adult-open",
+    });
+    const twice = wardFlowReducer(once, {
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now: NOW + 9,
+      referralId: created.id,
+      destinationKind: "emergency_department",
+    });
+    expect(twice.rejections.at(-1)?.reason).toContain("already been accepted elsewhere");
+    expect(
+      twice.referrals.find((candidate) => candidate.id === created.id),
+      "a refused second acceptance changes nothing",
+    ).toEqual(once.referrals.find((candidate) => candidate.id === created.id));
+  });
+
+  it("leaves the others live when one destination declines, and keeps the refusal on the record (FD-24)", () => {
+    const after = receiveMulti(seeded(), [WARD, ED, COMMUNITY]);
+    const created = after.referrals.at(-1)!;
+    const declined = wardFlowReducer(after, {
+      type: "DECLINE_REFERRAL",
+      role: "ward",
+      now: NOW + 3,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+      reason: "no_suitable_bed",
+    });
+    expect(declined.rejections).toEqual([]);
+
+    const subject = declined.referrals.find((candidate) => candidate.id === created.id)!;
+    const byKind = new Map(subject.destinations.map((a) => [a.destination.kind, a]));
+    expect(byKind.get("psychiatric_ward")!.state).toBe("declined");
+    expect(
+      [byKind.get("emergency_department")!.state, byKind.get("community_team")!.state],
+      "a decline locks nobody out and ends nothing else",
+    ).toEqual(["queued", "queued"]);
+    expect(
+      referralState(subject),
+      "one ward saying no is NOT a declined referral — the other two have not answered",
+    ).toBe("queued");
+
+    // The refusal, its time and its reason stay recorded: the surviving half of the decision FD-24
+    // replaced. And the ward is not shut out of anything later.
+    expect(byKind.get("psychiatric_ward")!.declineReason).toBe("no_suitable_bed");
+    expect(byKind.get("psychiatric_ward")!.decidedAt).toBe(NOW + 3);
+    expect(byKind.get("psychiatric_ward")!.decidedBy).toBe("Ward manager");
+  });
+
+  it("does not overwrite a decline when a later acceptance cancels the rest", () => {
+    const after = receiveMulti(seeded(), [WARD, ED, COMMUNITY]);
+    const created = after.referrals.at(-1)!;
+    const declined = wardFlowReducer(after, {
+      type: "DECLINE_REFERRAL",
+      role: "ward",
+      now: NOW + 3,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+      reason: "no_suitable_bed",
+    });
+    const accepted = wardFlowReducer(declined, {
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now: NOW + 7,
+      referralId: created.id,
+      destinationKind: "emergency_department",
+    });
+    expect(accepted.rejections).toEqual([]);
+
+    const subject = accepted.referrals.find((candidate) => candidate.id === created.id)!;
+    const byKind = new Map(subject.destinations.map((a) => [a.destination.kind, a]));
+    expect(byKind.get("emergency_department")!.state).toBe("accepted");
+    expect(byKind.get("community_team")!.state).toBe("cancelled");
+    expect(
+      byKind.get("psychiatric_ward")!.state,
+      "a ward that already refused stays REFUSED — rewriting it as cancelled would replace a real " +
+        "answer somebody gave with a consequence they had no part in",
+    ).toBe("declined");
+    expect(byKind.get("psychiatric_ward")!.declineReason).toBe("no_suitable_bed");
+  });
+
+  it("cannot accept a non-ward destination into a unit, because a team is not a bed", () => {
+    const after = receiveMulti(seeded(), [WARD, COMMUNITY]);
+    const created = after.referrals.at(-1)!;
+    const wrong = wardFlowReducer(after, {
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now: NOW + 2,
+      referralId: created.id,
+      destinationKind: "community_team",
+      unitId: "scgh-adult-open",
+    });
+    expect(wrong.rejections.at(-1)?.reason).toContain("answered by a team, not a bed");
+
+    // And the ward arm still REQUIRES one, so this is not simply ignoring `unitId` everywhere.
+    const missing = wardFlowReducer(after, {
+      type: "ACCEPT_REFERRAL",
+      role: "ward",
+      now: NOW + 2,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+    });
+    expect(missing.rejections.at(-1)?.reason).toContain("must name a unit");
+  });
+
+  it("refuses a decision for a destination this referral was never addressed to", () => {
+    const after = receiveMulti(seeded(), [WARD]);
+    const created = after.referrals.at(-1)!;
+    const unaddressed = wardFlowReducer(after, {
+      type: "DECLINE_REFERRAL",
+      role: "coordinator",
+      now: NOW + 2,
+      referralId: created.id,
+      destinationKind: "community_team",
+      reason: "no_suitable_bed",
+    });
+    expect(unaddressed.rejections.at(-1)?.reason).toContain("was not addressed to");
+    expect(unaddressed.referrals.find((c) => c.id === created.id)).toEqual(created);
+  });
+
+  it("calls a referral declined only when every destination has declined", () => {
+    const after = receiveMulti(seeded(), [WARD, ED]);
+    const created = after.referrals.at(-1)!;
+    const one = wardFlowReducer(after, {
+      type: "DECLINE_REFERRAL",
+      role: "ward",
+      now: NOW + 3,
+      referralId: created.id,
+      destinationKind: "psychiatric_ward",
+      reason: "no_suitable_bed",
+    });
+    expect(referralState(one.referrals.find((c) => c.id === created.id)!)).toBe("queued");
+
+    const both = wardFlowReducer(one, {
+      type: "DECLINE_REFERRAL",
+      role: "coordinator",
+      now: NOW + 6,
+      referralId: created.id,
+      destinationKind: "emergency_department",
+      reason: "belongs_to_another_service",
+    });
+    expect(referralState(both.referrals.find((c) => c.id === created.id)!)).toBe("declined");
   });
 });

@@ -6,23 +6,30 @@ import type {
   Sex,
   SexDesignation,
   Unit,
-  WardReferral,
+  WardAddressing,
+  WardReferralDestination,
 } from "@/components/ward-management/ward-model";
 
 export type GateResult = { gate: string; pass: boolean; detail: string };
 export type EligibilityVerdict = { eligible: boolean; gates: GateResult[] };
 
 /**
- * Narrows a referral to the one destination that is answered by matching a bed.
+ * The ward addressings of a referral, narrowed so their bed criteria are reachable.
  *
- * A TYPE PREDICATE rather than an inline check, because TypeScript will not narrow the referral
- * itself from a discriminant on its `destination` — `referral.destination.kind === "..."` narrows
- * the property and leaves the parent as a plain `Referral`. Without this, every call site would
- * reach for a cast, and a cast is exactly the thing that would let a community-team referral into
- * the bed gates while still compiling.
+ * A TYPE PREDICATE inside the filter rather than a cast at each call site: `as WardAddressing`
+ * would compile just as well and would go on compiling the day a referral is addressed only to a
+ * community team, at which point the bed gates would answer a question nobody asked.
  */
-export function isWardReferral(referral: Referral): referral is WardReferral {
-  return referral.destination.kind === "psychiatric_ward";
+export function wardAddressings(referral: Referral): WardAddressing[] {
+  return referral.destinations.filter(
+    (addressing): addressing is WardAddressing => addressing.destination.kind === "psychiatric_ward",
+  );
+}
+
+/** The single ward addressing, or `undefined`. A referral may hold at most one — `RECEIVE_REFERRAL`
+ *  refuses two destinations of the same kind, since asking one kind twice is asking twice. */
+export function wardAddressing(referral: Referral): WardAddressing | undefined {
+  return wardAddressings(referral)[0];
 }
 
 /**
@@ -138,7 +145,7 @@ function sexDesignationAccepts(designation: SexDesignation, sex: Sex): boolean {
  * take a 17-year-old) lands in one place rather than needing a special case.
  *
  * `security`, `sex_mix` and `specialling` reuse `eligibility()`'s logic unchanged, mapped onto the
- * referral fields that carry the same fact (`referral.destination.sex` for `sex_mix`, `referral.destination.secureBedNeeded`
+ * referral fields that carry the same fact (`ward.sex` for `sex_mix`, `ward.secureBedNeeded`
  * for `security`). `capacity_freshness` also reuses `eligibility()`'s logic unchanged. `allocatable_bed`
  * DIFFERS from `eligibility()`'s gate of the same name: it gates on `availableNow` —
  * `Math.min(unit.allocatable.value, unit.empty.value)` — never `unit.allocatable.value` alone,
@@ -157,15 +164,20 @@ function sexDesignationAccepts(designation: SexDesignation, sex: Sex): boolean {
  * narrow on `destination.kind` first, which is exactly the check that used to be a screen's job to
  * remember.
  */
-export function referralEligibility(referral: WardReferral, unit: Unit, now: Instant): EligibilityVerdict {
+export function referralEligibility(
+  referral: Referral,
+  ward: WardReferralDestination,
+  unit: Unit,
+  now: Instant,
+): EligibilityVerdict {
   const fresh = capacityIsFresh(unit, now);
-  const sameSexOccupants = unit.sexMix[referral.destination.sex] ?? 0;
-  const designationAccepts = sexDesignationAccepts(unit.sexDesignation, referral.destination.sex);
-  const securityMet = !referral.destination.secureBedNeeded || unit.security === "Secure";
+  const sameSexOccupants = unit.sexMix[ward.sex] ?? 0;
+  const designationAccepts = sexDesignationAccepts(unit.sexDesignation, ward.sex);
+  const securityMet = !ward.secureBedNeeded || unit.security === "Secure";
   // See the `legal_status` gate's own comment below for why this is an accepts-rule, never an
   // equality: a referral that does not need an involuntary bed is accepted by ANY bed, including
   // an authorised one — `unit.authorised` is a capability a bed has, not a value to match against.
-  const legalStatusMet = !referral.destination.involuntaryBedNeeded || unit.authorised;
+  const legalStatusMet = !ward.involuntaryBedNeeded || unit.authorised;
   // Spec D15 / plan Global Constraints: the bed the coordinator can actually place someone in
   // right now is `availableNow`, never `unit.allocatable.value` alone. The two are documented to
   // agree "in practice" on `Unit.allocatable`, but that is not enforced — `CONFIRM_CAPACITY` can
@@ -192,14 +204,14 @@ export function referralEligibility(referral: WardReferral, unit: Unit, now: Ins
       // accepted by ANY bed; a referral that DOES need one is accepted only by a bed that can
       // hold someone involuntarily (`unit.authorised`). Written as an accepts-rule, never an
       // equality, for the same reason as `sex_designation` below — `unit.authorised ===
-      // referral.destination.involuntaryBedNeeded` would refuse an involuntary-bed referral from an
+      // ward.involuntaryBedNeeded` would refuse an involuntary-bed referral from an
       // authorised unit whenever the referral itself happened not to need one, which is backwards:
       // an authorised unit's extra capability never disqualifies it. The detail describes the bed
       // or the requirement, never the person: it is not a legal determination about who was
       // referred, only whether this bed can hold someone involuntarily if the request calls for it.
       gate: "legal_status",
       pass: legalStatusMet,
-      detail: referral.destination.involuntaryBedNeeded
+      detail: ward.involuntaryBedNeeded
         ? legalStatusMet
           ? `${unit.name} is authorised under the Mental Health Act`
           : `${unit.name} is not authorised under the Mental Health Act`
@@ -238,7 +250,7 @@ export function referralEligibility(referral: WardReferral, unit: Unit, now: Ins
     {
       gate: "security",
       pass: securityMet,
-      detail: referral.destination.secureBedNeeded
+      detail: ward.secureBedNeeded
         ? securityMet
           ? `${unit.name} is a secure ward`
           : `${unit.name} is not a secure ward`
@@ -258,7 +270,7 @@ export function referralEligibility(referral: WardReferral, unit: Unit, now: Ins
       pass: sameSexOccupants > 0 || availableNow > 1,
       detail:
         sameSexOccupants > 0
-          ? `${sameSexOccupants} ${referral.destination.sex.toLowerCase()} occupants already`
+          ? `${sameSexOccupants} ${ward.sex.toLowerCase()} occupants already`
           : "No same-sex occupants; needs more than one free bed",
     },
     {

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type Dispatch } from "react";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { NOT_RECORDED_LABEL, SYNTHETIC_TRAVEL_TIMES_NOTICE } from "@/components/ward-management/ward-distance";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
-import { isWardReferral } from "@/components/ward-management/ward-eligibility";
+import { wardAddressing } from "@/components/ward-management/ward-eligibility";
 import {
   REFERRAL_DECLINE_REASONS,
   type Referral,
@@ -31,6 +31,7 @@ import {
   type TravelBandGroupCounts,
   referralPersonFacts,
   referralDestinationLabel,
+  referralDestinationLabels,
 } from "@/components/ward-management/ward-referrals";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
@@ -113,17 +114,18 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
    * identically and mean opposite things: an empty list here reads as "the network has no bed for
    * this person", which for a community referral is not a shortage, it is a category error.
    */
-  if (!isWardReferral(referral)) {
+  const ward = wardAddressing(referral);
+  if (!ward) {
     return (
       <section className={styles.matchPanel} data-testid="ward-referral-match-not-a-bed-question">
         <p className={styles.matchSummary}>
-          {referral.id} is addressed to {referralDestinationLabel(referral.destination).toLowerCase()}, which is
-          answered by a team rather than by matching a bed. There is no bed shortlist for this referral.
+          {referral.id} was sent to {referralDestinationLabels(referral).join(", ").toLowerCase()} — none of which is
+          answered by matching a bed. There is no bed shortlist for this referral.
         </p>
       </section>
     );
   }
-  const candidates = referralCandidates(referral, units, now);
+  const candidates = referralCandidates(referral, ward.destination, units, now);
   const accepting = candidates.filter(candidateAccepts);
   const hasCohort = networkHasCohort(referral, units);
   /*
@@ -174,7 +176,14 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
 
   function handleAccept(unitId: string) {
     priorRejectionCountRef.current = rejections.length;
-    dispatch({ type: "ACCEPT_REFERRAL", role: "coordinator", now, referralId: referral.id, unitId });
+    dispatch({
+      type: "ACCEPT_REFERRAL",
+      role: "coordinator",
+      now,
+      referralId: referral.id,
+      destinationKind: "psychiatric_ward",
+      unitId,
+    });
     setCheckToken((token) => token + 1);
   }
 
@@ -193,23 +202,37 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
 
   function handleDecline() {
     priorRejectionCountRef.current = rejections.length;
-    dispatch({ type: "DECLINE_REFERRAL", role: "coordinator", now, referralId: referral.id, reason: declineReason });
+    dispatch({
+      type: "DECLINE_REFERRAL",
+      role: "coordinator",
+      now,
+      referralId: referral.id,
+      // This screen is the ward shortlist, so the destination declining here is the ward. Named
+      // rather than defaulted: the reducer must not have to guess which destination replied.
+      destinationKind: "psychiatric_ward",
+      reason: declineReason,
+    });
     setCheckToken((token) => token + 1);
   }
 
-  if (referral.state !== "queued") {
-    const acceptedUnit = units.find((unit) => unit.id === referral.acceptedUnitId);
+  // This panel answers "what happened to the WARD ask", not "what happened to the referral" —
+  // the ward declining leaves the other destinations live (FD-24), so the referral itself may
+  // still be queued while this screen has nothing left to offer.
+  if (ward.state !== "queued") {
+    const acceptedUnit = units.find((unit) => unit.id === ward.acceptedUnitId);
     return (
       <section className={styles.matchPanel} data-testid="ward-referral-match-panel">
         <h2 className={styles.matchHeading}>
-          {referral.id} — {referral.state === "accepted" ? "accepted" : "declined"}
+          {referral.id} — {ward.state}
         </h2>
         <p data-testid="ward-referral-match-decided">
-          {referral.state === "accepted"
+          {ward.state === "accepted"
             ? acceptedUnit
               ? `Accepted at ${acceptedUnit.name}.`
-              : `Accepted, but no synthetic unit matches "${referral.acceptedUnitId}".`
-            : `Declined — ${DECLINE_REASON_LABELS[referral.declineReason as ReferralDeclineReason] ?? referral.declineReason}.`}
+              : `Accepted, but no synthetic unit matches "${ward.acceptedUnitId}".`
+            : ward.state === "cancelled"
+              ? "Cancelled — this referral was accepted somewhere else."
+              : `Declined — ${DECLINE_REASON_LABELS[ward.declineReason as ReferralDeclineReason] ?? ward.declineReason}.`}
         </p>
       </section>
     );

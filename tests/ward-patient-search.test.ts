@@ -1,4 +1,5 @@
 // tests/ward-patient-search.test.ts
+import { referralState } from "../src/components/ward-management/ward-referrals";
 import { describe, expect, it } from "vitest";
 
 import { isOpen, searchMovements, searchPatients } from "../src/components/ward-management/ward-derivations";
@@ -170,7 +171,7 @@ describe("searchPatients — the owner's requirement that a referred patient sho
    * and nothing is indistinguishable from a search for somebody who does not exist.
    */
 
-  const queued = referrals.filter((referral) => referral.state === "queued");
+  const queued = referrals.filter((referral) => referralState(referral) === "queued");
 
   it("the fixture holds a queued referral, or everything below is vacuous", () => {
     // First, because every assertion after it searches for referrals, and a search that finds none
@@ -213,7 +214,7 @@ describe("searchPatients — the owner's requirement that a referred patient sho
     const returned = results.filter((result) => result.kind === "referral").map((result) => result.referral);
 
     for (const referral of returned) {
-      expect(referral.state, `${referral.id} was returned but is ${referral.state}`).toBe("queued");
+      expect(referralState(referral), `${referral.id} was returned but is ${referralState(referral)}`).toBe("queued");
     }
   });
 

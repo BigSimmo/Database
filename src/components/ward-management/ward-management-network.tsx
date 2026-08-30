@@ -5,7 +5,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
-import { eligibility, isWardReferral } from "@/components/ward-management/ward-eligibility";
+import { eligibility, wardAddressing } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
@@ -502,7 +502,13 @@ export function WardNetworkWorkspace() {
   const placements = useMemo(
     // Bed placement is a ward question only; a subject addressed anywhere else has no bed
     // shortlist to draw on this map. See `referralCandidates`' own signature.
-    () => (bandSubject && isWardReferral(bandSubject) ? referralCandidates(bandSubject, units, now) : []),
+    () => {
+      // Bed placement is a ward question. A subject addressed only to an ED, a medical ward or a
+      // community team has no bed shortlist to draw on this map -- an empty list here is "no ward
+      // was asked", not "the network has nothing".
+      const ward = bandSubject ? wardAddressing(bandSubject) : undefined;
+      return bandSubject && ward ? referralCandidates(bandSubject, ward.destination, units, now) : [];
+    },
     [bandSubject, units, now],
   );
   /*

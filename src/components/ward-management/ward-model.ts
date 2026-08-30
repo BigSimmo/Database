@@ -606,25 +606,27 @@ export type HomeRegion = (typeof HOME_REGIONS)[number];
  * ward referral because the criteria it reads exist on no other arm. That is a compiler guarantee,
  * not a screen remembering.
  *
- * **What each arm carries, and why the other three carry nothing.** Capacity, sex mix, security and
- * authorisation are all properties of a BED. An ED and a medical ward are being asked a medical
- * question and a community team is answered by a team rather than a bed, so none of the four
- * applies to them — not "does not apply yet", but has no meaning there at all.
+ * **What each arm carries, and why the other two carry nothing.** Capacity, sex mix, security and
+ * authorisation are all properties of a BED. An ED is being asked a medical question and a
+ * community team is answered by a team rather than a bed, so none of the four applies to them —
+ * not "does not apply yet", but has no meaning there at all.
  *
- * **NO ARM CARRIES AN ADDRESS, and that is deliberate.** Whether one referral may be addressed to
- * several destinations at once is an OPEN QUESTION with the owner, and putting a `unitId` or a
- * `unitIds` in an arm would answer it silently in whichever direction the field's arity happened to
- * take. Today a referral is addressed to nobody in particular: the parallel ask lives on
- * `Movement.referredUnitIds` (capped at `PARALLEL_REFERRAL_CAP`) and acceptance records a single
- * `acceptedUnitId` below. This union changes none of that. **The next person to want an address in
- * an arm must get that question answered first** — it is not an oversight to be tidied up.
+ * **THERE IS NO `medical_ward` ARM, AND ITS ABSENCE IS A DECISION, NOT AN OVERSIGHT.** Owner,
+ * 2026-08-30: "just route to ED which also includes medical ward" — a psychiatric ward sending
+ * someone for a medical problem addresses the ED, and the ED is where a medical ward is reached
+ * from. An arm for it was built and taken out again on that ruling. Recorded here so the next
+ * reader who notices a psych ward can refer to a medical ward in real life does not add the arm
+ * believing it was forgotten: it was considered, and deferred, with a reason.
+ *
+ * **NO ARM CARRIES AN ADDRESS OR A STATE.** An arm says what a destination IS and what it can be
+ * asked; `ReferralAddressing` below says where a particular referral was sent and what came back.
+ * Keeping the two apart is what stops a lifecycle field being read as a criterion — the union is
+ * matched against beds, and a `state` inside it would sooner or later be matched against one too.
+ *
+ * (This comment previously recorded multi-destination as an OPEN QUESTION. Owner ruling FD-21,
+ * 2026-08-30, settled it: one referral, several destinations, chosen in one act.)
  */
-export const REFERRAL_DESTINATION_KINDS = [
-  "psychiatric_ward",
-  "emergency_department",
-  "medical_ward",
-  "community_team",
-] as const;
+export const REFERRAL_DESTINATION_KINDS = ["psychiatric_ward", "emergency_department", "community_team"] as const;
 export type ReferralDestinationKind = (typeof REFERRAL_DESTINATION_KINDS)[number];
 
 export type ReferralDestination =
@@ -649,18 +651,64 @@ export type ReferralDestination =
       involuntaryBedNeeded: boolean;
     }
   | { kind: "emergency_department" }
-  | { kind: "medical_ward" }
   | { kind: "community_team" };
+
+/**
+ * ONE DESTINATION THIS REFERRAL WAS SENT TO, AND WHAT THAT DESTINATION ANSWERED.
+ *
+ * Owner ruling FD-21, 2026-08-30: a referrer chooses several destinations in ONE act — not repeat
+ * referrals — up to `PARALLEL_REFERRAL_CAP`. So a referral holds a list of these, and each one is
+ * answered independently.
+ *
+ * **WHY THE STATE IS HERE AND NOT ON THE REFERRAL**, which is the whole reason this type exists.
+ * A referral used to carry one `state`, one `decidedAt`, one `decidedBy`, one `declineReason` and
+ * one `acceptedUnitId`, because there was one thing to decide. Two rulings make that impossible:
+ *
+ *   FD-24 — a decline locks nobody out, so one destination may decline while the others stay live.
+ *           A referral whose ward said no is NOT a declined referral.
+ *   FD-22 — the first acceptance cancels the rest. "Cancelled" is a state only a destination can
+ *           be in; a referral is never cancelled, it is accepted.
+ *
+ * A plural list with the state left on the referral would have compiled and passed everything and
+ * been unable to express either ruling.
+ *
+ * **And `cancelled` is why no separate withdrawal record exists here.** `Movement.withdrawnReferrals`
+ * holds the same meaning for its own subject — a person already inside a department — and keeps it.
+ * One meaning on two subjects is not a duplicated concept; two different NAMES for one meaning would
+ * be. Kept deliberately distinct from FD-5, a referrer withdrawing, which is an act by a person
+ * rather than a consequence of somebody else's acceptance, and which has no event yet.
+ */
+export const REFERRAL_ADDRESSING_STATES = ["queued", "accepted", "declined", "cancelled"] as const;
+export type ReferralAddressingState = (typeof REFERRAL_ADDRESSING_STATES)[number];
+
+export type ReferralAddressing = {
+  destination: ReferralDestination;
+  state: ReferralAddressingState;
+  /** When this destination answered, or when acceptance elsewhere cancelled it. */
+  decidedAt?: Instant;
+  /** A ROLE, never a person — see `WARD_FLOW_ROLE_LABELS`. Absent on a `cancelled` addressing,
+   *  because nobody decided it: it is a consequence of an acceptance, not an act. */
+  decidedBy?: string;
+  /** Only on a `declined` addressing, and only from `REFERRAL_DECLINE_REASONS`. */
+  declineReason?: ReferralDeclineReason;
+  /** The unit that accepted. Only ever set on a `psychiatric_ward` addressing — the other three
+   *  are answered by a person or a team, and have no unit to name. */
+  acceptedUnitId?: string;
+};
 
 /** The ward arm, named so signatures can require it. */
 export type WardReferralDestination = Extract<ReferralDestination, { kind: "psychiatric_ward" }>;
 
 /**
- * A referral addressed to a psychiatric ward — the only kind with bed criteria, and therefore the
- * only kind `referralEligibility` can be asked about. Every other destination is answered by a
- * person or a team, not by matching a bed.
+ * One addressing whose destination is a psychiatric ward — the only kind with bed criteria, and so
+ * the only thing `referralEligibility` can be asked about.
+ *
+ * This replaced a `WardReferral = Referral & { destination: WardReferralDestination }` intersection
+ * when a referral gained several destinations. The intersection said "a referral that is a ward
+ * referral", which stopped being a meaningful claim: a referral can be addressed to a ward AND an
+ * ED at once, so the ward-ness belongs to the addressing, not to the referral.
  */
-export type WardReferral = Referral & { destination: WardReferralDestination };
+export type WardAddressing = ReferralAddressing & { destination: WardReferralDestination };
 
 /**
  * The front door: a referral arriving from anywhere in the network, before it is ever a
@@ -711,12 +759,18 @@ export type WardReferral = Referral & { destination: WardReferralDestination };
 export type Referral = {
   id: string;
   /**
-   * Where this referral is addressed, and the only place its destination-specific criteria live.
-   * See `ReferralDestination` — `sex`, `secureBedNeeded` and `involuntaryBedNeeded` moved onto the
-   * ward arm on 2026-08-30 and exist nowhere else, so no screen can ask a community team or an ED
-   * about a bed property.
+   * Everywhere this referral was sent, and what each of them answered. One to
+   * `PARALLEL_REFERRAL_CAP` entries, chosen by the referrer in ONE act (FD-21) — never repeat
+   * referrals, which would be several referrals for one person and a different thing entirely.
+   *
+   * Each entry carries its own state, so one destination declining leaves the others live (FD-24)
+   * and the first acceptance cancels the rest (FD-22). See `ReferralAddressing`.
+   *
+   * The referral's own state is DERIVED from these by `referralState` (`ward-referrals.ts`) rather
+   * than stored beside them — two homes for one fact is how a referral comes to say "queued" while
+   * a destination it holds says "accepted".
    */
-  destination: ReferralDestination;
+  destinations: ReferralAddressing[];
   // Facts about a person, common to every destination. Nothing else may ever be added here.
   ageBand: Cohort;
   /**
@@ -732,12 +786,10 @@ export type Referral = {
   /** A synthetic site code (see `wardSites`), never an address. */
   originSiteCode: string;
   transportNeeded: boolean;
-  state: ReferralState;
-  acceptedUnitId?: string;
-  declineReason?: ReferralDeclineReason;
-  decidedAt?: Instant;
-  /** A role, never a person. */
-  decidedBy?: string;
+  // `state`, `acceptedUnitId`, `declineReason`, `decidedAt` and `decidedBy` were here until
+  // 2026-08-30. All five moved onto `ReferralAddressing`, because with several destinations there
+  // is no longer one thing to decide — see that type's own doc comment. `referralState` derives the
+  // referral's overall state from its destinations.
   /**
    * Phase 8 (spec D8-6): that somebody looked for a bed closer to home before this referral was
    * placed, and when. Optional because nobody knows whether country services do this today — the
