@@ -36,23 +36,68 @@ export type ReferralDestination =
 The addressee is the psychiatry team at that ED, never the department. Naming it `ed` invites a
 later reader to address the department, which has no meaning here.
 
+**Three kinds, not four. A medical ward is NOT a destination** — owner, 2026-08-30: _"defer the
+medical ward for now and just route to ED which also includes medical ward."_ So a psychiatric ward
+sending someone for a medical problem addresses the **ED**, and the ED covers what a medical ward
+would. **This is a deferral with a stated reason, not an oversight** — the arm exists in the model
+as `ed_psychiatry` + `medical_assessment`.
+
 ## Purpose is a separate axis and must not be folded into `kind`
 
 ```ts
 export type ReferralPurpose = "bed" | "psychiatric_review" | "medical_assessment";
 ```
 
-Three flows share the `ed_psychiatry` kind and behave completely differently:
+Three flows share the `ed_psychiatry` kind and mean different things:
 
-| flow                  | kind            | purpose              | who may act                |
-| --------------------- | --------------- | -------------------- | -------------------------- |
-| community → ED        | `ed_psychiatry` | `bed`                | nobody declines (`FD-3`)   |
-| ED psych → themselves | `ed_psychiatry` | `psychiatric_review` | psychiatry, who created it |
-| ward → ED             | `ed_psychiatry` | `medical_assessment` | **nobody, at all**         |
+| flow                  | kind            | purpose              |
+| --------------------- | --------------- | -------------------- |
+| community → ED        | `ed_psychiatry` | `bed`                |
+| ED psych → themselves | `ed_psychiatry` | `psychiatric_review` |
+| ward → ED             | `ed_psychiatry` | `medical_assessment` |
 
 **A bed request and a review request answered by the same affordance is how one becomes the
 other by accident.** Keeping purpose separate is what makes that checkable rather than a naming
 convention.
+
+## EVERY referral is declinable. There is no notification kind.
+
+**Owner, 2026-08-30. This REPLACES `FD-3` and everything built on it.** An earlier version of this
+spec had a referral to an ED as a notification nobody could decline, and a ward→ED medical referral
+as _"actionable by nobody, at all"_. **Both are wrong.**
+
+- **Every referral, of every kind and purpose, can be declined.** Community→ED can be declined —
+  rarely, but the affordance exists and the lifecycle is identical.
+- **The "expect" is a referral that is almost always accepted, not a notification.** That is a fact
+  about how often it is declined, never about whether it can be.
+- **One verb, one lifecycle, several sets of criteria.** A psychiatric ward weighs capacity, sex
+  mix, security and authorisation; a community team is accepted by a **team** rather than a bed.
+  The criteria differ; the act does not.
+
+**So no code path may render a referral with no decline affordance**, and no branch may treat a kind
+or purpose as unrefusable. Where an earlier build produced one, it is removed rather than hidden.
+**A notification is a referral somebody forgot to let anyone answer.**
+
+## The referrer addresses it, and picks several destinations at once
+
+The survey line this spec originally rested on — _"a referral has never been addressed by the person
+raising it"_ — **described the old code, not the intent.** Corrected by the owner: **the referrer
+selects the destinations, several in one act.**
+
+Which restores the point of `PARALLEL_REFERRAL_CAP`: not a coordinator's throttle inherited by a new
+surface, but a limit on **one clinician's single act of referring**.
+
+## The lifecycle, settled
+
+- **First acceptance cancels every other referral for that patient, automatically.** Not only the
+  parallel ward ones.
+- **A referral ends at acceptance.**
+- **Nothing is ever locked out.** Out-of-catchment options are **greyed, not removed**; a unit with
+  no beds is still offered; and **a decline does not lock a ward out — an option to clarify
+  remains.** This retires the older decision that a declining ward drops out of suggestions.
+- **A referral may exist for a patient who already has a bed.**
+- **`Decline.note` is REMOVED** (`ward-model.ts:246`). A controlled vocabulary with an escape hatch
+  beside it is not a controlled vocabulary.
 
 ## Breadth
 
@@ -482,3 +527,53 @@ document traced to the same out-of-date picture, so their agreement was never co
 **Still deferred:** which suburbs are in which catchment. He gave one catchment's destinations, not
 the mapping. **Nothing derives a hospital from a suburb**, and that is now on firmer ground rather
 than weaker: the only column that could have supplied it is confirmed wrong.
+
+---
+
+# Part 7 — what a ward may see, and what the referrer is shown
+
+## The visibility rule, which must be a guard and not a comment
+
+**Owner, 2026-08-30: a ward cannot see where else a patient has been referred. The coordinator may
+see everything.** His reason: so a ward does not spend its time on a patient who is being placed
+elsewhere.
+
+**This spec previously specified the violating behaviour in as many words** — the patient screen was
+to show _"open referrals and who has answered"_. That is exactly what a ward must not see.
+
+It is **ward-facing only, deliberate, and behavioural rather than cosmetic**, which makes it the
+single most likely rule in this document to be undone by somebody being helpful. Every instinct says
+a patient's screen shows everything known about that patient.
+
+**So it is encoded, not noted:**
+
+- A ward-scoped view is built from a **ward-scoped projection** of the patient, not from the full
+  record with fields hidden at render time. A field that reaches the component can be displayed by
+  the next person who edits it.
+- **A test that fails if a ward-scoped view can reach another destination's referral.**
+  Mutation-proved: expose one, watch it redden.
+- The coordinator's view is a **different projection**, not the same one with a flag.
+
+**Hiding at render is the version that decays.** A projection that never carries the data cannot be
+made to show it by a styling change, a new column, or a debug panel.
+
+## What the referrer IS shown, at the moment of choosing
+
+**Owner, 2026-08-30: _"add all relevant catchment and referral info for the referrer to aid the
+process."_** This moves the catchment work's audience: it was designed to help a coordinator route,
+and it helps the **clinician**, while they choose. That fits 537 suburbs far better than a
+network-level view did.
+
+Per option, at the point of selection:
+
+- **In catchment or not**, from the patient's suburb. Out-of-catchment options are **greyed, never
+  removed** — the owner's rule — and choosing one asks for the recorded reason that already exists.
+- **Estimated wait**, and the other figures that bear on the choice.
+- **Why this option is suggested**, in words a clinician can disagree with: serves this suburb; has
+  an available bed that can hold someone involuntarily. **A rule you can read is a rule you can
+  argue with; a score is not.**
+- **Where the catchment is unknown or contested, that is said** — Part 5's three review states apply
+  here, and a contested suburb does not silently route.
+
+**And what the referrer is NOT shown: anything that ranks the patient.** Options are ordered by
+facts about beds and services. Nothing on this screen scores a person.
