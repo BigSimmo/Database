@@ -130,7 +130,7 @@ describe("shared RAG search cache", () => {
       subquestion_count: -1,
       query_plan_reason_codes: ["patient-name-canary"],
       candidate_retrieval_query_variant_count: 99,
-      shadow_coverage_counts: { direct: 1, partial: 0, conflicting: 0, absent: 3 },
+      candidate_match_counts: { matched: 1, partial_match: 0, absent: 3 },
     } as unknown as SearchTelemetry;
 
     await setCachedSearch(args, [], unsafeTelemetry);
@@ -142,13 +142,13 @@ describe("shared RAG search cache", () => {
     expect(localHit?.telemetry.subquestion_count).toBeUndefined();
     expect(localHit?.telemetry.query_plan_reason_codes).toEqual([]);
     expect(localHit?.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
-    expect(localHit?.telemetry.shadow_coverage_counts).toBeUndefined();
+    expect(localHit?.telemetry.candidate_match_counts).toBeUndefined();
     expect(JSON.stringify(localHit?.telemetry)).not.toContain("patient-name-canary");
     expect(JSON.stringify(insertedRows[0]?.payload)).not.toContain("patient-name-canary");
     expect(insertedRows[0]?.payload).toMatchObject({
       telemetry: { query_plan_reason_codes: [] },
     });
-    expect(insertedRows[0]?.payload).not.toHaveProperty("telemetry.shadow_coverage_counts");
+    expect(insertedRows[0]?.payload).not.toHaveProperty("telemetry.candidate_match_counts");
   });
 
   it("replaces authenticated site-aware search rows under the null owner on every write", async () => {

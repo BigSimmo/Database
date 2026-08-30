@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateAnswerCoverage, evaluateShadowCandidateCoverageCounts } from "@/lib/rag/rag-coverage";
-import { sanitizeRagCoverageCounts } from "@/lib/rag/rag-contracts";
+import { evaluateAnswerCoverage, evaluateShadowCandidateMatchCounts } from "@/lib/rag/rag-coverage";
+import { sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import type { RagQueryPlan, SearchResult, SourcePolicyConflict } from "@/lib/types";
 
 function result(id: string, overrides: Partial<SearchResult> = {}): SearchResult {
@@ -245,17 +245,16 @@ describe("answer coverage", () => {
   });
 
   it("rejects bounded counters whose total cannot match the query plan", () => {
-    expect(sanitizeRagCoverageCounts({ direct: 1, partial: 0, conflicting: 0, absent: 3 }, 4)).toEqual({
-      direct: 1,
-      partial: 0,
-      conflicting: 0,
+    expect(sanitizeRagCandidateMatchCounts({ matched: 1, partial_match: 0, absent: 3 }, 4)).toEqual({
+      matched: 1,
+      partial_match: 0,
       absent: 3,
     });
-    expect(sanitizeRagCoverageCounts({ direct: 1, partial: 0, conflicting: 0, absent: 1 }, 4)).toBeUndefined();
-    expect(sanitizeRagCoverageCounts({ direct: 5, partial: 0, conflicting: 0, absent: 0 }, 5)).toBeUndefined();
+    expect(sanitizeRagCandidateMatchCounts({ matched: 1, partial_match: 0, absent: 1 }, 4)).toBeUndefined();
+    expect(sanitizeRagCandidateMatchCounts({ matched: 5, partial_match: 0, absent: 0 }, 5)).toBeUndefined();
   });
 
-  it("fails closed when a primary shadow candidate is canonically irrelevant", () => {
+  it("fails closed when shadow candidates are irrelevant or have unknown canonical scope", () => {
     const singlePlan = {
       ...plan,
       kind: "single" as const,
@@ -264,14 +263,36 @@ describe("answer coverage", () => {
         { id: "sq-1", question: "How is catatonia managed?", purpose: "primary" as const, required: true },
       ],
     };
-    const counts = evaluateShadowCandidateCoverageCounts(singlePlan, [
+    const counts = evaluateShadowCandidateMatchCounts(singlePlan, [
       result("irrelevant", {
         title: "Clozapine blood monitoring",
         content: "Check the full blood count weekly during clozapine initiation.",
+        relevance: {
+          verdict: "direct",
+          label: "Direct support",
+          matchedTerms: ["catatonia", "managed"],
+          missingTerms: [],
+          directSourceCount: 1,
+          weakSourceCount: 0,
+          score: 1,
+          supportReason: "Stale relevance computed for a different query.",
+          isSourceBacked: true,
+          coverageScore: 1,
+          rankScore: 1,
+          titleMatchedTerms: ["catatonia"],
+          contentMatchedTerms: ["managed"],
+          metadataMatchedTerms: [],
+          chips: ["direct evidence"],
+        },
+      }),
+      result("unknown-scope", {
+        title: "Catatonia management",
+        content: "Catatonia management requires urgent clinical assessment.",
+        corpus_scope: "external" as SearchResult["corpus_scope"],
       }),
     ]);
 
-    expect(counts).toEqual({ direct: 0, partial: 0, conflicting: 0, absent: 1 });
+    expect(counts).toEqual({ matched: 0, partial_match: 0, absent: 1 });
     expect(Object.values(counts).reduce((sum, count) => sum + count, 0)).toBe(singlePlan.subquestions.length);
   });
 });

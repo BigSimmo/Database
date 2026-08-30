@@ -31,6 +31,14 @@ describe("bounded RAG query planning", () => {
     ]);
   });
 
+  it("decomposes an explicitly broad overview when escalation terms cause a dose-risk false positive", () => {
+    const query = "Give an overview of agitation management including treatment, monitoring and escalation.";
+    const analysis = analyzeClinicalQuery(query);
+
+    expect(analysis.queryClass).toBe("medication_dose_risk");
+    expect(buildRagQueryPlan(query, analysis).kind).toBe("decomposed");
+  });
+
   it.each([
     ["How should a missed clozapine dose be managed?", "medication_dose_risk"],
     ["Give an overview of the Clozapine monitoring guideline", "medication_dose_risk"],

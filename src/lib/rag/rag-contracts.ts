@@ -17,21 +17,19 @@ export type RagObservationContext = {
   rolloutMode: RagProgrammeMode;
 };
 
-export type RagCoverageCounts = { direct: number; partial: number; conflicting: number; absent: number };
+export type RagCandidateMatchCounts = { matched: number; partial_match: number; absent: number };
 
-export function sanitizeRagCoverageCounts(
+export function sanitizeRagCandidateMatchCounts(
   value: unknown,
   expectedSubquestionCount?: number,
-): RagCoverageCounts | undefined {
+): RagCandidateMatchCounts | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
-  const counts = value as Record<keyof RagCoverageCounts, unknown>;
+  const counts = value as Record<keyof RagCandidateMatchCounts, unknown>;
   const bounded = (count: unknown) => Number.isInteger(count) && Number(count) >= 0 && Number(count) <= 4;
-  if (!bounded(counts.direct) || !bounded(counts.partial) || !bounded(counts.conflicting) || !bounded(counts.absent))
-    return undefined;
+  if (!bounded(counts.matched) || !bounded(counts.partial_match) || !bounded(counts.absent)) return undefined;
   const sanitized = {
-    direct: Number(counts.direct),
-    partial: Number(counts.partial),
-    conflicting: Number(counts.conflicting),
+    matched: Number(counts.matched),
+    partial_match: Number(counts.partial_match),
     absent: Number(counts.absent),
   };
   if (
@@ -80,8 +78,8 @@ export type SearchChunksArgs = {
   /** Internal bounded diagnostics carried into answer cache/programme observation. */
   ragQueryPlanKind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   ragSubquestionCount?: number;
-  /** Internal shadow-only, content-free per-subquestion coverage diagnostics. */
-  ragShadowCoverageCounts?: RagCoverageCounts;
+  /** Internal shadow-only, content-free per-subquestion candidate-match diagnostics. */
+  ragCandidateMatchCounts?: RagCandidateMatchCounts;
 };
 
 export type SearchTelemetry = {
@@ -100,7 +98,7 @@ export type SearchTelemetry = {
   subquestion_count?: number;
   query_plan_reason_codes?: string[];
   candidate_retrieval_query_variant_count?: number;
-  shadow_coverage_counts?: RagCoverageCounts;
+  candidate_match_counts?: RagCandidateMatchCounts;
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;

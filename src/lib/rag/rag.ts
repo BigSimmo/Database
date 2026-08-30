@@ -236,7 +236,7 @@ import {
 } from "@/lib/rag/rag-evidence-gates";
 import { applyCoverageGateTelemetry, evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
-import { createSearchTiming, finishSearch, measureSearchPhase } from "@/lib/rag/rag-search-timing";
+import { createSearchTiming, finishSearch, measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
 import { applySecondStageRerankIfNeeded, layerTopScore, recordRetrievalLayer } from "@/lib/rag/rag-second-stage";
 export { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import {
@@ -2604,7 +2604,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
   args.ragQueryPlanKind = search.telemetry.query_plan_kind;
   args.ragSubquestionCount = search.telemetry.subquestion_count;
-  args.ragShadowCoverageCounts = search.telemetry.shadow_coverage_counts;
+  args.ragCandidateMatchCounts = search.telemetry.candidate_match_counts;
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =

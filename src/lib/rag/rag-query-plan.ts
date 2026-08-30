@@ -34,12 +34,18 @@ const jurisdictionSignal =
 const settingSignal = /\b(?:inpatient|outpatient|community|hospital|ward|emergency department|ED|clinic)\b/i;
 const administrativeFormSignal =
   /\b(?:application|assessment|consent|referral|template)\s+forms?\b|\bforms?\s+(?:is\s+)?(?:downloadable|needed|required|template)\b|\b(?:complete|download|submit|upload)\b(?:\s+\w+){0,3}\s+forms?\b/i;
-const broadDecompositionProtectedClasses = new Set<ClinicalQueryAnalysis["queryClass"]>([
-  "medication_dose_risk",
-  "table_threshold",
-  "document_lookup",
-  "unsupported_or_general",
-]);
+function protectsBroadDecomposition(query: string, analysis: ClinicalQueryAnalysis) {
+  if (analysis.queryClass === "document_lookup" || analysis.queryClass === "unsupported_or_general") return true;
+  if (analysis.queryClass === "table_threshold") return true;
+  if (analysis.queryClass !== "medication_dose_risk") return false;
+  return (
+    analysis.medications.length > 0 ||
+    analysis.thresholdTerms.length > 0 ||
+    analysis.documentTitleIntent ||
+    analysis.documentTitleTerms.length > 0 ||
+    /\b(?:dose|dosing|mg|micrograms?|milligrams?|route|oral|intramuscular|IM|missed dose)\b/i.test(query)
+  );
+}
 
 function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
@@ -195,8 +201,7 @@ export function buildRagQueryPlan(query: string, analysis: ClinicalQueryAnalysis
 
   const sides = comparisonSides(query, analysis);
   const broad =
-    !broadDecompositionProtectedClasses.has(analysis.queryClass) &&
-    analysis.intent !== "definition" &&
+    !protectsBroadDecomposition(query, analysis) &&
     (analysis.queryClass === "broad_summary" ||
       analysis.intent === "broad_summary" ||
       /\b(?:managed?|management|including treatment|monitoring and escalation|comprehensive|overview)\b/i.test(query));

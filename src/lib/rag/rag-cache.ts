@@ -9,7 +9,7 @@ import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag/rag-source-block";
 import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
-import { sanitizeRagCoverageCounts } from "@/lib/rag/rag-contracts";
+import { sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -31,7 +31,7 @@ import {
 export type RagAnswerQueryPlanDiagnostics = Readonly<{
   queryPlanKind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   subquestionCount: number;
-  shadowCoverageCounts?: import("@/lib/rag/rag-contracts").RagCoverageCounts;
+  candidateMatchCounts?: import("@/lib/rag/rag-contracts").RagCandidateMatchCounts;
 }>;
 const answerQueryPlanDiagnostics = new WeakMap<RagAnswer, RagAnswerQueryPlanDiagnostics>();
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
@@ -231,18 +231,32 @@ export function scopedAnswerCacheKey(
 
 function boundedAnswerQueryPlanDiagnostics(
   input:
-    Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts"> | null | undefined,
+    Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts"> | null | undefined,
 ): RagAnswerQueryPlanDiagnostics | undefined {
   const diagnostics = sanitizeRagQueryPlanDiagnostics({
     query_plan_kind: input?.ragQueryPlanKind,
     subquestion_count: input?.ragSubquestionCount,
   });
-  const shadowCoverageCounts = sanitizeRagCoverageCounts(input?.ragShadowCoverageCounts, diagnostics.subquestion_count);
+  const candidateMatchCounts = sanitizeRagCandidateMatchCounts(
+    input?.ragCandidateMatchCounts,
+    diagnostics.subquestion_count,
+  );
   return diagnostics.query_plan_kind !== undefined && diagnostics.subquestion_count !== undefined
     ? {
         queryPlanKind: diagnostics.query_plan_kind,
         subquestionCount: diagnostics.subquestion_count,
-        ...(shadowCoverageCounts ? { shadowCoverageCounts } : {}),
+        ...(candidateMatchCounts ? { candidateMatchCounts } : {}),
+      }
+    : undefined;
+}
+
+function persistableAnswerQueryPlanDiagnostics(
+  diagnostics: RagAnswerQueryPlanDiagnostics | undefined,
+): RagAnswerQueryPlanDiagnostics | undefined {
+  return diagnostics
+    ? {
+        queryPlanKind: diagnostics.queryPlanKind,
+        subquestionCount: diagnostics.subquestionCount,
       }
     : undefined;
 }
@@ -258,7 +272,6 @@ function storedAnswerQueryPlanDiagnostics(value: unknown) {
   return boundedAnswerQueryPlanDiagnostics({
     ragQueryPlanKind: stored.queryPlanKind as SearchChunksArgs["ragQueryPlanKind"],
     ragSubquestionCount: stored.subquestionCount as number,
-    ragShadowCoverageCounts: stored.shadowCoverageCounts as SearchChunksArgs["ragShadowCoverageCounts"],
   });
 }
 
@@ -268,19 +281,19 @@ export function ragAnswerQueryPlanDiagnostics(answer: RagAnswer): RagAnswerQuery
 
 export function restoreRagAnswerQueryPlanArgs(
   answer: RagAnswer,
-  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts">,
+  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts">,
 ) {
   const diagnostics = answerQueryPlanDiagnostics.get(answer);
   if (diagnostics) {
     args.ragQueryPlanKind = diagnostics.queryPlanKind;
     args.ragSubquestionCount = diagnostics.subquestionCount;
-    args.ragShadowCoverageCounts = diagnostics.shadowCoverageCounts;
+    args.ragCandidateMatchCounts = diagnostics.candidateMatchCounts;
   }
 }
 
 export function withRagAnswerQueryPlanDiagnostics(
   answer: RagAnswer,
-  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragShadowCoverageCounts">,
+  input: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts">,
 ) {
   return markAnswerQueryPlanDiagnostics(
     answer,
@@ -608,7 +621,9 @@ export async function setCachedAnswer(
     !isRagCacheAccessAllowed(args)
   )
     return;
-  const queryPlanDiagnostics = boundedAnswerQueryPlanDiagnostics(args) ?? answerQueryPlanDiagnostics.get(answer);
+  const queryPlanDiagnostics = persistableAnswerQueryPlanDiagnostics(
+    boundedAnswerQueryPlanDiagnostics(args) ?? answerQueryPlanDiagnostics.get(answer),
+  );
   const snapshotCacheKey = requestSnapshotCacheKey(args);
   if (snapshotCacheKey) {
     const proof = options?.publicCacheWriteProof;
@@ -756,7 +771,7 @@ function cloneSearchResults(results: SearchResult[]) {
 
 function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
   const cacheTelemetry = { ...telemetry };
-  delete cacheTelemetry.shadow_coverage_counts;
+  delete cacheTelemetry.candidate_match_counts;
   const {
     query_plan_kind,
     subquestion_count,
@@ -1333,7 +1348,9 @@ async function setSharedCachedAnswer(
     args,
     {
       answer: cloneAnswer(answer),
-      queryPlanDiagnostics: answerQueryPlanDiagnostics.get(answer) ?? boundedAnswerQueryPlanDiagnostics(args),
+      queryPlanDiagnostics: persistableAnswerQueryPlanDiagnostics(
+        answerQueryPlanDiagnostics.get(answer) ?? boundedAnswerQueryPlanDiagnostics(args),
+      ),
     },
     env.RAG_ANSWER_CACHE_TTL_MS,
     indexingVersion,
@@ -1356,8 +1373,9 @@ async function setSharedSiteAwareCachedAnswer(
   const isolatedAnswer = deepFreeze(cloneAnswer(answer as RagAnswer));
   const payload = deepFreeze({
     answer: isolatedAnswer,
-    queryPlanDiagnostics:
+    queryPlanDiagnostics: persistableAnswerQueryPlanDiagnostics(
       answerQueryPlanDiagnostics.get(answer as RagAnswer) ?? boundedAnswerQueryPlanDiagnostics(descriptor.args),
+    ),
   });
   await replaceSharedCacheRow(rowIdentity, payload, env.RAG_ANSWER_CACHE_TTL_MS, descriptor.signal);
 }

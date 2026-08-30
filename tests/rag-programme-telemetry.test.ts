@@ -23,6 +23,7 @@ function input(overrides: Partial<RagProgrammeTelemetryInput> = {}): RagProgramm
     subquestionCount: 1,
     materialAmbiguity: false,
     coverageCounts: { direct: 1, partial: 0, conflicting: 0, absent: 0 },
+    candidateMatchCounts: null,
     candidateCounts: {
       uploaded_local: 2,
       clinical_kb_site: 0,
@@ -73,6 +74,7 @@ describe("RAG programme telemetry projection", () => {
       "subquestion_count",
       "material_ambiguity",
       "coverage_counts",
+      "candidate_match_counts",
       "candidate_counts",
       "selected_counts",
       "selected_site_domains",
@@ -93,6 +95,7 @@ describe("RAG programme telemetry projection", () => {
     expect(JSON.stringify(projected)).not.toContain("subquestion-text-canary");
     expect(JSON.stringify(projected)).not.toContain("provider-error-canary");
     expect(JSON.stringify(projected)).not.toContain("owner-id-canary");
+    expect(projected.candidate_match_counts).toBeNull();
   });
 
   it("validates the aggregate and every nested insufficiency reason", () => {
@@ -104,6 +107,19 @@ describe("RAG programme telemetry projection", () => {
     expect(() => buildRagProgrammeTelemetry(input({ insufficiencyReason: "provider-error-canary" as never }))).toThrow(
       "insufficiencyReason",
     );
+  });
+
+  it("rejects candidate-match counters that are unbounded or do not total the subquestion count", () => {
+    expect(() =>
+      buildRagProgrammeTelemetry(
+        input({ subquestionCount: 4, candidateMatchCounts: { matched: 1, partial_match: 0, absent: 1 } }),
+      ),
+    ).toThrow("candidateMatchCounts");
+    expect(() =>
+      buildRagProgrammeTelemetry(
+        input({ subquestionCount: 5, candidateMatchCounts: { matched: 5, partial_match: 0, absent: 0 } }),
+      ),
+    ).toThrow("candidateMatchCounts");
   });
 
   it("keeps the required join flag-independent while gating diagnostic detail", () => {
@@ -188,7 +204,7 @@ describe("RAG programme telemetry projection", () => {
       {
         ragQueryPlanKind: "decomposed",
         ragSubquestionCount: 3,
-        ragShadowCoverageCounts: { direct: 1, partial: 1, conflicting: 0, absent: 1 },
+        ragCandidateMatchCounts: { matched: 1, partial_match: 1, absent: 1 },
       },
     );
     const observed = observeRagAnswer(planned, {
@@ -208,6 +224,8 @@ describe("RAG programme telemetry projection", () => {
       rollout_mode: "shadow",
       query_plan_kind: "decomposed",
       subquestion_count: 3,
+      candidate_match_counts: { matched: 1, partial_match: 1, absent: 1 },
+      coverage_counts: { direct: 1, partial: 0, conflicting: 0, absent: 0 },
     });
     expect(ragProgrammeTelemetryForAnswer(cachedOrCoalesced)).toMatchObject({
       query_plan_kind: "decomposed",
@@ -216,7 +234,8 @@ describe("RAG programme telemetry projection", () => {
     expect(ragProgrammeTelemetryForAnswer(governedCopy)).toMatchObject({
       query_plan_kind: "decomposed",
       subquestion_count: 3,
-      coverage_counts: { direct: 1, partial: 1, conflicting: 0, absent: 1 },
+      candidate_match_counts: { matched: 1, partial_match: 1, absent: 1 },
+      coverage_counts: { direct: 1, partial: 0, conflicting: 0, absent: 0 },
     });
     expect(JSON.stringify(ragProgrammeTelemetryForAnswer(governedCopy))).not.toContain("Shadow-planned");
   });

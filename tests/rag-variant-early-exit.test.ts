@@ -155,9 +155,9 @@ describe("lexical variant early-exit (PT-02)", () => {
     const [legacy, shadow] = results;
 
     expect(shadow!.results.map(({ id }) => id)).toEqual(legacy!.results.map(({ id }) => id));
-    expect(legacy!.telemetry.shadow_coverage_counts).toBeUndefined();
-    expect(shadow!.telemetry.shadow_coverage_counts).toEqual({ direct: 0, partial: 1, conflicting: 0, absent: 3 });
-    expect(Object.values(shadow!.telemetry.shadow_coverage_counts!).reduce((sum, count) => sum + count, 0)).toBe(4);
+    expect(legacy!.telemetry.candidate_match_counts).toBeUndefined();
+    expect(shadow!.telemetry.candidate_match_counts).toEqual({ matched: 0, partial_match: 1, absent: 3 });
+    expect(Object.values(shadow!.telemetry.candidate_match_counts!).reduce((sum, count) => sum + count, 0)).toBe(4);
 
     const { withRagAnswerQueryPlanDiagnostics } = await import("@/lib/rag/rag-cache");
     const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
@@ -172,18 +172,23 @@ describe("lexical variant early-exit (PT-02)", () => {
       {
         ragQueryPlanKind: shadow!.telemetry.query_plan_kind,
         ragSubquestionCount: shadow!.telemetry.subquestion_count,
-        ragShadowCoverageCounts: shadow!.telemetry.shadow_coverage_counts,
+        ragCandidateMatchCounts: shadow!.telemetry.candidate_match_counts,
       },
     );
     observeRagAnswer(answer, {
       interactionId: "11111111-1111-4111-8111-111111111111",
       rolloutMode: "shadow",
     });
-    expect(ragProgrammeTelemetryForAnswer(answer)?.coverage_counts).toEqual({
-      direct: 0,
-      partial: 1,
-      conflicting: 0,
+    expect(ragProgrammeTelemetryForAnswer(answer)?.candidate_match_counts).toEqual({
+      matched: 0,
+      partial_match: 1,
       absent: 3,
+    });
+    expect(ragProgrammeTelemetryForAnswer(answer)?.coverage_counts).toEqual({
+      direct: 1,
+      partial: 0,
+      conflicting: 0,
+      absent: 0,
     });
   });
 

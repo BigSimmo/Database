@@ -1,4 +1,4 @@
-import { evaluateShadowCandidateCoverageCounts } from "@/lib/rag/rag-coverage";
+import { evaluateShadowCandidateMatchCounts } from "@/lib/rag/rag-coverage";
 import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import type { RagQueryPlan, SearchResult } from "@/lib/types";
 
@@ -29,8 +29,8 @@ export function finishSearch<T extends { results: SearchResult[]; telemetry: Sea
   timing: SearchTiming,
   search: T,
 ): T {
-  if (timing.shadowPlan && !search.telemetry.shadow_coverage_counts) {
-    search.telemetry.shadow_coverage_counts = evaluateShadowCandidateCoverageCounts(timing.shadowPlan, search.results);
+  if (timing.shadowPlan && !search.telemetry.candidate_match_counts) {
+    search.telemetry.candidate_match_counts = evaluateShadowCandidateMatchCounts(timing.shadowPlan, search.results);
   }
   search.telemetry.retrieval_phase_latencies_ms = { ...timing.phases };
   search.telemetry.search_total_latency_ms = Date.now() - timing.startedAt;

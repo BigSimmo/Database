@@ -56,6 +56,7 @@ afterEach(() => {
 });
 
 function installAnswerCacheEntrypointHarness(sharedPayload?: Record<string, unknown>) {
+  const insertedRows: Array<Record<string, unknown>> = [];
   const documentBuilder = {
     select: () => documentBuilder,
     eq: () => documentBuilder,
@@ -76,7 +77,10 @@ function installAnswerCacheEntrypointHarness(sharedPayload?: Record<string, unkn
   const responseBuilder = {
     select: () => responseBuilder,
     delete: () => responseBuilder,
-    insert: () => responseBuilder,
+    insert: (value: Record<string, unknown>) => {
+      insertedRows.push(value);
+      return responseBuilder;
+    },
     eq: () => responseBuilder,
     is: () => responseBuilder,
     in: () => responseBuilder,
@@ -90,14 +94,14 @@ function installAnswerCacheEntrypointHarness(sharedPayload?: Record<string, unkn
   };
   const from = vi.fn((table: string) => (table === "documents" ? documentBuilder : responseBuilder));
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
-  return { from };
+  return { from, insertedRows };
 }
 
 describe("RAG cache invalidation", () => {
   it("preserves decomposed telemetry through the real local-answer cache entrypoint", async () => {
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "60000");
     vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
-    installAnswerCacheEntrypointHarness();
+    const harness = installAnswerCacheEntrypointHarness();
     const cache = await import("../src/lib/rag/rag-cache");
     const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
@@ -109,8 +113,10 @@ describe("RAG cache invalidation", () => {
       ragQueryPlanMode: "legacy" as const,
       ragQueryPlanKind: "decomposed" as const,
       ragSubquestionCount: 3,
+      ragCandidateMatchCounts: { matched: 1, partial_match: 1, absent: 1 },
     };
     await cache.setCachedAnswer(args, sampleAnswer("Local cached answer."));
+    await vi.waitFor(() => expect(harness.insertedRows).toHaveLength(1));
 
     const answer = await answerQuestionWithScope({
       query: args.query,
@@ -127,7 +133,10 @@ describe("RAG cache invalidation", () => {
     expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
       query_plan_kind: "decomposed",
       subquestion_count: 3,
+      candidate_match_counts: null,
     });
+    expect(cache.ragAnswerQueryPlanDiagnostics(answer)?.candidateMatchCounts).toBeUndefined();
+    expect(harness.insertedRows[0]?.payload).not.toHaveProperty("queryPlanDiagnostics.candidateMatchCounts");
   });
 
   it("preserves decomposed telemetry through the real shared-answer cache entrypoint", async () => {
@@ -135,8 +144,13 @@ describe("RAG cache invalidation", () => {
     vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
     installAnswerCacheEntrypointHarness({
       answer: sampleAnswer("Shared cached answer."),
-      queryPlanDiagnostics: { queryPlanKind: "decomposed", subquestionCount: 3 },
+      queryPlanDiagnostics: {
+        queryPlanKind: "decomposed",
+        subquestionCount: 3,
+        candidateMatchCounts: { matched: 3, partial_match: 0, absent: 0 },
+      },
     });
+    const cache = await import("../src/lib/rag/rag-cache");
     const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
 
@@ -155,7 +169,9 @@ describe("RAG cache invalidation", () => {
     expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
       query_plan_kind: "decomposed",
       subquestion_count: 3,
+      candidate_match_counts: null,
     });
+    expect(cache.ragAnswerQueryPlanDiagnostics(answer)?.candidateMatchCounts).toBeUndefined();
   });
 
   it("performs no local, shared, or deferred cache writes in shadow mode", async () => {

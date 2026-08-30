@@ -5,7 +5,11 @@ import type {
   RagQueryPlanKind,
   RagReconciliationOutcome,
 } from "@/lib/rag/rag-programme-eval";
-import type { RagCoverageCounts, RagObservationContext } from "@/lib/rag/rag-contracts";
+import {
+  sanitizeRagCandidateMatchCounts,
+  type RagCandidateMatchCounts,
+  type RagObservationContext,
+} from "@/lib/rag/rag-contracts";
 import { ragAnswerQueryPlanDiagnostics } from "@/lib/rag/rag-cache";
 import type {
   RagAnswer,
@@ -84,7 +88,7 @@ const RECONCILIATION_OUTCOMES = [
 ] as const satisfies readonly RagReconciliationOutcome[];
 
 type ProgrammeCounts = Record<SourceCorpusScope, number>;
-type CoverageCounts = RagCoverageCounts;
+type CoverageCounts = { direct: number; partial: number; conflicting: number; absent: number };
 type PendingCountBucket = (typeof PENDING_COUNT_BUCKETS)[number];
 
 export type RagProgrammeTelemetry = {
@@ -95,6 +99,7 @@ export type RagProgrammeTelemetry = {
   subquestion_count: number;
   material_ambiguity: boolean;
   coverage_counts: CoverageCounts;
+  candidate_match_counts: RagCandidateMatchCounts | null;
   candidate_counts: ProgrammeCounts;
   selected_counts: ProgrammeCounts;
   selected_site_domains: SiteContentDomain[];
@@ -119,6 +124,7 @@ export type RagProgrammeTelemetryInput = {
   subquestionCount: number;
   materialAmbiguity: boolean;
   coverageCounts: CoverageCounts;
+  candidateMatchCounts: RagCandidateMatchCounts | null;
   candidateCounts: ProgrammeCounts;
   selectedCounts: ProgrammeCounts;
   selectedSiteDomains: SiteContentDomain[];
@@ -191,6 +197,16 @@ function projectCoverageCounts(counts: CoverageCounts): CoverageCounts {
   };
 }
 
+function projectCandidateMatchCounts(
+  counts: RagCandidateMatchCounts | null,
+  subquestionCount: number,
+): RagCandidateMatchCounts | null {
+  if (counts === null) return null;
+  const sanitized = sanitizeRagCandidateMatchCounts(counts, subquestionCount);
+  if (!sanitized) throw new TypeError("Invalid candidateMatchCounts.");
+  return sanitized;
+}
+
 export function buildRagProgrammeTelemetry(input: RagProgrammeTelemetryInput): RagProgrammeTelemetry {
   if (!UUID_PATTERN.test(input.interactionId)) throw new TypeError("Invalid interactionId.");
   for (const [index, reason] of (input.nestedInsufficiencyReasons ?? []).entries()) {
@@ -199,15 +215,17 @@ export function buildRagProgrammeTelemetry(input: RagProgrammeTelemetryInput): R
   const selectedSiteDomains = input.selectedSiteDomains.map((domain, index) =>
     enumValue(`selectedSiteDomains[${index}]`, domain, SITE_DOMAINS),
   );
+  const subquestionCount = countValue("subquestionCount", input.subquestionCount);
 
   return {
     version: "rag-programme-telemetry-v1",
     interaction_id: input.interactionId,
     rollout_mode: enumValue("rolloutMode", input.rolloutMode, PROGRAMME_MODES),
     query_plan_kind: enumValue("queryPlanKind", input.queryPlanKind, QUERY_PLAN_KINDS),
-    subquestion_count: countValue("subquestionCount", input.subquestionCount),
+    subquestion_count: subquestionCount,
     material_ambiguity: booleanValue("materialAmbiguity", input.materialAmbiguity),
     coverage_counts: projectCoverageCounts(input.coverageCounts),
+    candidate_match_counts: projectCandidateMatchCounts(input.candidateMatchCounts, subquestionCount),
     candidate_counts: projectCounts("candidateCounts", input.candidateCounts),
     selected_counts: projectCounts("selectedCounts", input.selectedCounts),
     selected_site_domains: [...new Set(selectedSiteDomains)],
@@ -298,10 +316,8 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
     queryPlanKind: queryPlan?.queryPlanKind ?? "single",
     subquestionCount: queryPlan?.subquestionCount ?? 1,
     materialAmbiguity: Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
-    coverageCounts:
-      context.rolloutMode === "shadow" && queryPlan?.shadowCoverageCounts
-        ? queryPlan.shadowCoverageCounts
-        : coverageCountsForAnswer(answer),
+    coverageCounts: coverageCountsForAnswer(answer),
+    candidateMatchCounts: context.rolloutMode === "shadow" ? (queryPlan?.candidateMatchCounts ?? null) : null,
     candidateCounts: candidates,
     selectedCounts: selected,
     selectedSiteDomains: [],
@@ -344,6 +360,7 @@ export function carryRagProgrammeTelemetry(source: RagAnswer, target: RagAnswer)
       subquestion_count: telemetry.subquestion_count,
       material_ambiguity: telemetry.material_ambiguity,
       coverage_counts: { ...telemetry.coverage_counts },
+      candidate_match_counts: telemetry.candidate_match_counts ? { ...telemetry.candidate_match_counts } : null,
       candidate_counts: { ...telemetry.candidate_counts },
       selected_counts: { ...telemetry.selected_counts },
       selected_site_domains: [...telemetry.selected_site_domains],
