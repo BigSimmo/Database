@@ -6,7 +6,7 @@ import {
   OVERRIDE_REASONS,
 } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
-import { referralState } from "@/components/ward-management/ward-referrals";
+import { referralState, referralSuburbIsAnswered } from "@/components/ward-management/ward-referrals";
 import {
   EVENT_ROLE,
   WARD_FLOW_ROLE_LABELS,
@@ -622,7 +622,17 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
 
       const withdrawn = movement.referredUnitIds
         .filter((unitId) => unitId !== event.unitId)
-        .map((unitId) => ({ unitId, at: event.now, reason: `withdrawn — placed at ${acceptedUnit.name}` }));
+        .map((unitId) => ({
+          unitId,
+          at: event.now,
+          // 🔴 FD-23, and TWO defects in one string. It read `withdrawn — placed at
+          // ${acceptedUnit.name}`, and the ward page renders this field verbatim — so the LOSING
+          // ward read the WINNER's name out of the record of its own loss. The second defect
+          // survives the first fix: "placed" asserts a transfer that has not happened, because
+          // this event leaves the movement at `accepted_awaiting_bed`. A code, never a sentence:
+          // see WITHDRAWAL_REASONS. The coordinator reads `acceptedUnitId` for the destination.
+          reason: "another_unit_accepted" as const,
+        }));
 
       const updated: Movement = {
         ...movement,
@@ -1370,6 +1380,17 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!HOME_REGIONS.includes(event.homeRegion)) {
         return reject(state, event, `RECEIVE_REFERRAL homeRegion must be chosen from HOME_REGIONS`);
       }
+      // The suburb is resolved against the real catchment table, never merely checked for
+      // non-emptiness — the same reason `edId` and `originSiteCode` below resolve rather than
+      // measure. "12 Wellington St, Perth" is non-empty, and letting it through would put a street
+      // address in the one field whose defence is that it is coarser than one (`PD-3`).
+      if (!referralSuburbIsAnswered(event.suburb)) {
+        return reject(
+          state,
+          event,
+          `RECEIVE_REFERRAL suburb must name a suburb the catchment source knows, or state that it is not known`,
+        );
+      }
       if (event.urgency !== 1 && event.urgency !== 2 && event.urgency !== 3) {
         return reject(state, event, `RECEIVE_REFERRAL urgency must be 1, 2 or 3`);
       }
@@ -1378,6 +1399,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!siteByCode(event.originSiteCode)) {
         return reject(state, event, `RECEIVE_REFERRAL originSiteCode must resolve to a real site`);
       }
+      // A triage instant in the FUTURE would put a patient in the department before they got
+      // there, and `referralClocks` clamps at zero rather than printing a negative — so the wrong
+      // value would render as a plausible "0m" instead of an obvious error. Refused at the door.
+      if (event.triagedAt !== undefined && event.triagedAt > event.now) {
+        return reject(state, event, `RECEIVE_REFERRAL triagedAt cannot be later than the referral itself`);
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -1385,8 +1412,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // Every destination starts queued: the referrer chose them, nobody has answered yet.
         destinations: event.destinations.map((destination) => ({ destination, state: "queued" as const })),
         homeRegion: event.homeRegion,
+        suburb: event.suburb,
         source: event.source,
         raisedAt: event.now,
+        // Absent for a community expect, which is a real state and not a missing value.
+        triagedAt: event.triagedAt,
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,
@@ -1724,6 +1754,43 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       };
       const withUnit = replaceUnit(state, unit.id, releasedUnit);
       return replaceMovement(withUnit, movement.id, updatedMovement);
+    }
+
+    case "BOOK_TRANSPORT": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot book transport for a closed movement (${movement.closure.reason})`);
+      }
+      if (movement.stage !== "bed_held") {
+        return reject(state, event, `cannot book transport while the movement is ${movement.stage}`);
+      }
+      // A second booking would replace a job a provider may already have accepted, and the
+      // acceptance timestamps would vanish with it. Cancel first (`CANCEL_TRANSPORT`), then rebook.
+      if (movement.transport) {
+        return reject(state, event, `transport for movement ${movement.id} is already booked`);
+      }
+      if (!TRANSPORT_PROVIDERS.includes(event.provider)) {
+        return reject(state, event, `BOOK_TRANSPORT provider must be chosen from TRANSPORT_PROVIDERS`);
+      }
+      // ⚠️ A MISSING ESCORT ANSWER IS REFUSED RATHER THAN DEFAULTED, and that is the whole event.
+      // The control opens blank; storing `false` for a question nobody answered would put "no
+      // escort required" on screen as though a clinician had said so, which is exactly the defect
+      // `HANDOVER_READY`'s derivation commits and the reason `TR-D1` puts booking on the team that
+      // knows. `typeof` because the payload reaches this from JavaScript, where the field can be
+      // absent whatever the type says.
+      if (typeof event.escortRequired !== "boolean") {
+        return reject(state, event, `BOOK_TRANSPORT escortRequired must be answered, and it has no default`);
+      }
+      const booked: Movement = {
+        ...movement,
+        transport: {
+          id: `${movement.id}-transport`,
+          provider: event.provider,
+          escortRequired: event.escortRequired,
+        },
+      };
+      return replaceMovement(state, movement.id, booked);
     }
 
     case "CANCEL_TRANSPORT": {

@@ -85,6 +85,7 @@ function multiDestinationReferral(): Referral {
       { kind: "community_team" },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     urgency: 2,
     originSiteCode: "RPH",
@@ -280,11 +281,41 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
       }
     });
 
-    it("the shipped seed cannot test this rule, which is why the reducer-built fixture exists", () => {
-      // Recorded rather than worked around: every referral in `ward-movements.ts` has exactly one
-      // destination today, so the seed can prove the field sets below but never the leak.
-      expect(seededReferrals.length).toBeGreaterThan(0);
-      expect(seededReferrals.every((referral) => referral.destinations.length === 1)).toBe(true);
+    it("⚠️ THE SEED CAN TEST THIS RULE NOW, and this test used to record that it could not", () => {
+      // This asserted `every(referral => destinations.length === 1)`, recording that the shipped
+      // seed had no multi-destination referral and so could prove the field sets below but never
+      // the leak. ⚠️ THAT WAS A SELF-INVALIDATING PIN AND IT FIRED CORRECTLY: `RF-007` gained a
+      // community-team arm on 2026-08-31 (so the community hub has data to be built against), the
+      // recorded fact stopped being true, and this went red rather than sitting green over a
+      // superseded claim. Ward Core made the change; the assertion is replaced because its premise
+      // moved, not because it was inconvenient.
+      //
+      // The reducer-built fixture below stays. It is still the only one that can be shaped to order
+      // — several decided destinations, chosen markers — and the seed cannot be bent that far
+      // without becoming a test fixture pretending to be a demo.
+      const multi = seededReferrals.filter((referral) => referral.destinations.length > 1);
+      expect(
+        multi.length,
+        "no seeded referral has two destinations, so the seed half of this rule proves nothing " +
+          "again. Either seed one, or restore the recorded fact this test used to hold.",
+      ).toBeGreaterThan(0);
+
+      // And the rule itself, against the seed rather than only against a fixture built to break it.
+      for (const referral of multi) {
+        const scoped = wardScopedReferral(referral);
+        expect(scoped, `${referral.id} is addressed to a ward, so a ward view must exist`).toBeDefined();
+        const seen = sweep(scoped).primitives;
+        for (const other of referral.destinations.filter((a) => a.destination.kind !== "psychiatric_ward")) {
+          for (const value of Object.values(other.destination)) {
+            expect(
+              seen.includes(value as string),
+              `${referral.id}: a ward can see ${JSON.stringify(value)} from a destination that is ` +
+                "not its own. FD-23 — a ward may know its own referral ended; it may not know where else " +
+                "the patient was sent.",
+            ).toBe(false);
+          }
+        }
+      }
     });
   });
 

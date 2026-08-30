@@ -71,6 +71,7 @@ function receiveReferral(state: WardFlowState, now = NOW) {
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     urgency: 2,
     originSiteCode: "SCGH",
@@ -144,6 +145,7 @@ describe("RECEIVE_REFERRAL", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",
@@ -179,6 +181,9 @@ describe("RECEIVE_REFERRAL", () => {
           },
         ],
         homeRegion: "Perth Metropolitan",
+        // A real suburb, so a case testing a bad `urgency` fails on urgency rather than on the
+        // suburb check that now runs before it. `overrides` below can still replace it.
+        suburb: { kind: "named", name: "Armadale" },
         source: "community",
         urgency: 2,
         originSiteCode: "SCGH",
@@ -669,7 +674,9 @@ describe("seeding", () => {
     // Phase 8 Task 2 added RF-008, the one accepted referral whose travel band is out of area —
     // 8, not 7. See `referrals`' own doc comment (`ward-movements.ts`) for why that case had to
     // be added rather than made out of an existing referral.
-    expect(state.referrals).toHaveLength(8);
+    // Nine since 2026-08-30: RF-009 is the only referral addressed to an emergency department, and
+    // the ED psychiatry hub had no data at all until it existed.
+    expect(state.referrals).toHaveLength(9);
     expect(state.referrals.map((r) => r.id)).toEqual([
       "RF-001",
       "RF-002",
@@ -679,6 +686,10 @@ describe("seeding", () => {
       "RF-006",
       "RF-007",
       "RF-008",
+      // The only referral addressed to an emergency department, added 2026-08-30. Without it the
+      // ED psychiatry hub held nothing for any department and looked exactly like a correct hub
+      // with nothing to show.
+      "RF-009",
     ]);
     expect(state.frontDoorReferralSequence).toBe(0);
   });
@@ -705,6 +716,7 @@ describe("a referral addressed to several destinations", () => {
       ageBand: "Adult",
       destinations: kinds,
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       urgency: 2,
       originSiteCode: "SCGH",

@@ -39,13 +39,25 @@ const TIER_QUALIFIER: Record<UrgencyLevel, string> = {
  * picker, the referral board and the match view.
  *
  * Narrowed from "every screen that shows or offers one" (review finding M4), which was not true.
- * Four MOVEMENT surfaces still write their own: the two urgency `<select>`s in `ed-screen.tsx`
- * and the one in `shortlist-panel.tsx` render a bare `{option}` — the exact case this export's
- * own rationale singles out, a screen where a human CHOOSES the value — and
- * `shortlist-panel.tsx` renders `Tier {movement.urgency}` as a badge. All four predate this phase
- * and carry their own pinned tests, so adopting them is a deliberate change to Phase 6 screens
- * rather than a tidy-up to fold into this fix round. Recorded here, by name, so the next session
- * adopts them on purpose instead of a fifth copy being written.
+ *
+ * **The three deferred `<select>`s adopted this helper at `98a1a7c5f` — this paragraph used to say
+ * they rendered a bare `{option}`, and that is no longer the case.** They were the two urgency
+ * selects in `ed-screen.tsx` and the one in `shortlist-panel.tsx`: the exact case this export's own
+ * rationale singles out, **a screen where a human CHOOSES the value.** Deferring them was wrong for
+ * longer than it looked — a naked `1 2 3` says nothing about which end is urgent, the ED form
+ * defaults to `3`, and urgency now outranks everything in the queue, so a clinician reading a bigger
+ * number as more urgent filed the sickest patient last.
+ *
+ * ⚠️ **This paragraph also claimed all four surfaces "carry their own pinned tests". They did not.**
+ * No test anywhere referenced `ward-change-urgency`, so both change pickers had NO coverage at all —
+ * the deferral rested on a safety net that was never there, and nothing could have told anyone,
+ * because a control no test names cannot fail one.
+ *
+ * **What remains true: `shortlist-panel.tsx` renders `Tier {movement.urgency}` as a badge**, dropping
+ * the qualifier the boards show. It is now the only ward surface not reading this helper. Left
+ * deliberately — a badge has a width, so whether the qualifier fits is a display decision rather
+ * than a correctness one, and it is not the case this export's rationale singles out: **nobody
+ * chooses a value from a badge.**
  */
 export function urgencyTierLabel(urgency: UrgencyLevel): string {
   return `Tier ${urgency} · ${TIER_QUALIFIER[urgency]}`;

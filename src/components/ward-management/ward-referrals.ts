@@ -1,5 +1,6 @@
 import { bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
+import { lookupCatchment } from "@/components/ward-management/ward-catchment";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -14,6 +15,7 @@ import {
   referralEligibility,
   type EligibilityVerdict,
 } from "@/components/ward-management/ward-eligibility";
+import { SUBURB_UNKNOWN_REASONS, suburbUnknownLabels } from "@/components/ward-management/ward-model";
 import type {
   Referral,
   ReferralDeclineReason,
@@ -24,6 +26,7 @@ import type {
   WardReferralDestination,
   ReferralAddressing,
   ReferralState,
+  ReferralSuburb,
 } from "@/components/ward-management/ward-model";
 
 /**
@@ -200,8 +203,13 @@ export type EdAddressedReferral = {
  * a ward's refusal somewhere else.
  *
  * **Ordered by `raisedAt`, earliest first, and that is a comparison between two stored instants —
- * it reads no clock and computes no duration.** See this screen's own note on why no elapsed figure
- * appears on it.
+ * it reads no clock and computes no duration.** The elapsed figures the hub shows come from
+ * `referralClocks` below, which takes a single `now` from the caller for exactly that reason.
+ *
+ * ⚠️ This sentence used to end *"see this screen's own note on why no elapsed figure appears on
+ * it"* — and that note has been deleted, so the pointer named a place that no longer existed. It is
+ * the comments-that-recruit failure: a comment whose truth lives in ANOTHER file decays when that
+ * file changes and nothing local ever goes red. Reported by Ward Referrals, who owns the screen.
  */
 export function edReferralsFor(
   referrals: readonly Referral[],
@@ -294,6 +302,152 @@ export function recentlyDecidedReferrals(referrals: Referral[]): Referral[] {
  */
 export function referralWaitLabel(referral: Referral, now: Instant): string {
   return formatElapsed(minutesUntil(now, referral.raisedAt));
+}
+
+/**
+ * The two clocks `P9-D2` asks for, computed together from ONE `now`.
+ *
+ * The owner's decision, 2026-08-30: every wait carries **time in department (from triage)** and
+ * **time since referral to mental health**, side by side. **The gap between them is the signal** —
+ * it says whether the delay sits upstream of mental health or with them, which one clock can only
+ * obscure. He rejected referral-only (a patient waits hours before anyone refers, and the screen
+ * shows a short wait) and triage-only (mental health looks slow for a delay it could not act on).
+ *
+ * ⚠️ **`inDepartment` IS `undefined`, NEVER `0`, FOR SOMEONE NOT YET THERE** — `P9-D7`. A community
+ * expect sits on the to-see board before arriving, and *"a not-yet-arrived expect showing '0m in
+ * department' reads as 'just arrived', which is the opposite of the truth."* Returning a number
+ * here would let any screen print it correctly and still lie; returning nothing forces the screen
+ * to say the clock does not exist yet.
+ *
+ * ⚠️ **ONE `now` FOR BOTH, and that is not a tidiness point.** The out-of-area board read two
+ * clocks for one comparison on this same model and disagreed with itself. Both durations below are
+ * measured against the single `now` the caller passes, and `tests/ward-referral-clocks.test.ts`
+ * proves it with a referral triaged at the instant it was raised: two clock sources cannot both
+ * report those as equal.
+ *
+ * **`sinceReferral` STOPS when the person reaches the department after being referred** (`P9-D7`
+ * via `P9-F3`: the referral clock runs only until the patient arrives). For someone already there
+ * when the referral was raised there is nothing left to end — their triage is in the past — so it
+ * keeps running, and `sinceReferralRunning` says which of the two a screen is showing. A stopped
+ * duration rendered like a live one is the same class of lie as the zero above.
+ *
+ * ⚠️ **THE RULING SAYS ARRIVAL AND THE FIELD SAYS TRIAGE, AND THEY ARE DIFFERENT EVENTS.** A patient
+ * arrives, waits, and is triaged some time later. `triagedAt` is the closest thing recorded and the
+ * arithmetic is unaffected — but **no screen may word either clock as "arrived"**; see
+ * `Referral.triagedAt`'s own comment.
+ */
+export type ReferralClocks = {
+  /** Minutes from `raisedAt`; stops at `triagedAt` when the person arrived after being referred. */
+  sinceReferral: number;
+  /** Whether `sinceReferral` is still counting. A screen must not word a stopped clock as a wait. */
+  sinceReferralRunning: boolean;
+  /** Minutes since triage, or `undefined` when this person is not in the department yet. */
+  inDepartment: number | undefined;
+};
+
+/**
+ * The words a screen uses for the two clocks, so the honest phrasing is the CHEAP one.
+ *
+ * ⚠️ **This exists because a comment asking screens not to say "arrived" is exactly what already
+ * failed.** The field was named `triagedAt` and my own doc comment beside it said "arrival" three
+ * times; a reader copying the comment would have written *"arrived 14:20"* on the first screen to
+ * render it, asserting a fact this model does not hold. **The name was honest and the prose was
+ * not, and prose is the half that gets copied.** So the vocabulary is a value that can be checked
+ * rather than a rule that must be remembered — `tests/ward-referral-clocks.test.ts` fails on any
+ * term containing "arriv".
+ *
+ * Terms, not layout: how a hub arranges the two numbers is that screen's decision, and this
+ * deliberately does not format them.
+ */
+export const REFERRAL_CLOCK_TERMS = {
+  /** The department clock, while it runs. */
+  inDepartment: "in department",
+  /** The referral clock, while it runs. */
+  sinceReferral: "since referral",
+  /** The referral clock once triage has stopped it — a span, not a wait still being served. */
+  sinceReferralStopped: "referral to triage",
+  /** What a screen says instead of a duration when the person is not in the department yet. */
+  notInDepartment: "not in department yet",
+} as const;
+
+/**
+ * Whether the catchment source recognises this suburb as a PLACE.
+ *
+ * ⚠️ **Resolved against the real table, never checked for non-emptiness** — the same move as `edId`
+ * resolving against the real network. `"12 Wellington St, Perth"` is a non-empty string and would
+ * pass a length check, putting a street address into the one field whose entire defence is that it
+ * is coarser than one (`PD-3`: a suburb identifies a service area, not a dwelling).
+ *
+ * ⚠️ **"KNOWN" IS NOT "HAS A CATCHMENT", and conflating the two would refuse real patients.** A
+ * suburb the table lists with no follow-up clinic recorded is a real place; so is one whose two
+ * documents disagree (`CM-2`'s five contradictions). Both are recordable. Whether anybody can be
+ * ROUTED from there is a different question, asked later, by `lookupCatchment` itself — which
+ * answers it honestly rather than by refusing the referral.
+ *
+ * Lives here rather than in `ward-catchment.ts` only because that module is owned by another
+ * session tonight; it is built entirely on that module's public API and belongs beside it.
+ */
+export function referralSuburbIsKnown(name: string): boolean {
+  // `typeof` rather than a truthiness check, and not because the type says otherwise: three suites
+  // hand the reducer a `RECEIVE_REFERRAL` payload through an `as never` cast with no suburb on it
+  // at all, and `undefined.trim()` is a CRASH rather than a refusal. A validator that throws on the
+  // input it exists to reject is worse than no validator, because the rejection path is the one
+  // nobody exercises.
+  if (typeof name !== "string" || name.trim().length === 0) return false;
+  const lookup = lookupCatchment(name);
+  // Every state except `unknown` means the table has a row. `unknown` splits: one reason is "not in
+  // the table at all", the other is "in the table, but the source records no clinic on it" — and
+  // the second IS a known place. Reading `state !== "unknown"` alone would refuse it.
+  return lookup.state !== "unknown" || lookup.reason === "suburb-in-source-table-but-no-follow-up-clinic-recorded";
+}
+
+/**
+ * Whether a whole `ReferralSuburb` answer is one the front door accepts.
+ *
+ * ⚠️ **"Not known" is an ACCEPTED answer, not a failure to answer**, and that distinction is the
+ * entire reason this type is a union. A patient of no fixed abode, or one police brought in at 3am
+ * with no recorded address, must be referable — they are, if anything, MORE likely to need a bed.
+ * See `ReferralSuburb`'s own doc comment for the hour this was not true.
+ */
+export function referralSuburbIsAnswered(suburb: ReferralSuburb | undefined): boolean {
+  if (suburb === null || typeof suburb !== "object") return false;
+  if (suburb.kind === "unknown") return SUBURB_UNKNOWN_REASONS.includes(suburb.reason);
+  return suburb.kind === "named" && referralSuburbIsKnown(suburb.name);
+}
+
+/**
+ * What a screen shows for a suburb, including when there is not one.
+ *
+ * One home for the wording, for the same reason `REFERRAL_CLOCK_TERMS` and
+ * `withdrawalReasonLabels` are: every surface that invents its own phrase for absence invents a
+ * slightly different one, and "—" beside a real suburb reads as a rendering bug rather than a fact
+ * about the patient.
+ */
+export function referralSuburbLabel(suburb: ReferralSuburb): string {
+  return suburb.kind === "named" ? suburb.name : suburbUnknownLabels[suburb.reason];
+}
+
+/** The suburb to read a catchment for, or `null` when there is no place to read one for. */
+export function catchmentSuburbOf(suburb: ReferralSuburb): string | null {
+  return suburb.kind === "named" ? suburb.name : null;
+}
+
+export function referralClocks(referral: Referral, now: Instant): ReferralClocks {
+  const { raisedAt, triagedAt } = referral;
+  // Triage ends the referral wait only when it came AFTER the referral. `>= raisedAt` rather than
+  // `> raisedAt` so a referral raised and triaged in the same minute counts as reached, which is
+  // what a reader would say happened.
+  const triagedAfterReferral = triagedAt !== undefined && triagedAt >= raisedAt;
+  const referralEnd = triagedAfterReferral ? triagedAt : now;
+
+  return {
+    // `Math.max(0, …)` for the same reason `formatElapsed` never prints a negative: a fixture
+    // authored at a future anchor, or a re-anchor that moves `now` backwards, must not put
+    // "-20m waiting" on a board.
+    sinceReferral: Math.max(0, minutesUntil(referralEnd, raisedAt)),
+    sinceReferralRunning: !triagedAfterReferral,
+    inDepartment: triagedAt === undefined ? undefined : Math.max(0, minutesUntil(now, triagedAt)),
+  };
 }
 
 /**

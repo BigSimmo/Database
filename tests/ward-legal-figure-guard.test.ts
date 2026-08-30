@@ -23,6 +23,7 @@ import {
   BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
   REFERRAL_DECLINE_REASONS,
+  TRANSPORT_PROVIDERS,
   type LegalForm,
   type LegalStatus,
 } from "../src/components/ward-management/ward-model";
@@ -423,6 +424,10 @@ const RECEIVE_REFERRAL_CANDIDATE = {
     },
   ],
   homeRegion: "Perth Metropolitan" as const,
+  // A real suburb from the catchment table, because the front door resolves it rather than
+  // measuring its length. No figure, timeframe or threshold — this file stays touched as
+  // little as possible and the edit is forced by the event type, not chosen.
+  suburb: { kind: "named", name: "Armadale" } as const,
   source: "community" as const,
   urgency: 2 as const,
   originSiteCode: "SCGH",
@@ -556,6 +561,16 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // `role` is the first permitted role (coordinator), so `actingUnitId` is never needed here.
       return movementIds.flatMap((movementId) =>
         RELEASE_HOLD_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "BOOK_TRANSPORT":
+      // One candidate per provider crossed with BOTH escort answers, the same "one candidate per
+      // real domain value" precedent the reason-keyed events below set. Both booleans, because
+      // `escortRequired` is the field this event exists to make somebody answer and a sweep that
+      // only ever sent `true` would leave the other branch unentered.
+      return movementIds.flatMap((movementId) =>
+        TRANSPORT_PROVIDERS.flatMap((provider) =>
+          [true, false].map((escortRequired) => ({ type, role, now, movementId, provider, escortRequired })),
+        ),
       );
     case "CANCEL_TRANSPORT":
       return movementIds.flatMap((movementId) =>

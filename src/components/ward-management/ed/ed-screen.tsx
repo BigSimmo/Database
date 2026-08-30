@@ -31,6 +31,7 @@ import {
   type Security,
   type Sex,
 } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { edReferralsFor, referralPersonFacts, referralPurposeLabel } from "@/components/ward-management/ward-referrals";
 import { edById, siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
@@ -664,14 +665,23 @@ export function EdScreen({ edId }: EdScreenProps) {
                 <label className={styles.referralField}>
                   Urgency
                   <select
+                    data-testid="ward-ed-referral-urgency"
                     value={draft.urgency}
                     onChange={(event) =>
                       setDraft((current) => ({ ...current, urgency: Number(event.target.value) as 1 | 2 | 3 }))
                     }
                   >
+                    {/* The option TEXT carries the tier's direction, the option VALUE stays the bare
+                        tier — so `Movement["urgency"]`, the change handler above and every test
+                        reading option values are unchanged. This picker rendered "1", "2", "3" with
+                        nothing saying which end is urgent — and a clinician reading the bigger number
+                        as "most urgent" files the LEAST urgent referral for the sickest patient.
+                        Urgency outranks everything in the queue, so that error sorts the patient to
+                        the bottom and no later screen contradicts it. Labelled from
+                        `urgencyTierLabel`, the same export the boards read the field back with. */}
                     {URGENCY_OPTIONS.map((option) => (
                       <option key={option} value={option}>
-                        {option}
+                        {urgencyTierLabel(option)}
                       </option>
                     ))}
                   </select>
@@ -899,9 +909,12 @@ export function EdScreen({ edId }: EdScreenProps) {
                               }))
                             }
                           >
+                            {/* Labelled, not a bare digit, for the same reason as the raise-referral
+                                picker above: the value stays the bare tier, the text carries the
+                                direction. */}
                             {URGENCY_OPTIONS.map((option) => (
                               <option key={option} value={option}>
-                                {option}
+                                {urgencyTierLabel(option)}
                               </option>
                             ))}
                           </select>

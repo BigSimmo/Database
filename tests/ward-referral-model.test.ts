@@ -122,6 +122,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Kimberley",
+      suburb: { kind: "named", name: "Broome" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -153,6 +154,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -382,6 +384,8 @@ describe("front-door contract — an ED may close to all admissions, never refus
     CHANGE_URGENCY: false,
     CHANGE_LEGAL_STATUS: false,
     RELEASE_HOLD: false,
+    // Books a transport job; refuses nothing and names no subject.
+    BOOK_TRANSPORT: false,
     CANCEL_TRANSPORT: false,
     FLAG_BED_RELEASE: false,
     CONFIRM_BED_RELEASE: false,
@@ -690,6 +694,36 @@ describe("Referral privacy — structural", () => {
     // no note, reason or outcome field; the runtime companion below drives that write path so a
     // reducer that started writing one anyway fails under plain vitest, with no `tsc` step.
     "localBedSought",
+    // 2026-08-30. Widened by one, deliberately, and the note above is why this needs its own
+    // sentence rather than a quiet append: Task 2R REMOVED an `arrivedAt` from this type, and this
+    // is not that field coming back. That one meant arriving at a BED, and `Admission` owns it.
+    // `triagedAt` is arriving in the DEPARTMENT — a different event, at a different place, for a
+    // person who may never get a bed at all, and it starts the second of the two clocks the owner
+    // asked for in `P9-D2`. A reader who sees an arrival instant here and remembers the deletion
+    // should find the distinction stated rather than have to reconstruct it.
+    //
+    // It does not widen the person facts this type holds. Like `raisedAt`, `decidedAt` and
+    // `localBedSought` it is operational: it says where a body is and when, never who they are.
+    // `homeAddress`, `notes`, `patientId` and `diagnosis` still fail here exactly as before.
+    //
+    // Provenance: owner ruling RELAYED via the orchestrator (`P9-F3`), not heard first-hand by the
+    // session that built it — recorded that way because `R55` exists precisely to stop a relay
+    // hardening into "(OWNER)" once it has been written down twice.
+    "triagedAt",
+    // 2026-08-30, and the second widening in one night — which is exactly the pace this list exists
+    // to slow down, so it gets its own reason rather than riding on the one above.
+    //
+    // `CM-4`: the SUBURB is the recorded fact. It is the coarsest fact the owner's catchment
+    // documents are keyed on and the finest one that is stable, so it survives whichever way the
+    // five deferred catchment questions are answered. `PD-3` is what lets it through this guard at
+    // all: ⚠️ **a suburb is not an address** — it names a service area, not a dwelling. `address`
+    // remains UNRULED and still fails here, and a ruling permitting a suburb must never be read as
+    // permitting the category.
+    //
+    // Resolved against the catchment table by `RECEIVE_REFERRAL`, never checked for non-emptiness:
+    // "12 Wellington St, Perth" is a non-empty string and a length check would have put the very
+    // thing this field is coarser than into the field itself.
+    "suburb",
   ].sort();
 
   /**
@@ -825,6 +859,13 @@ describe("Referral privacy — structural", () => {
       transportNeeded: false,
       // A role, never a person — and no note, reason or outcome field exists to populate.
       localBedSought: { at: NOW_ANCHOR + 2, by: "coordinator" },
+      // Before `raisedAt`: this canonical referral is somebody already in the department when
+      // mental health was called, which is the case where BOTH clocks run.
+      triagedAt: NOW_ANCHOR - 90,
+      // A real suburb from the catchment table, for the same reason the ED arm's `edId` is a real
+      // department: this literal is the exhaustive half of the guard and a fictional value here
+      // would be a fixture the front door itself would refuse.
+      suburb: { kind: "named", name: "Armadale" },
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
     // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
@@ -885,6 +926,7 @@ describe("Referral privacy — structural", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       urgency: 2,
       originSiteCode: "RPH",
@@ -940,7 +982,11 @@ describe("Referral privacy — structural", () => {
 describe("Task 5 — referral board ordering (referralQueueOrder, recentlyDecidedReferrals)", () => {
   it("orders the real fixture's two queued referrals by urgency, then by longest wait — RF-001 (raised 40 min ago) before RF-005 (raised 20 min ago), both tier 2", () => {
     const queuedIds = referralQueueOrder(referrals).map((referral) => referral.id);
-    expect(queuedIds).toEqual(["RF-001", "RF-005"]);
+    // RF-009 joined the fixture on 2026-08-30 as the only referral addressed to an emergency
+    // department — before it, the ED hub's inbox was empty for every department and its screen was
+    // indistinguishable from a working one with nothing to show. It is queued and urgency 2, so it
+    // sorts by wait: raised 35 minutes ago, after RF-001 (40) and before RF-005 (20).
+    expect(queuedIds).toEqual(["RF-001", "RF-009", "RF-005"]);
   });
 
   it("never includes an accepted or declined referral in the queued order", () => {
@@ -1026,7 +1072,15 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     // true regardless of gate order: a forensic unit is NEVER eligible and NEVER in the accepting
     // list, for any referral. The next test below proves the forensic gate's own wording
     // specifically, for the one referral shape where it is genuinely the first gate to fail.
-    for (const referral of referrals) {
+    // Narrowed to referrals that ASK for a ward, since 2026-08-30: `RF-009` addresses an emergency
+    // department and has no ward arm at all, so `wardOf` would throw rather than fail. The canary
+    // below matters more than the narrowing — a filter that matched nothing would leave this loop
+    // asserting about an empty list and passing.
+    const wardReferrals = referrals.filter((referral) =>
+      referral.destinations.some((addressing) => addressing.destination.kind === "psychiatric_ward"),
+    );
+    expect(wardReferrals.length, "no seeded referral asks for a ward, so this proves nothing").toBeGreaterThan(1);
+    for (const referral of wardReferrals) {
       const candidates = referralCandidates(referral, wardOf(referral).destination, units, NOW_ANCHOR);
       const forensicCandidates = candidates.filter((candidate) => candidate.unit.forensic);
       expect(forensicCandidates.length).toBeGreaterThan(0);

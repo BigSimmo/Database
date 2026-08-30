@@ -88,8 +88,13 @@ describe("acceptance", () => {
       "fsh-adult-secure",
       "rgh-adult-secure",
     ]);
+    // 🔴 This loop USED to assert `.toContain("RPH Adult Secure")` — it REQUIRED the withdrawal
+    // written for the losing wards to name the ward that won, which is exactly the FD-23 leak.
+    // Two sessions found the defect on screen while this test sat green, demanding it. The
+    // inversion is the point: a guard can be precise, mutation-proof and pointed the wrong way.
     for (const withdrawn of target.withdrawnReferrals) {
-      expect(withdrawn.reason).toContain("RPH Adult Secure");
+      expect(withdrawn.reason).toBe("another_unit_accepted");
+      expect(withdrawn.reason, "the losing ward must not be told who won").not.toContain("RPH Adult Secure");
     }
   });
 

@@ -150,6 +150,59 @@ export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
  * escalation (`RECORD_ESCALATION`) — and a second vocabulary for one fact is how two screens come
  * to describe the same event differently.
  */
+/**
+ * 🔴 WHY A WARD'S REFERRAL ENDED — and it may NEVER say where the patient went (`FD-23`).
+ *
+ * Until 2026-08-30 `withdrawnReferrals[].reason` was a bare `string`, and both the reducer and the
+ * seed filled it with the winner's name:
+ *
+ *     reason: `withdrawn — placed at ${acceptedUnit.name}`
+ *     reason: "Referral withdrawn once RGH Adult Secure confirmed the bed"
+ *
+ * The ward page renders that verbatim, so a LOSING ward read the ACCEPTING ward's name out of the
+ * very field that exists to record its own loss. Confirmed on screen by two sessions independently.
+ *
+ * ⚠️ **NO SHAPE GUARD COULD SEE IT.** `ward-referral-visibility.ts` holds a mutation-tested
+ * field-set allowlist at every level and this passed all of them: `reason` was a permitted field of
+ * a permitted type carrying a forbidden VALUE. A guard over shapes cannot see a fact smuggled in
+ * prose.
+ *
+ * ⚠️ **WHICH IS WHY THE FIX IS A TYPE AND NOT A BETTER SENTENCE.** Sanitising the string leaves a
+ * free-form `string` any future edit can refill, with nothing red to say so. As a union the leak is
+ * UNREPRESENTABLE rather than merely absent.
+ *
+ * The list is short because the model has exactly one way this happens today. Adding a member is a
+ * governance decision, not an implementation one — and no member may name a place.
+ *
+ * **Nothing is lost to the coordinator:** it may read `movement.acceptedUnitId` directly, because it
+ * is allowed to. The destination stops travelling inside a ward-readable string.
+ */
+export const WITHDRAWAL_REASONS = ["another_unit_accepted"] as const;
+export type WithdrawalReason = (typeof WITHDRAWAL_REASONS)[number];
+
+/**
+ * What a ward is shown. Says the referral ended and why, and names no place.
+ *
+ * ⚠️ **"ACCEPTED", NOT "PLACED" — AND THAT IS A SECOND DEFECT, NOT A WORDING PREFERENCE.**
+ * The first code here was `placed_elsewhere`, labelled *"the patient was placed elsewhere"*.
+ * It closed the leak and kept a falsehood: `ACCEPT_IN_PRINCIPLE` leaves the movement at
+ * `accepted_awaiting_bed`, so **the patient is accepted, not moved**, and the sentence asserted
+ * a transfer that had not happened. Two sessions drafted "placed" independently and one caught
+ * it. The lesson is the one worth keeping: **each of us checked the string for the thing we
+ * were hunting, and not for whether it was true.**
+ *
+ * The wording matches the ward page verbatim, so the record and the screen cannot drift apart.
+ *
+ * ⚠️ **AND IT IS TRUE ONLY CONDITIONALLY.** "Another unit accepted" is true of every entry that
+ * can exist today because `ACCEPT_IN_PRINCIPLE` is the only writer of `withdrawnReferrals` —
+ * measured, one site, and pinned by `tests/ward-withdrawal-reason-privacy.test.ts`. A second
+ * withdrawal path with a different cause makes this label quietly wrong; the pin is what makes
+ * that a red test rather than a silent falsehood on a ward screen.
+ */
+export const withdrawalReasonLabels: Record<WithdrawalReason, string> = {
+  another_unit_accepted: "Withdrawn — another unit accepted this patient.",
+};
+
 export const OVERRIDE_REASONS = [
   "The receiving team has agreed despite the mismatch",
   "Clinical urgency outweighs the mismatch",

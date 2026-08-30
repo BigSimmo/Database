@@ -16,7 +16,8 @@ vi.mock("next/link", () => ({
 import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
-import { COHORTS } from "@/components/ward-management/ward-model";
+import { COHORTS, URGENCY_LEVELS } from "@/components/ward-management/ward-model";
+import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { formTitleForCode } from "@/lib/form-register";
 
@@ -178,5 +179,63 @@ describe("emergency department intake picker", () => {
     const outstanding = screen.getByTestId(`ward-ed-outstanding-${FIRST_RAISED_ID}`);
     expect(outstanding).toHaveAttribute("data-kind", "form");
     expect(outstanding).toHaveTextContent("examination recorded (inpatient order)");
+  });
+});
+
+/**
+ * Wave 1 referral corrections. All three urgency `<select>`s in the movement screens rendered a
+ * bare "1", "2", "3" — no word anywhere on the control saying which end of the scale is urgent —
+ * while every surface that DISPLAYS the same field spells it out through `urgencyTierLabel`.
+ *
+ * The consequence is not cosmetic. A clinician who reads the bigger number as "most urgent" files
+ * the LEAST urgent referral for the sickest patient, and because urgency outranks everything else
+ * in the queue that error sorts the patient to the bottom with no later screen contradicting it.
+ *
+ * Both tests read the option TEXT. The existing suites above read option `value`s, which were
+ * correct throughout and are deliberately still the bare tier — which is exactly why nothing here
+ * could catch this. Asserted against `urgencyTierLabel` itself rather than three remembered
+ * strings, so the guard is "the pickers and the boards use one spelling" rather than "the picker
+ * uses the spelling this test happens to remember".
+ */
+describe("emergency department urgency pickers", () => {
+  it("labels every option on the raise-referral picker with its direction", () => {
+    renderEd();
+    fireEvent.click(screen.getByTestId("ward-ed-raise-referral-toggle"));
+
+    // The test-id itself is part of the fix: this picker had none, so no test could address the
+    // one urgency control a clinician uses at referral time.
+    const picker = screen.getByTestId("ward-ed-referral-urgency") as HTMLSelectElement;
+
+    const optionText = [...picker.options].map((option) => option.textContent);
+    expect(optionText).toEqual(URGENCY_LEVELS.map((level) => urgencyTierLabel(level)));
+
+    // The VALUE stays the bare tier: the model and every value-reading test are unchanged.
+    const optionValues = [...picker.options].map((option) => option.value);
+    expect(optionValues).toEqual(URGENCY_LEVELS.map((level) => String(level)));
+
+    // Non-vacuity: the labels really do carry a direction, so a future `urgencyTierLabel`
+    // returning the bare tier again would fail here even though the first assertion still matched.
+    expect(optionText).toContain("Tier 1 · most urgent");
+    expect(optionText).toContain("Tier 3 · least urgent");
+  });
+
+  it("labels every option on the urgency-change picker with its direction", () => {
+    renderEd();
+
+    // The movement set is discovered from the rendered screen rather than hand-picked, and a
+    // silent zero is refused: an ED with no outbox patients would otherwise pass this vacuously.
+    const toggles = screen.getAllByTestId(/^ward-change-urgency-toggle-/);
+    expect(toggles.length).toBeGreaterThan(0);
+    fireEvent.click(toggles[0]);
+
+    const picker = screen.getByLabelText(/^Urgency tier for /) as HTMLSelectElement;
+    const optionText = [...picker.options].map((option) => option.textContent);
+    expect(optionText).toEqual(URGENCY_LEVELS.map((level) => urgencyTierLabel(level)));
+
+    const optionValues = [...picker.options].map((option) => option.value);
+    expect(optionValues).toEqual(URGENCY_LEVELS.map((level) => String(level)));
+
+    expect(optionText).toContain("Tier 1 · most urgent");
+    expect(optionText).toContain("Tier 3 · least urgent");
   });
 });

@@ -41,6 +41,7 @@ import {
   movementTimeline,
   roleLabels,
   roleTaskLabel,
+  MINIMUM_EFFECTIVENESS_SAMPLE,
   stageSummaries,
   unitCapacity,
   type ChangeAuditEntry,
@@ -790,7 +791,28 @@ function EffectivenessValue({
       from {measure.sampleSize} of {measure.population} {basisNoun}
     </span>
   );
-  if (measure.value === undefined) {
+  /*
+   * ⚠️ THE FLOOR (owner ruling, 2026-08-30). Below `MINIMUM_EFFECTIVENESS_SAMPLE` the figure is not
+   * published at all. The board was rendering "30 min — from 1 of 27 recorded acceptances", and the
+   * argument he approved is that **the word "Median" means "a typical case" to a clinician, and no
+   * caveat printed beside it undoes that** — on the one page whose entire purpose is being trusted
+   * about its own limits.
+   *
+   * ⚠️ **THIS ADDS A FLOOR BENEATH THE DISCLOSURE RULE ABOVE, IT DOES NOT REPLACE IT**, and that
+   * distinction was nearly lost. This comment's own tail clause — "say nothing rather than guess" —
+   * was read by one session as meaning suppress, and a question framed as "your code disagrees with
+   * its own rule, shall I fix it?" would have got a yes from anybody and deleted a repair somebody
+   * deliberately made. The clause attaches to a median RENDERED BARE. So `basis` still renders
+   * beneath the suppression: the screen says "from 1 of 27" beside "Not enough data to compute",
+   * which is what makes the absence informative rather than merely blank.
+   *
+   * It is decided HERE and not in `effectivenessNumbers`, deliberately. Suppressing in the
+   * derivation gutted five unit tests that exist to prove the median arithmetic and the
+   * `acceptedAt`-over-fallback preference — they feed it two and three movements on purpose. A
+   * publishing rule enforced inside the calculation stops the calculation being testable at the
+   * sizes it is interesting at. The derivation computes; this decides what a reader is shown.
+   */
+  if (measure.value === undefined || measure.sampleSize < MINIMUM_EFFECTIVENESS_SAMPLE) {
     return (
       <span className={styles.effectivenessLine}>
         <span className={styles.effectivenessUnknown}>Not enough data to compute</span>

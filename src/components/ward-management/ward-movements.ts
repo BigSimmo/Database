@@ -197,7 +197,11 @@ const seededMovements: Movement[] = [
       {
         unitId: "fsh-adult-secure",
         at: NOW_ANCHOR - 470,
-        reason: "Referral withdrawn once RGH Adult Secure confirmed the bed",
+        // 🔴 FD-23. This read "Referral withdrawn once RGH Adult Secure confirmed the bed" and
+        // rendered verbatim at /mockups/ward-flow/ward/fsh-adult-secure — FSH told, in plain
+        // English, that RGH took the patient. Hand-authored, so fixing the reducer alone would
+        // have left the DEMONSTRATION leaking while the generated path was clean.
+        reason: "another_unit_accepted",
       },
     ],
     unwinds: [],
@@ -1081,6 +1085,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
@@ -1110,8 +1115,10 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Kimberley",
+    suburb: { kind: "named", name: "Kununurra" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
+    triagedAt: NOW_ANCHOR - 215,
     urgency: 2,
     originSiteCode: "KUN",
     transportNeeded: true,
@@ -1139,8 +1146,19 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Nedlands" },
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
+    // ⚠️ THE ONLY SEEDED REFERRAL WHOSE REFERRAL CLOCK HAS STOPPED, and it was missing: every
+    // other triaged referral was triaged BEFORE anyone referred (the ED presentation), so
+    // `sinceReferralRunning` was `true` across the whole fixture and the stopped branch rendered
+    // nowhere. Measured across all nine before this was added, not assumed.
+    //
+    // This is the community-expect story `P9-D7` is about: a crisis service refers, and the
+    // patient arrives 25 minutes LATER. The referral clock ends at 25 and stops; the department
+    // clock starts then and runs. Found by Ward Referrals, whose screens are the ones that would
+    // otherwise have shown one of the two wordings and never the other.
+    triagedAt: NOW_ANCHOR - 30,
     urgency: 1,
     originSiteCode: "SCGH",
     transportNeeded: false,
@@ -1165,8 +1183,14 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Peel",
+    // Deliberately one of `CM-2`'s five contested suburbs: the owner's two catchment
+    // documents disagree about it, `lookupCatchment` reports both readings and picks no
+    // winner, and the front door still accepts the referral. Seeded so a screen has to
+    // face that case rather than only the tidy one.
+    suburb: { kind: "named", name: "Mandurah" },
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
+    triagedAt: NOW_ANCHOR - 100,
     urgency: 3,
     originSiteCode: "PEEL",
     transportNeeded: true,
@@ -1186,8 +1210,12 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Murdoch" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
+    // The widest gap in the seed and the reason `P9-D2` asks for two numbers: 165 minutes
+    // in the department BEFORE anyone referred to mental health. One clock hides all of it.
+    triagedAt: NOW_ANCHOR - 185,
     urgency: 2,
     originSiteCode: "FSH",
     transportNeeded: true,
@@ -1222,8 +1250,23 @@ export const referrals: Referral[] = [
     ],
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
+    /*
+     * 🔴 THE ONLY SEEDED REFERRAL WITH NO SUBURB, and it was missing for two hours after the union
+     * that allows it landed. `Referral.suburb` gained an `unknown` arm specifically so a patient of
+     * no fixed abode could be referred at all — and then every one of the nine seeded referrals
+     * named a place, so `suburbUnknownLabels` rendered on no screen anywhere. Caught by the branch
+     * guard rather than by a person; the fix and its own missing fixture are the same defect one
+     * layer apart.
+     *
+     * Police-brought is the archetype, which is why it sits here: somebody brought in at 3am with
+     * no address on record. ⚠️ `homeRegion` stays `Kimberley` and that is not a contradiction —
+     * a service can know the broad area somebody is from without knowing where they live, which is
+     * exactly why the two facts are stored separately and neither is derived from the other.
+     */
+    suburb: { kind: "unknown", reason: "not_known" },
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
+    triagedAt: NOW_ANCHOR - 80,
     urgency: 1,
     originSiteCode: "BRM",
     transportNeeded: false,
@@ -1237,6 +1280,20 @@ export const referrals: Referral[] = [
     // the Open EMyU can actually accept it), accepted at `bty-youth`.
     ageBand: "Youth",
     destinations: [
+      {
+        /*
+         * The only seeded referral addressed to a COMMUNITY TEAM. Added with `RF-009`'s reasoning
+         * rather than a new one: the community hub cannot be built against an empty list, and a hub
+         * showing nothing is indistinguishable from a correct hub with nothing to show (`R46`).
+         *
+         * ⚠️ The arm carries `kind` and nothing else — no team id — which is a KNOWN model gap
+         * reported by the referrals session and not closed here. Seeding it does not pretend the gap
+         * is shut; it means whoever closes it has a row to see the effect on. `FD-21` allows several
+         * destinations in one act, so this sits beside the ward arm rather than replacing it.
+         */
+        destination: { kind: "community_team" },
+        state: "queued",
+      },
       {
         destination: {
           kind: "psychiatric_ward",
@@ -1253,8 +1310,11 @@ export const referrals: Referral[] = [
     // Out of area on purpose, same reason as RF-006 above — a second real example for the
     // out-of-area ledger `homeRegion` exists to make possible.
     homeRegion: "Mid West",
+    suburb: { kind: "named", name: "Geraldton" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 30,
+    // Longest of all — a country transfer sitting in another hospital for nearly five hours.
+    triagedAt: NOW_ANCHOR - 320,
     urgency: 2,
     originSiteCode: "GER",
     transportNeeded: true,
@@ -1303,10 +1363,47 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Morley" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 75,
+    triagedAt: NOW_ANCHOR - 95,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: true,
+  },
+  {
+    /*
+     * 🔴 THE ONLY REFERRAL ADDRESSED TO AN EMERGENCY DEPARTMENT, AND UNTIL IT EXISTED THE ED
+     * PSYCHIATRY HUB WAS EMPTY FOR EVERY DEPARTMENT.
+     *
+     * The other eight all address a psychiatric ward, so the hub's inbox had nothing to hold and
+     * every row it COULD hold would have rendered the "not in department yet" branch. ⚠️ A screen
+     * showing that for every patient looks like correct handling of a legitimate case rather than
+     * like a feature with no data — `R46`: a thing built before its input exists cannot be built
+     * wrong, only empty, and empty is indistinguishable from working.
+     *
+     * Found by Ward Referrals, who had told the owner `RF-005`'s 165-minute gap would be visible on
+     * the hub, measured that it could not be, and corrected that to him.
+     *
+     * `triagedAt` 210 minutes before `raisedAt`: somebody who had been in the department three and
+     * a half hours before anyone called psychiatry. That is the gap `P9-D2` exists to show, on the
+     * one screen built to show it.
+     */
+    id: "RF-009",
+    ageBand: "Adult",
+    destinations: [
+      {
+        destination: { kind: "emergency_department", edId: "rph-ed", purpose: "psychiatric_review" },
+        state: "queued",
+      },
+    ],
+    homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Cannington" },
+    source: "ambulance",
+    raisedAt: NOW_ANCHOR - 35,
+    triagedAt: NOW_ANCHOR - 245,
+    urgency: 2,
+    originSiteCode: "RPH",
+    transportNeeded: false,
   },
 ];

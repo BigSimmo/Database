@@ -5,6 +5,7 @@ import type {
   LegalStatusChangeReason,
   UrgencyChangeReason,
   OverrideReason,
+  WithdrawalReason,
 } from "@/components/ward-management/ward-change-reasons";
 
 /**
@@ -452,7 +453,11 @@ export type Movement = {
    *  not know whether an authorised bed is needed at all. */
   examination?: { at: Instant; outcome: "inpatient_order" | "community_order" | "revoked" };
   /** Referrals ended because another unit accepted. A shrinking `referredUnitIds` tells nobody. */
-  withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
+  /** ⚠️ `reason` is a CODE from `WITHDRAWAL_REASONS`, never free text, and it may never name a
+   *  place — `FD-23`. A losing ward reads this field, and it used to carry the accepting
+   *  ward's name. See that list's own doc comment for why a type rather than a better
+   *  sentence. Render `withdrawalReasonLabels[reason]`, never the code. */
+  withdrawnReferrals: { unitId: string; at: Instant; reason: WithdrawalReason }[];
   /** Recorded when the network is exhausted. */
   escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
   /** Every hold released and transport job cancelled against this movement, oldest first. Empty
@@ -896,6 +901,43 @@ export type WardAddressing = ReferralAddressing & { destination: WardReferralDes
  * asserting an unchecked real-world fact is exactly how the deleted Form 1A figure entered this
  * codebase — an agent read it, believed it, and wrote it into the model.
  */
+/**
+ * Why a suburb is not a `string` — and it was one, for about an hour.
+ *
+ * 🔴 **A PATIENT OF NO FIXED ABODE COULD NOT BE REFERRED AT ALL.** The field landed as
+ * `suburb: string`, resolved against the catchment table, empty refused. There was therefore no
+ * representable answer for *"not known"* — and in psychiatry that is not an edge case. Homelessness
+ * is common among people needing acute admission, and a person brought in by police at 3am
+ * frequently has no recorded address. ⚠️ **The front door refused precisely the cohort most likely
+ * to need a bed.** Found by Ward Referrals reading the committed code rather than the description
+ * of it.
+ *
+ * ⚠️ **AND OPTIONAL WOULD HAVE BEEN WORSE.** An unanswered suburb passing the form and failing at
+ * the reducer is a control that appears to accept and does not. The type has to carry the answer,
+ * not omit it.
+ *
+ * ⚠️ **THE FAILURE MODE THIS PREVENTS IS A CLINICIAN TYPING SOMETHING UNTRUE.** Faced with a
+ * required picker and no honest option, the way past the form is to choose a plausible nearby
+ * suburb — which puts an invented administrative fact into the record through the one field that
+ * had resolution built into it specifically to keep invented places out. A type that cannot say
+ * "we do not know" does not prevent unknowns; it launders them.
+ *
+ * ⚠️ **WHETHER "NOT KNOWN" AND "NO FIXED ABODE" ARE ONE ANSWER OR TWO IS THE OWNER'S, AND IT IS ON
+ * HIS QUEUE.** They mean different things to a community team deciding who follows a patient up,
+ * which is this field's whole purpose. `SUBURB_UNKNOWN_REASONS` is provisional and has one member;
+ * a second is an ADDED MEMBER, not a rebuild, which is why this is a union rather than
+ * `string | null` — `R41`: a wrong value is an edit, a wrong shape is a rebuild.
+ */
+export const SUBURB_UNKNOWN_REASONS = ["not_known"] as const;
+export type SuburbUnknownReason = (typeof SUBURB_UNKNOWN_REASONS)[number];
+
+/** What a screen says. One home for the wording, so no surface invents its own phrase for absence. */
+export const suburbUnknownLabels: Record<SuburbUnknownReason, string> = {
+  not_known: "Suburb not known",
+};
+
+export type ReferralSuburb = { kind: "named"; name: string } | { kind: "unknown"; reason: SuburbUnknownReason };
+
 export type Referral = {
   id: string;
   /**
@@ -919,6 +961,35 @@ export type Referral = {
    * ordering by proximity — that is Phase 8's work, deliberately not built here.
    */
   homeRegion: HomeRegion;
+  /**
+   * The suburb this person is from — **`CM-4`: the suburb is the RECORDED fact.** It is the coarsest
+   * fact the owner's catchment documents are keyed on and the finest one that is stable, so it
+   * survives whichever way the five deferred catchment questions are answered.
+   *
+   * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`), and that is the entire reason this field is allowed
+   * to exist.** It identifies a service area, not a dwelling. `PD-1`'s permission to hold facts
+   * about a person reaches it for exactly that reason, while `address` remains UNRULED and the
+   * guard stays closed on it. A ruling permitting a suburb must never be read as permitting the
+   * category.
+   *
+   * ⚠️ **Resolved against the catchment table, never checked for non-emptiness** —
+   * `referralSuburbIsKnown` (`ward-referrals.ts`), enforced by `RECEIVE_REFERRAL`. A street address
+   * is a non-empty string and would pass a length check, which would put the very thing this field
+   * is coarser than into the field itself.
+   *
+   * ⚠️ **`homeRegion` IS NOT DERIVED FROM THIS, AND THE DUPLICATION IS AN ACCEPTED COST WITH A
+   * REASON.** `CM-4` says region should be derived from suburb, and it cannot be today: the
+   * catchment source keys suburbs to follow-up CLINICS, not to the ten WA regions `HOME_REGIONS`
+   * holds. Mapping one onto the other would invent an administrative fact — the same invention
+   * `homeRegion`'s own comment refuses, and the reason `"out_of_catchment"` was renamed. So both
+   * are stored, they CAN contradict one another, and nothing can catch it. Recorded rather than
+   * quietly lived with; `tests/ward-referral-suburb.test.ts` is where the fix starts on the day a
+   * suburb-to-region source exists.
+   *
+   * ⚠️ **PROVENANCE: relayed by Ward Referrals, not heard first-hand by this session** (`R55`). The
+   * design basis, `CM-4` and `PD-3`, is first-hand in the register and is what this is built on.
+   */
+  suburb: ReferralSuburb;
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;
@@ -943,4 +1014,49 @@ export type Referral = {
    * outright, and an outcome enum would be inventing a vocabulary nobody has been asked for.
    */
   localBedSought?: { at: Instant; by: string };
+  /**
+   * When this person was triaged into the department the referral concerns — the start of the
+   * SECOND clock, and the field `P9-D7` was recorded against before anything could read it.
+   *
+   * `P9-D2` (OWNER, 2026-08-30): every wait carries two clocks, both visible — time in department
+   * **from triage**, and time since the referral to mental health. **The gap between them is the
+   * signal**: it says whether the delay sits upstream of mental health or with them. His words are
+   * the reason this is triage rather than anything else — he rejected a *medically-ready* start
+   * because it *"needs a state somebody must actively set, so the number silently depends on
+   * remembering to tick something."*
+   *
+   * ⚠️ **ABSENT IS A REAL STATE AND IT IS NOT ZERO.** A community expect sits on the to-see board
+   * before arriving (`P9-D5`), so for them the department clock does not exist yet. `P9-D7`
+   * requires it to render as genuinely absent — never `0m`, never an em dash styled like a
+   * duration, never a zero sorting alongside real waits, because *"a not-yet-arrived expect showing
+   * '0m in department' reads as 'just arrived', which is the opposite of the truth."* Read it
+   * through `referralClocks` (`ward-referrals.ts`), which returns `undefined` rather than a number
+   * no screen should print.
+   *
+   * ⚠️ **THIS IS NOT THE `arrivedAt` PHASE 8 TASK 2R DELETED, and the distinction is the whole
+   * reason for the name.** That field meant arriving **at a bed**, and it was removed because
+   * `Admission` (`ward-admissions.ts`) is the single record of a person occupying one — a
+   * tightening, not an oversight. This is arriving **in the department**: a different event, at a
+   * different place, starting a different clock, for a person who may never get a bed at all.
+   * Calling it `arrivedAt` again would have read as reversing that deletion rather than
+   * complementing it, and the guard comment in `tests/ward-referral-model.test.ts` says both.
+   *
+   * ⚠️ **TRIAGE IS NOT ARRIVAL, AND NO SCREEN MAY WORD IT AS ONE.** A patient arrives, waits, and
+   * is triaged some time later — on a busy night that gap is not small. This field is therefore a
+   * PROXY for arrival and the closest thing the system actually records. The arithmetic does not
+   * care; the wording does. *"Arrived 14:20"* asserts a fact this model does not hold, so every row
+   * says triage. Raised by Ward Referrals, whose ED hub is the first screen to render it, against a
+   * comment of mine that said "arrival" three times beside a field that says triage — **the name was
+   * honest and the comment was not, which is the half a reader copies.**
+   *
+   * The ruling it implements is worded as arrival (`P9-D7`: the referral clock runs only until the
+   * patient arrives). Triage is what stands in for it. Whether that gap matters clinically is the
+   * owner's question, not ours, and it is a proxy the prototype can live with **while it is labelled
+   * as one.**
+   *
+   * ⚠️ **PROVENANCE: owner ruling, RELAYED through the orchestrator (`P9-F3`, 2026-08-30).** No
+   * session heard it first-hand, which `R55` requires to be recorded rather than smoothed into
+   * "(OWNER)". It is a time, never a person fact: it says where a body is, not who they are.
+   */
+  triagedAt?: Instant;
 };
