@@ -13,7 +13,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { EdScreen } from "@/components/ward-management/ed/ed-screen";
+import { EdScreen, edReferralClockLines } from "@/components/ward-management/ed/ed-screen";
 import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -28,7 +28,7 @@ import {
   type ReferralPurpose,
 } from "@/components/ward-management/ward-model";
 import { referrals as seededReferrals } from "@/components/ward-management/ward-movements";
-import { edReferralsFor } from "@/components/ward-management/ward-referrals";
+import { edReferralsFor, referralClocks } from "@/components/ward-management/ward-referrals";
 import { allEmergencyDepartments, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
@@ -510,18 +510,47 @@ describe("the hub's two lists", () => {
     ).toBeLessThan(patientRows.length);
   });
 
-  it("shows no elapsed time anywhere on either list, and says the fact is not recorded", () => {
+  /**
+   * ⚠️ **THE OUTBOX KEPT ITS ABSENCE WHEN THE INBOX LOST ITS OWN, AND THAT IS THE POINT.**
+   *
+   * This replaced an assertion that NEITHER list showed an elapsed figure. That assertion was
+   * correct while `Referral` held no triage instant; `Referral.triagedAt` (2026-08-30) made it
+   * false for the inbox, and the inbox now carries two real clocks.
+   *
+   * It stays true for the outbox for a completely different reason, which is why the two halves
+   * were split rather than loosened together: **an outbox row is a `Movement`, not a `Referral`.**
+   * `triagedAt` is a referral fact and nothing joins the two records, so the referral clocks are
+   * not merely unnecessary here — they are unavailable. What a move being owed is counted from is
+   * `Movement.acceptedAt`, which the seed's hand-authored movements deliberately do not carry.
+   *
+   * So the danger on this list is a SUBSTITUTION: `openedAt` is in scope, is never absent, and
+   * would render a believable figure answering "how long in the department" under a label reading
+   * "waiting to move". A wrong clock looks wrong; a wrong length of stay looks plausible.
+   */
+  it("never invents a move clock on the outbox, whose rows are movements rather than referrals", () => {
     renderHub(BUSY_ED);
+    const outbox = screen.getByTestId("ward-ed-outbox");
 
-    for (const testId of ["ward-ed-inbox", "ward-ed-outbox"]) {
-      const text = screen.getByTestId(testId).textContent ?? "";
-      // The shapes `formatElapsed`/`splitDuration` produce anywhere else on this screen. A referral
-      // records no arrival, so a clock started on these rows could never be stopped — and a wrong
-      // length of stay looks plausible in a way a wrong clock does not.
-      expect(text, `${testId} renders an elapsed figure`).not.toMatch(/\b\d+\s*h\s*\d*\s*m\b/);
-      expect(text, `${testId} renders a "time since" figure`).not.toMatch(/\bago\b/i);
-    }
-    expect(screen.getByTestId("ward-ed-outbox").textContent).toContain("Not recorded");
+    // Non-vacuity: an empty outbox would satisfy every absence below.
+    expect(
+      within(outbox).getAllByRole("listitem").length,
+      `${BUSY_ED} has an empty outbox, so this proves nothing`,
+    ).toBeGreaterThan(0);
+
+    const text = outbox.textContent ?? "";
+    // ⚠️ Deliberately WIDER than the `\d+h \d+m` shape this assertion inherited. Substituting
+    // `openedAt` here was tried as a mutation and this list's stays are all under an hour, so it
+    // rendered "45m since accepted" and slipped straight through the hour-scale pattern — a guard
+    // that only catches the long version of a defect the fixture cannot currently produce.
+    expect(text, "the outbox renders an elapsed figure from an instant it does not hold").not.toMatch(
+      /\b\d+\s*[hmd]\b/,
+    );
+    expect(text, 'the outbox renders a "time since" figure').not.toMatch(/\bago\b/i);
+    expect(text).toContain("Acceptance time not recorded");
+
+    // And the referral vocabulary never leaks across onto a movement row.
+    expect(text.toLowerCase(), "a referral clock term reached a movement row").not.toContain("since referral");
+    expect(text.toLowerCase(), "a referral clock term reached a movement row").not.toContain("in department");
   });
 });
 
@@ -596,13 +625,122 @@ describe("an inbox row, once one exists", () => {
     expect(within(inbox).getByRole("heading").textContent).toContain("2 referrals");
   });
 
-  it("shows no elapsed figure on a row that has one to be wrong about", () => {
+  /**
+   * ⚠️ **THIS REVERSES THIS FILE'S OWN "shows no elapsed figure" ASSERTION, WHICH WAS CORRECT.**
+   * It held while `Referral` recorded no instant that could stop the referral clock. `triagedAt`
+   * landed on 2026-08-30, so the absence — and the prose stating it — became false.
+   *
+   * The row the harness raises is the only shape this inbox can hold today: a referral raised
+   * through `RECEIVE_REFERRAL`, which has no field for a triage time. So the department clock's
+   * ABSENT branch is the one the application reaches here, and it is the branch most easily got
+   * wrong — `P9-D7` is explicit that `undefined` is not zero, because "0m in department" reads as
+   * "just triaged", the opposite of the truth for somebody who is not there at all.
+   */
+  it("⚠️ carries both clocks, and says the department clock does not exist yet rather than printing a zero", () => {
     renderHubWithHarness("jhc-ed");
     fireEvent.click(screen.getByTestId("harness-raise-review"));
 
-    const inbox = screen.getByTestId("ward-ed-inbox");
-    expect(within(inbox).getAllByRole("listitem").length).toBe(1);
-    expect(inbox.textContent ?? "", "the inbox renders an elapsed figure").not.toMatch(/\b\d+\s*h\s*\d*\s*m\b/);
-    expect(inbox.textContent).toContain("Not recorded");
+    const { id, count } = probeParts();
+    expect(count, "the harness raised nothing, so there is no row to carry a clock").toBe(SEEDED_REFERRALS + 1);
+
+    const department = screen.getByTestId(`ward-ed-inbox-department-clock-${id}`);
+    expect(department.textContent).toContain("Not in department yet");
+    expect(department.textContent, "a number was printed for somebody who is not in the department").not.toMatch(/\d/);
+    expect(department.textContent, "an em dash reads as a duration that is nil, not as an absent clock").not.toContain(
+      "—",
+    );
+
+    // The referral clock is running, and is worded as a wait somebody is still serving.
+    const referral = screen.getByTestId(`ward-ed-inbox-referral-clock-${id}`);
+    expect(referral.textContent).toContain("Since referral");
+    expect(referral.textContent).toContain("waiting");
+    expect(screen.getByTestId(`ward-ed-inbox-row-${id}`)).toHaveAttribute("data-since-referral-running", "true");
+
+    // ⚠️ And nowhere on the list does a triage time get worded as an arrival. A patient arrives,
+    // waits, and is triaged some time later; triage is a proxy and is only honest while labelled
+    // as one. The same guard `REFERRAL_CLOCK_TERMS` carries in the model, applied to the screen.
+    const inbox = screen.getByTestId("ward-ed-inbox").textContent ?? "";
+    expect(inbox.toLowerCase(), "the inbox words a triage time as an arrival").not.toContain("arriv");
+    expect(inbox, "the false absence prose survived beside a real figure").not.toContain("Not recorded");
+  });
+});
+
+/**
+ * THE WORDS, ASSERTED WITHOUT A SCREEN — including the branch no screen can reach.
+ *
+ * ⚠️ **NO ED-ADDRESSED REFERRAL CAN CARRY A TRIAGE TIME TODAY, so the department clock's PRESENT
+ * branch has no reachable caller on this hub.** `triagedAt` is authored on six seeded referrals,
+ * every one of them addressed to a psychiatric ward, and `RECEIVE_REFERRAL` — the only event that
+ * creates a `Referral` — has no field for it. That is a reported gap, and it is why these three
+ * assertions are made against the hub's own formatting function rather than against rendered rows:
+ * a branch nothing reaches is a branch nothing checks, and this one decides the wording of the two
+ * lies the model's own doc comments name (a zero for an absent clock, a stopped span worded as a
+ * live wait).
+ *
+ * The clock values below are hand-written and are NOT a referral fixture: they are the three
+ * outputs `referralClocks` is already proven to produce in `tests/ward-referral-clocks.test.ts`,
+ * fed to the function under test here, which is presentation and nothing else.
+ */
+describe("the words the hub puts on the two clocks", () => {
+  it("words a stopped referral clock differently from a running one", () => {
+    const running = edReferralClockLines({ sinceReferral: 20, sinceReferralRunning: true, inDepartment: 185 });
+    const stopped = edReferralClockLines({ sinceReferral: 180, sinceReferralRunning: false, inDepartment: 120 });
+
+    expect(running.referral.term).toBe("Since referral");
+    expect(running.referral.value).toBe("20m waiting");
+    expect(stopped.referral.term).toBe("Referral to triage");
+    expect(stopped.referral.value).toBe("3h 00m, stopped at triage");
+    expect(stopped.referral.value, "a span that ended reads as a wait still being served").not.toContain("waiting");
+  });
+
+  it("labels the department clock as running from triage, and never as an arrival", () => {
+    const lines = edReferralClockLines({ sinceReferral: 20, sinceReferralRunning: true, inDepartment: 185 });
+
+    expect(lines.department.term).toBe("In department");
+    // `splitDuration`, never hours hand-rolled from minutes — the defect that kept `25h 30m` alive
+    // on eleven surfaces was two screens each doing that conversion themselves.
+    expect(lines.department.value).toBe("3h 05m since triage");
+    for (const line of [lines.department, lines.referral]) {
+      expect(`${line.term} ${line.value}`.toLowerCase(), "a clock line says arrived").not.toContain("arriv");
+    }
+  });
+
+  it("says nothing numeric for somebody who is not in the department yet", () => {
+    const lines = edReferralClockLines({ sinceReferral: 40, sinceReferralRunning: true, inDepartment: undefined });
+
+    expect(lines.department.value).toBe("Not in department yet");
+    expect(lines.department.value, "a zero for an absent clock reads as just triaged").not.toMatch(/\d/);
+    expect(lines.department.value).not.toBe("—");
+  });
+
+  /**
+   * ⚠️ **RF-005 IS REAL AND IS NOT ON THIS HUB**, and both halves are asserted because the brief
+   * this work came from believed only the first. Its 165-minute gap is the whole argument for two
+   * clocks; it is addressed to a psychiatric ward, and NO seeded referral is addressed to an
+   * emergency department at all — so this hub's inbox is empty on the seed and RF-005 can never
+   * appear on it. The second half fails the day that changes, which is the day this finding is
+   * stale rather than the day somebody quietly assumes it never held.
+   */
+  it("⚠️ pins RF-005's 165-minute gap as real, and unreachable from this hub", () => {
+    const rf005 = seededReferrals.find((referral) => referral.id === "RF-005");
+    expect(rf005, "RF-005 left the fixture; the two-clock argument now has no worked example").toBeDefined();
+
+    const clocks = referralClocks(rf005!, NOW_ANCHOR);
+    expect(clocks.inDepartment).toBe(185);
+    expect(clocks.sinceReferral).toBe(20);
+    expect(clocks.inDepartment! - clocks.sinceReferral, "the gap the two clocks exist to show").toBe(165);
+
+    for (const department of allEmergencyDepartments()) {
+      expect(
+        edReferralsFor(seededReferrals, department.id, "psychiatric_review"),
+        `${department.id} has a seeded psychiatry inbox, so the reachability finding is stale`,
+      ).toEqual([]);
+    }
+    expect(
+      seededReferrals.some((referral) =>
+        referral.destinations.some((addressing) => addressing.destination.kind === "emergency_department"),
+      ),
+      "the seed now addresses an emergency department; re-check what the ED hub can actually show",
+    ).toBe(false);
   });
 });

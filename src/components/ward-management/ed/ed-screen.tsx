@@ -9,7 +9,7 @@ import {
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
-import { splitDuration, type Instant } from "@/components/ward-management/ward-clock";
+import { formatElapsed, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import {
   changeReasonLabels,
   LEGAL_STATUS_CHANGE_REASONS,
@@ -32,7 +32,14 @@ import {
   type Sex,
 } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { edReferralsFor, referralPersonFacts, referralPurposeLabel } from "@/components/ward-management/ward-referrals";
+import {
+  edReferralsFor,
+  referralClocks,
+  referralPersonFacts,
+  referralPurposeLabel,
+  REFERRAL_CLOCK_TERMS,
+  type ReferralClocks,
+} from "@/components/ward-management/ward-referrals";
 import { edById, siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
@@ -41,30 +48,85 @@ import styles from "./ed.module.css";
 type EdScreenProps = { edId: string };
 
 /**
- * WHERE A DURATION WOULD GO ON THE HUB, AND WHY NOTHING GOES THERE.
+ * THE TWO CLOCKS ON AN INBOX ROW, AND WHY THIS SCREEN NOW HAS THEM.
  *
- * ⚠️ **The spec rules that the referral clock STOPS when the patient arrives — and this model
- * cannot stop it.** `Referral` carries no arrival instant, and nothing links a referral to a
- * movement, so any elapsed figure rendered on an inbox or outbox row would keep counting after the
- * event that should have ended it. **A clock that should stop and cannot runs on forever and still
- * looks plausible**, which is the whole reason this is stated rather than computed "for now".
+ * ⚠️ **THIS REVERSES THIS FILE'S OWN EARLIER RULING, AND THE RULING WAS RIGHT WHEN IT WAS MADE.**
+ * Until `Referral.triagedAt` landed (2026-08-30) these rows said the fact was not recorded, because
+ * `P9-D7` stops the referral clock when the patient reaches the department and the model held no
+ * instant to stop it at — *a clock that should stop and cannot runs on forever and still looks
+ * plausible*. The field exists now, so **the absence prose became false the moment it did** and had
+ * to go rather than sit beside a real figure.
  *
- * It must not be derived from a movement matched by patient either: that is a join this model does
- * not have, guessed from a coincidence.
+ * ⚠️ **BOTH NUMBERS COME FROM ONE `referralClocks(referral, now)` CALL, on the provider's `now`.**
+ * Two clocks on one card computed from two readings assert a moment the card is not showing, which
+ * the out-of-area board already did once on this same model. Never a duration hand-rolled here:
+ * `splitDuration`/`formatElapsed` (`ward-clock.ts`) own every hours-from-minutes conversion, after
+ * two screens each computing their own kept `25h 30m` alive on eleven surfaces.
  *
- * The seeded fixture cannot catch a mistake here — its longest wait is about sixteen hours, so an
- * inflated figure still reads as a believable figure in a believable order. **A wrong clock looks
- * wrong; a wrong length of stay looks plausible.**
- *
- * The question is with the product owner. Until it is answered these rows say the fact is not
- * recorded, in the same plain register the rest of the board uses for facts it does not hold.
+ * ⚠️ **NO ROW MAY SAY "ARRIVED".** `triagedAt` is when the department TRIAGED somebody, and a
+ * patient arrives, waits, and is triaged some time later — on a busy night that gap is not small.
+ * Triage is the closest instant this system records, so it is a proxy, and **it is only honest
+ * while every row labels it as one**. The vocabulary is `REFERRAL_CLOCK_TERMS`, a value
+ * `tests/ward-referral-clocks.test.ts` can check, precisely because a comment asking for this is
+ * what already failed. This screen composes those terms and never writes its own.
  */
-const NOT_TIMED_LABEL = "Not recorded";
+type EdClockLine = {
+  /** The heading this hub puts the clock under — one of `REFERRAL_CLOCK_TERMS`, never a new word. */
+  term: string;
+  /** The figure, or the statement that there is no figure. Never a zero and never a bare dash. */
+  value: string;
+};
 
-/** The same fact as a sentence, for the note under each list heading. Written once so the two
- *  cannot drift into saying different things about the same absence. */
-const NO_DURATION_REASON =
-  "a referral records no arrival, so a clock started here could never be stopped and would go on counting.";
+/**
+ * Puts a term at the start of a line. `REFERRAL_CLOCK_TERMS` are deliberately TERMS rather than
+ * sentences, because how a screen arranges the two numbers is the screen's decision — so composing
+ * one into a heading is this file's job. It changes the first character and nothing else: rewording
+ * a term here would reintroduce exactly the drift the vocabulary was made a checked value to stop.
+ */
+function asLineHeading(term: string): string {
+  return term.charAt(0).toUpperCase() + term.slice(1);
+}
+
+/**
+ * The two clocks, in the words this hub shows them in. Pure and exported so all three shapes can be
+ * asserted directly — including the one the application cannot currently reach on this screen.
+ *
+ * ⚠️ **NO ED-ADDRESSED REFERRAL CAN CARRY A TRIAGE TIME TODAY** (2026-08-30). `triagedAt` exists on
+ * six seeded referrals, every one of them addressed to a psychiatric ward, and `RECEIVE_REFERRAL` —
+ * the only event that creates a `Referral` — has no field for it. So the department clock renders
+ * its ABSENT branch for every row this inbox can actually hold, and the present branch below is
+ * live code with no reachable caller on this screen. It is written and tested rather than deferred
+ * because the absent branch is only meaningful next to the one it is the absence of; the gap is a
+ * reported finding, not a silent assumption.
+ *
+ * ⚠️ **THE STOPPED CLOCK IS WORDED DIFFERENTLY FROM THE RUNNING ONE, and that is not styling.** A
+ * span that ended at triage rendered like a wait somebody is still serving is the same class of lie
+ * as printing `0m` for a person who is not there — so a running clock says "waiting" and a stopped
+ * one says what stopped it.
+ */
+export function edReferralClockLines(clocks: ReferralClocks): { department: EdClockLine; referral: EdClockLine } {
+  return {
+    department: {
+      term: asLineHeading(REFERRAL_CLOCK_TERMS.inDepartment),
+      // `undefined` is NOT ZERO: this person is not in the department yet, and "0m in department"
+      // would read as "just triaged", the opposite of the truth (`P9-D7`).
+      value:
+        clocks.inDepartment === undefined
+          ? asLineHeading(REFERRAL_CLOCK_TERMS.notInDepartment)
+          : `${splitDuration(clocks.inDepartment)} since triage`,
+    },
+    referral: clocks.sinceReferralRunning
+      ? {
+          term: asLineHeading(REFERRAL_CLOCK_TERMS.sinceReferral),
+          // `formatElapsed` — the same "… waiting" register every other live wait in Ward Flow uses.
+          value: formatElapsed(clocks.sinceReferral),
+        }
+      : {
+          term: asLineHeading(REFERRAL_CLOCK_TERMS.sinceReferralStopped),
+          value: `${splitDuration(clocks.sinceReferral)}, stopped at triage`,
+        },
+  };
+}
 
 /** The id the unavailable Decline control points `aria-describedby` at. One reason element per
  *  list rather than one per row: every row is unavailable for the identical reason, and repeating
@@ -431,8 +493,11 @@ export function EdScreen({ edId }: EdScreenProps) {
             Psychiatry inbox &middot; {inbox.length} referral{inbox.length === 1 ? "" : "s"}
           </h2>
           <p className={styles.unitMeta}>
-            Referrals addressed to psychiatry at {department.name}, oldest referral first. Nothing here is a wait: no
-            elapsed time is shown on this screen, because {NO_DURATION_REASON}
+            Referrals addressed to psychiatry at {department.name}, oldest referral first. Every row carries two clocks:
+            how long the person has been in the department, and how long since the referral to mental health. The gap
+            between them says whether a delay sits upstream of this team or with it. The department clock runs from
+            triage, which is the earliest moment the record holds — somebody may have been in the department for a while
+            before being triaged — and a person who is not in the department yet has no department clock at all.
           </p>
           {inbox.length === 0 ? (
             <p className={styles.placeholder} data-testid="ward-ed-inbox-empty">
@@ -442,58 +507,76 @@ export function EdScreen({ edId }: EdScreenProps) {
             </p>
           ) : (
             <ul className={styles.cardList}>
-              {inbox.map(({ referral, destination }) => (
-                <li
-                  key={`${referral.id}-${destination.edId}-${destination.purpose}`}
-                  className={styles.card}
-                  data-testid={`ward-ed-inbox-row-${referral.id}`}
-                  data-purpose={destination.purpose}
-                  data-ed-id={destination.edId}
-                >
-                  <header className={styles.cardHeader}>
-                    <strong>{referral.id}</strong>
-                    {/*
-                     * ⚠️ THE PURPOSE, IN WORDS, ON EVERY ROW — the `FD-18` correction's own
-                     * requirement and not a caption. Since every referral is declinable, what a row
-                     * is FOR is the only thing telling these flows apart; a declinable row with no
-                     * stated purpose is indistinguishable from a bed request.
-                     */}
-                    <span className={styles.cardMeta} data-testid={`ward-ed-inbox-purpose-${referral.id}`}>
-                      {referralPurposeLabel(destination.purpose)}
-                    </span>
-                  </header>
-                  <p className={styles.cardMeta}>{referralPersonFacts(referral).join(" · ")}</p>
-                  <div className={styles.outstandingItem}>
-                    <span className={styles.outstandingLabel}>Waiting</span>
-                    <span>{NOT_TIMED_LABEL}</span>
-                  </div>
-                  {/*
-                   * The decline control is UNAVAILABLE, with the reason stated — never absent, and
-                   * never a native `disabled` (which removes the tab stop the reason is announced
-                   * from), and never both attributes, which is the shape `require-button-wiring`
-                   * fails.
-                   *
-                   * ⚠️ **IT IS NOT ABSENT BECAUSE OF ANY RULE ABOUT WHAT MAY BE DECLINED.** Every
-                   * referral is declinable — the superseded `FD-3` guard said otherwise and was
-                   * reversed. It is unavailable because `EVENT_ROLE.DECLINE_REFERRAL` is
-                   * `["ward", "coordinator"]` and this screen acts as `"ed"`, so a wired control
-                   * here would be silently refused by the reducer. Dispatching as `"ward"` to make
-                   * it work would record `decidedBy: "Ward manager"` against a decision ED
-                   * psychiatry made, which is the false entry that field exists to prevent.
-                   */}
-                  <button
-                    type="button"
-                    className={styles.declineButton}
-                    data-testid={`ward-ed-inbox-decline-${referral.id}`}
-                    aria-disabled="true"
-                    aria-describedby={DECLINE_UNAVAILABLE_REASON_ID}
-                    title="Decline — coming soon"
-                    onClick={ignoreUnavailableActivation}
+              {inbox.map(({ referral, destination }) => {
+                // ONE call, on the provider's `now` — see this file's own note above on why the two
+                // figures below may never come from two readings.
+                const clocks = referralClocks(referral, now);
+                const lines = edReferralClockLines(clocks);
+                return (
+                  <li
+                    key={`${referral.id}-${destination.edId}-${destination.purpose}`}
+                    className={styles.card}
+                    data-testid={`ward-ed-inbox-row-${referral.id}`}
+                    data-purpose={destination.purpose}
+                    data-ed-id={destination.edId}
+                    data-minutes-since-referral={clocks.sinceReferral}
+                    data-since-referral-running={clocks.sinceReferralRunning ? "true" : "false"}
+                    data-minutes-in-department={clocks.inDepartment}
                   >
-                    Decline
-                  </button>
-                </li>
-              ))}
+                    <header className={styles.cardHeader}>
+                      <strong>{referral.id}</strong>
+                      {/*
+                       * ⚠️ THE PURPOSE, IN WORDS, ON EVERY ROW — the `FD-18` correction's own
+                       * requirement and not a caption. Since every referral is declinable, what a row
+                       * is FOR is the only thing telling these flows apart; a declinable row with no
+                       * stated purpose is indistinguishable from a bed request.
+                       */}
+                      <span className={styles.cardMeta} data-testid={`ward-ed-inbox-purpose-${referral.id}`}>
+                        {referralPurposeLabel(destination.purpose)}
+                      </span>
+                    </header>
+                    <p className={styles.cardMeta}>{referralPersonFacts(referral).join(" · ")}</p>
+                    {/* Both clocks in one list, at equal visual weight — the same `clockGrid` the
+                      patients section below uses, because neither number is subordinate to the
+                      other and the gap between them is the thing worth reading. */}
+                    <dl className={styles.clockGrid} data-testid={`ward-ed-inbox-clocks-${referral.id}`}>
+                      <div className={styles.clockRow} data-testid={`ward-ed-inbox-department-clock-${referral.id}`}>
+                        <dt>{lines.department.term}</dt>
+                        <dd>{lines.department.value}</dd>
+                      </div>
+                      <div className={styles.clockRow} data-testid={`ward-ed-inbox-referral-clock-${referral.id}`}>
+                        <dt>{lines.referral.term}</dt>
+                        <dd>{lines.referral.value}</dd>
+                      </div>
+                    </dl>
+                    {/*
+                     * The decline control is UNAVAILABLE, with the reason stated — never absent, and
+                     * never a native `disabled` (which removes the tab stop the reason is announced
+                     * from), and never both attributes, which is the shape `require-button-wiring`
+                     * fails.
+                     *
+                     * ⚠️ **IT IS NOT ABSENT BECAUSE OF ANY RULE ABOUT WHAT MAY BE DECLINED.** Every
+                     * referral is declinable — the superseded `FD-3` guard said otherwise and was
+                     * reversed. It is unavailable because `EVENT_ROLE.DECLINE_REFERRAL` is
+                     * `["ward", "coordinator"]` and this screen acts as `"ed"`, so a wired control
+                     * here would be silently refused by the reducer. Dispatching as `"ward"` to make
+                     * it work would record `decidedBy: "Ward manager"` against a decision ED
+                     * psychiatry made, which is the false entry that field exists to prevent.
+                     */}
+                    <button
+                      type="button"
+                      className={styles.declineButton}
+                      data-testid={`ward-ed-inbox-decline-${referral.id}`}
+                      aria-disabled="true"
+                      aria-describedby={DECLINE_UNAVAILABLE_REASON_ID}
+                      title="Decline — coming soon"
+                      onClick={ignoreUnavailableActivation}
+                    >
+                      Decline
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
           {inbox.length === 0 ? null : (
@@ -527,7 +610,9 @@ export function EdScreen({ edId }: EdScreenProps) {
           <p className={styles.unitMeta}>
             Patients this team has referred onward who are still in {department.name}. This department is the sending
             team, so each of these is still owed a move — the job stays here until the patient physically leaves, not
-            until a bed is accepted.
+            until a bed is accepted. These rows are movements, not referrals, so the two referral clocks above do not
+            apply to them: how long a move has been owed is counted from the acceptance itself, and an acceptance the
+            fixture was hand-authored with carries no time to count from.
           </p>
           {outbox.length === 0 ? (
             <p className={styles.placeholder} data-testid="ward-ed-outbox-empty">
@@ -560,9 +645,24 @@ export function EdScreen({ edId }: EdScreenProps) {
                           one — never a substituted unit and never a bare id. */}
                       <span>{acceptedUnit ? acceptedUnit.name : "Accepted unit not resolved"}</span>
                     </div>
+                    {/*
+                     * ⚠️ **NOT A REFERRAL CLOCK, AND `referralClocks` MUST NEVER BE REACHED FOR
+                     * HERE.** This row is a `Movement`; `triagedAt` lives on a `Referral` and
+                     * nothing joins the two. What a move being owed is counted from is
+                     * `acceptedAt`, which `ACCEPT_IN_PRINCIPLE` writes and which is deliberately
+                     * absent from every hand-authored movement in the seed — so a seeded row
+                     * still states the absence, and only the absence, in the same register the
+                     * rest of the board uses for a fact it does not hold. Substituting
+                     * `openedAt` here would answer a different question (how long they have been
+                     * in the department) under this label, and read as plausible while doing it.
+                     */}
                     <div className={styles.outstandingItem}>
                       <span className={styles.outstandingLabel}>Waiting to move</span>
-                      <span>{NOT_TIMED_LABEL}</span>
+                      <span>
+                        {movement.acceptedAt === undefined
+                          ? "Acceptance time not recorded"
+                          : `${splitDuration(Math.max(now - movement.acceptedAt, 0))} since accepted`}
+                      </span>
                     </div>
                   </li>
                 );
