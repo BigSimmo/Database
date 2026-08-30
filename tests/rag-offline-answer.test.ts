@@ -67,7 +67,10 @@ class EmptyQuery implements PromiseLike<{ data: unknown[]; error: null }> {
     return this;
   }
   limit() {
-    return Promise.resolve({ data: [], error: null });
+    return this;
+  }
+  abortSignal() {
+    return this;
   }
   then<TResult1 = { data: unknown[]; error: null }, TResult2 = never>(
     onfulfilled?: ((value: { data: unknown[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
