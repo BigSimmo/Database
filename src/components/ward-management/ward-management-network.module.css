@@ -51,17 +51,44 @@
   box-shadow: var(--e0);
 }
 
+/* A real <button> since 2026-08-30. `text-align: left` and the reset of the browser's own button
+ * chrome keep the cell looking exactly as it did while it was an inert <span> — the change a
+ * coordinator should notice is that it now RESPONDS, not that it now looks like a control. */
 .pipelineStage {
   display: grid;
   min-width: 0;
   gap: var(--net-space-2);
+  border: 0;
   border-left: 0.0625rem solid var(--net-border);
+  border-radius: var(--radius-sm);
+  background: none;
   padding-left: var(--net-space-12);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .pipelineStage:first-child {
   border-left: 0;
   padding-left: 0;
+}
+
+.pipelineStage:hover {
+  background: var(--net-subtle);
+}
+
+/* The pressed state is carried by a real border and a weight change, not by colour alone —
+ * forced-colors and greyscale both have to be able to show which cell is filtering. */
+.pipelineStage[aria-pressed="true"] {
+  outline: 0.125rem solid var(--net-blue);
+  outline-offset: 0.125rem;
+  background: var(--net-blue-soft);
+}
+
+.pipelineStage[aria-pressed="true"] .pipelineLabel {
+  color: var(--net-text);
+  font-weight: 700;
 }
 
 .pipelineLabel {
@@ -168,6 +195,38 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--net-space-8);
+}
+
+/*
+ * The queue is narrowed — said in words, because the header count deliberately does NOT move.
+ * Tinted rather than plain so it cannot be skimmed past: a coordinator who does not register that
+ * a filter is on will read the rows as the whole waiting list.
+ */
+.queueFilterNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--net-space-8);
+  border: 0.0625rem solid var(--net-blue-border);
+  border-radius: var(--radius-sm);
+  background: var(--net-blue-soft);
+  padding: var(--net-space-6) var(--net-space-8);
+  color: var(--net-text);
+  font-size: var(--text-3xs);
+  line-height: var(--net-leading-tight);
+}
+
+.queueFilterClear {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: 0;
+  color: var(--net-blue);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .panelHeader h2 {

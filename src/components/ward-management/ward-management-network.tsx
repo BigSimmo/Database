@@ -28,6 +28,7 @@ import type {
   HealthService,
   LeaveBed,
   Movement,
+  MovementStage,
   Referral,
   Unit,
 } from "@/components/ward-management/ward-model";
@@ -444,6 +445,17 @@ export function WardNetworkWorkspace() {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [factorsOpen, setFactorsOpen] = useState(false);
   const [shortlistOpen, setShortlistOpen] = useState(true);
+  /**
+   * Which stage the queue below is narrowed to, or the whole queue.
+   *
+   * ⚠️ **THE HEADER COUNT DOES NOT READ THIS, AND THAT IS THE SAFETY PROPERTY RATHER THAN AN
+   * OVERSIGHT.** The figure beside "Priority queue" is what a coordinator reads as "how much demand
+   * is there", and a filter that could shrink it would let somebody who has not noticed the filter
+   * read a fraction of the waiting list as the whole of it — a wrong number that agrees with the
+   * rows beneath it and so has nothing on screen to contradict it. The narrowing is stated in
+   * words instead, in its own banner, with a way out that is always present.
+   */
+  const [stageFilter, setStageFilter] = useState<MovementStage | null>(null);
 
   // `selectedPatientId` is only ever set from a real movement's own id (see the queue button
   // below), so this can't miss today — but every hook after this one must still run
@@ -651,6 +663,12 @@ export function WardNetworkWorkspace() {
    * remedy here is wrong by exactly one.
    */
   const pipeline = queueStageSummaries(movements);
+  /**
+   * The rows actually rendered. Derived from `openQueue` rather than from `movements`, so a filter
+   * can only ever narrow the people who are genuinely waiting — it can never reach past `isOpen`
+   * and put an arrived patient back into a queue for placement.
+   */
+  const visibleQueue = stageFilter ? openQueue.filter((candidate) => candidate.stage === stageFilter) : openQueue;
   const primary = candidates[0];
 
   if (!patient) {
@@ -668,18 +686,30 @@ export function WardNetworkWorkspace() {
       data-shortlist={shortlistOpen ? "open" : "collapsed"}
     >
       <section className={styles.pipeline} aria-label="Movement pipeline">
+        {/*
+          These were `<span>`s until 2026-08-30 — numbered 1 to 6, which reads as a pipeline you can
+          step into, and inert. The button-wiring gate could not fire precisely BECAUSE they were not
+          buttons, so nothing in the repository was able to notice.
+
+          The counts stay unfiltered whatever is selected. A strip that narrowed with the queue would
+          leave no legible route back to the whole picture, and its cells would stop summing to the
+          header count they sit directly above.
+        */}
         {pipeline.waiting.map((stage, index) => (
-          <span
+          <button
+            type="button"
             className={styles.pipelineStage}
             key={stage.id}
             data-waiting-stage="true"
             data-testid={`ward-pipeline-waiting-${stage.id}`}
+            aria-pressed={stageFilter === stage.id}
+            onClick={() => setStageFilter((current) => (current === stage.id ? null : stage.id))}
           >
             <span className={styles.pipelineLabel}>
               {index + 1} {stage.label}
             </span>
             <strong data-testid="ward-pipeline-count">{stage.count}</strong>
-          </span>
+          </button>
         ))}
         {/*
           Everyone who has LEFT the pathway, in one cell, deliberately after a divider and
@@ -701,10 +731,36 @@ export function WardNetworkWorkspace() {
           <section className={styles.queuePanel} aria-label="Priority queue">
             <header className={styles.panelHeader}>
               <h2>Priority queue</h2>
-              <span className={styles.count}>{openMovements}</span>
+              {/*
+                ⚠️ `openMovements`, NEVER the filtered length. This figure is read as "how much
+                demand is there", and a filter that could shrink it would let a coordinator who has
+                not noticed the filter take a fraction of the waiting list for the whole of it —
+                with the rows beneath it agreeing, so nothing on the screen could contradict it.
+
+                ⚠️ AND THE NAME IS `open-total`, NOT `queue-count`, FOR A REASON THAT COSTS TWO RED
+                TESTS TO REDISCOVER. The rows below are `ward-network-queue-<id>`, and the suites
+                count them with `getAllByTestId(/^ward-network-queue-/)`. Any testid starting
+                `ward-network-queue-` therefore joins that count as a phantom row: the first draft
+                of this element was `ward-network-queue-count`, and the row totals silently became
+                44 and 16 instead of 43 and 14. Do not name anything in this panel with that prefix
+                unless it is a row.
+              */}
+              <span className={styles.count} data-testid="ward-network-open-total">
+                {openMovements}
+              </span>
             </header>
+            {stageFilter ? (
+              <p className={styles.queueFilterNotice} data-testid="ward-network-filter-notice">
+                <span>
+                  Showing {visibleQueue.length} of {openMovements} &mdash; {stageCopy[stageFilter].label}
+                </span>
+                <button type="button" className={styles.queueFilterClear} onClick={() => setStageFilter(null)}>
+                  Show the whole queue
+                </button>
+              </p>
+            ) : null}
             <div className={styles.queueList}>
-              {openQueue.map((candidate) => (
+              {visibleQueue.map((candidate) => (
                 <button
                   type="button"
                   key={candidate.id}
