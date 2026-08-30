@@ -1250,7 +1250,20 @@ export const referrals: Referral[] = [
     ],
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
-    suburb: { kind: "named", name: "Broome" },
+    /*
+     * 🔴 THE ONLY SEEDED REFERRAL WITH NO SUBURB, and it was missing for two hours after the union
+     * that allows it landed. `Referral.suburb` gained an `unknown` arm specifically so a patient of
+     * no fixed abode could be referred at all — and then every one of the nine seeded referrals
+     * named a place, so `suburbUnknownLabels` rendered on no screen anywhere. Caught by the branch
+     * guard rather than by a person; the fix and its own missing fixture are the same defect one
+     * layer apart.
+     *
+     * Police-brought is the archetype, which is why it sits here: somebody brought in at 3am with
+     * no address on record. ⚠️ `homeRegion` stays `Kimberley` and that is not a contradiction —
+     * a service can know the broad area somebody is from without knowing where they live, which is
+     * exactly why the two facts are stored separately and neither is derived from the other.
+     */
+    suburb: { kind: "unknown", reason: "not_known" },
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
     triagedAt: NOW_ANCHOR - 80,
@@ -1267,6 +1280,20 @@ export const referrals: Referral[] = [
     // the Open EMyU can actually accept it), accepted at `bty-youth`.
     ageBand: "Youth",
     destinations: [
+      {
+        /*
+         * The only seeded referral addressed to a COMMUNITY TEAM. Added with `RF-009`'s reasoning
+         * rather than a new one: the community hub cannot be built against an empty list, and a hub
+         * showing nothing is indistinguishable from a correct hub with nothing to show (`R46`).
+         *
+         * ⚠️ The arm carries `kind` and nothing else — no team id — which is a KNOWN model gap
+         * reported by the referrals session and not closed here. Seeding it does not pretend the gap
+         * is shut; it means whoever closes it has a row to see the effect on. `FD-21` allows several
+         * destinations in one act, so this sits beside the ward arm rather than replacing it.
+         */
+        destination: { kind: "community_team" },
+        state: "queued",
+      },
       {
         destination: {
           kind: "psychiatric_ward",
