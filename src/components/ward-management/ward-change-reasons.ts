@@ -189,14 +189,31 @@ export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
  * separate fields and must not be restated here. The owner asked for them, which is the condition
  * the rule names.
  *
+ * ⚠️ TWO OF THESE WERE REWORDED ON 2026-08-30, AND THEY ARE STILL PLACEHOLDERS. The originals were
+ * `currently_secluded_or_restrained` and `repeated_attempts_to_leave`. Both described the PERSON;
+ * the other eight describe what the CURRENT SETTING cannot do. They now match that shape.
+ *
+ * The reason is not tidiness. A receiving ward has one question — can we safely take this person? —
+ * and the setting-shaped form answers it directly, while the person-shaped form made the ward infer
+ * it AND broadcast a fact about someone's care to every service that can see the referral. So the
+ * reword DISSOLVES the open question of who may see a reason rather than answering it: if every
+ * reason is about a ward's own capability, nothing sensitive travels with the referral, and the
+ * coordinator and the wards can hold the same list with nothing hidden and nothing filtered. One
+ * decision instead of two, and no new rule for anyone to enforce.
+ *
+ * ⚠️ THE OWNER APPROVED THIS SHAPE, RELAYED THROUGH ANOTHER SESSION. HE DID NOT WRITE THESE WORDS
+ * AND HAS NOT SEEN THEM. The distinction that must survive every future edit of this block is the
+ * one it opened with: the SHAPE is his decision and the CONTENT is a session's stand-in. Nothing
+ * here may start reading as his language.
+ *
  * REPLACING THEM IS ONE EDIT HERE plus the labels below. Nothing else authors this list.
  */
 export const URGENT_MARK_REASONS = [
   "one_to_one_observation_needed",
   "cannot_be_observed_safely_here",
   "no_psychiatric_cover_at_this_site",
-  "currently_secluded_or_restrained",
-  "repeated_attempts_to_leave",
+  "restrictive_measures_this_setting_cannot_sustain",
+  "cannot_safely_prevent_leaving",
   "needs_medical_care_unavailable_here",
   "safety_of_others_in_this_setting",
   "escort_in_place_and_unsustainable",
@@ -213,8 +230,8 @@ export const changeReasonLabels: Record<
   one_to_one_observation_needed: "One-to-one observation needed",
   cannot_be_observed_safely_here: "Cannot be observed safely here",
   no_psychiatric_cover_at_this_site: "No psychiatric cover at this site",
-  currently_secluded_or_restrained: "Currently secluded or restrained",
-  repeated_attempts_to_leave: "Repeated attempts to leave",
+  restrictive_measures_this_setting_cannot_sustain: "Restrictive measures this setting cannot sustain",
+  cannot_safely_prevent_leaving: "Cannot safely prevent leaving",
   needs_medical_care_unavailable_here: "Needs medical care unavailable here",
   safety_of_others_in_this_setting: "Safety of others in this setting",
   escort_in_place_and_unsustainable: "Escort in place and unsustainable",
