@@ -31,6 +31,26 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * ⚠️ **ONE is the dangerous size.** Off by fifty reads as a bug and gets investigated; off by one
  * reads as carelessness and quietly discredits an exact record.
  *
+ * ⚠️ **AND THE TWO ERRORS CANCEL, WHICH IS WHY BOTH HALVES OF THIS ARE LOAD-BEARING.** Measured
+ * across all three trees under both units:
+ *
+ * ```
+ *              matches (-o)   lines with a match (-c)   files
+ *  699cc3586       109                 107               42     <- where the 109 was taken
+ *  416fb1e48       110                 108               42
+ *  d8cc6c628       111                 109               42     <- today
+ * ```
+ *
+ * Run the WRONG flag on the WRONG tree today and you get **109** — the exact figure pinned above.
+ * So a reader verifying this line with `git grep -c` right now confirms it, is wrong twice over, and
+ * nothing about that check feels weak from the inside. It is structural rather than a fluke: the
+ * tree drifts by one per commit mentioning the token and the two units differ by a small constant,
+ * so the quantities cross regularly, and they will cross again on any long-lived count.
+ *
+ * **The SHA kills the wrong-tree half and naming the unit kills the wrong-measure half. Either alone
+ * still admits the cancelling pair.** Found by the session that re-measured a correction it had
+ * already been told was exact.
+ *
  * Two repairs were offered — say that it counts itself, or exclude this file from the pattern.
  * Neither is taken. The first leaves a number any later edit still invalidates; the second tunes the
  * measurement so the record fits, which is the wrong direction. **A figure stamped with the tree it
