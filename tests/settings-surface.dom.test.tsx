@@ -47,15 +47,20 @@ afterEach(async () => {
 });
 
 describe("settings surface", () => {
-  it("uses one compact title hierarchy without search or section navigation", () => {
+  it("keeps the compact phone title while gating search and navigation to desktop", () => {
     renderDialog();
 
-    expect(screen.getByRole("heading", { name: "Account & app" })).toBeVisible();
-    expect(screen.getByText("Settings", { selector: "h2" })).toBeVisible();
-    expect(screen.getByText("Account and workspace preferences")).toBeVisible();
-    expect(screen.queryByRole("search")).not.toBeInTheDocument();
-    expect(screen.queryByRole("navigation", { name: "Settings sections" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("settings-search-input")).not.toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: "Account & app" });
+    expect(heading).toBeVisible();
+    expect(within(heading).getByText("Settings")).toHaveClass("md:hidden");
+    expect(screen.getByText("Account and workspace preferences")).toHaveClass("md:hidden");
+
+    const search = screen.getByRole("search");
+    expect(search).toHaveClass("hidden", "md:block");
+    expect(screen.getByTestId("settings-search-input")).toBeInTheDocument();
+
+    const navigation = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(navigation.closest("aside")).toHaveClass("hidden", "md:flex");
     expect(screen.queryByTestId("settings-section-chips")).not.toBeInTheDocument();
   });
 
