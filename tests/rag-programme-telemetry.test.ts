@@ -240,6 +240,31 @@ describe("RAG programme telemetry projection", () => {
     expect(JSON.stringify(ragProgrammeTelemetryForAnswer(governedCopy))).not.toContain("Shadow-planned");
   });
 
+  it("marks a clarification-required query plan as materially ambiguous", () => {
+    const answer = withRagAnswerQueryPlanDiagnostics(
+      {
+        answer: "Clarification required.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+      } satisfies RagAnswer,
+      {
+        ragQueryPlanKind: "clarification_required",
+        ragSubquestionCount: 0,
+      },
+    );
+
+    observeRagAnswer(answer, { interactionId: INTERACTION_ID, rolloutMode: "shadow" });
+
+    expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
+      query_plan_kind: "clarification_required",
+      subquestion_count: 0,
+      material_ambiguity: true,
+      candidate_match_counts: null,
+    });
+  });
+
   it("preserves retrieval facts while recomputing a generated danger-source refusal", () => {
     const retrievedSource = {
       id: "source-chunk-1",
@@ -305,6 +330,7 @@ describe("RAG programme telemetry projection", () => {
       interaction_id: INTERACTION_ID,
       candidate_counts: { uploaded_local: 7 },
       selected_counts: { uploaded_local: 1 },
+      coverage_counts: { direct: 0, partial: 0, conflicting: 0, absent: 1 },
       insufficiency_reason: "governance_block",
       generation_outcome: "failed",
     });

@@ -315,7 +315,9 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
     rolloutMode: context.rolloutMode,
     queryPlanKind: queryPlan?.queryPlanKind ?? "single",
     subquestionCount: queryPlan?.subquestionCount ?? 1,
-    materialAmbiguity: Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
+    materialAmbiguity:
+      queryPlan?.queryPlanKind === "clarification_required" ||
+      Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
     coverageCounts: coverageCountsForAnswer(answer),
     candidateMatchCounts: context.rolloutMode === "shadow" ? (queryPlan?.candidateMatchCounts ?? null) : null,
     candidateCounts: candidates,
@@ -359,7 +361,6 @@ export function carryRagProgrammeTelemetry(source: RagAnswer, target: RagAnswer)
       query_plan_kind: telemetry.query_plan_kind,
       subquestion_count: telemetry.subquestion_count,
       material_ambiguity: telemetry.material_ambiguity,
-      coverage_counts: { ...telemetry.coverage_counts },
       candidate_match_counts: telemetry.candidate_match_counts ? { ...telemetry.candidate_match_counts } : null,
       candidate_counts: { ...telemetry.candidate_counts },
       selected_counts: { ...telemetry.selected_counts },

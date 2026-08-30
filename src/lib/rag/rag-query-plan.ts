@@ -34,7 +34,26 @@ const jurisdictionSignal =
 const settingSignal = /\b(?:inpatient|outpatient|community|hospital|ward|emergency department|ED|clinic)\b/i;
 const administrativeFormSignal =
   /\b(?:application|assessment|consent|referral|template)\s+forms?\b|\bforms?\s+(?:is\s+)?(?:downloadable|needed|required|template)\b|\b(?:complete|download|submit|upload)\b(?:\s+\w+){0,3}\s+forms?\b/i;
+
+function isSimpleDefinitionQuery(query: string, analysis: ClinicalQueryAnalysis) {
+  if (analysis.intent !== "definition") return false;
+  const normalized = query.trim();
+  const definitionShape =
+    /^(?:what\s+is\b|define\b|describe\b|meaning\b|term\b|give\s+(?:a\s+)?(?:comprehensive\s+)?definition\b)/i.test(
+      normalized,
+    ) ||
+    /\b(?:definition|meaning)\s+of\b|\bwhat\s+does\b.+\bmean\b|\b(?:definition|meaning|term)\s*[?.!]*$/i.test(
+      normalized,
+    );
+  const broadActionShape =
+    /\b(?:managed?|management|treat(?:ment)?|monitor(?:ing)?|escalat\w*|compar\w*|dose|dosing|threshold)\b/i.test(
+      normalized,
+    );
+  return definitionShape && !broadActionShape;
+}
+
 function protectsBroadDecomposition(query: string, analysis: ClinicalQueryAnalysis) {
+  if (isSimpleDefinitionQuery(query, analysis)) return true;
   if (analysis.queryClass === "document_lookup" || analysis.queryClass === "unsupported_or_general") return true;
   if (analysis.queryClass === "table_threshold") return true;
   if (analysis.queryClass !== "medication_dose_risk") return false;
@@ -178,7 +197,7 @@ export function buildRagQueryPlan(query: string, analysis: ClinicalQueryAnalysis
       ? []
       : analysis.medications.length > 0
         ? ["medications"]
-        : analysis.intent === "definition"
+        : isSimpleDefinitionQuery(query, analysis)
           ? ["dictionary"]
           : /\b(?:differential|diagnos(?:is|es|tic))\b/i.test(query)
             ? ["differentials"]
