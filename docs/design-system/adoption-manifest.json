@@ -626,7 +626,8 @@
         "tests/medication-interaction-surfaces.dom.test.tsx",
         "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx"
+        "tests/ui-v2-components.dom.test.tsx",
+        "tests/ward-governance-thin-sample.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
