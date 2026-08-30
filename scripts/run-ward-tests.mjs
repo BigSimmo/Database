@@ -29,6 +29,61 @@
  * Exit codes: 0 all handed-in files ran and passed · 1 a real test failure · 2 a coverage
  * discrepancy (files vanished, nothing collected) — deliberately distinct, because "your tests are
  * broken" and "your test RUN is not telling you the truth" need different responses.
+ *
+ * ⚠️ KNOWN LIMITATION, 2026-08-30: THIS DOES NOT TAKE A REPOSITORY COORDINATOR LEASE.
+ *
+ * It spawns `npx vitest` directly. `npm run test` goes through `scripts/run-vitest.mjs`, which calls
+ * `acquireHeavyRunLock` first; the coordinator permits at most two focused Vitest leases across all
+ * worktrees and treats a full run as exclusive. So several sessions running the whole ward suite
+ * through this wrapper bypass that limit entirely — and the limit is real: probed at 13:34 the
+ * coordinator refused a run outright because a live Codex worktree held capacity.
+ *
+ * That is a CANDIDATE cause of the `VirtualAlloc failed` worker death this tool exists to catch —
+ * memory exhaustion from concurrent unthrottled runs. Stated as a hypothesis and not a measurement,
+ * because nobody correlated the death with what other sessions were doing at that second and nobody
+ * can now. A correct-sounding cause that ends the inquiry is its own failure mode.
+ *
+ * ⚠️ AND A LIMIT THAT SITS UPSTREAM OF THIS TOOL ENTIRELY, 2026-08-30. This guarantees that every
+ * file you handed in produced a result. IT CANNOT GUARANTEE THAT THE EDIT YOU MEANT TO TEST WAS
+ * EVER WRITTEN TO DISK. Under commit-charge exhaustion this machine failed to fork: a `python` and
+ * a `git commit` both died with `0xC000012D` (STATUS_COMMITMENT_LIMIT), and an edit was silently
+ * lost — the command printed an error, the file simply did not change, and the next step carried on
+ * as though it had. Later, PowerShell itself could not start.
+ *
+ * That failure is invisible in the way that matters: AN UNWRITTEN EDIT FOLLOWED BY A CLEAN
+ * `git status` IS INDISTINGUISHABLE FROM HAVING NOTHING TO COMMIT, and a run over the old content
+ * is honestly green. Every number this tool prints would be correct and the result would still be
+ * about code you did not write.
+ *
+ * SO: after a heavy or long step, VERIFY THE EDIT LANDED before trusting any run over it. ⚠️ AND
+ * VERIFY IT IN `HEAD`, NOT IN THE WORKING TREE — this correction is from Ward Board and it inverts
+ * the weaker rule that stood here first. A working-tree check passes in the WORST case: the edit
+ * landed, the COMMIT died, the files on disk look perfect, and `HEAD` does not have them. So:
+ * `git show HEAD:<path> | grep <the thing you added>`, never `grep <path>`.
+ *
+ * ⚠️ AND DO NOT REACH FOR `git commit --amend` WHEN A COMMIT SEEMS TO HAVE GONE WRONG. It is the one
+ * common git operation that DESTROYS the previous state as a precondition of creating the new one,
+ * so under a machine that is failing to fork it can leave a branch that has simply lost a commit
+ * with no error anywhere. A follow-up commit costs one line of history and cannot do that.
+ *
+ * ⚠️ AND WRITE INSPECTION SEQUENCES WITH `;`, NOT `&&`. A `grep -c` that correctly finds ZERO
+ * matches exits 1, so an `&&` chain aborts there and every later check silently never runs — while
+ * the output still reads as a finished report. THAT IS THE SAME SHAPE AS `83 passed (83)` WHEN 84
+ * WENT IN: a truthful-looking result whose missing half is invisible. Two sessions hit it within an
+ * hour on 2026-08-30 and the first treated it as a nuisance rather than as the finding it is.
+ *
+ * Same discipline throughout as reading a mutation back from disk instead of assuming it applied.
+ *
+ * MITIGATION THAT COSTS NOTHING: hand in only the files your change touches. The guarantee here is
+ * COMPLETENESS OF WHAT YOU HANDED IN, not breadth — a narrow run is the same check over a smaller
+ * set, not a weaker one. Keep the full suite for a fold, and say so when you run it.
+ *
+ * WHY THIS IS NOT SIMPLY FIXED BY CALLING `run-vitest.mjs`: a capacity refusal is NOT a test
+ * failure. The coordinator throws when full, and the repository's own convention treats "blocked,
+ * retry" as a distinct outcome from "red" (see `verify:ui`'s exit 75 /
+ * DATABASE_HEAVY_RUN_ADMISSION_BUSY). Routing through the lease therefore needs a fourth outcome
+ * here, not a changed spawn line — and adding that to a tool several sessions depend on, while they
+ * are mid-build, is the wrong moment. Recorded for a quiet one.
  */
 
 import { spawnSync } from "node:child_process";
@@ -53,8 +108,38 @@ function discoverWardTests() {
     .map((f) => `tests/${f}`);
 }
 
+/**
+ * The ward files this tool DELIBERATELY does not run. Printed every run, never silently omitted.
+ *
+ * ⚠️ A CONTROL'S COVERAGE IS PART OF WHAT IT CLAIMS (Ward Settings, 2026-08-30, after a citation
+ * checker reported `documents scanned: 31` over a ~130-document corpus — a whole guarantee about a
+ * set nobody had stated). `files handed in: 84` reads as "the ward suite" unless the boundary is
+ * said out loud, and this tool exists precisely because a number that agrees with itself is not a
+ * number anybody checked.
+ *
+ * Here the exclusion is CORRECT and still has to be stated: `tests/ui-ward-*.spec.ts` are Playwright
+ * journeys and vitest cannot run them at all — a different runner, not a hole in this one. That is
+ * the difference from the citation checker, whose missing 70 documents were genuinely in scope.
+ * Measured 2026-08-30 on `claude/ward-flow-setup-967aa0-wf`: 84 discovered here, 6 excluded.
+ *
+ * ⚠️ DO NOT WIDEN EITHER PATTERN TO A BARE `ward` MATCH.
+ * `tests/forward-codify-retrieval-targets.test.ts` contains "ward" inside "forward" and has nothing
+ * to do with this project — it turned up in my own measurement of this very gap, so the trap is not
+ * hypothetical. A substring match on a common English fragment is a measurement error waiting for
+ * the right filename.
+ */
+function discoverExcludedWardSpecs() {
+  const dir = "tests";
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /^ui-ward-.*.spec.tsx?$/.test(f))
+    .sort()
+    .map((f) => `tests/${f}`);
+}
+
 function main() {
-  const handedIn = process.argv.slice(2).length > 0 ? process.argv.slice(2) : discoverWardTests();
+  const usedDiscovery = process.argv.slice(2).length === 0;
+  const handedIn = usedDiscovery ? discoverWardTests() : process.argv.slice(2);
 
   if (handedIn.length === 0) {
     console.error("REFUSED: no test files selected. An empty selection cannot pass.");
@@ -74,6 +159,16 @@ function main() {
   // unreliable teaches people to ignore it.
   const reportPath = path.join(mkdtempSync(path.join(tmpdir(), "ward-tests-")), "report.json").replace(/\\/g, "/");
   console.log(`Handed in: ${handedIn.length} file(s). Running…`);
+
+  // State the boundary on every discovered run, not only when somebody thinks to ask.
+  // See discoverExcludedWardSpecs for why these are excluded and why that is still worth printing.
+  if (usedDiscovery) {
+    const excluded = discoverExcludedWardSpecs();
+    console.log(
+      `Coverage: tests/ward-*.test.ts(x) only. ${excluded.length} Playwright ward journey(s) are NOT in` +
+        ` this run — vitest cannot run them; use verify:ui. Excluded: ${excluded.join(", ") || "(none found)"}`,
+    );
+  }
 
   const run = spawnSync(`npx vitest run ${handedIn.join(" ")} --reporter=json --outputFile="${reportPath}"`, {
     stdio: ["ignore", "inherit", "inherit"],
@@ -145,6 +240,21 @@ function main() {
 
   if ((report.numFailedTests ?? 0) > 0 || run.status !== 0) {
     console.error(`\nFAILED: ${report.numFailedTests} test(s) failed.`);
+    // A red run must say WHY, not only THAT it was red. `--reporter=json` sends vitest's own failure
+    // detail to the report FILE and not to stdout, so before this block a failing run printed a
+    // count and nothing else — quietly defeating the discipline of reading the failure message
+    // rather than its colour. Found 2026-08-30 while mutation-proving a label pin: the run went red
+    // correctly, and the reason had to be dug out of the temp JSON afterwards to confirm it had
+    // failed for the RIGHT reason. A tool that makes the right habit expensive is teaching the
+    // wrong one.
+    for (const file of results) {
+      for (const assertion of file.assertionResults ?? []) {
+        if (assertion.status !== "failed") continue;
+        const [firstLine] = (assertion.failureMessages ?? []).join("\n").split("\n");
+        console.error(`  ✗ ${assertion.fullName}\n    ${firstLine ?? "(no message recorded)"}`);
+      }
+    }
+    console.error(`\nFull report: ${reportPath}`);
     return EXIT_TEST_FAILURE;
   }
 

@@ -15,6 +15,25 @@ escalation board all attach to that queue, and it had already changed shape twic
 is now complete** — the board, the match view, the intake form, the outcomes and the demand figure
 are all built, reviewed and green — so the precondition is met.
 
+> ## ⚠️ ALL NINE DECISIONS BELOW WERE CUT BY THE OWNER ON 2026-08-30, BEFORE ANY OF THEM WAS BUILT
+>
+> **The decisions still stand. The builds do not.** Those are two different things and this page is
+> the only place they can be told apart, so the distinction is repeated at every decision rather than
+> stated once here — a cut list is a document you have to already know exists; a decision is a
+> document you arrive at.
+>
+> **What this means for a reader who finds one of these:**
+>
+> - **Do not re-litigate it.** It was decided, with its reasoning and its reversal cost recorded. If
+>   the question comes up again, this is the answer, not an open item.
+> - **Do not treat the missing implementation as a gap, an oversight, or a backlog row.** The absence
+>   is intended. Nothing here is waiting to be built, and nothing here was forgotten.
+> - **Do not restore one because it looks unfinished.** Every entry below is deliberately unbuilt.
+>
+> **The precedent is the medical-ward arm**, whose reason sits in `ward-model.ts` where the arm would
+> have been rather than in a list somewhere else. A decision recorded away from the thing it governs
+> is a decision waiting on a coincidence to be found.
+
 ---
 
 ## The rule this phase is built to
@@ -38,6 +57,26 @@ written in from an assistant's recollection rather than from a clinician, and th
 
 ## D9-1 — The wait becomes prominent, and its ceiling is removed; it never outranks urgency (SESSION)
 
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
+>
+> **THE OWNER HAS ANSWERED THE QUESTION THIS DECISION RESERVED TO HIM, AND POINT 3 STANDS.**
+>
+> He first ruled, 2026-08-30: _"A long wait always is prioritised... however... in certain cases patients can be marked as urgent for many reasons which outranks everything. Otherwise go by time for the main level of urgency."_ Read literally that made TIME the main ordering, where point 3 makes urgency the primary sort and orders the wait within it. Both give an urgent patient the next bed; they differ about everyone else, which is most of the queue. **Put to him as that difference rather than resolved on his behalf**, he confirmed the same day: _"Ok I agree with that rule"_ — the rule being point 3. **So urgency remains the primary sort, the wait orders within a tier, and a long wait never lifts somebody above a more urgent person.** The refusal in point 3 is now the owner's own, not a session's.
+>
+> **AND HE ADDED A CONSTRAINT THAT IS NOT IN THIS DECISION:** _"patients must met a certain high threshold to be marked as urgent"_. **This is a safeguard against the failure that a top-outranking tier invites** — if urgency overrides everything and is easy to apply, urgency inflates until the tier means nothing and the wait ordering underneath it stops mattering. It is a real requirement and it is recorded here as his words.
+>
+> **THE SHAPE IS NOW APPROVED. The owner, 2026-08-30, on the recommendation below: _"Go ahead with that recommendation."_**
+>
+> **Approved: urgency is marked by a HUMAN choosing from a short fixed list of stated reasons, with who marked it and when recorded and shown. Never a number the software evaluates.** Two standing refusals meet at this exact point and the approved shape is the only one that satisfies both: _nothing predicts, scores or ranks a person_ would be breached by a computed threshold, and _no figure, timeframe or threshold from the Mental Health Act, anywhere_ would be breached by a sourced clinical one lacking a named accountable owner and a real source — which no session can supply. It is the shape already used for decline reasons, and the one `D9-2` uses for escalation: declared by a human, never triggered by a threshold.
+>
+> ⚠️ **THE TRAP, named because the wrong build looks entirely reasonable in review.** "A high threshold" sounds numeric, so the tempting implementation is a score, or a set of conditions the system evaluates and applies. **That is the one shape both refusals forbid**, and it will arrive looking like diligence.
+>
+> **THE MECHANISM MOSTLY EXISTS ALREADY — reuse it, never author a second vocabulary.** `UrgencyChange` in `ward-model.ts` already records `at`, `from`, `to`, `by` (a role, never a person) and `reason` drawn from `URGENCY_CHANGE_REASONS` in `ward-change-reasons.ts`. That is precisely the who-and-when-and-fixed-reason discipline this ruling asks for.
+>
+> ⚠️ **AND HERE IS THE GAP, which is narrower and more specific than the ruling implies.** `URGENCY_CHANGE_REASONS` are reasons a tier was CHANGED — `reassessed`, `new_information`, `correcting_an_error`. They say nothing about what makes somebody urgent. And `urgencyChanges` is empty for a movement whose urgency has never changed, so **a movement can be authored at tier 1 and carry no justification at all.** The threshold has to bite where urgency is FIRST SET, not only where it is changed. Today the change is governed and the origin is not.
+>
+> **What is still the owner's and must not be invented: the reasons themselves.** They are clinical, the approved lists in this project are his verbatim, and `docs/ward-flow-changeable-data-rule.md` is explicit that making a list easy to edit does not license an agent to edit it. Until he gives them, any list stands as a **provisional value recorded as provisional**, naming the open question where it lives — per `docs/ward-flow-provisional-values.md`.
+
 Three things, and the third is a refusal:
 
 1. **Show the wait far more prominently.** Length of wait carries the moral weight and is currently
@@ -57,6 +96,8 @@ movement queue, where the ceiling actually lives.
 **Cost to reverse:** the ceiling is one clamp in `operationalScore`. Prominence is layout.
 
 ## D9-2 — Declaring escalation records it and marks the screens, and changes nothing else (SESSION, and partly blocked)
+
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
 
 A human declares escalation; the screens show that it was declared, by which role and when. Nothing
 is relaxed, no beds normally held back become offerable, and no checklist of correct practice
@@ -80,6 +121,8 @@ network everywhere else in this prototype and a per-site version can be added wi
 
 ## D9-3 — The retrospective is one person's journey replayed, plus the ward prediction track record last (SESSION)
 
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
+
 Two of the four options are built, one is deferred, one is refused.
 
 - **Built: one person's journey, replayed** — every step and how long each took. It answers the
@@ -99,6 +142,8 @@ Two of the four options are built, one is deferred, one is refused.
 a screen and nothing else.
 
 ## D9-4 — An ownership clock measures what is owed, and its colour threshold is invented and says so (SESSION — the highest-risk decision in the phase)
+
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
 
 The clock measures **time since this role was asked to do something specific and has not yet done
 it**, falling back to **time since the role took the movement on** where there is no specific ask.
@@ -127,6 +172,8 @@ the screen as legal.
 
 ## D9-5 — A notification fires only where someone is waiting on someone else (SESSION)
 
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
+
 A bed offered; a bed accepted or declined; a held bed about to lapse; transport booked. Four or five
 a shift, each with a person on the other end who needs to act.
 
@@ -144,6 +191,8 @@ that threshold is invented. Same rule: label it, never imply it is a standard.
 
 ## D9-6 — Anything flagged at a handover stays flagged until someone clears it (SESSION)
 
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
+
 Today each shift takes a fresh picture, so something raised at the 08:00 handover can be silently
 gone by the evening one with nobody noticing. Flagged items now persist until explicitly cleared, and
 who cleared it and when is recorded — as a **role**, never a person, per roadmap decision 8.
@@ -155,6 +204,8 @@ memory in D9-8, which is real work rather than a screen. This is the smallest ch
 **Cost to reverse:** one flag and one clearing event.
 
 ## D9-7 — Navigation is grouped by role, with the coordinator's own section grouped by question (SESSION)
+
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
 
 Seventeen screens today, more than twenty after Phases 7 and 8, in a grouping that was never designed
 — it accumulated.
@@ -172,6 +223,8 @@ cheap, _moving a route_ is not, and every route must stay registered everywhere.
 
 ## D9-8 — The prototype's memory is its own scoped item, never assumed into a screen (SESSION)
 
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
+
 The prototype has no memory. The demo clock moves forward and resets, and nothing survives from one
 run to the next. **Both the deferred half of D9-3 and the fuller half of D9-6 need that, and it is
 real work rather than a screen.**
@@ -183,6 +236,8 @@ deliberately chosen to need none of it.
 **Cost to reverse:** nothing is built that would have to be unbuilt.
 
 ## D9-9 — Waiting-time equity and the out-of-area ledger are designed knowing about each other (SESSION)
+
+> **CUT by the owner, 2026-08-30, before it was built. The decision below still stands; the build does not, and its absence is intended rather than outstanding.**
 
 Phase 8's out-of-area ledger is where **geographic** fairness lives. D9-1's waiting-time work is
 where **time-based** fairness lives. They are two halves of one idea and ship in different phases, so
