@@ -21,7 +21,6 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -48,12 +47,13 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import {
+  clinicalAskWorkspaceVisible,
   type ClinicalDashboardProps,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ModeClinicalAskSurface } from "@/components/clinical-dashboard/mode-clinical-ask-surface";
+import { ClinicalAskDashboardBoundary } from "@/components/clinical-dashboard/clinical-ask-dashboard-boundary";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -278,17 +278,11 @@ import {
 } from "@/components/clinical-dashboard/answer-thread-turn";
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
-
-function ClinicalAskSessionBoundary({ children }: { children: ReactNode }) {
-  const auth = useAuthSession();
-  return <ClinicalAskSessionProvider accountId={auth.session?.user.id}>{children}</ClinicalAskSessionProvider>;
-}
-
 export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
   return (
-    <ClinicalAskSessionBoundary>
+    <ClinicalAskDashboardBoundary>
       <ClinicalDashboardContent {...props} />
-    </ClinicalAskSessionBoundary>
+    </ClinicalAskDashboardBoundary>
   );
 }
 
@@ -297,6 +291,7 @@ function ClinicalDashboardContent({
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
+  clinicalAskAvailableModeIds = [],
 }: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -571,10 +566,11 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk, submitSmartSearch } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
+    clinicalAskAvailableModeIds,
   });
   const {
     status: authStatus,
@@ -2195,6 +2191,7 @@ function ClinicalDashboardContent({
       run: true,
       ...navigationContext,
     });
+    if (submitSmartSearch(trimmedQuery, () => setModeSearchSubmitted(true))) return;
     if (trimmedQuery && !isDashboardModeHref(modeDestination)) {
       rememberRecentQuery(trimmedQuery);
       router.push(modeDestination);
@@ -2678,13 +2675,9 @@ function ClinicalDashboardContent({
     });
   }
 
-  function stageAnswerFollowUpDraft(draft: string) {
-    setQuery(draft);
-    focusComposerInput();
-  }
-
   function handleFollowUpQuote(quote: QuoteCard) {
-    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+    setQuery(createQuoteFollowUp(quote));
+    focusComposerInput();
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -3335,7 +3328,7 @@ function ClinicalDashboardContent({
           documentTotal={indexedDocumentTotal}
           query={query}
           searchMode={searchMode}
-          loading={loading}
+          loading={loading || (clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.submitted)}
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
@@ -3345,6 +3338,7 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskAvailable={Boolean(clinicalAskMode)}
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3674,8 +3668,19 @@ function ClinicalDashboardContent({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                <ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />
-                {showSharedHome ? (
+                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ModeClinicalAskSurface
+                    session={clinicalAskSession}
+                    activeMode={clinicalAskMode}
+                    searchMode={searchMode}
+                    queryMode={queryMode}
+                    scopeFilters={scopeFilters}
+                    setDraft={setQuery}
+                    setSearchSubmitted={setModeSearchSubmitted}
+                    focusSearch={focusComposerInput}
+                    onRun={runModeClinicalAsk}
+                  />
+                ) : showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind

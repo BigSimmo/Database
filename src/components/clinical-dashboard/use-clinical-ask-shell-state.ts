@@ -8,25 +8,34 @@ import {
 import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import type { AppModeId } from "@/lib/app-modes";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
+import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 
 export type ClinicalDashboardProps = {
   initialSearchMode?: AppModeId;
   initialQuery?: string;
   focusSearch?: boolean;
   autoRunSearch?: boolean;
+  clinicalAskAvailableModeIds?: readonly ClinicalAskModeId[];
 };
 
 type ClinicalAskSession = ReturnType<typeof UseClinicalAskSession>;
 
-export function clinicalAskWorkspaceVisible(session: {
-  mode: ClinicalAskModeId | null;
-  response: unknown;
-  submitted: boolean;
-}) {
+export function clinicalAskWorkspaceVisible(
+  session: {
+    mode: ClinicalAskModeId | null;
+    response: unknown;
+    submitted: boolean;
+  },
+  activeMode?: ClinicalAskModeId | null,
+) {
+  if (activeMode !== undefined && session.mode !== activeMode) return false;
   return Boolean(session.mode || session.response || session.submitted);
 }
 
-export function useClinicalAskShellState(accountId: string | undefined): {
+export function useClinicalAskShellState(
+  accountId: string | undefined,
+  clinicalAskMode: ClinicalAskModeId | null = null,
+): {
   clinicalAskSession: ClinicalAskSession;
   clinicalAskOnline: boolean;
 } {
@@ -43,12 +52,16 @@ export function useClinicalAskShellState(accountId: string | undefined): {
     };
   }, []);
   const previousClinicalAskAccountRef = useRef(accountId);
+  const previousClinicalAskModeRef = useRef(clinicalAskMode);
   useEffect(() => {
-    if (previousClinicalAskAccountRef.current !== accountId) {
+    const accountChanged = previousClinicalAskAccountRef.current !== accountId;
+    const modeChanged = previousClinicalAskModeRef.current !== clinicalAskMode;
+    if (accountChanged || modeChanged) {
       previousClinicalAskAccountRef.current = accountId;
+      previousClinicalAskModeRef.current = clinicalAskMode;
       clinicalAskSession.clear();
     }
-  }, [accountId, clinicalAskSession]);
+  }, [accountId, clinicalAskMode, clinicalAskSession]);
   return { clinicalAskSession, clinicalAskOnline };
 }
 
@@ -56,23 +69,35 @@ export function useClinicalAskDashboardChrome({
   accountId,
   searchMode,
   query,
+  clinicalAskAvailableModeIds = [],
 }: {
   accountId: string | undefined;
   searchMode: AppModeId;
   query: string;
+  clinicalAskAvailableModeIds?: readonly ClinicalAskModeId[];
 }) {
-  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(accountId);
-  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const clinicalAskMode =
+    isClinicalAskModeId(searchMode) && clinicalAskAvailableModeIds.includes(searchMode) ? searchMode : null;
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(accountId, clinicalAskMode);
   const runModeClinicalAsk = useClinicalAskRunner({
     clinicalAskMode,
     clinicalAskOnline,
     clinicalAskSession,
     query,
   });
+  const submitSmartSearch = (question: string, onDetected: () => void) => {
+    if (!clinicalAskMode || resolveSmartSearchSubmissionIntent(clinicalAskMode, question) !== "clinical-ask") {
+      return false;
+    }
+    onDetected();
+    runModeClinicalAsk(question);
+    return true;
+  };
   return {
     clinicalAskSession,
     clinicalAskOnline,
     clinicalAskMode,
     runModeClinicalAsk,
+    submitSmartSearch,
   };
 }

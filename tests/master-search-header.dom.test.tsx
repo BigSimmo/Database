@@ -120,6 +120,24 @@ describe("MasterSearchHeader DOM", () => {
     expect(props.onAsk).toHaveBeenCalledOnce();
   });
 
+  it("shows a governed Smart cue only when the server capability and intent both allow it", () => {
+    const props = {
+      ...defaultHeaderProps(),
+      query: "Which service is best for ongoing support after discharge?",
+      searchMode: "services" as const,
+    };
+    const { rerender } = render(<MasterSearchHeader {...props} clinicalAskAvailable />);
+
+    expect(screen.getByTestId("smart-search-intent-cue")).toHaveTextContent("Smart answer");
+    expect(screen.getByRole("button", { name: "Get Smart answer" })).toBeInTheDocument();
+    expect(screen.getByText("Smart answer selected for Services.")).toBeInTheDocument();
+
+    rerender(<MasterSearchHeader {...props} clinicalAskAvailable={false} />);
+    expect(screen.queryByTestId("smart-search-intent-cue")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Get Smart answer" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("smart-search-rotating-text")).not.toBeInTheDocument();
+  });
+
   it("routes Factsheets Browse all sheets to the Topics page", async () => {
     const user = userEvent.setup();
     render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="factsheets" />);

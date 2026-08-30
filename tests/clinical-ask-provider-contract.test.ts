@@ -7,20 +7,24 @@ const source = (relativePath: string) => readFileSync(path.resolve(process.cwd()
 describe("Clinical Ask provider placement", () => {
   it("wraps the dashboard content that consumes the Clinical Ask session", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toMatch(
-      /function ClinicalAskSessionBoundary[\s\S]*?accountId=\{auth\.session\?\.user\.id\}[\s\S]*?<\/ClinicalAskSessionProvider>/,
+    const boundary = source("src/components/clinical-dashboard/clinical-ask-dashboard-boundary.tsx");
+    expect(boundary).toMatch(
+      /function ClinicalAskDashboardBoundary[\s\S]*?accountId=\{auth\.session\?\.user\.id\}[\s\S]*?<\/ClinicalAskSessionProvider>/,
     );
     expect(dashboard).toMatch(
-      /export function ClinicalDashboard[\s\S]*?<ClinicalAskSessionBoundary>[\s\S]*?<ClinicalDashboardContent \{\.\.\.props\} \/>[\s\S]*?<\/ClinicalAskSessionBoundary>/,
+      /export function ClinicalDashboard[\s\S]*?<ClinicalAskDashboardBoundary>[\s\S]*?<ClinicalDashboardContent \{\.\.\.props\} \/>[\s\S]*?<\/ClinicalAskDashboardBoundary>/,
     );
     expect(dashboard).toMatch(/function ClinicalDashboardContent[\s\S]*?useClinicalAskDashboardChrome\(\{/);
   });
 
   it("forwards Clinical Ask follow-ups into the dashboard-owned composer draft", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toContain("<ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />");
+    const surface = source("src/components/clinical-dashboard/mode-clinical-ask-surface.tsx");
     expect(dashboard).toMatch(
-      /function stageAnswerFollowUpDraft\(draft: string\) \{\s*setQuery\(draft\);\s*focusComposerInput\(\);/,
+      /<ModeClinicalAskSurface[\s\S]*?setDraft=\{setQuery\}[\s\S]*?focusSearch=\{focusComposerInput\}[\s\S]*?onRun=\{runModeClinicalAsk\}/,
+    );
+    expect(surface).toMatch(
+      /<ClinicalAskWorkspace[\s\S]*?onDraftChange=\{\(draft\) => \{\s*setDraft\(draft\);\s*focusSearch\(\);/,
     );
   });
 
