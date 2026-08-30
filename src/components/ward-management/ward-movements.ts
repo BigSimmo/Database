@@ -1085,6 +1085,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
@@ -1114,6 +1115,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Kimberley",
+    suburb: { kind: "named", name: "Kununurra" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
     triagedAt: NOW_ANCHOR - 215,
@@ -1144,6 +1146,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Nedlands" },
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
     urgency: 1,
@@ -1170,6 +1173,11 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Peel",
+    // Deliberately one of `CM-2`'s five contested suburbs: the owner's two catchment
+    // documents disagree about it, `lookupCatchment` reports both readings and picks no
+    // winner, and the front door still accepts the referral. Seeded so a screen has to
+    // face that case rather than only the tidy one.
+    suburb: { kind: "named", name: "Mandurah" },
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
     triagedAt: NOW_ANCHOR - 100,
@@ -1192,6 +1200,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Murdoch" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
     // The widest gap in the seed and the reason `P9-D2` asks for two numbers: 165 minutes
@@ -1231,6 +1240,7 @@ export const referrals: Referral[] = [
     ],
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
+    suburb: { kind: "named", name: "Broome" },
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
     triagedAt: NOW_ANCHOR - 80,
@@ -1263,6 +1273,7 @@ export const referrals: Referral[] = [
     // Out of area on purpose, same reason as RF-006 above — a second real example for the
     // out-of-area ledger `homeRegion` exists to make possible.
     homeRegion: "Mid West",
+    suburb: { kind: "named", name: "Geraldton" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 30,
     // Longest of all — a country transfer sitting in another hospital for nearly five hours.
@@ -1315,11 +1326,47 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Morley" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 75,
     triagedAt: NOW_ANCHOR - 95,
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: true,
+  },
+  {
+    /*
+     * 🔴 THE ONLY REFERRAL ADDRESSED TO AN EMERGENCY DEPARTMENT, AND UNTIL IT EXISTED THE ED
+     * PSYCHIATRY HUB WAS EMPTY FOR EVERY DEPARTMENT.
+     *
+     * The other eight all address a psychiatric ward, so the hub's inbox had nothing to hold and
+     * every row it COULD hold would have rendered the "not in department yet" branch. ⚠️ A screen
+     * showing that for every patient looks like correct handling of a legitimate case rather than
+     * like a feature with no data — `R46`: a thing built before its input exists cannot be built
+     * wrong, only empty, and empty is indistinguishable from working.
+     *
+     * Found by Ward Referrals, who had told the owner `RF-005`'s 165-minute gap would be visible on
+     * the hub, measured that it could not be, and corrected that to him.
+     *
+     * `triagedAt` 210 minutes before `raisedAt`: somebody who had been in the department three and
+     * a half hours before anyone called psychiatry. That is the gap `P9-D2` exists to show, on the
+     * one screen built to show it.
+     */
+    id: "RF-009",
+    ageBand: "Adult",
+    destinations: [
+      {
+        destination: { kind: "emergency_department", edId: "rph-ed", purpose: "psychiatric_review" },
+        state: "queued",
+      },
+    ],
+    homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Cannington" },
+    source: "ambulance",
+    raisedAt: NOW_ANCHOR - 35,
+    triagedAt: NOW_ANCHOR - 245,
+    urgency: 2,
+    originSiteCode: "RPH",
+    transportNeeded: false,
   },
 ];

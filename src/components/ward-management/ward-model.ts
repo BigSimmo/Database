@@ -901,6 +901,43 @@ export type WardAddressing = ReferralAddressing & { destination: WardReferralDes
  * asserting an unchecked real-world fact is exactly how the deleted Form 1A figure entered this
  * codebase — an agent read it, believed it, and wrote it into the model.
  */
+/**
+ * Why a suburb is not a `string` — and it was one, for about an hour.
+ *
+ * 🔴 **A PATIENT OF NO FIXED ABODE COULD NOT BE REFERRED AT ALL.** The field landed as
+ * `suburb: string`, resolved against the catchment table, empty refused. There was therefore no
+ * representable answer for *"not known"* — and in psychiatry that is not an edge case. Homelessness
+ * is common among people needing acute admission, and a person brought in by police at 3am
+ * frequently has no recorded address. ⚠️ **The front door refused precisely the cohort most likely
+ * to need a bed.** Found by Ward Referrals reading the committed code rather than the description
+ * of it.
+ *
+ * ⚠️ **AND OPTIONAL WOULD HAVE BEEN WORSE.** An unanswered suburb passing the form and failing at
+ * the reducer is a control that appears to accept and does not. The type has to carry the answer,
+ * not omit it.
+ *
+ * ⚠️ **THE FAILURE MODE THIS PREVENTS IS A CLINICIAN TYPING SOMETHING UNTRUE.** Faced with a
+ * required picker and no honest option, the way past the form is to choose a plausible nearby
+ * suburb — which puts an invented administrative fact into the record through the one field that
+ * had resolution built into it specifically to keep invented places out. A type that cannot say
+ * "we do not know" does not prevent unknowns; it launders them.
+ *
+ * ⚠️ **WHETHER "NOT KNOWN" AND "NO FIXED ABODE" ARE ONE ANSWER OR TWO IS THE OWNER'S, AND IT IS ON
+ * HIS QUEUE.** They mean different things to a community team deciding who follows a patient up,
+ * which is this field's whole purpose. `SUBURB_UNKNOWN_REASONS` is provisional and has one member;
+ * a second is an ADDED MEMBER, not a rebuild, which is why this is a union rather than
+ * `string | null` — `R41`: a wrong value is an edit, a wrong shape is a rebuild.
+ */
+export const SUBURB_UNKNOWN_REASONS = ["not_known"] as const;
+export type SuburbUnknownReason = (typeof SUBURB_UNKNOWN_REASONS)[number];
+
+/** What a screen says. One home for the wording, so no surface invents its own phrase for absence. */
+export const suburbUnknownLabels: Record<SuburbUnknownReason, string> = {
+  not_known: "Suburb not known",
+};
+
+export type ReferralSuburb = { kind: "named"; name: string } | { kind: "unknown"; reason: SuburbUnknownReason };
+
 export type Referral = {
   id: string;
   /**
@@ -924,6 +961,35 @@ export type Referral = {
    * ordering by proximity — that is Phase 8's work, deliberately not built here.
    */
   homeRegion: HomeRegion;
+  /**
+   * The suburb this person is from — **`CM-4`: the suburb is the RECORDED fact.** It is the coarsest
+   * fact the owner's catchment documents are keyed on and the finest one that is stable, so it
+   * survives whichever way the five deferred catchment questions are answered.
+   *
+   * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`), and that is the entire reason this field is allowed
+   * to exist.** It identifies a service area, not a dwelling. `PD-1`'s permission to hold facts
+   * about a person reaches it for exactly that reason, while `address` remains UNRULED and the
+   * guard stays closed on it. A ruling permitting a suburb must never be read as permitting the
+   * category.
+   *
+   * ⚠️ **Resolved against the catchment table, never checked for non-emptiness** —
+   * `referralSuburbIsKnown` (`ward-referrals.ts`), enforced by `RECEIVE_REFERRAL`. A street address
+   * is a non-empty string and would pass a length check, which would put the very thing this field
+   * is coarser than into the field itself.
+   *
+   * ⚠️ **`homeRegion` IS NOT DERIVED FROM THIS, AND THE DUPLICATION IS AN ACCEPTED COST WITH A
+   * REASON.** `CM-4` says region should be derived from suburb, and it cannot be today: the
+   * catchment source keys suburbs to follow-up CLINICS, not to the ten WA regions `HOME_REGIONS`
+   * holds. Mapping one onto the other would invent an administrative fact — the same invention
+   * `homeRegion`'s own comment refuses, and the reason `"out_of_catchment"` was renamed. So both
+   * are stored, they CAN contradict one another, and nothing can catch it. Recorded rather than
+   * quietly lived with; `tests/ward-referral-suburb.test.ts` is where the fix starts on the day a
+   * suburb-to-region source exists.
+   *
+   * ⚠️ **PROVENANCE: relayed by Ward Referrals, not heard first-hand by this session** (`R55`). The
+   * design basis, `CM-4` and `PD-3`, is first-hand in the register and is what this is built on.
+   */
+  suburb: ReferralSuburb;
   // Facts about the referral itself.
   source: ReferralSource;
   raisedAt: Instant;

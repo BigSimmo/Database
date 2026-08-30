@@ -200,6 +200,7 @@ const EXPECTED_FIELD_TESTIDS = [
   "ward-referral-intake-ageBand",
   "ward-referral-intake-sex",
   "ward-referral-intake-homeRegion",
+  "ward-referral-intake-suburb",
   "ward-referral-intake-secureBedNeeded",
   "ward-referral-intake-involuntaryBedNeeded",
   "ward-referral-intake-source",
@@ -225,6 +226,10 @@ const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () 
   { name: "Age band", answer: () => selectAnswer("ageBand", COHORTS[0]) },
   { name: "Sex", answer: () => selectAnswer("sex", SEXES[0]) },
   { name: "Home region", answer: () => selectAnswer("homeRegion", HOME_REGIONS[0]) },
+  // A real suburb from the catchment source, not a plausible-looking string: the reducer resolves
+  // it against the table, so an invented name would be refused at the door and this helper would
+  // stop answering every question it claims to.
+  { name: "Suburb", answer: () => selectAnswer("suburb", "Armadale") },
   { name: "Referral source", answer: () => selectAnswer("source", REFERRAL_SOURCES[0]) },
   { name: "Urgency", answer: () => selectAnswer("urgency", String(URGENCY_LEVELS[0])) },
   { name: "Origin site", answer: () => selectAnswer("originSiteCode", wardSites[0].code) },
@@ -706,6 +711,12 @@ describe("ReferralIntakeForm", () => {
       "Age band",
       "Sex",
       "Home region",
+      // 2026-08-30, and it is the one entry here that used to be a NON-question: the control was on
+      // the form, a clinician answered it, and the answer was read for the picker and then dropped
+      // because `Referral` had nowhere to put it. It has somewhere now (`CM-4`), so the form stops
+      // discarding it and starts waiting on it. Beside "Home region" because they are the two facts
+      // about where a person is from, and neither is derived from the other.
+      "Suburb",
       "Referral source",
       "Urgency",
       "Origin site",
@@ -748,7 +759,8 @@ describe("ReferralIntakeForm", () => {
 
     const note = screen.getByTestId("ward-referral-intake-unavailable");
     expect(note.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Not yet answered: Age band, Sex, Home region, Referral source, Urgency, Origin site, Secure bed needed, " +
+      "Not yet answered: Age band, Sex, Home region, Suburb, Referral source, Urgency, Origin site, " +
+        "Secure bed needed, " +
         "Involuntary bed needed, Transport needed, Destination. Send stays unavailable until each has an answer.",
     );
 
@@ -1060,7 +1072,7 @@ describe("ReferralBoard", () => {
       .getAllByRole("row")
       .slice(1) // drop the header row
       .map((row) => row.querySelector("td button")?.textContent);
-    expect(ids).toEqual(["RF-001", "RF-005"]);
+    expect(ids).toEqual(["RF-001", "RF-009", "RF-005"]);
   });
 
   /**
@@ -1124,6 +1136,7 @@ describe("ReferralBoard", () => {
     const cards = Array.from(container.querySelectorAll("[data-testid^='ward-referral-board-card-select-']"));
     expect(cards.map((card) => card.getAttribute("data-testid"))).toEqual([
       "ward-referral-board-card-select-RF-001",
+      "ward-referral-board-card-select-RF-009",
       "ward-referral-board-card-select-RF-005",
     ]);
   });
@@ -1403,6 +1416,7 @@ const SYNTHETIC_YOUTH_REFERRAL: Referral = {
     },
   ],
   homeRegion: "Perth Metropolitan",
+  suburb: { kind: "named", name: "Armadale" },
   source: "community",
   raisedAt: NOW_ANCHOR - 10,
   urgency: 2,
@@ -1484,6 +1498,7 @@ function RaiseAndReviewForensicHarness() {
               },
             ],
             homeRegion: "Kimberley",
+            suburb: { kind: "named", name: "Broome" },
             source: "police",
             urgency: 2,
             originSiteCode: "BRM",
@@ -1563,6 +1578,7 @@ function bandReferral(overrides: Partial<Referral> = {}): Referral {
       },
     ],
     homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: NOW_ANCHOR - 30,
     urgency: 2,

@@ -114,6 +114,7 @@ function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], n
       },
     ],
     homeRegion: HOME_REGIONS[0],
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: now,
     urgency: 2,

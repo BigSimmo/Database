@@ -12,13 +12,17 @@ import {
   REFERRAL_DESTINATION_KINDS,
   REFERRAL_SOURCES,
   SEXES,
+  SUBURB_UNKNOWN_REASONS,
+  suburbUnknownLabels,
   URGENCY_LEVELS,
   type Cohort,
   type HomeRegion,
   type ReferralDestination,
   type ReferralDestinationKind,
   type ReferralSource,
+  type ReferralSuburb,
   type Rejection,
+  type SuburbUnknownReason,
   type Sex,
   type ReferralPurpose,
   type UrgencyLevel,
@@ -255,6 +259,16 @@ type AnsweredDraft = {
   ageBand: Cohort;
   sex: Sex;
   homeRegion: HomeRegion;
+  /** ⚠️ ADDED BY WARD CORE, 2026-08-30, and it is a decision on this form rather than only a
+   *  field: `Referral.suburb` is required, so the suburb becomes a required ANSWER and Send
+   *  stays inert until it is given. Made in this shape because it is the shape every other
+   *  question here already uses; if the referral surface wants it optional, this is the line to
+   *  change and the reducer check to revisit — not something to work around at the dispatch.
+   *
+   *  ⚠️ **"Not known" is one of the answers**, and it is not the same as unanswered. See
+   *  `ReferralSuburb`: a required picker with no honest option is what makes a clinician choose a
+   *  plausible nearby suburb to get past the form. */
+  suburb: ReferralSuburb;
   secureBedNeeded: boolean;
   involuntaryBedNeeded: boolean;
   source: ReferralSource;
@@ -313,6 +327,11 @@ const REQUIRED_FIELDS: readonly {
   { key: "ageBand", name: "Age band" },
   { key: "sex", name: "Sex" },
   { key: "homeRegion", name: "Home region" },
+  // 2026-08-30. The suburb became a required ANSWER when `Referral` gained a place to put it —
+  // until then this control read the catchment for the picker below and was dropped. Placed beside
+  // `homeRegion` because they are the two facts about where a person is from, and NEITHER is
+  // derived from the other (see `Referral.suburb`).
+  { key: "suburb", name: "Suburb" },
   { key: "source", name: "Referral source" },
   { key: "urgency", name: "Urgency" },
   { key: "originSiteCode", name: "Origin site" },
@@ -372,8 +391,19 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     transportNeeded,
     destinationKinds,
     edId,
+    suburb,
   } = draft;
   if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
+  // The suburb now REACHES the record (`CM-4`), so it is answered like every other fact rather
+  // than read on this screen and dropped. The note beside the control still says it is
+  // discarded and is now FALSE — that sentence, and its pin, belong to the referral surface.
+  if (suburb === UNANSWERED_VALUE) return undefined;
+  // The picker offers the named suburbs AND the "not known" answers, so the raw value is widened
+  // here into the union the model holds. Reason CODES cannot collide with a suburb name: the
+  // catchment table's names are title-case places and the codes are lower_snake.
+  const suburbAnswer: ReferralSuburb = (SUBURB_UNKNOWN_REASONS as readonly string[]).includes(suburb)
+    ? { kind: "unknown", reason: suburb as SuburbUnknownReason }
+    : { kind: "named", name: suburb };
   // FD-21. An empty list is refused BY THE REDUCER too ("needs at least one destination"); it is
   // stopped here as well so the form never sends an event it already knows will be refused, in the
   // same shape every other unanswered question is stopped.
@@ -397,6 +427,7 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   );
   if (destinations === undefined) return undefined;
   return {
+    suburb: suburbAnswer,
     ageBand,
     sex,
     homeRegion,
@@ -555,7 +586,13 @@ export function ReferralIntakeForm() {
   // Recomputed on every render from the draft and live reducer state, never held in a second piece
   // of state that could disagree with either — the same discipline `outstanding` above holds to.
   const options = destinationOptions({
-    suburb: draft.suburb === UNANSWERED_VALUE ? null : draft.suburb,
+    // No place, no catchment — and that is a fact rather than a gap. `catchmentSuburbOf` holds
+    // the same rule for the model side, so the screen and the record cannot disagree about when a
+    // catchment can be read.
+    suburb:
+      draft.suburb === UNANSWERED_VALUE || (SUBURB_UNKNOWN_REASONS as readonly string[]).includes(draft.suburb)
+        ? null
+        : draft.suburb,
     ward: wardNeed,
     ageBand: draft.ageBand === UNANSWERED_VALUE ? null : draft.ageBand,
     units,
@@ -591,6 +628,7 @@ export function ReferralIntakeForm() {
       role: "community",
       now,
       ageBand: answered.ageBand,
+      suburb: answered.suburb,
       // FD-21, and the day the comment that stood here was written for. It said "one destination
       // for now ... the day the form offers the choice nothing below it has to move", and nothing
       // below it moved: the event already took a list, the reducer already refused an empty one,
@@ -746,6 +784,20 @@ export function ReferralIntakeForm() {
               onChange={(event) => setDraft((current) => ({ ...current, suburb: event.target.value }))}
             >
               <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+              {/*
+                ⚠️ THE HONEST ANSWER, OFFERED FIRST AMONG THE REAL ONES.
+                Without it a patient of no fixed abode cannot be referred, and the way past a
+                required picker with no true option is to choose a plausible nearby suburb — which
+                puts an invented place into the one field built to resolve against a real table.
+                See `ReferralSuburb`; whether "not known" and "no fixed abode" are one answer or
+                two is a clinical question on the owner's queue, and a second member appears here
+                automatically rather than needing this list edited again.
+              */}
+              {SUBURB_UNKNOWN_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {suburbUnknownLabels[reason]}
+                </option>
+              ))}
               {SUBURB_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}

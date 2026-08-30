@@ -6,7 +6,7 @@ import {
   OVERRIDE_REASONS,
 } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
-import { referralState } from "@/components/ward-management/ward-referrals";
+import { referralState, referralSuburbIsAnswered } from "@/components/ward-management/ward-referrals";
 import {
   EVENT_ROLE,
   WARD_FLOW_ROLE_LABELS,
@@ -1380,6 +1380,17 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!HOME_REGIONS.includes(event.homeRegion)) {
         return reject(state, event, `RECEIVE_REFERRAL homeRegion must be chosen from HOME_REGIONS`);
       }
+      // The suburb is resolved against the real catchment table, never merely checked for
+      // non-emptiness — the same reason `edId` and `originSiteCode` below resolve rather than
+      // measure. "12 Wellington St, Perth" is non-empty, and letting it through would put a street
+      // address in the one field whose defence is that it is coarser than one (`PD-3`).
+      if (!referralSuburbIsAnswered(event.suburb)) {
+        return reject(
+          state,
+          event,
+          `RECEIVE_REFERRAL suburb must name a suburb the catchment source knows, or state that it is not known`,
+        );
+      }
       if (event.urgency !== 1 && event.urgency !== 2 && event.urgency !== 3) {
         return reject(state, event, `RECEIVE_REFERRAL urgency must be 1, 2 or 3`);
       }
@@ -1388,6 +1399,12 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!siteByCode(event.originSiteCode)) {
         return reject(state, event, `RECEIVE_REFERRAL originSiteCode must resolve to a real site`);
       }
+      // A triage instant in the FUTURE would put a patient in the department before they got
+      // there, and `referralClocks` clamps at zero rather than printing a negative — so the wrong
+      // value would render as a plausible "0m" instead of an obvious error. Refused at the door.
+      if (event.triagedAt !== undefined && event.triagedAt > event.now) {
+        return reject(state, event, `RECEIVE_REFERRAL triagedAt cannot be later than the referral itself`);
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -1395,8 +1412,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // Every destination starts queued: the referrer chose them, nobody has answered yet.
         destinations: event.destinations.map((destination) => ({ destination, state: "queued" as const })),
         homeRegion: event.homeRegion,
+        suburb: event.suburb,
         source: event.source,
         raisedAt: event.now,
+        // Absent for a community expect, which is a real state and not a missing value.
+        triagedAt: event.triagedAt,
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,

@@ -18,6 +18,7 @@ import type {
   ReferralDestination,
   ReferralDestinationKind,
   ReferralSource,
+  ReferralSuburb,
   Security,
   Sex,
   TransportProvider,
@@ -437,6 +438,24 @@ export type WardFlowEvent =
       /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;
+      /** The suburb, resolved against the catchment table by the reducer — never free text, and
+       *  never an address. ⚠️ A UNION, not a string, so **"not known" is an answer rather than a
+       *  failure to answer**: a patient of no fixed abode must be referable, and for the hour this
+       *  was a bare `string` they were not. See `ReferralSuburb`'s own doc comment. */
+      suburb: ReferralSuburb;
+      /**
+       * When this person was triaged into the department, when they were already in one — the
+       * start of `P9-D2`'s second clock. Absent for a community expect who has not arrived.
+       *
+       * ⚠️ **THIS EXISTS BECAUSE THE FIELD HAD NO PRODUCER.** `Referral.triagedAt` landed with
+       * nothing that could write it: `RECEIVE_REFERRAL` is the only event that creates a referral
+       * and it had no such field, so a triage instant could reach the model only on a hand-authored
+       * fixture. **The department clock's present branch was live code with no reachable caller** —
+       * and a screen rendering "not in department yet" for every patient looks like correct
+       * handling of a legitimate case rather than a feature with no data. Measured and reported by
+       * Ward Referrals; third instance of that shape in one night.
+       */
+      triagedAt?: Instant;
       /** Where the referral arrived from — one of `REFERRAL_SOURCES`. */
       source: ReferralSource;
       urgency: 1 | 2 | 3;

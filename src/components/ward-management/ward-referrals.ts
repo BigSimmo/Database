@@ -1,5 +1,6 @@
 import { bedIsOccupied, type Admission } from "@/components/ward-management/ward-admissions";
 import { formatElapsed, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
+import { lookupCatchment } from "@/components/ward-management/ward-catchment";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -14,6 +15,7 @@ import {
   referralEligibility,
   type EligibilityVerdict,
 } from "@/components/ward-management/ward-eligibility";
+import { SUBURB_UNKNOWN_REASONS, suburbUnknownLabels } from "@/components/ward-management/ward-model";
 import type {
   Referral,
   ReferralDeclineReason,
@@ -24,6 +26,7 @@ import type {
   WardReferralDestination,
   ReferralAddressing,
   ReferralState,
+  ReferralSuburb,
 } from "@/components/ward-management/ward-model";
 
 /**
@@ -200,8 +203,13 @@ export type EdAddressedReferral = {
  * a ward's refusal somewhere else.
  *
  * **Ordered by `raisedAt`, earliest first, and that is a comparison between two stored instants —
- * it reads no clock and computes no duration.** See this screen's own note on why no elapsed figure
- * appears on it.
+ * it reads no clock and computes no duration.** The elapsed figures the hub shows come from
+ * `referralClocks` below, which takes a single `now` from the caller for exactly that reason.
+ *
+ * ⚠️ This sentence used to end *"see this screen's own note on why no elapsed figure appears on
+ * it"* — and that note has been deleted, so the pointer named a place that no longer existed. It is
+ * the comments-that-recruit failure: a comment whose truth lives in ANOTHER file decays when that
+ * file changes and nothing local ever goes red. Reported by Ward Referrals, who owns the screen.
  */
 export function edReferralsFor(
   referrals: readonly Referral[],
@@ -361,6 +369,68 @@ export const REFERRAL_CLOCK_TERMS = {
   /** What a screen says instead of a duration when the person is not in the department yet. */
   notInDepartment: "not in department yet",
 } as const;
+
+/**
+ * Whether the catchment source recognises this suburb as a PLACE.
+ *
+ * ⚠️ **Resolved against the real table, never checked for non-emptiness** — the same move as `edId`
+ * resolving against the real network. `"12 Wellington St, Perth"` is a non-empty string and would
+ * pass a length check, putting a street address into the one field whose entire defence is that it
+ * is coarser than one (`PD-3`: a suburb identifies a service area, not a dwelling).
+ *
+ * ⚠️ **"KNOWN" IS NOT "HAS A CATCHMENT", and conflating the two would refuse real patients.** A
+ * suburb the table lists with no follow-up clinic recorded is a real place; so is one whose two
+ * documents disagree (`CM-2`'s five contradictions). Both are recordable. Whether anybody can be
+ * ROUTED from there is a different question, asked later, by `lookupCatchment` itself — which
+ * answers it honestly rather than by refusing the referral.
+ *
+ * Lives here rather than in `ward-catchment.ts` only because that module is owned by another
+ * session tonight; it is built entirely on that module's public API and belongs beside it.
+ */
+export function referralSuburbIsKnown(name: string): boolean {
+  // `typeof` rather than a truthiness check, and not because the type says otherwise: three suites
+  // hand the reducer a `RECEIVE_REFERRAL` payload through an `as never` cast with no suburb on it
+  // at all, and `undefined.trim()` is a CRASH rather than a refusal. A validator that throws on the
+  // input it exists to reject is worse than no validator, because the rejection path is the one
+  // nobody exercises.
+  if (typeof name !== "string" || name.trim().length === 0) return false;
+  const lookup = lookupCatchment(name);
+  // Every state except `unknown` means the table has a row. `unknown` splits: one reason is "not in
+  // the table at all", the other is "in the table, but the source records no clinic on it" — and
+  // the second IS a known place. Reading `state !== "unknown"` alone would refuse it.
+  return lookup.state !== "unknown" || lookup.reason === "suburb-in-source-table-but-no-follow-up-clinic-recorded";
+}
+
+/**
+ * Whether a whole `ReferralSuburb` answer is one the front door accepts.
+ *
+ * ⚠️ **"Not known" is an ACCEPTED answer, not a failure to answer**, and that distinction is the
+ * entire reason this type is a union. A patient of no fixed abode, or one police brought in at 3am
+ * with no recorded address, must be referable — they are, if anything, MORE likely to need a bed.
+ * See `ReferralSuburb`'s own doc comment for the hour this was not true.
+ */
+export function referralSuburbIsAnswered(suburb: ReferralSuburb | undefined): boolean {
+  if (suburb === null || typeof suburb !== "object") return false;
+  if (suburb.kind === "unknown") return SUBURB_UNKNOWN_REASONS.includes(suburb.reason);
+  return suburb.kind === "named" && referralSuburbIsKnown(suburb.name);
+}
+
+/**
+ * What a screen shows for a suburb, including when there is not one.
+ *
+ * One home for the wording, for the same reason `REFERRAL_CLOCK_TERMS` and
+ * `withdrawalReasonLabels` are: every surface that invents its own phrase for absence invents a
+ * slightly different one, and "—" beside a real suburb reads as a rendering bug rather than a fact
+ * about the patient.
+ */
+export function referralSuburbLabel(suburb: ReferralSuburb): string {
+  return suburb.kind === "named" ? suburb.name : suburbUnknownLabels[suburb.reason];
+}
+
+/** The suburb to read a catchment for, or `null` when there is no place to read one for. */
+export function catchmentSuburbOf(suburb: ReferralSuburb): string | null {
+  return suburb.kind === "named" ? suburb.name : null;
+}
 
 export function referralClocks(referral: Referral, now: Instant): ReferralClocks {
   const { raisedAt, triagedAt } = referral;

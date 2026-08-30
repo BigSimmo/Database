@@ -122,6 +122,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Kimberley",
+      suburb: { kind: "named", name: "Broome" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -153,6 +154,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -706,6 +708,20 @@ describe("Referral privacy — structural", () => {
     // session that built it — recorded that way because `R55` exists precisely to stop a relay
     // hardening into "(OWNER)" once it has been written down twice.
     "triagedAt",
+    // 2026-08-30, and the second widening in one night — which is exactly the pace this list exists
+    // to slow down, so it gets its own reason rather than riding on the one above.
+    //
+    // `CM-4`: the SUBURB is the recorded fact. It is the coarsest fact the owner's catchment
+    // documents are keyed on and the finest one that is stable, so it survives whichever way the
+    // five deferred catchment questions are answered. `PD-3` is what lets it through this guard at
+    // all: ⚠️ **a suburb is not an address** — it names a service area, not a dwelling. `address`
+    // remains UNRULED and still fails here, and a ruling permitting a suburb must never be read as
+    // permitting the category.
+    //
+    // Resolved against the catchment table by `RECEIVE_REFERRAL`, never checked for non-emptiness:
+    // "12 Wellington St, Perth" is a non-empty string and a length check would have put the very
+    // thing this field is coarser than into the field itself.
+    "suburb",
   ].sort();
 
   /**
@@ -844,6 +860,10 @@ describe("Referral privacy — structural", () => {
       // Before `raisedAt`: this canonical referral is somebody already in the department when
       // mental health was called, which is the case where BOTH clocks run.
       triagedAt: NOW_ANCHOR - 90,
+      // A real suburb from the catchment table, for the same reason the ED arm's `edId` is a real
+      // department: this literal is the exhaustive half of the guard and a fictional value here
+      // would be a fixture the front door itself would refuse.
+      suburb: { kind: "named", name: "Armadale" },
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
     // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
@@ -904,6 +924,7 @@ describe("Referral privacy — structural", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       urgency: 2,
       originSiteCode: "RPH",
@@ -959,7 +980,11 @@ describe("Referral privacy — structural", () => {
 describe("Task 5 — referral board ordering (referralQueueOrder, recentlyDecidedReferrals)", () => {
   it("orders the real fixture's two queued referrals by urgency, then by longest wait — RF-001 (raised 40 min ago) before RF-005 (raised 20 min ago), both tier 2", () => {
     const queuedIds = referralQueueOrder(referrals).map((referral) => referral.id);
-    expect(queuedIds).toEqual(["RF-001", "RF-005"]);
+    // RF-009 joined the fixture on 2026-08-30 as the only referral addressed to an emergency
+    // department — before it, the ED hub's inbox was empty for every department and its screen was
+    // indistinguishable from a working one with nothing to show. It is queued and urgency 2, so it
+    // sorts by wait: raised 35 minutes ago, after RF-001 (40) and before RF-005 (20).
+    expect(queuedIds).toEqual(["RF-001", "RF-009", "RF-005"]);
   });
 
   it("never includes an accepted or declined referral in the queued order", () => {
@@ -1045,7 +1070,15 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     // true regardless of gate order: a forensic unit is NEVER eligible and NEVER in the accepting
     // list, for any referral. The next test below proves the forensic gate's own wording
     // specifically, for the one referral shape where it is genuinely the first gate to fail.
-    for (const referral of referrals) {
+    // Narrowed to referrals that ASK for a ward, since 2026-08-30: `RF-009` addresses an emergency
+    // department and has no ward arm at all, so `wardOf` would throw rather than fail. The canary
+    // below matters more than the narrowing — a filter that matched nothing would leave this loop
+    // asserting about an empty list and passing.
+    const wardReferrals = referrals.filter((referral) =>
+      referral.destinations.some((addressing) => addressing.destination.kind === "psychiatric_ward"),
+    );
+    expect(wardReferrals.length, "no seeded referral asks for a ward, so this proves nothing").toBeGreaterThan(1);
+    for (const referral of wardReferrals) {
       const candidates = referralCandidates(referral, wardOf(referral).destination, units, NOW_ANCHOR);
       const forensicCandidates = candidates.filter((candidate) => candidate.unit.forensic);
       expect(forensicCandidates.length).toBeGreaterThan(0);
