@@ -11,11 +11,18 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * no tick interval, no wall-clock read. **The number itself went nowhere.** So a caller pinning the
  * clock to any instant other than `NOW_ANCHOR` silently got `NOW_ANCHOR`, with nothing red.
  *
- * ⚠️ **NOTHING WAS WRONG THE DAY IT WAS FOUND, AND THAT IS THE POINT.** Every one of the ~85 call
- * sites passes `NOW_ANCHOR` or `WARD_ADMISSIONS_ANCHOR`, and those two constants are both `10*60+42`
- * — so the ignored value happened to equal the value used. **The seed-default class with the trigger
- * not yet pulled.** Reported by Ward Referrals; the count of affected files was measured here rather
- * than taken, and it is thirty-five, not five.
+ * ⚠️ **NOTHING WAS WRONG THE DAY IT WAS FOUND, AND THAT IS THE POINT.** Every call site passes
+ * `NOW_ANCHOR` or `WARD_ADMISSIONS_ANCHOR`, and those two constants are both `10*60+42` — so the
+ * ignored value happened to equal the value used. **The seed-default class with the trigger not yet
+ * pulled.** Reported by Ward Referrals as five test files.
+ *
+ * **Counted here, on `claude/ward-flow-phases-6-7-design`: 85 `initialNow=` call sites in 38 files;
+ * 109 mentions of the identifier in 42 files; 5 of the call sites pass `WARD_ADMISSIONS_ANCHOR`.**
+ * ⚠️ My first report of this said "roughly eighty-five across thirty-five files" — the 85 was right
+ * and the 35 was not, and by the time a third session came to file it, the word "roughly" and my
+ * name had both been dropped in one hop. **A relayed number arrives already believed, and the relay
+ * erases the one thing that would prompt anyone to check it.** The exact figures are pinned here so
+ * the next reader has a measurement rather than a memory of one.
  *
  * The fix treats the pinned and live paths the same way: the anchor offset is *the now we want*
  * minus `NOW_ANCHOR`, whether that now comes from the prop or from the wall clock. Passing exactly
