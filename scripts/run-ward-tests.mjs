@@ -55,9 +55,24 @@
  * is honestly green. Every number this tool prints would be correct and the result would still be
  * about code you did not write.
  *
- * SO: after a heavy or long step, VERIFY THE EDIT LANDED before trusting any run over it — grep the
- * changed file for the thing you added, or check the blob, rather than inferring it from a clean
- * tree. Same discipline as reading a mutation back from disk instead of assuming it applied.
+ * SO: after a heavy or long step, VERIFY THE EDIT LANDED before trusting any run over it. ⚠️ AND
+ * VERIFY IT IN `HEAD`, NOT IN THE WORKING TREE — this correction is from Ward Board and it inverts
+ * the weaker rule that stood here first. A working-tree check passes in the WORST case: the edit
+ * landed, the COMMIT died, the files on disk look perfect, and `HEAD` does not have them. So:
+ * `git show HEAD:<path> | grep <the thing you added>`, never `grep <path>`.
+ *
+ * ⚠️ AND DO NOT REACH FOR `git commit --amend` WHEN A COMMIT SEEMS TO HAVE GONE WRONG. It is the one
+ * common git operation that DESTROYS the previous state as a precondition of creating the new one,
+ * so under a machine that is failing to fork it can leave a branch that has simply lost a commit
+ * with no error anywhere. A follow-up commit costs one line of history and cannot do that.
+ *
+ * ⚠️ AND WRITE INSPECTION SEQUENCES WITH `;`, NOT `&&`. A `grep -c` that correctly finds ZERO
+ * matches exits 1, so an `&&` chain aborts there and every later check silently never runs — while
+ * the output still reads as a finished report. THAT IS THE SAME SHAPE AS `83 passed (83)` WHEN 84
+ * WENT IN: a truthful-looking result whose missing half is invisible. Two sessions hit it within an
+ * hour on 2026-08-30 and the first treated it as a nuisance rather than as the finding it is.
+ *
+ * Same discipline throughout as reading a mutation back from disk instead of assuming it applied.
  *
  * MITIGATION THAT COSTS NOTHING: hand in only the files your change touches. The guarantee here is
  * COMPLETENESS OF WHAT YOU HANDED IN, not breadth — a narrow run is the same check over a smaller
