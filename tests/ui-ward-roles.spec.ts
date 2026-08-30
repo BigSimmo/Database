@@ -1,11 +1,17 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 
 import { edById, unitById } from "@/components/ward-management/ward-sites";
 
-async function gotoWard(page: Page, unitId: string) {
+async function gotoWard(page: Page, unitId: string): Promise<Locator> {
   await page.goto(`/mockups/ward-flow/ward/${unitId}`, { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
   await page.waitForLoadState("networkidle");
+  const wardScreen = page.locator('[data-testid="ward-unit-screen"]:visible');
+  // App Router can briefly retain the previous render while hydrating this route,
+  // especially when emulated media or the browser clock is configured before
+  // navigation. Operate on the one visible route surface, never a hidden transition copy.
+  await expect(wardScreen).toHaveCount(1, { timeout: 15_000 });
+  await expect(wardScreen).toBeVisible();
+  return wardScreen;
 }
 
 test.describe("@mockup Ward screen", () => {
@@ -13,14 +19,14 @@ test.describe("@mockup Ward screen", () => {
 
   test("shows one unit's own capacity and answers an incoming referral", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await gotoWard(page, "bty-adult-secure");
+    const wardScreen = await gotoWard(page, "bty-adult-secure");
 
     // One unit, not twenty-two.
-    await expect(page.getByTestId("ward-unit-screen")).toContainText("BTY Adult Secure");
-    await expect(page.locator('[data-testid^="ward-unit-card-"]')).toHaveCount(1);
+    await expect(wardScreen).toContainText("BTY Adult Secure");
+    await expect(wardScreen.locator('[data-testid^="ward-unit-card-"]')).toHaveCount(1);
 
     // Its beds reconcile on screen.
-    const beds = page.getByTestId("ward-unit-beds");
+    const beds = wardScreen.getByTestId("ward-unit-beds");
     await expect(beds).toContainText("Ready");
     await expect(beds).toContainText("Occupied");
 
@@ -28,7 +34,7 @@ test.describe("@mockup Ward screen", () => {
     // Unconditional: bty-adult-secure holds a live referral at seed (WF-017, verified against
     // the real fixture — see the task report), so this must not hide behind an `if (count())`
     // that can silently never run.
-    const incoming = page.locator('[data-testid^="ward-incoming-"]');
+    const incoming = wardScreen.locator('[data-testid^="ward-incoming-"]');
     await expect(incoming).not.toHaveCount(0);
     await incoming
       .first()
@@ -70,27 +76,28 @@ test.describe("@mockup Ward screen", () => {
     // The countdown floors wall-clock minutes. Pin the browser clock so crossing a minute
     // boundary between the hold action and the assertion cannot turn 1h 00m into 59m.
     await page.clock.install({ time: new Date("2026-08-26T10:00:00Z") });
-    await gotoWard(page, "rph-adult-secure");
+    const wardScreen = await gotoWard(page, "rph-adult-secure");
 
-    const card = page.getByTestId("ward-accepted-WF-003");
+    const card = wardScreen.getByTestId("ward-accepted-WF-003");
     await expect(card).toBeVisible();
     await card.getByTestId("ward-hold-WF-003").click();
     await expect(card).toContainText("Bed hold 1h 00m left");
 
     // The trigger must never be mistaken for a clinical action — checked in words, not merely by
     // colour: its accessible name and title both say so explicitly.
-    const trigger = page.getByTestId("ward-demo-controls-trigger");
+    const trigger = wardScreen.getByTestId("ward-demo-controls-trigger");
     await expect(trigger).toHaveAttribute("aria-label", /not a clinical action/i);
     await expect(trigger).toHaveAttribute("title", /never a clinical action/i);
 
     await trigger.click();
-    const menu = page.locator("#ward-demo-controls-menu");
+    const menu = page.locator("#ward-demo-controls-menu:visible");
     await expect(menu).toBeVisible();
     await expect(menu).toContainText(/demo tool, not part of the clinical record/i);
 
-    await page.getByTestId("ward-demo-advance-15").click();
-    await page.getByTestId("ward-demo-advance-15").click();
-    await page.getByTestId("ward-demo-advance-15").click();
+    const advanceClock = menu.getByTestId("ward-demo-advance-15");
+    await advanceClock.click();
+    await advanceClock.click();
+    await advanceClock.click();
 
     // The one thing spec §5 says the control exists to demonstrate: a held bed watched
     // expiring in seconds. 45 minutes advanced against a 60-minute hold leaves 15.
@@ -109,21 +116,21 @@ test.describe("@mockup Ward screen", () => {
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
-    await gotoWard(page, "bty-adult-secure");
-    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
-    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+    const wardScreen = await gotoWard(page, "bty-adult-secure");
+    await expect(wardScreen.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(wardScreen.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(wardScreen.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(wardScreen.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
 
     await page.emulateMedia({ forcedColors: "active" });
-    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
-    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+    await expect(wardScreen.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(wardScreen.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(wardScreen.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(wardScreen.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
 
     await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
-    await expect(page.locator('[data-testid="ward-unit-beds"]:visible')).toBeVisible();
-    await expect(page.locator('[data-testid="ward-unit-governance"]:visible')).toBeVisible();
+    await expect(wardScreen.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(wardScreen.getByTestId("ward-unit-governance")).toBeVisible();
   });
 });
 
@@ -641,27 +648,27 @@ test.describe("@mockup Live capacity — a ward's own action reaches every scree
     // --- Step 1: the ward's own screen, before the drop. RPH Adult Secure seeds with
     // allocatable = 1 (Ready 1 · Held 1) and carries WF-003 accepted-awaiting-bed, whose Hold
     // control is therefore fully live: no `aria-disabled`, no `title`. ---
-    await gotoWard(page, "rph-adult-secure");
+    const wardScreen = await gotoWard(page, "rph-adult-secure");
 
-    const bedGrid = page.getByTestId("ward-unit-beds");
+    const bedGrid = wardScreen.getByTestId("ward-unit-beds");
     await expect(bedGrid).toContainText("Ready 1");
     await expect(bedGrid).toContainText("Held 1");
 
-    const holdButton = page.getByTestId("ward-hold-WF-003");
+    const holdButton = wardScreen.getByTestId("ward-hold-WF-003");
     await expect(holdButton).toBeVisible();
     await expect(holdButton).not.toHaveAttribute("aria-disabled");
     await expect(holdButton).not.toHaveAttribute("title");
 
     // --- Step 2: confirm zero allocatable beds, on this same page, no reload. ---
-    await page.getByTestId("ward-capacity-input").fill("0");
-    await page.getByTestId("ward-capacity-submit").click();
+    await wardScreen.getByTestId("ward-capacity-input").fill("0");
+    await wardScreen.getByTestId("ward-capacity-submit").click();
 
     // --- Step 3: the ward's own screen must move. This is the exact proof the reviewer
     // performed and found failing: "typing 0 into Confirm allocatable beds ... beds: Ready 2
     // ... Currently confirmed 2" — the screen that raised the event never moved. ---
     await expect(bedGrid).toContainText("Ready 0");
     await expect(bedGrid).toContainText("Held 2"); // the physically-empty pool is unchanged; it is now unconfirmed rather than ready
-    await expect(page.getByText(/Currently confirmed 0 at/)).toBeVisible();
+    await expect(wardScreen.getByText(/Currently confirmed 0 at/)).toBeVisible();
 
     // --- Step 4: the Hold control must stop advertising an action the reducer would now
     // refuse — the reviewer's Proof 2 ("hold button ... aria-disabled = null ... nothing

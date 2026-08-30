@@ -1,8 +1,9 @@
 import { ImageResponse } from "next/og";
 
+import { BRAND_CATCHPHRASE_BARE, BRAND_NAME, BRAND_OG_ALT } from "@/lib/brand";
 import { brandMarkDataUri } from "@/lib/brand-image";
 
-export const alt = "PsychSift — private medical guideline knowledge base";
+export const alt = BRAND_OG_ALT;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -23,8 +24,8 @@ export default function OpengraphImage() {
     >
       <img src={brandMarkDataUri()} width={192} height={192} alt="" />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-        <div style={{ fontSize: 78, fontWeight: 700, letterSpacing: -1.5 }}>PsychSift</div>
-        <div style={{ fontSize: 30, color: "#9fb2b8" }}>Private medical guideline knowledge base</div>
+        <div style={{ fontSize: 78, fontWeight: 700, letterSpacing: -1.5 }}>{BRAND_NAME}</div>
+        <div style={{ fontSize: 30, color: "#9fb2b8" }}>{BRAND_CATCHPHRASE_BARE}</div>
       </div>
     </div>,
     { ...size },
