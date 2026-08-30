@@ -16,13 +16,32 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * ignored value happened to equal the value used. **The seed-default class with the trigger not yet
  * pulled.** Reported by Ward Referrals as five test files.
  *
- * **Counted here, on `claude/ward-flow-phases-6-7-design`: 85 `initialNow=` call sites in 38 files;
- * 109 mentions of the identifier in 42 files; 5 of the call sites pass `WARD_ADMISSIONS_ANCHOR`.**
- * ⚠️ My first report of this said "roughly eighty-five across thirty-five files" — the 85 was right
- * and the 35 was not, and by the time a third session came to file it, the word "roughly" and my
- * name had both been dropped in one hop. **A relayed number arrives already believed, and the relay
- * erases the one thing that would prompt anyone to check it.** The exact figures are pinned here so
- * the next reader has a measurement rather than a memory of one.
+ * **Counted at `699cc3586`, the commit before this docblock existed: 85 `initialNow=` call sites in
+ * 38 files; 109 occurrences of the identifier in 42 files; 5 call sites passing
+ * `WARD_ADMISSIONS_ANCHOR`.**
+ *
+ * ⚠️ **THE SHA IS LOAD-BEARING, BECAUSE THIS PARAGRAPH IS INSIDE THE THING IT COUNTS.** Writing "85"
+ * down made it 86: the sentence above contains `initialNow=`, so the record of the measurement is
+ * counted by the measurement. Re-run the grep today and you get 86 and 110, off by exactly one on
+ * each total while the file counts stay at 38 and 42 — because this file already held the token, so
+ * the drift shows on one axis and not the other and survives a sanity check. Caught by a third
+ * session that re-measured before accepting the correction and traced a consistent off-by-one to
+ * its cause rather than dismissing it.
+ *
+ * ⚠️ **ONE is the dangerous size.** Off by fifty reads as a bug and gets investigated; off by one
+ * reads as carelessness and quietly discredits an exact record.
+ *
+ * Two repairs were offered — say that it counts itself, or exclude this file from the pattern.
+ * Neither is taken. The first leaves a number any later edit still invalidates; the second tunes the
+ * measurement so the record fits, which is the wrong direction. **A figure stamped with the tree it
+ * was taken on cannot be contradicted by a later edit at all**, which is what an observation with a
+ * shelf life actually needs.
+ *
+ * ⚠️ And my first report of this said "roughly eighty-five across thirty-five files" — the 85 was
+ * exact and the 35 was not (38), and by the time a third session came to file it both the word
+ * "roughly" and my name had been dropped in one hop. **A relayed number arrives already believed,
+ * and the relay erases the one thing that would prompt anyone to check it.** A number that turns out
+ * right by luck teaches the wrong lesson about how it was obtained.
  *
  * The fix treats the pinned and live paths the same way: the anchor offset is *the now we want*
  * minus `NOW_ANCHOR`, whether that now comes from the prop or from the wall clock. Passing exactly
