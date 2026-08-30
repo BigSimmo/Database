@@ -18,6 +18,8 @@ import type {
   Referral,
   ReferralDeclineReason,
   ReferralDestination,
+  ReferralDestinationKind,
+  ReferralPurpose,
   Unit,
   WardReferralDestination,
   ReferralAddressing,
@@ -103,7 +105,27 @@ export function referralDestinationLabels(referral: Referral): string[] {
 /** Human label for where a referral is addressed. Exhaustive by `switch` on the union, so a fifth
  *  destination cannot be added without this failing to compile. */
 export function referralDestinationLabel(destination: ReferralDestination): string {
-  switch (destination.kind) {
+  return referralDestinationKindLabel(destination.kind);
+}
+
+/**
+ * The same label, from a KIND alone — for the one caller that legitimately holds a kind and
+ * nothing else.
+ *
+ * **This exists because the alternative was a fabricated destination, and that fabrication became a
+ * compile error the moment the ED arm gained `edId` and `purpose`.** `labelFor`
+ * (`referral-destination-options.ts`) holds a kind while the referrer has not yet answered the bed
+ * questions, and satisfied the whole-destination parameter above by inventing one — a ward arm
+ * filled with `SEXES[0]` and two `false`s, or a bare `{ kind }` for the other two. The comment
+ * there said the invented value "reaches nothing but the `switch` on `kind`", which was true and is
+ * exactly the problem: a value nobody chose, correct only for as long as nothing read it.
+ *
+ * No label has ever depended on anything but the kind, so this is the honest signature and the
+ * function above is now a one-line adapter for callers holding a whole destination. Still
+ * exhaustive by `switch`, so a fourth kind cannot be added without this failing to compile.
+ */
+export function referralDestinationKindLabel(kind: ReferralDestinationKind): string {
+  switch (kind) {
     case "psychiatric_ward":
       return "Psychiatric ward";
     case "emergency_department":
@@ -111,6 +133,93 @@ export function referralDestinationLabel(destination: ReferralDestination): stri
     case "community_team":
       return "Community team";
   }
+}
+
+/**
+ * WHY a referral was addressed to an emergency department, in words a clinician reads.
+ *
+ * ⚠️ **EVERY ROW SHOWING AN ED REFERRAL MUST SHOW THIS, and it is a safety rule rather than a
+ * presentational preference.** The spec's `FD-18` correction (2026-08-30) is explicit: the three ED
+ * flows are no longer told apart by what they forbid — every referral is declinable, the ward's
+ * medical notification included — so the only thing distinguishing them is **what the row is FOR.**
+ * A declinable row with no stated purpose is indistinguishable from a bed request, which is the
+ * conflation the whole `purpose` axis exists to prevent.
+ *
+ * Exhaustive by `switch` over `REFERRAL_PURPOSES`, so a fourth purpose cannot reach a screen
+ * without a human deciding what it is called there.
+ */
+export function referralPurposeLabel(purpose: ReferralPurpose): string {
+  switch (purpose) {
+    case "bed":
+      return "Asking for a bed";
+    case "psychiatric_review":
+      return "For psychiatric review";
+    case "medical_assessment":
+      return "For medical assessment";
+  }
+}
+
+/** The ED arm, named so signatures can require it — the same service `WardReferralDestination`
+ *  performs for the ward arm, and derived from the union rather than restated. */
+export type EdReferralDestination = Extract<ReferralDestination, { kind: "emergency_department" }>;
+
+/**
+ * One referral as an emergency department's own board sees it: the referral, the single addressing
+ * that names THIS department, and that addressing's destination already narrowed to the ED arm.
+ *
+ * The narrowed arm is carried rather than re-derived because every consumer needs `purpose` and
+ * none of them should have to re-run the narrowing to get it — a screen that re-narrows is a screen
+ * that can narrow differently.
+ */
+export type EdAddressedReferral = {
+  readonly referral: Referral;
+  readonly addressing: ReferralAddressing;
+  readonly destination: EdReferralDestination;
+};
+
+/**
+ * Every referral addressed to ONE department for ONE purpose, still waiting for that department to
+ * answer. The one selector both ED-hub lists are built from.
+ *
+ * ⚠️ **TWO FIELDS, NEVER ONE, AND THAT IS THE `FD-18` GUARD ITSELF.** A ward→ED medical
+ * notification and ED psychiatry's self-addressed review request carry the SAME `edId` — they are
+ * raised by parties at the same hospital, about a patient in the same department — and differ only
+ * in `purpose`. Matching on `edId` alone drops the ward's medical notification straight into the
+ * psychiatry inbox, and it does so silently, because every other field agrees.
+ *
+ * ⚠️ **AND THE WORKAROUND THIS REPLACES, FOUND AND REFUSED RATHER THAN SHIPPED** (recorded on
+ * `REFERRAL_PURPOSES` in `ward-model.ts`): inferring "addressed to itself" from
+ * `originSiteCode === department.siteCode`. That compiles, reads correctly, and is wrong on exactly
+ * the case the spec names, because a psychiatric ward at the same hospital shares the site code.
+ * **`originSiteCode` is not read here and must never be.**
+ *
+ * **Scoped to `queued`**, because both lists are worklists: an addressing that has already answered
+ * is not something this department still owes anybody. `referralState` is deliberately NOT
+ * consulted — `FD-24` means another destination declining leaves this one live, and reading the
+ * referral's derived overall state here would hide a review this department still has to do behind
+ * a ward's refusal somewhere else.
+ *
+ * **Ordered by `raisedAt`, earliest first, and that is a comparison between two stored instants —
+ * it reads no clock and computes no duration.** See this screen's own note on why no elapsed figure
+ * appears on it.
+ */
+export function edReferralsFor(
+  referrals: readonly Referral[],
+  edId: string,
+  purpose: ReferralPurpose,
+): EdAddressedReferral[] {
+  const addressed: EdAddressedReferral[] = [];
+  for (const referral of referrals) {
+    for (const addressing of referral.destinations) {
+      const destination = addressing.destination;
+      if (destination.kind !== "emergency_department") continue;
+      if (destination.edId !== edId) continue;
+      if (destination.purpose !== purpose) continue;
+      if (addressing.state !== "queued") continue;
+      addressed.push({ referral, addressing, destination });
+    }
+  }
+  return addressed.sort((a, b) => a.referral.raisedAt - b.referral.raisedAt);
 }
 
 /**

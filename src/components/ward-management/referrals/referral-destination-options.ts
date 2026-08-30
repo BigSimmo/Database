@@ -9,14 +9,13 @@ import { referralEligibility } from "@/components/ward-management/ward-eligibili
 import {
   HOME_REGIONS,
   REFERRAL_DESTINATION_KINDS,
-  SEXES,
   type Cohort,
   type Referral,
   type ReferralDestinationKind,
   type Unit,
   type WardReferralDestination,
 } from "@/components/ward-management/ward-model";
-import { referralDestinationLabel } from "@/components/ward-management/ward-referrals";
+import { referralDestinationKindLabel } from "@/components/ward-management/ward-referrals";
 
 /**
  * WHAT A REFERRING CLINICIAN IS SHOWN ABOUT EACH DESTINATION, AT THE MOMENT OF CHOOSING.
@@ -292,21 +291,21 @@ function reasonsFor(
   }
 }
 
-/**
- * The one spelling of a destination's name, taken from `referralDestinationLabel` rather than
- * written out again here — two components spelling one label separately is a defect this phase has
- * already paid for four times.
+/*
+ * `labelFor` stood here and is gone, replaced by `referralDestinationKindLabel(kind)` at its one
+ * call site. Recorded rather than silently deleted, because WHY it went is the part worth keeping.
  *
- * That function takes a whole destination, which is right for its own callers (they hold one) and
- * awkward for this one (it holds a kind and, until the bed questions are answered, nothing else).
- * So the ward arm is filled from the clinician's own answers when they exist, and otherwise from a
- * neutral placeholder that reaches nothing but the `switch` on `kind` inside that function: no
- * label depends on the bed criteria, and this value is never dispatched, stored or rendered.
+ * It existed to reconcile a caller holding a bare KIND with a `referralDestinationLabel` that takes
+ * a whole DESTINATION, and it did so by inventing one: a ward arm of `SEXES[0]` and two `false`s
+ * while the bed questions were unanswered, or a bare `{ kind }` for the other two arms. Its own
+ * comment defended that as safe — the invented value "reaches nothing but the `switch` on `kind`",
+ * and "is never dispatched, stored or rendered". Both sentences were true.
+ *
+ * ⚠️ **AND IT WAS ONE OF THE THREE TYPE ERRORS THAT STOPPED THIS BRANCH COMPILING.** The moment the
+ * ED arm gained `edId` and `purpose`, `{ kind }` stopped being a destination — so the fabrication
+ * announced itself, loudly, at the only moment it could. A value that is correct only because
+ * nothing reads it stays correct only until something does.
  */
-function labelFor(kind: ReferralDestinationKind, ward: WardReferralDestination | null): string {
-  if (kind !== "psychiatric_ward") return referralDestinationLabel({ kind });
-  return referralDestinationLabel(ward ?? { kind, sex: SEXES[0], secureBedNeeded: false, involuntaryBedNeeded: false });
-}
 
 /**
  * Catchment first, then name. Two keys, both stated, and NEITHER OF THEM A PERFORMANCE FIGURE.
@@ -345,7 +344,7 @@ export function destinationOptions(inputs: DestinationOptionInputs): Destination
     const figures = [...bedFigures, waitFigure(kind, inputs)];
     return {
       kind,
-      label: labelFor(kind, inputs.ward),
+      label: referralDestinationKindLabel(kind),
       catchment,
       figures,
       reasons: reasonsFor(kind, catchment, inputs, bedFigures),

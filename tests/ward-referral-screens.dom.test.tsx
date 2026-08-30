@@ -237,6 +237,22 @@ const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () 
   { name: "Destination", answer: () => chooseDestination("psychiatric_ward") },
 ];
 
+/**
+ * The one question on this form that does not always apply: an emergency-department destination
+ * must name WHICH department, and nothing else on the form does.
+ *
+ * Kept OUT of `REQUIRED_QUESTIONS` above, because every loop over that list answers nine questions
+ * and expects Send to stay unavailable on the tenth — which is only a true expectation for a
+ * question that always applies. Answering a ward-only referral must not be made to wait on a
+ * department it is not going to.
+ *
+ * Its own behaviour — that it appears when an ED is ticked, that Send waits on it then, that no
+ * department is pre-chosen, and that what reaches the reducer is a real `edId` with the purpose the
+ * flow implies — is asserted in `tests/ward-ed-psychiatry-hub.dom.test.tsx`, against what the form
+ * actually sends rather than against this list.
+ */
+const CONDITIONAL_QUESTION_NAME = "Emergency department";
+
 function selectAnswer(field: string, value: string) {
   fireEvent.change(screen.getByTestId(`ward-referral-intake-${field}`), { target: { value } });
 }
@@ -685,7 +701,7 @@ describe("ReferralIntakeForm", () => {
    * so a ninth question, a removed one, a renamed one or a reordered one is a decision somebody
    * takes here rather than something a diff reveals later.
    */
-  it("waits on exactly these ten questions, named in the order the form asks them", () => {
+  it("waits on exactly these eleven questions, named in the order the form asks them", () => {
     expect([...REQUIRED_FIELD_NAMES]).toEqual([
       "Age band",
       "Sex",
@@ -705,8 +721,23 @@ describe("ReferralIntakeForm", () => {
       // much of the network accepts it, which team the catchment table names — so every answer
       // above it is what makes the question answerable.
       "Destination",
+      // Eleventh, 2026-08-30, when the emergency-department destination gained `edId`: an ED
+      // destination must name WHICH department, and this form is where the referrer answers that.
+      // It is the FIRST conditional question on the form — see `CONDITIONAL_QUESTION_NAME`.
+      CONDITIONAL_QUESTION_NAME,
     ]);
-    expect(REQUIRED_QUESTIONS.map((question) => question.name)).toEqual([...REQUIRED_FIELD_NAMES]);
+    // `REQUIRED_QUESTIONS` drives the always-applicable ten. The eleventh is deliberately excluded
+    // rather than added to it: it does not apply until an emergency department is ticked, so the
+    // loops below — which answer every question but one and expect Send to stay unavailable —
+    // would be asserting about a question the form is right not to be waiting on.
+    //
+    // Non-vacuity of that exclusion, spelled out because "the filter hid the failure" is exactly
+    // how a guard stops guarding: if `appliesWhen` were dropped and the question became
+    // unconditional, this assertion would still pass, and every one of the ten loops below would
+    // go red instead, because Send would never become available with no department named.
+    expect(REQUIRED_QUESTIONS.map((question) => question.name)).toEqual(
+      REQUIRED_FIELD_NAMES.filter((name) => name !== CONDITIONAL_QUESTION_NAME),
+    );
   });
 
   /** The absolute pin on what the note says while nothing is answered: the whole sentence,

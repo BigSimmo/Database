@@ -32,7 +32,7 @@ import {
   type WardReferralDestination,
 } from "@/components/ward-management/ward-model";
 import { referrals as seededReferrals } from "@/components/ward-management/ward-movements";
-import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
  * THE REFERRAL DESTINATION PICKER — what a referring clinician is shown at the moment of choosing.
@@ -320,6 +320,20 @@ describe("Referral destinations — on the screen", () => {
 
     const before = Number(screen.getByTestId("referral-count").textContent);
     for (const kind of REFERRAL_DESTINATION_KINDS) fireEvent.click(destinationCheckbox(kind));
+    /*
+     * 2026-08-30: choosing the emergency department now raises a question of its own — WHICH
+     * department — and Send waits on it exactly as it waits on the ten unconditional ones.
+     *
+     * ⚠️ **THIS TEST WENT RED WHEN THAT LANDED, AND THE RED WAS CORRECT**: it ticked all three
+     * kinds and sent without naming a department, and Send stayed unavailable, so no referral was
+     * created and the count assertion below said so ("expected 8 to be 9"). Answered here rather
+     * than worked around; a cast, or a placeholder `edId`, would have kept this green while the
+     * form sent a department nobody chose — and `RECEIVE_REFERRAL` does not validate `edId`, so
+     * nothing downstream would have caught it either.
+     */
+    fireEvent.change(screen.getByTestId("ward-referral-intake-edId"), {
+      target: { value: allEmergencyDepartments()[0].id },
+    });
     fireEvent.click(screen.getByTestId("ward-referral-intake-submit"));
 
     // FOUND BY MUTATION. Without this line, a screen that sent a malformed list — four
