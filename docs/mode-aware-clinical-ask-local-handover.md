@@ -1,6 +1,6 @@
 # Mode-aware Clinical Ask and Smart search: current-main handover
 
-Status: **PR #2293 is historical and merged. Current-main Smart natural search is being prepared as a new dormant, ready-for-review code PR. Production remains untouched and activation gates remain open.**
+Status: **PR #2293 is historical and merged. Current-main Smart natural search is published as ready-for-review PR #2459. Production remains untouched and activation gates remain open.**
 
 The historical Clinical Ask implementation entered main through
 [#2293](https://github.com/BigSimmo/Database/pull/2293) as commit
@@ -136,17 +136,32 @@ evidence as pending or partial. Named clinical-authority and privacy approval
 and physical iPhone Safari/PWA Smart-path acceptance also remain open. These
 are activation gates, not evidence supplied by the dormant code PR.
 
-The final code review completed against
+The initial final code review completed against
 8de6dae0e541166dad23523ca3a4e2340eb6c217 with all identified P2 defects fixed
-and no open P0, P1, or P2 finding. Its immutable repository review record is
-included with the publication handover.
+and no open P0, P1, or P2 finding. GitHub then reported one genuine
+reconciliation defect: `ClinicalDashboard.tsx` exceeded its no-growth
+maintainability budget. The Smart session boundary, answer/failure surface,
+clear-to-search flow, and submission decision were extracted into cohesive
+modules without changing HTTP, SSE, privacy, or navigation contracts.
+
+The corrected exact code head is
+7190c2ccd87dfc25e49e488b22705fb6b7b60931. Its maintainability budget passes
+at 4,140/4,140 dashboard lines; 86 focused unit/DOM/source-contract tests,
+provider-free production Chromium Smart coverage, lint, typecheck, formatting,
+and diff checks pass. A second GitHub failure measured a 40 px source-only
+disclosure as 39.999969 px on Linux. That component, styling, and assertion are
+unchanged by this PR, so the test was not weakened; the corrected head will
+rerun the lane naturally.
+
+The required exact-head review found no open P0, P1, or P2 issue. Its immutable
+repository record is included with this handover.
 
 ## Phase 3 — Publication and activation boundary
 
-Before publication, fetch origin/main again. If it advanced, merge it normally,
-resolve by current-main intent, and rerun only affected checks. Commit the
-reviewed exact tree, push without force, and open a **new ready-for-review PR**
-with auto-merge off.
+PR [#2459](https://github.com/BigSimmo/Database/pull/2459) is the new
+ready-for-review publication vehicle. The branch was pushed normally and
+auto-merge is off. If origin/main advances before human review, merge it
+normally, resolve by current-main intent, and rerun only affected checks.
 
 The PR must state:
 
