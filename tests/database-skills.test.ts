@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   validatePluginProductName,
   userFacingPluginMetadata,
+  userFacingProductSurfaces,
   discoverSkillDefinitions,
   discoverRepositorySkillFiles,
   loadSkillCatalog,
@@ -162,10 +163,11 @@ describe("the plugin's user-facing product name", () => {
   });
 
   it("still fails when a surface reverts to the retired name", () => {
-    // Guards the guard: a check that cannot fail is not a check. Uses a file
-    // that genuinely still carries the string — AGENTS.md documents the rename
-    // and quotes the old name — so nothing has to be written to disk.
-    const { errors } = validatePluginProductName(["AGENTS.md"]);
+    // Guards the guard: a check that cannot fail is not a check. Uses a frozen
+    // quarterly archive, which genuinely still carries the string and always
+    // will — rewriting a historical record to match a later name is exactly
+    // what the surface list refuses to do — so nothing is written to disk.
+    const { errors } = validatePluginProductName(["docs/archive/branch-review-ledger-2026-q3.md"]);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("retired product name");
   });
@@ -174,6 +176,47 @@ describe("the plugin's user-facing product name", () => {
     expect(userFacingPluginMetadata.length).toBeGreaterThan(0);
     for (const file of userFacingPluginMetadata) {
       expect(fs.existsSync(path.join(path.resolve(import.meta.dirname, ".."), file)), file).toBe(true);
+    }
+  });
+});
+
+describe("the repository's user-facing product name", () => {
+  // The app was renamed to PsychSift but the repo front page, the security
+  // policy, the container image labels and the living reference docs kept the
+  // retired name — including a worker runbook quoting a startup log line the
+  // worker has not emitted since the rename. Only living surfaces are covered:
+  // dated reports, plans and ledgers record what was true when written.
+  it("is clean across every repository surface a person reads", () => {
+    expect(validatePluginProductName(userFacingProductSurfaces).errors).toEqual([]);
+  });
+
+  it("keeps the live Supabase project names, which are not the product name", () => {
+    // `Clinical KB Database` and `Clinical KB Staging` are pinned by AGENTS.md.
+    // A guard that stripped them would rename a real database out of the docs.
+    const index = fs.readFileSync(path.resolve(import.meta.dirname, "..", "docs/codebase-index.md"), "utf8");
+    expect(index).toContain("Clinical KB Database");
+    expect(validatePluginProductName(["docs/codebase-index.md"]).errors).toEqual([]);
+  });
+
+  it("names only files that exist", () => {
+    expect(userFacingProductSurfaces.length).toBeGreaterThan(0);
+    for (const file of userFacingProductSurfaces) {
+      expect(fs.existsSync(path.join(path.resolve(import.meta.dirname, ".."), file)), file).toBe(true);
+    }
+  });
+
+  it("guards every container image, because both publish the name in OCI labels", () => {
+    // The miss this test exists for: the app `Dockerfile` was renamed and
+    // guarded while `Dockerfile.worker` kept shipping the retired name in
+    // `org.opencontainers.image.title` and `.description`. A guard list that
+    // covers one of two published images reads as complete and is not, so
+    // enumerate the images from disk rather than trusting the list.
+    const root = path.resolve(import.meta.dirname, "..");
+    const images = fs.readdirSync(root).filter((entry) => /^Dockerfile(\..+)?$/.test(entry));
+    expect(images).toContain("Dockerfile");
+    expect(images).toContain("Dockerfile.worker");
+    for (const image of images) {
+      expect(userFacingProductSurfaces, `${image} publishes OCI labels and must be guarded`).toContain(image);
     }
   });
 });

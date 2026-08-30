@@ -1,4 +1,4 @@
-# Clinical KB Documentation Index
+# PsychSift Documentation Index
 
 Curated map of the load-bearing docs under `docs/` (not an exhaustive listing of every
 file). Categories distinguish **maintained** documents (keep these current when behavior

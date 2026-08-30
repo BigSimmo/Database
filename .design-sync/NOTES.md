@@ -1,4 +1,4 @@
-# design-sync notes — Clinical KB
+# design-sync notes — PsychSift
 
 **Day-to-day:** run `node scripts/design-sync.mjs` from the repo root. That installs the
 gitignored `.ds-sync` toolchain and compiles CSS into `.design-sync/.cache/compiled.css`.

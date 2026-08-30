@@ -1,4 +1,4 @@
-# Clinical KB design system — GATES
+# PsychSift design system — GATES
 
 **Every rule paired with the check that enforces it.** Labels: **implemented-blocking**
 (runs in `verify:cheap`/CI and fails the build) · **implemented-partial** (a real check

@@ -1,4 +1,4 @@
-# Clinical KB design system — document set
+# PsychSift design system — document set
 
 The system of record for the v2 design system. **Rules and roles live here; values live
 only in the token files.** Source-of-truth ranking: `AGENTS.md` → `ckb-v2-tokens.css` →

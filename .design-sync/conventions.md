@@ -1,4 +1,4 @@
-# Clinical KB — build conventions
+# PsychSift — build conventions
 
 > The system of record is `docs/design-system/` (SPEC · TOKENS · COMPONENTS · DECISIONS ·
 > GATES). This file is the designer-facing build idiom; where it disagrees with that set,

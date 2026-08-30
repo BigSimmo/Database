@@ -164,7 +164,7 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 
 ## Global search shell
 
-Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
+Runnable mockups under `src/app/mockups/*` inherit the shared PsychSift header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
 - Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.

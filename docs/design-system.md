@@ -1,4 +1,4 @@
-# Clinical KB Design System — the front door
+# PsychSift Design System — the front door
 
 > **Superseded as spec (31 July 2026).** The system of record is now
 > [`docs/design-system/`](./design-system/README.md) — SPEC, TOKENS, COMPONENTS, DECISIONS,
