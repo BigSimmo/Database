@@ -210,7 +210,7 @@ export function PrivacyQuietSignalPage() {
             <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
               <PrivacyPageBackButton />
             </Suspense>
-            <BrandMark className="h-9 w-9 shrink-0 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+            <BrandMark tone="emphasis" className="h-9 w-9 shrink-0 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
             <div className="min-w-0 flex-1">
               <p className={cn(eyebrowText, "shrink-0")}>{privacyCopy.pageEyebrow}</p>
               <p className="mt-0.5 truncate text-sm font-semibold tracking-display text-[color:var(--text-heading)] sm:text-base-minus lg:text-lg">

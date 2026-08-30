@@ -214,7 +214,7 @@ function AccountOrientationPanel() {
           data-testid="account-workspace-mark"
           className="grid size-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2),var(--shadow-inset)]"
         >
-          <BrandMark className="h-8 w-8" />
+          <BrandMark tone="emphasis" className="h-8 w-8" />
         </span>
         <h3
           id="account-workspace-benefits"
