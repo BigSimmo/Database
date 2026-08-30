@@ -150,11 +150,20 @@ at 4,140/4,140 dashboard lines; 86 focused unit/DOM/source-contract tests,
 provider-free production Chromium Smart coverage, lint, typecheck, formatting,
 and diff checks pass. A second GitHub failure measured a 40 px source-only
 disclosure as 39.999969 px on Linux. That component, styling, and assertion are
-unchanged by this PR, so the test was not weakened; the corrected head will
-rerun the lane naturally.
+unchanged by this PR, so the test was not weakened; Production UI (1) passed on
+the next head without changing it.
 
-The required exact-head review found no open P0, P1, or P2 issue. Its immutable
-repository record is included with this handover.
+That next run exposed two stale test-owner assumptions after the cohesive
+extraction. The unit source contracts still searched `ClinicalDashboard.tsx`
+for the now-extracted provider and workspace, while the DSM smoke test used a
+bare page-root locator that matched Next.js's hidden outgoing tree. Commit
+b762e1363b9bbb993f0f74a9e00a2c2ccb1f56be updates the contracts to assert the
+extracted owners and scopes DSM page roots through the repository
+`visibleByTestId` helper without using `.first()`. All 6 focused unit contracts
+and the exact production Chromium DSM navigation regression pass.
+
+The required exact-code and final test-head reviews found no open P0, P1, or P2
+issue. Their immutable repository records are included with this handover.
 
 ## Phase 3 — Publication and activation boundary
 
