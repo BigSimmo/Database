@@ -4,6 +4,7 @@ import type {
   BedReleaseBlocker,
   LegalStatusChangeReason,
   UrgencyChangeReason,
+  OverrideReason,
 } from "@/components/ward-management/ward-change-reasons";
 
 /**
@@ -259,6 +260,39 @@ export type Decline = {
   reason: DeclineReason;
 };
 
+/**
+ * A COORDINATOR OVERRIDE, kept rather than shown and discarded.
+ *
+ * Owner decision OD-3: the reason was collected in a `<textarea>`, held in the shortlist panel's
+ * own `useState`, and thrown away the moment another patient was selected — while the governance
+ * page stated that override reasons are recorded. **A page making a false claim about what it
+ * keeps.** Replacing the box with a fixed list alone would not have fixed that: it would have
+ * swapped free text that goes nowhere for five reasons that go nowhere, and the row would read as
+ * done.
+ *
+ * ⚠️ **THIS RECORD IS AN ACCOUNTABILITY RECORD, NOT AN AUDIT TRAIL, AND THE TWO STORE IDENTICAL
+ * DATA.** The owner's requirement is that it is **visible to the party overridden** — the unit
+ * referred to despite its own gate failing. That difference is a READ PERMISSION, not a field, so
+ * a reviewer reading this type sees nothing missing either way. `overridesAgainstUnit`
+ * (`ward-derivations.ts`) is the ward-facing read, and `tests/ward-override-register.test.ts`
+ * is the boundary that goes red — because an override log only its author can see is a trail, and
+ * the whole point of the decision was that it is not one.
+ */
+export type Override = {
+  /** When the override was made. */
+  at: Instant;
+  /** A ROLE, never a person — the same discipline as `decidedBy` and `StatusChange.by`. */
+  by: string;
+  /** From `OVERRIDE_REASONS`, never free text, and never an "other, please specify" (WB-DB-16). */
+  reason: OverrideReason;
+  /**
+   * The units referred to despite a failing gate — THE PARTIES OVERRIDDEN. This is the field the
+   * ward-facing read is keyed on, which is why it is a list of ids and not a count: a number could
+   * not answer "was I one of them".
+   */
+  unitIds: string[];
+};
+
 export type StatusChange = {
   at: Instant;
   from: LegalStatus;
@@ -278,10 +312,43 @@ export type UrgencyChange = {
   reason: UrgencyChangeReason;
 };
 
+/**
+ * WHO COLLECTS THE PATIENT — obviously generic placeholders, and the owner's to replace.
+ *
+ * `TR-D2`. Until 2026-08-30 this field was a bare string with two values and no vocabulary: the
+ * reducer hardcoded "State patient transport service" onto every job it created, and the seed used
+ * **"St John WA"** — a REAL organisation, named inside a synthetic prototype, rendering straight to
+ * screen as "St John WA accepted, awaiting departure".
+ *
+ * Two faults in one field. The screen stated who was collecting a patient and **nobody chose it**;
+ * and a demonstration asserted an operational fact about a real body that has agreed to nothing.
+ *
+ * These three are PLACEHOLDERS in the `CM-8` sense — findable in one place, never presented as the
+ * real set, and replaced wholesale on the day somebody supplies the actual providers. They are the
+ * three the transport design names and no more: "and so on" in a spec is an invitation to invent,
+ * and inventing a fourth provider is the same act as writing a real one in.
+ */
+export const TRANSPORT_PROVIDERS = ["Ambulance service", "Patient transport service", "Ward escort"] as const;
+export type TransportProvider = (typeof TRANSPORT_PROVIDERS)[number];
+
 export type TransportJob = {
   id: string;
-  provider: string;
+  /** From `TRANSPORT_PROVIDERS`. Never free text — see that list's own doc comment. */
+  provider: TransportProvider;
   escortRequired: boolean;
+  /**
+   * The form this transfer requires. **STILL A BARE STRING, and that is a known gap rather than an
+   * oversight** — `TR-D2` asks for it to draw from `SELECTABLE_LEGAL_FORMS`, and it should.
+   *
+   * Not done here because the change is not local. `SELECTABLE_LEGAL_FORMS` is typed
+   * `readonly LegalForm[]` with `code: string`, so deriving a union from it needs `as const` on
+   * that array — and `ward-legal-forms.ts` is pinned in roughly fifteen places by
+   * `tests/ward-legal-figure-guard.test.ts`, the Mental Health Act figure guard the owner has said
+   * must never be disturbed. Widening a type there is a deliberate change with that guard in front
+   * of it, not a side effect of removing two organisation names from a different field.
+   *
+   * Nothing writes a bad code today: the only populated `formRequired` comes from the seed.
+   */
   formRequired?: string;
   acceptedAt?: Instant;
   enRouteAt?: Instant;
@@ -321,6 +388,29 @@ export type Movement = {
   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
   originEdId: string;
   openedAt: Instant;
+  /**
+   * THE URGENT FLAG — the one thing that outranks a wait and a tier (owner, 2026-08-30).
+   *
+   * His words: "A long wait always is prioritised… however… in certain cases patients can be
+   * marked as urgent for many reasons which outranks everything." Asked how far to take it, he
+   * scoped it deliberately small: **"For now just have a feature that flags the patient. I will
+   * build on it later."**
+   *
+   * So this is ADDITIVE AND REVERSIBLE. It sits above `urgency` in `queueOrder` and changes
+   * nothing beneath it — the three tiers, `operationalScore` and its ten-hour wait ceiling are all
+   * exactly as they were.
+   *
+   * ⚠️ **THAT LEAVES THREE RANKINGS STACKED — a flag, above three tiers, above a composite score —
+   * AND THAT IS A STAGE, NOT A DESIGN.** A reader meeting it should not take it as settled. The
+   * deferred decision, in his own words "I will build on it later", is what becomes of the tiers
+   * and of `operationalScore` once the flag is the ordering. `tests/ward-priority.test.ts` names
+   * that open question so it cannot quietly become the shape by default.
+   *
+   * Carries no reason. He said "for many reasons" — plural and unenumerated — and inventing a
+   * vocabulary for them would be putting words in his mouth on the one surface where a wrong
+   * answer reaches a person. A reason field is part of "later", not part of this.
+   */
+  flaggedUrgent: boolean;
   urgency: UrgencyLevel;
   cohort: Cohort;
   security: Security;
@@ -332,6 +422,9 @@ export type Movement = {
   /** Urgency-tier changes, in the order they were made. Empty for a movement whose urgency has
    *  never changed since it was raised. */
   urgencyChanges: UrgencyChange[];
+  /** Every coordinator override on this movement, oldest first. Empty for a movement nobody has
+   *  overridden a gate for — which is most of them. See `Override`. */
+  overrides: Override[];
   stage: MovementStage;
   owner: string;
   /** Units currently holding a live referral. Never longer than PARALLEL_REFERRAL_CAP. */
@@ -650,8 +743,55 @@ export type ReferralDestination =
        */
       involuntaryBedNeeded: boolean;
     }
-  | { kind: "emergency_department" }
+  | {
+      kind: "emergency_department";
+      /**
+       * WHICH department. Required on every ED destination, whoever sent it and whyever.
+       *
+       * ⚠️ **THE ARM IS CALLED `emergency_department` AND THE REFERRAL DOES NOT GO TO ONE.** It
+       * goes to the PSYCHIATRY SERVICE AT one — including the ward→ED medical notification, which
+       * exists so that psychiatry know. ED medical staff are not users of this system at all:
+       * `FD-16` records that their request arrives verbally, by phone or conversation, and
+       * psychiatry then raise a referral addressed to themselves. That verbal step is the owner's
+       * described workflow, not a gap somebody forgot to close.
+       *
+       * The name was kept rather than changed to `ed_psychiatry`, deliberately: renaming churns
+       * every exhaustive switch over `REFERRAL_DESTINATION_KINDS` for a naming nuance a comment
+       * carries just as well. **This comment IS the carrier — losing the fact is the cost that
+       * matters, not the name.**
+       */
+      edId: string;
+      /** WHY. See `REFERRAL_PURPOSES` — a separate axis from `kind`, on purpose. */
+      purpose: ReferralPurpose;
+    }
   | { kind: "community_team" };
+
+/**
+ * WHY A REFERRAL WAS ADDRESSED TO AN EMERGENCY DEPARTMENT — a separate axis from WHERE.
+ *
+ * `FD-15`/`FD-11`. Three flows address a department and none of them means the same thing: a
+ * community service asking for a **bed**, ED psychiatry addressing **themselves** for a review
+ * (`FD-16`'s self-addressed inbox, which is the whole mechanism), and a ward telling ED about a
+ * **medical** problem.
+ *
+ * ⚠️ **IT IS A FIELD, NOT A KIND, AND THAT IS THE DECISION RATHER THAN A DETAIL.** A fourth
+ * destination kind encoding "psychiatric review at an ED" would put the WHY inside the WHERE, and a
+ * bed request would then be answered by the same affordance as a review request — which is how one
+ * silently becomes the other.
+ *
+ * ⚠️ **AND IT EXISTS TO KILL A SPECIFIC WORKAROUND THAT WAS FOUND AND REFUSED RATHER THAN
+ * SHIPPED:** inferring "addressed to itself" from `originSiteCode === department.siteCode`. That
+ * compiles, reads correctly, and drops the ward→ED MEDICAL notification straight into the
+ * psychiatry inbox — because a psychiatric ward at the same hospital shares that site code. It is
+ * wrong on exactly the case the spec names, which is the case nobody re-reads after implementing
+ * from it. `FD-18` is the general form; `tests/ward-referral-ed-destination.test.ts` is the guard.
+ *
+ * Only the ED arm carries it. A psychiatric-ward destination is asking for a bed and a community
+ * team is not, so giving them a purpose would mean inventing values nobody has ruled on — and a
+ * fixed list in this project is the owner's to write.
+ */
+export const REFERRAL_PURPOSES = ["bed", "psychiatric_review", "medical_assessment"] as const;
+export type ReferralPurpose = (typeof REFERRAL_PURPOSES)[number];
 
 /**
  * ONE DESTINATION THIS REFERRAL WAS SENT TO, AND WHAT THAT DESTINATION ANSWERED.

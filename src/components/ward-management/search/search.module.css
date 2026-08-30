@@ -195,6 +195,27 @@
 }
 
 /*
+ * A person's row is a link across its whole line, at the full 3rem tap target this repository uses
+ * for production controls rather than the height of the text. These rows were inert `<li>`s that
+ * absorbed a click in silence; making them clickable but hard to hit would swap one quiet failure
+ * for a quieter one.
+ */
+.personLink {
+  display: flex;
+  min-width: 0;
+  min-height: var(--ps-space-48);
+  align-items: center;
+  gap: var(--ps-space-6);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.personLink:hover,
+.personLink:focus-visible {
+  text-decoration: underline;
+}
+
+/*
  * Wide content scrolls; it never crushes. Without this the table is `width: 100%` on a 390px
  * phone, so the browser squeezes every column until words break mid-syllable — measured on a
  * production build: "Place/ment reque/sted", "Desti/natio/n revie/w" — and the right-hand column

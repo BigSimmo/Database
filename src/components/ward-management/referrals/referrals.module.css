@@ -166,28 +166,21 @@
   outline-offset: 0.125rem;
 }
 
-/* A toggle is its own full-width card too — the same tap-target and visual weight as a picker
-   card, never a cramped inline checkbox. */
-.toggleCard {
-  display: flex;
-  min-height: var(--ri-space-48);
-  align-items: center;
-  gap: var(--ri-space-10);
-  border: 0.0625rem solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: 0 var(--ri-space-14);
-  color: var(--text-heading);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  line-height: var(--ri-leading-body);
-}
+/* `.toggleCard` stood here until 2026-08-30, styling the three checkboxes this form used to
+   carry. All three became yes/no radio groups (`.choiceCard`/`.choiceOption` below) when an
+   untouched checkbox turned out to be sending a definite clinical "no" nobody had chosen, and
+   nothing has rendered the class since. Its rules — including its `@media print` reset — have moved
+   onto the classes that ARE rendered, rather than being left behind pointing at nothing: a print
+   guard naming an orphaned selector is decorative, and reads as coverage the screen does not have.
 
-.toggleCard input {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0;
-  accent-color: var(--clinical-accent);
+   A note about what it says beneath a question, not a control of its own. Used by the suburb
+   picker to say plainly that its answer is not recorded on the referral. */
+.fieldNote {
+  margin: var(--ri-space-8) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: var(--ri-leading-body);
 }
 
 /* Phase R2.1: a yes/no question that starts with NEITHER answer chosen. Same card weight and the
@@ -251,6 +244,81 @@
 .choiceOption:focus-within {
   outline: 0.125rem solid var(--focus);
   outline-offset: 0.125rem;
+}
+
+/* FD-21: every destination a referrer may choose, one card each, stacked so a phone reads them in
+   one column and a desktop still gets full-width cards — the facts beside each option are
+   sentences, and sentences in narrow columns are how a clinician skips them. */
+.destinationList {
+  display: grid;
+  margin: var(--ri-space-8) 0 0;
+  padding: 0;
+  gap: var(--ri-space-8);
+  list-style: none;
+}
+
+.destinationOption {
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--ri-space-12) var(--ri-space-14);
+}
+
+/* GREYED, NEVER REMOVED AND NEVER DISABLED (owner's rule). Keyed off the data attribute rather
+   than a second class for the same reason `.submit[aria-disabled="true"]` above is: the STATE is
+   what the screen renders from, so a card cannot look chosen-able while the option says it is
+   outside the catchment table. The control inside keeps its full 48px target and stays operable —
+   choosing one is allowed, and the card says in words why it is drawn this way, so the meaning is
+   never carried by colour alone. */
+.destinationOption[data-outside-catchment="true"] {
+  border-style: dashed;
+  background: var(--surface-chrome);
+}
+
+/* The label IS the control's accessible name, and carries the 48px tap target. */
+.destinationName {
+  display: flex;
+  min-height: var(--ri-space-48);
+  align-items: center;
+  gap: var(--ri-space-10);
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: var(--ri-leading-body);
+}
+
+.destinationName input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  accent-color: var(--clinical-accent);
+}
+
+.destinationName:focus-within {
+  outline: 0.125rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+.destinationNote {
+  margin: var(--ri-space-8) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: var(--ri-leading-body);
+}
+
+.destinationFacts {
+  display: grid;
+  margin: var(--ri-space-8) 0 0;
+  padding: 0 0 0 var(--ri-space-14);
+  gap: var(--ri-space-4);
+}
+
+.destinationFact {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  line-height: var(--ri-leading-body);
 }
 
 /* Why Send is unavailable, named field by field. Never colour alone and never a tooltip: it is
@@ -907,12 +975,19 @@
  * into an element's own explicit `background` declaration — so without this reset, printing any
  * of the three screens while the app is in dark mode paints the whole screen container as a dark
  * band, not the white sheet the print reset promises everywhere else. Every card-shaped container
- * below (`.fieldCard`, `.section`, `.card`, `.matchPanel`, `.toggleCard`, `.matchRowAccepts`,
- * `.matchRowDeclines`) has the identical problem for the same reason — each carries its own
- * explicit `background: var(--surface-subtle)` / `var(--surface-raised)`, confirmed by measuring
- * `getComputedStyle(...).backgroundColor` on the rendered dark-mode print output: `rgb(13, 15,
- * 17)` for `.fieldCard`, `rgb(28, 33, 38)` for `.toggleCard` — near-black islands that would
- * survive a `.screen`-only reset.
+ * below (`.fieldCard`, `.section`, `.card`, `.matchPanel`, `.choiceCard`, `.choiceOption`,
+ * `.destinationOption`, `.destinationName`, `.matchRowAccepts`, `.matchRowDeclines`) has the
+ * identical problem for the same reason — each carries its own explicit
+ * `background: var(--surface-subtle)` / `var(--surface-raised)` / `var(--surface)`, confirmed by
+ * measuring `getComputedStyle(...).backgroundColor` on the rendered dark-mode print output:
+ * `rgb(13, 15, 17)` for `.fieldCard`, `rgb(28, 33, 38)` for the card that was `.toggleCard` when
+ * that measurement was taken — near-black islands that would survive a `.screen`-only reset.
+ *
+ * `.choiceCard`, `.choiceOption` and the destination cards were NOT in this block until
+ * 2026-08-30, and `.toggleCard` — which was — had stopped being rendered by anything. So the block
+ * reset a class no screen produces while three question cards a clinician can actually print went
+ * out as near-black blocks. Both are fixed together, because fixing either alone leaves the guard
+ * in `tests/ward-referrals-print.test.ts` naming something the screen does not have.
  *
  * `color-scheme` is inherited, and `.dark` (globals.css) sets `color-scheme: dark` on the root.
  * System colours such as `CanvasText` below resolve against the *inherited* `color-scheme`, not
@@ -934,7 +1009,8 @@
  * 1.03:1), `.table th` at `rgb(168, 178, 189)` (2.15:1), `.table td` / `.waitBadge` /
  * `.decidedNote` at `rgb(244, 246, 248)` (1.08:1), `.matchSummary` / `.matchGovernance` /
  * `.matchReasonText` at `rgb(168, 178, 189)` (2.15:1), `.matchTier` / `.matchUnitName` /
- * `.fieldLegend` / `.toggleCard` at `rgb(251, 252, 253)` (1.03:1) — pale ink on the white sheet
+ * `.fieldLegend` / the checkbox card then called `.toggleCard` at `rgb(251, 252, 253)` (1.03:1) —
+ * pale ink on the white sheet
  * the print reset forces, on 58 of 59 leaves (board), 14 of 15 (intake), 63 of 63 (match).
  *
  * `.prototypeBadge` is deliberately left out of the group below, exactly as `morning.module.css`
@@ -1000,6 +1076,8 @@
   .card,
   .matchPanel,
   .bandGroup,
+  .choiceCard,
+  .destinationOption,
   .matchRowAccepts,
   .matchRowDeclines {
     border-color: CanvasText;
@@ -1008,16 +1086,31 @@
   }
 
   /*
-   * `.toggleCard` is both the card AND the text carrier — the checkbox label text is a direct
-   * child of the `<label className={styles.toggleCard}>` element, not a separately classed span
-   * inside it — so it needs the card group's border/background treatment and the text group's
-   * `color: CanvasText` in the same rule.
+   * `.choiceOption` and `.destinationName` are each both a card AND the text carrier — the
+   * answer's word ("Yes"/"No") and the destination's name are direct children of the `<label>`
+   * that carries the class, not separately classed spans inside it — so each needs the card
+   * group's border/background treatment and the text group's `color: CanvasText` in one rule.
+   *
+   * This rule is `.toggleCard`'s, moved. That class styled the three checkboxes this form used to
+   * carry; all three became radio groups and nothing has rendered it since, so its print reset
+   * covered a selector no screen produces while the three cards a clinician actually prints — the
+   * two need questions, the transport question — carried their own `background: var(--surface-subtle)`
+   * straight onto the sheet as near-black islands. Both arrays in
+   * `tests/ward-referrals-print.test.ts` moved with it: a guard naming an orphan is decorative, and
+   * reads as coverage the screen does not have.
    */
-  .toggleCard {
+  .choiceOption,
+  .destinationName {
     border-color: CanvasText;
     background: none;
     break-inside: avoid;
     color: CanvasText;
+  }
+
+  /* Greyed on screen by its own background; on paper the dashed border is what carries the
+     distinction, so the background goes and the border stays. */
+  .destinationOption[data-outside-catchment="true"] {
+    background: none;
   }
 
   /*
@@ -1116,6 +1209,17 @@
   .matchBand,
   .syntheticNotice,
   .allNotRecorded,
+  /*
+   * The destination picker's own text, and the suburb note beneath its picker. Each uses
+   * `--text-muted`, which stays a pale grey-blue custom-property value in the dark theme whatever
+   * `color-scheme` says — so each would print as pale ink on the white sheet the print reset
+   * forces, exactly like every name above it. These are the sentences a clinician would print the
+   * form FOR: which team the catchment table names, how many units accept, why an option is
+   * offered.
+   */
+  .fieldNote,
+  .destinationNote,
+  .destinationFact,
   .matchPanel > p {
     color: CanvasText;
   }

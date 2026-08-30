@@ -2,23 +2,30 @@
 
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
 
+import { destinationOptions, suburbOptions } from "@/components/ward-management/referrals/referral-destination-options";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import {
   COHORTS,
   HOME_REGIONS,
+  PARALLEL_REFERRAL_CAP,
+  REFERRAL_DESTINATION_KINDS,
   REFERRAL_SOURCES,
   SEXES,
   URGENCY_LEVELS,
   type Cohort,
   type HomeRegion,
+  type ReferralDestination,
+  type ReferralDestinationKind,
   type ReferralSource,
   type Rejection,
   type Sex,
+  type ReferralPurpose,
   type UrgencyLevel,
+  type WardReferralDestination,
 } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { wardSites } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, wardSites } from "@/components/ward-management/ward-sites";
 
 import styles from "./referrals.module.css";
 
@@ -43,6 +50,9 @@ import styles from "./referrals.module.css";
  * below now derive from them like every other picker on this form.
  */
 const AGE_BAND_OPTIONS: Cohort[] = [...COHORTS];
+/** Every suburb the catchment sources name, derived from the exported rows — see
+ *  `suburbOptions`' own comment for why a hand-written list is not an option here. */
+const SUBURB_OPTIONS: readonly string[] = suburbOptions();
 const HOME_REGION_OPTIONS: HomeRegion[] = [...HOME_REGIONS];
 const SOURCE_OPTIONS: ReferralSource[] = [...REFERRAL_SOURCES];
 const SEX_OPTIONS: Sex[] = [...SEXES];
@@ -107,7 +117,83 @@ export const UNANSWERED_OPTION_LABEL = "Choose one";
 const UNAVAILABLE_REASON_ID = "ward-referral-intake-unavailable-reason";
 
 function isUnanswered(value: unknown): boolean {
+  // FD-21: the destinations are a LIST, and an empty one is the same fact every sentinel above
+  // states — nobody has answered yet. Handled here rather than by a second special case in
+  // `unansweredFieldNames`, so the destination question is checked by the same rule as the other
+  // nine rather than by a branch beside it that could disagree with them.
+  if (Array.isArray(value)) return value.length === 0;
   return value === UNANSWERED_VALUE;
+}
+
+/**
+ * THE PURPOSE EVERY EMERGENCY-DEPARTMENT DESTINATION THIS FORM RAISES CARRIES, AND WHY IT IS A
+ * CONSTANT RATHER THAN AN ELEVENTH QUESTION.
+ *
+ * `REFERRAL_PURPOSES` has three members and this form can honestly produce exactly one of them.
+ * The spec's own table fixes the purpose from WHO is referring, not from what they pick:
+ *
+ *   community → ED            `bed`                 ← this form, every source it offers
+ *   ED psychiatry → itself    `psychiatric_review`  ← `FD-16`'s self-addressed inbox
+ *   ward → ED                 `medical_assessment`
+ *
+ * ⚠️ **A CLINICIAN PICKING THE PURPOSE IS A CLINICIAN ABLE TO PICK THE WRONG ONE**, and the wrong
+ * one here is not a cosmetic error: `psychiatric_review` is the value an ED psychiatry inbox
+ * selects on, so an external referrer who chose it would post themselves into another team's
+ * worklist. The three flows are already distinguishable by who is raising them, so nothing is lost
+ * by deriving it and a whole class of mis-addressing is closed.
+ *
+ * **THIS FORM IS THE COMMUNITY FRONT DOOR AND CANNOT BE ANYTHING ELSE.** It dispatches
+ * `RECEIVE_REFERRAL`, whose `EVENT_ROLE` entry is `["community"]`, and every value in
+ * `REFERRAL_SOURCES` it offers (community, crisis service, police, ambulance, inter-hospital) is an
+ * external referrer asking for a bed. So `bed` is not this form's default — it is the only purpose
+ * it can truthfully mean. The other two rows above have no producer anywhere in `src/` today; that
+ * is a reported gap, not something to close by widening this picker.
+ */
+const INTAKE_REFERRAL_PURPOSE: ReferralPurpose = "bed";
+
+/**
+ * The destinations this referral is addressed to, built from the kinds the referrer ticked — or
+ * `undefined` while a chosen destination still has an unanswered question of its own.
+ *
+ * BUILT BY WALKING `REFERRAL_DESTINATION_KINDS`, never the selection array, and that is what makes
+ * two of one kind unreachable rather than merely unlikely. The reducer REFUSES a repeated kind
+ * rather than de-duplicating it — silently collapsing a double selection would make the cap count
+ * something other than what the referrer chose — so the screen must never be able to produce one,
+ * and one checkbox per kind plus this walk is what guarantees it structurally.
+ *
+ * The per-arm answers are attached to the arm that has them and to nothing else: the bed criteria
+ * reach only the ward, and `edId` reaches only the emergency department. That is the destination
+ * union's whole point, and this is the one place on this screen it is spent.
+ *
+ * ⚠️ **AN UNANSWERED `edId` RETURNS `undefined` — IT NEVER BECOMES A PLACEHOLDER.** An `edId: ""`,
+ * or a first-department default, would compile and would send: the reducer validates the referral's
+ * source, home region, age band, urgency and origin site, but it does **not** validate `edId` or
+ * `purpose` at all, so a stub department queues silently and reads as an answer somebody gave. This
+ * is the same refusal `answeredDraft` makes for every other question, applied to a question that
+ * only exists once a particular destination is chosen.
+ */
+function destinationsFor(
+  kinds: readonly ReferralDestinationKind[],
+  ward: WardReferralDestination,
+  edId: string | typeof UNANSWERED_VALUE,
+): ReferralDestination[] | undefined {
+  const chosen = REFERRAL_DESTINATION_KINDS.filter((kind) => kinds.includes(kind));
+  const destinations: ReferralDestination[] = [];
+  for (const kind of chosen) {
+    switch (kind) {
+      case "psychiatric_ward":
+        destinations.push(ward);
+        break;
+      case "emergency_department":
+        if (edId === UNANSWERED_VALUE) return undefined;
+        destinations.push({ kind, edId, purpose: INTAKE_REFERRAL_PURPOSE });
+        break;
+      case "community_team":
+        destinations.push({ kind });
+        break;
+    }
+  }
+  return destinations;
 }
 
 type ReferralDraft = {
@@ -121,6 +207,42 @@ type ReferralDraft = {
   /** Already a `string`, so the sentinel needs no widening here — but see `UNANSWERED_VALUE`'s
    *  own comment for why that sentinel must not be `""`. */
   originSiteCode: string;
+  /**
+   * The patient's suburb, used ON THIS SCREEN ONLY, to read the catchment for each destination.
+   *
+   * **IT IS NOT RECORDED ON THE REFERRAL, AND THE FORM SAYS SO** rather than letting a clinician
+   * believe it was. `Referral` carries `homeRegion` and no suburb, and widening it is a model
+   * change this session is not the writer of — spec Part 1 ("Catchment needs a fact the model does
+   * not have") already specifies that widening for whoever compiles against it. Until then this
+   * answers the picker's questions and goes no further, which is why it is deliberately NOT in
+   * `REQUIRED_FIELDS`: Send cannot wait on a fact the referral has nowhere to put.
+   *
+   * Deriving it from `homeRegion` instead was considered and refused: ten broad WA regions cannot
+   * produce a 537-suburb catchment answer, and mapping one onto the other would invent an
+   * administrative fact — the defect `HOME_REGIONS`' own doc comment records this project already
+   * paying for once.
+   */
+  suburb: string;
+  /**
+   * Everywhere this referral is addressed, chosen in ONE act (FD-21) — never one destination at a
+   * time and never a repeat referral. An empty list is the unanswered state; see `isUnanswered`.
+   */
+  destinationKinds: ReferralDestinationKind[];
+  /**
+   * WHICH emergency department, once one has been chosen as a destination. One of
+   * `allEmergencyDepartments()`' ids, never anything else.
+   *
+   * ⚠️ **NO DEFAULT, AND NEVER THE FIRST DEPARTMENT IN THE LIST.** Every ED destination names which
+   * department (`ReferralDestination`'s own comment: "Required on every ED destination, whoever
+   * sent it and whyever"), and a form that guesses is a form that quietly addresses a request to
+   * the wrong hospital. It starts unanswered like every other question on this form, and
+   * `answeredDraft` refuses to send while an ED is ticked and this is still the sentinel.
+   *
+   * It is conditionally required rather than always required, which is a real difference from the
+   * ten questions above it: nobody should have to name a department to raise a ward-only referral.
+   * `REQUIRED_FIELDS`' `appliesWhen` below is where that is expressed.
+   */
+  edId: string | typeof UNANSWERED_VALUE;
   /** Widened exactly as the two need questions above were, and for the same reason: a bare
    *  `boolean` has no room for "nobody has answered this yet", so the type itself would go on
    *  forcing an answer nobody gave. See `REQUIRED_FIELDS` below for the ruling that authorised
@@ -128,7 +250,7 @@ type ReferralDraft = {
   transportNeeded: boolean | typeof UNANSWERED_VALUE;
 };
 
-/** The nine fields exactly as `RECEIVE_REFERRAL` takes them, once every question has an answer. */
+/** The fields exactly as `RECEIVE_REFERRAL` takes them, once every question has an answer. */
 type AnsweredDraft = {
   ageBand: Cohort;
   sex: Sex;
@@ -139,6 +261,16 @@ type AnsweredDraft = {
   urgency: UrgencyLevel;
   originSiteCode: string;
   transportNeeded: boolean;
+  /**
+   * The destinations already BUILT, not the kinds still to be assembled from.
+   *
+   * This carried `destinationKinds` until the ED arm gained `edId` and `purpose`. Assembly then
+   * needed a narrowed `edId`, and the only place holding one is `answeredDraft` — the single gate
+   * every unanswered value is stopped at. Building them there rather than at the dispatch keeps
+   * that gate the ONE place a sentinel can escape from, instead of adding a second narrowing beside
+   * it that could disagree with it.
+   */
+  destinations: ReferralDestination[];
 };
 
 /**
@@ -164,7 +296,20 @@ type AnsweredDraft = {
  * wording on purpose: that wording ("Needs a secure bed" …) is a clinical rule with its own test,
  * and repeating it inside this sentence would put the same clinical phrase on the screen twice.
  */
-const REQUIRED_FIELDS: readonly { readonly key: keyof ReferralDraft; readonly name: string }[] = [
+const REQUIRED_FIELDS: readonly {
+  readonly key: keyof ReferralDraft;
+  readonly name: string;
+  /**
+   * When this question applies at all. Absent means always, which is true of the ten below it.
+   *
+   * ⚠️ **ADDED FOR ONE QUESTION AND IT MUST NOT BECOME A HABIT.** A conditionally-required field is
+   * a field that can be silently switched off by a predicate nobody re-reads, which is the same
+   * shape as a guard that inspects nothing. It earns its place here because "which emergency
+   * department" is genuinely not a question a ward-only referral has — asking it would be asking
+   * for an answer with nothing to attach to — rather than because answering it is inconvenient.
+   */
+  readonly appliesWhen?: (draft: ReferralDraft) => boolean;
+}[] = [
   { key: "ageBand", name: "Age band" },
   { key: "sex", name: "Sex" },
   { key: "homeRegion", name: "Home region" },
@@ -174,13 +319,35 @@ const REQUIRED_FIELDS: readonly { readonly key: keyof ReferralDraft; readonly na
   { key: "secureBedNeeded", name: "Secure bed needed" },
   { key: "involuntaryBedNeeded", name: "Involuntary bed needed" },
   { key: "transportNeeded", name: "Transport needed" },
+  // FD-21, last because it is the question every answer above it informs: the picker shows what
+  // each destination looks like for THIS request, so a clinician chooses knowing it.
+  { key: "destinationKinds", name: "Destination" },
+  // Eleventh, and the only one that does not always apply: it exists solely to complete an
+  // emergency-department destination, so it is asked once one is ticked and not before. Placed
+  // after "Destination" because that is the answer that raises it.
+  {
+    key: "edId",
+    name: "Emergency department",
+    appliesWhen: (draft) => draft.destinationKinds.includes("emergency_department"),
+  },
 ];
 
-/** The same names, in the same order, for the suite that pins what the note may say. */
+/**
+ * Every name this form's unavailability note is allowed to use, in the order it asks them — the
+ * VOCABULARY, not the list shown on any particular render.
+ *
+ * Since one question is conditional, this is deliberately a superset of what the note says at any
+ * moment: "Emergency department" is a name the note may use, and does use exactly when an ED is
+ * chosen. `unansweredFieldNames` below is what a given draft actually shows.
+ */
 export const REQUIRED_FIELD_NAMES: readonly string[] = REQUIRED_FIELDS.map((field) => field.name);
 
+/** The questions THIS draft is still waiting on: applicable, and unanswered. Both halves matter —
+ *  naming a question that does not apply is as misleading as hiding one that does. */
 function unansweredFieldNames(draft: ReferralDraft): string[] {
-  return REQUIRED_FIELDS.filter((field) => isUnanswered(draft[field.key])).map((field) => field.name);
+  return REQUIRED_FIELDS.filter((field) => field.appliesWhen?.(draft) ?? true)
+    .filter((field) => isUnanswered(draft[field.key]))
+    .map((field) => field.name);
 }
 
 /**
@@ -203,8 +370,14 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     urgency,
     originSiteCode,
     transportNeeded,
+    destinationKinds,
+    edId,
   } = draft;
   if (ageBand === UNANSWERED_VALUE || sex === UNANSWERED_VALUE || homeRegion === UNANSWERED_VALUE) return undefined;
+  // FD-21. An empty list is refused BY THE REDUCER too ("needs at least one destination"); it is
+  // stopped here as well so the form never sends an event it already knows will be refused, in the
+  // same shape every other unanswered question is stopped.
+  if (destinationKinds.length === 0) return undefined;
   if (source === UNANSWERED_VALUE || urgency === UNANSWERED_VALUE || originSiteCode === UNANSWERED_VALUE) {
     return undefined;
   }
@@ -213,6 +386,16 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
   // sentinel escaping: `transportNeeded` was read straight off `draft` here and passed through
   // untouched, which is exactly how a value nobody chose used to reach `RECEIVE_REFERRAL`.
   if (transportNeeded === UNANSWERED_VALUE) return undefined;
+  // The destinations are ASSEMBLED HERE, at the gate, rather than at the dispatch below. An
+  // emergency department with no department named comes back `undefined` and Send stays
+  // unavailable, exactly as an unanswered age band does — see `destinationsFor` on why a
+  // placeholder `edId` would be worse than the refusal.
+  const destinations = destinationsFor(
+    destinationKinds,
+    { kind: "psychiatric_ward", sex, secureBedNeeded, involuntaryBedNeeded },
+    edId,
+  );
+  if (destinations === undefined) return undefined;
   return {
     ageBand,
     sex,
@@ -223,6 +406,7 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     urgency,
     originSiteCode,
     transportNeeded,
+    destinations,
   };
 }
 
@@ -254,6 +438,14 @@ function initialDraft(): ReferralDraft {
     source: UNANSWERED_VALUE,
     urgency: UNANSWERED_VALUE,
     originSiteCode: UNANSWERED_VALUE,
+    suburb: UNANSWERED_VALUE,
+    // FD-21: nothing is chosen for the clinician. Not even where the catchment table routes
+    // cleanly — the table SUGGESTS, in words, and a suggestion that pre-ticks itself is a value
+    // nobody chose reaching the reducer, which is the whole defect R2.1 removed from this form.
+    destinationKinds: [],
+    // No department is chosen for the clinician either, and the reducer would not catch it if one
+    // were: it validates five fields on this event and `edId` is not among them.
+    edId: UNANSWERED_VALUE,
     // Owner ruling 2026-08-30 ("Take all recommendations"): transport starts unanswered too. It
     // was the last control on this form still sending an answer nobody chose — an untouched form
     // asserted "no transport needed", and a ward reads that and plans around it.
@@ -287,7 +479,7 @@ function initialDraft(): ReferralDraft {
  * exactly as the spec's own failure-behaviour rule requires.
  */
 export function ReferralIntakeForm() {
-  const { now, dispatch, rejections } = useWardFlow();
+  const { now, dispatch, rejections, units, referrals } = useWardFlow();
   const [draft, setDraft] = useState<ReferralDraft>(initialDraft);
   const [lastRejection, setLastRejection] = useState<Rejection | undefined>(undefined);
   const [confirmed, setConfirmed] = useState(false);
@@ -340,6 +532,54 @@ export function ReferralIntakeForm() {
   const outstanding = unansweredFieldNames(draft);
   const answered = answeredDraft(draft);
 
+  /**
+   * The bed criteria, or `null` while any of the three questions that make them up is unanswered.
+   *
+   * **This is the narrowing that keeps `referralEligibility` in the ward arm.** The picker below is
+   * handed a `WardReferralDestination | null`, never the draft, so the bed questions cannot reach
+   * an emergency department or a community team even by accident: those arms have no such fields,
+   * so the question cannot be spelled for them.
+   */
+  const wardNeed: WardReferralDestination | null =
+    draft.sex !== UNANSWERED_VALUE &&
+    draft.secureBedNeeded !== UNANSWERED_VALUE &&
+    draft.involuntaryBedNeeded !== UNANSWERED_VALUE
+      ? {
+          kind: "psychiatric_ward",
+          sex: draft.sex,
+          secureBedNeeded: draft.secureBedNeeded,
+          involuntaryBedNeeded: draft.involuntaryBedNeeded,
+        }
+      : null;
+
+  // Recomputed on every render from the draft and live reducer state, never held in a second piece
+  // of state that could disagree with either — the same discipline `outstanding` above holds to.
+  const options = destinationOptions({
+    suburb: draft.suburb === UNANSWERED_VALUE ? null : draft.suburb,
+    ward: wardNeed,
+    ageBand: draft.ageBand === UNANSWERED_VALUE ? null : draft.ageBand,
+    units,
+    referrals,
+    now,
+  });
+
+  function toggleDestination(kind: ReferralDestinationKind) {
+    setDraft((current) => {
+      const removing = current.destinationKinds.includes(kind);
+      return {
+        ...current,
+        destinationKinds: removing
+          ? current.destinationKinds.filter((chosen) => chosen !== kind)
+          : [...current.destinationKinds, kind],
+        // Un-ticking the emergency department discards which one, so re-ticking it asks again.
+        // Keeping it would leave an answer about a destination the clinician removed sitting
+        // invisibly in the draft, ready to be sent by a later tick they never connected it to —
+        // the same defect as the previous patient's answers surviving a send.
+        edId: removing && kind === "emergency_department" ? UNANSWERED_VALUE : current.edId,
+      };
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // The keyboard route to the same guard the inert Send below enforces for a tap: implicit
@@ -351,17 +591,14 @@ export function ReferralIntakeForm() {
       role: "community",
       now,
       ageBand: answered.ageBand,
-      // One destination for now: this form asks only the ward questions. Multi-select across the
-      // four destinations (FD-21) is a form change, not a model one -- the event already takes a
-      // list, so the day the form offers the choice nothing below it has to move.
-      destinations: [
-        {
-          kind: "psychiatric_ward",
-          sex: answered.sex,
-          secureBedNeeded: answered.secureBedNeeded,
-          involuntaryBedNeeded: answered.involuntaryBedNeeded,
-        },
-      ],
+      // FD-21, and the day the comment that stood here was written for. It said "one destination
+      // for now ... the day the form offers the choice nothing below it has to move", and nothing
+      // below it moved: the event already took a list, the reducer already refused an empty one,
+      // a fourth, and a repeated kind. This is the form catching up with the model.
+      //
+      // Built by `answeredDraft` rather than here: assembling an ED arm needs a narrowed `edId`,
+      // and narrowing at two sites is how two sites come to disagree about what "answered" means.
+      destinations: answered.destinations,
       homeRegion: answered.homeRegion,
       source: answered.source,
       urgency: answered.urgency,
@@ -485,6 +722,40 @@ export function ReferralIntakeForm() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/*
+           * The suburb, and the sentence beside it that stops this control pretending to record.
+           *
+           * A referral has nowhere to put a suburb — `Referral` carries `homeRegion` and nothing
+           * finer — and widening it is a model change owned elsewhere (spec Part 1). So this
+           * answer reads the catchment for the destination picker below and goes no further, and
+           * the form SAYS that rather than leaving a clinician to assume it was recorded. A
+           * control that quietly discards its answer is the "pretends to record" pattern the
+           * destination spec refuses in as many words.
+           */}
+          <div className={styles.fieldCard}>
+            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-suburb">
+              Suburb
+            </label>
+            <select
+              id="ward-referral-intake-suburb"
+              data-testid="ward-referral-intake-suburb"
+              className={styles.select}
+              value={draft.suburb}
+              onChange={(event) => setDraft((current) => ({ ...current, suburb: event.target.value }))}
+            >
+              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+              {SUBURB_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <p className={styles.fieldNote} data-testid="ward-referral-intake-suburb-note">
+              Used here to read the catchment for each destination below. It is not yet recorded on the referral, which
+              holds a home region and nothing finer.
+            </p>
           </div>
 
           <div className={styles.fieldCard}>
@@ -655,8 +926,20 @@ export function ReferralIntakeForm() {
            * REQUEST rather than the person, which is why this field needed no rewording when the
            * two above did.
            */}
+          {/*
+           * "Needs transport", not "Transport needed", and the change is one word of wording with
+           * a reason. `REQUIRED_FIELDS` calls this question "Transport needed", so the old legend
+           * put the identical phrase on a blank form twice — once as the question and once as its
+           * name in the outstanding-questions note underneath. This file already held the rule
+           * that fixes it: the two need questions above are named by SHORT FIELD NAMES in that
+           * note precisely so their on-screen wording is not repeated inside it. The legend now
+           * reads in the same shape as the two it sits beside ("Needs a secure bed", "Needs a bed
+           * that can hold someone involuntarily"), which makes the trio consistent and leaves the
+           * phrase on screen once. The meaning is untouched: it described the REQUEST before and
+           * it describes the request now.
+           */}
           <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-transportNeeded">
-            <legend className={styles.fieldLegend}>Transport needed</legend>
+            <legend className={styles.fieldLegend}>Needs transport</legend>
             <div className={styles.choiceRow}>
               <label className={styles.choiceOption}>
                 <input
@@ -680,6 +963,106 @@ export function ReferralIntakeForm() {
               </label>
             </div>
           </fieldset>
+
+          {/*
+           * WHERE TO REFER — several destinations chosen in ONE act (FD-21), up to the cap.
+           *
+           * Checkboxes rather than a multi-select, and one per kind rather than a list a clinician
+           * adds to: a repeated kind is then unreachable rather than merely unlikely, which matters
+           * because the reducer REFUSES a repeat rather than de-duplicating it.
+           *
+           * **NOTHING HERE IS REMOVED, DISABLED OR RANKED.** An option the catchment table cannot
+           * place is greyed (`data-outside-catchment`) and stays fully operable — the owner's rule
+           * is that choosing one is allowed, being a deliberate step the clinician takes. A ward
+           * with no free bed is offered exactly like any other, because a ward with no bed today is
+           * still the right place to ask. And the order is catchment then name, never anything
+           * derived from the person: nothing on this screen ranks a patient.
+           *
+           * Each option's facts are announced with its control through `aria-describedby`, so what
+           * a sighted clinician reads beside the box is what a screen-reader user hears with it.
+           */}
+          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-destinations">
+            <legend className={styles.fieldLegend}>
+              Where to refer &mdash; choose up to {PARALLEL_REFERRAL_CAP}, in one act
+            </legend>
+            <ul className={styles.destinationList}>
+              {options.map((option) => (
+                <li
+                  key={option.kind}
+                  className={styles.destinationOption}
+                  data-testid={`ward-referral-intake-destination-option-${option.kind}`}
+                  data-outside-catchment={option.catchment.outsideTheTable ? "true" : undefined}
+                >
+                  <label className={styles.destinationName}>
+                    <input
+                      type="checkbox"
+                      data-testid={`ward-referral-intake-destination-${option.kind}`}
+                      checked={draft.destinationKinds.includes(option.kind)}
+                      aria-describedby={`ward-referral-intake-destination-facts-${option.kind}`}
+                      onChange={() => toggleDestination(option.kind)}
+                    />
+                    {option.label}
+                  </label>
+                  <div id={`ward-referral-intake-destination-facts-${option.kind}`}>
+                    <p className={styles.destinationNote}>{option.catchment.sentence}</p>
+                    {option.suggested ? (
+                      <p className={styles.destinationNote}>
+                        Suggested by the catchment table. Nothing is chosen for you.
+                      </p>
+                    ) : null}
+                    <ul className={styles.destinationFacts}>
+                      {option.figures.map((figure) => (
+                        <li key={figure} className={styles.destinationFact}>
+                          {figure}
+                        </li>
+                      ))}
+                      {option.reasons.map((reason) => (
+                        <li key={reason} className={styles.destinationFact}>
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+
+          {/*
+           * WHICH emergency department — asked only once one is chosen, because until then it is a
+           * question with nothing to attach to.
+           *
+           * ⚠️ **THE LEADING OPTION IS A PROMPT, NOT A DEPARTMENT**, exactly like every other picker
+           * on this form. A first-department default would be the single most dangerous default on
+           * this screen: `RECEIVE_REFERRAL` membership-checks the source, home region, age band,
+           * urgency and origin site, and checks `edId` against **nothing at all** — so a department
+           * nobody chose does not bounce, it queues, at a real hospital, looking like an answer.
+           *
+           * Derived from `allEmergencyDepartments()`, never hand-listed. That is the same defect
+           * class as `ed-screen.tsx`'s hand-written `COHORT_OPTIONS`, which silently omitted
+           * `"Youth"` and could never have failed to compile when the union widened.
+           */}
+          {draft.destinationKinds.includes("emergency_department") ? (
+            <div className={styles.fieldCard}>
+              <label className={styles.fieldLegend} htmlFor="ward-referral-intake-edId">
+                Which emergency department
+              </label>
+              <select
+                id="ward-referral-intake-edId"
+                data-testid="ward-referral-intake-edId"
+                className={styles.select}
+                value={draft.edId}
+                onChange={(event) => setDraft((current) => ({ ...current, edId: event.target.value }))}
+              >
+                <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                {allEmergencyDepartments().map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           {lastRejection ? (
             <p className={styles.rejection} data-testid="ward-referral-intake-rejection" role="alert">

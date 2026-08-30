@@ -130,6 +130,35 @@ export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
  * words, theirs replace these verbatim. Adding an entry is a recorded product decision, never an
  * implementer's convenience.
  */
+/**
+ * WHY A COORDINATOR REFERRED DESPITE A FAILING GATE. Owner-approved verbatim, 2026-08-29 — the
+ * canonical record is `WB-DB-15` (as superseded to five) and `WB-DB-16` on the ward board
+ * specification.
+ *
+ * FIVE, not four. `WB-DB-15` shipped as four and carries its own superseded-to-five block; anyone
+ * working from the four-reason version is reading the superseded entry.
+ *
+ * Stored as the sentences themselves rather than as keys with a separate label map, matching
+ * `BED_RELEASE_BLOCKERS` and `BED_PREPARATION_NOTES` above: these are the owner's own words, and a
+ * key plus a label is two places for one fact and one of them free to drift.
+ *
+ * ⚠️ **THERE IS NEVER AN "OTHER, PLEASE SPECIFY"** (`WB-DB-16`). That entry is the whole constraint:
+ * it is how free text returns through the back door after being removed from the front. Adding one
+ * would undo the decision this list exists to implement.
+ *
+ * **"Nowhere eligible" is deliberately excluded.** It is already its own recorded act — an
+ * escalation (`RECORD_ESCALATION`) — and a second vocabulary for one fact is how two screens come
+ * to describe the same event differently.
+ */
+export const OVERRIDE_REASONS = [
+  "The receiving team has agreed despite the mismatch",
+  "Clinical urgency outweighs the mismatch",
+  "The bed information is known to be out of date",
+  "Continuity with a previous admission at this unit",
+  "Closer to the person's home or family",
+] as const;
+export type OverrideReason = (typeof OVERRIDE_REASONS)[number];
+
 export const BED_PREPARATION_NOTES = ["Being cleaned", "Awaiting maintenance or repair"] as const;
 export type BedPreparationNote = (typeof BED_PREPARATION_NOTES)[number];
 

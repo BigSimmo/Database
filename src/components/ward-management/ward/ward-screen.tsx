@@ -6,12 +6,10 @@ import { useState, type FormEvent } from "react";
 import {
   BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
-  CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
   RELEASE_HOLD_REASONS,
   type BedPreparationNote,
   type BedReleaseBlocker,
-  type CancelTransportReason,
   type ReleaseHoldReason,
 } from "@/components/ward-management/ward-change-reasons";
 import {
@@ -139,8 +137,6 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // at a time.
   const [releaseOpenFor, setReleaseOpenFor] = useState<string | undefined>(undefined);
   const [releaseReason, setReleaseReason] = useState<ReleaseHoldReason | undefined>(undefined);
-  const [cancelOpenFor, setCancelOpenFor] = useState<string | undefined>(undefined);
-  const [cancelReason, setCancelReason] = useState<CancelTransportReason | undefined>(undefined);
   // Task 11 (spec item 9): the bed-release flag. Not keyed by movement id — unlike decline,
   // release and cancel above, this is not about any one referral, it is about this ward's own
   // bed stock, so one form per screen is enough.
@@ -152,7 +148,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // comment for why this is a fact about the BED, not the departing patient.
   const [bedReleaseExpectedAt, setBedReleaseExpectedAt] = useState<string>("");
   // Task 5: the block form on an EXISTING release row. Keyed by release id, same one-open-at-a-time
-  // pattern as `declineOpenFor`/`releaseOpenFor`/`cancelOpenFor` above.
+  // pattern as `declineOpenFor`/`releaseOpenFor` above.
   const [blockOpenFor, setBlockOpenFor] = useState<string | undefined>(undefined);
   const [blockChoice, setBlockChoice] = useState<BedReleaseBlocker | undefined>(undefined);
   // Bed-model rework (2026-08-28): the reversal form on an existing CONFIRMED release row, same
@@ -459,26 +455,6 @@ export function WardScreen({ unitId }: WardScreenProps) {
     });
     setReleaseOpenFor(undefined);
     setReleaseReason(undefined);
-  }
-
-  function toggleCancel(movementId: string) {
-    setCancelOpenFor((current) => (current === movementId ? undefined : movementId));
-    setCancelReason(undefined);
-  }
-
-  function submitCancel(event: FormEvent<HTMLFormElement>, movementId: string) {
-    event.preventDefault();
-    if (!cancelReason) return;
-    dispatch({
-      type: "CANCEL_TRANSPORT",
-      role: "ward",
-      now,
-      movementId,
-      actingUnitId: unitId,
-      reason: cancelReason,
-    });
-    setCancelOpenFor(undefined);
-    setCancelReason(undefined);
   }
 
   return (
@@ -1183,7 +1159,6 @@ export function WardScreen({ unitId }: WardScreenProps) {
                   movement.transport.collectedAt === undefined &&
                   movement.transport.arrivedAt === undefined;
                 const releaseOpen = releaseOpenFor === movement.id;
-                const cancelOpen = cancelOpenFor === movement.id;
                 return (
                   <li key={movement.id} data-testid={`ward-accepted-${movement.id}`} className={styles.card}>
                     <header className={styles.cardHeader}>
@@ -1278,48 +1253,32 @@ export function WardScreen({ unitId }: WardScreenProps) {
                         </button>
                       </form>
                     ) : null}
+                    {/*
+                      ⚠️ THE CANCEL CONTROL IS GONE FROM THIS SCREEN, AND THE NOTE REPLACES IT
+                      RATHER THAN THE BUTTON SIMPLY VANISHING.
+
+                      `TR-D6` (owner, 2026-08-30): a transport may be cancelled by the team that
+                      BOOKED it and by the coordinator. The receiving ward may not — it did not book
+                      the job, and a booking cancelled by the destination is indistinguishable on the
+                      sending board from one that failed, so the sending team cannot tell "they
+                      changed their mind" from "it never went through". `ward` is no longer in
+                      `EVENT_ROLE.CANCEL_TRANSPORT`, so the reducer refuses this at the role gate.
+
+                      Leaving the button would have broken this screen's OWN written rule, a few
+                      lines above: a control renders only when the reducer would accept it, never
+                      dispatched optimistically and left to be refused silently. And a silent
+                      refusal here is invisible — the form closes, the reason clears, and the
+                      transport is untouched.
+
+                      The note names BOTH permitted parties on purpose. A ward told only that the
+                      coordinator can do it will ring the coordinator when the sending department is
+                      the faster route.
+                    */}
                     {canCancel ? (
-                      <div className={styles.actionRow}>
-                        <button
-                          type="button"
-                          data-testid={`ward-cancel-transport-toggle-${movement.id}`}
-                          aria-expanded={cancelOpen}
-                          className={styles.declineButton}
-                          onClick={() => toggleCancel(movement.id)}
-                        >
-                          Cancel transport
-                        </button>
-                      </div>
-                    ) : null}
-                    {canCancel && cancelOpen ? (
-                      <form
-                        className={styles.declineForm}
-                        onSubmit={(event) => submitCancel(event, movement.id)}
-                        data-testid={`ward-cancel-transport-${movement.id}`}
-                      >
-                        <label className={styles.declineLegend} htmlFor={`ward-cancel-transport-reason-${movement.id}`}>
-                          Reason for cancelling transport for {movement.id}
-                        </label>
-                        <select
-                          id={`ward-cancel-transport-reason-${movement.id}`}
-                          required
-                          className={styles.capacityInput}
-                          value={cancelReason ?? ""}
-                          onChange={(event) => setCancelReason(event.target.value as CancelTransportReason)}
-                        >
-                          <option value="" disabled>
-                            Choose a reason
-                          </option>
-                          {CANCEL_TRANSPORT_REASONS.map((reason) => (
-                            <option key={reason} value={reason}>
-                              {changeReasonLabels[reason]}
-                            </option>
-                          ))}
-                        </select>
-                        <button type="submit" disabled={!cancelReason} className={styles.declineSubmit}>
-                          Confirm cancellation
-                        </button>
-                      </form>
+                      <p className={styles.notice} data-testid="ward-cancel-transport-unavailable">
+                        This ward cannot cancel a transport it did not book. Ask the sending emergency department, or
+                        the flow coordinator.
+                      </p>
                     ) : null}
                   </li>
                 );

@@ -2,6 +2,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import type {
   BedPreparationNote,
   BedReleaseBlocker,
+  OverrideReason,
   CancelTransportReason,
   LegalStatusChangeReason,
   ReleaseHoldReason,
@@ -19,6 +20,7 @@ import type {
   ReferralSource,
   Security,
   Sex,
+  TransportProvider,
 } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -88,7 +90,25 @@ export type WardFlowEvent =
       movementId: string;
       outcome: "inpatient_order" | "community_order" | "revoked";
     }
-  | { type: "REFER_TO_UNITS"; role: WardFlowRole; now: Instant; movementId: string; unitIds: string[] }
+  | {
+      type: "REFER_TO_UNITS";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      unitIds: string[];
+      /**
+       * Present when the coordinator is referring DESPITE a failing gate — an override.
+       *
+       * Optional because most referrals are not overrides, and absent means exactly that: no
+       * override happened and none is recorded. When present the reducer keeps it on the movement
+       * (`Movement.overrides`), which is the whole of owner decision OD-3: the reason used to be
+       * collected in a textarea, held in the screen's own state and discarded on the next
+       * selection, while the governance page said override reasons were recorded.
+       *
+       * From `OVERRIDE_REASONS`, never free text, and never an "other, please specify" (WB-DB-16).
+       */
+      overrideReason?: OverrideReason;
+    }
   | { type: "ACCEPT_IN_PRINCIPLE"; role: WardFlowRole; now: Instant; movementId: string; unitId: string }
   | { type: "HOLD_BED"; role: WardFlowRole; now: Instant; movementId: string; unitId: string }
   | {
@@ -100,7 +120,15 @@ export type WardFlowEvent =
       /** From `DECLINE_REASONS`, and nothing beside it — see `Decline`'s own doc comment (PD-6). */
       reason: DeclineReason;
     }
-  | { type: "HANDOVER_READY"; role: WardFlowRole; now: Instant; movementId: string }
+  | {
+      type: "HANDOVER_READY";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      /** Who will collect the patient, from `TRANSPORT_PROVIDERS`. Optional only because no screen
+       *  offers the choice yet; the reducer falls back to the first entry and says so. */
+      provider?: TransportProvider;
+    }
   | { type: "TRANSPORT_ACCEPTED"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "TRANSPORT_EN_ROUTE"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "PATIENT_COLLECTED"; role: WardFlowRole; now: Instant; movementId: string }
@@ -503,7 +531,14 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   CHANGE_URGENCY: ["coordinator", "ed"],
   CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
   RELEASE_HOLD: ["coordinator", "ward"],
-  CANCEL_TRANSPORT: ["coordinator", "ward"],
+  // TR-D6 (owner, 2026-08-30): the team that BOOKED it, and the coordinator. The sending team
+  // owns the job (TR-D5) and every movement originates at an emergency department
+  // (`Movement.originEdId` is required), so the booking team is `ed`. ⚠️ `ward` is the
+  // RECEIVING side and is excluded BY NAME: it did not book the job, and a booking cancelled
+  // by the destination is indistinguishable on the sending board from one that failed — so
+  // the sending team cannot tell "they changed their mind" from "it never went through".
+  // This list read ["coordinator", "ward"] until 2026-08-30, which was TR-D6 inverted.
+  CANCEL_TRANSPORT: ["coordinator", "ed"],
   FLAG_BED_RELEASE: ["ward"],
   CONFIRM_BED_RELEASE: ["ward"],
   // Bed-model rework (2026-08-28). All three are `ward`-only for the same reason the four above
@@ -530,8 +565,14 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
    * Owner ruling FD-25: a WARD answers a referral addressed to it. The coordinator keeps the role
    * too — it overrides, and an override nobody can exercise is not an override.
    */
-  ACCEPT_REFERRAL: ["ward", "coordinator"],
-  DECLINE_REFERRAL: ["ward", "coordinator"],
+  // `ed` added 2026-08-30 under FD-3 as SUPERSEDED by the owner: "every referral is declinable,
+  // and NO CODE PATH MAY RENDER A REFERRAL WITH NO DECLINE AFFORDANCE". The ED hub acts as
+  // `ed`, so without it an emergency department could not answer a referral addressed to it,
+  // and the available workaround was to dispatch as `ward` — which writes a false `decidedBy`.
+  // ⚠️ The widening is scoped in the reducer: a role answers its OWN destination kind and
+  // nothing else, so this list alone does not let an ED decide on a ward bed.
+  ACCEPT_REFERRAL: ["ward", "coordinator", "ed"],
+  DECLINE_REFERRAL: ["ward", "coordinator", "ed"],
   // `coordinator` only, and this one is a PLAN JUDGEMENT rather than a spec ruling — the spec
   // says only "role-gated like every other referral event", and the control sits on the
   // coordinator's own match view. The owner may want `community` here as well (a community team

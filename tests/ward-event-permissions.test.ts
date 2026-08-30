@@ -23,18 +23,53 @@ import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS } from "../src/components/ward-manage
 describe("who may raise which event", () => {
   const PERMISSIONS: Record<string, string[]> = {
     ACCEPT_IN_PRINCIPLE: ["ward"],
-    ACCEPT_REFERRAL: ["ward", "coordinator"],
+    // `ed` added 2026-08-30 under FD-3 AS SUPERSEDED BY THE OWNER: "every referral is
+    // declinable, and NO CODE PATH MAY RENDER A REFERRAL WITH NO DECLINE AFFORDANCE". The ED
+    // hub acts as `ed`, so without it an emergency department could not answer a referral
+    // addressed to it — and the available workaround was to dispatch as `ward`, which writes
+    // a FALSE `decidedBy` saying a ward refused what an ED refused.
+    //
+    // What the reducer writes for the newly-permitted role, as this guard demands:
+    // `WARD_FLOW_ROLE_LABELS.ed`, a ROLE and never a person, so the record is truthful.
+    // ⚠️ And the widening is SCOPED in the reducer rather than by this list: a role answers
+    // its own destination kind and nothing else, so `ed` cannot decide on a ward bed and
+    // `ward` can no longer decide on an emergency department's referral — which it could.
+    // Pinned in `tests/ward-referral-decision-scope.test.ts`.
+    ACCEPT_REFERRAL: ["ward", "coordinator", "ed"],
     ADD_PATIENT: ["ed", "community", "coordinator"],
     ADVANCE_CLOCK: ["demo"],
     BLOCK_BED_RELEASE: ["ward"],
-    CANCEL_TRANSPORT: ["coordinator", "ward"],
+    // CHANGED 2026-08-30 under TR-D6 (owner), and this row is a NARROWING plus a widening, not
+    // a tidy-up. Was ["coordinator", "ward"]. The ruling: the team that BOOKED it and the
+    // coordinator may cancel; the RECEIVING ward may not, because a booking cancelled by the
+    // destination is indistinguishable on the sending board from one that failed. Every
+    // movement originates at an emergency department (`Movement.originEdId` is required), so
+    // the booking team is `ed`.
+    //
+    // What the reducer writes for the newly-permitted role, as this guard demands: `ed` lands
+    // in the `transport_cancelled` unwind record as `by`, which is a ROLE and never a person —
+    // so no false attribution is introduced. Asserted directly in
+    // `tests/ward-transport-cancel-permission.test.ts`.
+    CANCEL_TRANSPORT: ["coordinator", "ed"],
     CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
     CHANGE_URGENCY: ["coordinator", "ed"],
     CLEAR_BED_RELEASE_BLOCK: ["ward"],
     CONFIRM_BED_RELEASE: ["ward"],
     CONFIRM_CAPACITY: ["ward"],
     DECLINE: ["ward"],
-    DECLINE_REFERRAL: ["ward", "coordinator"],
+    // `ed` added 2026-08-30 under FD-3 AS SUPERSEDED BY THE OWNER: "every referral is
+    // declinable, and NO CODE PATH MAY RENDER A REFERRAL WITH NO DECLINE AFFORDANCE". The ED
+    // hub acts as `ed`, so without it an emergency department could not answer a referral
+    // addressed to it — and the available workaround was to dispatch as `ward`, which writes
+    // a FALSE `decidedBy` saying a ward refused what an ED refused.
+    //
+    // What the reducer writes for the newly-permitted role, as this guard demands:
+    // `WARD_FLOW_ROLE_LABELS.ed`, a ROLE and never a person, so the record is truthful.
+    // ⚠️ And the widening is SCOPED in the reducer rather than by this list: a role answers
+    // its own destination kind and nothing else, so `ed` cannot decide on a ward bed and
+    // `ward` can no longer decide on an emergency department's referral — which it could.
+    // Pinned in `tests/ward-referral-decision-scope.test.ts`.
+    DECLINE_REFERRAL: ["ward", "coordinator", "ed"],
     END_LEAVE_BED: ["ward"],
     FLAG_BED_RELEASE: ["ward"],
     HANDOVER_READY: ["ed"],

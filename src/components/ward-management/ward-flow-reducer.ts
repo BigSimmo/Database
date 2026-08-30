@@ -1,8 +1,18 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import {
+  BED_PREPARATION_NOTES,
+  BED_RELEASE_BLOCKERS,
+  CANCEL_TRANSPORT_REASONS,
+  OVERRIDE_REASONS,
+} from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { referralState } from "@/components/ward-management/ward-referrals";
-import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
+import {
+  EVENT_ROLE,
+  WARD_FLOW_ROLE_LABELS,
+  type WardFlowEvent,
+  type WardFlowRole,
+} from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
   BED_RELEASE_WAITING_ON,
@@ -13,7 +23,9 @@ import {
   REFERRAL_SOURCES,
   SEXES,
   REFERRAL_DESTINATION_KINDS,
+  REFERRAL_PURPOSES,
   type ReferralAddressing,
+  TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -21,6 +33,7 @@ import type {
   Movement,
   MovementStage,
   Referral,
+  ReferralDestinationKind,
   Rejection,
   Unit,
 } from "@/components/ward-management/ward-model";
@@ -190,6 +203,34 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     admissions: structuredClone(wardAdmissions),
     admissionSequence: 0,
   };
+}
+
+/**
+ * A FRESH SEED, ALREADY MOVED TO THE DEMONSTRATION'S CLOCK. The only door application code uses.
+ *
+ * ⚠️ **`shiftInstants` CARRIES NO ALREADY-SHIFTED MARKER, SO APPLYING IT TWICE DOUBLES EVERY
+ * OFFSET.** Ward Board's framing is why that outranks its size: *a wrong clock looks wrong; a wrong
+ * length of stay looks PLAUSIBLE.* A patient nine days in a bed reading as eighteen is not a
+ * visibly broken screen — it is a believable number, on a screen whose purpose is to be believed,
+ * with nothing anywhere to contradict it.
+ *
+ * ⚠️ **Stated honestly: no screen has ever shown that.** All three call sites passed a fresh
+ * `seedWardFlowState()`, so nothing was ever double-shifted. This is a latent hazard being closed
+ * because the cost of closing it is a function signature, not a live defect being repaired.
+ *
+ * The remedy is `TR-F3`-shaped — make the impossible state unrepresentable rather than check that
+ * the reachable ones look right. **This function cannot be handed an already-shifted state because
+ * it does not take a state at all**: it seeds and shifts in one step, so there is no argument a
+ * caller could pass twice. `shiftInstants` stays exported for `ward-reanchor.test.ts`, which tests
+ * the walker itself; `tests/ward-reanchor-single-application.test.ts` is the guard that application
+ * code never reaches around this door to it.
+ *
+ * Offset zero returns a copy rather than the original, for the reason `shiftInstants` already
+ * documents: the pinned and live paths then differ only in the offset, never in whether a copy was
+ * taken, so no path exists that only a non-zero offset exercises.
+ */
+export function seedWardFlowStateAt(offsetMinutes: number, scenario: WardScenario = "standard"): WardFlowState {
+  return shiftInstants(seedWardFlowState(scenario), offsetMinutes);
 }
 
 /** The id a rejection is filed against, for events that are not about one specific movement. */
@@ -368,10 +409,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "RESET_SCENARIO":
-      return shiftInstants(seedWardFlowState(), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 
     case "SET_SCENARIO":
-      return shiftInstants(seedWardFlowState(event.scenario), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR, event.scenario);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };
@@ -400,6 +441,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         id: nextReferralId(sequence),
         originEdId: event.edId,
         openedAt: event.now,
+        // A newly raised movement is never flagged. The flag is an act somebody takes on a
+        // patient already in the queue, not a property of arriving.
+        flaggedUrgent: false,
         urgency: event.draft.urgency,
         cohort: event.draft.cohort,
         security: event.draft.security,
@@ -411,6 +455,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
         urgencyChanges: [],
+        overrides: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
@@ -521,9 +566,31 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (unknown) {
         return reject(state, event, `no unit found for id ${unknown}`);
       }
+      // Membership-checked, not truthiness-checked -- the same discipline as every other reason
+      // in this reducer. A caller sending a reason outside the list is refused rather than having
+      // an unrecognised string written into an accountability record.
+      if (event.overrideReason !== undefined && !OVERRIDE_REASONS.includes(event.overrideReason)) {
+        return reject(state, event, `REFER_TO_UNITS overrideReason must be chosen from OVERRIDE_REASONS`);
+      }
       const updated: Movement = {
         ...movement,
         referredUnitIds: [...event.unitIds],
+        // OD-3: the reason is KEPT. It used to live in the shortlist panel's own `useState` and be
+        // discarded on the next selection, while the governance page said override reasons were
+        // recorded. Appended rather than replaced, because a movement can be overridden more than
+        // once and the earlier one is not undone by the later.
+        overrides:
+          event.overrideReason === undefined
+            ? movement.overrides
+            : [
+                ...movement.overrides,
+                {
+                  at: event.now,
+                  by: WARD_FLOW_ROLE_LABELS[event.role],
+                  reason: event.overrideReason,
+                  unitIds: [...event.unitIds],
+                },
+              ],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);
@@ -700,7 +767,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         stage: "handover_ready",
         transport: {
           id: `${movement.id}-transport`,
-          provider: "State patient transport service",
+          // TR-D2. Was the literal "State patient transport service" on every job this reducer
+          // created -- a second name, from nowhere, beside the seed's own. The value now comes
+          // from `TRANSPORT_PROVIDERS`, and the event may carry the choice.
+          //
+          // The fallback is the first entry, and it is a PLACEHOLDER DEFAULT rather than a
+          // decision: no screen offers a provider chooser yet, so until one does every job this
+          // creates takes the same one. That is a gap the array makes visible instead of hiding
+          // behind a hardcoded sentence.
+          provider: event.provider ?? TRANSPORT_PROVIDERS[0],
           escortRequired: movement.legalStatus !== "Voluntary",
         },
       };
@@ -1254,6 +1329,34 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (kinds.some((kind) => !REFERRAL_DESTINATION_KINDS.includes(kind))) {
         return reject(state, event, `RECEIVE_REFERRAL destination kind must be chosen from REFERRAL_DESTINATION_KINDS`);
       }
+      /*
+       * ⚠️ THE ED ARM GETS THE SAME TREATMENT AS `originSiteCode`, FOR THE SAME REASON.
+       *
+       * That field's own comment three checks below says it: "resolved against the real network
+       * rather than merely checked for non-emptiness, so '12 Wellington St, Perth' cannot pass as a
+       * code." When the ED arm gained `edId` and `purpose` it got neither — so a referral could
+       * queue at an empty or invented department and read like an answer.
+       *
+       * ⚠️ **This is the check that would have caught the shortcut two sessions agreed must not be
+       * made.** When the arm grew required fields, three call sites stopped compiling and the
+       * tempting repair was a cast or an `edId: ""` stub — a form offering a destination the
+       * application cannot construct, while looking finished. That stub was mutation-tested and
+       * broke only new SCREEN-level guards and no pre-existing test. A screen guard is the wrong
+       * last line: it is one component away from being bypassed, and every path goes through here.
+       *
+       * ⚠️ **And non-emptiness is not the check.** `edId: "not-a-department"` is as wrong as `""`
+       * and far more convincing — it survives every truthiness test, reads as a plausible
+       * identifier, and queues a real person at a hospital that does not exist. So it resolves.
+       */
+      const edDestination = event.destinations.find((destination) => destination.kind === "emergency_department");
+      if (edDestination?.kind === "emergency_department") {
+        if (!allEmergencyDepartments().some((department) => department.id === edDestination.edId)) {
+          return reject(state, event, `RECEIVE_REFERRAL edId must resolve to a real emergency department`);
+        }
+        if (!REFERRAL_PURPOSES.includes(edDestination.purpose)) {
+          return reject(state, event, `RECEIVE_REFERRAL purpose must be chosen from REFERRAL_PURPOSES`);
+        }
+      }
       const wardDestination = event.destinations.find((destination) => destination.kind === "psychiatric_ward");
       if (wardDestination?.kind === "psychiatric_ward" && !SEXES.includes(wardDestination.sex)) {
         return reject(state, event, `RECEIVE_REFERRAL sex must be chosen from SEXES`);
@@ -1294,6 +1397,39 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "ACCEPT_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      /*
+       * ⚠️ THE ROLE MUST MATCH THE DESTINATION IT IS ANSWERING — the narrowing half of `FD-3`.
+       *
+       * `FD-3` was superseded by the owner ("every referral is declinable, and NO CODE PATH MAY
+       * RENDER A REFERRAL WITH NO DECLINE AFFORDANCE"), so `ed` joined this event's permitted roles
+       * — the ED hub acts as `ed`, and without it an emergency department could not answer a
+       * referral addressed to it. Before that, the available workaround was to dispatch as `ward`
+       * or `coordinator`, which compiles, works, and writes a FALSE `decidedBy`: the record would
+       * say a ward refused a patient an emergency department refused. That is the exact defect
+       * `decidedBy` exists to prevent, and nothing would have failed.
+       *
+       * ⚠️ **But the widening alone is too wide.** With `ed` merely added, an emergency department
+       * could accept or refuse a PSYCHIATRIC WARD destination — deciding on a bed in a ward it has
+       * nothing to do with — and the resulting record reads as a legitimate refusal. The same hole
+       * already existed for `ward`, which could answer an emergency department's destination.
+       *
+       * So a role answers its own kind and nothing else. The coordinator is exempt because it is
+       * the only role that sees the whole picture (`CO-D2`), which is the same reason it may cancel
+       * a transport it did not book. `community_team` has no acting role yet; when one arrives it
+       * joins this map rather than widening the lists.
+       */
+      const answerableBy: Partial<Record<WardFlowRole, ReferralDestinationKind>> = {
+        ward: "psychiatric_ward",
+        ed: "emergency_department",
+      };
+      const ownKind = answerableBy[event.role];
+      if (ownKind !== undefined && ownKind !== event.destinationKind) {
+        return reject(
+          state,
+          event,
+          `${event.type} was raised by role ${event.role}, which may only answer ${ownKind.replace(/_/g, " ")} destinations, not ${event.destinationKind.replace(/_/g, " ")}`,
+        );
+      }
       const addressing = referral.destinations.find(
         (candidate) => candidate.destination.kind === event.destinationKind,
       );
@@ -1386,6 +1522,39 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "DECLINE_REFERRAL": {
       const referral = findReferral(state, event.referralId);
       if (!referral) return reject(state, event, `no referral found for id ${event.referralId}`);
+      /*
+       * ⚠️ THE ROLE MUST MATCH THE DESTINATION IT IS ANSWERING — the narrowing half of `FD-3`.
+       *
+       * `FD-3` was superseded by the owner ("every referral is declinable, and NO CODE PATH MAY
+       * RENDER A REFERRAL WITH NO DECLINE AFFORDANCE"), so `ed` joined this event's permitted roles
+       * — the ED hub acts as `ed`, and without it an emergency department could not answer a
+       * referral addressed to it. Before that, the available workaround was to dispatch as `ward`
+       * or `coordinator`, which compiles, works, and writes a FALSE `decidedBy`: the record would
+       * say a ward refused a patient an emergency department refused. That is the exact defect
+       * `decidedBy` exists to prevent, and nothing would have failed.
+       *
+       * ⚠️ **But the widening alone is too wide.** With `ed` merely added, an emergency department
+       * could accept or refuse a PSYCHIATRIC WARD destination — deciding on a bed in a ward it has
+       * nothing to do with — and the resulting record reads as a legitimate refusal. The same hole
+       * already existed for `ward`, which could answer an emergency department's destination.
+       *
+       * So a role answers its own kind and nothing else. The coordinator is exempt because it is
+       * the only role that sees the whole picture (`CO-D2`), which is the same reason it may cancel
+       * a transport it did not book. `community_team` has no acting role yet; when one arrives it
+       * joins this map rather than widening the lists.
+       */
+      const answerableBy: Partial<Record<WardFlowRole, ReferralDestinationKind>> = {
+        ward: "psychiatric_ward",
+        ed: "emergency_department",
+      };
+      const ownKind = answerableBy[event.role];
+      if (ownKind !== undefined && ownKind !== event.destinationKind) {
+        return reject(
+          state,
+          event,
+          `${event.type} was raised by role ${event.role}, which may only answer ${ownKind.replace(/_/g, " ")} destinations, not ${event.destinationKind.replace(/_/g, " ")}`,
+        );
+      }
       const addressing = referral.destinations.find(
         (candidate) => candidate.destination.kind === event.destinationKind,
       );
@@ -1575,15 +1744,34 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (movement.transport.collectedAt !== undefined) {
         return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has departed`);
       }
-      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
-      // it was acting as against the unit the movement is accepted at, and refuses when they
-      // differ. Unused for a coordinator caller, who may act on behalf of any unit.
-      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
-        return reject(
-          state,
-          event,
-          `CANCEL_TRANSPORT was raised acting as unit ${event.actingUnitId} but movement ${movement.id} is accepted at ${movement.acceptedUnitId ?? "no unit"}`,
-        );
+      /*
+       * ⚠️ THIS CHECK USED TO BE TR-D6 INVERTED, AND IT READ AS OBVIOUSLY CORRECT.
+       *
+       * It was: `if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId)
+       * reject` — permitting a ward caller ONLY when it was the accepted unit. That is, only the
+       * RECEIVING ward: the one party the owner's ruling excludes by name. Every other ward was
+       * refused. It carried a careful comment about claim-not-proof discipline while doing exactly
+       * the wrong thing, because "a ward may act on its own patient" is such a natural sentence
+       * that it survives review.
+       *
+       * TR-D6 (owner, 2026-08-30): a transport may be cancelled by the team that BOOKED it and by
+       * the coordinator. The receiving ward may not — it did not book the job, and a booking
+       * cancelled by the destination is indistinguishable on the sending board from one that
+       * failed, so the sending team cannot tell "they changed their mind" from "it never went
+       * through". They re-book, or they wait for a vehicle nobody is sending.
+       *
+       * `ward` is now absent from `EVENT_ROLE.CANCEL_TRANSPORT`, so the role gate above refuses it
+       * before this point is reached and no unit comparison is needed at all. `actingUnitId`
+       * remains on the event for the other callers that carry it.
+       */
+      if (!CANCEL_TRANSPORT_REASONS.includes(event.reason)) {
+        /*
+         * Runtime membership, not merely the type. `reason` is declared required on the event, but
+         * a type-only guarantee passes `vitest run` with no `tsc` involved — and a caller omitting
+         * it was accepted, writing `reason: undefined` into the unwind record. TR-D6 says this must
+         * not be weakened to optional; an unenforced requirement already is.
+         */
+        return reject(state, event, `CANCEL_TRANSPORT reason must be chosen from CANCEL_TRANSPORT_REASONS`);
       }
       // Never closes the movement — the patient stays open, only the transport job unwinds. The
       // cancelled job remains named in the audit trail while a clean replacement follows the

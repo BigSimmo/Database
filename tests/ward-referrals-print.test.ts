@@ -122,15 +122,29 @@ describe("Ward referrals — every card container resets its dark-theme backgrou
     // which measured it printing as a near-black island. It carries its own
     // `background: var(--surface-raised)`, so it belongs in this group for exactly the reason every
     // name beside it does; until now nothing pinned it and deleting the reset stayed green.
+    //
+    // `.toggleCard` STOOD IN THIS ARRAY UNTIL 2026-08-30 AND WAS RENDERED BY NOTHING. The three
+    // checkboxes it styled became yes/no radio groups when an untouched checkbox turned out to be
+    // sending a clinical "no" nobody had chosen, and the class was left behind — so this guard
+    // required a print reset for a selector no screen produces, and reported coverage the printed
+    // page did not have. The four names that replace it are the cards a clinician actually prints:
+    // the question cards (`.choiceCard` holds the two need questions, the transport question and
+    // the destination picker; `.choiceOption` is each Yes/No), and the destination picker's own
+    // per-option cards (`.destinationOption`, and `.destinationName` which is both the card's label
+    // and its text). Every one carries its own explicit background and printed as a near-black
+    // island until this fix.
     for (const selector of [
       ".fieldCard",
       ".section",
       ".card",
       ".matchPanel",
       ".bandGroup",
+      ".choiceCard",
+      ".choiceOption",
+      ".destinationOption",
+      ".destinationName",
       ".matchRowAccepts",
       ".matchRowDeclines",
-      ".toggleCard",
     ]) {
       const rule = ruleDeclarationsFor(block, selector);
       expect(
@@ -206,7 +220,19 @@ describe("Ward referrals — every muted or themed text selector gets CanvasText
       ".matchBand",
       ".syntheticNotice",
       ".allNotRecorded",
-      ".toggleCard",
+      // The intake form's own answers and the destination picker's sentences, replacing the
+      // orphaned `.toggleCard` (see the card-group array above for what happened to it).
+      // `.choiceOption` and `.destinationName` are each both the card and its text carrier — the
+      // word "Yes" and a destination's name are direct children of the labelled element — and
+      // `.fieldNote`, `.destinationNote` and `.destinationFact` are the muted sentences that say
+      // which team the catchment table names, how many units accept, and why an option is offered.
+      // Each uses `--text-muted` or `--text-heading`, pale grey-blue in the dark theme whatever
+      // `color-scheme` says.
+      ".choiceOption",
+      ".destinationName",
+      ".fieldNote",
+      ".destinationNote",
+      ".destinationFact",
       ".rejection",
       ".confirmation",
       ".structuralGap",
