@@ -4,6 +4,7 @@ import { AlertTriangle, Check, CheckCheck, ClipboardCopy, RotateCcw, type Lucide
 import { useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 
 import type { CalculatorFixture, CalculatorItem, CalculatorTone, ScoreBand } from "./calculator-fixtures";
 
@@ -130,6 +131,15 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   // (nine "None of the time" answers sum to 9).
   const showBand = isCheckboxOnly(calc) ? complete : calc.minScore === 0 || complete;
   const band = showBand ? bandForScore(calc, score) : undefined;
+  // Two different absences, and only one of them is a withholding. `showBand`
+  // false means a band COULD be read off the answers so far and we are choosing
+  // not to publish it. A band absent while `showBand` is true would instead mean
+  // the fixture's band table has a gap at this score — nothing is being held
+  // back, we simply cannot name the band. (`tests/calculator-scoring.test.ts`
+  // pins every fixture's bands as contiguous, so that branch is unreachable
+  // today; it exists so a future fixture edit cannot turn a table gap into a
+  // false claim that a result is being withheld from the clinician.)
+  const missingBandReason = showBand ? "unknown" : "withheld_until_complete";
   const flags = calc.items
     .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);
@@ -138,7 +148,10 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
     calc.id === "mdq"
       ? mdqResult(answers, score)
       : {
-          label: band?.label ?? "—",
+          // `label` is typed `string` and flows into `formatResultSummary`'s
+          // clipboard line, so this is the plain-string form of the primitive —
+          // same six phrases, never a second vocabulary.
+          label: band?.label ?? missingValuePhrase(missingBandReason),
           tone: band?.tone ?? "info",
           guidance: band?.guidance ?? "",
         };

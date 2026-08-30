@@ -1182,11 +1182,25 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/answer/AnswerFooter.tsx",
-        "src/components/ui/date-display.tsx"
+        "src/components/calculators/calculator-sheet.tsx",
+        "src/components/calculators/clinical-console.tsx",
+        "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/search-detail.tsx",
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
+        "src/components/ui/date-display.tsx",
+        "src/components/ward-management/discharges/discharge-board.tsx",
+        "src/components/ward-management/ward-management-console.tsx"
       ],
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/calculators/calculator-sheet.tsx",
+        "src/components/calculators/clinical-console.tsx",
+        "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/search-detail.tsx",
+        "src/components/clinical-dashboard/favourites-hub.tsx",
+        "src/components/specifiers/specifier-reference-page.tsx",
         "src/components/ui/date-display.tsx"
       ],
       "designSync": {
@@ -1590,6 +1604,7 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1600,6 +1615,7 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1777,7 +1793,7 @@
         "tests/print-output-capabilities.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
-        "tests/settings-search.dom.test.tsx",
+        "tests/settings-surface.dom.test.tsx",
         "tests/sheet-focus-stress.dom.test.tsx",
         "tests/sheet-focus.dom.test.tsx",
         "tests/sheet.dom.test.tsx",

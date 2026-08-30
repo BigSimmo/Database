@@ -934,6 +934,9 @@ async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator
 
 async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
+  await expect(settings.getByText("Account and workspace preferences", { exact: true })).toBeVisible();
+  await expect(settings.getByRole("search")).toHaveCount(0);
+  await expect(settings.getByRole("navigation", { name: "Settings sections" })).toHaveCount(0);
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
@@ -1509,13 +1512,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
-    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
-    // auto row sized to the full content height, overflowed the capped grid and
-    // was clipped by `overflow-hidden`. The scroll column therefore never
-    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
-    // `scrollIntoView` scrolled the clipped grid instead — dragging the rail and
-    // the close control out of the dialog with no way to scroll them back.
+  test("desktop settings owns its scroll and keeps the simplified title bar reachable", async ({ page }) => {
+    // The section rail and search were removed, but the long settings body still
+    // needs one bounded scroll owner with a sticky close control.
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -1529,11 +1528,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings);
 
-    const rail = settings.getByRole("navigation", { name: "Settings sections" });
     const close = settings.getByRole("button", { name: "Close settings" });
-    await expect(rail).toBeVisible();
-
     const port = settings.getByTestId("settings-scroll-port");
 
     const scrollState = async () =>
@@ -1545,68 +1542,19 @@ test.describe("PsychSift UI smoke coverage", () => {
         };
       });
 
-    // The settings column owns the overflow; the two-column panel never does.
+    // The settings column owns the overflow; its panel never becomes a second
+    // clipped scroll container.
     expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
 
-    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
-      await settings.getByRole("button", { name: section, exact: true }).click();
-      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
-        "aria-current",
-        "true",
-      );
-      // The rail and the only pointer-driven way out both stay inside the panel.
-      await expect(rail).toBeInViewport();
-      await expect(close).toBeInViewport();
-      expect((await scrollState()).panelClipped).toBe(false);
-    }
-
-    // A rail click holds its own highlight — the last sections are shorter than
-    // the scroll port and can never reach the marker line — but only until the
-    // reader scrolls somewhere else. Dragging the native scrollbar moves
-    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
-    // assign `scrollTop` directly to reproduce exactly that interaction. Force
-    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
-    // and a bare `scrollTop` write would otherwise animate.
-    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
     await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = 0;
-      element.style.scrollBehavior = previous;
+      element.scrollTop = element.scrollHeight;
     });
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(settings.getByRole("heading", { name: "Developer", exact: true })).toBeVisible();
+    await expect(close).toBeInViewport();
+    expect((await scrollState()).panelClipped).toBe(false);
 
     await close.click();
     await expect(settings).toBeHidden();
-
-    // The pin must not outlive the dialog: the Sheet unmounts its children, but
-    // the component stays mounted, so a stale pin would hold the spy inert. A
-    // coalesced spy rAF armed before close is cancelled on `open` flip (and
-    // dropped if its port is no longer the live ref), so reopen starts on
-    // Account rather than the previous section.
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = element.scrollHeight;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Developer", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
   });
 
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
@@ -1649,6 +1597,20 @@ test.describe("PsychSift UI smoke coverage", () => {
     await page.setViewportSize({ width: 430, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    const reducedMotionDuration = await settings
+      .locator("header")
+      .first()
+      .evaluate((element) => getComputedStyle(element).transitionDuration);
+    expect(Number.parseFloat(reducedMotionDuration)).toBeLessThanOrEqual(0.001);
+    expect(
+      await settings.getByRole("button", { name: "Close settings" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
@@ -3224,12 +3186,18 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(sourceOnlyDisclosure).not.toContainText("Copied from cited sources without model synthesis");
 
     const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const disclosureButtonBox = await sourceOnlyButton.boundingBox();
     const disclosureBox = await sourceOnlyDisclosure.boundingBox();
     const railBox = await sourceOnlyRail.boundingBox();
     expect(proseBox).not.toBeNull();
+    expect(disclosureButtonBox).not.toBeNull();
     expect(disclosureBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    expect(disclosureBox!.height).toBeLessThanOrEqual(30);
+    // The compact disclosure now deliberately carries the 40px compact-meta
+    // interaction floor. Its bordered container is 42px high in Chromium, so
+    // preserve both the usable target and the compact one-row layout.
+    expect(disclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
+    expect(disclosureBox!.height).toBeLessThanOrEqual(42);
     expect(disclosureBox!.y - (proseBox!.y + proseBox!.height)).toBeGreaterThanOrEqual(7);
     expect(railBox!.y - (disclosureBox!.y + disclosureBox!.height)).toBeGreaterThanOrEqual(7);
 
@@ -3253,6 +3221,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
       await expect(sourceOnlyDisclosure).toBeVisible();
+      const responsiveDisclosureButtonBox = await sourceOnlyButton.boundingBox();
+      expect(responsiveDisclosureButtonBox).not.toBeNull();
+      expect(responsiveDisclosureButtonBox!.height).toBeGreaterThanOrEqual(40);
       await expectNoPageHorizontalOverflow(page);
     }
 

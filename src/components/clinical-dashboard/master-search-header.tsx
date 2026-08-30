@@ -1755,7 +1755,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={() => onScopeFiltersChange({})}
-                className={cn(floatingControl, "px-3 text-xs lg:min-h-9")}
+                className={cn(floatingControl, "px-3 text-xs lg:min-h-compact-meta")}
               >
                 Clear refine filters
               </button>
@@ -1763,7 +1763,7 @@ export function MasterSearchHeader({
           </div>
         </details>
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
-          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
+          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-compact-meta">
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-muted)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
@@ -1778,7 +1778,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-9")}
+              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-compact-meta")}
             >
               Clear refine filters
             </button>

@@ -346,7 +346,22 @@ a security problem. Threat models and the privacy assessment live under `docs/`
 (`rag-injection-threat-model.md`, `tenancy-defense-in-depth-review.md`,
 `privacy-impact-assessment.md`).
 
-## License
+## License, ownership, and contributions
 
-Proprietary — all rights reserved. This repository is private and is not licensed for
-redistribution or reuse (`package.json` declares `"license": "UNLICENSED"`).
+Copyright (c) 2026 BigSimmo, for material owned by or validly assigned to the
+Repository Owner. Other rightsholders retain their respective rights. All
+rights reserved.
+
+This repository is publicly visible for inspection, but Repository
+Owner-controlled material is proprietary, is not open source, and is not in the
+public domain. No permission is granted to use, run, copy, modify, redistribute,
+deploy, commercialise, scrape, or use that material for AI or machine-learning
+development except as required by GitHub's applicable terms, applicable law, or
+express prior written permission.
+
+See [`LICENSE`](LICENSE) for the proprietary rights notice,
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the ownership boundary
+and embedded licences, and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the signed
+assignment requirement that applies before an external contribution may be
+merged. The `"license": "UNLICENSED"` declaration in `package.json` is
+intentional.
