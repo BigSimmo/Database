@@ -51,6 +51,12 @@ export const INSTANT_FIELDS: ReadonlySet<string> = new Set([
   "formedAt",
   "openedAt",
   "raisedAt",
+  // 2026-08-30, with `Referral.triagedAt`. Added because the guard test refused the commit
+  // that introduced it, which is the whole point of that test: a triage instant left on the
+  // old anchor would put a patient in the department for an extra day, beside a referral time
+  // that had moved — and "18h in department" beside "40m since referral" reads as a data
+  // error, not a bug, to the person looking at it.
+  "triagedAt",
 ]);
 
 /**

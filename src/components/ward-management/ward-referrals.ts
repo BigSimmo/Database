@@ -297,6 +297,60 @@ export function referralWaitLabel(referral: Referral, now: Instant): string {
 }
 
 /**
+ * The two clocks `P9-D2` asks for, computed together from ONE `now`.
+ *
+ * The owner's decision, 2026-08-30: every wait carries **time in department (from triage)** and
+ * **time since referral to mental health**, side by side. **The gap between them is the signal** —
+ * it says whether the delay sits upstream of mental health or with them, which one clock can only
+ * obscure. He rejected referral-only (a patient waits hours before anyone refers, and the screen
+ * shows a short wait) and triage-only (mental health looks slow for a delay it could not act on).
+ *
+ * ⚠️ **`inDepartment` IS `undefined`, NEVER `0`, FOR SOMEONE NOT YET THERE** — `P9-D7`. A community
+ * expect sits on the to-see board before arriving, and *"a not-yet-arrived expect showing '0m in
+ * department' reads as 'just arrived', which is the opposite of the truth."* Returning a number
+ * here would let any screen print it correctly and still lie; returning nothing forces the screen
+ * to say the clock does not exist yet.
+ *
+ * ⚠️ **ONE `now` FOR BOTH, and that is not a tidiness point.** The out-of-area board read two
+ * clocks for one comparison on this same model and disagreed with itself. Both durations below are
+ * measured against the single `now` the caller passes, and `tests/ward-referral-clocks.test.ts`
+ * proves it with a referral triaged at the instant it was raised: two clock sources cannot both
+ * report those as equal.
+ *
+ * **`sinceReferral` STOPS when the person arrives after being referred** (`P9-D7` via `P9-F3`: the
+ * referral clock runs only until the patient arrives). For someone already in the department when
+ * the referral was raised there is nothing for arrival to end — their triage is in the past — so it
+ * keeps running, and `sinceReferralRunning` says which of the two a screen is showing. A stopped
+ * duration rendered like a live one is the same class of lie as the zero above.
+ */
+export type ReferralClocks = {
+  /** Minutes from `raisedAt`; stops at `triagedAt` when the person arrived after being referred. */
+  sinceReferral: number;
+  /** Whether `sinceReferral` is still counting. A screen must not word a stopped clock as a wait. */
+  sinceReferralRunning: boolean;
+  /** Minutes since triage, or `undefined` when this person is not in the department yet. */
+  inDepartment: number | undefined;
+};
+
+export function referralClocks(referral: Referral, now: Instant): ReferralClocks {
+  const { raisedAt, triagedAt } = referral;
+  // Arrival ends the referral wait only when it came AFTER the referral. `>= raisedAt` rather than
+  // `> raisedAt` so a referral raised and triaged in the same minute reads as arrived, which is
+  // what a reader would say happened; the equal case is also the one the same-clock proof uses.
+  const arrivedAfterReferral = triagedAt !== undefined && triagedAt >= raisedAt;
+  const referralEnd = arrivedAfterReferral ? triagedAt : now;
+
+  return {
+    // `Math.max(0, …)` for the same reason `formatElapsed` never prints a negative: a fixture
+    // authored at a future anchor, or a re-anchor that moves `now` backwards, must not put
+    // "-20m waiting" on a board.
+    sinceReferral: Math.max(0, minutesUntil(referralEnd, raisedAt)),
+    sinceReferralRunning: !arrivedAfterReferral,
+    inDepartment: triagedAt === undefined ? undefined : Math.max(0, minutesUntil(now, triagedAt)),
+  };
+}
+
+/**
  * Whether this unit has ever confirmed its allocatable bed count — mirrors
  * `ward-morning-rollup.ts`'s own private `hasConfirmedAllocatable` exactly (see that function's
  * doc comment for why the check is `typeof … === "number" && Number.isFinite(…)` rather than a

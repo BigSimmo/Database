@@ -948,4 +948,36 @@ export type Referral = {
    * outright, and an outcome enum would be inventing a vocabulary nobody has been asked for.
    */
   localBedSought?: { at: Instant; by: string };
+  /**
+   * When this person was triaged into the department the referral concerns — the start of the
+   * SECOND clock, and the field `P9-D7` was recorded against before anything could read it.
+   *
+   * `P9-D2` (OWNER, 2026-08-30): every wait carries two clocks, both visible — time in department
+   * **from triage**, and time since the referral to mental health. **The gap between them is the
+   * signal**: it says whether the delay sits upstream of mental health or with them. His words are
+   * the reason this is triage rather than anything else — he rejected a *medically-ready* start
+   * because it *"needs a state somebody must actively set, so the number silently depends on
+   * remembering to tick something."*
+   *
+   * ⚠️ **ABSENT IS A REAL STATE AND IT IS NOT ZERO.** A community expect sits on the to-see board
+   * before arriving (`P9-D5`), so for them the department clock does not exist yet. `P9-D7`
+   * requires it to render as genuinely absent — never `0m`, never an em dash styled like a
+   * duration, never a zero sorting alongside real waits, because *"a not-yet-arrived expect showing
+   * '0m in department' reads as 'just arrived', which is the opposite of the truth."* Read it
+   * through `referralClocks` (`ward-referrals.ts`), which returns `undefined` rather than a number
+   * no screen should print.
+   *
+   * ⚠️ **THIS IS NOT THE `arrivedAt` PHASE 8 TASK 2R DELETED, and the distinction is the whole
+   * reason for the name.** That field meant arriving **at a bed**, and it was removed because
+   * `Admission` (`ward-admissions.ts`) is the single record of a person occupying one — a
+   * tightening, not an oversight. This is arriving **in the department**: a different event, at a
+   * different place, starting a different clock, for a person who may never get a bed at all.
+   * Calling it `arrivedAt` again would have read as reversing that deletion rather than
+   * complementing it, and the guard comment in `tests/ward-referral-model.test.ts` says both.
+   *
+   * ⚠️ **PROVENANCE: owner ruling, RELAYED through the orchestrator (`P9-F3`, 2026-08-30).** No
+   * session heard it first-hand, which `R55` requires to be recorded rather than smoothed into
+   * "(OWNER)". It is a time, never a person fact: it says where a body is, not who they are.
+   */
+  triagedAt?: Instant;
 };

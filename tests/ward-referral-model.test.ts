@@ -690,6 +690,22 @@ describe("Referral privacy — structural", () => {
     // no note, reason or outcome field; the runtime companion below drives that write path so a
     // reducer that started writing one anyway fails under plain vitest, with no `tsc` step.
     "localBedSought",
+    // 2026-08-30. Widened by one, deliberately, and the note above is why this needs its own
+    // sentence rather than a quiet append: Task 2R REMOVED an `arrivedAt` from this type, and this
+    // is not that field coming back. That one meant arriving at a BED, and `Admission` owns it.
+    // `triagedAt` is arriving in the DEPARTMENT — a different event, at a different place, for a
+    // person who may never get a bed at all, and it starts the second of the two clocks the owner
+    // asked for in `P9-D2`. A reader who sees an arrival instant here and remembers the deletion
+    // should find the distinction stated rather than have to reconstruct it.
+    //
+    // It does not widen the person facts this type holds. Like `raisedAt`, `decidedAt` and
+    // `localBedSought` it is operational: it says where a body is and when, never who they are.
+    // `homeAddress`, `notes`, `patientId` and `diagnosis` still fail here exactly as before.
+    //
+    // Provenance: owner ruling RELAYED via the orchestrator (`P9-F3`), not heard first-hand by the
+    // session that built it — recorded that way because `R55` exists precisely to stop a relay
+    // hardening into "(OWNER)" once it has been written down twice.
+    "triagedAt",
   ].sort();
 
   /**
@@ -825,6 +841,9 @@ describe("Referral privacy — structural", () => {
       transportNeeded: false,
       // A role, never a person — and no note, reason or outcome field exists to populate.
       localBedSought: { at: NOW_ANCHOR + 2, by: "coordinator" },
+      // Before `raisedAt`: this canonical referral is somebody already in the department when
+      // mental health was called, which is the case where BOTH clocks run.
+      triagedAt: NOW_ANCHOR - 90,
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
     // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
