@@ -2,6 +2,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import {
   BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
+  CANCEL_TRANSPORT_REASONS,
   OVERRIDE_REASONS,
 } from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
@@ -1642,14 +1643,37 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (movement.transport.collectedAt !== undefined) {
         return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has departed`);
       }
-      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
-      // it was acting as against the unit the movement is accepted at, and refuses when they
-      // differ. Unused for a coordinator caller, who may act on behalf of any unit.
-      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
+      /*
+       * ⚠️ THIS CHECK USED TO BE TR-D6 INVERTED, AND IT READ AS OBVIOUSLY CORRECT.
+       *
+       * It was: `if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId)
+       * reject` — permitting a ward caller ONLY when it was the accepted unit. That is, only the
+       * RECEIVING ward: the one party the owner's ruling excludes by name. Every other ward was
+       * refused. It carried a careful comment about claim-not-proof discipline while doing exactly
+       * the wrong thing, because "a ward may act on its own patient" is such a natural sentence
+       * that it survives review.
+       *
+       * TR-D6 (owner, 2026-08-30): a transport may be cancelled by the team that BOOKED it and by
+       * the coordinator. The receiving ward may not — it did not book the job, and a booking
+       * cancelled by the destination is indistinguishable on the sending board from one that
+       * failed, so the sending team cannot tell "they changed their mind" from "it never went
+       * through". They re-book, or they wait for a vehicle nobody is sending.
+       *
+       * `ward` is now absent from `EVENT_ROLE.CANCEL_TRANSPORT`, so the role gate above refuses it
+       * before this point is reached and no unit comparison is needed at all. `actingUnitId`
+       * remains on the event for the other callers that carry it.
+       */
+      if (!CANCEL_TRANSPORT_REASONS.includes(event.reason)) {
+        /*
+         * Runtime membership, not merely the type. `reason` is declared required on the event, but
+         * a type-only guarantee passes `vitest run` with no `tsc` involved — and a caller omitting
+         * it was accepted, writing `reason: undefined` into the unwind record. TR-D6 says this must
+         * not be weakened to optional; an unenforced requirement already is.
+         */
         return reject(
           state,
           event,
-          `CANCEL_TRANSPORT was raised acting as unit ${event.actingUnitId} but movement ${movement.id} is accepted at ${movement.acceptedUnitId ?? "no unit"}`,
+          `CANCEL_TRANSPORT reason must be chosen from CANCEL_TRANSPORT_REASONS`,
         );
       }
       // Never closes the movement — the patient stays open, only the transport job unwinds. The

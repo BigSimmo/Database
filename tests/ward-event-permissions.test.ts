@@ -27,7 +27,18 @@ describe("who may raise which event", () => {
     ADD_PATIENT: ["ed", "community", "coordinator"],
     ADVANCE_CLOCK: ["demo"],
     BLOCK_BED_RELEASE: ["ward"],
-    CANCEL_TRANSPORT: ["coordinator", "ward"],
+    // CHANGED 2026-08-30 under TR-D6 (owner), and this row is a NARROWING plus a widening, not
+    // a tidy-up. Was ["coordinator", "ward"]. The ruling: the team that BOOKED it and the
+    // coordinator may cancel; the RECEIVING ward may not, because a booking cancelled by the
+    // destination is indistinguishable on the sending board from one that failed. Every
+    // movement originates at an emergency department (`Movement.originEdId` is required), so
+    // the booking team is `ed`.
+    //
+    // What the reducer writes for the newly-permitted role, as this guard demands: `ed` lands
+    // in the `transport_cancelled` unwind record as `by`, which is a ROLE and never a person —
+    // so no false attribution is introduced. Asserted directly in
+    // `tests/ward-transport-cancel-permission.test.ts`.
+    CANCEL_TRANSPORT: ["coordinator", "ed"],
     CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
     CHANGE_URGENCY: ["coordinator", "ed"],
     CLEAR_BED_RELEASE_BLOCK: ["ward"],

@@ -531,7 +531,14 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   CHANGE_URGENCY: ["coordinator", "ed"],
   CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
   RELEASE_HOLD: ["coordinator", "ward"],
-  CANCEL_TRANSPORT: ["coordinator", "ward"],
+  // TR-D6 (owner, 2026-08-30): the team that BOOKED it, and the coordinator. The sending team
+  // owns the job (TR-D5) and every movement originates at an emergency department
+  // (`Movement.originEdId` is required), so the booking team is `ed`. ⚠️ `ward` is the
+  // RECEIVING side and is excluded BY NAME: it did not book the job, and a booking cancelled
+  // by the destination is indistinguishable on the sending board from one that failed — so
+  // the sending team cannot tell "they changed their mind" from "it never went through".
+  // This list read ["coordinator", "ward"] until 2026-08-30, which was TR-D6 inverted.
+  CANCEL_TRANSPORT: ["coordinator", "ed"],
   FLAG_BED_RELEASE: ["ward"],
   CONFIRM_BED_RELEASE: ["ward"],
   // Bed-model rework (2026-08-28). All three are `ward`-only for the same reason the four above
