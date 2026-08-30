@@ -1,6 +1,6 @@
 # Security Policy
 
-Clinical KB (`psychiatry.tools`) is a private, single-maintainer clinical reference
+PsychSift (`psychiatry.tools`) is a private, single-maintainer clinical reference
 application that handles private guideline documents and grounded answer generation.
 Security reports are taken seriously and handled privately.
 

@@ -1,6 +1,6 @@
 # Design System Contract & Standards
 
-This document specifies the blocking design system token rules, touch/tap target standards, and enforcement mechanisms for the Clinical KB application.
+This document specifies the blocking design system token rules, touch/tap target standards, and enforcement mechanisms for the PsychSift application.
 
 ---
 

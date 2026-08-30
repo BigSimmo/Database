@@ -1,4 +1,4 @@
-# Clinical KB design system — Hazard 1–2 fix guide
+# PsychSift design system — Hazard 1–2 fix guide
 
 Single appendix for the closed Hazard 1–2 sweep. **Rules and roles stay in SPEC / TOKENS /
 GATES; this file only records dispositions.** A Documented row is not a licence to change
