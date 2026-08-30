@@ -84,6 +84,18 @@ async function answerEveryIntakeQuestion(
   // is a yes/no group that starts unanswered, not a checkbox that starts at `false`. A journey
   // that skips it never gets an available Send, so it belongs here with the other eight.
   await page.getByTestId("ward-referral-intake-transportNeeded-no").check();
+  // The tenth question, added when `521888a23` made a destination required ("The referrer chooses
+  // where to refer, and is shown why"). This spec was last touched seven hours earlier, so it went
+  // on answering nine and then asserting an available Send — two journeys red on a requirement that
+  // did not exist when they were written. The repair is a new ANSWER here, never a softened
+  // assertion on line 89: that assertion is what makes a missed question fail loudly instead of
+  // timing out on a click, and it did exactly its job.
+  //
+  // `psychiatric_ward` specifically, and that is a decision rather than the first option to hand.
+  // Both journeys below accept the patient at a unit, and one asserts out-of-area ledger
+  // arithmetic. An ED or community destination would satisfy Send just as well and would quietly
+  // change what the rest of each journey is testing.
+  await page.getByTestId("ward-referral-intake-destination-psychiatric_ward").check();
   // Send only becomes available once the last question is answered, so this is both a wait and an
   // assertion: a journey that had missed one would fail here rather than time out on a click.
   await expect(page.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled", "true");
