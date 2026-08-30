@@ -85,7 +85,7 @@ function multiDestinationReferral(): Referral {
       { kind: "community_team" },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Armadale",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     urgency: 2,
     originSiteCode: "RPH",

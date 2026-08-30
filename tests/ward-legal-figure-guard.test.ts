@@ -426,7 +426,7 @@ const RECEIVE_REFERRAL_CANDIDATE = {
   // A real suburb from the catchment table, because the front door resolves it rather than
   // measuring its length. No figure, timeframe or threshold — this file stays touched as
   // little as possible and the edit is forced by the event type, not chosen.
-  suburb: "Armadale" as const,
+  suburb: { kind: "named", name: "Armadale" } as const,
   source: "community" as const,
   urgency: 2 as const,
   originSiteCode: "SCGH",

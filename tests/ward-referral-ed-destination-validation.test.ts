@@ -40,7 +40,7 @@ function receive(destinations: ReferralDestination[]): WardFlowState {
     homeRegion: "Perth Metropolitan",
     // A real suburb: `RECEIVE_REFERRAL` resolves it against the catchment table, so an invented
     // name would be refused before the rule this file is actually testing was ever reached.
-    suburb: "Armadale",
+    suburb: { kind: "named", name: "Armadale" },
     urgency: 2,
     destinations,
   } as never);

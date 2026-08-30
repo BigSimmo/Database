@@ -504,7 +504,7 @@ describe("network diagram, the travel-band arrangement", () => {
               // Fixed while `homeRegion` varies: nothing derives one from the other (see
               // `Referral.suburb`), so the pair is deliberately not checked and this test is
               // about travel bands rather than geography.
-              suburb: "Armadale",
+              suburb: { kind: "named", name: "Armadale" },
               source: "community",
               urgency: 2,
               originSiteCode: allUnits()[0]!.siteCode,

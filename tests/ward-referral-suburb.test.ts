@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import { lookupCatchment } from "@/components/ward-management/ward-catchment";
+import {
+  SUBURB_UNKNOWN_REASONS,
+  suburbUnknownLabels,
+  type ReferralSuburb,
+} from "@/components/ward-management/ward-model";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
-import { referralSuburbIsKnown } from "@/components/ward-management/ward-referrals";
+import {
+  catchmentSuburbOf,
+  referralSuburbIsAnswered,
+  referralSuburbIsKnown,
+  referralSuburbLabel,
+} from "@/components/ward-management/ward-referrals";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
@@ -31,8 +41,9 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  */
 const KNOWN = "Armadale";
 const NOT_A_SUBURB = "12 Wellington St, Perth";
+const named = (name: string): ReferralSuburb => ({ kind: "named", name });
 
-function receive(suburb: string) {
+function receive(suburb: ReferralSuburb) {
   return wardFlowReducer(seedWardFlowState(), {
     type: "RECEIVE_REFERRAL",
     // The front door is the community role's event; a coordinator cannot raise one, and the
@@ -54,9 +65,9 @@ function receive(suburb: string) {
 describe("a referral records its suburb", () => {
   it("accepts a suburb the catchment table knows", () => {
     expect(referralSuburbIsKnown(KNOWN)).toBe(true);
-    const state = receive(KNOWN);
+    const state = receive(named(KNOWN));
     expect(state.rejections, "a real suburb must be accepted, or nothing below is exercised").toEqual([]);
-    expect(state.referrals.at(-1)!.suburb).toBe(KNOWN);
+    expect(state.referrals.at(-1)!.suburb).toEqual({ kind: "named", name: KNOWN });
   });
 
   it("⚠️ REFUSES A STREET ADDRESS, which a non-emptiness check would have accepted", () => {
@@ -65,7 +76,7 @@ describe("a referral records its suburb", () => {
     );
     expect(referralSuburbIsKnown(NOT_A_SUBURB)).toBe(false);
 
-    const state = receive(NOT_A_SUBURB);
+    const state = receive(named(NOT_A_SUBURB));
     expect(state.rejections.length, "an address must be refused at the door, not stored and regretted").toBe(1);
     expect(state.referrals.length, "no referral may be created by a refused event").toBe(
       seedWardFlowState().referrals.length,
@@ -73,7 +84,7 @@ describe("a referral records its suburb", () => {
   });
 
   it("refuses an empty suburb too, and says which rule it broke", () => {
-    const state = receive("   ");
+    const state = receive(named("   "));
     expect(state.rejections.length).toBe(1);
     expect(state.rejections[0]!.reason).toContain("suburb");
   });
@@ -93,15 +104,52 @@ describe("a referral records its suburb", () => {
     expect(referralSuburbIsKnown("Mandurah")).toBe(true);
   });
 
+  it("🔴 REFERS A PATIENT OF NO FIXED ABODE — for an hour this field made that impossible", () => {
+    // The defect, and it shipped: `suburb: string`, resolved against the table, empty refused. There
+    // was no representable answer for "not known", so the front door refused precisely the cohort
+    // most likely to need an acute bed — a person of no fixed abode, or one police brought in at 3am
+    // with no recorded address. Found by a peer reading the committed code rather than my summary
+    // of it.
+    const state = receive({ kind: "unknown", reason: "not_known" });
+    expect(state.rejections, "a patient with no suburb to give must still be referable").toEqual([]);
+    expect(state.referrals.at(-1)!.suburb).toEqual({ kind: "unknown", reason: "not_known" });
+  });
+
+  it("⚠️ REFUSES AN UNKNOWN REASON THAT IS NOT ON THE LIST, so the arm is not an escape hatch", () => {
+    // Without this, `{ kind: "unknown", reason: <anything> }` would be a free-text field wearing a
+    // union's clothes — which is the shape `FD-23`'s withdrawal reason was in when it leaked a
+    // ward's name.
+    const state = receive({ kind: "unknown", reason: "no_fixed_abode" } as never);
+    expect(state.rejections.length).toBe(1);
+    expect(state.rejections[0]!.reason).toContain("suburb");
+  });
+
+  it("names every unknown answer, so no screen prints a raw code", () => {
+    expect(Object.keys(suburbUnknownLabels).sort()).toEqual([...SUBURB_UNKNOWN_REASONS].sort());
+    for (const reason of SUBURB_UNKNOWN_REASONS) {
+      expect(referralSuburbLabel({ kind: "unknown", reason })).toBe(suburbUnknownLabels[reason]);
+      expect(referralSuburbLabel({ kind: "unknown", reason }), "a label is a sentence, not the code").not.toBe(reason);
+    }
+    expect(referralSuburbLabel({ kind: "named", name: "Armadale" })).toBe("Armadale");
+  });
+
+  it("⚠️ READS NO CATCHMENT FOR A PATIENT WITH NO PLACE, rather than guessing one", () => {
+    // The honest consequence, and the reason "not known" cannot be quietly mapped onto a default
+    // suburb somewhere downstream: no place means no catchment, and a catchment invented for
+    // somebody with no address is exactly the administrative fiction this field resolves against a
+    // real table to avoid.
+    expect(catchmentSuburbOf({ kind: "unknown", reason: "not_known" })).toBeNull();
+    expect(catchmentSuburbOf({ kind: "named", name: "Armadale" })).toBe("Armadale");
+  });
+
   it("⚠️ IS EXERCISED BY EVERY SEEDED REFERRAL, or the screens have nothing real to look up", () => {
     const referrals = seedWardFlowState().referrals;
     expect(referrals.length).toBeGreaterThan(1);
     for (const referral of referrals) {
-      expect(referral.suburb.length, `${referral.id} carries no suburb`).toBeGreaterThan(0);
       expect(
-        referralSuburbIsKnown(referral.suburb),
-        `${referral.id}'s suburb "${referral.suburb}" is not in the catchment table, so the front ` +
-          "door would refuse the fixture it ships with",
+        referralSuburbIsAnswered(referral.suburb),
+        `${referral.id}'s suburb is not an answer the front door accepts, so the fixture it ships ` +
+          "with would be refused by its own reducer",
       ).toBe(true);
     }
   });
@@ -118,7 +166,7 @@ describe("a referral records its suburb", () => {
     const referrals = seedWardFlowState().referrals;
     expect(referrals.every((referral) => referral.homeRegion.length > 0)).toBe(true);
     expect(
-      referrals.some((referral) => referral.suburb.length > 0 && referral.homeRegion.length > 0),
+      referrals.some((referral) => referral.suburb.kind === "named" && referral.homeRegion.length > 0),
       "both facts are stored side by side, deliberately and not by oversight",
     ).toBe(true);
   });

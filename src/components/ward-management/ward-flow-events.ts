@@ -18,6 +18,7 @@ import type {
   ReferralDestination,
   ReferralDestinationKind,
   ReferralSource,
+  ReferralSuburb,
   Security,
   Sex,
   TransportProvider,
@@ -438,9 +439,10 @@ export type WardFlowEvent =
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;
       /** The suburb, resolved against the catchment table by the reducer — never free text, and
-       *  never an address. See `Referral.suburb`'s own doc comment for why a suburb is allowed
-       *  where an address is not, and why `homeRegion` beside it is not derived from it. */
-      suburb: string;
+       *  never an address. ⚠️ A UNION, not a string, so **"not known" is an answer rather than a
+       *  failure to answer**: a patient of no fixed abode must be referable, and for the hour this
+       *  was a bare `string` they were not. See `ReferralSuburb`'s own doc comment. */
+      suburb: ReferralSuburb;
       /** Where the referral arrived from — one of `REFERRAL_SOURCES`. */
       source: ReferralSource;
       urgency: 1 | 2 | 3;

@@ -1085,7 +1085,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Armadale",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
     urgency: 2,
@@ -1115,7 +1115,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Kimberley",
-    suburb: "Kununurra",
+    suburb: { kind: "named", name: "Kununurra" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
     triagedAt: NOW_ANCHOR - 215,
@@ -1146,7 +1146,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Nedlands",
+    suburb: { kind: "named", name: "Nedlands" },
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
     urgency: 1,
@@ -1177,7 +1177,7 @@ export const referrals: Referral[] = [
     // documents disagree about it, `lookupCatchment` reports both readings and picks no
     // winner, and the front door still accepts the referral. Seeded so a screen has to
     // face that case rather than only the tidy one.
-    suburb: "Mandurah",
+    suburb: { kind: "named", name: "Mandurah" },
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
     triagedAt: NOW_ANCHOR - 100,
@@ -1200,7 +1200,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Murdoch",
+    suburb: { kind: "named", name: "Murdoch" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
     // The widest gap in the seed and the reason `P9-D2` asks for two numbers: 165 minutes
@@ -1240,7 +1240,7 @@ export const referrals: Referral[] = [
     ],
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
-    suburb: "Broome",
+    suburb: { kind: "named", name: "Broome" },
     source: "police",
     raisedAt: NOW_ANCHOR - 65,
     triagedAt: NOW_ANCHOR - 80,
@@ -1273,7 +1273,7 @@ export const referrals: Referral[] = [
     // Out of area on purpose, same reason as RF-006 above — a second real example for the
     // out-of-area ledger `homeRegion` exists to make possible.
     homeRegion: "Mid West",
-    suburb: "Geraldton",
+    suburb: { kind: "named", name: "Geraldton" },
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 30,
     // Longest of all — a country transfer sitting in another hospital for nearly five hours.
@@ -1326,7 +1326,7 @@ export const referrals: Referral[] = [
       },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Morley",
+    suburb: { kind: "named", name: "Morley" },
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 75,
     triagedAt: NOW_ANCHOR - 95,

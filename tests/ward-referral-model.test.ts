@@ -122,7 +122,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Kimberley",
-      suburb: "Broome",
+      suburb: { kind: "named", name: "Broome" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -154,7 +154,7 @@ describe("bed category — SexDesignation", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
-      suburb: "Armadale",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
       urgency: 2,
@@ -863,7 +863,7 @@ describe("Referral privacy — structural", () => {
       // A real suburb from the catchment table, for the same reason the ED arm's `edId` is a real
       // department: this literal is the exhaustive half of the guard and a fictional value here
       // would be a fixture the front door itself would refuse.
-      suburb: "Armadale",
+      suburb: { kind: "named", name: "Armadale" },
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
     // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
@@ -924,7 +924,7 @@ describe("Referral privacy — structural", () => {
         },
       ],
       homeRegion: "Perth Metropolitan",
-      suburb: "Armadale",
+      suburb: { kind: "named", name: "Armadale" },
       source: "community",
       urgency: 2,
       originSiteCode: "RPH",

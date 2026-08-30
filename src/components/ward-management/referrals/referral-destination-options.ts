@@ -196,7 +196,7 @@ function wardFigures(inputs: DestinationOptionInputs, ward: WardReferralDestinat
     destinations: [{ destination: ward, state: "queued" }],
     ageBand,
     homeRegion: HOME_REGIONS[0],
-    suburb: "Armadale",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: inputs.now,
     urgency: 2,

@@ -73,7 +73,7 @@ function referral(overrides: ReferralOverrides = {}): Referral {
       },
     ],
     homeRegion: "Perth Metropolitan",
-    suburb: "Armadale",
+    suburb: { kind: "named", name: "Armadale" },
     source: "community",
     raisedAt: NOW - 30,
     urgency: 2,
