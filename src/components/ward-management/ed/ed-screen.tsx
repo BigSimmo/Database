@@ -24,12 +24,14 @@ import {
   COHORTS,
   ED_ACCESS_TARGET_MINUTES,
   SEXES,
+  TRANSPORT_PROVIDERS,
   URGENCY_LEVELS,
   type Cohort,
   type LegalStatus,
   type Movement,
   type Security,
   type Sex,
+  type TransportProvider,
 } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
 import {
@@ -233,6 +235,86 @@ function handoverBlockedReason(movement: Movement): string | undefined {
   return undefined;
 }
 
+/**
+ * Mirrors `case "BOOK_TRANSPORT"` in the reducer, in the reducer's own order, so this control can
+ * never advertise a booking the reducer would refuse — the same discipline `handoverBlockedReason`
+ * above and `ward-screen.tsx`'s `*BlockedReason` functions already hold to. The closure check the
+ * reducer makes first has no counterpart here because `patients` has already excluded every closed
+ * movement before a card is rendered.
+ *
+ * ⚠️ **THE ESCORT ANSWER IS DELIBERATELY NOT CHECKED HERE.** This function answers "may this
+ * movement be booked at all", which is a fact about the MOVEMENT. Whether the person has answered
+ * the escort question is a fact about a half-filled form, and is checked by
+ * `transportAnswersBlockedReason` at the confirm control instead. One message standing for both
+ * would tell somebody a patient cannot be transported when in truth they have not finished asking.
+ */
+function bookTransportBlockedReason(movement: Movement): string | undefined {
+  if (movement.stage !== "bed_held") {
+    return `${movement.id} is ${stageCopy[movement.stage].label.toLowerCase()}, not bed held — transport can only be booked once a bed is held.`;
+  }
+  // The reducer refuses a second booking because it would replace a job a provider may already
+  // have accepted and take the acceptance timestamps with it. Reachable on this screen the moment
+  // a booking succeeds: `BOOK_TRANSPORT` leaves the movement at `bed_held`, so the card that just
+  // booked re-renders with the control unavailable rather than offering a replacement.
+  if (movement.transport) {
+    return `${movement.id} already has transport booked. Booking again would replace a job the provider may already have accepted, and take its timestamps with it — an existing job has to be cancelled before a new one can be booked.`;
+  }
+  return undefined;
+}
+
+/**
+ * ⚠️ **THE ESCORT QUESTION OPENS BLANK, AND NOTHING ANYWHERE SUPPLIES AN ANSWER FOR IT** (owner,
+ * relayed 2026-08-30). Not from `legalStatus`, not from the last booking, not as a "usually".
+ *
+ * **His reason is that a pre-filled clinical judgement is answered by clicking past it**, and the
+ * record then asserts that a clinician decided when nobody did — worse than the honest derivation
+ * it replaces, because it launders an automatic value through a human's name. `HANDOVER_READY`
+ * still computes `movement.legalStatus !== "Voluntary"` today; that is the defect this control
+ * exists to end, and re-creating it as a default here would move it rather than end it.
+ *
+ * **If this control ever feels unhelpful for being blank, the help is the question being legible,
+ * never the answer being supplied.**
+ *
+ * The reducer refuses a missing answer independently (`case "BOOK_TRANSPORT"`), so this is not the
+ * only thing holding the rule — and it must never contradict it either: every state this function
+ * calls blocked is a state the reducer would reject.
+ */
+const ESCORT_ANSWERS = [
+  { value: true, label: "Escort required" },
+  { value: false, label: "No escort required" },
+] as const;
+
+type TransportDraftState = {
+  /** `undefined` until somebody picks. Never `TRANSPORT_PROVIDERS[0]`: a provider nobody chose,
+   *  rendered as "Ambulance service is collecting", is the same unmade-claim defect as a pre-filled
+   *  escort answer, and the reducer's membership check refuses the blank rather than this alone. */
+  provider: TransportProvider | undefined;
+  /** `undefined` until answered — see `ESCORT_ANSWERS`. Never `false`: `false` is an ANSWER. */
+  escortRequired: boolean | undefined;
+};
+
+/** Re-applied every time the panel is opened as well as when it closes, so a previous booking's
+ *  answers can never be inherited by the next patient. A remembered last value is the same ruling
+ *  as a derived one. */
+const BLANK_TRANSPORT_DRAFT: TransportDraftState = { provider: undefined, escortRequired: undefined };
+
+/** The `<option>` value standing for "nobody chosen yet", for the same reason
+ *  `NO_LEGAL_FORM_VALUE` above exists: a `<select>` option value is always a string. */
+const NO_TRANSPORT_PROVIDER_VALUE = "";
+
+/**
+ * Why the confirm control is unavailable, or `undefined` when the booking is answerable. Pure and
+ * module-level so all four states can be asserted without rendering, and so the wording lives in
+ * one place rather than being spelled twice inside JSX.
+ */
+function transportAnswersBlockedReason(draft: TransportDraftState): string | undefined {
+  const missing: string[] = [];
+  if (draft.provider === undefined) missing.push("choose who is collecting the patient");
+  if (draft.escortRequired === undefined) missing.push("answer the escort question");
+  if (missing.length === 0) return undefined;
+  return `Before booking, ${missing.join(" and ")}. Neither is filled in for you: the record has to say that this team decided.`;
+}
+
 type OutstandingItem = { kind: "handover" | "transport" | "examination" | "form"; label: string; detail: string };
 
 /**
@@ -357,6 +439,12 @@ export function EdScreen({ edId }: EdScreenProps) {
     legalStatus: LegalStatus;
     reason: LegalStatusChangeReason;
   }>({ legalStatus: "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+  // `TR-D1`: the sending team books the transport out, and this department is the sending team for
+  // its own patients. One open-for id and one draft, the same shape the three toggles above use —
+  // only one panel is open at a time, so one draft cannot be read against the wrong patient. The
+  // draft starts BLANK and is reset to blank on every toggle; see `ESCORT_ANSWERS`.
+  const [transportOpenFor, setTransportOpenFor] = useState<string | undefined>(undefined);
+  const [transportDraft, setTransportDraft] = useState<TransportDraftState>(BLANK_TRANSPORT_DRAFT);
 
   if (!department) {
     return (
@@ -466,6 +554,25 @@ export function EdScreen({ edId }: EdScreenProps) {
       reason: legalStatusDraft.reason,
     });
     setLegalStatusChangeOpenFor(undefined);
+  }
+
+  function toggleBookTransport(movementId: string) {
+    setTransportOpenFor((current) => (current === movementId ? undefined : movementId));
+    // ⚠️ **BLANKED ON EVERY OPEN, NOT ONLY ON EVERY CLOSE.** Carrying the previous patient's
+    // answers into the next panel would be a remembered value standing in for an unmade decision —
+    // the same ruling as a derived one, and harder to see because it was true once.
+    setTransportDraft(BLANK_TRANSPORT_DRAFT);
+  }
+
+  function submitBookTransport(movementId: string) {
+    const { provider, escortRequired } = transportDraft;
+    // Never dispatched half-answered. The reducer would refuse it — that refusal is the rule's
+    // real home — but a refusal raised from here would be invisible to whoever pressed the button,
+    // so the control declines to advertise a booking it knows would be rejected.
+    if (provider === undefined || escortRequired === undefined) return;
+    dispatch({ type: "BOOK_TRANSPORT", role: "ed", now, movementId, provider, escortRequired });
+    setTransportOpenFor(undefined);
+    setTransportDraft(BLANK_TRANSPORT_DRAFT);
   }
 
   return (
@@ -603,10 +710,16 @@ export function EdScreen({ edId }: EdScreenProps) {
          * Derived from `patients` — the very array the section below renders — so the outbox can
          * never contain somebody that screen says is not here.
          *
-         * **There is deliberately no transport control on it**, and its absence is a decision
-         * rather than an omission: no booking event exists yet. A "Book transport" button today
-         * could only be a relabelled `HANDOVER_READY`, which does not book anything and is gated on
-         * `bed_held`, and a control that appears to book and does not is worse than none.
+         * ⚠️ **THIS PARAGRAPH USED TO SAY THERE WAS NO BOOKING EVENT TO WIRE A CONTROL TO, AND
+         * THAT WAS TRUE UNTIL `BOOK_TRANSPORT` LANDED.** It is false now, so it goes rather than
+         * sitting next to a control that exists.
+         *
+         * **The booking control is on the patients section below, not here.** Both it and "Mark
+         * handover ready" are gated on stage `bed_held`, and that section is where a card's stage
+         * and its actions already live. This list is keyed on `acceptedUnitId`, which is set from
+         * `accepted_awaiting_bed` onward and stays set through `moving` — so a booking control on
+         * these rows would be unavailable on most of them, and the same patient would carry two
+         * controls for one job.
          */}
         <section aria-label="Psychiatry outbox" className={styles.listSection} data-testid="ward-ed-outbox">
           <h2 className={styles.sectionHeading}>
@@ -834,6 +947,9 @@ export function EdScreen({ edId }: EdScreenProps) {
                 const item = outstandingItem(movement);
                 const examBlocked = examinationBlockedReason(movement);
                 const handoverBlocked = handoverBlockedReason(movement);
+                const transportBlocked = bookTransportBlockedReason(movement);
+                const transportOpen = transportOpenFor === movement.id;
+                const transportAnswersBlocked = transportAnswersBlockedReason(transportDraft);
                 const examOpen = examinationOpenFor === movement.id;
                 const urgencyChangeOpen = urgencyChangeOpenFor === movement.id;
                 const legalStatusChangeOpen = legalStatusChangeOpenFor === movement.id;
@@ -933,6 +1049,37 @@ export function EdScreen({ edId }: EdScreenProps) {
                       >
                         Mark handover ready
                       </button>
+                      {/*
+                       * ⚠️ **THE BOOKING CONTROL — `TR-D1`, and it sits beside the handover control
+                       * because the two share one precondition: stage `bed_held`.**
+                       *
+                       * It dispatches as `"ed"`, which `EVENT_ROLE.BOOK_TRANSPORT` (`["ed", "ward"]`)
+                       * permits. **The coordinator is refused by name and that asymmetry is not a
+                       * bug**: booking needs knowledge of the patient in front of you, which the bed
+                       * coordinator does not have, while `CANCEL_TRANSPORT` — which the coordinator
+                       * MAY raise — needs a view of the whole network to notice a job that has
+                       * become wrong. Nothing here should be "fixed" to make the two match.
+                       *
+                       * Unavailable the repo way — `aria-disabled` plus an inert handler plus a
+                       * reason reachable by keyboard — never the native attribute, which would take
+                       * the tab stop away from the very reason it is unavailable, and never both.
+                       */}
+                      <button
+                        type="button"
+                        data-testid={`ward-ed-book-transport-toggle-${movement.id}`}
+                        aria-disabled={transportBlocked ? "true" : undefined}
+                        aria-describedby={
+                          transportBlocked ? `ward-ed-book-transport-unavailable-${movement.id}` : undefined
+                        }
+                        title={transportBlocked ?? undefined}
+                        aria-expanded={transportOpen}
+                        className={styles.acceptButton}
+                        onClick={
+                          transportBlocked ? ignoreUnavailableActivation : () => toggleBookTransport(movement.id)
+                        }
+                      >
+                        Book transport
+                      </button>
                       <button
                         type="button"
                         data-testid={`ward-change-urgency-toggle-${movement.id}`}
@@ -961,6 +1108,102 @@ export function EdScreen({ edId }: EdScreenProps) {
                       <span id={`ward-ed-handover-unavailable-${movement.id}`} className="sr-only">
                         {handoverBlocked}
                       </span>
+                    ) : null}
+                    {transportBlocked ? (
+                      <span id={`ward-ed-book-transport-unavailable-${movement.id}`} className="sr-only">
+                        {transportBlocked}
+                      </span>
+                    ) : null}
+
+                    {/*
+                     * ⚠️ **DELIBERATELY NOT A `<form>`, unlike the four panels around it.** A form
+                     * submits on Enter from inside a field whatever its submit button advertises, so
+                     * an `aria-disabled` submit — which, unlike the native attribute, stays fully
+                     * operable — would let a half-answered booking through by keyboard while the
+                     * screen said it could not. The reducer would refuse it and the refusal would be
+                     * silent. With no form there is no implicit submission to bypass anything.
+                     */}
+                    {transportOpen && !transportBlocked ? (
+                      <div className={styles.declineForm} data-testid={`ward-ed-book-transport-${movement.id}`}>
+                        <label className={styles.referralField} htmlFor={`ward-ed-transport-provider-${movement.id}`}>
+                          Who is collecting {movement.id}
+                          <select
+                            id={`ward-ed-transport-provider-${movement.id}`}
+                            data-testid={`ward-ed-transport-provider-${movement.id}`}
+                            value={transportDraft.provider ?? NO_TRANSPORT_PROVIDER_VALUE}
+                            onChange={(event) =>
+                              setTransportDraft((current) => ({
+                                ...current,
+                                provider:
+                                  event.target.value === NO_TRANSPORT_PROVIDER_VALUE
+                                    ? undefined
+                                    : (event.target.value as TransportProvider),
+                              }))
+                            }
+                          >
+                            {/* Nobody chosen, first and selected — never a provider standing in for
+                                a choice not made. */}
+                            <option value={NO_TRANSPORT_PROVIDER_VALUE}>Not chosen</option>
+                            {/* Derived from `TRANSPORT_PROVIDERS`, never hand-listed: a hand-written
+                                options array is how the ED cohort picker silently omitted Youth
+                                (see `COHORT_OPTIONS` above). */}
+                            {TRANSPORT_PROVIDERS.map((provider) => (
+                              <option key={provider} value={provider}>
+                                {provider}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <fieldset
+                          className={styles.declineFieldset}
+                          data-testid={`ward-ed-transport-escort-${movement.id}`}
+                        >
+                          <legend className={styles.declineLegend}>Does {movement.id} need an escort?</legend>
+                          <p className={styles.cardMeta}>
+                            Neither answer is selected, and nothing selects one from this patient&apos;s legal status or
+                            from the last booking. This is recorded as this team&apos;s answer.
+                          </p>
+                          {ESCORT_ANSWERS.map((answer) => (
+                            <label key={answer.label} className={styles.declineOption}>
+                              <input
+                                type="radio"
+                                name={`transport-escort-${movement.id}`}
+                                data-testid={`ward-ed-transport-escort-${answer.value ? "yes" : "no"}-${movement.id}`}
+                                value={answer.value ? "yes" : "no"}
+                                // `=== answer.value`, never a truthiness test: an unanswered draft is
+                                // `undefined`, which must check NEITHER box rather than the "no" one.
+                                checked={transportDraft.escortRequired === answer.value}
+                                onChange={() =>
+                                  setTransportDraft((current) => ({ ...current, escortRequired: answer.value }))
+                                }
+                              />
+                              {answer.label}
+                            </label>
+                          ))}
+                        </fieldset>
+                        <button
+                          type="button"
+                          data-testid={`ward-ed-book-transport-confirm-${movement.id}`}
+                          className={styles.declineSubmit}
+                          aria-disabled={transportAnswersBlocked ? "true" : undefined}
+                          aria-describedby={
+                            transportAnswersBlocked ? `ward-ed-book-transport-blocked-${movement.id}` : undefined
+                          }
+                          title={transportAnswersBlocked ?? undefined}
+                          onClick={
+                            transportAnswersBlocked
+                              ? ignoreUnavailableActivation
+                              : () => submitBookTransport(movement.id)
+                          }
+                        >
+                          Book transport
+                        </button>
+                        {transportAnswersBlocked ? (
+                          <span id={`ward-ed-book-transport-blocked-${movement.id}`} className="sr-only">
+                            {transportAnswersBlocked}
+                          </span>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     {examOpen && !examBlocked ? (

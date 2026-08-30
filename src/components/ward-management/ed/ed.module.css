@@ -345,6 +345,21 @@
   color: var(--text-muted);
 }
 
+/*
+ * The same encoding for the aria form of the same state, and it is not duplication for its own
+ * sake. A control unavailable for a STATED reason carries `aria-disabled` rather than the native
+ * attribute, so that the reason it names stays reachable by keyboard (see
+ * `ignoreUnavailableActivation` in `ui-primitives.tsx`) — and without this rule such a control
+ * would keep the full accent fill and read as available while refusing every press. That is a
+ * worse failure than the one the aria form exists to fix.
+ */
+.declineSubmit[aria-disabled="true"] {
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
 .referralForm {
   display: grid;
   gap: var(--ed-space-10);
