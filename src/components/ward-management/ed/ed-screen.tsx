@@ -765,6 +765,21 @@ export function EdScreen({ edId }: EdScreenProps) {
                     <header className={styles.cardHeader}>
                       <strong>{movement.id}</strong>
                       <span className={styles.cardMeta}>{stageCopy[movement.stage].label}</span>
+                      {/*
+                       * THE URGENCY TIER, BESIDE THE STAGE, ON EVERY ROW — owner ruling, 2026-08-31.
+                       *
+                       * ⚠️ **UNCONDITIONAL, TIER 3 INCLUDED.** Showing it only on tiers 1 and 2 would
+                       * make its ABSENCE the signal for tier 3, and this project has repeatedly proved
+                       * that nobody reads an absence. Same position on every card, whatever the tier.
+                       *
+                       * `urgencyTierLabel`, never a second spelling: the boards, the pickers and this
+                       * row must all say "Tier 3 · least urgent" in the same words.
+                       *
+                       * Neutral tone for all three tiers by design — see `.tierLabel` in ed.module.css.
+                       */}
+                      <span className={styles.tierLabel} data-testid={`ward-ed-outbox-tier-${movement.id}`}>
+                        {urgencyTierLabel(movement.urgency)}
+                      </span>
                     </header>
                     <p className={styles.cardMeta}>
                       {movement.cohort} &middot; {movement.security} &middot; {movement.sex} &middot;{" "}
@@ -1016,12 +1031,40 @@ export function EdScreen({ edId }: EdScreenProps) {
                       </div>
                     </dl>
 
+                    {/*
+                     * WHERE THIS PATIENT IS, AND HOW URGENT THEY ARE, ON ONE LINE — owner ruling,
+                     * 2026-08-31: the tier goes beside the stage so a glance takes in position and
+                     * priority together.
+                     *
+                     * ⚠️ **THIS LINE IS THIS CARD'S STAGE, AND THAT IS WORTH SAYING PLAINLY.** Unlike
+                     * the outbox row above, a patients card has no dedicated stage element: this
+                     * paragraph is the card's one statement of position in the flow, and
+                     * `stageCopy[movement.stage].label` is literally what it falls back to once no
+                     * unit has accepted and nothing has been referred. So this is where "beside the
+                     * stage" lands here — not the header, which carries identity and demographics.
+                     *
+                     * ⚠️ **UNCONDITIONAL, TIER 3 INCLUDED.** Rendered outside the ternary above on
+                     * purpose: the tier does not depend on the acceptance state and must not vary
+                     * with it. If it showed only on tiers 1 and 2 its ABSENCE would become the
+                     * signal for tier 3, and nobody reads an absence.
+                     *
+                     * `urgencyTierLabel` is the one spelling; a bare digit here would say nothing
+                     * about which end of the scale is urgent.
+                     *
+                     * ⚠️ The test id is `ward-ed-tier-`, NOT the `ward-ed-patient-tier-` it obviously
+                     * wants to be: `ui-ward-roles.spec.ts` and `ward-ed-psychiatry-hub.dom.test.tsx`
+                     * both select patient rows by the PREFIX `ward-ed-patient-`, so that name would
+                     * silently double their row counts. Do not "tidy" it back.
+                     */}
                     <p className={styles.referralState}>
                       {acceptedUnit
                         ? `Accepted at ${acceptedUnit.name}`
                         : movement.referredUnitIds.length > 0
                           ? `Referred to ${movement.referredUnitIds.length} unit${movement.referredUnitIds.length === 1 ? "" : "s"}`
-                          : stageCopy[movement.stage].label}
+                          : stageCopy[movement.stage].label}{" "}
+                      <span className={styles.tierLabel} data-testid={`ward-ed-tier-${movement.id}`}>
+                        {urgencyTierLabel(movement.urgency)}
+                      </span>
                     </p>
 
                     <p

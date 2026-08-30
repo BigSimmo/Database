@@ -231,6 +231,31 @@
   font-size: var(--text-3xs);
 }
 
+/*
+ * The urgency tier, spelled out, on every card in this screen's two movement lists — beside the
+ * stage in the outbox header, and beside the position line on a patient card.
+ *
+ * ⚠️ **ONE TONE FOR ALL THREE TIERS, DELIBERATELY.** No per-tier colour, no danger tone on tier 1,
+ * no fading of tier 3. A colour is a threshold wearing a different costume, and nobody has ruled on
+ * one; the words `urgencyTierLabel` supplies already carry the direction, and they survive
+ * greyscale, forced-colors and a colour-blind reader unchanged. Do not add `[data-tier]` styling
+ * here without a ruling that says so.
+ *
+ * Distinguished from the card behind it by border and `--surface-chrome`, because `.card` is itself
+ * `--surface-subtle` — a subtle-on-subtle pill would be invisible.
+ */
+.tierLabel {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-chrome);
+  padding: var(--ed-space-2) var(--ed-space-8);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .outstandingItem {
   margin: 0;
   border-radius: var(--radius-sm);
