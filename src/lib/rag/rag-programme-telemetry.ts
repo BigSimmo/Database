@@ -315,9 +315,7 @@ function inputForAnswer(answer: RagAnswer, context: RagObservationContext): RagP
     rolloutMode: context.rolloutMode,
     queryPlanKind: queryPlan?.queryPlanKind ?? "single",
     subquestionCount: queryPlan?.subquestionCount ?? 1,
-    materialAmbiguity:
-      queryPlan?.queryPlanKind === "clarification_required" ||
-      Boolean(answer.conflictsOrGaps?.some((item) => item.type === "conflict")),
+    materialAmbiguity: queryPlan?.queryPlanKind === "clarification_required",
     coverageCounts: coverageCountsForAnswer(answer),
     candidateMatchCounts: context.rolloutMode === "shadow" ? (queryPlan?.candidateMatchCounts ?? null) : null,
     candidateCounts: candidates,

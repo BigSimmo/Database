@@ -45,11 +45,7 @@ function isSimpleDefinitionQuery(query: string, analysis: ClinicalQueryAnalysis)
     /\b(?:definition|meaning)\s+of\b|\bwhat\s+does\b.+\bmean\b|\b(?:definition|meaning|term)\s*[?.!]*$/i.test(
       normalized,
     );
-  const broadActionShape =
-    /\b(?:managed?|management|treat(?:ment)?|monitor(?:ing)?|escalat\w*|compar\w*|dose|dosing|threshold)\b/i.test(
-      normalized,
-    );
-  return definitionShape && !broadActionShape;
+  return definitionShape;
 }
 
 function protectsBroadDecomposition(query: string, analysis: ClinicalQueryAnalysis) {

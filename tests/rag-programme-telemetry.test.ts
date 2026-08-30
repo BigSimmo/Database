@@ -265,6 +265,38 @@ describe("RAG programme telemetry projection", () => {
     });
   });
 
+  it("keeps source conflict separate from query ambiguity", () => {
+    const answer = withRagAnswerQueryPlanDiagnostics(
+      {
+        answer: "Sources disagree.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [],
+        conflictsOrGaps: [
+          {
+            type: "conflict",
+            message: "Intervals differ.",
+            source_chunk_ids: ["source-a", "source-b"],
+          },
+        ],
+      } satisfies RagAnswer,
+      {
+        ragQueryPlanKind: "single",
+        ragSubquestionCount: 1,
+      },
+    );
+
+    observeRagAnswer(answer, { interactionId: INTERACTION_ID, rolloutMode: "shadow" });
+
+    expect(ragProgrammeTelemetryForAnswer(answer)).toMatchObject({
+      query_plan_kind: "single",
+      material_ambiguity: false,
+      coverage_counts: { conflicting: 1 },
+      candidate_match_counts: null,
+    });
+  });
+
   it("preserves retrieval facts while recomputing a generated danger-source refusal", () => {
     const retrievedSource = {
       id: "source-chunk-1",

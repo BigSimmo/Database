@@ -39,22 +39,26 @@ describe("bounded RAG query planning", () => {
     expect(buildRagQueryPlan(query, analysis).kind).toBe("decomposed");
   });
 
-  it.each(["What is catatonia?", "Define catatonia.", "Describe catatonia.", "Catatonia meaning", "Catatonia term"])(
-    "keeps an explicit definition single after classifier fallback rewrites only the query class: %s",
-    (query) => {
-      const analysis = {
-        ...analyzeClinicalQuery(query),
-        queryClass: "broad_summary" as const,
-        reasons: ["classifier_broad_summary"],
-      };
+  it.each([
+    "What is catatonia?",
+    "What is treatment-resistant depression?",
+    "Define catatonia.",
+    "Describe catatonia.",
+    "Catatonia meaning",
+    "Catatonia term",
+  ])("keeps an explicit definition single after classifier fallback rewrites only the query class: %s", (query) => {
+    const analysis = {
+      ...analyzeClinicalQuery(query),
+      queryClass: "broad_summary" as const,
+      reasons: ["classifier_broad_summary"],
+    };
 
-      expect(analysis.intent).toBe("definition");
-      expect(buildRagQueryPlan(query, analysis)).toMatchObject({
-        kind: "single",
-        subquestions: [{ question: query, purpose: "primary" }],
-      });
-    },
-  );
+    expect(analysis.intent).toBe("definition");
+    expect(buildRagQueryPlan(query, analysis)).toMatchObject({
+      kind: "single",
+      subquestions: [{ question: query, purpose: "primary" }],
+    });
+  });
 
   it.each([
     ["How should a missed clozapine dose be managed?", "medication_dose_risk"],
