@@ -12,6 +12,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  governedPublicRetrievalAccessScope,
   PUBLIC_OWNER_FILTER_SENTINEL,
   retrievalAccessScopeForArgs,
   retrievalAccessScopeKey,
@@ -40,12 +41,24 @@ import {
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
 } from "@/lib/rag/rag-retrieval-variants";
-import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
+import type {
+  GovernedCorpusComponents,
+  GovernedCorpusRetrievalPhase,
+  RetrievalCorpusScopePolicy,
+  SearchTelemetry,
+} from "@/lib/rag/rag-contracts";
+import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
-import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@/lib/types";
+import type {
+  DocumentIndexUnitMatch,
+  DocumentMemoryCard,
+  SearchResult,
+  SiteContentDomain,
+  SourceCorpusScope,
+} from "@/lib/types";
 
 // P0.1: a hybrid RPC returning an error (vs zero rows) means the whole layer silently degraded.
 // Previously every call site did `if (error || !data?.length) return []` and dropped the error on
@@ -59,6 +72,208 @@ type AbortableRpc<T> = RpcResult<T> & {
 type SupabaseRpcClient = {
   rpc: (name: string, rpcArgs: Record<string, unknown>) => AbortableRpc<unknown[]> | PromiseLike<unknown>;
 };
+
+const governedCorpusScopes = new Set<SourceCorpusScope>([
+  "uploaded_local",
+  "clinical_kb_site",
+  "australian_public",
+  "international_supplementary",
+]);
+
+type GovernedCandidateRpcRow = SearchResult & {
+  corpus_scope: SourceCorpusScope;
+  site_content_domain: SiteContentDomain | null;
+  site_release_id?: string | null;
+  site_change_epoch?: string | number | null;
+  pending_exclusion_exact?: boolean | null;
+};
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
+/** Resolve bounded candidate phases without introducing an owner partition. */
+export function retrievalCorpusScopes(policy: RetrievalCorpusScopePolicy): GovernedCorpusRetrievalPhase[] {
+  const primary: SourceCorpusScope[] = ["uploaded_local"];
+  if (policy.siteContentEnabled && ["current", "updating"].includes(policy.siteContentState)) {
+    primary.push("clinical_kb_site");
+  }
+  if (policy.australianAugmentationEnabled && policy.australianCurrent) primary.push("australian_public");
+  const phases: GovernedCorpusRetrievalPhase[] = [
+    { corpusScopes: primary, accessScope: governedPublicRetrievalAccessScope(), phase: "primary" },
+  ];
+  if (policy.australianAugmentationEnabled && policy.internationalCoverageGap) {
+    phases.push({
+      corpusScopes: ["international_supplementary"],
+      accessScope: governedPublicRetrievalAccessScope(),
+      phase: "supplementary",
+    });
+  }
+  return phases;
+}
+
+/** Candidate v3 calls never downgrade to v2/legacy when the RPC is absent. */
+export async function callGovernedRetrievalRpc<T extends unknown[] = unknown[]>(
+  supabase: ReturnType<typeof createAdminClient>,
+  name: "match_document_chunks_text_v3" | "match_document_chunks_hybrid_v3" | "match_document_chunks_v3",
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<{ data: T | null; error: SupabaseRpcError }> {
+  throwIfAborted(signal);
+  const client = supabase as unknown as SupabaseRpcClient;
+  const pending = client.rpc(name, args) as AbortableRpc<T>;
+  const result = await (signal && typeof pending.abortSignal === "function" ? pending.abortSignal(signal) : pending);
+  throwIfAborted(signal);
+  if (isMissingRetrievalRpcError(result.error)) return { data: [] as unknown as T, error: null };
+  return result;
+}
+
+function siteSnapshotEligible(snapshot: RagContextSnapshot, enabled: boolean) {
+  const site = snapshot.publicSiteContent;
+  return (
+    enabled &&
+    (site.state === "current" || site.state === "updating") &&
+    Boolean(site.releaseId && site.changeEpoch && site.releaseDigest && site.staticManifestDigest)
+  );
+}
+
+function publicGovernedSourceMetadata(input: unknown) {
+  const normalized = { ...normalizeSourceMetadata(input), uploaded_by: null };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return normalized;
+  const lineage = (input as Record<string, unknown>).site_content_lineage;
+  if (!Array.isArray(lineage) || lineage.length > 32) return normalized;
+  const safeLineage = lineage.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const value = entry as Record<string, unknown>;
+    if (
+      typeof value.sourceId !== "string" ||
+      value.sourceId.length < 1 ||
+      value.sourceId.length > 512 ||
+      typeof value.sourceHash !== "string" ||
+      !/^[0-9a-f]{64}$/.test(value.sourceHash) ||
+      (value.relationship !== "derived_from" && value.relationship !== "references")
+    ) {
+      return [];
+    }
+    return [{ sourceId: value.sourceId, sourceHash: value.sourceHash, relationship: value.relationship }];
+  });
+  return safeLineage.length === lineage.length ? { ...normalized, site_content_lineage: safeLineage } : normalized;
+}
+
+function sanitizeGovernedCandidateRows(args: {
+  rows: unknown[];
+  requestedScopes: SourceCorpusScope[];
+  targetSiteDomains: SiteContentDomain[];
+  snapshot: RagContextSnapshot;
+}): SearchResult[] {
+  try {
+    assertRetrievalRows(args.rows, "governed_candidate_v3");
+  } catch (error) {
+    if (error instanceof RetrievalRowShapeError) return [];
+    throw error;
+  }
+  const requestedScopes = new Set(args.requestedScopes);
+  const requestedDomains = new Set(args.targetSiteDomains);
+  const expectedReleaseId = args.snapshot.publicSiteContent.releaseId;
+  const expectedChangeEpoch = args.snapshot.publicSiteContent.changeEpoch;
+  return (args.rows as GovernedCandidateRpcRow[]).flatMap((row) => {
+    if (!governedCorpusScopes.has(row.corpus_scope) || !requestedScopes.has(row.corpus_scope)) return [];
+    if (row.source_metadata?.corpus_scope !== row.corpus_scope) return [];
+    // No trusted uploaded-local activation boundary exists in this schema. Candidate admission
+    // remains closed until the separately reviewed ingestion activation RPC owns that proof.
+    if (row.corpus_scope === "uploaded_local") return [];
+    if (row.corpus_scope === "clinical_kb_site") {
+      if (
+        !expectedReleaseId ||
+        !expectedChangeEpoch ||
+        row.site_release_id !== expectedReleaseId ||
+        String(row.site_change_epoch) !== expectedChangeEpoch ||
+        row.pending_exclusion_exact !== true ||
+        !row.site_content_domain ||
+        (requestedDomains.size > 0 && !requestedDomains.has(row.site_content_domain))
+      ) {
+        return [];
+      }
+    } else if (row.site_content_domain !== null) {
+      return [];
+    }
+    const { site_release_id, site_change_epoch, pending_exclusion_exact, ...publicRow } = row;
+    void site_release_id;
+    void site_change_epoch;
+    void pending_exclusion_exact;
+    return [{ ...publicRow, source_metadata: publicGovernedSourceMetadata(publicRow.source_metadata) }];
+  });
+}
+
+/** Execute bounded candidate-only corpus retrieval under one shared public scope. */
+export async function searchGovernedCorpora(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  queryVariants: string[];
+  matchCount: number;
+  snapshot: RagContextSnapshot;
+  components: GovernedCorpusComponents;
+  targetSiteDomains: SiteContentDomain[];
+  internationalCoverageGap: boolean;
+  signal?: AbortSignal;
+  onRpcCall?: () => void;
+}): Promise<SearchResult[]> {
+  throwIfAborted(args.signal);
+  const siteEligible = siteSnapshotEligible(args.snapshot, args.components.siteContent);
+  const phases = retrievalCorpusScopes({
+    siteContentEnabled: siteEligible,
+    siteContentState: args.snapshot.publicSiteContent.state,
+    australianAugmentationEnabled: args.components.australianAugmentation,
+    australianCurrent: args.components.australianCurrent,
+    internationalCoverageGap: args.internationalCoverageGap,
+  });
+  const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
+  let remainingRpcCalls = maxTextRpcQueryVariants;
+  let results: SearchResult[] = [];
+  for (const phase of phases) {
+    const phaseVariants =
+      phase.phase === "primary" && phases.some((candidate) => candidate.phase === "supplementary")
+        ? variants.slice(0, Math.max(0, remainingRpcCalls - 1))
+        : phase.phase === "supplementary"
+          ? variants.slice(0, 1)
+          : variants;
+    for (const queryText of phaseVariants) {
+      if (remainingRpcCalls <= 0) break;
+      remainingRpcCalls -= 1;
+      args.onRpcCall?.();
+      const { data, error } = await callGovernedRetrievalRpc<GovernedCandidateRpcRow[]>(
+        args.supabase,
+        "match_document_chunks_text_v3",
+        {
+          query_text: queryText,
+          match_count: Math.max(1, Math.min(args.matchCount, 96)),
+          owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+          include_public: true,
+          corpus_scopes: phase.corpusScopes,
+          expected_site_release_id: siteEligible ? args.snapshot.publicSiteContent.releaseId : null,
+          expected_site_release_digest: siteEligible ? args.snapshot.publicSiteContent.releaseDigest : null,
+          expected_site_change_epoch: siteEligible ? args.snapshot.publicSiteContent.changeEpoch : null,
+          site_content_domains: siteEligible && args.targetSiteDomains.length > 0 ? args.targetSiteDomains : null,
+        },
+        args.signal,
+      );
+      if (error || !data?.length) continue;
+      results = mergeSearchResults(
+        results,
+        sanitizeGovernedCandidateRows({
+          rows: data,
+          requestedScopes: phase.corpusScopes,
+          targetSiteDomains: args.targetSiteDomains,
+          snapshot: args.snapshot,
+        }),
+      );
+    }
+  }
+  return results.slice(0, Math.max(1, Math.min(args.matchCount, 96)));
+}
 
 function legacyRankFields(versionedName: string) {
   if (versionedName === "match_document_chunks_v2") return ["similarity"];

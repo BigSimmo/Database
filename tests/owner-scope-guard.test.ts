@@ -25,6 +25,7 @@ describe("owner-scope tenancy guard", () => {
     const tables = ownerScopedTablesFromSchema(schema);
     expect(tables.has("documents")).toBe(true);
     expect(tables.has("document_images")).toBe(false);
+    expect(tables.has("site_content_release_records")).toBe(false);
   });
 
   it("flags an owner-scoped query with no owner filter in the handler", () => {

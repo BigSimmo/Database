@@ -97,6 +97,41 @@ describe("RAG abort signal propagation", () => {
     expect(controller.signal.aborted).toBe(false);
   });
 
+  it("attaches the shared caller signal to governed candidate retrieval", async () => {
+    const controller = new AbortController();
+    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
+    const supabase = { rpc: vi.fn(() => ({ abortSignal })) };
+    const { searchGovernedCorpora } = await import("../src/lib/rag/rag-candidate-sources");
+
+    await searchGovernedCorpora({
+      supabase: supabase as never,
+      queryVariants: ["clozapine"],
+      matchCount: 8,
+      snapshot: {
+        version: "rag-context-snapshot-v1",
+        resolvedAt: "2026-08-30T00:00:00.000Z",
+        documentIndexGeneration: "generation-1",
+        sourcePolicyVersion: "source-policy-v1",
+        rolloutVersion: "rollout-v1",
+        siteContentRegistryVersion: null,
+        publicSiteContent: {
+          releaseId: null,
+          staticManifestDigest: null,
+          dynamicStateDigest: null,
+          releaseDigest: null,
+          changeEpoch: null,
+          state: "unavailable",
+        },
+      },
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+      signal: controller.signal,
+    });
+
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+  });
+
   it("refuses adversarial manipulation before Supabase work starts", async () => {
     const createAdminClient = vi.fn();
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));

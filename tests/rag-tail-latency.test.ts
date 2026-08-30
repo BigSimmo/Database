@@ -135,6 +135,43 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe("governed corpus latency shape", () => {
+  it("uses one primary RPC for one variant instead of one RPC per corpus", async () => {
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+    const { searchGovernedCorpora } = await import("../src/lib/rag/rag-candidate-sources");
+    await searchGovernedCorpora({
+      supabase: { rpc } as never,
+      queryVariants: ["clozapine monitoring"],
+      matchCount: 12,
+      snapshot: {
+        version: "rag-context-snapshot-v1",
+        resolvedAt: "2026-08-30T00:00:00.000Z",
+        documentIndexGeneration: "generation-1",
+        sourcePolicyVersion: "source-policy-v1",
+        rolloutVersion: "rollout-v1",
+        siteContentRegistryVersion: null,
+        publicSiteContent: {
+          releaseId: null,
+          staticManifestDigest: null,
+          dynamicStateDigest: null,
+          releaseDigest: null,
+          changeEpoch: null,
+          state: "unavailable",
+        },
+      },
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "match_document_chunks_text_v3",
+      expect.objectContaining({ corpus_scopes: ["uploaded_local", "australian_public"] }),
+    );
+  });
+});
+
 describe("RAG cache request indexing version", () => {
   it("reuses one request-start version across shared answer and search cache reads", async () => {
     const harness = createCacheHarness();

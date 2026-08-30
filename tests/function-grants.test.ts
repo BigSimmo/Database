@@ -35,6 +35,25 @@ const DEFINER = (name: string) =>
   ].join("\n");
 
 describe("check:function-grants", () => {
+  it("keeps governed retrieval v3 service-role-only with an internal postgres-owned helper", () => {
+    const migration = readFileSync("supabase/migrations/20260830122000_add_corpus_scoped_retrieval_v3.sql", "utf8");
+    for (const signature of [
+      "match_document_chunks_text_v3(\n  text, integer, uuid[], uuid, boolean, text[], uuid, text, bigint, text[]\n)",
+      "match_document_chunks_hybrid_v3(\n  extensions.vector, text, integer, double precision, uuid[], uuid, boolean, text[], uuid, text, bigint, text[]\n)",
+      "match_document_chunks_v3(\n  extensions.vector, integer, double precision, uuid, uuid, boolean, text[], uuid, text, bigint, text[]\n)",
+    ]) {
+      expect(migration).toContain(
+        `revoke all on function public.${signature} from public, anon, authenticated, service_role`,
+      );
+      expect(migration).toContain(`grant execute on function public.${signature} to service_role`);
+      expect(migration).toContain(`alter function public.${signature} owner to postgres`);
+    }
+    expect(migration).toContain(
+      "revoke all on function public.match_governed_candidate_chunks_v3(\n  extensions.vector, text, integer, double precision, uuid[], uuid, boolean, text[], uuid, text, bigint, text[]\n) from public, anon, authenticated, service_role",
+    );
+    expect(migration).not.toContain("grant execute on function public.match_governed_candidate_chunks_v3");
+  });
+
   it("keeps Task 4 health and invocation RPCs service-role-only and publication RPCs authenticated-only", () => {
     const migration = readFileSync("supabase/migrations/20260824123000_add_site_content_health_probe.sql", "utf8");
     for (const signature of [

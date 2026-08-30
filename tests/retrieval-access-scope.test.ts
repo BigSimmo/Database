@@ -13,6 +13,10 @@ const boundedRetrievalMigration = readFileSync(
   "utf8",
 );
 const canonicalSchema = readFileSync(join(root, "supabase/schema.sql"), "utf8");
+const governedV3Migration = readFileSync(
+  join(root, "supabase/migrations/20260830122000_add_corpus_scoped_retrieval_v3.sql"),
+  "utf8",
+);
 
 function between(source: string, start: string, end: string): string {
   const startIndex = source.indexOf(start);
@@ -23,6 +27,15 @@ function between(source: string, start: string, end: string): string {
 }
 
 describe("owner-plus-public retrieval contract", () => {
+  it("adds a separate public-only v3 candidate contract without changing v2", () => {
+    expect(governedV3Migration).toContain("match_document_chunks_text_v3");
+    expect(governedV3Migration).toContain("match_document_chunks_hybrid_v3");
+    expect(governedV3Migration).toContain("match_document_chunks_v3");
+    expect(governedV3Migration).toContain("owner_filter = '00000000-0000-0000-0000-000000000000'::uuid");
+    expect(governedV3Migration).toContain("include_public is true");
+    expect(governedV3Migration).not.toContain("create or replace function public.match_document_chunks_text_v2");
+  });
+
   it("threads the canonical access scope through cache and retrieval contracts", () => {
     const contracts = readFileSync(join(root, "src/lib/rag/rag-contracts.ts"), "utf8");
     const cache = readFileSync(join(root, "src/lib/rag/rag-cache.ts"), "utf8");

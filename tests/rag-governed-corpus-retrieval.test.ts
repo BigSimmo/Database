@@ -1,0 +1,187 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  callGovernedRetrievalRpc,
+  retrievalCorpusScopes,
+  searchGovernedCorpora,
+} from "../src/lib/rag/rag-candidate-sources";
+import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
+import type { SourceCorpusScope } from "../src/lib/types";
+
+const RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const DIGEST = "a".repeat(64);
+
+function snapshot(state: RagContextSnapshot["publicSiteContent"]["state"] = "current"): RagContextSnapshot {
+  return {
+    version: "rag-context-snapshot-v1",
+    resolvedAt: "2026-08-30T00:00:00.000Z",
+    documentIndexGeneration: "generation-1",
+    sourcePolicyVersion: "source-policy-v1",
+    rolloutVersion: "rollout-v1",
+    siteContentRegistryVersion: "site-content-registry-v1",
+    publicSiteContent: {
+      releaseId: RELEASE_ID,
+      staticManifestDigest: DIGEST,
+      dynamicStateDigest: DIGEST,
+      releaseDigest: DIGEST,
+      changeEpoch: "7",
+      state,
+    },
+  };
+}
+
+function row(id: string, corpusScope: SourceCorpusScope): Record<string, unknown> {
+  return {
+    id,
+    document_id: `${id}-document`,
+    title: id,
+    file_name: `${id}.md`,
+    page_number: null,
+    chunk_index: 0,
+    section_heading: null,
+    content: `${id} governed content`,
+    image_ids: [],
+    similarity: 0.8,
+    text_rank: 0.7,
+    hybrid_score: 0.8,
+    source_metadata: {
+      corpus_scope: corpusScope,
+      uploaded_by: "user-id-canary",
+      public_source_steward_id: "administrator-id-canary",
+    },
+    corpus_scope: corpusScope,
+    site_content_domain: corpusScope === "clinical_kb_site" ? "medications" : null,
+    site_release_id: corpusScope === "clinical_kb_site" ? RELEASE_ID : null,
+    site_change_epoch: corpusScope === "clinical_kb_site" ? "7" : null,
+    pending_exclusion_exact: corpusScope === "clinical_kb_site" ? true : null,
+    images: [],
+  };
+}
+
+function harness() {
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
+    calls.push({ name, args });
+    const scopes = args.corpus_scopes as SourceCorpusScope[];
+    const data = scopes.flatMap((scope) => {
+      if (scope === "uploaded_local") return [];
+      return [row(scope, scope)];
+    });
+    return {
+      abortSignal: vi.fn(async () => ({ data, error: null })),
+    };
+  });
+  return { calls, supabase: { rpc } as never };
+}
+
+describe("governed public corpus retrieval", () => {
+  it("builds ordered public-only primary and explicit-gap supplementary phases", () => {
+    expect(
+      retrievalCorpusScopes({
+        siteContentEnabled: true,
+        siteContentState: "current",
+        australianAugmentationEnabled: true,
+        australianCurrent: true,
+        internationalCoverageGap: false,
+      }),
+    ).toEqual([
+      {
+        accessScope: { includePublic: true },
+        corpusScopes: ["uploaded_local", "clinical_kb_site", "australian_public"],
+        phase: "primary",
+      },
+    ]);
+
+    expect(
+      retrievalCorpusScopes({
+        siteContentEnabled: true,
+        siteContentState: "current",
+        australianAugmentationEnabled: true,
+        australianCurrent: true,
+        internationalCoverageGap: true,
+      }).at(-1),
+    ).toEqual({
+      accessScope: { includePublic: true },
+      corpusScopes: ["international_supplementary"],
+      phase: "supplementary",
+    });
+  });
+
+  it("searches one shared primary population independent of authenticated or administrator identity", async () => {
+    const populations = await Promise.all(
+      [null, "user-a", "administrator-a"].map(async () => {
+        const { calls, supabase } = harness();
+        const results = await searchGovernedCorpora({
+          supabase,
+          queryVariants: ["clozapine monitoring"],
+          matchCount: 12,
+          snapshot: snapshot(),
+          components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+          targetSiteDomains: ["medications"],
+          internationalCoverageGap: false,
+        });
+        return {
+          calls,
+          ids: results.map(({ id }) => id),
+          metadata: results.map(({ source_metadata }) => source_metadata),
+        };
+      }),
+    );
+
+    expect(populations[1]?.ids).toEqual(populations[0]?.ids);
+    expect(populations[2]?.ids).toEqual(populations[0]?.ids);
+    for (const population of populations) {
+      expect(population.calls).toHaveLength(1);
+      expect(population.calls[0]).toMatchObject({
+        name: "match_document_chunks_text_v3",
+        args: {
+          include_public: true,
+          owner_filter: "00000000-0000-0000-0000-000000000000",
+          corpus_scopes: ["uploaded_local", "clinical_kb_site", "australian_public"],
+        },
+      });
+      expect(population.calls[0]?.args).not.toHaveProperty("authenticated_user_id");
+      expect(population.calls[0]?.args).not.toHaveProperty("administrator_id");
+      expect(JSON.stringify(population.metadata)).not.toContain("user-id-canary");
+      expect(JSON.stringify(population.metadata)).not.toContain("administrator-id-canary");
+      expect(population.metadata.every((metadata) => metadata?.uploaded_by === null)).toBe(true);
+    }
+  });
+
+  it("fails a missing v3 candidate RPC closed without calling v2 or legacy", async () => {
+    const calls: string[] = [];
+    const supabase = {
+      rpc: vi.fn(async (name: string) => {
+        calls.push(name);
+        return { data: null, error: { code: "PGRST202", message: "schema cache miss" } };
+      }),
+    };
+
+    const result = await callGovernedRetrievalRpc(supabase as never, "match_document_chunks_text_v3", {
+      query_text: "clozapine",
+      match_count: 8,
+      owner_filter: "00000000-0000-0000-0000-000000000000",
+      include_public: true,
+      corpus_scopes: ["australian_public"],
+    });
+
+    expect(result.data).toEqual([]);
+    expect(result.error).toBeNull();
+    expect(calls).toEqual(["match_document_chunks_text_v3"]);
+  });
+
+  it("does not admit uploaded_local without a trusted atomic activation boundary", async () => {
+    const { supabase } = harness();
+    const results = await searchGovernedCorpora({
+      supabase,
+      queryVariants: ["local guideline"],
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+    });
+
+    expect(results.some((candidate) => candidate.corpus_scope === "uploaded_local")).toBe(false);
+  });
+});

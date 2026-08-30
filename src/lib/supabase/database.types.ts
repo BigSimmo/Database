@@ -3041,6 +3041,43 @@ export type Database = {
         };
         Returns: Database["public"]["Functions"]["match_document_chunks"]["Returns"];
       };
+      match_document_chunks_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filter?: string | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string | null;
+          file_name: string;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
+          source_metadata: Json;
+          title: string;
+        }[];
+      };
       match_document_chunks_hybrid: {
         Args: {
           document_filters?: string[] | null;
@@ -3080,6 +3117,45 @@ export type Database = {
           query_text: string;
         };
         Returns: Database["public"]["Functions"]["match_document_chunks_hybrid"]["Returns"];
+      };
+      match_document_chunks_hybrid_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filters?: string[] | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          query_text: string;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          rrf_score: number;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
       };
       match_document_chunks_text: {
         Args: {
@@ -3132,6 +3208,45 @@ export type Database = {
           retrieval_synopsis: string;
           section_heading: string;
           similarity: number;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
+      };
+      match_document_chunks_text_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filters?: string[] | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          owner_filter?: string;
+          query_text: string;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string | null;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          lexical_score: number;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
           source_metadata: Json;
           text_rank: number;
           title: string;

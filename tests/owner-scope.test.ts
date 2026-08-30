@@ -7,6 +7,15 @@ afterEach(() => {
 });
 
 describe("RetrievalAccessScope", () => {
+  it("uses one immutable public-only scope for governed candidate retrieval", async () => {
+    const { governedPublicRetrievalAccessScope } = await import("../src/lib/owner-scope");
+    const anonymous = governedPublicRetrievalAccessScope();
+    const authenticated = governedPublicRetrievalAccessScope();
+    expect(anonymous).toBe(authenticated);
+    expect(anonymous).toEqual({ includePublic: true });
+    expect(Object.isFrozen(anonymous)).toBe(true);
+  });
+
   it("resolves anonymous access to public-only and authenticated access to owner-plus-public", async () => {
     const { resolveRetrievalAccessScope } = await import("../src/lib/owner-scope");
     expect(resolveRetrievalAccessScope()).toEqual({ includePublic: true });

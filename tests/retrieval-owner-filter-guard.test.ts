@@ -21,16 +21,12 @@ const API_DIR = join(SRC_DIR, "app", "api");
 // directly by API route modules today. Adding a new owner-scoped table to an API
 // handler must also add it here so the tenancy boundary remains reviewable.
 const OWNER_SCOPED_API_TABLES = new Set([
-  "clinical_registry_record_sources",
-  "clinical_registry_records",
-  "differential_records",
   "document_index_quality",
   "document_labels",
   "document_summaries",
   "document_table_facts",
   "documents",
   "import_batches",
-  "medication_records",
   "rag_answer_feedback",
   "rag_queries",
   "rag_query_misses",
@@ -192,6 +188,13 @@ function ownerScopedApiAccesses(file: string, source: string): { checked: number
 }
 
 describe("retrieval owner_filter callsite guard (finding #3)", () => {
+  it("pins governed v3 candidate calls to the public sentinel", () => {
+    const source = readFileSync(join(SRC_DIR, "lib", "rag", "rag-candidate-sources.ts"), "utf8");
+    expect(source).toContain("owner_filter: PUBLIC_OWNER_FILTER_SENTINEL");
+    expect(source).toContain("include_public: true");
+    expect(source).not.toMatch(/owner_filter:\s*args\.ownerId/);
+  });
+
   it("routes every owner_filter RPC argument through a sanctioned scope source (never literal null)", () => {
     const offenders: string[] = [];
     let checked = 0;

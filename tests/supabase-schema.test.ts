@@ -6,6 +6,10 @@ import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
+const governedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260830122000_add_corpus_scoped_retrieval_v3.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
@@ -18,6 +22,76 @@ const siteContentInvocationSqlFixture = readFileSync(
   new URL("./fixtures/site-content/site-content-invocation-state-machine.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+
+describe("governed corpus retrieval v3 schema", () => {
+  it("mirrors the candidate-only functions and filters before the ranked limit", () => {
+    for (const sql of [schema, governedRetrievalV3]) {
+      const candidateFunction = sql.slice(
+        sql.indexOf("create function public.match_governed_candidate_chunks_v3("),
+        sql.indexOf("create function public.match_document_chunks_text_v3("),
+      );
+      expect(sql).toContain("create function public.match_document_chunks_text_v3(");
+      expect(sql).toContain("create function public.match_document_chunks_hybrid_v3(");
+      expect(sql).toContain("create function public.match_document_chunks_v3(");
+      expect(sql).toContain("from public.site_content_release_records record");
+      expect(candidateFunction).toContain("release.target_change_epoch = state.served_change_epoch");
+      expect(candidateFunction).toContain("state.active_release_digest = expected_site_release_digest");
+      expect(candidateFunction).toContain("state.change_epoch = expected_site_change_epoch");
+      expect(candidateFunction).toContain("pending_site_set as (");
+      expect(candidateFunction).toContain("event.target_change_epoch is distinct from record.head_change_epoch");
+      expect(candidateFunction).toContain("event.target_change_epoch > site_authority.change_epoch");
+      expect(candidateFunction).toContain("record.head_change_epoch > site_authority.served_change_epoch");
+      expect(candidateFunction).toContain("record.pending_event_sequence is null");
+      expect(candidateFunction).not.toContain("event.state in (");
+      expect(sql).toContain("pending_site_logical_ids as (");
+      expect(sql).toContain("and not exists ( select 1 from pending_site_logical_ids pending");
+      expect(candidateFunction).toContain(
+        "document_filters is null or record.logical_document_id = any(document_filters)",
+      );
+      expect(sql).toContain("document.owner_id is null");
+      const documentProjection = candidateFunction.slice(
+        candidateFunction.indexOf("document_candidates as ("),
+        candidateFunction.indexOf(") as source_metadata") + ") as source_metadata".length,
+      );
+      expect(documentProjection).toContain("pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(");
+      expect(documentProjection).not.toContain("document.metadata as source_metadata");
+      for (const privateKey of [
+        "uploaded_by",
+        "public_source_steward_id",
+        "publication_approval_id",
+        "administrator_id",
+      ]) {
+        expect(documentProjection).not.toContain(`'${privateKey}'`);
+      }
+      expect(sql).toContain("document.metadata->>'source_kind' = 'document'");
+      expect(sql).toContain(
+        "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+      );
+      expect(candidateFunction).toContain("vector_ranked as (");
+      expect(candidateFunction).toContain("text_ranked as (");
+      expect(candidateFunction).toContain("select * from vector_ranked union all select * from text_ranked");
+      expect(candidateFunction).toContain("1.0 / (60 + rank_positions.vector_rank)");
+      expect(candidateFunction).toContain("1.0 / (60 + rank_positions.text_match_rank)");
+      expect(candidateFunction.match(/OPERATOR\(extensions\.<=>\)/g)).toHaveLength(2);
+      expect(candidateFunction.replaceAll("OPERATOR(extensions.<=>)", "")).not.toContain("<=>");
+      const scoreProjection = candidateFunction.slice(candidateFunction.lastIndexOf("ranked as ("));
+      expect(scoreProjection).not.toContain("row_number()");
+      expect(candidateFunction).not.toContain("source_kind' = 'registry_record'");
+    }
+  });
+
+  it("uses the current head only to exclude a pending logical ID above the served snapshot", () => {
+    const scenario = { servedChangeEpoch: 5, currentChangeEpoch: 6, pendingEventEpoch: 6 };
+    expect(scenario.pendingEventEpoch <= scenario.servedChangeEpoch).toBe(false);
+    expect(scenario.pendingEventEpoch <= scenario.currentChangeEpoch).toBe(true);
+    for (const sql of [schema, governedRetrievalV3]) {
+      expect(sql).toContain("release.target_change_epoch = state.served_change_epoch");
+      expect(sql).toContain("state.change_epoch = expected_site_change_epoch");
+      expect(sql).toContain("event.target_change_epoch > site_authority.change_epoch");
+      expect(sql).toContain("where record.pending_event_sequence is not null");
+    }
+  });
+});
 
 describe("site-content Task 4 health schema", () => {
   it("adds immutable administrator attestation and private forced-RLS invocation evidence", () => {

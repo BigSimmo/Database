@@ -21,8 +21,11 @@ import {
 } from "@/lib/rag/rag-candidate-sources";
 export {
   callVersionedRetrievalRpc,
+  callGovernedRetrievalRpc,
   loadChunksForMemoryCards,
   loadChunksForSignalMatches,
+  retrievalCorpusScopes,
+  searchGovernedCorpora,
 } from "@/lib/rag/rag-candidate-sources";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";

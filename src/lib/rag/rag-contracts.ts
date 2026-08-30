@@ -8,6 +8,7 @@ import type {
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
 import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
 import type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
+import type { SiteContentDomain, SiteContentPartitionState } from "@/lib/types";
 
 export type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
@@ -80,7 +81,37 @@ export type SearchChunksArgs = {
   ragSubquestionCount?: number;
   /** Internal shadow-only, content-free per-subquestion candidate-match diagnostics. */
   ragCandidateMatchCounts?: RagCandidateMatchCounts;
+  /** Internal default-off candidate-lane policy. Absence disables all governed v3 work. */
+  governedCorpusComponents?: GovernedCorpusComponents;
+  /** Internal explicit coverage decision; supplementary retrieval is forbidden unless true. */
+  governedInternationalCoverageGap?: boolean;
 };
+
+export type GovernedCorpusComponents = Readonly<{
+  siteContent: boolean;
+  australianAugmentation: boolean;
+  australianCurrent: boolean;
+}>;
+
+export type RetrievalCorpusScopePolicy = Readonly<{
+  siteContentEnabled: boolean;
+  siteContentState: SiteContentPartitionState;
+  australianAugmentationEnabled: boolean;
+  australianCurrent: boolean;
+  internationalCoverageGap: boolean;
+}>;
+
+export type GovernedCorpusRetrievalPhase = Readonly<{
+  corpusScopes: import("@/lib/types").SourceCorpusScope[];
+  accessScope: RetrievalAccessScope;
+  phase: "primary" | "supplementary";
+}>;
+
+export type GovernedCorpusCandidateDiagnostics = Readonly<{
+  rpcCalls: number;
+  resultCount: number;
+  selectedSiteDomains: SiteContentDomain[];
+}>;
 
 export type SearchTelemetry = {
   search_cache_hit: boolean;
@@ -99,6 +130,9 @@ export type SearchTelemetry = {
   query_plan_reason_codes?: string[];
   candidate_retrieval_query_variant_count?: number;
   candidate_match_counts?: RagCandidateMatchCounts;
+  governed_candidate_rpc_calls?: number;
+  governed_candidate_count?: number;
+  governed_candidate_site_domains?: SiteContentDomain[];
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;
