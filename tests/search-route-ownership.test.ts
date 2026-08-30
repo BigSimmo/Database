@@ -440,11 +440,10 @@ describe("shared-search route ownership", () => {
       label: "ClinicalDashboard async function ask",
     });
 
-    // Before this branch existed, every mode except documents/prescribing fell
-    // through to an in-place executeSearch. That was only safe while `/` plus a
-    // namespaced mode was unreachable; the shared home makes it the normal state.
+    // Smart intent must be intercepted before ordinary namespaced navigation.
+    // Everything else still routes to the selected mode's deterministic surface.
     expect(ask).toMatch(
-      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
+      /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);[\s\S]*?if \(clinicalAskMode && resolveSmartSearchSubmissionIntent\(clinicalAskMode, trimmedQuery\) === "clinical-ask"\) \{[\s\S]*?return;[\s\S]*?if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
   });
 

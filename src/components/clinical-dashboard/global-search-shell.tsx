@@ -71,6 +71,7 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 import { resolveSmartSearchSubmissionIntent } from "@/lib/smart-search-intent";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
@@ -347,6 +348,7 @@ function GlobalStandaloneSearchShellBody({
   desktopSearchPlacement = "default",
   mobileHomeComposerPlacement = "hero",
   searchComposerVisible = true,
+  clinicalAskAvailableModeIds,
   hideDesktopSidebar = false,
   chromeVisible = true,
   mobileChromeVisible = true,
@@ -463,7 +465,7 @@ function GlobalStandaloneSearchShellBody({
     pathname !== "/therapy-compass/compare" &&
     readTherapyCompareSlugCount(searchParams) > 0;
   const clinicalAskMode =
-    isClinicalAskModeId(searchMode) && props.clinicalAskAvailableModeIds?.includes(searchMode) ? searchMode : null;
+    isClinicalAskModeId(searchMode) && clinicalAskAvailableModeIds?.includes(searchMode) ? searchMode : null;
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -846,9 +848,15 @@ function GlobalStandaloneSearchShellBody({
     const returnToSearch = () => {
       clinicalAskSession.clear();
       setQuery("");
-      router.replace(appModeHomeHref(searchMode, { focus: true }));
+      const alreadyOnPrivateSearchUrl =
+        !searchParams.has("q") && !searchParams.has("query") && searchParams.get("run") !== "1";
+      if (!alreadyOnPrivateSearchUrl) router.replace(appModeHomeHref(searchMode, { focus: true }));
       focusComposerInput(inputRef);
     };
+    const clinicalAskFailure =
+      clinicalAskMode && clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.response?.state === "failed"
+        ? clinicalAskSession.response
+        : null;
     if (!chromeVisible) {
       return (
         <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
@@ -1126,7 +1134,18 @@ function GlobalStandaloneSearchShellBody({
               {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
               <SearchCommandProvider value={searchCommandContextValue}>
-                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                {clinicalAskFailure ? (
+                  <section className="clinical-ask-workspace" aria-label="Clinical Ask workspace">
+                    <ClinicalAskAnswerSurface
+                      response={clinicalAskFailure}
+                      question={clinicalAskSession.submittedQuestion || clinicalAskSession.draft}
+                      onRetry={() =>
+                        runModeClinicalAsk(clinicalAskSession.submittedQuestion || clinicalAskSession.draft)
+                      }
+                      onReturnToSearch={returnToSearch}
+                    />
+                  </section>
+                ) : clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
                   <ClinicalAskWorkspace
                     onDraftChange={stageClinicalAskDraft}
                     onRun={runModeClinicalAsk}

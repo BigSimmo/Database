@@ -256,13 +256,14 @@ function SmartRotatingHint({
 
 function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: string }) {
   const previouslyActiveRef = useRef(false);
-  const [announcement, setAnnouncement] = useState("");
+  const announcementRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    const announcement = announcementRef.current;
     if (active && !previouslyActiveRef.current) {
-      setAnnouncement(`Smart answer selected for ${modeLabel}.`);
+      if (announcement) announcement.textContent = `Smart answer selected for ${modeLabel}.`;
     } else if (!active) {
-      setAnnouncement("");
+      if (announcement) announcement.textContent = "";
     }
     previouslyActiveRef.current = active;
   }, [active, modeLabel]);
@@ -271,13 +272,11 @@ function SmartIntentCue({ active, modeLabel }: { active: boolean; modeLabel: str
     <>
       {active ? (
         <div className="smart-search-intent-cue" data-testid="smart-search-intent-cue" aria-hidden="true">
-          <Sparkles className="size-icon-sm" />
+          <Sparkles aria-hidden="true" className="size-icon-sm" />
           Smart answer · governed sources
         </div>
       ) : null}
-      <span className="sr-only" aria-live="polite" aria-atomic="true">
-        {announcement}
-      </span>
+      <span ref={announcementRef} className="sr-only" aria-live="polite" aria-atomic="true" />
     </>
   );
 }

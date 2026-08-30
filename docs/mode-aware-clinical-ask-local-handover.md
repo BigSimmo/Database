@@ -89,6 +89,53 @@ and must be recorded after the final current-main sync. Do not repeat live
 OpenAI, Supabase, staging, audio, or authority-search canaries solely for this
 code reconciliation.
 
+### Current exact-tree evidence
+
+The feature branch incorporated origin/main at
+0ca012f8ed32554cb50cc231dccd3d412b0472c5 through an ordinary merge. The
+following local evidence was then collected on the merged tree:
+
+- 90 focused Smart/Clinical Ask unit, DOM, route, contract, capability, runner,
+  session, and shared-header tests passed across 10 files.
+- The enabled, provider-free Chromium suite passed all 6 applicable journeys
+  (with the default-off-only case skipped). It covers the seven governed modes,
+  deterministic catalogue/code routing, offline and unavailable privacy,
+  retry, clear, clarification continuation, focus/reset behavior, responsive
+  widths, dark mode, reduced motion, forced colors, and Axe.
+- The default-off Chromium journey passed and confirmed ordinary search with no
+  broken Smart promise.
+- The phone-chrome gate passed 135 static/unit contracts and 12 focused
+  Chromium/PWA journeys. This is local browser emulation, not physical-device
+  acceptance.
+- The offline RAG evaluation passed 628 assertions across 36 golden cases and
+  26 suites.
+- TypeScript, lint, the production build and client-bundle secret scan,
+  design-system contracts/adoption/sync, formatting, and diff whitespace checks
+  passed.
+- The broad UI gate exposed two desktop service-detail scroll-fixture failures.
+  An exact origin/main comparison passed both cases and proved that removing
+  the disabled Smart-search hint shortened this compact page below a brittle
+  700 px loading threshold. The service-detail fixture now requires its real
+  650 px runway while retaining the mid-page hide/reveal and composer-owner
+  assertions; both focused cases pass.
+- `verify:pr-local` reached the full 11,701-test Vitest suite. Its first run
+  found four Smart-owned contract defects (the live-region lint pattern, one
+  undeclared CSS token, and two stale source-shape assertions); all were fixed,
+  and the affected 118 focused tests pass. The remaining six failures are
+  Windows Bash exit-127 results in `claude-cloud-profile.test.ts`; the identical
+  six failures reproduce on an untouched origin/main worktree. The gate is
+  therefore recorded as non-green on this Windows host rather than falsely
+  reported as passed. The production build, RAG fixture validation, medication
+  interaction index, and medication lexicon report checks that the gate did not
+  reach were run separately and passed.
+
+Production readiness remains intentionally non-green. The current privacy
+manifest still records the HMAC secret, retention parity, OpenAI ZDR and DPA,
+Railway DPA, APP 8 cross-border basis, APP 1/APP 5 notice, and PHI-minimisation
+evidence as pending or partial. Named clinical-authority and privacy approval
+and physical iPhone Safari/PWA Smart-path acceptance also remain open. These
+are activation gates, not evidence supplied by the dormant code PR.
+
 ## Phase 3 — Publication and activation boundary
 
 Before publication, fetch origin/main again. If it advanced, merge it normally,

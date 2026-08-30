@@ -5175,7 +5175,7 @@ html.theme-transitioning *:after {
   padding: var(--radius-xs) var(--spacing-icon-xs);
   background: var(--clinical-accent-soft);
   color: var(--clinical-accent);
-  font-size: var(--font-size-xs);
+  font-size: var(--text-2xs);
   font-weight: 700;
 }
 @media (max-width: 639px) {

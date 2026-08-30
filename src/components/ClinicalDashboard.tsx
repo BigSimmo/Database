@@ -50,10 +50,12 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import {
+  clinicalAskWorkspaceVisible,
   type ClinicalDashboardProps,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -579,6 +581,10 @@ function ClinicalDashboardContent({
     query,
     clinicalAskAvailableModeIds,
   });
+  const clinicalAskFailure =
+    clinicalAskMode && clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.response?.state === "failed"
+      ? clinicalAskSession.response
+      : null;
   const {
     status: authStatus,
     authorizationHeader,
@@ -2695,8 +2701,12 @@ function ClinicalDashboardContent({
     clinicalAskSession.clear();
     setQuery("");
     setModeSearchSubmitted(false);
-    router.replace(appModeSelectionHref(searchMode, { queryMode, scopeFilters }));
-    window.requestAnimationFrame(focusComposerInput);
+    const alreadyOnPrivateSearchUrl =
+      !searchParams.has("q") && !searchParams.has("query") && searchParams.get("run") !== "1";
+    if (!alreadyOnPrivateSearchUrl) {
+      router.replace(appModeSelectionHref(searchMode, { queryMode, scopeFilters }));
+    }
+    focusComposerInput();
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
@@ -3691,7 +3701,18 @@ function ClinicalDashboardContent({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                {clinicalAskFailure ? (
+                  <section className="clinical-ask-workspace" aria-label="Clinical Ask workspace">
+                    <ClinicalAskAnswerSurface
+                      response={clinicalAskFailure}
+                      question={clinicalAskSession.submittedQuestion || clinicalAskSession.draft}
+                      onRetry={() =>
+                        runModeClinicalAsk(clinicalAskSession.submittedQuestion || clinicalAskSession.draft)
+                      }
+                      onReturnToSearch={returnClinicalAskToSearch}
+                    />
+                  </section>
+                ) : clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
                   <ClinicalAskWorkspace
                     onDraftChange={stageAnswerFollowUpDraft}
                     onRun={runModeClinicalAsk}
