@@ -1,5 +1,9 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
+import {
+  BED_PREPARATION_NOTES,
+  BED_RELEASE_BLOCKERS,
+  OVERRIDE_REASONS,
+} from "@/components/ward-management/ward-change-reasons";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { referralState } from "@/components/ward-management/ward-referrals";
 import { EVENT_ROLE, WARD_FLOW_ROLE_LABELS, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
@@ -14,6 +18,7 @@ import {
   SEXES,
   REFERRAL_DESTINATION_KINDS,
   type ReferralAddressing,
+  TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
@@ -400,6 +405,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         id: nextReferralId(sequence),
         originEdId: event.edId,
         openedAt: event.now,
+        // A newly raised movement is never flagged. The flag is an act somebody takes on a
+        // patient already in the queue, not a property of arriving.
+        flaggedUrgent: false,
         urgency: event.draft.urgency,
         cohort: event.draft.cohort,
         security: event.draft.security,
@@ -411,6 +419,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
         urgencyChanges: [],
+        overrides: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
@@ -521,9 +530,31 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (unknown) {
         return reject(state, event, `no unit found for id ${unknown}`);
       }
+      // Membership-checked, not truthiness-checked -- the same discipline as every other reason
+      // in this reducer. A caller sending a reason outside the list is refused rather than having
+      // an unrecognised string written into an accountability record.
+      if (event.overrideReason !== undefined && !OVERRIDE_REASONS.includes(event.overrideReason)) {
+        return reject(state, event, `REFER_TO_UNITS overrideReason must be chosen from OVERRIDE_REASONS`);
+      }
       const updated: Movement = {
         ...movement,
         referredUnitIds: [...event.unitIds],
+        // OD-3: the reason is KEPT. It used to live in the shortlist panel's own `useState` and be
+        // discarded on the next selection, while the governance page said override reasons were
+        // recorded. Appended rather than replaced, because a movement can be overridden more than
+        // once and the earlier one is not undone by the later.
+        overrides:
+          event.overrideReason === undefined
+            ? movement.overrides
+            : [
+                ...movement.overrides,
+                {
+                  at: event.now,
+                  by: WARD_FLOW_ROLE_LABELS[event.role],
+                  reason: event.overrideReason,
+                  unitIds: [...event.unitIds],
+                },
+              ],
         stage: "destination_review",
       };
       return replaceMovement(state, movement.id, updated);
@@ -700,7 +731,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         stage: "handover_ready",
         transport: {
           id: `${movement.id}-transport`,
-          provider: "State patient transport service",
+          // TR-D2. Was the literal "State patient transport service" on every job this reducer
+          // created -- a second name, from nowhere, beside the seed's own. The value now comes
+          // from `TRANSPORT_PROVIDERS`, and the event may carry the choice.
+          //
+          // The fallback is the first entry, and it is a PLACEHOLDER DEFAULT rather than a
+          // decision: no screen offers a provider chooser yet, so until one does every job this
+          // creates takes the same one. That is a gap the array makes visible instead of hiding
+          // behind a hardcoded sentence.
+          provider: event.provider ?? TRANSPORT_PROVIDERS[0],
           escortRequired: movement.legalStatus !== "Voluntary",
         },
       };

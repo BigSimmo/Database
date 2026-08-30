@@ -1,7 +1,7 @@
 import { referralState } from "../src/components/ward-management/ward-referrals";
 import { describe, expect, it } from "vitest";
 
-import { EVENING_SHIFT_END_MINUTES } from "@/components/ward-management/ward-bed-availability";
+import {} from "@/components/ward-management/ward-bed-availability";
 import { MINUTES_PER_DAY, type Instant } from "@/components/ward-management/ward-clock";
 import {
   CAPACITY_FIGURE_LABELS,

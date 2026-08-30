@@ -56,7 +56,7 @@ import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-m
 import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { siteByCode } from "@/components/ward-management/ward-sites";
+import { DEMONSTRATION_DAY_LABEL, JURISDICTION_LABEL, siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -167,7 +167,13 @@ function ModeHeader({
       <div className={styles.headerMeta}>
         <span className={styles.prototypeBadge}>Synthetic prototype</span>
         <span>Updated {formatInstant(now)}</span>
-        <span>15 Aug 2026 · WA</span>
+        {/* The day and jurisdiction are authored once in ward-sites.ts. This was the literal
+            "15 Aug 2026 · WA" until 2026-08-30 — a frozen date beside a live clock, on every
+            screen with a header, reading as though the system knew today's date. It is worded
+            as the day the scenario is SET ON because that is what it is. */}
+        <span>
+          Scenario set on {DEMONSTRATION_DAY_LABEL} · {JURISDICTION_LABEL}
+        </span>
       </div>
     </header>
   );
@@ -858,7 +864,20 @@ function GovernanceView() {
         <article className={styles.governanceCard}>
           <Scale aria-hidden="true" />
           <h2>Contestable outcome</h2>
-          <p>Users can select an alternative, record an override reason and see which gate changed the ordering.</p>
+          {/* This card said "record an override reason" as present fact until 2026-08-30. It was
+           * false: `shortlist-panel.tsx` collects the reason, renders it back to the coordinator who
+           * typed it, and holds it in `useState` — no ward-flow event carries it, so it never
+           * reaches the log, the overridden service never sees it, and it dies on navigation. The
+           * sentence rendered there has the exact FORM of an audit entry (actor, targets, time,
+           * reason, assurance) while holding the only copy, which is why nobody caught it by
+           * reading the screen. Reworded to match the "Immutable ownership" card below, which
+           * already says "the production concept requires" rather than claiming the thing exists.
+           * On a governance screen, under a heading reading "Contestable outcome", contestability
+           * is precisely what a reviewing health service would test first. */}
+          <p>
+            Users can select an alternative and see which gate changed the ordering. The production concept requires the
+            override reason to be recorded and shown to the service that was overridden.
+          </p>
         </article>
         <article className={styles.governanceCard}>
           <Fingerprint aria-hidden="true" />

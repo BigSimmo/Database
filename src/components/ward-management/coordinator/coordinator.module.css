@@ -429,6 +429,32 @@
   font-weight: 650;
 }
 
+/*
+ * The urgent flag. Shaped like the tier pill beside it so the row still reads as one thing, and
+ * weighted heavier because it is the reason this row is where it is — the owner asked for the flag
+ * to sort to the top AND be visible, and a row leading the queue with nothing on it to say why is
+ * the half that fails a coordinator.
+ *
+ * A FILLED pill, deliberately, where `.queueLegalBreach` beside it is plain danger-toned TEXT.
+ * They share a tone because both are things a coordinator must not miss, and they must not share a
+ * shape: one is a passed statutory deadline and the other is a clinical flag, and a reader who
+ * cannot tell them apart at a glance has been given one signal where there are two.
+ *
+ * Tokens only — an earlier draft of this rule reached for `--surface-critical` and
+ * `--text-critical`, which do not exist in this project. Both would have silently fallen through
+ * to their defaults and rendered a "visible" flag that looked like every other pill on the row.
+ */
+.queueRow .queueFlag,
+.queueRowSelected .queueFlag {
+  justify-self: start;
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+  padding: 0 var(--co-space-8);
+  font-weight: 700;
+}
+
 /* Overrides the plain-span colour above: the operational score is the number a coordinator
    reads off this row, so it gets heading weight rather than the muted metadata tone. */
 .queueRow .queueScore,
@@ -1530,17 +1556,6 @@
   color: var(--text-heading);
   font-size: var(--text-3xs);
   font-weight: 700;
-}
-
-.shortlistOverrideTextarea {
-  min-height: var(--co-space-48);
-  border: 0.0625rem solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  padding: var(--co-space-8);
-  color: var(--text);
-  font-size: var(--text-2xs);
-  line-height: var(--co-leading-body);
 }
 
 .shortlistOverrideSelect {

@@ -7,6 +7,25 @@ import type { EmergencyDepartment, Site, Unit } from "@/components/ward-manageme
 export const NOW_ANCHOR = 10 * 60 + 42;
 
 /**
+ * The synthetic day this demonstration is set on, and the jurisdiction it depicts.
+ *
+ * WHY IT LIVES HERE. Until 2026-08-30 the string "15 Aug 2026 · WA" was a literal inside
+ * `ward-management-modes.tsx`'s page header, rendered on every screen that has one, sitting
+ * immediately beside a LIVE `formatInstant(now)`. A frozen date next to a moving clock reads as
+ * the system knowing what day it is, and it would have been the same date at any future
+ * demonstration. It is also a changeable real-world fact stated inside a component, which
+ * `docs/ward-flow-changeable-data-rule.md` puts in exactly one authored place — the rule exists
+ * because the second component to need today's date is where the drift starts, and there was
+ * already a second concept of the demonstration day in `demoDayZero`.
+ *
+ * `DEMONSTRATION_DAY_LABEL` is deliberately worded as the day the SCENARIO is set on rather than
+ * as today's date. The prototype is a fixed synthetic day; saying so is the honest reading and it
+ * stops the header making a claim the clock cannot support.
+ */
+export const DEMONSTRATION_DAY_LABEL = "15 Aug 2026";
+export const JURISDICTION_LABEL = "WA";
+
+/**
  * The hospital network. Sites carry an emergency department, inpatient units, or both — that
  * asymmetry is real: Fremantle and Bentley run mental health units with no ED of their own;
  * Peel and Joondalup run EDs that feed patients elsewhere in the network.

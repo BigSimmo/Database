@@ -623,9 +623,27 @@ export function WardNetworkWorkspace() {
   // `BedStateChips`/`unitCapacity` below, so the selected unit's own capacity figures must move
   // the instant its ward confirms new capacity, not only at first paint.
   const detail = selectedUnitId ? (units.find((unit) => unit.id === selectedUnitId) ?? null) : null;
-  // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
-  // be the raw stage-count sum — that includes them and overstates live demand.
-  const openMovements = movements.filter(isOpen).length;
+  /**
+   * THE PEOPLE STILL WAITING FOR A PLACE — one array, and everything about the queue reads it.
+   *
+   * Arrived and self-discharged movements have left the pathway (spec §7), so a queue for placement
+   * must not count them: doing so overstates live demand, and this is the figure a coordinator
+   * looks at first.
+   *
+   * ⚠️ **THIS IS DELIBERATELY AN ARRAY RATHER THAN A COUNT, AND THAT IS THE FIX.** Until 2026-08-30
+   * the count was `movements.filter(isOpen).length` here and the panel rendered `movements.length`
+   * thirty-three lines below, with the list rendering `movements.map` — so the header, the list and
+   * this line were three separate answers to one question and two of them were wrong. The comment
+   * explaining why the raw total is wrong was already sitting on this line while the raw total was
+   * on screen.
+   *
+   * A corrected number would drift back. A single array the count and the list both read cannot
+   * disagree with itself. Phase 1's audit recorded this same shape in a different component — "48
+   * open movements counted six arrived and one closed record" — so it has now recurred once, and
+   * `tests/ward-network-queue-count.dom.test.tsx` is what stops a third time.
+   */
+  const openQueue = movements.filter(isOpen);
+  const openMovements = openQueue.length;
   const primary = candidates[0];
 
   if (!patient) {
@@ -658,10 +676,10 @@ export function WardNetworkWorkspace() {
           <section className={styles.queuePanel} aria-label="Priority queue">
             <header className={styles.panelHeader}>
               <h2>Priority queue</h2>
-              <span className={styles.count}>{movements.length}</span>
+              <span className={styles.count}>{openMovements}</span>
             </header>
             <div className={styles.queueList}>
-              {movements.map((candidate) => (
+              {openQueue.map((candidate) => (
                 <button
                   type="button"
                   key={candidate.id}

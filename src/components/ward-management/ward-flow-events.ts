@@ -2,6 +2,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import type {
   BedPreparationNote,
   BedReleaseBlocker,
+  OverrideReason,
   CancelTransportReason,
   LegalStatusChangeReason,
   ReleaseHoldReason,
@@ -19,6 +20,7 @@ import type {
   ReferralSource,
   Security,
   Sex,
+  TransportProvider,
 } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -88,7 +90,25 @@ export type WardFlowEvent =
       movementId: string;
       outcome: "inpatient_order" | "community_order" | "revoked";
     }
-  | { type: "REFER_TO_UNITS"; role: WardFlowRole; now: Instant; movementId: string; unitIds: string[] }
+  | {
+      type: "REFER_TO_UNITS";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      unitIds: string[];
+      /**
+       * Present when the coordinator is referring DESPITE a failing gate — an override.
+       *
+       * Optional because most referrals are not overrides, and absent means exactly that: no
+       * override happened and none is recorded. When present the reducer keeps it on the movement
+       * (`Movement.overrides`), which is the whole of owner decision OD-3: the reason used to be
+       * collected in a textarea, held in the screen's own state and discarded on the next
+       * selection, while the governance page said override reasons were recorded.
+       *
+       * From `OVERRIDE_REASONS`, never free text, and never an "other, please specify" (WB-DB-16).
+       */
+      overrideReason?: OverrideReason;
+    }
   | { type: "ACCEPT_IN_PRINCIPLE"; role: WardFlowRole; now: Instant; movementId: string; unitId: string }
   | { type: "HOLD_BED"; role: WardFlowRole; now: Instant; movementId: string; unitId: string }
   | {
@@ -100,7 +120,15 @@ export type WardFlowEvent =
       /** From `DECLINE_REASONS`, and nothing beside it — see `Decline`'s own doc comment (PD-6). */
       reason: DeclineReason;
     }
-  | { type: "HANDOVER_READY"; role: WardFlowRole; now: Instant; movementId: string }
+  | {
+      type: "HANDOVER_READY";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      /** Who will collect the patient, from `TRANSPORT_PROVIDERS`. Optional only because no screen
+       *  offers the choice yet; the reducer falls back to the first entry and says so. */
+      provider?: TransportProvider;
+    }
   | { type: "TRANSPORT_ACCEPTED"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "TRANSPORT_EN_ROUTE"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "PATIENT_COLLECTED"; role: WardFlowRole; now: Instant; movementId: string }
