@@ -321,6 +321,29 @@ export type Movement = {
   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
   originEdId: string;
   openedAt: Instant;
+  /**
+   * THE URGENT FLAG — the one thing that outranks a wait and a tier (owner, 2026-08-30).
+   *
+   * His words: "A long wait always is prioritised… however… in certain cases patients can be
+   * marked as urgent for many reasons which outranks everything." Asked how far to take it, he
+   * scoped it deliberately small: **"For now just have a feature that flags the patient. I will
+   * build on it later."**
+   *
+   * So this is ADDITIVE AND REVERSIBLE. It sits above `urgency` in `queueOrder` and changes
+   * nothing beneath it — the three tiers, `operationalScore` and its ten-hour wait ceiling are all
+   * exactly as they were.
+   *
+   * ⚠️ **THAT LEAVES THREE RANKINGS STACKED — a flag, above three tiers, above a composite score —
+   * AND THAT IS A STAGE, NOT A DESIGN.** A reader meeting it should not take it as settled. The
+   * deferred decision, in his own words "I will build on it later", is what becomes of the tiers
+   * and of `operationalScore` once the flag is the ordering. `tests/ward-priority.test.ts` names
+   * that open question so it cannot quietly become the shape by default.
+   *
+   * Carries no reason. He said "for many reasons" — plural and unenumerated — and inventing a
+   * vocabulary for them would be putting words in his mouth on the one surface where a wrong
+   * answer reaches a person. A reason field is part of "later", not part of this.
+   */
+  flaggedUrgent: boolean;
   urgency: UrgencyLevel;
   cohort: Cohort;
   security: Security;

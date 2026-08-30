@@ -400,6 +400,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         id: nextReferralId(sequence),
         originEdId: event.edId,
         openedAt: event.now,
+        // A newly raised movement is never flagged. The flag is an act somebody takes on a
+        // patient already in the queue, not a property of arriving.
+        flaggedUrgent: false,
         urgency: event.draft.urgency,
         cohort: event.draft.cohort,
         security: event.draft.security,

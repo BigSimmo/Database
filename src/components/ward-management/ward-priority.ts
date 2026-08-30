@@ -153,9 +153,39 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
   return { score, factors };
 }
 
-/** Urgency tier leads; the operational score only orders movements inside a tier. */
+/**
+ * Whether this patient carries the URGENT FLAG — the one thing that outranks a tier and a wait.
+ *
+ * Owner, 2026-08-30: "in certain cases patients can be marked as urgent for many reasons which
+ * outranks everything." See `Movement.flaggedUrgent` for the full ruling and for what he
+ * deliberately deferred.
+ */
+export function isFlaggedUrgent(movement: Pick<Movement, "flaggedUrgent">): boolean {
+  return movement.flaggedUrgent;
+}
+
+/**
+ * The flag leads; beneath it, urgency tier, then the operational score inside a tier.
+ *
+ * ⚠️ **THREE RANKINGS ARE STACKED HERE AND THAT IS A STAGE, NOT A DESIGN.** The owner scoped this
+ * deliberately small — "For now just have a feature that flags the patient. I will build on it
+ * later" — so the flag is ADDITIVE and everything below it is exactly as it was: the three tiers,
+ * `operationalScore`, and its ten-hour wait ceiling.
+ *
+ * **The deferred decision, which a reader must not mistake for settled:** what becomes of
+ * `UrgencyLevel` 1/2/3 and of `operationalScore` once the flag is the ordering. His fuller ruling
+ * was "a long wait always is prioritised… otherwise go by time for the main level of urgency",
+ * which the tiers and the capped score cannot express — a ceiling cannot say "go by time" past ten
+ * hours. That change was scoped, costed and then held back by him, not overlooked.
+ * `tests/ward-priority.test.ts` names the open question so it cannot become the shape by default.
+ */
 export function queueOrder(movements: Movement[], now: Instant): Movement[] {
   return movements
     .filter(isOpen)
-    .sort((a, b) => a.urgency - b.urgency || operationalScore(b, now).score - operationalScore(a, now).score);
+    .sort(
+      (a, b) =>
+        Number(isFlaggedUrgent(b)) - Number(isFlaggedUrgent(a)) ||
+        a.urgency - b.urgency ||
+        operationalScore(b, now).score - operationalScore(a, now).score,
+    );
 }

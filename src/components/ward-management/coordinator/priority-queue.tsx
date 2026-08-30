@@ -102,6 +102,16 @@ export function PriorityQueue({ movements, now, selectedId, onSelect, filterEdId
                 onClick={() => onSelect(movement.id)}
               >
                 <strong>{movement.id}</strong>
+                {/* The urgent flag, shown where the ordering is read. The owner asked for two
+                    things — that it sorts to the top and that it is VISIBLE — and a row that leads
+                    the queue for a reason the screen does not state is the worse half of that: a
+                    coordinator would see a tier-3 patient with the shortest wait at the top and
+                    have nothing to explain it. */}
+                {movement.flaggedUrgent ? (
+                  <span className={styles.queueFlag} data-testid={`ward-queue-flag-${movement.id}`}>
+                    Flagged urgent
+                  </span>
+                ) : null}
                 <span className={styles.queueTier} data-tier={movement.urgency}>
                   {urgencyTierLabel(movement.urgency)}
                 </span>
