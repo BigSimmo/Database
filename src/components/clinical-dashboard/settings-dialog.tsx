@@ -315,15 +315,12 @@ export function SettingsDialog({
   const visibleSectionIds = useMemo(() => matchingSettingsSectionIds(filterMatches), [filterMatches]);
   const filtering = filterMatches !== null;
   const noMatches = filtering && filterMatches.size === 0;
-
-  useEffect(() => {
-    if (!filtering || visibleSectionIds.length === 0 || visibleSectionIds.includes(activeSection)) return;
-    // Filtering can remove the section that owned aria-current without moving
-    // the scroll port. Keep the desktop rail truthful by promoting the first
-    // surviving section instead of leaving every enabled item unselected.
-    pinnedSectionRef.current = null;
-    setActiveSection(visibleSectionIds[0]);
-  }, [activeSection, filtering, visibleSectionIds]);
+  // Filtering can remove the section that owns aria-current without moving
+  // the scroll port. Derive the rail selection from the surviving sections so
+  // the navigation stays truthful without a set-state-in-effect render cycle.
+  const activeRailSection = visibleSectionIds.includes(activeSection)
+    ? activeSection
+    : (visibleSectionIds[0] ?? activeSection);
 
   const jurisdictionLabel = useMemo(
     () =>
@@ -712,7 +709,7 @@ export function SettingsDialog({
             <nav aria-label="Settings sections" className="polished-scroll grid min-h-0 gap-1 overflow-y-auto">
               {SETTINGS_SECTIONS.map((item) => {
                 const Icon = item.icon;
-                const active = item.id === activeSection;
+                const active = item.id === activeRailSection;
                 // While a filter is running, a section with no surviving row is
                 // not reachable — dim it and take it off the tab order rather than
                 // offering a jump that lands nowhere.
