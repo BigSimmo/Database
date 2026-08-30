@@ -423,6 +423,16 @@
   line-height: var(--wb-leading-body);
 }
 
+/* "Off the ward: …" — one line under the group grid rather than a sixth column (owner,
+ * 2026-08-30). Sits with the sheet's other standing notes and takes their ink on paper, which is
+ * why it is listed in the print block beside `.sheetNote`. */
+.sheetAwayLine {
+  margin: var(--wb-space-8) 0 0;
+  color: var(--text-heading);
+  font-size: var(--text-xs);
+  line-height: var(--wb-leading-body);
+}
+
 .legend {
   display: flex;
   flex-wrap: wrap;
@@ -1873,6 +1883,7 @@
      white, on the sheet that is read aloud at handover. Exactly the defect this block already
      exists to fix, reintroduced by a new rule that set a colour. */
   .sheetRowAway,
+  .sheetAwayLine,
   .sheetNote {
     color: CanvasText;
   }

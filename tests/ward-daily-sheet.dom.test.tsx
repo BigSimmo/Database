@@ -69,9 +69,9 @@ describe("the daily sheet exists on the board and says what it is", () => {
       "Who is stuck",
       "Who is overdue",
       "Nobody has said when they are going",
-      // Added 2026-08-30. A fifth group, placed LAST rather than inserted into D19's verbatim
-      // four — see `AWAY_GROUP_PLACEMENT_UNRESOLVED`; the owner has not ruled on where it sits.
-      "Who is off the ward",
+      // "Who is off the ward" was briefly a sixth heading here. The owner removed the column on
+      // 2026-08-30 and it is now a LINE under the grid, not a group — see the off-the-ward test
+      // below. D19's approved reading order is untouched again.
     ]);
   });
 
@@ -147,7 +147,7 @@ describe("the daily sheet is folded away and last, not second", () => {
     renderWardBoard(UNIT_ID);
     const body = screen.getByTestId("ward-board-sheet-body");
     expect(within(body).getByTestId("ward-daily-sheet")).toBeInTheDocument();
-    expect(within(body).getAllByRole("heading", { name: /who is off the ward/i }).length).toBeGreaterThan(0);
+    expect(within(body).getByTestId("ward-daily-sheet-away")).toBeInTheDocument();
   });
 });
 
@@ -194,8 +194,11 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     expect(wardWithNobodyAway, "every seeded ward has somebody away — this assertion is vacuous").toBeDefined();
 
     renderWardBoard(wardWithNobodyAway!.unitId);
-    const count = screen.getByTestId("ward-daily-sheet-away-count");
-    expect(count.textContent).toBe("None.");
+    // The group became a line on 2026-08-30 ("remove the away column"), so his "Just say none."
+    // now reads as "Off the ward: none." rather than a bare cell. The word he chose survives; the
+    // container it sat in did not.
+    const line = screen.getByTestId("ward-daily-sheet-away");
+    expect(line.textContent).toMatch(/off the ward:\s*none\./i);
   });
 
   it("says on the PAPER that a patient is at an emergency department, not only on the screen", () => {
@@ -221,23 +224,19 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
 
     renderWardBoard(unitId);
 
-    // Scoped to the group, not the whole sheet. A person who is away AND has no discharge date
-    // appears in BOTH groups on purpose — the same way somebody both stuck and overdue appears
-    // twice — so counting across the sheet counts one of them more than once.
-    const awayGroup = screen.getByTestId("ward-daily-sheet-away");
-    const notes = within(awayGroup).getAllByText(/at an emergency department/i);
-    expect(
-      notes.length,
-      `the off-the-ward group shows ${notes.length} of ${awayHere.length} people away on this ward`,
-    ).toBe(awayHere.length);
-
-    for (const note of notes) {
-      // The half most likely to be trimmed as wordy, and the half a reader most needs: "away" on a
-      // bed sheet otherwise reads as "so the bed is free".
-      expect(note.textContent, `sheet line does not say the bed is still theirs: ${note.textContent}`).toMatch(
-        /still theirs/i,
-      );
+    /*
+     * The line, not a column — the owner removed the column on 2026-08-30. The assertion that
+     * matters did not change with it: EVERY person away on this ward must reach the printed sheet.
+     * One of the two seeded away people has an ordinary discharge date and no blocker, so they
+     * appear in none of the four groups; if the line ever stops naming them they vanish from the
+     * sheet that is read aloud at handover, and nobody in the room can see an absence.
+     */
+    const line = screen.getByTestId("ward-daily-sheet-away");
+    const text = line.textContent ?? "";
+    for (const admission of awayHere) {
+      expect(text, `${admission.id} is away and is not named on the printed sheet`).toContain(admission.homeRegion);
     }
+    expect(text, "the line does not say the bed is still theirs").toMatch(/bed stays theirs/i);
   });
 
   it("says on its face that it does not advance, because every other screen now does", () => {
