@@ -25,22 +25,42 @@ bitten by once in a rename.
 
 ## The type
 
+**As BUILT, verified against `ward-model.ts` at `26c14daae` rather than transcribed from the
+proposal this section used to carry:**
+
 ```ts
 export type ReferralDestination =
-  | { kind: "ward"; unitId: string }
-  | { kind: "ed_psychiatry"; edId: string }
-  | { kind: "community_team"; teamId: string };
+  | { kind: "psychiatric_ward"; sex: Sex; secureBedNeeded: boolean; involuntaryBedNeeded: boolean }
+  | { kind: "emergency_department"; edId: string; purpose: ReferralPurpose }
+  | { kind: "community_team" };
 ```
 
-`ed_psychiatry` rather than `ed`, deliberately: **ED medical staff are not users of this system.**
-The addressee is the psychiatry team at that ED, never the department. Naming it `ed` invites a
-later reader to address the department, which has no meaning here.
+**This section previously described a shape that does not exist, in all three arms** — `ward` with a
+`unitId`, `ed_psychiatry`, and `community_team` with a `teamId`. Corrected in the body rather than
+annotated, because a superseded proposal sitting under a note stays quotable.
+
+**A ward destination names WHAT KIND OF BED IS NEEDED, not which unit.** That is the substantive
+difference and not a naming one: the referral says "a ward that can take this person" — sex, secure,
+involuntary — and which unit answers is settled later by the people who know their beds. **A
+`unitId` here would have made the referrer the allocator**, and it is the coordinator and the wards
+who allocate.
+
+⚠️ **The arm is `emergency_department` and the referral does NOT go to an emergency department.** It
+goes to the psychiatry team at one; **ED medical staff are not users of this system.** The name
+`ed_psychiatry` carried that fact and was rejected in favour of the name the built code already
+used, since renaming churns every exhaustive switch for a naming nuance. **So the fact now lives in
+a doc comment on the arm, and that comment is its only carrier** — if it goes, nothing stops a later
+reader concluding ED medical staff receive these.
+
+**`community_team` carries nothing.** There is no `teamId`, because the receiving community hub is
+parked as future work and inventing an identifier for a surface nobody has built would be a fact
+about the world this project does not have.
 
 **Three kinds, not four. A medical ward is NOT a destination** — owner, 2026-08-30: _"defer the
 medical ward for now and just route to ED which also includes medical ward."_ So a psychiatric ward
 sending someone for a medical problem addresses the **ED**, and the ED covers what a medical ward
 would. **This is a deferral with a stated reason, not an oversight** — the arm exists in the model
-as `ed_psychiatry` + `medical_assessment`.
+as `emergency_department` + `medical_assessment`.
 
 ## Purpose is a separate axis and must not be folded into `kind`
 
@@ -48,13 +68,25 @@ as `ed_psychiatry` + `medical_assessment`.
 export type ReferralPurpose = "bed" | "psychiatric_review" | "medical_assessment";
 ```
 
-Three flows share the `ed_psychiatry` kind and mean different things:
+Three flows share the `emergency_department` kind and mean different things:
 
-| flow                  | kind            | purpose              |
-| --------------------- | --------------- | -------------------- |
-| community → ED        | `ed_psychiatry` | `bed`                |
-| ED psych → themselves | `ed_psychiatry` | `psychiatric_review` |
-| ward → ED             | `ed_psychiatry` | `medical_assessment` |
+| flow                  | kind                   | purpose              |
+| --------------------- | ---------------------- | -------------------- |
+| community → ED        | `emergency_department` | `bed`                |
+| ED psych → themselves | `emergency_department` | `psychiatric_review` |
+| ward → ED             | `emergency_department` | `medical_assessment` |
+
+**Purpose is DERIVED from the referrer, never offered as a menu** (built `26c14daae`). The three
+flows are already distinguishable by who is referring, and **a clinician able to pick the purpose is
+a clinician able to pick the wrong one** — a bed request mislabelled as a review is answered by the
+wrong affordance at the far end.
+
+⚠️ **As built, only `bed` has a producer.** `RECEIVE_REFERRAL` is role `["community"]` and is the
+only event that creates a `Referral`, so neither ED psychiatry nor a ward can raise one at all.
+**`psychiatric_review` and `medical_assessment` are expressible and unreachable**, which is why the
+ED hub's inbox is correct and empty. Widening who may RAISE a referral is with the owner — and it is
+a larger decision than widening who may answer one, because **answering acts on a record that
+already exists and raising creates a record about a person from nothing.**
 
 **A bed request and a review request answered by the same affordance is how one becomes the
 other by accident.** Keeping purpose separate is what makes that checkable rather than a naming
