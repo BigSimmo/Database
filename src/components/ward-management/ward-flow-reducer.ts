@@ -23,6 +23,7 @@ import {
   REFERRAL_SOURCES,
   SEXES,
   REFERRAL_DESTINATION_KINDS,
+  REFERRAL_PURPOSES,
   type ReferralAddressing,
   TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
@@ -1327,6 +1328,34 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       if (kinds.some((kind) => !REFERRAL_DESTINATION_KINDS.includes(kind))) {
         return reject(state, event, `RECEIVE_REFERRAL destination kind must be chosen from REFERRAL_DESTINATION_KINDS`);
+      }
+      /*
+       * ⚠️ THE ED ARM GETS THE SAME TREATMENT AS `originSiteCode`, FOR THE SAME REASON.
+       *
+       * That field's own comment three checks below says it: "resolved against the real network
+       * rather than merely checked for non-emptiness, so '12 Wellington St, Perth' cannot pass as a
+       * code." When the ED arm gained `edId` and `purpose` it got neither — so a referral could
+       * queue at an empty or invented department and read like an answer.
+       *
+       * ⚠️ **This is the check that would have caught the shortcut two sessions agreed must not be
+       * made.** When the arm grew required fields, three call sites stopped compiling and the
+       * tempting repair was a cast or an `edId: ""` stub — a form offering a destination the
+       * application cannot construct, while looking finished. That stub was mutation-tested and
+       * broke only new SCREEN-level guards and no pre-existing test. A screen guard is the wrong
+       * last line: it is one component away from being bypassed, and every path goes through here.
+       *
+       * ⚠️ **And non-emptiness is not the check.** `edId: "not-a-department"` is as wrong as `""`
+       * and far more convincing — it survives every truthiness test, reads as a plausible
+       * identifier, and queues a real person at a hospital that does not exist. So it resolves.
+       */
+      const edDestination = event.destinations.find((destination) => destination.kind === "emergency_department");
+      if (edDestination?.kind === "emergency_department") {
+        if (!allEmergencyDepartments().some((department) => department.id === edDestination.edId)) {
+          return reject(state, event, `RECEIVE_REFERRAL edId must resolve to a real emergency department`);
+        }
+        if (!REFERRAL_PURPOSES.includes(edDestination.purpose)) {
+          return reject(state, event, `RECEIVE_REFERRAL purpose must be chosen from REFERRAL_PURPOSES`);
+        }
       }
       const wardDestination = event.destinations.find((destination) => destination.kind === "psychiatric_ward");
       if (wardDestination?.kind === "psychiatric_ward" && !SEXES.includes(wardDestination.sex)) {
