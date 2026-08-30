@@ -21,7 +21,7 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { SYNTHETIC_TRAVEL_TIMES_NOTICE } from "@/components/ward-management/ward-distance";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { formatElapsed, formatInstant, type Instant } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type {
   BedRelease,
@@ -38,8 +38,9 @@ import {
   groupCandidatesByTravelBand,
   matchReason,
   referralCandidates,
+  referralClocks,
   referralQueueOrder,
-  referralWaitLabel,
+  REFERRAL_CLOCK_TERMS,
   TRAVEL_BAND_GROUP_EMPTY_SENTENCE,
   travelBandGroupCounts,
   travelBandGroupCountsSentence,
@@ -415,6 +416,51 @@ function NetworkBandGroup({
  * The referral's five facts and its wait, and nothing else: no band (that is step two), no
  * kilometre, no free text, no comparative word about any bed.
  */
+/**
+ * THE TWO CLOCKS A REFERRAL CARRIES, worded so a stopped one cannot read as a running one.
+ *
+ * This replaces `referralWaitLabel`, which was `formatElapsed(minutesUntil(now, raisedAt))` — a
+ * clock with no stop condition. It counted from the referral forever, including long after the
+ * person was triaged and sitting in a department.
+ *
+ * ⚠️ MEASURED ON THE SEED, AND THE MEASUREMENT CORRECTED MY OWN CLAIM. Four hours into the
+ * demonstration `RF-003` reads "4h 55m waiting" against a true referral wait of 25 MINUTES — nearly
+ * twelvefold. I was about to report that as visible here. IT IS NOT: `RF-003` is `accepted`, and
+ * `referralQueueOrder` filters to `queued`, so this screen never shows it. Every referral this
+ * queue DOES show was triaged before the referral was raised, so the old label was right for all
+ * of them.
+ *
+ * So on this surface the defect is LATENT rather than live — the wrong function was wired in, and
+ * the fixture happens to contain no queued referral that exposes it. It becomes visible the moment
+ * a queued referral is triaged during a demonstration; `RF-001` is queued and not yet in a
+ * department, so triaging it does exactly that.
+ *
+ * ⚠️ AN INFLATED WAIT IS WHY THIS SURVIVES ANYWHERE: a wrong clock looks wrong, a wrong length of
+ * stay looks plausible. The fixture's own longest wait is hours, so a doubled figure reads as a
+ * busy night rather than as a bug.
+ *
+ * Wording comes from `REFERRAL_CLOCK_TERMS`, never from here — the same rule as `urgencyTierLabel`
+ * below, because a second spelling of one field is this project's most expensive defect class.
+ *
+ * ⚠️ NEVER SAY "ARRIVED". The field is `triagedAt`. A patient arrives, waits, and is triaged some
+ * time later; on a busy night that gap is not small. "In department" is measured from triage and
+ * must never be worded as arrival.
+ */
+function referralClockLines(referral: Referral, now: Instant): { department: string; referral: string } {
+  const { sinceReferral, sinceReferralRunning, inDepartment } = referralClocks(referral, now);
+  return {
+    // `undefined` means not in the department yet — NEVER 0. "0m in department" reads as "just
+    // got there", the exact opposite of the truth.
+    department:
+      inDepartment === undefined
+        ? REFERRAL_CLOCK_TERMS.notInDepartment
+        : `${formatElapsed(inDepartment)} ${REFERRAL_CLOCK_TERMS.inDepartment}`,
+    referral: `${formatElapsed(sinceReferral)} ${
+      sinceReferralRunning ? REFERRAL_CLOCK_TERMS.sinceReferral : REFERRAL_CLOCK_TERMS.sinceReferralStopped
+    }`,
+  };
+}
+
 function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: Instant }) {
   return (
     <>
@@ -429,7 +475,12 @@ function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: 
       <p className={styles.patientSubLine} data-testid="ward-network-placement-facts">
         {referralPersonFacts(referral).join(" · ")}
       </p>
-      <p className={styles.patientSubLine}>Waiting {referralWaitLabel(referral, now)}</p>
+      {/* Both clocks, side by side. The owner's decision (P9-D2): the GAP between them is the
+          signal — a long time in department with a short time since referral says the delay is
+          upstream of mental health, and the reverse says it is ours. One number cannot say either. */}
+      <p className={styles.patientSubLine} data-testid="ward-network-placement-clocks">
+        {referralClockLines(referral, now).department} &middot; {referralClockLines(referral, now).referral}
+      </p>
       <p className={styles.placementNote} data-testid="ward-network-placement-note">
         Every unit in the network carries its own verdict for this referral on the diagram — and for each one that
         cannot take this person, the single reason why.
@@ -821,7 +872,11 @@ export function WardNetworkWorkspace() {
                 >
                   <span className={styles.queueTop}>
                     <strong>{referral.id}</strong>
-                    <span className={styles.elapsed}>{referralWaitLabel(referral, now)}</span>
+                    {/* The referral clock only: a queue row is about how long this has waited for a
+                        decision, and the department clock is on the detail panel where there is room
+                        for the comparison. It carries its own term, so a stopped clock reads as
+                        "referral to triage" rather than as a wait still being served. */}
+                    <span className={styles.elapsed}>{referralClockLines(referral, now).referral}</span>
                   </span>
                   {/* `urgencyTierLabel`, never a bare digit: the referral board already spells a
                    *  referral's tier this way on every row, and a second spelling of one field is
