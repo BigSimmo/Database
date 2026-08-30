@@ -14,6 +14,7 @@ import {
   type Unit,
   type WardAddressing,
   REFERRAL_DESTINATION_KINDS,
+  type ReferralDestination,
   type ReferralDestinationKind,
 } from "../src/components/ward-management/ward-model";
 import { referrals } from "../src/components/ward-management/ward-movements";
@@ -723,9 +724,49 @@ describe("Referral privacy — structural", () => {
 
   const ALLOWED_DESTINATION_FIELDS: Record<ReferralDestinationKind, string[]> = {
     psychiatric_ward: ["kind", "sex", "secureBedNeeded", "involuntaryBedNeeded"].sort(),
-    emergency_department: ["kind"],
+    emergency_department: ["kind", "edId", "purpose"].sort(),
     community_team: ["kind"],
   };
+
+  /**
+   * ⚠️ TIED TO THE TYPE, BECAUSE THE HAND-WRITTEN LIST WENT STALE AND NOTHING FAILED.
+   *
+   * `ALLOWED_DESTINATION_FIELDS.emergency_department` read `["kind"]` for hours after the arm
+   * gained `edId` and `purpose` (FD-15/FD-11), and the whole ward suite stayed green — 93 files,
+   * 1311 tests. The runtime check below walks real referrals' destinations, and **no seeded
+   * referral has an ED destination**, so that arm's list was never compared with anything. A guard
+   * with nothing to inspect does not report that it inspected nothing; it reports a pass.
+   *
+   * `Required<Extract<...>>` forces each literal to supply every field its arm declares, so the
+   * key set below IS the type's field set rather than somebody's memory of it. A field added to an
+   * arm now fails to compile here until the list moves with it — whether or not any fixture
+   * happens to exercise that arm.
+   */
+  it("⚠️ MATCHES THE TYPE ITSELF, not just whatever the fixture happens to contain", () => {
+    const canonicalWard: Required<Extract<ReferralDestination, { kind: "psychiatric_ward" }>> = {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    };
+    const canonicalEd: Required<Extract<ReferralDestination, { kind: "emergency_department" }>> = {
+      kind: "emergency_department",
+      edId: "peel-ed",
+      purpose: "psychiatric_review",
+    };
+    const canonicalCommunity: Required<Extract<ReferralDestination, { kind: "community_team" }>> = {
+      kind: "community_team",
+    };
+
+    for (const canonical of [canonicalWard, canonicalEd, canonicalCommunity]) {
+      expect(
+        Object.keys(canonical).sort(),
+        `${canonical.kind}'s allowed-field list no longer matches the arm it guards. Move the list ` +
+          "with the type: a stale entry here understates the arm and CANNOT fail through the " +
+          "runtime walk below, because no fixture need contain that arm at all.",
+      ).toEqual([...ALLOWED_DESTINATION_FIELDS[canonical.kind]].sort());
+    }
+  });
 
   it("guards every destination kind that exists, so a new arm cannot arrive unchecked", () => {
     expect([...REFERRAL_DESTINATION_KINDS].sort()).toEqual(Object.keys(ALLOWED_DESTINATION_FIELDS).sort());

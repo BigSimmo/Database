@@ -743,8 +743,55 @@ export type ReferralDestination =
        */
       involuntaryBedNeeded: boolean;
     }
-  | { kind: "emergency_department" }
+  | {
+      kind: "emergency_department";
+      /**
+       * WHICH department. Required on every ED destination, whoever sent it and whyever.
+       *
+       * ⚠️ **THE ARM IS CALLED `emergency_department` AND THE REFERRAL DOES NOT GO TO ONE.** It
+       * goes to the PSYCHIATRY SERVICE AT one — including the ward→ED medical notification, which
+       * exists so that psychiatry know. ED medical staff are not users of this system at all:
+       * `FD-16` records that their request arrives verbally, by phone or conversation, and
+       * psychiatry then raise a referral addressed to themselves. That verbal step is the owner's
+       * described workflow, not a gap somebody forgot to close.
+       *
+       * The name was kept rather than changed to `ed_psychiatry`, deliberately: renaming churns
+       * every exhaustive switch over `REFERRAL_DESTINATION_KINDS` for a naming nuance a comment
+       * carries just as well. **This comment IS the carrier — losing the fact is the cost that
+       * matters, not the name.**
+       */
+      edId: string;
+      /** WHY. See `REFERRAL_PURPOSES` — a separate axis from `kind`, on purpose. */
+      purpose: ReferralPurpose;
+    }
   | { kind: "community_team" };
+
+/**
+ * WHY A REFERRAL WAS ADDRESSED TO AN EMERGENCY DEPARTMENT — a separate axis from WHERE.
+ *
+ * `FD-15`/`FD-11`. Three flows address a department and none of them means the same thing: a
+ * community service asking for a **bed**, ED psychiatry addressing **themselves** for a review
+ * (`FD-16`'s self-addressed inbox, which is the whole mechanism), and a ward telling ED about a
+ * **medical** problem.
+ *
+ * ⚠️ **IT IS A FIELD, NOT A KIND, AND THAT IS THE DECISION RATHER THAN A DETAIL.** A fourth
+ * destination kind encoding "psychiatric review at an ED" would put the WHY inside the WHERE, and a
+ * bed request would then be answered by the same affordance as a review request — which is how one
+ * silently becomes the other.
+ *
+ * ⚠️ **AND IT EXISTS TO KILL A SPECIFIC WORKAROUND THAT WAS FOUND AND REFUSED RATHER THAN
+ * SHIPPED:** inferring "addressed to itself" from `originSiteCode === department.siteCode`. That
+ * compiles, reads correctly, and drops the ward→ED MEDICAL notification straight into the
+ * psychiatry inbox — because a psychiatric ward at the same hospital shares that site code. It is
+ * wrong on exactly the case the spec names, which is the case nobody re-reads after implementing
+ * from it. `FD-18` is the general form; `tests/ward-referral-ed-destination.test.ts` is the guard.
+ *
+ * Only the ED arm carries it. A psychiatric-ward destination is asking for a bed and a community
+ * team is not, so giving them a purpose would mean inventing values nobody has ruled on — and a
+ * fixed list in this project is the owner's to write.
+ */
+export const REFERRAL_PURPOSES = ["bed", "psychiatric_review", "medical_assessment"] as const;
+export type ReferralPurpose = (typeof REFERRAL_PURPOSES)[number];
 
 /**
  * ONE DESTINATION THIS REFERRAL WAS SENT TO, AND WHAT THAT DESTINATION ANSWERED.

@@ -61,9 +61,20 @@ type ShortlistPanelProps = {
  * straight from `movement.referredUnitIds`, the reducer's own live output, so a second,
  * optimistic local flag would only ever be a second place for the truth to diverge from.
  *
- * Override still needs local state, because the typed reason has nowhere else to live —
- * `REFER_TO_UNITS` carries no reason field, so a typed override reason is never written to
- * shared state. But this record is never trusted at face value: `overrideSucceeded` below reads
+ * ⚠️ **CORRECTED 2026-08-30. THIS PARAGRAPH SAID `REFER_TO_UNITS` CARRIES NO REASON FIELD, AND IT
+ * HAD STOPPED BEING TRUE.** The event now carries `overrideReason?: OverrideReason`, the reducer
+ * validates it against `OVERRIDE_REASONS` by membership and rejects anything outside the list, and
+ * a present reason is stored on `Movement.overrides` — which is the whole of owner decision `OD-3`.
+ * The control beside it is a `<select>` over that same list, never a textarea.
+ *
+ * **It did not merely go stale; it misinformed another session.** Ward Referrals read it, believed
+ * it, and filed a request for a field that already existed — a real cost, from a comment that was
+ * accurate when written and that nothing local fails when it stops being. Fifth instance of that
+ * shape found in this prototype today, and the first with a measurable victim.
+ *
+ * Override still keeps local state, for a smaller reason than the one this used to give: the
+ * `<select>` needs a value between choosing a reason and submitting it. This record is never
+ * trusted at face value either: `overrideSucceeded` below reads
  * `movement.referredUnitIds` fresh on every render and only renders a success message when those
  * ids are actually present there, so a refused override (the movement was not in a referable
  * stage, or any other reducer-side reason) can never be reported as one that happened.
