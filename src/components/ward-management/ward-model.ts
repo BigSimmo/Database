@@ -975,6 +975,19 @@ export type Referral = {
    * Calling it `arrivedAt` again would have read as reversing that deletion rather than
    * complementing it, and the guard comment in `tests/ward-referral-model.test.ts` says both.
    *
+   * ⚠️ **TRIAGE IS NOT ARRIVAL, AND NO SCREEN MAY WORD IT AS ONE.** A patient arrives, waits, and
+   * is triaged some time later — on a busy night that gap is not small. This field is therefore a
+   * PROXY for arrival and the closest thing the system actually records. The arithmetic does not
+   * care; the wording does. *"Arrived 14:20"* asserts a fact this model does not hold, so every row
+   * says triage. Raised by Ward Referrals, whose ED hub is the first screen to render it, against a
+   * comment of mine that said "arrival" three times beside a field that says triage — **the name was
+   * honest and the comment was not, which is the half a reader copies.**
+   *
+   * The ruling it implements is worded as arrival (`P9-D7`: the referral clock runs only until the
+   * patient arrives). Triage is what stands in for it. Whether that gap matters clinically is the
+   * owner's question, not ours, and it is a proxy the prototype can live with **while it is labelled
+   * as one.**
+   *
    * ⚠️ **PROVENANCE: owner ruling, RELAYED through the orchestrator (`P9-F3`, 2026-08-30).** No
    * session heard it first-hand, which `R55` requires to be recorded rather than smoothed into
    * "(OWNER)". It is a time, never a person fact: it says where a body is, not who they are.

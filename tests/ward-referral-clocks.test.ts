@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
 import type { Referral } from "@/components/ward-management/ward-model";
-import { referralClocks } from "@/components/ward-management/ward-referrals";
+import { REFERRAL_CLOCK_TERMS, referralClocks } from "@/components/ward-management/ward-referrals";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 /**
@@ -28,9 +28,15 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  *
  * ⚠️ **AND `triagedAt` IS NOT THE `arrivedAt` PHASE 8 TASK 2R DELETED.** That one meant arriving at
  * a **bed**, and it went because `Admission` is the single record of a person occupying one. This
- * is arriving in the **department** — a different event, at a different place, starting a different
+ * is entering the **department** — a different event, at a different place, starting a different
  * clock, for a person who may never get a bed at all. Naming it `arrivedAt` again would have made
  * the deletion look reversed rather than complemented; see `Referral.triagedAt`'s own comment.
+ *
+ * ⚠️ **TRIAGE IS A PROXY FOR ARRIVAL, NOT ARRIVAL.** A patient arrives, waits, and is triaged some
+ * time later; on a busy night that gap is not small. The arithmetic is unaffected and **the wording
+ * is not** — the last test in this file fails on any clock term containing "arriv", because the
+ * first version of this work was named honestly and commented dishonestly, and it was the comment
+ * that would have reached the screen.
  */
 const NOW = NOW_ANCHOR;
 
@@ -113,6 +119,25 @@ describe("a referral's two clocks", () => {
     const clocks = referralClocks(future, NOW);
     expect(clocks.sinceReferral).toBeGreaterThanOrEqual(0);
     expect(clocks.inDepartment).toBeGreaterThanOrEqual(0);
+  });
+
+  it('⚠️ WORDS NEITHER CLOCK AS "ARRIVED", because triage is a proxy for arrival and not arrival', () => {
+    // The guard that replaces the comment which failed. `triagedAt` is when the department triaged
+    // this person; they arrived some time earlier and, on a busy night, not by a small margin. So
+    // "arrived 14:20" would assert a fact this model does not hold — and it is the natural phrasing,
+    // which is exactly why it needs a test rather than a note.
+    const terms = Object.entries(REFERRAL_CLOCK_TERMS);
+    expect(terms.length, "an empty term set would satisfy every assertion in this loop").toBeGreaterThan(3);
+    for (const [key, term] of terms) {
+      expect(term.toLowerCase(), `REFERRAL_CLOCK_TERMS.${key} says "arrived". Say triage.`).not.toContain("arriv");
+      expect(term.length, `REFERRAL_CLOCK_TERMS.${key} is empty, so a screen would print nothing`).toBeGreaterThan(0);
+      expect(term, `REFERRAL_CLOCK_TERMS.${key} is a term, not a sentence — screens compose the layout`).not.toContain(
+        ".",
+      );
+    }
+    // The absent case is the one `P9-D7` is about, so it must exist and must not read as a duration.
+    expect(REFERRAL_CLOCK_TERMS.notInDepartment).not.toMatch(/\d/);
+    expect(REFERRAL_CLOCK_TERMS.notInDepartment).not.toBe("—");
   });
 
   it("⚠️ IS EXERCISED BY THE SEED IN BOTH SHAPES, or every assertion above is about nothing", () => {

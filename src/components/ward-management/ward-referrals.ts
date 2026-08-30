@@ -317,11 +317,16 @@ export function referralWaitLabel(referral: Referral, now: Instant): string {
  * proves it with a referral triaged at the instant it was raised: two clock sources cannot both
  * report those as equal.
  *
- * **`sinceReferral` STOPS when the person arrives after being referred** (`P9-D7` via `P9-F3`: the
- * referral clock runs only until the patient arrives). For someone already in the department when
- * the referral was raised there is nothing for arrival to end — their triage is in the past — so it
+ * **`sinceReferral` STOPS when the person reaches the department after being referred** (`P9-D7`
+ * via `P9-F3`: the referral clock runs only until the patient arrives). For someone already there
+ * when the referral was raised there is nothing left to end — their triage is in the past — so it
  * keeps running, and `sinceReferralRunning` says which of the two a screen is showing. A stopped
  * duration rendered like a live one is the same class of lie as the zero above.
+ *
+ * ⚠️ **THE RULING SAYS ARRIVAL AND THE FIELD SAYS TRIAGE, AND THEY ARE DIFFERENT EVENTS.** A patient
+ * arrives, waits, and is triaged some time later. `triagedAt` is the closest thing recorded and the
+ * arithmetic is unaffected — but **no screen may word either clock as "arrived"**; see
+ * `Referral.triagedAt`'s own comment.
  */
 export type ReferralClocks = {
   /** Minutes from `raisedAt`; stops at `triagedAt` when the person arrived after being referred. */
@@ -332,20 +337,45 @@ export type ReferralClocks = {
   inDepartment: number | undefined;
 };
 
+/**
+ * The words a screen uses for the two clocks, so the honest phrasing is the CHEAP one.
+ *
+ * ⚠️ **This exists because a comment asking screens not to say "arrived" is exactly what already
+ * failed.** The field was named `triagedAt` and my own doc comment beside it said "arrival" three
+ * times; a reader copying the comment would have written *"arrived 14:20"* on the first screen to
+ * render it, asserting a fact this model does not hold. **The name was honest and the prose was
+ * not, and prose is the half that gets copied.** So the vocabulary is a value that can be checked
+ * rather than a rule that must be remembered — `tests/ward-referral-clocks.test.ts` fails on any
+ * term containing "arriv".
+ *
+ * Terms, not layout: how a hub arranges the two numbers is that screen's decision, and this
+ * deliberately does not format them.
+ */
+export const REFERRAL_CLOCK_TERMS = {
+  /** The department clock, while it runs. */
+  inDepartment: "in department",
+  /** The referral clock, while it runs. */
+  sinceReferral: "since referral",
+  /** The referral clock once triage has stopped it — a span, not a wait still being served. */
+  sinceReferralStopped: "referral to triage",
+  /** What a screen says instead of a duration when the person is not in the department yet. */
+  notInDepartment: "not in department yet",
+} as const;
+
 export function referralClocks(referral: Referral, now: Instant): ReferralClocks {
   const { raisedAt, triagedAt } = referral;
-  // Arrival ends the referral wait only when it came AFTER the referral. `>= raisedAt` rather than
-  // `> raisedAt` so a referral raised and triaged in the same minute reads as arrived, which is
-  // what a reader would say happened; the equal case is also the one the same-clock proof uses.
-  const arrivedAfterReferral = triagedAt !== undefined && triagedAt >= raisedAt;
-  const referralEnd = arrivedAfterReferral ? triagedAt : now;
+  // Triage ends the referral wait only when it came AFTER the referral. `>= raisedAt` rather than
+  // `> raisedAt` so a referral raised and triaged in the same minute counts as reached, which is
+  // what a reader would say happened.
+  const triagedAfterReferral = triagedAt !== undefined && triagedAt >= raisedAt;
+  const referralEnd = triagedAfterReferral ? triagedAt : now;
 
   return {
     // `Math.max(0, …)` for the same reason `formatElapsed` never prints a negative: a fixture
     // authored at a future anchor, or a re-anchor that moves `now` backwards, must not put
     // "-20m waiting" on a board.
     sinceReferral: Math.max(0, minutesUntil(referralEnd, raisedAt)),
-    sinceReferralRunning: !arrivedAfterReferral,
+    sinceReferralRunning: !triagedAfterReferral,
     inDepartment: triagedAt === undefined ? undefined : Math.max(0, minutesUntil(now, triagedAt)),
   };
 }
