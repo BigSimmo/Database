@@ -1051,9 +1051,15 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       <span className={styles.cardMeta}>{elapsedLabel(movement, now)}</span>
                     </header>
                     {/*
-                      ⚠️ NO "PARALLEL REFERRAL" BADGE HERE — AND THIS IS THE REVERSIBLE ANSWER TO AN
-                      OPEN QUESTION, NOT A SETTLED RULE. Do not read its absence as decided, and do
-                      not put it back without the owner's answer below.
+                      NO "PARALLEL REFERRAL" BADGE HERE. ⚠️ THE OWNER RULED THIS, 2026-08-31: a ward
+                      is NOT told that a patient is also referred elsewhere, not even the bare fact
+                      with nowhere named. Do not put it back.
+
+                      It was open for about an hour and this note recorded it as open. It is not
+                      open now, and the record of how it was decided is kept below rather than
+                      deleted — because the arguments AGAINST this ruling are good, and a future
+                      reader who rediscovers them without knowing they were already weighed would
+                      reasonably think nobody had considered them.
 
                       This rendered `referredUnitIds.length > 1`: a badge telling a ward the patient
                       was also referred somewhere else, without saying where.
@@ -1063,7 +1069,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       see everything." ⚠️ A BADGE SAYING ONLY THAT OTHERS EXIST DOES NOT BREAK THAT
                       SENTENCE — it names nowhere. So the ruling alone does not decide this.
 
-                      WHAT IS NOT SETTLED is whether the bare fact is also barred. The same module
+                      WHAT THE OWNER ADDED, and it is the part the ruling turns on: the same module
                       adds "the count is as forbidden as the list", and I first recorded that here as
                       the ruling. ⚠️ IT IS THE IMPLEMENTER'S READING, written in the same voice one
                       line below the owner's words, and its author has since corrected me. Two live
@@ -1083,14 +1089,20 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       still deliberating, nothing has fired and no ward knows it is one of three —
                       which is exactly the window in which a bed gets held.
 
-                      SO WHY STRICT MEANWHILE: not because it is right, because it is the one that
-                      can be undone. Adding the flag later is one edit. Removing a disclosure after
-                      wards have been reading it is not — and the visibility projection is built so
-                      that widening must be typed out deliberately rather than switched on.
+                      ⚠️ THE COST IS ACCEPTED, NOT RETIRED, AND THAT DISTINCTION IS THE RULING.
+                      Two sessions argued in turn that `withdrawnReferrals` already pays for hiding
+                      this, so strict was "free". It does not: `ACCEPT_IN_PRINCIPLE` is the only
+                      writer of that field, measured, so nothing tells a ward anything until
+                      somebody accepts — and the deliberation window, the one where a ward's
+                      decision is still open, is unprotected by construction. The owner was given
+                      that cost in plain terms (a bed possibly held for a patient going elsewhere,
+                      against a patient possibly deprioritised by every ward offered) and chose
+                      this side of it. That is a clinical price knowingly paid.
 
-                      ⚠️ If the owner permits it, it belongs on `WardScopedReferral` as its own typed
-                      field. NEVER as a `hideOtherDestinations` flag: a flag is a thing that can be
-                      passed the other way, which is why two projections are two TYPES here.
+                      If this is ever reopened and permitted, it belongs on `WardScopedReferral` as
+                      its own typed field — NEVER as a `hideOtherDestinations` flag, because a flag
+                      is a thing that can be passed the other way, which is why the two projections
+                      are two TYPES rather than one type with a switch.
                     */}
                     {notice ? (
                       <span

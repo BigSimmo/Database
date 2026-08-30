@@ -32,7 +32,7 @@ function findSeeded(predicate: (movement: (typeof wardMovements)[number]) => boo
 }
 
 describe("FD-23 on the ward page", () => {
-  it("never names a co-addressed ward, and provisionally does not reveal that one exists", () => {
+  it("never names a co-addressed ward, and never reveals that one exists", () => {
     /*
      * ⚠️ THIS TEST PINS TWO THINGS OF DIFFERENT STATUS AND SAYS SO, because a future session will
      * otherwise read a red here as one regression when it may be a decision landing.
@@ -41,7 +41,10 @@ describe("FD-23 on the ward page", () => {
      * where else a patient has been referred." The identity assertion below is that rule. It must
      * never be relaxed, and no ruling on the open question can reach it.
      *
-     * ⚠️ OPEN — whether a ward may know that co-addressees EXIST, without knowing who. The removed
+     * ⚠️ ALSO SETTLED, by the owner on 2026-08-31 — whether a ward may know that co-addressees
+     * EXIST, without knowing who. It was open for about an hour and this block said so. HE RULED
+     * NOT TOLD. The arguments are kept below rather than deleted, because the losing side was
+     * strong and a reader who rediscovers it would otherwise think nobody had weighed it. The removed
      * "Parallel referral" badge said exactly that and named nowhere, so the owner's sentence does
      * not decide it. Two live readings point opposite ways: a badge invites a ward to wait out the
      * competition (so four wards could each deprioritise the same patient), while the owner's own
@@ -49,13 +52,11 @@ describe("FD-23 on the ward page", () => {
      * — argues for telling it. The cost of hiding it is real in the window before anyone accepts,
      * when no cancellation has fired and no ward knows it is one of three.
      *
-     * Strict is the interim answer because it is the REVERSIBLE one, not because it is right.
-     *
-     * WHERE THE OWNER'S ANSWER LANDS, so deciding it is an edit and not a search:
-     *   - the "no badge" assertion in this test
-     *   - the long note at the badge's old render site in `ward-screen.tsx`
-     *   - a typed field on `WardScopedReferral` — never a `hideOtherDestinations` flag, because a
-     *     flag can be passed the other way
+     * ⚠️ AND THE COST WAS ACCEPTED, NOT RETIRED. Twice it was argued that `withdrawnReferrals`
+     * already pays for hiding this. It does not: `ACCEPT_IN_PRINCIPLE` is its only writer, so
+     * nothing reaches a ward until somebody accepts, and the deliberation window is unprotected by
+     * construction. The owner was given that trade explicitly and chose this side. Both assertions
+     * below are now his ruling, and neither is a placeholder.
      */
     const parallel = findSeeded(
       (movement) => movement.stage === "destination_review" && movement.referredUnitIds.length > 1,
@@ -79,13 +80,12 @@ describe("FD-23 on the ward page", () => {
       );
     }
 
-    // ⚠️ PROVISIONAL. Delete this assertion if the owner permits the bare fact; do not weaken the
-    // one above to match. Asserted on the CARD rather than the document, because the question is
-    // what a charge nurse reads — a document-wide check would pass if the badge merely moved.
+    // RULED, not provisional. Asserted on the CARD rather than the document, because the question
+    // is what a charge nurse reads — a document-wide check would pass if the badge merely moved.
     expect(
       card,
-      "the parallel-referral badge is back. That may be correct now — check whether the owner ruled " +
-        "on the bare fact before treating this as a regression.",
+      "the parallel-referral badge is back. The owner ruled on 2026-08-31 that a ward is not told a " +
+        "patient is also referred elsewhere, not even the bare fact. This is a regression.",
     ).not.toHaveTextContent(/parallel/i);
   });
 
