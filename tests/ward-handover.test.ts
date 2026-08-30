@@ -10,8 +10,10 @@ const openMovements = movements.filter(isOpen);
 const snapshot = handoverSnapshot(movements, units, NOW_ANCHOR);
 
 describe("handoverSnapshot", () => {
-  it("freezes at exactly the now it was called with", () => {
-    expect(snapshot.frozenAt).toBe(NOW_ANCHOR);
+  // The derivation is a pure function of `now` and stamps it as `takenAt`. It never froze —
+  // the PAGE did, until OD-4 — and calling this "freezes" outlived that by one rename.
+  it("stamps exactly the now it was called with", () => {
+    expect(snapshot.takenAt).toBe(NOW_ANCHOR);
   });
 
   it("ranks every open movement by wait, strictly non-increasing, longest first", () => {

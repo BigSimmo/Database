@@ -570,7 +570,14 @@ export function buildActionInbox(movements: Movement[], now: Instant, units: Uni
  * as `"escalated"`, never twice.
  */
 export type HandoverSnapshot = {
-  frozenAt: Instant;
+  /**
+   * WHEN THIS SNAPSHOT WAS TAKEN. Called `frozenAt` until owner decision OD-4, 2026-08-30, when
+   * the handover page stopped freezing and began reading live like every other screen. The old
+   * name would have gone on describing a freeze that no longer happens — the same way a field
+   * keeps asserting a behaviour after the behaviour is removed, which this project has been bitten
+   * by before. A snapshot is still taken at a moment; it is simply taken again on every render.
+   */
+  takenAt: Instant;
   longestWaits: { movement: Movement; unit: Unit | undefined }[];
   heldBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
   inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
@@ -605,7 +612,7 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
     .map((movement) => ({ movement, kind: "declined_by_all" as const }));
 
   return {
-    frozenAt: now,
+    takenAt: now,
     longestWaits,
     heldBeds,
     inTransit,

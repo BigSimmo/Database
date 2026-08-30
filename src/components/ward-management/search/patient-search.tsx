@@ -38,7 +38,8 @@ import styles from "./search.module.css";
  * derivation with no clock read (see its own doc comment in `ward-derivations.ts`) — this page
  * calls it fresh on every render against the LIVE `movements`/`units` from `useWardFlow()`, so a
  * movement that closes or changes stage while a coordinator is searching drops out or updates
- * immediately, exactly like the escalation board (never frozen, unlike the shift handover).
+ * immediately, exactly like the escalation board and the shift handover. (The handover froze at
+ * mount until owner decision OD-4, 2026-08-30; every board now reads live.)
  *
  * The department select's options are the fixed, synthetic emergency-department reference list
  * (`allEmergencyDepartments()`) — a static catalogue of real departments, not live capacity, so
