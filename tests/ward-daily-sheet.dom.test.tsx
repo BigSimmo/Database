@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -92,6 +92,62 @@ describe("the daily sheet exists on the board and says what it is", () => {
     // D10's editable half is not built here — the board dispatches nothing (DB-19). The absence
     // must never read as "there is nothing to update".
     expect(screen.getByTestId("ward-daily-sheet-limits").textContent).toContain("read-only");
+  });
+});
+
+describe("the daily sheet is folded away and last, not second", () => {
+  /*
+   * OWNER, 2026-08-30: put the sheet at the bottom, and the board is cluttered.
+   *
+   * Measured before the move: the sheet was **995px of a 2493px page — 40% of the ward board,
+   * sitting second** and pushing the beds below the fold. Measured after: **1546px**, with the
+   * beds as the first substantial block. The board's subject is the beds; the sheet is what the
+   * board prints.
+   *
+   * Folded because on screen it repeated the board almost entirely, and by design — it was built
+   * as a printout of these same panels, so its "Since yesterday", "Who came in", "Who is going"
+   * and destinations were the board's own panels a second time.
+   *
+   * **These assertions cannot see the folding**, and that is stated rather than worked around:
+   * jsdom applies no stylesheet, so the hidden body is still in the document and every existing
+   * assertion in this file still passes. What CAN be pinned here is the contract the CSS hangs
+   * off — the button, its state, and which class the body carries — and that is what these do.
+   */
+  it("starts folded, and the button says what it will show", () => {
+    renderWardBoard(UNIT_ID);
+    const button = screen.getByTestId("ward-board-sheet-fold").querySelector("button");
+    expect(button, "the fold has no button").not.toBeNull();
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button?.textContent).toMatch(/show the ward.s daily sheet/i);
+  });
+
+  it("opens and closes, and says which state it is in", () => {
+    renderWardBoard(UNIT_ID);
+    const button = screen.getByTestId("ward-board-sheet-fold").querySelector("button")!;
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button.textContent).toMatch(/hide the ward.s daily sheet/i);
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps the sheet in the document while folded, which is what lets it print", () => {
+    /*
+     * The half that matters most and the one a careless simplification would break: if the fold
+     * ever stops RENDERING the sheet and starts omitting it, the printed handover sheet becomes a
+     * blank page — the reader of a printed page cannot click anything.
+     *
+     * A `<details>` element was the obvious build and is the wrong one for exactly this reason:
+     * the browser hides a closed `details`' content through its own stylesheet and no print rule
+     * reliably reopens it. The print stylesheet forces `.sheetBodyHidden` to `display: block`,
+     * which only works while the content is actually there.
+     */
+    renderWardBoard(UNIT_ID);
+    const body = screen.getByTestId("ward-board-sheet-body");
+    expect(within(body).getByTestId("ward-daily-sheet")).toBeInTheDocument();
+    expect(within(body).getAllByRole("heading", { name: /who is off the ward/i }).length).toBeGreaterThan(0);
   });
 });
 
