@@ -204,4 +204,19 @@ describe("the repository's user-facing product name", () => {
       expect(fs.existsSync(path.join(path.resolve(import.meta.dirname, ".."), file)), file).toBe(true);
     }
   });
+
+  it("guards every container image, because both publish the name in OCI labels", () => {
+    // The miss this test exists for: the app `Dockerfile` was renamed and
+    // guarded while `Dockerfile.worker` kept shipping the retired name in
+    // `org.opencontainers.image.title` and `.description`. A guard list that
+    // covers one of two published images reads as complete and is not, so
+    // enumerate the images from disk rather than trusting the list.
+    const root = path.resolve(import.meta.dirname, "..");
+    const images = fs.readdirSync(root).filter((entry) => /^Dockerfile(\..+)?$/.test(entry));
+    expect(images).toContain("Dockerfile");
+    expect(images).toContain("Dockerfile.worker");
+    for (const image of images) {
+      expect(userFacingProductSurfaces, `${image} publishes OCI labels and must be guarded`).toContain(image);
+    }
+  });
 });
