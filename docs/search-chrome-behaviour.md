@@ -860,6 +860,16 @@ explicit lookup commands, unsupported modes, and empty input stay ordinary
 search. Terminal punctuation is stripped before compact-code matching, so
 `form 4A?` remains a Forms lookup.
 
+The phone home example ticker is not a Smart cue and does not follow the
+capability. Below 640px the desktop prompt rail is `display: none`, so the
+ticker ("Try this … Tap to search") is the only worked example a phone home
+page carries, and it offers an ordinary search in every mode — governed or
+dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
+and nowhere else: a submitted result view, an answer thread, and a phone bottom
+dock all stay clear of it. Only the desktop `Smart search · Try "…"` line and
+the Smart intent cue are gated on the server capability, because only those name
+Smart. Owner decision 2026-08-30, restoring the behaviour #2459 withdrew.
+
 There is still exactly one composer. No Ask rail, microphone control, duplicate
 input, or extra phone-dock reserve is mounted. Crossing from Search to Smart
 announces once; continued typing within Smart does not repeatedly update the
@@ -876,8 +886,8 @@ required answer is non-empty.
 
 Coverage: `tests/clinical-ask-provider-contract.test.ts`,
 `tests/master-search-header.dom.test.tsx`, `tests/smart-search-intent.test.ts`,
-`tests/clinical-ask-runner.dom.test.tsx`, and
-`tests/ui-clinical-ask.spec.ts`.
+`tests/clinical-ask-runner.dom.test.tsx`, `tests/ui-clinical-ask.spec.ts`, and
+`tests/ui-overlap.spec.ts` for the phone home ticker and the desktop prompt rail.
 
 ## Change checklist
 
