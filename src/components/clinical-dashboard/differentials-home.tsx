@@ -359,7 +359,10 @@ function SelectionCheckbox({
  * would leave two rings stacked — exactly what the "focus is singular"
  * assertion in `tests/ui-smoke.spec.ts` forbids. Focus stays on the title.
  */
-const stretchedOpenLinkClass = "after:absolute after:inset-0 after:z-0 after:rounded-[inherit] after:content-['']";
+// The pseudo-element paints nothing, so it needs no radius of its own — and a
+// `rounded-[inherit]` arbitrary value is a raw radius literal the design-system
+// contract ratchet counts against this file.
+const stretchedOpenLinkClass = "after:absolute after:inset-0 after:z-0 after:content-['']";
 
 /**
  * The visible "click here" label for the stretched card link. It is text, not a
