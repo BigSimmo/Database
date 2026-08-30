@@ -7,6 +7,7 @@ import {
   BED_PREPARATION_NOTES,
   BED_RELEASE_BLOCKERS,
   changeReasonLabels,
+  withdrawalReasonLabels,
   RELEASE_HOLD_REASONS,
   type BedPreparationNote,
   type BedReleaseBlocker,
@@ -1390,15 +1391,24 @@ export function WardScreen({ unitId }: WardScreenProps) {
                       different cause would make this sentence quietly wrong, and nothing here would
                       catch it. A structured cause on the record is what would; see below.
 
-                      ⚠️ THIS IS A CONTAINMENT, NOT THE FIX. It stops the leak at the one surface I
-                      own, by declining to render a string I do not control. Any other ward-facing
-                      surface that renders `reason` raw leaks again, and nothing here would go red.
-                      The durable fix is a structured cause on the record so a coordinator screen
-                      can say WHERE and a ward page cannot — handed to Ward Core, whose file writes
-                      it. Until that lands, do not "simplify" this back to `{entry.reason}`.
+                      ✅ THE DURABLE FIX LANDED, so this is no longer the containment it began as.
+                      `reason` is a `WithdrawalReason` union rather than free prose, and the sentence
+                      lives in `withdrawalReasonLabels` — ONE home instead of two copies drifting
+                      apart. A raw render now prints a code rather than a ward's name, and the
+                      seed's hand-authored entry is typed too, so the dispatched path is not the
+                      only one covered.
+
+                      The wording is unchanged from the stopgap this page shipped, and that was
+                      checked byte-identical rather than assumed. What changed is that it can no
+                      longer be edited here without the shared label moving with it.
+
+                      ⚠️ STILL DO NOT "SIMPLIFY" THIS TO `{entry.reason}`. It would now print
+                      `another_unit_accepted` to a charge nurse — no longer a privacy failure, but
+                      an incomprehensible one, and the guard for it is in
+                      `ward-screen-fd23-leaks.dom.test.tsx`.
                     */}
                     <span className={styles.cardMeta} data-testid={`ward-withdrawn-reason-${movement.id}`}>
-                      {entry ? "Withdrawn — another unit accepted this patient." : "Withdrawn — reason unresolved"}
+                      {entry ? withdrawalReasonLabels[entry.reason] : "Withdrawn — reason unresolved"}
                     </span>
                     {entry ? <span className={styles.cardMeta}>{formatInstantWithDay(entry.at, now)}</span> : null}
                   </li>

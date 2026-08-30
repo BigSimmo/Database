@@ -2,8 +2,9 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { withdrawalReasonLabels } from "@/components/ward-management/ward-change-reasons";
 import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 
 /**
@@ -96,9 +97,21 @@ describe("FD-23 on the ward page", () => {
      * `reason: "withdrawn — placed at <name>"`, the seed writes "Referral withdrawn once RGH Adult
      * Secure confirmed the bed", and the page rendered it raw. FSH Adult Secure was told RGH won.
      *
-     * The guard is on the RENDERED text and not on the stored value, because the stored value is
-     * Ward Core's and is legitimately read by surfaces allowed to see a destination. What must
-     * never happen is this page rendering it.
+     * ⚠️ THE MODEL HAS SINCE CLOSED THIS AT SOURCE, AND THIS TEST TOLD ME SO BY GOING RED.
+     * `reason` is now a `WithdrawalReason` union, so the fixture holds `another_unit_accepted` and
+     * no ward name exists in it to leak. The old assertion — that no unit name survives into the
+     * rendered text — could no longer fail from any input the model can produce, and the vacuity
+     * canary beside it said exactly that: "the fixture's reasons no longer name anything, so this
+     * guard is vacuous."
+     *
+     * That is the canary working, not a regression. A guard that cannot fail is worse than no
+     * guard because it reports safety it is not checking — so it is REPLACED, never deleted and
+     * never relaxed to keep it green.
+     *
+     * WHAT IS STILL THIS PAGE'S TO GET WRONG, now that prose cannot arrive from the model:
+     * rendering the raw union member instead of its label. `another_unit_accepted` on a clinical
+     * screen is not a privacy failure, it is an incomprehensible one — and it is exactly what a
+     * careless "simplify" back to `{entry.reason}` produces.
      */
     const withdrawnFrom = findSeeded(
       (movement) => movement.withdrawnReferrals.length > 0,
@@ -115,20 +128,21 @@ describe("FD-23 on the ward page", () => {
     const card = screen.getByTestId(`ward-withdrawn-${withdrawnFrom.id}`);
     const shown = within(card).getByTestId(`ward-withdrawn-reason-${withdrawnFrom.id}`).textContent ?? "";
 
-    // The stored reason must not reach the screen verbatim.
-    expect(shown).not.toBe(entry.reason);
+    // The raw union member must never reach the screen — the "simplify it back to `{entry.reason}`"
+    // regression, and now the only way this line can go wrong from here.
+    expect(shown, "the withdrawal code is being rendered instead of its label").not.toBe(entry.reason);
+    expect(shown).not.toMatch(/_/);
 
-    /*
-     * And the specific thing inside it must not survive in any form. Every unit NAME in the network
-     * is checked rather than just the one this fixture happens to leak, because the assertion has to
-     * outlive the fixture: a future seed leaking a different ward would otherwise pass.
-     *
-     * The ward's own name is excluded — the page says "Withdrawn from <this ward>" as its heading,
-     * which is not a leak. A ward knowing its own identity is the premise of the screen.
-     */
-    const network = wardMovements.flatMap((movement) => movement.withdrawnReferrals.map((row) => row.reason)).join(" ");
-    expect(network, "the fixture's reasons no longer name anything, so this guard is vacuous").toMatch(/[A-Z]/);
-    expect(shown).not.toMatch(/\b(RGH|RPH|FSH|BTY|GRY)\b/);
+    // It must be the SHARED label, not a second copy of the same sentence written here. Two copies
+    // that agree today are the thing that drifts, and drift is how the leak came back last time.
+    expect(shown).toBe(withdrawalReasonLabels[entry.reason]);
+
+    // And a unit name must still never appear, however the label is later worded. Ward Core guards
+    // the label vocabulary at source; this asserts the same rule where a ward actually reads it,
+    // because that is the only place the harm occurs.
+    for (const unit of allUnits()) {
+      expect(shown, `the withdrawal line names ${unit.name}`).not.toContain(unit.name);
+    }
 
     // The ward is still told the thing it can act on, or the fix has traded a leak for silence.
     expect(shown).toMatch(/withdrawn/i);
