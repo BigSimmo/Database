@@ -14,6 +14,7 @@ import type {
   HomeRegion,
   LegalStatus,
   ReferralDeclineReason,
+  ReferralDestination,
   ReferralSource,
   Security,
   Sex,
@@ -359,15 +360,22 @@ export type WardFlowEvent =
       type: "RECEIVE_REFERRAL";
       role: WardFlowRole;
       now: Instant;
-      /** The five permitted facts about the person referred, unchanged from `Referral`'s own
-       *  field set (`ward-model.ts`) — see that type's own doc comment for why nothing else may
-       *  ever be added here. */
+      /** The permitted facts about the person referred, unchanged from `Referral`'s own field set
+       *  (`ward-model.ts`) — see that type's own doc comment for why nothing else may ever be
+       *  added here. */
       ageBand: Cohort;
-      sex: Sex;
-      secureBedNeeded: boolean;
-      /** This REQUEST needs a bed that can hold someone involuntarily — see `Referral`'s own doc
-       *  comment on the field of the same name for why this is a requirement, never a status. */
-      involuntaryBedNeeded: boolean;
+      /**
+       * Where this referral is addressed, and the criteria that destination can answer. Carries
+       * the ward arm's `sex`, `secureBedNeeded` and `involuntaryBedNeeded`, which sat flat on this
+       * event until 2026-08-30.
+       *
+       * **The event carries the destination because otherwise the union would be decorative.** If
+       * this event could only express bed criteria, every referral it created would be a ward
+       * referral by construction, and the three arms that carry no bed criteria would be
+       * unreachable — a type distinction nothing could ever produce. Making the caller name the
+       * destination is what puts the choice at the front door, where the referrer makes it.
+       */
+      destination: ReferralDestination;
       /** The broad area this person is from — one of `HOME_REGIONS`, never an address. See
        *  `Referral.homeRegion`'s own doc comment. */
       homeRegion: HomeRegion;

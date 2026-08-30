@@ -21,6 +21,8 @@ import {
   type Referral,
   type Sex,
   type Unit,
+  type WardReferral,
+  type WardReferralDestination,
 } from "../src/components/ward-management/ward-model";
 import {
   candidateAccepts,
@@ -50,13 +52,22 @@ import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sit
 
 const NOW = 10 * 60 + 42;
 
-function referral(overrides: Partial<Referral> = {}): Referral {
+/** Ward referrals throughout: travel bands are computed for bed placement, which only a ward
+ *  referral has. Flat overrides, routed into `destination` here, for the same reason as
+ *  `ward-referral-matching.test.ts` -- the call sites' meaning must not move with the shape. */
+type ReferralOverrides = Partial<Omit<WardReferral, "destination">> & Partial<Omit<WardReferralDestination, "kind">>;
+
+function referral(overrides: ReferralOverrides = {}): WardReferral {
+  const { sex, secureBedNeeded, involuntaryBedNeeded, ...rest } = overrides;
   return {
     id: "RF-TEST",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: sex ?? "Female",
+      secureBedNeeded: secureBedNeeded ?? false,
+      involuntaryBedNeeded: involuntaryBedNeeded ?? false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW - 30,
@@ -64,7 +75,7 @@ function referral(overrides: Partial<Referral> = {}): Referral {
     originSiteCode: "RPH",
     transportNeeded: false,
     state: "queued",
-    ...overrides,
+    ...rest,
   };
 }
 

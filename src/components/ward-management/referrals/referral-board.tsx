@@ -14,6 +14,8 @@ import {
   recentlyDecidedReferrals,
   referralQueueOrder,
   referralWaitLabel,
+  referralPersonFacts,
+  referralSexCell,
 } from "@/components/ward-management/ward-referrals";
 
 import { ReferralMatchView } from "./referral-match";
@@ -203,7 +205,7 @@ function QueuedSection({
                       {referralWaitLabel(referral, now)}
                     </td>
                     <td>{referral.ageBand}</td>
-                    <td>{referral.sex}</td>
+                    <td>{referralSexCell(referral)}</td>
                     <td>{referral.homeRegion}</td>
                   </tr>
                 ))}
@@ -233,9 +235,7 @@ function QueuedSection({
                   <span className={styles.waitBadge} data-testid={`ward-referral-board-card-wait-${referral.id}`}>
                     {referralWaitLabel(referral, now)}
                   </span>
-                  <span className={styles.cardService}>
-                    {referral.ageBand} · {referral.sex} · {referral.homeRegion}
-                  </span>
+                  <span className={styles.cardService}>{referralPersonFacts(referral).join(" · ")}</span>
                 </button>
               </li>
             ))}

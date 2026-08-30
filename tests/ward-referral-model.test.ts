@@ -12,6 +12,9 @@ import {
   SEX_DESIGNATIONS,
   type Referral,
   type Unit,
+  type WardReferral,
+  REFERRAL_DESTINATION_KINDS,
+  type ReferralDestinationKind,
 } from "../src/components/ward-management/ward-model";
 import { referrals } from "../src/components/ward-management/ward-movements";
 import {
@@ -25,6 +28,20 @@ import {
   referralWaitLabel,
 } from "../src/components/ward-management/ward-referrals";
 import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "../src/components/ward-management/ward-sites";
+
+/**
+ * Narrows a seeded referral to the ward arm, throwing if it is not one.
+ *
+ * An assertion, never a cast. `as WardReferral` would compile just as well and would go on
+ * compiling on the day a fixture referral is re-addressed to a community team — at which point the
+ * bed gates below would be asked a question that referral never posed, and would answer it.
+ */
+function wardReferral(referral: Referral): WardReferral {
+  if (referral.destination.kind !== "psychiatric_ward") {
+    throw new Error(`${referral.id} is addressed to ${referral.destination.kind}, not a psychiatric ward`);
+  }
+  return referral as WardReferral;
+}
 
 describe("bed category — SexDesignation", () => {
   it("SEX_DESIGNATIONS is exactly the three designations, Undesignated first", () => {
@@ -84,12 +101,15 @@ describe("bed category — SexDesignation", () => {
     const unit = unitById("brm-adult-secure")!;
     expect(unit.forensic).toBe(true);
     expect(unit.allocatable.value).toBeGreaterThan(0);
-    const compatible: Referral = {
+    const compatible: WardReferral = {
       id: "RF-CHECK-FORENSIC",
       ageBand: "Adult",
-      sex: "Male",
-      secureBedNeeded: true,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Male",
+        secureBedNeeded: true,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: "Kimberley",
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
@@ -108,12 +128,15 @@ describe("bed category — SexDesignation", () => {
     const unit = unitById("fsh-adult-secure")!;
     expect(unit.sexDesignation).toBe("Male only");
     expect(unit.forensic).toBe(false);
-    const compatible: Referral = {
+    const compatible: WardReferral = {
       id: "RF-CHECK-DESIGNATION",
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: true,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: true,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: "Perth Metropolitan",
       source: "community",
       raisedAt: NOW_ANCHOR - 10,
@@ -454,7 +477,10 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
     const structurallyImpossible = referrals.filter((referral) => {
       if (referral.state !== "queued") return false;
       const candidates = allUnits().filter((unit) => unit.cohort === referral.ageBand);
-      const viable = referral.secureBedNeeded ? candidates.filter((unit) => unit.security === "Secure") : candidates;
+      // A secure bed is a ward-arm requirement; a referral addressed anywhere else never asked
+      // for one, so it is filtered by cohort alone exactly as an open-bed ward referral is.
+      const secureNeeded = referral.destination.kind === "psychiatric_ward" && referral.destination.secureBedNeeded;
+      const viable = secureNeeded ? candidates.filter((unit) => unit.security === "Secure") : candidates;
       return viable.length === 0;
     });
     expect(structurallyImpossible.length).toBeGreaterThanOrEqual(1);
@@ -462,7 +488,11 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
 
   it("RF-001 is exactly that case: Youth + a secure bed needed, and the network's only Youth unit is Open", () => {
     const rf001 = referrals.find((referral) => referral.id === "RF-001");
-    expect(rf001).toMatchObject({ ageBand: "Youth", secureBedNeeded: true, state: "queued" });
+    expect(rf001).toMatchObject({
+      ageBand: "Youth",
+      destination: { kind: "psychiatric_ward", secureBedNeeded: true },
+      state: "queued",
+    });
     const youthUnits = allUnits().filter((unit) => unit.cohort === "Youth");
     expect(youthUnits.every((unit) => unit.security === "Open")).toBe(true);
   });
@@ -496,7 +526,10 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
       if (acceptedUnit?.sexDesignation !== "Undesignated") return false;
       // A designated bed elsewhere in the network that names the OTHER sex — it would correctly
       // exclude this referral by name, proving the designation is a real, working constraint.
-      const oppositeDesignation = referral.sex === "Male" ? "Female only" : "Male only";
+      // Only a ward referral carries a sex for a designation to exclude; anything else cannot
+      // be the case this test is looking for.
+      if (referral.destination.kind !== "psychiatric_ward") return false;
+      const oppositeDesignation = referral.destination.sex === "Male" ? "Female only" : "Male only";
       return allUnits().some((unit) => unit.sexDesignation === oppositeDesignation);
     });
     expect(found).toBeDefined();
@@ -504,7 +537,11 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
 
   it("RF-003 is exactly that case: Male, accepted at an Undesignated bed, while the network's Female-only bed exists and would exclude it", () => {
     const rf003 = referrals.find((referral) => referral.id === "RF-003");
-    expect(rf003).toMatchObject({ sex: "Male", state: "accepted", acceptedUnitId: "scgh-adult-open" });
+    expect(rf003).toMatchObject({
+      destination: { kind: "psychiatric_ward", sex: "Male" },
+      state: "accepted",
+      acceptedUnitId: "scgh-adult-open",
+    });
     const acceptedUnit = allUnits().find((unit) => unit.id === rf003?.acceptedUnitId);
     expect(acceptedUnit?.sexDesignation).toBe("Undesignated");
     expect(allUnits().some((unit) => unit.sexDesignation === "Female only")).toBe(true);
@@ -547,7 +584,7 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
         unit,
         `${referral.id} acceptedUnitId ${referral.acceptedUnitId} does not resolve to a real unit`,
       ).toBeDefined();
-      const verdict = referralEligibility(referral, unit!, NOW_ANCHOR);
+      const verdict = referralEligibility(wardReferral(referral), unit!, NOW_ANCHOR);
       expect(
         verdict.eligible,
         `${referral.id} is recorded accepted at ${unit!.name} but referralEligibility refuses it: ${JSON.stringify(verdict.gates.filter((g) => !g.pass))}`,
@@ -589,9 +626,13 @@ describe("Referral privacy — structural", () => {
   const ALLOWED_REFERRAL_FIELDS = [
     "id",
     "ageBand",
-    "sex",
-    "secureBedNeeded",
-    "involuntaryBedNeeded",
+    // 2026-08-30, destination union. `sex`, `secureBedNeeded` and `involuntaryBedNeeded` left this
+    // list and now sit on the ward arm inside `destination`. That is a MOVE, not a narrowing, and
+    // on its own it would have punched a hole straight through this guard: `destination` is one
+    // permitted key, and nothing here looks inside it, so a `notes` or `diagnosis` field added to
+    // an arm would pass every assertion in this block. `ALLOWED_DESTINATION_FIELDS` below closes
+    // that, and is checked for every referral the same way this list is.
+    "destination",
     "homeRegion",
     "source",
     "raisedAt",
@@ -622,6 +663,50 @@ describe("Referral privacy — structural", () => {
     "localBedSought",
   ].sort();
 
+  /**
+   * The permitted field set INSIDE each destination arm.
+   *
+   * Keyed by every member of `REFERRAL_DESTINATION_KINDS`, and the first test below fails if a
+   * kind is ever added without an entry here — an unlisted arm would otherwise be an arm nothing
+   * checks, which is the same silent hole the outer list exists to prevent, one level down.
+   *
+   * The three arms that carry only `kind` carry only `kind` ON PURPOSE. An ED, a medical ward and
+   * a community team are asked a question no bed property answers, so a `secureBedNeeded`
+   * appearing on one of them is not a widening of privacy but a category error — and this is what
+   * makes "a community team is never asked about bed security" a fact about the type rather than
+   * something a screen remembers.
+   */
+  const ALLOWED_DESTINATION_FIELDS: Record<ReferralDestinationKind, string[]> = {
+    psychiatric_ward: ["kind", "sex", "secureBedNeeded", "involuntaryBedNeeded"].sort(),
+    emergency_department: ["kind"],
+    medical_ward: ["kind"],
+    community_team: ["kind"],
+  };
+
+  it("guards every destination kind that exists, so a new arm cannot arrive unchecked", () => {
+    expect([...REFERRAL_DESTINATION_KINDS].sort()).toEqual(Object.keys(ALLOWED_DESTINATION_FIELDS).sort());
+    // And the guard discriminates: the ward arm permits more than the others, so a single shared
+    // list could not be standing in for all four.
+    expect(ALLOWED_DESTINATION_FIELDS.psychiatric_ward.length).toBeGreaterThan(
+      ALLOWED_DESTINATION_FIELDS.community_team.length,
+    );
+  });
+
+  it("keeps a bed property off every arm that is not a bed", () => {
+    for (const kind of REFERRAL_DESTINATION_KINDS) {
+      if (kind === "psychiatric_ward") continue;
+      for (const bedProperty of ["sex", "secureBedNeeded", "involuntaryBedNeeded"]) {
+        expect(
+          ALLOWED_DESTINATION_FIELDS[kind],
+          `${kind} would be permitted to carry ${bedProperty}. Capacity, sex mix, security and ` +
+            "authorisation are properties of a BED; an arm answered by a person or a team has no " +
+            "such property, and permitting one here is how a screen comes to ask a community team " +
+            "whether it has a secure bed.",
+        ).not.toContain(bedProperty);
+      }
+    }
+  });
+
   it("a fully-populated Referral (every optional field set) has exactly the allowed field set", () => {
     // `Required<Referral>` forces this literal to supply every field the type has, including the
     // optional ones — so its key set is the type's COMPLETE field set, not a subset any one real
@@ -630,9 +715,12 @@ describe("Referral privacy — structural", () => {
     const canonical: Required<Referral> = {
       id: "REF-CANON",
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: "Perth Metropolitan",
       source: "community",
       raisedAt: NOW_ANCHOR,
@@ -648,6 +736,10 @@ describe("Referral privacy — structural", () => {
       localBedSought: { at: NOW_ANCHOR + 2, by: "coordinator" },
     };
     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_REFERRAL_FIELDS);
+    // Exact equality on the arm as well: `Required<Referral>` forces every OUTER field to be
+    // supplied, but it says nothing about the fields inside `destination`, so without this the
+    // exhaustive half of the guard would stop being exhaustive exactly where the union begins.
+    expect(Object.keys(canonical.destination).sort()).toEqual(ALLOWED_DESTINATION_FIELDS.psychiatric_ward);
   });
 
   it("gives every real referral in the fixture only keys drawn from that same allowed set", () => {
@@ -655,6 +747,13 @@ describe("Referral privacy — structural", () => {
     for (const referral of referrals) {
       for (const key of Object.keys(referral)) {
         expect(ALLOWED_REFERRAL_FIELDS).toContain(key);
+      }
+      // The arm too, or `destination` would be a permitted key with an unchecked object behind it.
+      for (const key of Object.keys(referral.destination)) {
+        expect(
+          ALLOWED_DESTINATION_FIELDS[referral.destination.kind],
+          `${referral.id}'s ${referral.destination.kind} arm carries "${key}"`,
+        ).toContain(key);
       }
     }
   });
@@ -674,9 +773,12 @@ describe("Referral privacy — structural", () => {
       role: "community",
       now: NOW_ANCHOR,
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: "Perth Metropolitan",
       source: "community",
       urgency: 2,
@@ -788,7 +890,7 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
    */
   it("RF-001: no bed accepts, and the full network is still listed — never a truncated or empty candidate list", () => {
     const referral = referrals.find((candidate) => candidate.id === "RF-001")!;
-    const candidates = referralCandidates(referral, units, NOW_ANCHOR);
+    const candidates = referralCandidates(wardReferral(referral), units, NOW_ANCHOR);
     expect(candidates).toHaveLength(units.length);
     const accepting = candidates.filter((candidate) => candidate.verdict.eligible);
     expect(accepting).toHaveLength(0);
@@ -820,7 +922,7 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     // list, for any referral. The next test below proves the forensic gate's own wording
     // specifically, for the one referral shape where it is genuinely the first gate to fail.
     for (const referral of referrals) {
-      const candidates = referralCandidates(referral, units, NOW_ANCHOR);
+      const candidates = referralCandidates(wardReferral(referral), units, NOW_ANCHOR);
       const forensicCandidates = candidates.filter((candidate) => candidate.unit.forensic);
       expect(forensicCandidates.length).toBeGreaterThan(0);
       for (const candidate of forensicCandidates) {
@@ -841,11 +943,14 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     const referral: Referral = {
       ...referrals[0],
       ageBand: forensicUnit.cohort,
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
     };
-    const [candidate] = referralCandidates(referral, [forensicUnit], NOW_ANCHOR);
+    const [candidate] = referralCandidates(wardReferral(referral), [forensicUnit], NOW_ANCHOR);
     expect(candidate.verdict.eligible).toBe(false);
     expect(matchReason(candidate)).toMatch(/forensic/i);
   });
@@ -867,11 +972,14 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     const referral: Referral = {
       ...referrals[0],
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
     };
-    const [candidate] = referralCandidates(referral, [neverConfirmedUnit], NOW_ANCHOR);
+    const [candidate] = referralCandidates(wardReferral(referral), [neverConfirmedUnit], NOW_ANCHOR);
     expect(candidate.verdict.eligible).toBe(false);
     const reason = matchReason(candidate);
     expect(reason).toMatch(/never confirmed/i);
@@ -884,11 +992,14 @@ describe("Task 5 — match view failure branches (referralCandidates, matchReaso
     const referral: Referral = {
       ...referrals[0],
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
     };
-    const [candidate] = referralCandidates(referral, [unit], NOW_ANCHOR);
+    const [candidate] = referralCandidates(wardReferral(referral), [unit], NOW_ANCHOR);
     expect(candidate.verdict.eligible).toBe(true);
     expect(matchReason(candidate)).toBe("Eligible now");
   });

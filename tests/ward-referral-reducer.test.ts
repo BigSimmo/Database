@@ -38,9 +38,12 @@ function receiveReferral(state: WardFlowState, now = NOW) {
     role: "community",
     now,
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "community",
     urgency: 2,
@@ -58,9 +61,14 @@ describe("RECEIVE_REFERRAL", () => {
     const created = after.referrals.at(-1)!;
     expect(created.state).toBe("queued");
     expect(created.ageBand).toBe("Adult");
-    expect(created.sex).toBe("Female");
-    expect(created.secureBedNeeded).toBe(false);
-    expect(created.involuntaryBedNeeded).toBe(false);
+    // The whole arm, not its three fields one at a time: this now also pins that the referral was
+    // addressed to a psychiatric ward and carries no field belonging to another destination.
+    expect(created.destination).toEqual({
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    });
     expect(created.homeRegion).toBe("Perth Metropolitan");
     expect(created.source).toBe("community");
     expect(created.urgency).toBe(2);
@@ -101,9 +109,12 @@ describe("RECEIVE_REFERRAL", () => {
       role: "coordinator",
       now: NOW,
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: "Perth Metropolitan",
       source: "community",
       urgency: 2,
@@ -131,9 +142,12 @@ describe("RECEIVE_REFERRAL", () => {
         role: "community",
         now: NOW,
         ageBand: "Adult",
-        sex: "Female",
-        secureBedNeeded: false,
-        involuntaryBedNeeded: false,
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
         homeRegion: "Perth Metropolitan",
         source: "community",
         urgency: 2,
@@ -163,7 +177,12 @@ describe("RECEIVE_REFERRAL", () => {
     // queued and then matched almost nothing, with a plausible-looking reason per unit, instead
     // of being refused where it entered.
     it("refuses a sex outside SEXES, by membership rather than truthiness", () => {
-      const after = withBadField({ sex: "F" });
+      // `sex` moved onto the ward arm, so the malformed value has to be planted where the
+      // field now lives -- planting it at the old flat path would test nothing, because
+      // nothing reads there any more and the event would simply be well-formed.
+      const after = withBadField({
+        destination: { kind: "psychiatric_ward", sex: "F", secureBedNeeded: false, involuntaryBedNeeded: false },
+      });
       expect(after.referrals).toEqual(seeded().referrals);
       expect(after.rejections).toHaveLength(1);
       expect(after.rejections[0].reason).toContain("SEXES");

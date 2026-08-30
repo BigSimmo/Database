@@ -9,6 +9,7 @@ import {
   type HomeRegion,
   type LeaveBed,
   type Referral,
+  type WardReferral,
   type Sex,
   type Unit,
 } from "@/components/ward-management/ward-model";
@@ -92,16 +93,22 @@ const SEX_DESIGNATION_GATE = "sex_designation";
  * mode announces itself instead of quietly zeroing the board.
  */
 function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], now: Instant): boolean {
-  const probe: Referral = {
+  const probe: WardReferral = {
     id: `board-probe-${unit.id}-${sex}`,
     // The probe is a QUESTION, not a person: it is constructed here, read by one pure function,
     // and discarded. It is never stored, never rendered, and never derived from anybody. Every
     // field other than `sex` is set to a neutral value that the sex gate does not read, so the
     // gate's answer is a fact about the bed alone.
+    //
+    // Typed `WardReferral` rather than `Referral` because it asks a question only a ward can be
+    // asked: whether a BED accepts this sex. The type now says so.
     ageBand: unit.cohort,
-    sex,
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex,
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: HOME_REGIONS[0],
     source: "community",
     raisedAt: now,

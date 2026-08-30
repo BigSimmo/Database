@@ -578,22 +578,107 @@ export const HOME_REGIONS = [
 export type HomeRegion = (typeof HOME_REGIONS)[number];
 
 /**
- * The front door: a referral arriving from anywhere in the network, before it is ever a
- * `Movement` inside a department. Carries EXACTLY five facts about the person referred —
- * `ageBand`, `sex`, `secureBedNeeded`, `involuntaryBedNeeded`, `homeRegion` — and nothing else: no
- * name, date of birth, record number, address, diagnosis, or narrative history or treatment. No
- * free-text field of any kind, unlike `Decline` (which has an optional `note`) — a referral has
- * no field a person's own words, or an author's summary of them, could ever land in.
- * `tests/ward-referral-model.test.ts` asserts this structurally, against this type's own field
- * set, so a future field named `patientId`, `notes`, `diagnosis` or `dob` is caught rather than
- * merely discouraged by convention.
+ * Where a referral is ADDRESSED, and the criteria that destination can answer.
  *
- * This list moved from three fields to four mid-build (Task 2, "A fifth answer, given mid-build"
- * in `docs/ward-flow-phase-6-7-decisions.md`, spec D5), and from four to five in Phase 7 fix
- * round B (this task, "A sixth answer, given mid-build" in the same doc), which added
- * `homeRegion`. Each widening is deliberate and rare on purpose — widening this list again is a
- * governance decision, not an implementation one, and this test is what makes that true rather
- * than aspirational.
+ * Owner ruling, 2026-08-30: every referral is a request that can be accepted or declined. There is
+ * no notification-only kind — a ward asking an ED to see someone, and a ward asking a community
+ * team to follow someone up, are both requests, and both can be declined even though they rarely
+ * are. So ONE verb and ONE lifecycle serve all four destinations, and **what varies between them is
+ * the criteria, nothing else.**
+ *
+ * That is the whole reason this is a union rather than a `kind` string beside a flat field list.
+ * A destination that carried only an address would let one screen ask a community team about bed
+ * security. Here it cannot: **the community arm has no such field, so the question cannot be
+ * spelled**, and `referralEligibility` (`ward-eligibility.ts`) cannot be called with anything but a
+ * ward referral because the criteria it reads exist on no other arm. That is a compiler guarantee,
+ * not a screen remembering.
+ *
+ * **What each arm carries, and why the other three carry nothing.** Capacity, sex mix, security and
+ * authorisation are all properties of a BED. An ED and a medical ward are being asked a medical
+ * question and a community team is answered by a team rather than a bed, so none of the four
+ * applies to them — not "does not apply yet", but has no meaning there at all.
+ *
+ * **NO ARM CARRIES AN ADDRESS, and that is deliberate.** Whether one referral may be addressed to
+ * several destinations at once is an OPEN QUESTION with the owner, and putting a `unitId` or a
+ * `unitIds` in an arm would answer it silently in whichever direction the field's arity happened to
+ * take. Today a referral is addressed to nobody in particular: the parallel ask lives on
+ * `Movement.referredUnitIds` (capped at `PARALLEL_REFERRAL_CAP`) and acceptance records a single
+ * `acceptedUnitId` below. This union changes none of that. **The next person to want an address in
+ * an arm must get that question answered first** — it is not an oversight to be tidied up.
+ */
+export const REFERRAL_DESTINATION_KINDS = [
+  "psychiatric_ward",
+  "emergency_department",
+  "medical_ward",
+  "community_team",
+] as const;
+export type ReferralDestinationKind = (typeof REFERRAL_DESTINATION_KINDS)[number];
+
+export type ReferralDestination =
+  | {
+      kind: "psychiatric_ward";
+      /**
+       * Compared to a unit's `sexMix` and `sexDesignation` by equality. A fact about the person,
+       * and the ONLY one that sits on an arm rather than on the referral itself — it is here
+       * because it is read solely to match a bed's designation, and no other destination has one.
+       */
+      sex: Sex;
+      /** Whether THIS REQUEST needs a secure bed. Never a fact stored about the person. */
+      secureBedNeeded: boolean;
+      /**
+       * Whether THIS REQUEST needs a bed that can hold someone involuntarily — never a fact stored
+       * about the person, and never a legal determination. Same convention as `secureBedNeeded` and
+       * roadmap decision 5's cohort framing: the request needs an adolescent bed, a secure bed, or
+       * here, a bed that can hold someone involuntarily — the word never attaches to the patient.
+       * Introduces no figure, timeframe or threshold from the Mental Health Act; a plain
+       * Voluntary/Involuntary bed label was already permitted, and this is the same category.
+       */
+      involuntaryBedNeeded: boolean;
+    }
+  | { kind: "emergency_department" }
+  | { kind: "medical_ward" }
+  | { kind: "community_team" };
+
+/** The ward arm, named so signatures can require it. */
+export type WardReferralDestination = Extract<ReferralDestination, { kind: "psychiatric_ward" }>;
+
+/**
+ * A referral addressed to a psychiatric ward — the only kind with bed criteria, and therefore the
+ * only kind `referralEligibility` can be asked about. Every other destination is answered by a
+ * person or a team, not by matching a bed.
+ */
+export type WardReferral = Referral & { destination: WardReferralDestination };
+
+/**
+ * The front door: a referral arriving from anywhere in the network, before it is ever a
+ * `Movement` inside a department. Carries a deliberately tiny, governed set of facts about the
+ * person referred and nothing else: no name, date of birth, record number, address, diagnosis, or
+ * narrative history or treatment. No free-text field of any kind, unlike `Decline` (which has an
+ * optional `note`) — a referral has no field a person's own words, or an author's summary of them,
+ * could ever land in. `tests/ward-referral-model.test.ts` asserts this structurally, against this
+ * type's own field set, so a future field named `patientId`, `notes`, `diagnosis` or `dob` is
+ * caught rather than merely discouraged by convention.
+ *
+ * **THE FACTS ABOUT A PERSON ARE `ageBand`, `homeRegion`, AND — on a ward referral only — `sex`.**
+ * This comment said "EXACTLY five facts" until the destination union landed, listing
+ * `secureBedNeeded` and `involuntaryBedNeeded` among them. That was never right, and the type's own
+ * field comments said so in the same breath: both are described there as facts about the REQUEST,
+ * never about the person. Splitting the arms made the contradiction impossible to keep. Corrected
+ * rather than deleted, because the count is a governance record and the reason it changed is the
+ * part worth keeping.
+ *
+ * The set moved from three to four mid-build (Task 2, "A fifth answer, given mid-build" in
+ * `docs/ward-flow-phase-6-7-decisions.md`, spec D5), from four to five in Phase 7 fix round B
+ * ("A sixth answer, given mid-build" in the same doc), which added `homeRegion`, and was restated
+ * — not widened — when the destination union landed on 2026-08-30. Each widening is deliberate and
+ * rare on purpose: widening this set is a governance decision, not an implementation one, and the
+ * structural test is what makes that true rather than aspirational.
+ *
+ * **`ageBand` and `homeRegion` stayed common to every destination, and that was a judgement.**
+ * Every destination kind has age bands — a paediatric ED, a youth community team, an adolescent
+ * ward — and every one of them cares where a person is from. Neither is a bed property, so neither
+ * belongs on the ward arm. Recorded here as a decision rather than left as an accident of where the
+ * fields already sat; if the owner rules otherwise, this is the line to change.
  *
  * **What `homeRegion` did and did not do** (corrected, review finding I5). It is the first fact
  * this system holds about where a person is from. It does NOT give any bed a catchment: neither
@@ -612,19 +697,15 @@ export type HomeRegion = (typeof HOME_REGIONS)[number];
  */
 export type Referral = {
   id: string;
-  // The only five facts about a person. Nothing else may ever be added here.
-  ageBand: Cohort;
-  sex: Sex;
-  secureBedNeeded: boolean;
   /**
-   * Whether THIS REQUEST needs a bed that can hold someone involuntarily — never a fact stored
-   * about the person, and never a legal determination. Same convention as `secureBedNeeded` and
-   * roadmap decision 5's cohort framing: the request needs an adolescent bed, a secure bed, or
-   * here, a bed that can hold someone involuntarily — the word never attaches to the patient.
-   * Introduces no figure, timeframe or threshold from the Mental Health Act; a plain
-   * Voluntary/Involuntary bed label was already permitted, and this is the same category.
+   * Where this referral is addressed, and the only place its destination-specific criteria live.
+   * See `ReferralDestination` — `sex`, `secureBedNeeded` and `involuntaryBedNeeded` moved onto the
+   * ward arm on 2026-08-30 and exist nowhere else, so no screen can ask a community team or an ED
+   * about a bed property.
    */
-  involuntaryBedNeeded: boolean;
+  destination: ReferralDestination;
+  // Facts about a person, common to every destination. Nothing else may ever be added here.
+  ageBand: Cohort;
   /**
    * The broad area this person is from — see `HOME_REGIONS`'s own doc comment. A region, never
    * an address; membership-checked, never free text. Carries no distance, travel-time band or

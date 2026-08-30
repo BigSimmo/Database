@@ -511,9 +511,12 @@ describe("ward-morning-rollup", () => {
       return {
         id: "RF-TEST",
         ageBand: "Adult",
-        sex: "Female",
-        secureBedNeeded: false,
-        involuntaryBedNeeded: false,
+        destination: {
+          kind: "psychiatric_ward",
+          sex: "Female",
+          secureBedNeeded: false,
+          involuntaryBedNeeded: false,
+        },
         homeRegion: "Perth Metropolitan",
         source: "community",
         raisedAt: NOW - 30,

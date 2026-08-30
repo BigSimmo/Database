@@ -5,7 +5,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
-import { eligibility } from "@/components/ward-management/ward-eligibility";
+import { eligibility, isWardReferral } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
@@ -46,6 +46,7 @@ import {
   type ReferralCandidate,
   type TravelBandGroup,
   type TravelBandGroupCounts,
+  referralPersonFacts,
 } from "@/components/ward-management/ward-referrals";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -425,7 +426,7 @@ function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: 
         {urgencyTierLabel(referral.urgency)}
       </p>
       <p className={styles.patientSubLine} data-testid="ward-network-placement-facts">
-        {referral.ageBand} · {referral.sex} · {referral.homeRegion}
+        {referralPersonFacts(referral).join(" · ")}
       </p>
       <p className={styles.patientSubLine}>Waiting {referralWaitLabel(referral, now)}</p>
       <p className={styles.placementNote} data-testid="ward-network-placement-note">
@@ -499,7 +500,9 @@ export function WardNetworkWorkspace() {
    * call per node would be a second computation of the same question.
    */
   const placements = useMemo(
-    () => (bandSubject ? referralCandidates(bandSubject, units, now) : []),
+    // Bed placement is a ward question only; a subject addressed anywhere else has no bed
+    // shortlist to draw on this map. See `referralCandidates`' own signature.
+    () => (bandSubject && isWardReferral(bandSubject) ? referralCandidates(bandSubject, units, now) : []),
     [bandSubject, units, now],
   );
   /*
@@ -721,9 +724,7 @@ export function WardNetworkWorkspace() {
                   <span className={styles.queueMeta} data-tier={referral.urgency}>
                     {urgencyTierLabel(referral.urgency)}
                   </span>
-                  <span className={styles.queueMeta}>
-                    {referral.ageBand} · {referral.sex} · {referral.homeRegion}
-                  </span>
+                  <span className={styles.queueMeta}>{referralPersonFacts(referral).join(" · ")}</span>
                 </button>
               ))}
             </div>

@@ -113,6 +113,10 @@ function RejectionCount() {
 function NewestReferralFacts() {
   const { referrals } = useWardFlow();
   const newest = referrals[referrals.length - 1];
+  // The bed criteria live on the ward arm now, so they are read through it rather than off the
+  // referral. `undefined` where a referral is addressed elsewhere -- printed as such, so a test
+  // reading this span can tell "not a ward referral" from "false".
+  const ward = newest?.destination.kind === "psychiatric_ward" ? newest.destination : undefined;
   return (
     <>
       {/* The COUNT, not merely the newest record: the seed already holds eight referrals, so
@@ -135,7 +139,7 @@ function NewestReferralFacts() {
       <span data-testid="referral-ids">{referrals.map((referral) => referral.id).join(",")}</span>
       <span data-testid="newest-referral-facts">
         {newest
-          ? `id=${newest.id} secure=${String(newest.secureBedNeeded)} involuntary=${String(newest.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${newest.sex} urgency=${String(newest.urgency)}`
+          ? `id=${newest.id} secure=${String(ward?.secureBedNeeded)} involuntary=${String(ward?.involuntaryBedNeeded)} ageBand=${newest.ageBand} sex=${String(ward?.sex)} urgency=${String(newest.urgency)}`
           : "none"}
       </span>
     </>
@@ -1240,8 +1244,13 @@ describe("ReferralBoard", () => {
 
     // And the summary line carries no tier of any kind. Exact text, not `toContainText`: a
     // summary that put the tier back would still "contain" the three fields below.
+    // Written out here rather than built from `referralPersonFacts` -- the screen renders that
+    // function's output, so asserting against it would compare the helper with itself and pass
+    // whatever it returned.
+    const wardArm = referral.destination;
+    if (wardArm.kind !== "psychiatric_ward") throw new Error(`${referral.id} is not a ward referral`);
     expect(screen.getByTestId("ward-referral-match-summary")).toHaveTextContent(
-      `${referral.ageBand} · ${referral.sex} · ${referral.homeRegion}`,
+      `${referral.ageBand} · ${wardArm.sex} · ${referral.homeRegion}`,
     );
     expect(screen.getByTestId("ward-referral-match-summary").textContent).not.toMatch(/Tier/);
   });
@@ -1316,9 +1325,12 @@ describe("ReferralBoard", () => {
 const SYNTHETIC_YOUTH_REFERRAL: Referral = {
   id: "RF-TEST-STRUCTURAL",
   ageBand: "Youth",
-  sex: "Female",
-  secureBedNeeded: false,
-  involuntaryBedNeeded: false,
+  destination: {
+    kind: "psychiatric_ward",
+    sex: "Female",
+    secureBedNeeded: false,
+    involuntaryBedNeeded: false,
+  },
   homeRegion: "Perth Metropolitan",
   source: "community",
   raisedAt: NOW_ANCHOR - 10,
@@ -1393,9 +1405,12 @@ function RaiseAndReviewForensicHarness() {
             role: "community",
             now,
             ageBand: "Adult",
-            sex: "Male",
-            secureBedNeeded: false,
-            involuntaryBedNeeded: false,
+            destination: {
+              kind: "psychiatric_ward",
+              sex: "Male",
+              secureBedNeeded: false,
+              involuntaryBedNeeded: false,
+            },
             homeRegion: "Kimberley",
             source: "police",
             urgency: 2,
@@ -1464,9 +1479,12 @@ function bandReferral(overrides: Partial<Referral> = {}): Referral {
   return {
     id: "RF-TEST-BANDS",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW_ANCHOR - 30,

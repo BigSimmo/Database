@@ -402,13 +402,22 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
  * membership-checks `ageBand`, `source` and `homeRegion`, validates `urgency`, and resolves
  * `originSiteCode` against the real site list (`ward-flow-reducer.ts`). Every field below must
  * stay valid against those checks for this candidate to keep being accepted — `homeRegion` was
- * added here for exactly that reason when the field was added to `Referral`.
+ * added here for exactly that reason when the field was added to `Referral`. The three ward-arm
+ * fields now sit under `destination` and are validated through it.
  */
 const RECEIVE_REFERRAL_CANDIDATE = {
   ageBand: "Adult" as const,
-  sex: "Female" as const,
-  secureBedNeeded: false,
-  involuntaryBedNeeded: false,
+  // 2026-08-30, destination union: `sex`, `secureBedNeeded` and `involuntaryBedNeeded` sat flat
+  // here until they moved onto the ward arm of `ReferralDestination`. A STRUCTURAL change only —
+  // the same three values, the same always-valid candidate, and no figure, timeframe or threshold
+  // anywhere near it. This file is touched as little as possible on purpose; the edit was forced
+  // by the event type it constructs, not chosen.
+  destination: {
+    kind: "psychiatric_ward" as const,
+    sex: "Female" as const,
+    secureBedNeeded: false,
+    involuntaryBedNeeded: false,
+  },
   homeRegion: "Perth Metropolitan" as const,
   source: "community" as const,
   urgency: 2 as const,

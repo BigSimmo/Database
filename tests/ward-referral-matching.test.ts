@@ -6,7 +6,12 @@ import { describe, expect, it } from "vitest";
 
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
 import { referralCandidates } from "../src/components/ward-management/ward-referrals";
-import type { Referral, Unit } from "../src/components/ward-management/ward-model";
+import type {
+  Referral,
+  Unit,
+  WardReferral,
+  WardReferralDestination,
+} from "../src/components/ward-management/ward-model";
 
 const NOW = 10 * 60 + 42;
 
@@ -31,13 +36,29 @@ function unit(overrides: Partial<Unit> = {}): Unit {
   };
 }
 
-function referral(overrides: Partial<Referral> = {}): Referral {
+/**
+ * Every referral in this file is a WARD referral, because every gate under test is a bed gate.
+ *
+ * The overrides stay FLAT — `referral({ sex: "Male" })`, not `referral({}, { sex: "Male" })` —
+ * and the helper routes the three ward-arm keys into `destination` itself. That is a deliberate
+ * choice to leave ~50 call sites saying exactly what they said before, so this file's diff shows
+ * only the shape change and no test's meaning moves with it. The nesting is pinned in
+ * `ward-referral-model.test.ts`, which is the file whose subject is the shape; this file's subject
+ * is which beds accept whom, and it should not have to restate the model to ask that.
+ */
+type ReferralOverrides = Partial<Omit<WardReferral, "destination">> & Partial<Omit<WardReferralDestination, "kind">>;
+
+function referral(overrides: ReferralOverrides = {}): WardReferral {
+  const { sex, secureBedNeeded, involuntaryBedNeeded, ...rest } = overrides;
   return {
     id: "RF-TEST",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: sex ?? "Female",
+      secureBedNeeded: secureBedNeeded ?? false,
+      involuntaryBedNeeded: involuntaryBedNeeded ?? false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW - 30,
@@ -45,7 +66,7 @@ function referral(overrides: Partial<Referral> = {}): Referral {
     originSiteCode: "RPH",
     transportNeeded: false,
     state: "queued",
-    ...overrides,
+    ...rest,
   };
 }
 

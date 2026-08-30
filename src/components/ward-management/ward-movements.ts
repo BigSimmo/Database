@@ -1019,9 +1019,12 @@ export const referrals: Referral[] = [
   {
     id: "RF-001",
     ageBand: "Youth",
-    sex: "Female",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: true,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "community",
     raisedAt: NOW_ANCHOR - 40,
@@ -1033,9 +1036,12 @@ export const referrals: Referral[] = [
   {
     id: "RF-002",
     ageBand: "Adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Kimberley",
     source: "inter_hospital",
     raisedAt: NOW_ANCHOR - 90,
@@ -1053,14 +1059,17 @@ export const referrals: Referral[] = [
   {
     id: "RF-003",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: false,
-    // Seeds the `legal_status` accepts-rule (D3 rule 2): needs a bed that can hold someone
-    // involuntarily. Accepted at `scgh-adult-open`, which is authorised — and SJGS Adult Open
-    // (`sjgs-adult-open`, Adult/Open/Undesignated but NOT authorised) is a real bed elsewhere in
-    // the network that this same referral would correctly be refused by on `legal_status` alone,
-    // proving the rule actually excludes something rather than passing for every bed.
-    involuntaryBedNeeded: true,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Male",
+      secureBedNeeded: false,
+      // Seeds the `legal_status` accepts-rule (D3 rule 2): needs a bed that can hold someone
+      // involuntarily. Accepted at `scgh-adult-open`, which is authorised — and SJGS Adult Open
+      // (`sjgs-adult-open`, Adult/Open/Undesignated but NOT authorised) is a real bed elsewhere in
+      // the network that this same referral would correctly be refused by on `legal_status` alone,
+      // proving the rule actually excludes something rather than passing for every bed.
+      involuntaryBedNeeded: true,
+    },
     homeRegion: "Perth Metropolitan",
     source: "crisis_service",
     raisedAt: NOW_ANCHOR - 55,
@@ -1075,9 +1084,12 @@ export const referrals: Referral[] = [
   {
     id: "RF-004",
     ageBand: "Older adult",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Peel",
     source: "police",
     raisedAt: NOW_ANCHOR - 70,
@@ -1094,9 +1106,12 @@ export const referrals: Referral[] = [
   {
     id: "RF-005",
     ageBand: "Older adult",
-    sex: "Male",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Male",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 20,
@@ -1108,9 +1123,12 @@ export const referrals: Referral[] = [
   {
     id: "RF-006",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Male",
+      secureBedNeeded: true,
+      involuntaryBedNeeded: false,
+    },
     // Out of area on purpose — see this fixture's own doc comment above.
     homeRegion: "Kimberley",
     source: "police",
@@ -1142,9 +1160,12 @@ export const referrals: Referral[] = [
     // rather than decorative. This referral is that missing case: Youth, no secure bed needed (so
     // the Open EMyU can actually accept it), accepted at `bty-youth`.
     ageBand: "Youth",
-    sex: "Female",
-    secureBedNeeded: false,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Female",
+      secureBedNeeded: false,
+      involuntaryBedNeeded: false,
+    },
     // Out of area on purpose, same reason as RF-006 above — a second real example for the
     // out-of-area ledger `homeRegion` exists to make possible.
     homeRegion: "Mid West",
@@ -1187,9 +1208,12 @@ export const referrals: Referral[] = [
     // fact by a later screen.
     id: "RF-008",
     ageBand: "Adult",
-    sex: "Male",
-    secureBedNeeded: true,
-    involuntaryBedNeeded: false,
+    destination: {
+      kind: "psychiatric_ward",
+      sex: "Male",
+      secureBedNeeded: true,
+      involuntaryBedNeeded: false,
+    },
     homeRegion: "Perth Metropolitan",
     source: "ambulance",
     raisedAt: NOW_ANCHOR - 75,

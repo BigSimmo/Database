@@ -14,7 +14,13 @@ import {
   referralEligibility,
   type EligibilityVerdict,
 } from "@/components/ward-management/ward-eligibility";
-import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-management/ward-model";
+import type {
+  Referral,
+  ReferralDeclineReason,
+  ReferralDestination,
+  Unit,
+  WardReferral,
+} from "@/components/ward-management/ward-model";
 
 /**
  * Phase 7 (spec "The front door", D10): every unit in `units`, each paired with its eligibility
@@ -28,8 +34,46 @@ import type { Referral, ReferralDeclineReason, Unit } from "@/components/ward-ma
  * read as a recommendation, and D10 is explicit that this view shows candidates and a human
  * decides — it never allocates, never ranks, never suggests which bed is best.
  */
+/** Human label for where a referral is addressed. Exhaustive by `switch` on the union, so a fifth
+ *  destination cannot be added without this failing to compile. */
+export function referralDestinationLabel(destination: ReferralDestination): string {
+  switch (destination.kind) {
+    case "psychiatric_ward":
+      return "Psychiatric ward";
+    case "emergency_department":
+      return "Emergency department";
+    case "medical_ward":
+      return "Medical ward";
+    case "community_team":
+      return "Community team";
+  }
+}
+
+/**
+ * The person facts a screen may show for this referral, in display order.
+ *
+ * `sex` appears only for a ward referral, because it is HELD only there — it sits on the ward arm
+ * to be matched against a bed's designation, and a referral to an ED, a medical ward or a community
+ * team never carried it. A screen showing a blank where it would have been is showing the truth.
+ *
+ * Exists so no screen reaches into `destination` itself. Three of them used to read `referral.sex`
+ * directly; each would now need its own narrowing, and one of them forgetting is how a
+ * "not held here" becomes a crash or an empty cell nobody can explain.
+ */
+export function referralPersonFacts(referral: Referral): string[] {
+  return referral.destination.kind === "psychiatric_ward"
+    ? [referral.ageBand, referral.destination.sex, referral.homeRegion]
+    : [referral.ageBand, referral.homeRegion];
+}
+
+/** The sex cell for a table with a fixed Sex column. An em dash where the fact is not held, which
+ *  is a different statement from an empty cell and reads as one. */
+export function referralSexCell(referral: Referral): string {
+  return referral.destination.kind === "psychiatric_ward" ? referral.destination.sex : "—";
+}
+
 export function referralCandidates(
-  referral: Referral,
+  referral: WardReferral,
   units: Unit[],
   now: Instant,
 ): { unit: Unit; verdict: EligibilityVerdict }[] {

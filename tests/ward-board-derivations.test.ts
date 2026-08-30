@@ -10,6 +10,7 @@ import {
   type CapacityFigure,
   type Referral,
   type Unit,
+  type WardReferral,
 } from "@/components/ward-management/ward-model";
 import {
   ARROW_HORIZON_DAYS,
@@ -139,12 +140,15 @@ describe("the accepts rule is never an equality", () => {
    * everywhere and the invariance test above would go red for a reason nobody could read.
    */
   it("reads a gate the shared verdict actually publishes", () => {
-    const probe: Referral = {
+    const probe: WardReferral = {
       id: "WR-PROBE",
       ageBand: "Adult",
-      sex: "Female",
-      secureBedNeeded: false,
-      involuntaryBedNeeded: false,
+      destination: {
+        kind: "psychiatric_ward",
+        sex: "Female",
+        secureBedNeeded: false,
+        involuntaryBedNeeded: false,
+      },
       homeRegion: HOME_REGIONS[0],
       source: "community",
       raisedAt: NOW,

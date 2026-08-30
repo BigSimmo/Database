@@ -1,6 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { BED_PREPARATION_NOTES, BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
-import { referralEligibility } from "@/components/ward-management/ward-eligibility";
+import { isWardReferral, referralEligibility } from "@/components/ward-management/ward-eligibility";
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
@@ -1228,7 +1228,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // queue silently, after which `unit.sexMix["F"] ?? 0` is 0 everywhere and
       // `sexDesignationAccepts("Female only", "F")` is false, so the referral matches almost
       // nothing with plausible-looking per-unit reasons instead of being visibly refused.
-      if (!SEXES.includes(event.sex)) {
+      //
+      // Since the destination union landed, `sex` exists only on the ward arm, so the check is
+      // guarded by the arm rather than dropped: the runtime hole this closes is an untyped caller,
+      // and an untyped caller can just as easily send a malformed ward destination.
+      if (event.destination.kind === "psychiatric_ward" && !SEXES.includes(event.destination.sex)) {
         return reject(state, event, `RECEIVE_REFERRAL sex must be chosen from SEXES`);
       }
       if (!REFERRAL_SOURCES.includes(event.source)) {
@@ -1252,9 +1256,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
         ageBand: event.ageBand,
-        sex: event.sex,
-        secureBedNeeded: event.secureBedNeeded,
-        involuntaryBedNeeded: event.involuntaryBedNeeded,
+        destination: event.destination,
         homeRegion: event.homeRegion,
         source: event.source,
         raisedAt: event.now,
@@ -1278,6 +1280,23 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       }
       const unit = findUnit(state, event.unitId);
       if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      // ACCEPT_REFERRAL accepts a referral INTO A UNIT, and only a psychiatric ward referral has
+      // one to be accepted into. An ED, a medical ward and a community team answer with a person
+      // or a team, not a bed, so there is no unit to name and no bed gate to run.
+      //
+      // Refused rather than waved through, and refused rather than given an invented path: how a
+      // non-ward referral is answered, and when it is finished, are OPEN QUESTIONS with the owner
+      // (see `ReferralDestination`). Accepting one here would have to guess at both. A refusal
+      // that names the gap keeps it visible; a silent success would make three of the four
+      // destinations look built.
+      if (!isWardReferral(referral)) {
+        return reject(
+          state,
+          event,
+          `referral ${referral.id} is addressed to ${referral.destination.kind.replace(/_/g, " ")}, ` +
+            `which is not answered by accepting it into a unit — only a psychiatric ward referral is`,
+        );
+      }
       // The failing gate is named in the rejection, not just "ineligible" — `referralEligibility`
       // (ward-eligibility.ts) already produces a human-readable detail per gate; reusing it here
       // is what keeps this refusal and the match view's own "why not here?" reading identically.
