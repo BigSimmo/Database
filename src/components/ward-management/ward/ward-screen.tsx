@@ -546,7 +546,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
             leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been
             released, so this figure is always one you can fill this minute. The blocked-release count sits alongside
             Confirmed and Expected rather than inside them: a discharge that is decided and stuck is still a decided
-            discharge, and it keeps counting as one.
+            discharge, and it keeps counting as one. <strong>Held</strong> here means a bed that is empty but not
+            currently offered &mdash; it is not a bed being kept for a named patient. Those are in &ldquo;Accepted, held
+            or en route here&rdquo; below, they are counted separately, and the two can disagree.
+            <strong>Confirmed</strong> here counts discharges confirmed for today; the &ldquo;currently confirmed&rdquo;
+            figure under the form below is a different thing &mdash; how many beds this ward last said it can offer.
           </p>
 
           <form className={styles.capacityForm} onSubmit={submitCapacity} data-testid="ward-capacity-form">
