@@ -197,6 +197,34 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
   };
 }
 
+/**
+ * A FRESH SEED, ALREADY MOVED TO THE DEMONSTRATION'S CLOCK. The only door application code uses.
+ *
+ * ⚠️ **`shiftInstants` CARRIES NO ALREADY-SHIFTED MARKER, SO APPLYING IT TWICE DOUBLES EVERY
+ * OFFSET.** Ward Board's framing is why that outranks its size: *a wrong clock looks wrong; a wrong
+ * length of stay looks PLAUSIBLE.* A patient nine days in a bed reading as eighteen is not a
+ * visibly broken screen — it is a believable number, on a screen whose purpose is to be believed,
+ * with nothing anywhere to contradict it.
+ *
+ * ⚠️ **Stated honestly: no screen has ever shown that.** All three call sites passed a fresh
+ * `seedWardFlowState()`, so nothing was ever double-shifted. This is a latent hazard being closed
+ * because the cost of closing it is a function signature, not a live defect being repaired.
+ *
+ * The remedy is `TR-F3`-shaped — make the impossible state unrepresentable rather than check that
+ * the reachable ones look right. **This function cannot be handed an already-shifted state because
+ * it does not take a state at all**: it seeds and shifts in one step, so there is no argument a
+ * caller could pass twice. `shiftInstants` stays exported for `ward-reanchor.test.ts`, which tests
+ * the walker itself; `tests/ward-reanchor-single-application.test.ts` is the guard that application
+ * code never reaches around this door to it.
+ *
+ * Offset zero returns a copy rather than the original, for the reason `shiftInstants` already
+ * documents: the pinned and live paths then differ only in the offset, never in whether a copy was
+ * taken, so no path exists that only a non-zero offset exercises.
+ */
+export function seedWardFlowStateAt(offsetMinutes: number, scenario: WardScenario = "standard"): WardFlowState {
+  return shiftInstants(seedWardFlowState(scenario), offsetMinutes);
+}
+
 /** The id a rejection is filed against, for events that are not about one specific movement. */
 function subjectId(event: WardFlowEvent): string {
   switch (event.type) {
@@ -373,10 +401,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "RESET_SCENARIO":
-      return shiftInstants(seedWardFlowState(), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR);
 
     case "SET_SCENARIO":
-      return shiftInstants(seedWardFlowState(event.scenario), event.now - state.clockOffsetMinutes - NOW_ANCHOR);
+      return seedWardFlowStateAt(event.now - state.clockOffsetMinutes - NOW_ANCHOR, event.scenario);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };

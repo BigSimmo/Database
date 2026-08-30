@@ -16,9 +16,8 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import { absoluteWallClockMinutes, demoDayZero, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { Admission } from "@/components/ward-management/ward-admissions";
 import type { Patient } from "@/components/ward-management/ward-patients";
-import { shiftInstants } from "@/components/ward-management/ward-reanchor";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
-import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
+import { seedWardFlowStateAt, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import type {
   BedRelease,
   LeaveBed,
@@ -113,7 +112,7 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
   const [anchorOffsetMinutes] = useState<number>(() => (initialNow !== undefined ? 0 : wallClockNow() - NOW_ANCHOR));
 
   const [state, dispatch] = useReducer(wardFlowReducer, anchorOffsetMinutes, (offset) =>
-    shiftInstants(seedWardFlowState(), offset),
+    seedWardFlowStateAt(offset),
   );
 
   /**
